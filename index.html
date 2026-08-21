@@ -18,7 +18,7 @@
 .attention-section{position:relative;min-height:760px;margin:34px auto 0;padding:96px 68px 84px;border-top:1px solid rgba(181,150,98,.28);overflow:hidden;background:linear-gradient(180deg,rgba(252,250,246,.32),rgba(247,243,236,.58))}
 .attention-eyebrow{margin:0 0 18px;text-align:center;font-size:11px;line-height:1;letter-spacing:.22em;text-transform:uppercase;color:#8d7b5c}
 .attention-title{max-width:900px;margin:0 auto 64px;text-align:center;font:400 42px/1.12 Georgia,'Times New Roman',serif;color:#343a35}
-.attention-stage{position:relative;min-height:470px;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:72px;align-items:center;max-width:1120px;margin:0 auto}
+.attention-stage{position:relative;min-height:560px;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:72px;align-items:center;max-width:1120px;margin:0 auto}
 .attention-copy{position:relative;z-index:2;min-width:0;padding:16px 0 18px}
 .attention-question{max-width:780px;margin:0;font:400 clamp(42px,4.45vw,68px)/1.04 Georgia,'Times New Roman',serif;letter-spacing:-.018em;color:#2f3530;min-height:218px;display:flex;align-items:center;transition:opacity .16s ease,transform .2s ease}
 .attention-question.changing{opacity:0;transform:translateY(8px)}
@@ -31,12 +31,10 @@
 .attention-counter{min-width:64px;font:500 12px/1 Inter,Segoe UI,Arial,sans-serif;letter-spacing:.12em;color:#7c7468}.attention-counter strong{font-weight:650;color:#3d463f}
 .attention-arrow{width:42px;height:42px;border:1px solid rgba(68,99,79,.22);border-radius:50%;background:rgba(252,249,243,.72);color:#445d4b;font-size:18px;line-height:1;cursor:pointer;transition:border-color .18s,background .18s,transform .18s}.attention-arrow:hover,.attention-arrow:focus-visible{outline:0;border-color:rgba(68,99,79,.55);background:#fbf8f2;transform:translateY(-1px)}
 .attention-ghost{position:relative;width:280px;height:430px;justify-self:end;opacity:.38;pointer-events:none}.attention-ghost:before{content:'';position:absolute;left:50%;top:50%;width:250px;height:250px;border:1px solid rgba(181,150,98,.32);border-radius:50%;transform:translate(-50%,-50%)}.attention-ghost img{position:absolute;left:50%;top:50%;width:315px;height:315px;object-fit:cover;object-position:center 52%;transform:translate(-50%,-50%);filter:sepia(.12) saturate(.7) contrast(.95) brightness(1.06);mix-blend-mode:multiply}
-.attention-final{display:none;max-width:800px}.attention-final.on{display:block}.attention-final h3{margin:0 0 24px;font:400 clamp(42px,4.35vw,66px)/1.06 Georgia,'Times New Roman',serif;letter-spacing:-.018em;color:#2f3530}.attention-final p{max-width:710px;margin:0;font:400 20px/1.45 Georgia,'Times New Roman',serif;color:#555d56}
-.attention-stage.final-mode .attention-question,.attention-stage.final-mode .attention-links{display:none}.attention-stage.final-mode .attention-final{display:block}
-.attention-stage.final-mode .attention-ghost{opacity:.22}
+.attention-message{max-width:780px;margin:34px 0 0;padding:24px 0 4px;border-top:1px solid rgba(181,150,98,.58)}.attention-message-main{margin:0;font:400 clamp(25px,2.15vw,34px)/1.22 Georgia,'Times New Roman',serif;letter-spacing:-.01em;color:#344039}.attention-message-sub{max-width:720px;margin:12px 0 0;font:600 14px/1.5 Inter,Segoe UI,Arial,sans-serif;letter-spacing:.015em;color:#586259}
 .attention-note{max-width:1120px;margin:28px auto 0;text-align:left;color:#8b8378;font-size:11px;letter-spacing:.04em}
-@media(max-width:900px){.attention-section{padding:72px 34px 66px}.attention-title{font-size:34px;margin-bottom:44px}.attention-stage{grid-template-columns:1fr;gap:24px;min-height:570px}.attention-question{min-height:190px}.attention-ghost{position:absolute;right:-20px;top:24px;width:220px;height:330px;opacity:.13}.attention-ghost:before{width:200px;height:200px}.attention-ghost img{width:255px;height:255px}.attention-copy{padding-right:30px}}
-@media(max-width:720px){.attention-section{margin-top:18px;padding:58px 18px 54px}.attention-title{font-size:29px;line-height:1.18;margin-bottom:34px}.attention-stage{min-height:610px}.attention-question{font-size:39px;min-height:250px}.attention-links{min-height:150px;margin-top:22px}.attention-direction{font-size:11px}.attention-ghost{right:-70px;top:78px}.attention-controls{margin-top:26px}.attention-final h3{font-size:39px}.attention-final p{font-size:18px}.attention-note{display:none}}
+@media(max-width:900px){.attention-section{padding:72px 34px 66px}.attention-title{font-size:34px;margin-bottom:44px}.attention-stage{grid-template-columns:1fr;gap:24px;min-height:660px}.attention-question{min-height:190px}.attention-ghost{position:absolute;right:-20px;top:24px;width:220px;height:330px;opacity:.13}.attention-ghost:before{width:200px;height:200px}.attention-ghost img{width:255px;height:255px}.attention-copy{padding-right:30px}}
+@media(max-width:720px){.attention-section{margin-top:18px;padding:58px 18px 54px}.attention-title{font-size:29px;line-height:1.18;margin-bottom:34px}.attention-stage{min-height:760px}.attention-question{font-size:39px;min-height:250px}.attention-links{min-height:150px;margin-top:22px}.attention-direction{font-size:11px}.attention-ghost{right:-70px;top:78px}.attention-controls{margin-top:26px}.attention-message{margin-top:26px;padding-top:20px}.attention-message-main{font-size:27px}.attention-message-sub{font-size:13px}.attention-note{display:none}}
 </style></head>
 <body><main class="page"><header class="top"><div class="left"><img class="logo" src="assets/logo-site.webp" alt="Архитектура здоровья"></div><div class="center"><h1>Архитектура здоровья</h1><div class="rule"></div></div><div class="right"><img class="founder" src="assets/founder-site.webp" alt="Зубачёв Роман Николаевич"><div class="caption">Основатель клиники<br><strong>Зубачёв Роман Николаевич</strong></div></div></header>
 <section><div class="map-shell"><div class="map">
@@ -66,9 +64,9 @@
         <p class="attention-related-label">С этим могут быть связаны</p>
         <div class="attention-directions"></div>
       </div>
-      <div class="attention-final" aria-live="polite">
-        <h3>Не ставьте себе диагноз. Просто присмотритесь к себе внимательнее.</h3>
-        <p><strong>Если узнали своё состояние — уточните, стоит ли на него обратить внимание.</strong></p>
+      <div class="attention-message">
+        <p class="attention-message-main">Не ставьте себе диагноз. Просто присмотритесь к себе внимательнее.</p>
+        <p class="attention-message-sub">Если узнали своё состояние — уточните, стоит ли на него обратить внимание.</p>
       </div>
       <div class="attention-controls">
         <button class="attention-arrow attention-prev" type="button" aria-label="Предыдущий вопрос">←</button>
@@ -101,19 +99,17 @@ const attentionData=[
   {slug:'teeth-shifting',question:'Зубы начали смещаться после предыдущего ортодонтического лечения?',directions:['Ортодонтия','Миофункциональная терапия','Функциональная стоматология']},
   {slug:'body-tension',question:'Спина не болит, но тело постоянно чувствует усталость и напряжение?',directions:['Остеопатия','DIERS диагностика','Превентивная медицина','Терапия']}
 ];
-const attentionSection=document.querySelector('.attention-section'),attentionStage=document.querySelector('.attention-stage'),attentionQuestion=document.querySelector('.attention-question'),attentionLinks=document.querySelector('.attention-links'),attentionDirections=document.querySelector('.attention-directions'),attentionCounter=document.querySelector('.attention-counter'),attentionPrev=document.querySelector('.attention-prev'),attentionNext=document.querySelector('.attention-next');
-let attentionIndex=0,attentionFinal=false,attentionBusy=false,wheelLock=false;
+const attentionSection=document.querySelector('.attention-section'),attentionQuestion=document.querySelector('.attention-question'),attentionLinks=document.querySelector('.attention-links'),attentionDirections=document.querySelector('.attention-directions'),attentionCounter=document.querySelector('.attention-counter'),attentionPrev=document.querySelector('.attention-prev'),attentionNext=document.querySelector('.attention-next');
+let attentionIndex=0,attentionBusy=false,wheelLock=false;
 function attentionPad(n){return String(n).padStart(2,'0')}
 function attentionRender(animate=true){
-  attentionStage.classList.toggle('final-mode',attentionFinal);
-  if(attentionFinal){attentionCounter.innerHTML='<strong>ИТОГ</strong>';return}
   const item=attentionData[attentionIndex];
   const apply=()=>{attentionQuestion.textContent=item.question;attentionDirections.innerHTML=item.directions.map(x=>'<span class="attention-direction">'+x+'</span>').join('');attentionCounter.innerHTML='<strong>'+attentionPad(attentionIndex+1)+'</strong> / 10';attentionQuestion.classList.remove('changing');attentionLinks.classList.remove('changing');attentionBusy=false};
   if(!animate){apply()}else{attentionBusy=true;attentionQuestion.classList.add('changing');attentionLinks.classList.add('changing');setTimeout(apply,150)}
 }
-function attentionSetUrl(){const url=new URL(location.href);if(attentionFinal){url.searchParams.delete('q')}else{url.searchParams.set('q',attentionData[attentionIndex].slug)}url.hash='attention';history.replaceState(null,'',url)}
-function attentionNextStep(){if(attentionBusy)return;if(attentionFinal)return;if(attentionIndex<attentionData.length-1){attentionIndex++;attentionRender();attentionSetUrl()}else{attentionFinal=true;attentionRender();attentionSetUrl()}}
-function attentionPrevStep(){if(attentionBusy)return;if(attentionFinal){attentionFinal=false;attentionIndex=attentionData.length-1;attentionRender();attentionSetUrl();return}if(attentionIndex>0){attentionIndex--;attentionRender();attentionSetUrl()}}
+function attentionSetUrl(){const url=new URL(location.href);url.searchParams.set('q',attentionData[attentionIndex].slug);url.hash='attention';history.replaceState(null,'',url)}
+function attentionNextStep(){if(attentionBusy)return;attentionIndex=(attentionIndex+1)%attentionData.length;attentionRender();attentionSetUrl()}
+function attentionPrevStep(){if(attentionBusy)return;attentionIndex=(attentionIndex-1+attentionData.length)%attentionData.length;attentionRender();attentionSetUrl()}
 attentionNext.addEventListener('click',attentionNextStep);attentionPrev.addEventListener('click',attentionPrevStep);
 attentionSection.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){e.preventDefault();attentionNextStep()}if(e.key==='ArrowLeft'){e.preventDefault();attentionPrevStep()}});
 attentionSection.setAttribute('tabindex','0');
