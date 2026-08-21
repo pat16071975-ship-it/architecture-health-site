@@ -3,14 +3,13 @@
 <style>
 :root{--paper:#f7f3ec;--paper2:#efe8db;--ink:#2d342f;--green:#44634f;--gold:#b59662;--line:#786d61}
 *{box-sizing:border-box}html,body{margin:0;background:linear-gradient(180deg,#fcfaf6 0,var(--paper) 65%,var(--paper2) 100%);color:var(--ink);font-family:Inter,Segoe UI,Arial,sans-serif}body{min-height:100vh;overflow-x:hidden}
-.page{width:1400px;max-width:96vw;margin:auto;padding:18px 0 40px}
-.top{display:grid;grid-template-columns:220px 1fr 220px;gap:24px;align-items:start}.left,.right{display:flex;flex-direction:column;align-items:center}.logo{width:120px;height:120px;object-fit:contain}.founder{width:156px;height:156px;object-fit:cover;border:1px solid rgba(64,92,72,.15)}.caption{margin-top:10px;text-align:center;font-size:14px;line-height:1.35;color:#515951}.caption strong{color:var(--ink)}
+.page{width:1400px;max-width:96vw;margin:auto;padding:18px 0 40px}.top{display:grid;grid-template-columns:220px 1fr 220px;gap:24px;align-items:start}.left,.right{display:flex;flex-direction:column;align-items:center}.logo{width:120px;height:120px;object-fit:contain}.founder{width:156px;height:156px;object-fit:cover;border:1px solid rgba(64,92,72,.15)}.caption{margin-top:10px;text-align:center;font-size:14px;line-height:1.35;color:#515951}.caption strong{color:var(--ink)}
 .center{text-align:center;padding-top:8px}h1{margin:6px 0 0;font:400 76px/1.02 Georgia,'Times New Roman',serif;letter-spacing:.005em}.rule{width:220px;height:1px;margin:16px auto 0;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
-.map-shell{height:860px;position:relative}.map{position:absolute;left:50%;top:0;width:1060px;height:860px;transform:translateX(-50%)}
-.ring{position:absolute;border:1px solid rgba(181,150,98,.18);border-radius:50%;pointer-events:none}.ring.one{left:150px;top:54px;width:760px;height:760px}.ring.two{left:185px;top:89px;width:690px;height:690px}.ring.three{left:220px;top:124px;width:620px;height:620px}
-.stage{position:absolute;left:240px;top:150px;width:580px;height:580px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 44%,#f8f4eb 0,#f2eadc 68%,#ece1d0 100%);border:1px solid rgba(181,150,98,.42);box-shadow:0 18px 60px rgba(76,58,34,.09);z-index:2}
+.map-shell{height:920px;position:relative}.map{position:absolute;left:50%;top:0;width:1120px;height:920px;transform:translateX(-50%)}
+.ring{position:absolute;border:1px solid rgba(181,150,98,.18);border-radius:50%;pointer-events:none}.ring.one{left:180px;top:44px;width:760px;height:760px}.ring.two{left:215px;top:79px;width:690px;height:690px}.ring.three{left:250px;top:114px;width:620px;height:620px}
+.stage{position:absolute;left:270px;top:150px;width:580px;height:580px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 44%,#f8f4eb 0,#f2eadc 68%,#ece1d0 100%);border:1px solid rgba(181,150,98,.42);box-shadow:0 18px 60px rgba(76,58,34,.09);z-index:2}
 .stage:before{content:'';position:absolute;inset:34px;border-radius:50%;border:1px solid rgba(181,150,98,.36);z-index:4;pointer-events:none}
-.vit-img{position:absolute;left:50%;top:50%;width:120%;height:120%;object-fit:cover;object-position:center 48%;transform:translate(-50%,-50%);z-index:2;filter:sepia(.08) saturate(.9) contrast(.97) brightness(1.04);mix-blend-mode:multiply}
+.vit-img{position:absolute;left:50%;top:50%;width:129%;height:129%;object-fit:cover;object-position:center 52%;transform:translate(-50%,-50%);z-index:2;filter:sepia(.08) saturate(.9) contrast(.97) brightness(1.04);mix-blend-mode:multiply}
 .direction{position:absolute;transform:translate(-50%,-50%);width:170px;height:54px;border:1px solid rgba(64,92,72,.22);background:rgba(250,247,241,.97);color:#30372f;display:flex;align-items:center;justify-content:center;text-align:center;font-size:12.5px;line-height:1.15;font-weight:650;cursor:pointer;z-index:8;box-shadow:0 5px 16px rgba(71,58,38,.06);transition:.18s;border-radius:2px}.direction:hover,.direction.active{background:var(--green);color:#fff;border-color:var(--green);box-shadow:0 9px 24px rgba(64,92,72,.18);transform:translate(-50%,-50%) scale(1.04)}
 .hot{position:absolute;z-index:6;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(.78);border-radius:50%;background:radial-gradient(circle,rgba(195,69,55,.85),rgba(195,69,55,.4) 42%,rgba(195,69,55,.12) 66%,transparent 78%)}.hot.on{opacity:1;animation:pulse 1.05s ease-in-out infinite}@keyframes pulse{0%,100%{transform:translate(-50%,-50%) scale(.78);opacity:.42}50%{transform:translate(-50%,-50%) scale(1.05);opacity:.92}}
 .head{left:50%;top:22%;width:12%;height:12%}.jaw{left:50%;top:28%;width:12%;height:7%}.neck{left:50%;top:34%;width:10%;height:8%}.chest{left:50%;top:42%;width:20%;height:13%}.abdomen{left:50%;top:53%;width:18%;height:14%}.spine{left:50%;top:48%;width:8%;height:28%}.pelvis{left:50%;top:62%;width:17%;height:10%}.legs{left:50%;top:76%;width:21%;height:19%}.feet{left:50%;top:88%;width:18%;height:7%}
@@ -25,18 +24,18 @@
 <img class="vit-img" src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Leonardo_da_Vinci-_Vitruvian_Man.JPG" alt="Витрувианский человек Леонардо да Винчи">
 <span class="hot head" data-zone="head"></span><span class="hot jaw" data-zone="jaw"></span><span class="hot neck" data-zone="neck"></span><span class="hot chest" data-zone="chest"></span><span class="hot abdomen" data-zone="abdomen"></span><span class="hot spine" data-zone="spine"></span><span class="hot pelvis" data-zone="pelvis"></span><span class="hot legs" data-zone="legs"></span><span class="hot feet" data-zone="feet"></span>
 </div>
-<button class="direction" style="left:530px;top:70px" data-zones="jaw,head,neck">Функциональная<br>стоматология</button>
-<button class="direction" style="left:720px;top:110px" data-zones="jaw,head">Ортодонтия</button>
-<button class="direction" style="left:865px;top:250px" data-zones="head,neck,spine,pelvis">Остеопатия</button>
-<button class="direction" style="left:910px;top:430px" data-zones="jaw,neck,chest">Миофункциональная<br>терапия</button>
-<button class="direction" style="left:865px;top:610px" data-zones="head,chest,abdomen,pelvis">Превентивная<br>медицина</button>
-<button class="direction" style="left:720px;top:750px" data-zones="abdomen">Гастроэнтерология</button>
-<button class="direction" style="left:530px;top:790px" data-zones="abdomen,chest">Нутрициология</button>
-<button class="direction" style="left:340px;top:750px" data-zones="chest,abdomen">Терапия</button>
-<button class="direction" style="left:195px;top:610px" data-zones="head,spine">Детская<br>неврология</button>
-<button class="direction" style="left:150px;top:430px" data-zones="head">Нейропсихология</button>
-<button class="direction" style="left:195px;top:250px" data-zones="spine,pelvis,legs">DIERS<br>диагностика</button>
-<button class="direction" style="left:340px;top:110px" data-zones="head,chest">ИГГТ</button>
+<button class="direction" style="left:560px;top:70px" data-zones="jaw,head,neck">Функциональная<br>стоматология</button>
+<button class="direction" style="left:750px;top:110px" data-zones="jaw,head">Ортодонтия</button>
+<button class="direction" style="left:895px;top:250px" data-zones="head,neck,spine,pelvis">Остеопатия</button>
+<button class="direction" style="left:940px;top:430px" data-zones="jaw,neck,chest">Миофункциональная<br>терапия</button>
+<button class="direction" style="left:895px;top:610px" data-zones="head,chest,abdomen,pelvis">Превентивная<br>медицина</button>
+<button class="direction" style="left:750px;top:760px" data-zones="abdomen">Гастроэнтерология</button>
+<button class="direction" style="left:560px;top:800px" data-zones="abdomen,chest">Нутрициология</button>
+<button class="direction" style="left:370px;top:760px" data-zones="chest,abdomen">Терапия</button>
+<button class="direction" style="left:225px;top:610px" data-zones="head,spine">Детская<br>неврология</button>
+<button class="direction" style="left:180px;top:430px" data-zones="head">Нейропсихология</button>
+<button class="direction" style="left:225px;top:250px" data-zones="spine,pelvis,legs">DIERS<br>диагностика</button>
+<button class="direction" style="left:370px;top:110px" data-zones="head,chest">ИГГТ</button>
 </div></div><p class="hint"><span>Наведите на направление — соответствующие зоны тела начнут пульсировать</span></p></section></main>
 <script>
 const dirs=[...document.querySelectorAll('.direction')],hots=[...document.querySelectorAll('.hot')];
