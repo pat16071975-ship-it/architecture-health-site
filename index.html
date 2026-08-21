@@ -3,12 +3,232 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Architecture Health Site Lab</title>
+  <meta name="theme-color" content="#f2eee5" />
+  <title>Архитектура здоровья</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Prata&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --paper:#f2eee5;
+      --paper-2:#ece5d8;
+      --ink:#31342f;
+      --muted:#77756e;
+      --line:rgba(73,75,68,.18);
+      --green:#66745b;
+      --green-dark:#55634d;
+      --gold:#b69a71;
+      --white:#faf8f3;
+      --shadow:0 18px 60px rgba(71,60,42,.10);
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 78% 17%, rgba(192,176,150,.20), transparent 28%),
+        radial-gradient(circle at 18% 72%, rgba(126,137,112,.09), transparent 27%),
+        var(--paper);
+      font-family:"Manrope",system-ui,-apple-system,sans-serif;
+      overflow-x:hidden;
+    }
+    body:before{
+      content:"";
+      position:fixed; inset:0; pointer-events:none; opacity:.35; z-index:20;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E");
+    }
+    a{color:inherit;text-decoration:none}
+    .wrap{width:min(1440px,calc(100% - 72px));margin:0 auto}
+    header{
+      height:96px; display:flex; align-items:center; justify-content:space-between;
+      border-bottom:1px solid var(--line); position:relative; z-index:5;
+    }
+    .brand{display:flex;align-items:center;gap:13px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;line-height:1.25}
+    .brand svg{width:34px;height:45px;flex:0 0 auto}
+    nav{display:flex;align-items:center;gap:34px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#545650}
+    .top-cta{border:1px solid rgba(75,79,70,.28);padding:13px 18px;border-radius:2px;display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.16)}
+    .top-cta i,.dot{width:18px;height:18px;border-radius:50%;display:inline-grid;place-items:center;background:var(--green);color:white;font-style:normal;font-size:11px}
+
+    .hero{min-height:610px;display:grid;grid-template-columns:48% 52%;align-items:center;position:relative;border-bottom:1px solid var(--line)}
+    .hero-copy{padding:80px 3vw 78px 2vw;position:relative;z-index:3}
+    .eyebrow{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:22px}
+    h1,h2,h3{font-family:"Prata",Georgia,serif;font-weight:400;margin:0}
+    h1{font-size:clamp(45px,5.05vw,76px);line-height:1.02;letter-spacing:-.035em;max-width:760px}
+    .hero-note{display:flex;gap:14px;align-items:flex-start;margin:30px 0 32px;color:#77736b;font-size:12px;line-height:1.5;max-width:390px}
+    .hero-note:before{content:"";width:2px;height:38px;background:var(--gold);opacity:.7;flex:0 0 auto}
+    .main-cta{display:inline-flex;align-items:center;gap:16px;background:var(--green);color:#fff;padding:16px 22px;border-radius:2px;font-size:12px;box-shadow:var(--shadow);transition:.25s ease}
+    .main-cta:hover{transform:translateY(-2px);background:var(--green-dark)}
+    .main-cta .arrow{width:28px;height:28px;border:1px solid rgba(255,255,255,.45);border-radius:50%;display:grid;place-items:center;font-size:16px}
+
+    .hero-visual{min-height:610px;position:relative;overflow:hidden;isolation:isolate}
+    .draft-plane{position:absolute;inset:8% -2% 4% 5%;opacity:.58}
+    .draft-plane:before,.draft-plane:after{content:"";position:absolute;inset:0;border:1px solid rgba(94,97,88,.10);transform:rotate(-8deg);clip-path:polygon(8% 8%,96% 0,90% 90%,2% 100%)}
+    .draft-plane:after{transform:rotate(6deg) scale(.88);border-color:rgba(181,154,113,.18)}
+    .sketch{position:absolute;inset:0;width:100%;height:100%}
+    .sketch .ghost{fill:none;stroke:rgba(82,86,78,.17);stroke-width:1.2}
+    .sketch .body-fill{fill:url(#bodyGradient);opacity:.74}
+    .sketch .body-line{fill:none;stroke:rgba(72,75,68,.30);stroke-width:1}
+    .sketch .grid{stroke:rgba(76,78,72,.11);stroke-width:1;stroke-dasharray:2 7}
+    .sketch .orbit{fill:none;stroke:rgba(180,153,110,.22);stroke-width:1}
+    .symptom{position:absolute;z-index:4;font-size:10px;letter-spacing:.03em;text-transform:uppercase;color:#565950;line-height:1.35;max-width:120px;padding:9px 10px;border:1px solid rgba(77,80,72,.16);background:rgba(246,242,233,.50);backdrop-filter:blur(2px);transition:.25s ease}
+    .symptom:after{content:"";position:absolute;top:50%;height:1px;background:rgba(77,80,72,.28);width:50px}
+    .symptom:hover{background:rgba(250,248,242,.9);transform:translateY(-2px);border-color:rgba(102,116,91,.35)}
+    .s1{left:12%;top:16%}.s1:after{left:100%}
+    .s2{left:8%;top:40%}.s2:after{left:100%;width:70px}
+    .s3{right:10%;top:24%}.s3:after{right:100%}
+    .s4{right:3%;top:46%}.s4:after{right:100%;width:64px}
+    .s5{left:13%;bottom:18%}.s5:after{left:100%}
+    .s6{right:13%;bottom:13%}.s6:after{right:100%}
+
+    .statement{padding:52px 0 42px;text-align:center;position:relative}
+    .statement h2{font-size:clamp(26px,2.8vw,42px);line-height:1.18;max-width:900px;margin:0 auto}
+    .statement em{color:var(--gold);font-style:normal}
+    .views{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .view{min-height:190px;padding:35px 40px 30px;display:grid;grid-template-columns:50px 1fr;gap:20px;text-align:left;align-items:start;border-right:1px solid var(--line)}
+    .view:last-child{border-right:none}
+    .view svg{width:46px;height:46px;stroke:var(--green);fill:none;stroke-width:1.2;opacity:.75}
+    .view h3{font-family:"Manrope";font-size:13px;font-weight:600;margin:2px 0 8px}
+    .view p{font-size:11px;line-height:1.65;color:#77736c;margin:0}
+
+    .child{min-height:420px;position:relative;overflow:hidden;display:grid;grid-template-columns:44% 56%;align-items:center;background:linear-gradient(110deg,rgba(228,221,207,.86),rgba(241,236,226,.72))}
+    .child:before{content:"";position:absolute;inset:-30% 20% -30% -10%;background:radial-gradient(circle,rgba(105,117,92,.12),transparent 60%)}
+    .child-copy{padding:65px 40px 65px 5vw;z-index:2}
+    .child-copy h2{font-size:clamp(32px,4vw,58px);line-height:1.07;margin-bottom:20px}
+    .child-copy p{font-size:12px;color:#6f6d67;line-height:1.6;max-width:480px}
+    .child-visual{height:100%;position:relative}
+    .child-visual svg{width:100%;height:100%;display:block}
+    .child-tags{position:absolute;right:8%;top:24%;display:flex;flex-direction:column;gap:10px}
+    .child-tags span{padding:9px 12px;border:1px solid rgba(80,82,75,.15);font-size:10px;text-transform:uppercase;background:rgba(246,242,233,.48)}
+
+    footer{padding:28px 0 36px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:10px;color:#77736c}
+
+    @media(max-width:1000px){
+      nav a:not(.top-cta){display:none}
+      .wrap{width:min(100% - 36px,1440px)}
+      .hero{grid-template-columns:1fr;min-height:auto}
+      .hero-copy{padding:58px 0 25px}
+      .hero-visual{min-height:520px}
+      .views{grid-template-columns:1fr}
+      .view{border-right:none;border-bottom:1px solid var(--line)}
+      .view:last-child{border-bottom:none}
+      .child{grid-template-columns:1fr}
+      .child-visual{min-height:340px}
+    }
+    @media(max-width:620px){
+      header{height:80px}.top-cta{padding:10px 12px}.top-cta span{display:none}
+      .brand{font-size:10px}.brand svg{width:28px;height:38px}
+      h1{font-size:41px}
+      .hero-visual{min-height:470px;margin:0 -18px}
+      .symptom{font-size:8px;max-width:96px;padding:7px}
+      .s1{left:5%}.s2{left:2%}.s3{right:4%}.s4{right:1%}.s5{left:7%}.s6{right:6%}
+      .statement{padding:38px 0 30px}
+      .view{padding:28px 8px;grid-template-columns:42px 1fr}
+      .child-copy{padding:50px 0 15px}
+      footer{flex-direction:column;gap:8px}
+    }
+  </style>
 </head>
 <body>
-  <main>
-    <h1>Architecture Health Site Lab</h1>
-    <p>Технический preview для первой версии сайта «Архитектура здоровья».</p>
-  </main>
+  <div class="wrap">
+    <header>
+      <a class="brand" href="#top" aria-label="Архитектура здоровья">
+        <svg viewBox="0 0 34 45" aria-hidden="true">
+          <path d="M17 2 3 41h28L17 2Z" fill="none" stroke="#6b6d66" stroke-width="1"/>
+          <path d="M9 25h16M17 2v39" stroke="#b69a71" stroke-width=".8"/>
+        </svg>
+        <span>Архитектура<br>здоровья</span>
+      </a>
+      <nav>
+        <a href="#approach">О подходе</a>
+        <a href="#child">Для детей</a>
+        <a href="#views">Направления</a>
+        <a href="#contact">О клинике</a>
+        <a class="top-cta" href="#contact"><span>Записаться на консультацию</span><i>→</i></a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow">Медицина, которая видит связи</div>
+          <h1>Что в вашем самочувствии стало настолько привычным, что вы перестали это замечать?</h1>
+          <div class="hero-note">Не ставьте себе диагноз.<br>Просто присмотритесь к себе внимательнее.</div>
+          <a class="main-cta" href="#approach">Рассказать, что меня беспокоит <span class="arrow">↓</span></a>
+        </div>
+        <div class="hero-visual" aria-label="Архитектура состояния человека">
+          <div class="draft-plane"></div>
+          <svg class="sketch" viewBox="0 0 760 650" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <defs>
+              <linearGradient id="bodyGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#d8d3c8" stop-opacity=".22"/>
+                <stop offset=".55" stop-color="#7e8178" stop-opacity=".34"/>
+                <stop offset="1" stop-color="#b9a888" stop-opacity=".18"/>
+              </linearGradient>
+            </defs>
+            <g opacity=".65">
+              <path class="grid" d="M80 100H700M40 210H730M70 330H710M25 470H730M125 30V620M255 15V635M390 30V620M535 15V635M660 45V620"/>
+              <circle class="orbit" cx="398" cy="210" r="145"/><circle class="orbit" cx="398" cy="210" r="205"/>
+              <path class="orbit" d="M170 544c126-195 352-353 526-429M114 456C310 306 487 194 691 148"/>
+            </g>
+            <g transform="translate(190 48)">
+              <ellipse class="body-fill" cx="205" cy="115" rx="70" ry="82"/>
+              <path class="body-fill" d="M149 183c-26 24-47 61-58 112-11 53-18 117-48 190-11 27-24 55-39 82 45 22 97 39 148 50 19-78 37-151 56-219 19 68 37 141 56 219 52-11 104-28 149-50-15-27-28-55-39-82-30-73-37-137-48-190-11-51-32-88-58-112-24 20-48 30-60 30s-36-10-59-30Z"/>
+              <ellipse class="body-line" cx="205" cy="115" rx="70" ry="82"/>
+              <path class="body-line" d="M165 176c-34 31-57 79-69 135M244 176c34 31 57 79 69 135M155 215c20 17 79 17 99 0M205 190v300M111 312c44 35 144 35 188 0M72 449c70 33 198 33 268 0"/>
+              <path class="ghost" d="M182 53c9-19 38-28 58-15 22 15 31 46 23 72-7 23-22 37-34 52-11 13-16 33-18 51M158 91c-8 33 6 54 20 73 12 16 16 32 18 51"/>
+              <path class="ghost" d="M128 209c-41 16-86 52-101 93-19 49-19 103-20 159M281 209c41 16 86 52 101 93 19 49 19 103 20 159"/>
+            </g>
+          </svg>
+          <div class="symptom s1">Просыпаюсь<br>уставшим</div>
+          <div class="symptom s2">Щёлкает<br>челюсть</div>
+          <div class="symptom s3">Часто болит<br>голова</div>
+          <div class="symptom s4">После еды<br>тяжесть</div>
+          <div class="symptom s5">Хочется<br>размять шею</div>
+          <div class="symptom s6">Ребёнок<br>дышит ртом</div>
+        </div>
+      </section>
+
+      <section class="statement" id="approach">
+        <h2>Это может быть совершенно не связано.<br>А может оказаться частью <em>ОДНОЙ КАРТИНЫ.</em></h2>
+      </section>
+
+      <section class="views" id="views">
+        <article class="view">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="16"/><path d="M7 24c8-10 27-10 34 0-7 10-26 10-34 0Z"/><circle cx="24" cy="24" r="5"/></svg>
+          <div><h3>Сон</h3><p>Насколько организм действительно восстанавливается ночью и что вы чувствуете после пробуждения.</p></div>
+        </article>
+        <article class="view">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 32c6-9 10-20 15-20s10 11 15 20M15 34c6-6 12-6 18 0M24 10v28"/><circle cx="24" cy="24" r="17"/></svg>
+          <div><h3>Челюсть и мышцы</h3><p>Как работают зубы, суставы и мышцы и не приходится ли организму постоянно компенсировать нагрузку.</p></div>
+        </article>
+        <article class="view">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M17 10c-7 2-8 10-4 14-4 4-1 13 6 13 2 4 8 4 10 0 8 1 11-9 6-13 4-6-1-14-8-13-2-4-8-4-10-1Z"/><path d="M24 8v32M16 18c4 1 6 4 8 7M33 17c-4 1-6 4-9 8"/></svg>
+          <div><h3>Нервная система</h3><p>Есть ли причины, которые требуют внимания невролога, или достаточно наблюдения и корректировки нагрузки.</p></div>
+        </article>
+      </section>
+
+      <section class="child" id="child">
+        <div class="child-copy">
+          <div class="eyebrow">Детское направление</div>
+          <h2>Не знаете, к какому врачу обратиться?</h2>
+          <p>Расскажите, что вы замечаете у ребёнка. Вам не нужно заранее разбираться в специальностях — важно описать наблюдение своими словами.</p>
+        </div>
+        <div class="child-visual">
+          <svg viewBox="0 0 760 430" aria-hidden="true">
+            <defs><linearGradient id="kid" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ea397" stop-opacity=".08"/><stop offset="1" stop-color="#6f756a" stop-opacity=".24"/></linearGradient></defs>
+            <path d="M0 350C150 260 320 210 760 120" stroke="rgba(181,154,113,.18)" fill="none"/>
+            <circle cx="445" cy="135" r="76" fill="url(#kid)"/>
+            <path d="M371 196c-58 25-88 80-101 160h351c-22-84-57-136-102-160-45 24-105 24-148 0Z" fill="url(#kid)"/>
+            <path d="M445 65c45 0 81 30 81 70 0 39-29 72-59 91M398 84c-35 34-35 89 5 127" fill="none" stroke="rgba(74,78,71,.20)"/>
+            <path d="M178 65h470M120 185h520M75 305h560" stroke="rgba(76,78,72,.08)" stroke-dasharray="3 8"/>
+          </svg>
+          <div class="child-tags"><span>плохо спит</span><span>дышит ртом</span><span>быстро устаёт</span><span>часто болит голова</span></div>
+        </div>
+      </section>
+    </main>
+
+    <footer id="contact"><span>Архитектура здоровья · концепт сайта</span><span>Новосибирск</span></footer>
+  </div>
 </body>
 </html>
