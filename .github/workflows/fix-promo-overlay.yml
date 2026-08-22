@@ -1,0 +1,59 @@
+name: Fix centered promo without moving circle
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Restore circle geometry and overlay promo
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old_page = ".page{width:1400px;max-width:96vw;margin:auto;padding:18px 0 40px}"
+          new_page = ".page{position:relative;width:1400px;max-width:96vw;margin:auto;padding:18px 0 40px}"
+          if old_page in s:
+              s = s.replace(old_page, new_page, 1)
+
+          old_promo = ".promo-badge{position:relative;top:auto;left:auto;width:max-content;max-width:920px;margin:18px auto 0;padding:13px 30px 11px;text-align:center;transform:none;border:1px solid rgba(181,150,98,.56);border-radius:16px;background:linear-gradient(180deg,rgba(239,246,240,.98),rgba(250,247,241,.98));box-shadow:0 10px 28px rgba(71,58,38,.09);color:#34443a}"
+          new_promo = ".promo-badge{position:absolute;top:126px;left:50%;width:max-content;max-width:920px;margin:0;padding:13px 30px 11px;text-align:center;transform:translateX(-50%);border:1px solid rgba(181,150,98,.56);border-radius:16px;background:linear-gradient(180deg,rgba(239,246,240,.98),rgba(250,247,241,.98));box-shadow:0 10px 28px rgba(71,58,38,.09);color:#34443a}"
+          if old_promo not in s:
+              raise SystemExit('desktop promo style not found')
+          s = s.replace(old_promo, new_promo, 1)
+
+          old_mobile = ".promo-badge{position:relative;top:auto;left:auto;width:calc(100% - 24px);max-width:560px;margin:12px auto 0;padding:10px 14px;transform:none}"
+          new_mobile = ".promo-badge{position:absolute;top:96px;left:50%;width:calc(100% - 24px);max-width:560px;margin:0;padding:10px 14px;transform:translateX(-50%)}"
+          if old_mobile in s:
+              s = s.replace(old_mobile, new_mobile, 1)
+
+          # Geometry guard: these values are the approved circle position.
+          required = [
+              '.map{position:absolute;left:50%;top:-88px;width:1120px;height:920px;transform:translateX(-50%)}',
+              '.stage{position:absolute;left:270px;top:150px;width:580px;height:580px;',
+              'style="left:560px;top:117px"'
+          ]
+          for marker in required:
+              if marker not in s:
+                  raise SystemExit('circle geometry guard failed: ' + marker)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+          rm -f .github/workflows/fix-promo-overlay.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/fix-promo-overlay.yml
+          git commit -m "Place promo between header and circle without shifting layout"
+          git push origin HEAD:feature/site-v1
