@@ -1,0 +1,78 @@
+name: Add positioning tagline without changing internal geometry
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Add tagline and shift central composition
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          # Add the positioning line style without touching existing header geometry.
+          old = ".center{text-align:center;padding-top:8px}h1{margin:6px 0 0;font:400 76px/1.02 'Cormorant Garamond',Georgia,serif;letter-spacing:.005em}.rule{width:220px;height:1px;margin:16px auto 0;background:linear-gradient(90deg,transparent,var(--gold),transparent)}"
+          new = ".center{text-align:center;padding-top:8px}h1{margin:6px 0 0;font:400 76px/1.02 'Cormorant Garamond',Georgia,serif;letter-spacing:.005em}.positioning{margin:8px 0 0;font:500 18px/1.2 'Cormorant Garamond',Georgia,serif;letter-spacing:.015em;color:#4b5a50}.rule{width:220px;height:1px;margin:12px auto 0;background:linear-gradient(90deg,transparent,var(--gold),transparent)}"
+          if '.positioning{' not in s:
+              if old not in s:
+                  raise SystemExit('header style marker not found')
+              s = s.replace(old, new, 1)
+
+          old_html = '<div class="center"><h1>Архитектура здоровья</h1><div class="rule"></div></div>'
+          new_html = '<div class="center"><h1>Архитектура здоровья</h1><div class="positioning">Клиника, где здоровье не делят по кабинетам</div><div class="rule"></div></div>'
+          if 'Клиника, где здоровье не делят по кабинетам' not in s:
+              if old_html not in s:
+                  raise SystemExit('header html marker not found')
+              s = s.replace(old_html, new_html, 1)
+
+          # Shift the promo and the whole central map by the same 28px.
+          s = s.replace('.promo-badge{position:absolute;top:126px;left:50%;', '.promo-badge{position:absolute;top:154px;left:50%;', 1)
+          s = s.replace('.map-shell{height:850px;position:relative}.map{position:absolute;left:50%;top:-88px;', '.map-shell{height:878px;position:relative}.map{position:absolute;left:50%;top:-60px;', 1)
+
+          # Responsive shells grow by the same amount; internal geometry stays untouched.
+          s = s.replace('.map-shell{height:700px}.map{transform:translateX(-50%) scale(.84);', '.map-shell{height:728px}.map{transform:translateX(-50%) scale(.84);', 1)
+          s = s.replace("h1{font-size:32px}.rule{width:110px;margin-top:10px}.map-shell{height:860px}.map{width:100%;height:860px;top:0;", "h1{font-size:32px}.positioning{margin-top:5px;font-size:11px;line-height:1.15}.rule{width:110px;margin-top:7px}.map-shell{height:888px}.map{width:100%;height:860px;top:28px;", 1)
+          s = s.replace('.promo-badge{position:absolute;top:96px;left:50%;', '.promo-badge{position:absolute;top:124px;left:50%;', 1)
+
+          # Guard: do not alter the internal circle/card/Vitruvian coordinates.
+          required = [
+              '.stage{position:absolute;left:270px;top:150px;width:580px;height:580px;',
+              '.vit-img{position:absolute;left:50%;top:54%;width:102%;height:102%;',
+              'style="left:560px;top:117px"',
+              'style="left:738px;top:132px"',
+              'style="left:891px;top:249px"',
+              'style="left:941px;top:440px"',
+              'style="left:891px;top:631px"',
+              'style="left:738px;top:748px"',
+              'style="left:560px;top:763px"',
+              'style="left:382px;top:748px"',
+              'style="left:229px;top:631px"',
+              'style="left:179px;top:440px"',
+              'style="left:229px;top:249px"',
+              'style="left:382px;top:132px"'
+          ]
+          for marker in required:
+              if marker not in s:
+                  raise SystemExit('geometry guard failed: ' + marker)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+          rm -f .github/workflows/add-positioning-tagline.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/add-positioning-tagline.yml
+          git commit -m "Add clinic positioning line and shift central composition"
+          git push origin HEAD:feature/site-v1
