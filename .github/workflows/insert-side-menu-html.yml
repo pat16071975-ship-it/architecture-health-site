@@ -1,0 +1,38 @@
+name: Insert side visual menu HTML
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Insert visual side badges
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          team = '<a class="radial-badge specialists-badge" href="specialists/" aria-label="Команда">команда</a>'
+          extra = '<div class="radial-badge side-menu-badge side-menu-1">о клинике</div><div class="radial-badge side-menu-badge side-menu-2">пациенту</div><div class="radial-badge side-menu-badge side-menu-3">лаборатория</div><div class="radial-badge side-menu-badge side-menu-4">контакты</div>'
+          if '<div class="radial-badge side-menu-badge side-menu-1">' not in s:
+              if team not in s:
+                  raise SystemExit('Team badge marker not found')
+              s = s.replace(team, team + extra, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          rm -f .github/workflows/insert-side-menu-html.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/insert-side-menu-html.yml
+          git commit -m "Insert right-side visual menu badges"
+          git push origin HEAD:feature/site-v1
