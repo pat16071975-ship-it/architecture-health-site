@@ -40,7 +40,34 @@
     .note{max-width:900px;margin:42px auto 0;padding-top:22px;border-top:1px solid rgba(181,150,98,.3);text-align:center;color:#77766f;font-size:11px;line-height:1.55}
     @media(max-width:980px){.grid{grid-template-columns:repeat(2,1fr)}.top{grid-template-columns:120px 1fr 120px}.logo{width:105px;height:105px}}
     @media(max-width:640px){.page{max-width:92vw;padding-top:16px}.top{grid-template-columns:70px 1fr;gap:12px}.logo{width:68px;height:68px}.back{grid-column:1/-1;justify-self:center;margin-top:4px}.subtitle{font-size:12px}.intro{padding:42px 0 30px}.grid{grid-template-columns:1fr}.portrait-wrap{height:330px}.card{min-height:auto}}
-  </style>
+  
+/* mobile-specialists-v1 */
+@media(max-width:640px){
+  .page{width:100%;max-width:100vw;padding:14px 12px 48px}
+  .top{grid-template-columns:60px minmax(0,1fr);gap:10px;align-items:start;padding-bottom:18px}
+  .logo{width:58px;height:58px}
+  .brand{min-width:0;text-align:left}
+  .eyebrow{font-size:8px;letter-spacing:.16em;margin-bottom:5px}
+  h1{font-size:36px;line-height:.96}
+  .subtitle{margin-top:9px;font-size:11.5px;line-height:1.4}
+  .back{grid-column:1/-1;justify-self:stretch;margin-top:2px;padding:10px 14px;text-align:center;border-radius:10px}
+  .intro{padding:34px 2px 24px}
+  .intro h2{font-size:32px;line-height:1.04}
+  .intro p{font-size:12.5px;line-height:1.5}
+  .grid{grid-template-columns:1fr;gap:14px}
+  .card{min-height:0;border-radius:14px}
+  .portrait-wrap{height:min(104vw,380px)}
+  .info{padding:18px 17px 20px}
+  .name{font-size:26px}
+  .role{min-height:0;font-size:12.5px}
+  .source{right:10px;top:10px;border-radius:7px}
+  .note{margin-top:30px;padding:18px 4px 0;font-size:10.5px}
+}
+@media(max-width:360px){
+  h1{font-size:33px}
+  .portrait-wrap{height:330px}
+}
+</style>
 </head>
 <body>
   <main class="page">
