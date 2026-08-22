@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Наши специалисты — Архитектура здоровья</title>
+  <meta name="description" content="Специалисты медицинского центра «Архитектура здоровья» в Новосибирске.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{--paper:#f7f3ec;--paper2:#efe8db;--ink:#2d342f;--green:#44634f;--gold:#b59662;--soft:#faf6ef}
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;color:var(--ink);font-family:Inter,Arial,sans-serif;background:linear-gradient(180deg,#fcfaf6,var(--paper) 72%,var(--paper2));min-height:100vh}
+    a{color:inherit;text-decoration:none}
+    .page{width:1240px;max-width:94vw;margin:0 auto;padding:28px 0 70px}
+    .top{display:grid;grid-template-columns:170px 1fr 170px;align-items:center;gap:26px;padding-bottom:28px;border-bottom:1px solid rgba(181,150,98,.28)}
+    .logo{width:148px;height:148px;object-fit:contain}
+    .brand{text-align:center}
+    .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#8d7b5c;margin-bottom:9px}
+    h1{font:500 clamp(46px,6vw,74px)/.98 'Cormorant Garamond',Georgia,serif;margin:0;letter-spacing:-.02em}
+    .subtitle{max-width:720px;margin:14px auto 0;color:#667068;font:400 15px/1.55 Inter,Arial,sans-serif}
+    .back{justify-self:end;border:1px solid rgba(68,99,79,.25);padding:11px 16px;background:rgba(250,247,241,.7);font-size:12px;letter-spacing:.04em;transition:.18s}
+    .back:hover{border-color:rgba(68,99,79,.55);color:var(--green);background:#fbf8f2}
+    .intro{padding:58px 0 42px;text-align:center}
+    .intro h2{font:500 clamp(32px,4vw,48px)/1.08 'Cormorant Garamond',Georgia,serif;margin:0}
+    .intro p{max-width:760px;margin:14px auto 0;color:#6a716b;font-size:14px;line-height:1.6}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+    .card{position:relative;overflow:hidden;min-height:490px;background:rgba(250,247,241,.9);border:1px solid rgba(181,150,98,.28);box-shadow:0 12px 34px rgba(62,51,38,.055);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+    .card:hover{transform:translateY(-3px);border-color:rgba(68,99,79,.35);box-shadow:0 18px 42px rgba(62,51,38,.09)}
+    .portrait-wrap{height:310px;overflow:hidden;background:linear-gradient(145deg,#eee6da,#f8f4ed)}
+    .portrait{display:block;width:100%;height:100%;object-fit:cover;object-position:center top;filter:saturate(.86) contrast(.98)}
+    .info{padding:22px 22px 24px}
+    .area{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#967f5c;margin-bottom:8px}
+    .name{font:600 28px/1.03 'Cormorant Garamond',Georgia,serif;margin:0 0 10px}
+    .role{min-height:44px;color:#46524a;font-size:13px;line-height:1.45}
+    .exp{margin-top:12px;padding-top:11px;border-top:1px solid rgba(181,150,98,.22);font-size:11px;color:#747970}
+    .source{position:absolute;right:13px;top:13px;background:rgba(250,247,241,.88);border:1px solid rgba(181,150,98,.22);padding:5px 7px;font-size:8px;letter-spacing:.05em;color:#746b5d;backdrop-filter:blur(5px)}
+    .note{max-width:900px;margin:42px auto 0;padding-top:22px;border-top:1px solid rgba(181,150,98,.3);text-align:center;color:#77766f;font-size:11px;line-height:1.55}
+    @media(max-width:980px){.grid{grid-template-columns:repeat(2,1fr)}.top{grid-template-columns:120px 1fr 120px}.logo{width:105px;height:105px}}
+    @media(max-width:640px){.page{max-width:92vw;padding-top:16px}.top{grid-template-columns:70px 1fr;gap:12px}.logo{width:68px;height:68px}.back{grid-column:1/-1;justify-self:center;margin-top:4px}.subtitle{font-size:12px}.intro{padding:42px 0 30px}.grid{grid-template-columns:1fr}.portrait-wrap{height:330px}.card{min-height:auto}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="top">
+      <a href="../" aria-label="На главную"><img class="logo" src="../assets/logo-site.webp" alt="Архитектура здоровья"></a>
+      <div class="brand">
+        <div class="eyebrow">Архитектура здоровья</div>
+        <h1>Наши специалисты</h1>
+        <p class="subtitle">Команда разных направлений, которая смотрит на состояние человека не изолированно, а во взаимосвязи функций и систем.</p>
+      </div>
+      <a class="back" href="../">← На главную</a>
+    </header>
+
+    <section class="intro">
+      <h2>Люди, из которых складывается система</h2>
+      <p>На этой странице собраны специалисты, чьи данные и фотографии удалось однозначно подтвердить по открытым источникам клиники и врачебным профилям. Состав и описания будем дополнять только проверенной информацией.</p>
+    </section>
+
+    <section class="grid" aria-label="Специалисты клиники">
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/203140/2976321-203140-zubachev_square_small.jpg" alt="Зубачев Роман Николаевич"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Ортодонтия · функциональная стоматология</div><h3 class="name">Зубачев Роман Николаевич</h3><div class="role">Директор клиники, стоматолог-ортодонт, функциональный стоматолог.</div><div class="exp">Стаж с 2005 года</div></div></article>
+
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/203141/2976326-203141-chirkov_square_small.jpg" alt="Чирков Максим Сергеевич"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Терапевтическая стоматология</div><h3 class="name">Чирков Максим Сергеевич</h3><div class="role">Стоматолог-терапевт, заведующий отделением терапевтической стоматологии.</div><div class="exp">Стаж с 2006 года</div></div></article>
+
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/492204/1719540-492204-rumyanceva_square_small.jpg" alt="Румянцева Мария Павловна"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Терапевтическая стоматология</div><h3 class="name">Румянцева Мария Павловна</h3><div class="role">Стоматолог-терапевт.</div><div class="exp">Стаж с 2012 года</div></div></article>
+
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/1183045/3047655-1183045-movsesyan_square_small.jpg" alt="Мовсесян Бабкен Ашотович"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Терапевтическая стоматология</div><h3 class="name">Мовсесян Бабкен Ашотович</h3><div class="role">Стоматолог-терапевт.</div><div class="exp">Стаж с 2023 года</div></div></article>
+
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/1075768/2479143-1075768-nazyrov_square_small.jpg" alt="Назыров Уктамжон Жумавоевич"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Ортопедическая стоматология</div><h3 class="name">Назыров Уктамжон Жумавоевич</h3><div class="role">Стоматолог-ортопед, стоматолог общей практики, гнатолог.</div><div class="exp">Стаж с 2021 года</div></div></article>
+
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/693749/1863021-693749-golyshenkov_square_small.jpg" alt="Голышенков Владислав Александрович"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Хирургия и имплантация</div><h3 class="name">Голышенков Владислав Александрович</h3><div class="role">Стоматолог-хирург.</div><div class="exp">Стаж с 2016 года</div></div></article>
+
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/202272/522887-202272-starostenko_square_small.jpg" alt="Старостенко Вадим Анатольевич"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Остеопатия</div><h3 class="name">Старостенко Вадим Анатольевич</h3><div class="role">Врач-остеопат, заведующий отделением структуры.</div><div class="exp">Стаж с 2012 года</div></div></article>
+
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/688767/832232-688767-dimitrenko_square_small.jpg" alt="Димитренко Анна Яковлевна"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Остеопатия</div><h3 class="name">Димитренко Анна Яковлевна</h3><div class="role">Врач-остеопат.</div><div class="exp">Стаж с 2017 года</div></div></article>
+
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/950564/3536087-950564-lapina_square_small.jpg" alt="Лапина Наталья Сергеевна"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Миофункциональная терапия</div><h3 class="name">Лапина Наталья Сергеевна</h3><div class="role">Миофункциональный терапевт.</div><div class="exp">Стаж с 2020 года</div></div></article>
+
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/1055316/3258643-1055316-lyubaeva_square_small.jpg" alt="Любаева Алёна Юрьевна"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Гастроэнтерология</div><h3 class="name">Любаева Алёна Юрьевна</h3><div class="role">Врач-гастроэнтеролог.</div><div class="exp">Специалист медицинского центра</div></div></article>
+
+      <article class="card"><div class="portrait-wrap"><img class="portrait" loading="lazy" referrerpolicy="no-referrer" src="https://prodoctorov.ru/media/photo/novosibirsk/doctorimage/1379853/4651904-1379853-bosak_square_small.jpg" alt="Босак Яна Сергеевна"></div><span class="source">фото: ПроДокторов</span><div class="info"><div class="area">Ортодонтия</div><h3 class="name">Босак Яна Сергеевна</h3><div class="role">Стажёр-ортодонт.</div><div class="exp">Стаж с 2024 года</div></div></article>
+    </section>
+
+    <p class="note">Рабочая версия страницы для согласования. Данные о должностях и стаже сверены с актуальной страницей команды клиники. Портреты временно подключены из подтверждённых публичных врачебных профилей; перед финальной публикацией их лучше заменить оригинальными файлами клиники.</p>
+  </main>
+</body>
+</html>
