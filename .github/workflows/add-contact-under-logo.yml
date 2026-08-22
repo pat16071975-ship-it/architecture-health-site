@@ -1,0 +1,63 @@
+name: Add contact under logo without layout shift
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Add absolute contact block
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          style_marker = ".caption strong{color:var(--ink)}.left,.right{position:relative}"
+          style_replacement = ".caption strong{color:var(--ink)}.clinic-contact{position:absolute;top:196px;left:50%;width:270px;transform:translateX(-50%);z-index:19;text-align:center;color:#394139}.clinic-phone{white-space:nowrap;font:600 18px/1.12 'Cormorant Garamond',Georgia,serif}.clinic-phone a{color:#355640;text-decoration:none}.clinic-phone a:hover,.clinic-phone a:focus-visible{outline:0;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}.clinic-hours{margin-top:6px;font:500 11px/1.45 Inter,Segoe UI,Arial,sans-serif;color:#616a62;white-space:nowrap}.left,.right{position:relative}"
+          if '.clinic-contact{' not in s:
+              if style_marker not in s:
+                  raise SystemExit('style marker not found')
+              s = s.replace(style_marker, style_replacement, 1)
+
+          html_marker = '<div class="left"><img class="logo" src="assets/logo-site.webp" alt="Архитектура здоровья"></div>'
+          html_replacement = '<div class="left"><img class="logo" src="assets/logo-site.webp" alt="Архитектура здоровья"><div class="clinic-contact"><div class="clinic-phone"><a href="tel:+73832496411">+ 7</a><a href="tel:+73832846011">&nbsp;(383) 284-24-21</a></div><div class="clinic-hours">Пн-Пт — 08:00—21:00,<br>Сб-Вс — 09:00−21:00</div></div></div>'
+          if 'tel:+73832496411' not in s:
+              if html_marker not in s:
+                  raise SystemExit('logo block marker not found')
+              s = s.replace(html_marker, html_replacement, 1)
+
+          mobile_marker = '.side-menu-badge{display:none}'
+          if '.clinic-contact{display:none}' not in s:
+              if mobile_marker not in s:
+                  raise SystemExit('mobile marker not found')
+              s = s.replace(mobile_marker, '.clinic-contact{display:none}.side-menu-badge{display:none}', 1)
+
+          # Geometry guards: no existing positioning is allowed to move.
+          for marker in [
+              '.promo-badge{position:absolute;top:126px;left:50%;',
+              '.map{position:absolute;left:50%;top:-88px;width:1120px;height:920px;',
+              '.stage{position:absolute;left:270px;top:150px;width:580px;height:580px;',
+              'style="left:560px;top:117px"'
+          ]:
+              if marker not in s:
+                  raise SystemExit('geometry guard failed: ' + marker)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+          rm -f .github/workflows/add-contact-under-logo.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/add-contact-under-logo.yml
+          git commit -m "Add clinic contact details under logo without shifting layout"
+          git push origin HEAD:feature/site-v1
