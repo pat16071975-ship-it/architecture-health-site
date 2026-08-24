@@ -1,0 +1,40 @@
+name: Apply visible opaque loincloth
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - '.github/workflows/fix-loincloth-visible.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Patch loincloth layer
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib, re
+          p=pathlib.Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old=re.search(r"\.stage:after\{[^}]*?\}", s)
+          if not old:
+              raise SystemExit('stage:after rule not found')
+          replacement=".stage:after{content:none}.loincloth-img{position:absolute;left:50%;top:53.9%;width:24%;height:auto;transform:translate(-50%,-50%);z-index:6;pointer-events:none;display:block;opacity:1;filter:sepia(.04) saturate(.84) contrast(.96) brightness(1.02)}"
+          s=s[:old.start()]+replacement+s[old.end():]
+          needle='<div class="stage"><img class="vit-img" src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Leonardo_da_Vinci-_Vitruvian_Man.JPG" alt="Витрувианский человек Леонардо да Винчи">'
+          insert=needle+'<img class="loincloth-img" src="assets/loincloth-da-vinci-v3.svg" alt="" aria-hidden="true">'
+          if needle not in s:
+              raise SystemExit('stage image needle not found')
+          s=s.replace(needle, insert, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Fix visible opaque loincloth layer"
+          git push origin HEAD:feature/site-v1
