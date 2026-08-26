@@ -1,0 +1,47 @@
+name: Apply fig leaf
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - .github/workflows/apply-fig-leaf.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Add opaque sepia fig leaf
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = 'fig-leaf-v1'
+          if marker in s:
+              raise SystemExit('fig leaf already present')
+
+          css = """/* fig-leaf-v1 */.fig-leaf{position:absolute;left:50%;top:56.2%;width:16.5%;height:auto;transform:translate(-50%,-50%) rotate(-4deg);z-index:6;pointer-events:none;overflow:visible;filter:drop-shadow(0 1px .8px rgba(88,67,43,.18))}.fig-leaf .leaf-underlay{fill:#e8dcc8;stroke:#e8dcc8;stroke-width:7;stroke-linejoin:round}.fig-leaf .leaf-body{fill:#dfcdb1;stroke:#876b49;stroke-width:2.2;stroke-linejoin:round}.fig-leaf .leaf-vein{fill:none;stroke:#9a7b55;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}.fig-leaf .leaf-vein-soft{fill:none;stroke:#b09169;stroke-width:1.05;stroke-linecap:round;opacity:.82}.fig-leaf .leaf-stem{fill:none;stroke:#826544;stroke-width:3;stroke-linecap:round}"""
+          anchor = '.direction{position:absolute;'
+          if anchor not in s:
+              raise SystemExit('CSS anchor not found')
+          s = s.replace(anchor, css + anchor, 1)
+
+          leaf = '''<svg class="fig-leaf" viewBox="0 0 120 142" aria-hidden="true" focusable="false"><path class="leaf-stem" d="M59 34 C56 23 51 13 45 4"/><path class="leaf-underlay" d="M60 136 C54 121 49 109 40 99 C31 90 15 84 14 69 C13 56 25 50 40 53 C29 40 29 26 41 19 C51 13 59 25 63 38 C68 24 79 11 91 17 C104 24 101 41 90 54 C105 52 116 61 113 75 C110 89 95 95 80 98 C75 113 69 126 60 136 Z"/><path class="leaf-body" d="M60 136 C54 121 49 109 40 99 C31 90 15 84 14 69 C13 56 25 50 40 53 C29 40 29 26 41 19 C51 13 59 25 63 38 C68 24 79 11 91 17 C104 24 101 41 90 54 C105 52 116 61 113 75 C110 89 95 95 80 98 C75 113 69 126 60 136 Z"/><path class="leaf-vein" d="M60 132 C59 111 59 88 61 42"/><path class="leaf-vein" d="M60 82 C49 71 38 64 23 61 M60 94 C47 91 35 88 23 78 M61 69 C50 53 46 38 46 25 M62 78 C74 66 84 58 101 57 M61 94 C76 90 91 87 105 77 M62 62 C72 46 80 32 89 22"/><path class="leaf-vein-soft" d="M47 73 C40 70 33 68 27 68 M43 91 C35 88 29 85 24 81 M51 55 C47 47 44 40 43 34 M74 69 C82 63 90 60 97 60 M76 91 C85 89 94 85 101 81 M73 51 C78 42 83 34 88 28"/></svg>'''
+          m = re.search(r'<img class="vit-img"[^>]*>', s)
+          if not m:
+              raise SystemExit('vit-img not found')
+          s = s[:m.end()] + leaf + s[m.end():]
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add opaque sepia fig leaf to Vitruvian figure"
+          git push origin feature/site-v1
