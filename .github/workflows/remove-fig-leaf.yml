@@ -17,24 +17,27 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
+
           marker = '/* fig-leaf-v1 */'
-          anchor = '.direction{position:absolute;'
+          css_anchor = '.direction{position:absolute;'
+          svg_start = '<svg class="fig-leaf"'
+          svg_end = '</svg>'
 
           if marker not in s:
               raise SystemExit('fig-leaf CSS marker not found')
-          before, rest = s.split(marker, 1)
-          if anchor not in rest:
-              raise SystemExit('direction CSS anchor not found')
-          rest = rest[rest.index(anchor):]
-          s = before + rest
+          a = s.index(marker)
+          b = s.index(css_anchor, a)
+          s = s[:a] + s[b:]
 
-          s, n = re.subn(r'<svg class="fig-leaf"\b.*?</svg>', '', s, count=1, flags=re.S)
-          if n != 1:
-              raise SystemExit(f'expected one fig-leaf SVG, removed {n}')
+          if svg_start not in s:
+              raise SystemExit('fig-leaf SVG start not found')
+          a = s.index(svg_start)
+          b = s.index(svg_end, a) + len(svg_end)
+          s = s[:a] + s[b:]
+
           if 'fig-leaf-v1' in s or 'class="fig-leaf"' in s:
               raise SystemExit('fig leaf remnants remain')
 
