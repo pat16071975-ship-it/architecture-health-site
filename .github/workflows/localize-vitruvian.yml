@@ -1,0 +1,55 @@
+name: Apply localized Vitruvian asset
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/localize-vitruvian.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Switch site to local prepared Vitruvian asset
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          site = Path('index.html')
+          s = site.read_text(encoding='utf-8')
+          remote = 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Leonardo_da_Vinci-_Vitruvian_Man.JPG'
+          s = s.replace(remote, 'assets/vitruvian-site.webp?v=20260826-1')
+          marker = '/* vitruvian-local-v1 */'
+          override = marker + '.stage{border:0}.stage:before{content:none}.vit-img{left:0;top:0;width:100%;height:100%;object-fit:fill;object-position:center;transform:none;filter:none;mix-blend-mode:normal}'
+          if marker not in s:
+              s = s.replace('</style>', override + '</style>', 1)
+          site.write_text(s, encoding='utf-8')
+
+          lab = Path('interface-lab/loincloth.html')
+          if lab.exists():
+              x = lab.read_text(encoding='utf-8')
+              x = x.replace(remote, '../assets/vitruvian-site.webp?v=20260826-1')
+              lab_marker = '/* vitruvian-local-lab-v1 */'
+              lab_override = lab_marker + '.board:before{content:none}.vit{left:0;top:0;width:100%;height:100%;object-fit:fill;object-position:center;transform:none;filter:none;mix-blend-mode:normal}'
+              if lab_marker not in x:
+                  x = x.replace('</style>', lab_override + '</style>', 1)
+              lab.write_text(x, encoding='utf-8')
+          PY
+      - name: Commit localized asset usage
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html interface-lab/loincloth.html
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Use local prepared Vitruvian asset"
+          git push origin feature/site-v1
