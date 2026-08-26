@@ -1,0 +1,49 @@
+name: Remove fig leaf
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - .github/workflows/remove-fig-leaf.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Remove fig leaf only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '/* fig-leaf-v1 */'
+          anchor = '.direction{position:absolute;'
+
+          if marker not in s:
+              raise SystemExit('fig-leaf CSS marker not found')
+          before, rest = s.split(marker, 1)
+          if anchor not in rest:
+              raise SystemExit('direction CSS anchor not found')
+          rest = rest[rest.index(anchor):]
+          s = before + rest
+
+          s, n = re.subn(r'<svg class="fig-leaf"\b.*?</svg>', '', s, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit(f'expected one fig-leaf SVG, removed {n}')
+          if 'fig-leaf-v1' in s or 'class="fig-leaf"' in s:
+              raise SystemExit('fig leaf remnants remain')
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Remove fig leaf from Vitruvian figure"
+          git push origin feature/site-v1
