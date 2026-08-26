@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Управленческий отчёт — Архитектура здоровья</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f7f3ec;--soft:#fffdf8;--ink:#2d342f;--green:#44634f;--green2:#dfe9e2;--gold:#b59662;--gold2:#efe5d2;--blue:#dfe9f2;--orange:#f1dfc9;--line:#d8cdbb;--red:#9a4b48}
+*{box-sizing:border-box}html,body{margin:0;background:linear-gradient(180deg,#fcfaf6,var(--paper));color:var(--ink);font-family:Inter,Arial,sans-serif}body{min-height:100vh}.hidden{display:none!important}
+.login{min-height:100vh;display:grid;place-items:center;padding:24px}.login-card{width:min(420px,94vw);background:rgba(255,253,248,.96);border:1px solid var(--line);border-radius:18px;padding:34px;box-shadow:0 18px 50px rgba(69,55,35,.10)}.brand{font:600 34px/1.05 'Cormorant Garamond',serif;text-align:center}.sub{margin:8px 0 24px;text-align:center;color:#687067;font-size:13px}.field{display:grid;gap:6px;margin:12px 0}.field label{font-size:12px;font-weight:600;color:#60685f}.field input,.field select{width:100%;padding:11px 12px;border:1px solid #cfc5b5;border-radius:10px;background:#fff;font:500 14px Inter}.btn{appearance:none;border:1px solid rgba(68,99,79,.34);background:#fff;color:#334039;border-radius:10px;padding:10px 14px;font:600 13px Inter;cursor:pointer}.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}.btn.warn{border-color:#c98d89;color:#7e3d39}.btn:disabled{opacity:.45;cursor:not-allowed}.error{min-height:18px;color:var(--red);font-size:12px;margin-top:8px}
+.app{width:min(1500px,98vw);margin:0 auto;padding:18px 0 46px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}.title{font:600 38px/1 'Cormorant Garamond',serif}.muted{color:#6d746c;font-size:12px}.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;padding:14px;border:1px solid var(--line);background:rgba(255,253,248,.78);border-radius:14px;position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}.toolbar .field{margin:0;min-width:145px}.toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}.notice{margin:12px 0;padding:10px 13px;border-left:3px solid var(--gold);background:#fffaf0;color:#665b49;font-size:12px;border-radius:8px}.status{margin:10px 0 16px;font-size:12px;color:#516056}.section{margin:16px 0 0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:rgba(255,253,248,.88)}.section h2{margin:0;padding:12px 16px;font:700 22px/1.1 'Cormorant Garamond',serif}.section.general h2{background:var(--gold2)}.section.dent h2{background:var(--blue)}.section.clinic h2{background:var(--green2)}.section.lab h2{background:var(--orange)}.section.marketing h2{background:#eee5f1}.grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;padding:14px}.metric{border:1px solid #e2d9ca;border-radius:10px;padding:9px;background:#fff}.metric label{display:block;font-size:11px;font-weight:700;color:#60675f;margin-bottom:5px}.metric input{width:100%;border:0;border-bottom:1px solid #cfc5b5;padding:5px 0;font:600 15px Inter;background:transparent;color:#2f3732}.metric input:focus{outline:0;border-color:var(--green)}.metric.auto{background:#f7f8f5}.metric.auto input{border-bottom-color:transparent;color:#475148}.table-wrap{overflow:auto}.data-table{width:100%;border-collapse:collapse;min-width:820px}.data-table th,.data-table td{border-top:1px solid #e4dccf;padding:8px 10px;text-align:right;font-size:12px}.data-table th:first-child,.data-table td:first-child{text-align:left}.data-table th{background:#faf6ef;font-weight:700}.data-table input{width:128px;text-align:right;padding:7px;border:1px solid #d7cdbd;border-radius:8px;font:500 12px Inter}.sum-row td{font-weight:700;background:#fbf8f1}.period-card{padding:14px}.period-table{width:100%;border-collapse:collapse}.period-table td,.period-table th{padding:9px 10px;border-bottom:1px solid #e4dccf;font-size:12px}.period-table th{text-align:left;background:#faf6ef}.period-table td:last-child{text-align:right;font-weight:700}.footer-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.danger-note{font-size:11px;color:#80635e;margin-top:12px}@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(130px,1fr))}.topbar{align-items:flex-start;flex-direction:column}.toolbar{position:static}.toolbar-actions{margin-left:0}.title{font-size:30px}}@media(max-width:520px){.grid{grid-template-columns:1fr}.login-card{padding:24px}.app{width:96vw}.toolbar .field{min-width:100%;width:100%}.toolbar-actions{width:100%}.toolbar-actions .btn{flex:1}}
+</style>
+</head>
+<body>
+<div id="loginView" class="login">
+  <div class="login-card">
+    <div class="brand">Архитектура здоровья</div>
+    <div class="sub">Управленческий отчёт</div>
+    <form id="loginForm">
+      <div class="field"><label>Логин</label><input id="loginName" autocomplete="username" required></div>
+      <div class="field"><label>Пароль</label><input id="loginPassword" type="password" autocomplete="current-password" required></div>
+      <button class="btn primary" style="width:100%;margin-top:8px" type="submit">Войти</button>
+      <div id="loginError" class="error"></div>
+    </form>
+  </div>
+</div>
+
+<div id="appView" class="app hidden">
+  <div class="topbar">
+    <div><div class="title">Управленческий отчёт</div><div class="muted">Ручной режим ввода данных</div></div>
+    <button id="logoutBtn" class="btn">Выйти</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="field"><label>Режим</label><select id="mode"><option value="date">Дата</option><option value="quarter">Квартал</option><option value="half">Полугодие</option><option value="year">Год</option></select></div>
+    <div class="field" id="dateWrap"><label>Дата</label><input id="reportDate" type="date"></div>
+    <div class="field hidden" id="quarterWrap"><label>Квартал</label><select id="quarter"><option value="1">1 квартал</option><option value="2">2 квартал</option><option value="3">3 квартал</option><option value="4">4 квартал</option></select></div>
+    <div class="field hidden" id="halfWrap"><label>Полугодие</label><select id="half"><option value="1">1 полугодие</option><option value="2">2 полугодие</option></select></div>
+    <div class="field" id="yearWrap"><label>Год</label><select id="year"></select></div>
+    <div class="toolbar-actions">
+      <button id="saveBtn" class="btn primary">Сохранить дату</button>
+      <button id="deleteBtn" class="btn warn">Удалить запись</button>
+      <button class="btn" disabled title="Добавим на следующем этапе">Импорт из МИС</button>
+    </div>
+  </div>
+  <div class="notice">Временный режим: данные сохраняются только в этом браузере на этом устройстве. Для реальной многопользовательской работы следующим этапом нужен закрытый серверный контур.</div>
+  <div id="status" class="status"></div>
+
+  <div id="editView">
+    <div class="section general"><h2>Основные показатели</h2><div id="generalGrid" class="grid"></div></div>
+    <div class="section dent"><h2>Стоматология</h2><div id="dentSummary" class="grid"></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Врач</th><th>Выручка</th></tr></thead><tbody id="dentDoctors"></tbody></table></div></div>
+    <div class="section clinic"><h2>Клиника</h2><div id="clinicSummary" class="grid"></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Специалист</th><th>Выручка</th></tr></thead><tbody id="clinicDoctors"></tbody></table></div></div>
+    <div class="section lab"><h2>Лаборатория</h2><div id="labGrid" class="grid"></div></div>
+    <div class="section marketing"><h2>Целевые лиды</h2><div id="marketingGrid" class="grid"></div></div>
+    <div class="footer-actions"><button id="backupBtn" class="btn">Скачать резервную копию</button><label class="btn" for="restoreInput">Восстановить резервную копию</label><input id="restoreInput" type="file" accept="application/json" class="hidden"></div>
+    <div class="danger-note">Логин на этой временной статической странице защищает интерфейс только от случайного доступа. Перед хранением реальных управленческих данных в интернете авторизацию и данные нужно перенести на сервер.</div>
+  </div>
+
+  <div id="periodView" class="hidden section general"><h2 id="periodTitle">Сводка</h2><div class="period-card"><table class="period-table"><tbody id="periodTable"></tbody></table></div></div>
+</div>
+
+<script>
+const AUTH_USER='admin';
+const AUTH_HASH='56c30f55c895d1d96f4b82f01c09e91f1e8cdc7eb77851f98a00cdd4d6aeddbf';
+const STORAGE_KEY='az-management-report-v1';
+const SESSION_KEY='az-management-auth-v1';
+const dentists=['Чирков Максим Сергеевич','Мовсесян Бабкен Ашотович','Румянцева Мария Павловна','Авдалие Эрик Ишханович','Назыров Уктам Алиевич','Голышенков Владислав Александрович','Зубачев Роман Николаевич','Босак Яна Сергеевна'];
+const clinicDocs=['Старостенко Вадим Анатольевич','Димитренко Анна Яковлевна','Лапина Наталья Сергеевна','Холодцева Валерия Евгеньевна','Любаева Алёна Юрьевна','Мамонтова Любава Геннадьевна','Павлова Алла Викторовна'];
+const $=s=>document.querySelector(s);
+const money=n=>n===''||n==null||Number.isNaN(+n)?'':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(+n)+' ₽';
+const num=n=>n===''||n==null||Number.isNaN(+n)?0:+n;
+const pct=n=>n===''||n==null||!isFinite(n)?'':new Intl.NumberFormat('ru-RU',{style:'percent',maximumFractionDigits:1}).format(n);
+const count=n=>n===''||n==null||!isFinite(n)?'':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n);
+function loadStore(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}}
+function saveStore(v){localStorage.setItem(STORAGE_KEY,JSON.stringify(v))}
+function blankRecord(date){return {date,plan:'',factMedicine:'',factLab:'',pp25:'',avg25:'',primary:'',repeat:'',dentPrimary:'',dentRepeat:'',dentists:Object.fromEntries(dentists.map(x=>[x,''])),clinicPrimary:'',clinicRepeat:'',clinicDocs:Object.fromEntries(clinicDocs.map(x=>[x,''])),labOrders:'',labRevenue:'',leadsDent:'',leadsDentLost:'',leadsClinic:'',leadsReserve:''}}
+function daysInMonth(d){return new Date(d.getFullYear(),d.getMonth()+1,0).getDate()}
+function derive(r){const d=new Date(r.date+'T12:00:00');const day=d.getDate();const plan=num(r.plan);const due=plan?plan*day/daysInMonth(d):0;const fm=num(r.factMedicine),fl=num(r.factLab);const dentRev=Object.values(r.dentists||{}).reduce((a,v)=>a+num(v),0);const clinicRev=Object.values(r.clinicDocs||{}).reduce((a,v)=>a+num(v),0);const p=num(r.primary),rep=num(r.repeat),dp=num(r.dentPrimary),dr=num(r.dentRepeat),cp=num(r.clinicPrimary),cr=num(r.clinicRepeat),lo=num(r.labOrders),lr=num(r.labRevenue||r.factLab);const ld=num(r.leadsDent),lc=num(r.leadsClinic),lres=num(r.leadsReserve);return {...r,due,factTotal:fm+fl,execution:due?(fm+fl)/due:null,ppDay:p/day,avgCheck:(p+rep)?fm/(p+rep):null,dentRev,dentPPDay:dp/day,dentAvg:(dp+dr)?dentRev/(dp+dr):null,clinicRev,clinicPPDay:cp/day,clinicAvg:(cp+cr)?clinicRev/(cp+cr):null,labRevenue:lr,labAvg:lo?lr/lo:null,convDent:ld?dp/ld:null,convClinic:lc?cp/lc:null,totalLeads:ld+lc+lres,totalConv:(ld+lc+lres)?(p/(ld+lc+lres)):null}}
+function inputMetric(container,label,key,type='money',auto=false){const box=document.createElement('div');box.className='metric'+(auto?' auto':'');box.innerHTML=`<label>${label}</label><input ${auto?'readonly':''} data-key="${key}" data-type="${type}" inputmode="decimal">`;container.appendChild(box);return box.querySelector('input')}
+function renderStructure(){const g=$('#generalGrid');g.innerHTML='';[['План','plan','money'],['Должно быть','due','money',1],['Факт медицина','factMedicine','money'],['Факт лаборатория','factLab','money'],['Факт общий','factTotal','money',1],['% выполнения','execution','pct',1],['ПП 2025 на этот день','pp25','count'],['ср. чек 2025','avg25','money'],['Первичный приём','primary','count'],['Повторный приём','repeat','count'],['ПП в день','ppDay','count',1],['Средний чек','avgCheck','money',1]].forEach(x=>inputMetric(g,...x));
+const ds=$('#dentSummary');ds.innerHTML='';[['Первичный приём','dentPrimary','count'],['Повторный приём','dentRepeat','count'],['ПП в день','dentPPDay','count',1],['Выручка стоматология','dentRev','money',1],['Стоматология ср. чек','dentAvg','money',1]].forEach(x=>inputMetric(ds,...x));
+const db=$('#dentDoctors');db.innerHTML='';dentists.forEach(name=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${name}</td><td><input data-doctor-type="dentists" data-doctor="${name}" inputmode="decimal"></td>`;db.appendChild(tr)});
+const cs=$('#clinicSummary');cs.innerHTML='';[['Первичный приём','clinicPrimary','count'],['Повторный приём','clinicRepeat','count'],['ПП в день','clinicPPDay','count',1],['Выручка клиника','clinicRev','money',1],['Клиника ср. чек','clinicAvg','money',1]].forEach(x=>inputMetric(cs,...x));
+const cb=$('#clinicDoctors');cb.innerHTML='';clinicDocs.forEach(name=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${name}</td><td><input data-doctor-type="clinicDocs" data-doctor="${name}" inputmode="decimal"></td>`;cb.appendChild(tr)});
+const lg=$('#labGrid');lg.innerHTML='';[['Количество заказов','labOrders','count'],['Выручка лаборатории','labRevenue','money'],['Лаборатория ср. чек','labAvg','money',1]].forEach(x=>inputMetric(lg,...x));
+const mg=$('#marketingGrid');mg.innerHTML='';[['Стоматология — целевые лиды','leadsDent','count'],['из них отказ / мониторинг','leadsDentLost','count'],['Конверсия стоматология','convDent','pct',1],['Клиника — целевые лиды','leadsClinic','count'],['Конверсия клиника','convClinic','pct',1],['Резерв','leadsReserve','count'],['Всего лидов','totalLeads','count',1],['Общая конверсия','totalConv','pct',1]].forEach(x=>inputMetric(mg,...x));
+}
+function getSelectedDate(){return $('#reportDate').value}
+function fillRecord(r){const d=derive(r);document.querySelectorAll('[data-key]').forEach(inp=>{const k=inp.dataset.key,t=inp.dataset.type,v=d[k];if(inp.readOnly){inp.value=t==='money'?money(v):t==='pct'?pct(v):count(v)}else{inp.value=v??''}});document.querySelectorAll('[data-doctor]').forEach(inp=>{inp.value=(r[inp.dataset.doctorType]||{})[inp.dataset.doctor]??''});}
+function collectRecord(){const r=blankRecord(getSelectedDate());document.querySelectorAll('[data-key]:not([readonly])').forEach(inp=>r[inp.dataset.key]=inp.value.trim());document.querySelectorAll('[data-doctor]').forEach(inp=>r[inp.dataset.doctorType][inp.dataset.doctor]=inp.value.trim());return r}
+function refreshAutos(){fillRecord(collectRecord())}
+function loadDate(){const date=getSelectedDate();if(!date)return;const store=loadStore();const r=store[date]||blankRecord(date);fillRecord(r);$('#status').textContent=store[date]?`Загружена сохранённая запись за ${new Date(date+'T12:00:00').toLocaleDateString('ru-RU')}`:'Новая запись — пока не сохранена';}
+function saveDate(){const r=collectRecord();if(!r.date)return;const store=loadStore();store[r.date]=r;saveStore(store);fillRecord(r);$('#status').textContent='Сохранено в этом браузере: '+new Date(r.date+'T12:00:00').toLocaleString('ru-RU');}
+function deleteDate(){const date=getSelectedDate();if(!date||!confirm('Удалить сохранённую запись за выбранную дату?'))return;const s=loadStore();delete s[date];saveStore(s);loadDate();}
+function latestMonthlyRecords(year,startMonth,endMonth){const s=loadStore(),rows=Object.values(s).filter(r=>{const d=new Date(r.date+'T12:00:00');return d.getFullYear()===year&&d.getMonth()+1>=startMonth&&d.getMonth()+1<=endMonth});const by={};rows.forEach(r=>{const m=new Date(r.date+'T12:00:00').getMonth()+1;if(!by[m]||r.date>by[m].date)by[m]=r});return Object.values(by).sort((a,b)=>a.date.localeCompare(b.date))}
+function aggregate(rows){if(!rows.length)return null;const out=blankRecord(rows[rows.length-1].date);['plan','factMedicine','factLab','primary','repeat','dentPrimary','dentRepeat','clinicPrimary','clinicRepeat','labOrders','labRevenue','leadsDent','leadsDentLost','leadsClinic','leadsReserve'].forEach(k=>out[k]=rows.reduce((a,r)=>a+num(r[k]),0));dentists.forEach(n=>out.dentists[n]=rows.reduce((a,r)=>a+num((r.dentists||{})[n]),0));clinicDocs.forEach(n=>out.clinicDocs[n]=rows.reduce((a,r)=>a+num((r.clinicDocs||{})[n]),0));const d=derive(out);d.due=rows.reduce((a,r)=>a+derive(r).due,0);d.execution=d.due?d.factTotal/d.due:null;d.ppDay=null;d.dentPPDay=null;d.clinicPPDay=null;return d}
+function renderPeriod(){const mode=$('#mode').value,year=+$('#year').value;let sm=1,em=12,title='Год '+year;if(mode==='quarter'){const q=+$('#quarter').value;sm=(q-1)*3+1;em=q*3;title=q+' квартал '+year}else if(mode==='half'){const h=+$('#half').value;sm=h===1?1:7;em=h===1?6:12;title=h+' полугодие '+year}const rows=latestMonthlyRecords(year,sm,em),a=aggregate(rows);$('#periodTitle').textContent=title;const tb=$('#periodTable');tb.innerHTML='';if(!a){tb.innerHTML='<tr><td>Нет сохранённых данных за выбранный период</td></tr>';return}const items=[['Учтено месяцев',rows.length],['План',money(a.plan)],['Должно быть',money(a.due)],['Факт медицина',money(a.factMedicine)],['Факт лаборатория',money(a.factLab)],['Факт общий',money(a.factTotal)],['% выполнения',pct(a.execution)],['Первичные',count(a.primary)],['Повторные',count(a.repeat)],['Средний чек',money(a.avgCheck)],['Выручка стоматология',money(a.dentRev)],['Первичные стоматология',count(a.dentPrimary)],['Повторные стоматология',count(a.dentRepeat)],['Стоматология ср. чек',money(a.dentAvg)],['Выручка клиника',money(a.clinicRev)],['Первичные клиника',count(a.clinicPrimary)],['Повторные клиника',count(a.clinicRepeat)],['Клиника ср. чек',money(a.clinicAvg)],['Количество заказов лаборатории',count(a.labOrders)],['Выручка лаборатории',money(a.labRevenue)],['Лаборатория ср. чек',money(a.labAvg)],['Всего лидов',count(a.totalLeads)],['Общая конверсия',pct(a.totalConv)]];items.forEach(([k,v])=>{const tr=document.createElement('tr');tr.innerHTML=`<th>${k}</th><td>${v||'—'}</td>`;tb.appendChild(tr)});}
+function switchMode(){const m=$('#mode').value;$('#dateWrap').classList.toggle('hidden',m!=='date');$('#quarterWrap').classList.toggle('hidden',m!=='quarter');$('#halfWrap').classList.toggle('hidden',m!=='half');$('#saveBtn').classList.toggle('hidden',m!=='date');$('#deleteBtn').classList.toggle('hidden',m!=='date');$('#editView').classList.toggle('hidden',m!=='date');$('#periodView').classList.toggle('hidden',m==='date');if(m==='date')loadDate();else renderPeriod();}
+async function sha256(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+async function login(e){e.preventDefault();const u=$('#loginName').value.trim(),p=$('#loginPassword').value;const h=await sha256(u+'|'+p);if(u===AUTH_USER&&h===AUTH_HASH){sessionStorage.setItem(SESSION_KEY,'1');showApp()}else $('#loginError').textContent='Неверный логин или пароль'}
+function showApp(){ $('#loginView').classList.add('hidden');$('#appView').classList.remove('hidden');}
+function exportBackup(){const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),data:loadStore()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='az-management-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
+function importBackup(file){const fr=new FileReader();fr.onload=()=>{try{const j=JSON.parse(fr.result);if(!j.data||typeof j.data!=='object')throw 0;if(!confirm('Заменить локальные данные данными из резервной копии?'))return;saveStore(j.data);loadDate();alert('Резервная копия восстановлена')}catch{alert('Не удалось прочитать резервную копию')}};fr.readAsText(file)}
+function init(){renderStructure();const ys=$('#year');const cy=new Date().getFullYear();for(let y=2025;y<=cy+3;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===cy)o.selected=true;ys.appendChild(o)}const today=new Date();$('#reportDate').value=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');document.addEventListener('input',e=>{if(e.target.matches('[data-key]:not([readonly]),[data-doctor]'))refreshAutos()});$('#reportDate').addEventListener('change',loadDate);$('#mode').addEventListener('change',switchMode);$('#quarter').addEventListener('change',renderPeriod);$('#half').addEventListener('change',renderPeriod);$('#year').addEventListener('change',()=>$('#mode').value==='date'?null:renderPeriod());$('#saveBtn').addEventListener('click',saveDate);$('#deleteBtn').addEventListener('click',deleteDate);$('#backupBtn').addEventListener('click',exportBackup);$('#restoreInput').addEventListener('change',e=>e.target.files[0]&&importBackup(e.target.files[0]));$('#logoutBtn').addEventListener('click',()=>{sessionStorage.removeItem(SESSION_KEY);location.reload()});$('#loginForm').addEventListener('submit',login);if(sessionStorage.getItem(SESSION_KEY)==='1')showApp();loadDate();}
+init();
+</script>
+</body>
+</html>
