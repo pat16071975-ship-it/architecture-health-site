@@ -1,0 +1,67 @@
+name: Apply sepia loincloth v2
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - .github/workflows/apply-loincloth-v2.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Add opaque sepia draped loincloth
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = 'loincloth-v2'
+          if marker in s:
+              raise SystemExit('loincloth-v2 already present')
+
+          css = """/* loincloth-v2 */.loincloth-v2{position:absolute;left:50%;top:56.1%;width:29%;height:auto;transform:translate(-50%,-50%) rotate(-1deg);z-index:6;pointer-events:none;overflow:visible;opacity:1;mix-blend-mode:normal}.loincloth-v2 .cloth-underlay{fill:#eadfce;stroke:#eadfce;stroke-width:8;stroke-linejoin:round;stroke-linecap:round}.loincloth-v2 .cloth-main{fill:#dfcfb6;stroke:#806447;stroke-width:2;stroke-linejoin:round}.loincloth-v2 .cloth-panel{fill:#d7c4a6;stroke:#8a6c4c;stroke-width:1.45;stroke-linejoin:round}.loincloth-v2 .cloth-light{fill:#e8dcc8;stroke:#997a58;stroke-width:1.2;stroke-linejoin:round}.loincloth-v2 .cloth-fold{fill:none;stroke:#8e7050;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.loincloth-v2 .cloth-soft{fill:none;stroke:#ae916b;stroke-width:1;stroke-linecap:round;stroke-linejoin:round}.loincloth-v2 .cloth-knot{fill:#cdb897;stroke:#7f6244;stroke-width:1.8}.loincloth-v2 .cloth-knot-line{fill:none;stroke:#86694a;stroke-width:1.15;stroke-linecap:round}"""
+          anchor = '.direction{position:absolute;'
+          if anchor not in s:
+              raise SystemExit('CSS anchor not found')
+          s = s.replace(anchor, css + anchor, 1)
+
+          cloth = '''<svg class="loincloth-v2" viewBox="0 0 240 150" aria-hidden="true" focusable="false">
+            <path class="cloth-underlay" d="M31 43 C50 31 75 30 98 36 C119 42 143 41 166 34 C185 29 204 34 211 44 C205 53 196 60 187 67 C176 76 166 88 159 104 C145 101 132 94 120 84 C114 97 111 111 111 130 C98 124 89 113 83 98 C75 82 63 72 48 65 C39 61 33 53 31 43 Z"/>
+            <path class="cloth-main" d="M31 43 C50 31 75 30 98 36 C119 42 143 41 166 34 C185 29 204 34 211 44 C205 53 196 60 187 67 C176 76 166 88 159 104 C145 101 132 94 120 84 C114 97 111 111 111 130 C98 124 89 113 83 98 C75 82 63 72 48 65 C39 61 33 53 31 43 Z"/>
+            <path class="cloth-light" d="M40 42 C58 35 78 35 98 40 C116 45 135 46 151 43 C133 52 114 58 94 60 C74 61 55 55 40 42 Z"/>
+            <path class="cloth-panel" d="M49 54 C72 59 94 66 115 78 C131 87 144 93 159 96 C151 105 143 111 136 115 C124 107 116 97 111 88 C104 101 101 114 101 124 C91 115 86 104 82 93 C76 77 64 66 49 54 Z"/>
+            <path class="cloth-light" d="M99 45 C120 48 142 46 164 39 C179 35 194 38 202 44 C187 48 173 54 161 63 C151 70 142 80 135 91 C124 85 114 77 103 70 C91 63 78 58 64 54 C77 51 88 48 99 45 Z"/>
+            <ellipse class="cloth-knot" cx="36" cy="43" rx="9" ry="7"/>
+            <ellipse class="cloth-knot" cx="205" cy="44" rx="9" ry="7"/>
+            <path class="cloth-knot-line" d="M31 40 C35 44 39 46 43 47 M31 46 C35 42 39 40 43 39 M199 41 C203 45 207 47 211 48 M199 47 C203 43 207 41 211 40"/>
+            <path class="cloth-fold" d="M49 52 C73 58 96 69 116 82 C131 92 144 97 157 99"/>
+            <path class="cloth-fold" d="M70 50 C90 56 109 66 126 78 C139 87 149 91 165 94"/>
+            <path class="cloth-fold" d="M96 47 C116 52 134 60 151 72 C163 80 174 82 186 83"/>
+            <path class="cloth-fold" d="M117 82 C111 95 108 111 109 128"/>
+            <path class="cloth-fold" d="M102 75 C97 88 96 103 100 118"/>
+            <path class="cloth-soft" d="M57 60 C73 67 86 76 94 89 M81 58 C97 66 110 75 120 88 M128 58 C143 65 155 73 167 84 M151 52 C167 59 181 65 192 72"/>
+          </svg>'''
+          m = re.search(r'<img class="vit-img"[^>]*>', s)
+          if not m:
+              raise SystemExit('vit-img not found')
+          s = s[:m.end()] + cloth + s[m.end():]
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Verify patch
+        run: |
+          grep -q 'loincloth-v2' index.html
+          grep -q 'cloth-underlay' index.html
+      - name: Commit change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add opaque sepia draped loincloth"
+          git push origin feature/site-v1
