@@ -1,0 +1,11 @@
+@media(max-width:720px){
+  .section.dent .table-wrap,.section.clinic .table-wrap{overflow-x:visible}
+  .section.dent .data-table,.section.clinic .data-table{width:100%;min-width:0!important;display:block}
+  .section.dent .data-table thead,.section.clinic .data-table thead{display:none}
+  #dentDoctors,#clinicDoctors{display:block;width:100%}
+  #dentDoctors tr,#clinicDoctors tr{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:max-content;max-width:100%;padding:8px 10px;border-top:1px solid #e4dccf}
+  #dentDoctors td,#clinicDoctors td{display:block;border:0!important;padding:0!important}
+  #dentDoctors td:first-child,#clinicDoctors td:first-child{flex:0 1 210px;width:210px;max-width:calc(100vw - 145px);font-size:11.5px;line-height:1.22;text-align:left}
+  #dentDoctors td:last-child,#clinicDoctors td:last-child{flex:0 0 110px;width:110px;text-align:left}
+  #dentDoctors input,#clinicDoctors input{width:110px!important;max-width:110px;padding:7px 8px;text-align:right;font-size:12px}
+}
