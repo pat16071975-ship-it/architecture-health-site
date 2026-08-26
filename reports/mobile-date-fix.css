@@ -1,3 +1,11 @@
+/* Global report overrides */
+#periodCompareBody > tr:nth-child(3) > td.heat-cell,
+#periodCompareBody > tr:nth-child(4) > td.heat-cell,
+#dateCompareBody > tr:nth-child(3) > td.heat-cell,
+#dateCompareBody > tr:nth-child(4) > td.heat-cell{
+  background:#fffdf8!important;
+}
+
 @media(max-width:720px){
   .section.dent .table-wrap,.section.clinic .table-wrap{overflow-x:visible}
   .section.dent .data-table,.section.clinic .data-table{width:100%;min-width:0!important;display:block}
