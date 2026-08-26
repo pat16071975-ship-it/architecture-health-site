@@ -1,0 +1,55 @@
+name: Remove loincloth v2
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - .github/workflows/remove-loincloth-v2.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Remove loincloth v2 only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          marker = '/* loincloth-v2 */'
+          css_anchor = '.direction{position:absolute;'
+          svg_start = '<svg class="loincloth-v2"'
+          svg_end = '</svg>'
+
+          if marker not in s:
+              raise SystemExit('loincloth-v2 CSS marker not found')
+          a = s.index(marker)
+          b = s.index(css_anchor, a)
+          s = s[:a] + s[b:]
+
+          if svg_start not in s:
+              raise SystemExit('loincloth-v2 SVG start not found')
+          a = s.index(svg_start)
+          b = s.index(svg_end, a) + len(svg_end)
+          s = s[:a] + s[b:]
+
+          if 'loincloth-v2' in s:
+              raise SystemExit('loincloth-v2 remnants remain')
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Verify removal
+        run: |
+          ! grep -q 'loincloth-v2' index.html
+      - name: Commit change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Remove rejected loincloth v2"
+          git push origin feature/site-v1
