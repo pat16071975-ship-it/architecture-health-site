@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>АЗ Interface Lab</title>
+<style>
+:root{--bg:#e8e4dc;--panel:#fbf8f2;--ink:#30372f;--line:#c9bda8;--green:#44634f;--gold:#b59662}
+*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+.lab{height:100%;display:grid;grid-template-rows:auto 1fr}.toolbar{position:relative;z-index:20;display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 12px;background:rgba(251,248,242,.98);border-bottom:1px solid var(--line);box-shadow:0 3px 14px rgba(58,49,37,.08);flex-wrap:wrap}.brand{font:700 15px/1.1 Georgia,serif;margin-right:6px}.note{font-size:11px;color:#657066;margin-right:auto}.group{display:flex;gap:5px;align-items:center}.btn{appearance:none;border:1px solid #c6b99f;background:#fffdf9;color:#394139;border-radius:8px;padding:7px 10px;font:600 11px/1 Inter,Segoe UI,Arial,sans-serif;cursor:pointer}.btn:hover,.btn:focus-visible{outline:0;border-color:#7f947f}.btn.active{background:#e8efe9;border-color:#6d876f;color:#294231}.status{padding:7px 10px;border-radius:8px;border:1px solid rgba(181,150,98,.45);background:#f5efe4;font-size:11px;white-space:nowrap}.workspace{min-height:0;overflow:auto;padding:16px;display:flex;justify-content:center;align-items:flex-start}.frame-shell{height:calc(100vh - 90px);width:min(100%,1440px);min-width:300px;background:white;border:1px solid #bcb4a7;border-radius:10px;overflow:hidden;box-shadow:0 14px 40px rgba(58,49,37,.14);transition:width .2s ease}.frame{display:block;width:100%;height:100%;border:0;background:white}
+@media(max-width:700px){.toolbar{gap:6px;padding:7px}.brand{width:100%}.note{display:none}.btn{padding:7px 8px;font-size:10px}.workspace{padding:8px}.frame-shell{height:calc(100vh - 112px)}}
+</style>
+</head>
+<body>
+<div class="lab">
+  <header class="toolbar">
+    <div class="brand">АЗ Interface Lab</div>
+    <div class="note">Черновики здесь не меняют главную страницу</div>
+    <div class="group" aria-label="Режим просмотра">
+      <button class="btn active" data-mode="base" type="button">Оригинал</button>
+      <button class="btn" data-mode="draft" type="button">Черновик</button>
+    </div>
+    <div class="group" aria-label="Размер экрана">
+      <button class="btn active" data-width="1440" type="button">ПК</button>
+      <button class="btn" data-width="900" type="button">Планшет</button>
+      <button class="btn" data-width="390" type="button">Телефон</button>
+      <button class="btn" data-width="100%" type="button">По ширине</button>
+    </div>
+    <button class="btn" id="reload" type="button">Обновить</button>
+    <div class="status" id="status">Оригинал сайта</div>
+  </header>
+  <main class="workspace">
+    <div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../" title="Предпросмотр Архитектуры здоровья"></iframe></div>
+  </main>
+</div>
+<script>
+/*
+  АЗ INTERFACE LAB
+  Главное правило: index.html не редактируется во время визуального подбора.
+  Следующий эксперимент добавляется только в DRAFT_CSS и DRAFT_HTML ниже.
+  После утверждения пользователем выбранный вариант переносится в настоящий index.html отдельным commit.
+*/
+const DRAFT_CSS = ``;
+const DRAFT_HTML = ``;
+
+const frame=document.getElementById('frame');
+const shell=document.getElementById('shell');
+const status=document.getElementById('status');
+const modeButtons=[...document.querySelectorAll('[data-mode]')];
+const widthButtons=[...document.querySelectorAll('[data-width]')];
+let mode='base';
+
+function clearDraft(doc){
+  doc.getElementById('az-lab-draft-style')?.remove();
+  doc.querySelectorAll('[data-az-lab-draft]').forEach(el=>el.remove());
+}
+function applyDraft(){
+  const doc=frame.contentDocument;
+  if(!doc)return;
+  clearDraft(doc);
+  if(mode!=='draft'){
+    status.textContent='Оригинал сайта';
+    return;
+  }
+  if(!DRAFT_CSS.trim()&&!DRAFT_HTML.trim()){
+    status.textContent='Черновик пока не загружен';
+    return;
+  }
+  if(DRAFT_CSS.trim()){
+    const style=doc.createElement('style');
+    style.id='az-lab-draft-style';
+    style.textContent=DRAFT_CSS;
+    doc.head.appendChild(style);
+  }
+  const stage=doc.querySelector('.stage');
+  if(stage&&DRAFT_HTML.trim()){
+    const holder=doc.createElement('div');
+    holder.setAttribute('data-az-lab-draft','');
+    holder.style.display='contents';
+    holder.innerHTML=DRAFT_HTML;
+    stage.appendChild(holder);
+  }
+  status.textContent='Черновик Interface Lab';
+}
+frame.addEventListener('load',applyDraft);
+modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
+  mode=btn.dataset.mode;
+  modeButtons.forEach(x=>x.classList.toggle('active',x===btn));
+  applyDraft();
+}));
+widthButtons.forEach(btn=>btn.addEventListener('click',()=>{
+  const w=btn.dataset.width;
+  shell.style.width=w==='100%'?'100%':w+'px';
+  widthButtons.forEach(x=>x.classList.toggle('active',x===btn));
+}));
+document.getElementById('reload').addEventListener('click',()=>frame.contentWindow.location.reload());
+</script>
+</body>
+</html>
