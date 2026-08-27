@@ -5,38 +5,73 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>АЗ — лаборатория набедренной повязки</title>
 <style>
-:root{--paper:#f7f3ec;--paper2:#efe8db;--ink:#2d342f;--green:#44634f;--gold:#b59662}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fcfaf6,#f4ede1);font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
-body{display:flex;flex-direction:column;align-items:center;padding:18px}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;margin-bottom:14px}.title{font:600 20px/1.1 Georgia,serif;margin-right:8px}.btn{border:1px solid rgba(68,99,79,.3);background:#fffdf8;border-radius:9px;padding:8px 12px;font-weight:650;cursor:pointer}.btn.active{background:#e9efe9;border-color:#6d876f;color:#294231}.note{width:100%;text-align:center;font-size:12px;color:#6a716b;margin-top:2px}.board{position:relative;width:min(88vw,760px);aspect-ratio:1/1;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 44%,#f8f4eb 0,#f2eadc 68%,#ece1d0 100%);border:0;box-shadow:0 18px 60px rgba(76,58,34,.10)}.board:before{content:none}.vit{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:fill;object-position:center;transform:none;z-index:2;filter:none;mix-blend-mode:normal}.cloth{position:absolute;left:50%;top:56.3%;width:24.5%;height:auto;transform:translate(-50%,-50%) rotate(-1.2deg);z-index:6;pointer-events:none;overflow:visible;filter:drop-shadow(0 1px .55px rgba(92,71,45,.10));transition:opacity .15s}.cloth.hidden{opacity:0}.cloth-under{fill:#eadfce;stroke:#eadfce;stroke-width:6;stroke-linejoin:round;stroke-linecap:round}.cloth-base{fill:#e2d3bd;stroke:#8f7454;stroke-width:1.55;stroke-linejoin:round;stroke-linecap:round}.cloth-over{fill:#d8c5a8;stroke:#8c6e4d;stroke-width:1.25;stroke-linejoin:round;stroke-linecap:round}.cloth-light{fill:#e9ddca;stroke:#a08562;stroke-width:.9;stroke-linejoin:round;stroke-linecap:round}.cloth-fold{fill:none;stroke:#927453;stroke-width:1.15;stroke-linecap:round;stroke-linejoin:round;opacity:.92}.cloth-soft{fill:none;stroke:#b39975;stroke-width:.8;stroke-linecap:round;stroke-linejoin:round;opacity:.78}.cloth-knot{fill:#d1bea0;stroke:#876949;stroke-width:1.2}
-@media(max-width:600px){body{padding:10px}.title{width:100%;text-align:center;font-size:17px}.board{width:94vw}.btn{padding:7px 10px;font-size:12px}}
-/* vitruvian-local-lab-v1 */.board:before{content:none}.vit{left:0;top:0;width:100%;height:100%;object-fit:fill;object-position:center;transform:none;filter:none;mix-blend-mode:normal}</style>
+:root{--paper:#f7f3ec;--ink:#2d342f;--green:#44634f}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fcfaf6,#f4ede1);font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--ink)}
+body{display:flex;flex-direction:column;align-items:center;padding:18px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.title{font:600 20px/1.1 Georgia,serif;margin-right:8px}
+.btn{border:1px solid rgba(68,99,79,.3);background:#fffdf8;border-radius:9px;padding:8px 12px;font-weight:650;cursor:pointer}
+.btn.active{background:#e9efe9;border-color:#6d876f;color:#294231}
+.note{width:100%;text-align:center;font-size:12px;color:#6a716b;margin-top:2px}
+.board{position:relative;width:min(92vw,580px);height:min(92vw,580px);border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 44%,#f8f4eb 0,#f2eadc 68%,#ece1d0 100%);border:1px solid rgba(181,150,98,.42);box-shadow:0 18px 60px rgba(76,58,34,.10)}
+.board:before{content:'';position:absolute;inset:34px;border-radius:50%;border:1px solid rgba(181,150,98,.36);z-index:4;pointer-events:none}
+.vit{position:absolute;left:50%;top:54%;width:102%;height:102%;object-fit:cover;object-position:center 52%;transform:translate(-50%,-50%);z-index:2;filter:sepia(.08) saturate(.9) contrast(.97) brightness(1.04);mix-blend-mode:multiply}
+.cloth{position:absolute;left:50%;top:54.2%;width:33.5%;height:auto;transform:translate(-50%,-50%) rotate(-.6deg);transform-origin:50% 45%;z-index:6;pointer-events:none;overflow:visible;filter:drop-shadow(0 1px .65px rgba(88,67,43,.13));transition:opacity .15s}
+.cloth.hidden{opacity:0}
+.cloth-under{fill:#e7dbc9;stroke:#e7dbc9;stroke-width:7;stroke-linejoin:round;stroke-linecap:round}
+.cloth-back{fill:#ded0b9;stroke:#8a6e4d;stroke-width:1.45;stroke-linejoin:round;stroke-linecap:round}
+.cloth-front{fill:#d7c5a8;stroke:#826546;stroke-width:1.35;stroke-linejoin:round;stroke-linecap:round}
+.cloth-light{fill:#e9decd;stroke:#a18461;stroke-width:.9;stroke-linejoin:round;stroke-linecap:round}
+.cloth-shadow{fill:#cbb596;opacity:.64}
+.cloth-line{fill:none;stroke:#87694a;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+.cloth-soft{fill:none;stroke:#ab8e68;stroke-width:.8;stroke-linecap:round;stroke-linejoin:round;opacity:.72}
+.cloth-knot{fill:#ccb89a;stroke:#806246;stroke-width:1.15}
+@media(max-width:620px){body{padding:10px}.title{width:100%;text-align:center;font-size:17px}.btn{padding:7px 10px;font-size:12px}.board{width:94vw;height:94vw}.board:before{inset:5.8%}}
+</style>
 </head>
 <body>
 <div class="toolbar">
   <div class="title">АЗ — набедренная повязка</div>
   <button class="btn" id="off" type="button">Без повязки</button>
   <button class="btn active" id="on" type="button">Черновик</button>
-  <div class="note">Меняется только черновой слой. Основной сайт не затрагивается.</div>
+  <div class="note">Просмотр 1:1 по геометрии блока сайта. Основной сайт без повязки.</div>
 </div>
 <div class="board">
-  <img class="vit" src="../assets/vitruvian-site.webp?v=20260826-1" alt="Витрувианский человек Леонардо да Винчи">
-  <svg class="cloth" id="cloth" viewBox="0 0 240 150" aria-hidden="true">
-    <path class="cloth-under" d="M30 45 C53 34 78 34 102 39 C125 44 147 43 169 37 C188 32 207 34 214 43 C207 52 197 59 186 65 C171 73 157 82 145 94 C136 102 129 110 123 120 C112 112 103 101 96 88 C91 104 88 119 89 133 C76 126 67 115 62 101 C56 84 47 72 36 63 C31 58 29 51 30 45 Z"/>
-    <path class="cloth-base" d="M30 45 C52 35 78 35 101 40 C124 45 146 44 168 38 C187 33 205 35 214 43 C205 48 194 52 181 55 C158 61 139 64 119 64 C93 64 69 59 49 54 C41 52 34 49 30 45 Z"/>
-    <path class="cloth-base" d="M39 53 C61 58 83 68 101 79 C118 89 132 97 146 100 C158 90 171 80 186 70 C195 64 203 56 210 47 C205 64 196 79 184 91 C172 103 159 112 144 118 C131 112 119 102 109 90 C102 102 97 116 95 132 C84 125 75 115 70 102 C64 85 55 72 43 62 C40 59 38 56 39 53 Z"/>
-    <path class="cloth-light" d="M39 49 C61 42 82 43 103 47 C123 51 144 51 165 45 C180 41 195 41 206 45 C194 50 180 54 164 57 C145 61 126 61 108 59 C84 58 61 54 39 49 Z"/>
-    <path class="cloth-over" d="M54 56 C77 62 99 72 119 84 C135 94 149 99 163 100 C154 109 144 116 134 120 C122 112 112 102 105 91 C99 101 95 113 94 126 C87 119 81 111 77 101 C72 83 64 68 54 56 Z"/>
-    <path class="cloth-light" d="M104 88 C112 99 120 108 131 116 C123 122 116 127 108 130 C104 118 102 104 104 88 Z"/>
-    <ellipse class="cloth-knot" cx="34" cy="46" rx="7.2" ry="5.2"/>
-    <ellipse class="cloth-knot" cx="207" cy="44" rx="7.2" ry="5.2"/>
-    <path class="cloth-fold" d="M47 56 C70 63 91 73 108 84 C123 94 136 100 149 103"/>
-    <path class="cloth-fold" d="M65 54 C84 60 104 69 122 80 C137 89 151 94 165 95"/>
-    <path class="cloth-fold" d="M90 53 C107 58 124 65 140 75 C153 83 165 87 177 87"/>
-    <path class="cloth-fold" d="M108 87 C103 99 100 113 100 127"/>
-    <path class="cloth-soft" d="M58 65 C72 72 84 82 91 94"/>
-    <path class="cloth-soft" d="M82 63 C96 70 109 79 120 90"/>
-    <path class="cloth-soft" d="M126 62 C140 69 153 77 164 86"/>
-    <path class="cloth-soft" d="M151 57 C165 63 178 69 189 76"/>
+  <img class="vit" src="../assets/vitruvian-original.jpg?v=20260827-1" alt="Витрувианский человек Леонардо да Винчи">
+  <svg class="cloth" id="cloth" viewBox="0 0 220 160" aria-hidden="true">
+    <!-- непрозрачная подложка под всей тканью -->
+    <path class="cloth-under" d="M18 31 C43 22 71 23 99 29 C124 35 151 35 178 27 C191 23 201 24 207 29 C203 43 195 55 183 67 C169 81 154 94 139 105 C129 113 121 122 114 134 C102 124 92 111 84 96 C80 111 77 126 78 142 C64 134 53 120 47 104 C41 85 33 67 22 51 C18 45 16 37 18 31 Z"/>
+
+    <!-- задний слой: ткань реально оборачивает таз -->
+    <path class="cloth-back" d="M19 31 C44 23 70 24 98 30 C124 36 151 36 178 28 C191 24 201 25 207 30 C201 37 190 42 176 46 C153 52 131 55 108 54 C81 54 54 49 31 42 C25 40 21 36 19 31 Z"/>
+    <path class="cloth-back" d="M28 43 C52 50 76 60 98 72 C118 83 137 90 154 91 C168 82 181 71 192 58 C198 51 203 43 206 34 C204 55 197 73 185 88 C173 103 158 115 141 124 C129 117 118 107 109 94 C103 108 99 123 98 139 C87 132 78 122 72 109 C65 91 55 75 42 62 C35 55 30 49 28 43 Z"/>
+
+    <!-- мягкий верхний край ткани -->
+    <path class="cloth-light" d="M25 34 C48 28 72 29 98 34 C124 39 149 39 175 32 C188 28 198 29 203 32 C190 39 174 43 156 46 C136 49 116 50 96 47 C69 45 44 40 25 34 Z"/>
+
+    <!-- основной диагональный запах, как у тканевой повязки -->
+    <path class="cloth-front" d="M35 45 C61 52 86 63 108 76 C127 87 144 93 160 94 C151 105 140 114 127 121 C115 115 105 105 97 92 C91 105 87 120 86 136 C76 127 69 116 65 103 C59 83 49 64 35 45 Z"/>
+
+    <!-- второй мягкий слой, пересекающий запах -->
+    <path class="cloth-shadow" d="M76 59 C98 66 120 77 141 89 C151 95 159 98 168 98 C158 108 147 116 135 122 C124 115 114 105 106 94 C101 102 97 111 94 121 C91 106 85 84 76 59 Z"/>
+
+    <!-- небольшой свисающий конец ткани, без треугольной брони -->
+    <path class="cloth-light" d="M90 84 C99 94 108 103 120 111 C113 121 106 130 98 139 C93 124 90 106 90 84 Z"/>
+
+    <!-- боковые узлы -->
+    <ellipse class="cloth-knot" cx="22" cy="33" rx="7.2" ry="5.2"/>
+    <ellipse class="cloth-knot" cx="201" cy="31" rx="7.2" ry="5.2"/>
+
+    <!-- складки идут по движению ткани -->
+    <path class="cloth-line" d="M31 45 C57 52 82 63 104 75 C122 85 139 92 155 95"/>
+    <path class="cloth-line" d="M52 43 C74 50 96 60 116 72 C133 82 149 87 165 89"/>
+    <path class="cloth-line" d="M78 42 C98 48 117 56 136 67 C151 76 165 81 177 82"/>
+    <path class="cloth-line" d="M98 91 C92 106 89 121 88 135"/>
+    <path class="cloth-soft" d="M48 57 C63 66 76 78 84 92"/>
+    <path class="cloth-soft" d="M70 56 C86 64 101 75 113 87"/>
+    <path class="cloth-soft" d="M115 53 C132 61 147 70 160 81"/>
+    <path class="cloth-soft" d="M145 47 C162 54 176 61 187 69"/>
   </svg>
 </div>
 <script>
