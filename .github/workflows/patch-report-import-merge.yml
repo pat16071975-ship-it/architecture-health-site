@@ -1,0 +1,105 @@
+name: Patch report import merge
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/patch-report-import-merge.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+
+      - name: Make backup import merge-only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          seed_path = Path('reports/seed-data.js')
+          seed = seed_path.read_text(encoding='utf-8')
+          marker = "  if(sessionStorage.getItem(SESSION_KEY)==='1'&&!localStorage.getItem(SEED_MARKER)){"
+          snippet = r'''
+
+  // az-import-merge-v1: импорт добавляет/обновляет только даты из файла,
+  // сохраняя остальные записи текущего браузера.
+  window.importBackup = function(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const payload = JSON.parse(reader.result);
+        if(!payload || !payload.data || typeof payload.data !== 'object' || Array.isArray(payload.data)) throw new Error('invalid payload');
+        const entries = Object.entries(payload.data).filter(([date, record]) => /^\d{4}-\d{2}-\d{2}$/.test(date) && record && typeof record === 'object' && !Array.isArray(record));
+        if(!entries.length) throw new Error('no dated records');
+        if(!confirm(`Добавить или обновить записей: ${entries.length}? Остальные сохранённые даты останутся без изменений.`)) return;
+
+        const store = loadStore();
+        entries.forEach(([date, record]) => {
+          const base = blankRecord(date);
+          store[date] = {
+            ...base,
+            ...record,
+            date,
+            dentists: {...base.dentists, ...(record.dentists || {})},
+            clinicDocs: {...base.clinicDocs, ...(record.clinicDocs || {})}
+          };
+        });
+        saveStore(store);
+
+        const dates = entries.map(([date]) => date).sort();
+        const latest = dates[dates.length - 1];
+        const dateInput = document.querySelector('#reportDate');
+        if(dateInput) dateInput.value = latest;
+        loadDate();
+        const status = document.querySelector('#status');
+        if(status) status.textContent = `Импортировано записей: ${entries.length}. Открыта дата ${new Date(latest + 'T12:00:00').toLocaleDateString('ru-RU')}.`;
+        alert(`Данные добавлены. Импортировано записей: ${entries.length}.`);
+      }catch(error){
+        console.error('Backup merge import failed', error);
+        alert('Не удалось прочитать файл импорта.');
+      }
+    };
+    reader.readAsText(file);
+  };
+'''
+          if 'az-import-merge-v1' not in seed:
+              if marker not in seed:
+                  raise SystemExit('seed insertion marker not found')
+              seed = seed.replace(marker, snippet + '\n' + marker, 1)
+              seed_path.write_text(seed, encoding='utf-8')
+
+          index_path = Path('reports/index.html')
+          index = index_path.read_text(encoding='utf-8')
+          old = './seed-data.js?v=20260826-1'
+          new = './seed-data.js?v=20260827-2'
+          if old in index:
+              index = index.replace(old, new, 1)
+              index_path.write_text(index, encoding='utf-8')
+          elif new not in index:
+              raise SystemExit('seed cache-bust marker not found')
+
+          Path('.github/workflows/patch-report-import-merge.yml').unlink()
+          PY
+
+      - name: Commit patch and remove one-time workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Make report backup import merge-only"
+          git pull --rebase origin feature/site-v1
+          git push origin HEAD:feature/site-v1
