@@ -17,16 +17,17 @@ body{display:flex;flex-direction:column;align-items:center;padding:18px}
 .board{position:relative;width:min(92vw,580px);height:min(92vw,580px);border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 44%,#f8f4eb 0,#f2eadc 68%,#ece1d0 100%);border:1px solid rgba(181,150,98,.42);box-shadow:0 18px 60px rgba(76,58,34,.10)}
 .board:before{content:'';position:absolute;inset:34px;border-radius:50%;border:1px solid rgba(181,150,98,.36);z-index:4;pointer-events:none}
 .vit{position:absolute;left:50%;top:54%;width:102%;height:102%;object-fit:cover;object-position:center 52%;transform:translate(-50%,-50%);z-index:2;filter:sepia(.08) saturate(.9) contrast(.97) brightness(1.04);mix-blend-mode:multiply}
-.cloth{position:absolute;left:50%;top:54.0%;width:26.2%;height:auto;transform:translate(-50%,-50%) rotate(-1deg);transform-origin:50% 38%;z-index:6;pointer-events:none;overflow:visible;filter:drop-shadow(0 1px .55px rgba(84,62,40,.12));transition:opacity .15s}
+.cloth{position:absolute;left:50%;top:55.3%;width:29.2%;height:auto;transform:translate(-50%,-50%) rotate(-.7deg);transform-origin:50% 36%;z-index:6;pointer-events:none;overflow:visible;filter:drop-shadow(0 1px .45px rgba(83,59,38,.10));transition:opacity .15s}
 .cloth.hidden{opacity:0}
-.under{fill:#e8ddcc;stroke:#e8ddcc;stroke-width:7;stroke-linecap:round;stroke-linejoin:round}
-.base{fill:#dfd0b8;stroke:#876b4d;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round}
-.light{fill:#ebe0cf;stroke:#a48764;stroke-width:.85;stroke-linecap:round;stroke-linejoin:round}
-.mid{fill:#d5c1a2;stroke:#846647;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round}
-.shadow{fill:#c8b08f;opacity:.55}
-.fold{fill:none;stroke:#86694a;stroke-width:1.05;stroke-linecap:round;stroke-linejoin:round;opacity:.88}
-.soft{fill:none;stroke:#ac906d;stroke-width:.7;stroke-linecap:round;stroke-linejoin:round;opacity:.72}
-.knot{fill:#cbb596;stroke:#806247;stroke-width:1.15}
+.opaque{fill:#ded0b8;stroke:#ded0b8;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+.hip{fill:#cfb992;stroke:#795b3e;stroke-width:1.15;stroke-linecap:round;stroke-linejoin:round}
+.hip-light{fill:#dfcfb5;stroke:#947250;stroke-width:.75;stroke-linecap:round;stroke-linejoin:round}
+.base{fill:#d2bc97;stroke:#795b3e;stroke-width:1.05;stroke-linecap:round;stroke-linejoin:round}
+.front{fill:#c6aa80;stroke:#725438;stroke-width:1.05;stroke-linecap:round;stroke-linejoin:round}
+.light{fill:#e0d1b8;stroke:#92704e;stroke-width:.75;stroke-linecap:round;stroke-linejoin:round}
+.shadow{fill:#ae8e65;opacity:.42}
+.fold{fill:none;stroke:#795a3d;stroke-width:.9;stroke-linecap:round;stroke-linejoin:round;opacity:.82}
+.soft{fill:none;stroke:#9c7b57;stroke-width:.65;stroke-linecap:round;stroke-linejoin:round;opacity:.68}
 @media(max-width:620px){body{padding:10px}.title{width:100%;text-align:center;font-size:17px}.btn{padding:7px 10px;font-size:12px}.board{width:94vw;height:94vw}.board:before{inset:5.8%}}
 </style>
 </head>
@@ -35,49 +36,47 @@ body{display:flex;flex-direction:column;align-items:center;padding:18px}
   <div class="title">АЗ — набедренная повязка</div>
   <button class="btn" id="off" type="button">Без повязки</button>
   <button class="btn active" id="on" type="button">Черновик</button>
-  <div class="note">Реконструкция понравившегося варианта: узкая ткань по тазу, диагональный запах, мягкие складки.</div>
+  <div class="note">Опора — верхние части бёдер. Цвета — только сепийная гамма рисунка.</div>
 </div>
 <div class="board">
   <img class="vit" src="../assets/vitruvian-original.jpg?v=20260827-1" alt="Витрувианский человек Леонардо да Винчи">
 
-  <svg class="cloth" id="cloth" viewBox="0 0 200 150" aria-hidden="true">
-    <!-- Сплошная непрозрачная форма под тканью -->
-    <path class="under" d="M18 34 C39 29 61 30 82 34 C104 38 124 40 144 36 C160 33 174 29 184 31 C181 46 174 58 164 69 C153 81 140 91 129 101 C119 110 112 121 107 132 C98 123 91 112 86 100 C82 111 80 123 81 134 C70 128 62 117 57 105 C52 91 45 79 36 68 C28 58 21 47 18 34 Z"/>
+  <svg class="cloth" id="cloth" viewBox="0 0 220 170" aria-hidden="true">
+    <!-- Непрозрачная подложка: тело под тканью не просвечивает -->
+    <path class="opaque" d="M48 48 C67 43 85 44 101 49 C116 53 132 53 151 47 C160 45 168 46 174 50 C169 63 160 76 150 88 C138 102 127 114 118 129 C113 138 109 147 106 154 C98 145 92 135 87 123 C82 111 75 101 67 91 C58 79 51 65 48 48 Z"/>
 
-    <!-- Ткань, обхватывающая таз; верхний край не превращается в юбку -->
-    <path class="base" d="M19 34 C40 29 61 30 82 34 C103 38 124 40 144 36 C160 33 174 29 184 31 C178 38 167 43 153 47 C134 52 114 54 94 52 C72 51 50 47 31 42 C25 40 21 37 19 34 Z"/>
+    <!-- ЛЕВОЕ БЕДРО: ткань действительно охватывает верхнюю часть бедра -->
+    <path class="hip" d="M52 47 C43 45 34 47 28 52 C21 58 19 66 22 73 C25 81 32 86 40 86 C46 86 51 82 55 76 L50 69 C47 75 43 78 39 78 C34 78 30 75 29 71 C27 66 29 61 33 58 C38 54 44 54 51 56 Z"/>
+    <path class="hip-light" d="M50 50 C42 49 35 51 31 55 C27 59 26 64 27 68 C29 72 32 75 37 76 C40 76 43 75 46 72 C42 71 39 69 38 66 C37 62 39 59 42 57 C45 55 48 55 52 57 Z"/>
 
-    <!-- Задний мягкий слой, видимый только в нижней части -->
-    <path class="base" d="M28 43 C46 49 63 57 78 68 C90 77 101 88 109 101 C118 93 129 84 141 76 C157 65 171 52 182 36 C177 53 169 68 158 80 C147 91 135 101 124 112 C117 119 111 126 107 133 C98 124 91 112 86 99 C82 111 80 122 81 133 C72 127 65 118 61 107 C56 92 48 78 38 66 C31 57 27 49 28 43 Z"/>
+    <!-- ПРАВОЕ БЕДРО -->
+    <path class="hip" d="M168 46 C177 44 186 46 192 51 C199 57 201 65 198 72 C195 80 188 85 180 85 C174 85 169 81 165 75 L170 68 C173 74 177 77 181 77 C186 77 190 74 191 70 C193 65 191 60 187 57 C182 53 176 53 169 55 Z"/>
+    <path class="hip-light" d="M170 49 C178 48 185 50 189 54 C193 58 194 63 193 67 C191 71 188 74 183 75 C180 75 177 74 174 71 C178 70 181 68 182 65 C183 61 181 58 178 56 C175 54 172 54 168 56 Z"/>
 
-    <!-- Светлая сложенная кромка по талии -->
-    <path class="light" d="M24 35 C44 31 63 32 82 36 C102 40 121 42 140 39 C156 36 170 32 180 33 C170 39 157 43 142 46 C125 49 108 50 91 48 C66 46 44 41 24 35 Z"/>
+    <!-- Верхняя полоса соединяет оба бедренных охвата -->
+    <path class="base" d="M49 49 C67 44 84 45 101 49 C117 53 133 53 151 48 C158 46 164 47 169 50 C157 56 143 60 128 62 C111 64 94 63 78 60 C66 58 56 54 49 49 Z"/>
+    <path class="light" d="M54 50 C69 47 84 48 100 52 C115 55 131 55 146 51 C151 50 156 50 160 51 C151 55 140 57 128 59 C112 61 96 60 81 58 C70 56 61 54 54 50 Z"/>
 
-    <!-- Главный запах: от правого бедра диагонально вниз-влево -->
-    <path class="mid" d="M179 35 C171 49 160 61 146 72 C131 84 117 95 105 108 C97 116 91 124 86 133 C80 125 76 116 73 106 C69 91 61 77 49 64 C43 57 37 51 30 46 C49 51 68 59 86 69 C105 80 122 88 137 90 C150 77 165 60 179 35 Z"/>
+    <!-- Основная ткань: мягкий диагональный запах от правого бедра к левому -->
+    <path class="base" d="M55 57 C72 63 89 73 104 84 C118 94 130 100 142 101 C151 91 159 81 166 70 C170 64 173 58 175 52 C171 70 165 85 156 98 C147 111 136 121 125 132 C117 140 111 148 107 155 C99 146 92 135 88 123 C83 110 76 99 67 88 C60 79 56 68 55 57 Z"/>
 
-    <!-- Перехлёст ткани сверху: делает повязку похожей на обёрнутую, а не на юбку -->
-    <path class="light" d="M31 45 C52 49 72 56 91 66 C108 75 124 81 139 82 C150 72 162 60 174 44 C164 58 153 70 141 80 C127 91 115 102 105 114 C98 106 91 97 86 87 C76 70 58 56 31 45 Z"/>
+    <!-- Верхний запах, как у понравившейся тканевой повязки -->
+    <path class="front" d="M61 58 C80 63 98 72 115 82 C128 90 140 94 151 94 C143 103 135 111 126 119 C118 126 111 134 106 142 C100 134 95 125 92 115 C87 100 79 87 68 75 C65 70 62 64 61 58 Z"/>
 
-    <!-- Небольшой естественный свисающий конец -->
-    <path class="base" d="M86 86 C93 96 100 105 109 112 C104 122 99 131 93 139 C88 126 85 108 86 86 Z"/>
+    <!-- Небольшой мягкий свисающий конец -->
+    <path class="light" d="M94 96 C101 104 108 111 116 117 C112 129 108 140 104 150 C98 139 94 120 94 96 Z"/>
 
-    <!-- Мягкая тень под диагональным запахом -->
-    <path class="shadow" d="M107 74 C122 81 136 84 148 83 C140 94 129 104 118 112 C111 106 105 99 100 91 C96 98 92 107 89 116 C90 99 89 87 86 78 C93 79 100 73 107 74 Z"/>
+    <!-- Тень только внутри складок; цвет взят из коричневой сепии рисунка -->
+    <path class="shadow" d="M111 80 C125 88 138 93 150 94 C143 104 135 112 126 120 C119 113 113 105 108 96 C104 103 101 111 99 120 C98 104 99 91 102 84 C105 81 108 79 111 80 Z"/>
 
-    <!-- Узлы именно на бедрах, без круглых 'кнопок' -->
-    <path class="knot" d="M15 32 C17 27 23 25 28 28 C32 31 31 36 27 39 C23 42 17 39 15 35 Z"/>
-    <path class="knot" d="M177 30 C181 27 187 28 190 32 C192 36 189 40 184 41 C179 41 175 37 177 30 Z"/>
-
-    <!-- Длинные естественные складки -->
-    <path class="fold" d="M177 38 C157 55 138 70 119 84 C105 94 94 107 87 124"/>
-    <path class="fold" d="M166 42 C148 58 130 71 113 83 C101 92 93 101 88 112"/>
-    <path class="fold" d="M151 47 C134 60 118 72 103 82 C94 88 88 96 84 104"/>
-    <path class="fold" d="M36 47 C56 53 75 62 91 73 C104 82 116 87 129 89"/>
-    <path class="soft" d="M48 55 C64 62 79 72 91 84"/>
-    <path class="soft" d="M68 58 C84 66 98 76 110 86"/>
-    <path class="soft" d="M91 47 C108 50 124 50 140 46"/>
-    <path class="soft" d="M90 91 C88 105 89 119 93 132"/>
+    <!-- Складки -->
+    <path class="fold" d="M166 58 C151 75 136 89 121 102 C112 110 105 120 100 132"/>
+    <path class="fold" d="M154 59 C140 73 126 84 113 95 C104 102 98 111 94 121"/>
+    <path class="fold" d="M139 60 C126 71 114 81 103 90 C96 96 91 103 88 111"/>
+    <path class="fold" d="M64 62 C81 68 97 77 111 87 C122 95 133 99 143 100"/>
+    <path class="soft" d="M76 67 C90 74 102 83 112 93"/>
+    <path class="soft" d="M95 62 C108 68 121 76 132 85"/>
+    <path class="soft" d="M101 104 C100 118 101 132 104 144"/>
   </svg>
 </div>
 <script>
