@@ -88,6 +88,49 @@
     });
   }
 
+
+
+  // az-import-merge-v1: импорт добавляет/обновляет только даты из файла,
+  // сохраняя остальные записи текущего браузера.
+  window.importBackup = function(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const payload = JSON.parse(reader.result);
+        if(!payload || !payload.data || typeof payload.data !== 'object' || Array.isArray(payload.data)) throw new Error('invalid payload');
+        const entries = Object.entries(payload.data).filter(([date, record]) => /^\d{4}-\d{2}-\d{2}$/.test(date) && record && typeof record === 'object' && !Array.isArray(record));
+        if(!entries.length) throw new Error('no dated records');
+        if(!confirm(`Добавить или обновить записей: ${entries.length}? Остальные сохранённые даты останутся без изменений.`)) return;
+
+        const store = loadStore();
+        entries.forEach(([date, record]) => {
+          const base = blankRecord(date);
+          store[date] = {
+            ...base,
+            ...record,
+            date,
+            dentists: {...base.dentists, ...(record.dentists || {})},
+            clinicDocs: {...base.clinicDocs, ...(record.clinicDocs || {})}
+          };
+        });
+        saveStore(store);
+
+        const dates = entries.map(([date]) => date).sort();
+        const latest = dates[dates.length - 1];
+        const dateInput = document.querySelector('#reportDate');
+        if(dateInput) dateInput.value = latest;
+        loadDate();
+        const status = document.querySelector('#status');
+        if(status) status.textContent = `Импортировано записей: ${entries.length}. Открыта дата ${new Date(latest + 'T12:00:00').toLocaleDateString('ru-RU')}.`;
+        alert(`Данные добавлены. Импортировано записей: ${entries.length}.`);
+      }catch(error){
+        console.error('Backup merge import failed', error);
+        alert('Не удалось прочитать файл импорта.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   if(sessionStorage.getItem(SESSION_KEY)==='1'&&!localStorage.getItem(SEED_MARKER)){
     sessionStorage.removeItem(SESSION_KEY);
     location.reload();
