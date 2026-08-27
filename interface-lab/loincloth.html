@@ -17,17 +17,17 @@ body{display:flex;flex-direction:column;align-items:center;padding:18px}
 .board{position:relative;width:min(92vw,580px);height:min(92vw,580px);border-radius:50%;overflow:hidden;background:radial-gradient(circle at 50% 44%,#f8f4eb 0,#f2eadc 68%,#ece1d0 100%);border:1px solid rgba(181,150,98,.42);box-shadow:0 18px 60px rgba(76,58,34,.10)}
 .board:before{content:'';position:absolute;inset:34px;border-radius:50%;border:1px solid rgba(181,150,98,.36);z-index:4;pointer-events:none}
 .vit{position:absolute;left:50%;top:54%;width:102%;height:102%;object-fit:cover;object-position:center 52%;transform:translate(-50%,-50%);z-index:2;filter:sepia(.08) saturate(.9) contrast(.97) brightness(1.04);mix-blend-mode:multiply}
-.cloth{position:absolute;left:50%;top:52.9%;width:21.2%;height:auto;transform:translate(-50%,-50%) rotate(-.6deg);transform-origin:50% 34%;z-index:6;pointer-events:none;overflow:visible;transition:opacity .15s}
+.cloth{position:absolute;left:50%;top:51.8%;width:23.4%;height:auto;transform:translate(-50%,-50%) rotate(-.6deg);transform-origin:50% 34%;z-index:6;pointer-events:none;overflow:visible;transition:opacity .15s}
 .cloth.hidden{opacity:0}
-/* Палитра снята с самого сепийного рисунка/референса: никакого бело-серого слоя. */
-.cloth-paper{fill:#e7dfce;stroke:#e7dfce;stroke-width:5.6;stroke-linecap:round;stroke-linejoin:round}
-.cloth-base{fill:#e2d7c4;stroke:#846a4a;stroke-width:.88;stroke-linecap:round;stroke-linejoin:round}
-.cloth-mid{fill:#d2c2a9;stroke:#7f6244;stroke-width:.8;stroke-linecap:round;stroke-linejoin:round}
-.cloth-light{fill:#e9dfcb;stroke:#967d5e;stroke-width:.6;stroke-linecap:round;stroke-linejoin:round}
-.cloth-shadow{fill:#cbb796;opacity:.48}
-.cloth-line{fill:none;stroke:#846a4a;stroke-width:.76;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
-.cloth-soft{fill:none;stroke:#a08361;stroke-width:.54;stroke-linecap:round;stroke-linejoin:round;opacity:.72}
-.cloth-knot{fill:#dacbb2;stroke:#7f6244;stroke-width:.8;stroke-linecap:round;stroke-linejoin:round}
+/* Палитра ближе к самой ткани/бумаге референса: тёплая охра + коричневая сепия линий. */
+.cloth-paper{fill:#e1d5c1;stroke:#e1d5c1;stroke-width:5.6;stroke-linecap:round;stroke-linejoin:round}
+.cloth-base{fill:#d8c7aa;stroke:#7b6045;stroke-width:.92;stroke-linecap:round;stroke-linejoin:round}
+.cloth-mid{fill:#ceb895;stroke:#74573d;stroke-width:.84;stroke-linecap:round;stroke-linejoin:round}
+.cloth-light{fill:#e4d8c4;stroke:#8b6f50;stroke-width:.64;stroke-linecap:round;stroke-linejoin:round}
+.cloth-shadow{fill:#b89b75;opacity:.36}
+.cloth-line{fill:none;stroke:#765a40;stroke-width:.8;stroke-linecap:round;stroke-linejoin:round;opacity:.92}
+.cloth-soft{fill:none;stroke:#967655;stroke-width:.56;stroke-linecap:round;stroke-linejoin:round;opacity:.74}
+.cloth-knot{fill:#d1bea0;stroke:#72553c;stroke-width:.84;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:620px){body{padding:10px}.title{width:100%;text-align:center;font-size:17px}.btn{padding:7px 10px;font-size:12px}.board{width:94vw;height:94vw}.board:before{inset:5.8%}}
 </style>
 </head>
@@ -36,7 +36,7 @@ body{display:flex;flex-direction:column;align-items:center;padding:18px}
   <div class="title">АЗ — набедренная повязка</div>
   <button class="btn" id="off" type="button">Без повязки</button>
   <button class="btn active" id="on" type="button">Черновик</button>
-  <div class="note">Реконструкция по референсу: опора на бёдра, мягкая диагональная драпировка, палитра самого рисунка.</div>
+  <div class="note">Реконструкция по референсу: чуть выше и крупнее, палитра ткани максимально приближена к сепии рисунка.</div>
 </div>
 <div class="board">
   <img class="vit" src="../assets/vitruvian-original.jpg?v=20260827-1" alt="Витрувианский человек Леонардо да Винчи">
