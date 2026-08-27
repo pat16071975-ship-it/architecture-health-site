@@ -19,14 +19,15 @@ body{display:flex;flex-direction:column;align-items:center;padding:18px}
 .vit{position:absolute;left:50%;top:54%;width:102%;height:102%;object-fit:cover;object-position:center 52%;transform:translate(-50%,-50%);z-index:2;filter:sepia(.08) saturate(.9) contrast(.97) brightness(1.04);mix-blend-mode:multiply}
 .cloth{position:absolute;left:50%;top:52.9%;width:21.2%;height:auto;transform:translate(-50%,-50%) rotate(-.6deg);transform-origin:50% 34%;z-index:6;pointer-events:none;overflow:visible;transition:opacity .15s}
 .cloth.hidden{opacity:0}
-.cloth-paper{fill:#ebe6d8;stroke:#ebe6d8;stroke-width:5.6;stroke-linecap:round;stroke-linejoin:round}
-.cloth-base{fill:#e8e1d2;stroke:#957a59;stroke-width:.9;stroke-linecap:round;stroke-linejoin:round}
-.cloth-mid{fill:#e3d9c8;stroke:#8c7252;stroke-width:.8;stroke-linecap:round;stroke-linejoin:round}
-.cloth-light{fill:#eee9dc;stroke:#a38a69;stroke-width:.62;stroke-linecap:round;stroke-linejoin:round}
-.cloth-shadow{fill:#d8cbb4;opacity:.56}
-.cloth-line{fill:none;stroke:#927756;stroke-width:.78;stroke-linecap:round;stroke-linejoin:round;opacity:.86}
-.cloth-soft{fill:none;stroke:#aa906e;stroke-width:.55;stroke-linecap:round;stroke-linejoin:round;opacity:.67}
-.cloth-knot{fill:#ddd1bc;stroke:#876b4d;stroke-width:.82;stroke-linecap:round;stroke-linejoin:round}
+/* Палитра снята с самого сепийного рисунка/референса: никакого бело-серого слоя. */
+.cloth-paper{fill:#e7dfce;stroke:#e7dfce;stroke-width:5.6;stroke-linecap:round;stroke-linejoin:round}
+.cloth-base{fill:#e2d7c4;stroke:#846a4a;stroke-width:.88;stroke-linecap:round;stroke-linejoin:round}
+.cloth-mid{fill:#d2c2a9;stroke:#7f6244;stroke-width:.8;stroke-linecap:round;stroke-linejoin:round}
+.cloth-light{fill:#e9dfcb;stroke:#967d5e;stroke-width:.6;stroke-linecap:round;stroke-linejoin:round}
+.cloth-shadow{fill:#cbb796;opacity:.48}
+.cloth-line{fill:none;stroke:#846a4a;stroke-width:.76;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+.cloth-soft{fill:none;stroke:#a08361;stroke-width:.54;stroke-linecap:round;stroke-linejoin:round;opacity:.72}
+.cloth-knot{fill:#dacbb2;stroke:#7f6244;stroke-width:.8;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:620px){body{padding:10px}.title{width:100%;text-align:center;font-size:17px}.btn{padding:7px 10px;font-size:12px}.board{width:94vw;height:94vw}.board:before{inset:5.8%}}
 </style>
 </head>
@@ -35,7 +36,7 @@ body{display:flex;flex-direction:column;align-items:center;padding:18px}
   <div class="title">АЗ — набедренная повязка</div>
   <button class="btn" id="off" type="button">Без повязки</button>
   <button class="btn active" id="on" type="button">Черновик</button>
-  <div class="note">Реконструкция по утверждённому референсу: опора на бёдра, мягкая диагональная драпировка, сепия рисунка.</div>
+  <div class="note">Реконструкция по референсу: опора на бёдра, мягкая диагональная драпировка, палитра самого рисунка.</div>
 </div>
 <div class="board">
   <img class="vit" src="../assets/vitruvian-original.jpg?v=20260827-1" alt="Витрувианский человек Леонардо да Винчи">
@@ -47,39 +48,29 @@ body{display:flex;flex-direction:column;align-items:center;padding:18px}
       </filter>
     </defs>
     <g filter="url(#clothRough)">
-      <!-- Сплошная непрозрачная бумажная подложка только в зоне ткани -->
       <path class="cloth-paper" d="M27 31 C49 26 69 28 88 32 C108 36 128 35 151 29 C156 29 160 31 160 34 C155 46 146 58 136 68 C125 80 114 91 105 102 C99 109 94 116 90 122 C83 115 77 106 73 96 C68 85 61 75 53 66 C44 55 34 43 27 31 Z"/>
 
-      <!-- Узел расположен непосредственно на левом бедре -->
       <path class="cloth-knot" d="M24 28 C28 24 35 24 39 28 C42 31 41 35 38 38 C35 40 31 40 28 38 C25 37 22 34 22 32 C22 30 23 29 24 28 Z"/>
       <path class="cloth-line" d="M27 29 C31 32 35 33 39 31"/>
       <path class="cloth-line" d="M27 34 C31 31 35 29 39 30"/>
 
-      <!-- На правом бедре не петля, а естественно собранный край ткани -->
       <path class="cloth-knot" d="M146 28 C151 25 157 25 161 28 C164 30 164 34 161 37 C158 39 154 39 150 37 C147 35 145 32 146 28 Z"/>
       <path class="cloth-line" d="M149 29 C153 31 157 32 160 30"/>
       <path class="cloth-soft" d="M149 34 C153 32 157 31 161 32"/>
 
-      <!-- Узкая верхняя полоса действительно лежит на линии бёдер -->
       <path class="cloth-base" d="M36 31 C53 27 70 29 87 33 C105 37 123 36 146 30 C151 29 155 30 158 32 C149 37 138 40 126 42 C111 44 96 44 81 42 C64 40 48 36 36 31 Z"/>
       <path class="cloth-light" d="M40 31 C55 29 70 31 86 34 C103 37 120 37 140 32 C145 31 149 31 152 32 C144 35 135 38 124 39 C110 41 96 41 82 39 C66 38 52 35 40 31 Z"/>
 
-      <!-- Левая часть ткани: мягко спускается от левого бедра -->
       <path class="cloth-base" d="M35 36 C49 42 61 50 72 60 C82 70 90 81 96 93 C91 101 87 109 84 117 C77 108 71 98 67 87 C62 74 55 63 46 53 C41 47 37 41 35 36 Z"/>
 
-      <!-- Главный запах: собран на правом бедре и идёт диагонально вниз-влево -->
       <path class="cloth-mid" d="M155 33 C150 45 142 56 132 66 C121 77 110 87 100 98 C95 104 91 111 87 119 C82 112 78 104 75 95 C71 83 64 72 54 62 C48 55 43 49 39 43 C56 47 72 54 87 63 C101 72 114 78 126 80 C137 69 147 54 155 33 Z"/>
 
-      <!-- Верхний тонкий перехлёст, как на понравившемся варианте -->
       <path class="cloth-light" d="M40 38 C56 42 72 49 87 58 C100 66 112 71 124 73 C134 64 144 52 152 38 C145 51 136 62 126 71 C116 80 106 89 98 99 C93 93 89 87 85 80 C76 64 61 50 40 38 Z"/>
 
-      <!-- Свисающий край остаётся коротким и мягким, а не щитом -->
       <path class="cloth-base" d="M76 76 C83 84 90 91 98 97 C95 105 92 113 89 121 C84 113 80 103 78 92 C77 87 76 81 76 76 Z"/>
 
-      <!-- Тонкая тень в складках, без отдельного коричневого пятна -->
       <path class="cloth-shadow" d="M98 61 C110 68 121 73 131 74 C125 82 118 90 110 97 C104 91 99 84 95 77 C92 82 89 88 87 94 C87 82 88 72 91 65 C93 62 96 60 98 61 Z"/>
 
-      <!-- Длинные складки идут по направлению настоящей драпировки -->
       <path class="cloth-line" d="M151 38 C140 52 128 65 116 76 C105 86 96 97 89 111"/>
       <path class="cloth-line" d="M141 40 C130 53 119 64 108 74 C99 82 92 91 87 101"/>
       <path class="cloth-line" d="M129 41 C119 51 109 60 100 68 C93 74 87 82 83 90"/>
