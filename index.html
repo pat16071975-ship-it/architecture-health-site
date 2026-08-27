@@ -1,6 +1,5 @@
 ---
 ---
 {% capture current_site %}{% include current-site.html %}{% endcapture %}
-{% assign current_site = current_site | replace: 'assets/vitruvian-site.webp?v=20260826-1', 'assets/vitruvian-site.webp?v=20260826-1' %}
-{% assign current_site = current_site | replace: '</style>', '/* vitruvian-local-v1 */.stage{border-color:transparent!important}.stage:before{content:none!important}.vit-img{left:0!important;top:0!important;width:100%!important;height:100%!important;object-fit:fill!important;object-position:center!important;transform:none!important;filter:none!important;mix-blend-mode:normal!important}</style>' %}
+{% assign current_site = current_site | replace: 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Leonardo_da_Vinci-_Vitruvian_Man.JPG', 'assets/vitruvian-original.jpg?v=20260827-1' %}
 {{ current_site }}
