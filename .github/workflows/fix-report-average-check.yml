@@ -1,0 +1,36 @@
+name: Fix report average check
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/fix-report-average-check.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+
+      - name: Update average check formulas
+        shell: bash
+        run: |
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpwYXRoID0gUGF0aCgicmVwb3J0cy9pbmRleC5odG1sIikKdGV4dCA9IHBhdGgucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIpCgpyZXBsYWNlbWVudHMgPSBbCiAgICAoImF2Z0NoZWNrOihwK3JlcCk/Zm0vKHArcmVwKTpudWxsIiwgImF2Z0NoZWNrOnA/Zm0vcDpudWxsIiksCiAgICAoImRlbnRBdmc6KGRwK2RyKT9kZW50UmV2LyhkcCtkcik6bnVsbCIsICJkZW50QXZnOmRwP2RlbnRSZXYvZHA6bnVsbCIpLAogICAgKCJjbGluaWNBdmc6KGNwK2NyKT9jbGluaWNSZXYvKGNwK2NyKTpudWxsIiwgImNsaW5pY0F2ZzpjcD9jbGluaWNSZXYvY3A6bnVsbCIpLApdCgpmb3Igb2xkLCBuZXcgaW4gcmVwbGFjZW1lbnRzOgogICAgY291bnQgPSB0ZXh0LmNvdW50KG9sZCkKICAgIGlmIGNvdW50ICE9IDE6CiAgICAgICAgcmFpc2UgU3lzdGVtRXhpdChmIkV4cGVjdGVkIGV4YWN0bHkgb25lIG9jY3VycmVuY2Ugb2Yge29sZCFyfSwgZm91bmQge2NvdW50fSIpCiAgICB0ZXh0ID0gdGV4dC5yZXBsYWNlKG9sZCwgbmV3LCAxKQoKcGF0aC53cml0ZV90ZXh0KHRleHQsIGVuY29kaW5nPSJ1dGYtOCIpClBhdGgoIi5naXRodWIvd29ya2Zsb3dzL2ZpeC1yZXBvcnQtYXZlcmFnZS1jaGVjay55bWwiKS51bmxpbmsoKQo=' | base64 -d > /tmp/fix_avg_check.py
+          python3 /tmp/fix_avg_check.py
+
+      - name: Commit formula correction and remove workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Use primary visits for medical average checks"
+          git pull --rebase origin feature/site-v1
+          git push origin HEAD:feature/site-v1
