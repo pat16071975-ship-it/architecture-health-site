@@ -27,7 +27,7 @@
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: реальное фото + фон сайта</div>
+  <div class="status" id="status">Черновик: реальное фото + подогнанный тон</div>
 </header>
 <main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
@@ -61,12 +61,14 @@ function applyDraft(){
     .founder{
       background:transparent !important;
       border-color:transparent !important;
-      mix-blend-mode:multiply !important;
       box-shadow:none !important;
+      mix-blend-mode:multiply !important;
+      filter:brightness(1.035) contrast(.985) saturate(.97) sepia(.018) !important;
+      opacity:.985 !important;
     }
   `;
   doc.head.appendChild(style);
-  status.textContent='Черновик: только настоящее фото, белый фон визуально слит с фоном сайта';
+  status.textContent='Черновик: настоящее фото, фон сделан чуть теплее и ближе к тону сайта';
 }
 frame.addEventListener('load',applyDraft);
 modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
