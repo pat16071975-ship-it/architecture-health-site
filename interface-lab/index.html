@@ -43,6 +43,11 @@ function clearDraft(doc){
   doc.getElementById('az-lab-draft-style')?.remove();
   doc.querySelectorAll('[data-az-lab-draft]').forEach(el=>el.remove());
 }
+function getTextWidth(el){
+  const range=el.ownerDocument.createRange();
+  range.selectNodeContents(el);
+  return range.getBoundingClientRect().width;
+}
 function applyDraft(){
   const doc=frame.contentDocument;
   if(!doc)return;
@@ -82,7 +87,9 @@ function applyDraft(){
     }
     .positioning{display:none !important;}
     .az-system-clinic-label{
-      margin:0 0 4px;
+      display:block;
+      margin:0 auto 4px;
+      text-align:right;
       font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif;
       font-size:14px;
       font-weight:600;
@@ -90,6 +97,7 @@ function applyDraft(){
       letter-spacing:.11em;
       text-transform:uppercase;
       color:#526158;
+      white-space:nowrap;
     }
     .promo-copy{
       font-size:18px !important;
@@ -145,6 +153,10 @@ function applyDraft(){
   label.setAttribute('data-az-lab-draft','');
   label.textContent='Медицинская клиника системного подхода';
   h1.before(label);
+  requestAnimationFrame(()=>{
+    const titleWidth=getTextWidth(h1);
+    label.style.width=Math.ceil(titleWidth)+'px';
+  });
   status.textContent='Черновик: Montserrat + редкий Cormorant';
 }
 frame.addEventListener('load',applyDraft);
@@ -157,6 +169,7 @@ widthButtons.forEach(btn=>btn.addEventListener('click',()=>{
   const w=btn.dataset.width;
   shell.style.width=w==='100%'?'100%':w+'px';
   widthButtons.forEach(x=>x.classList.toggle('active',x===btn));
+  setTimeout(applyDraft,250);
 }));
 document.getElementById('reload').addEventListener('click',()=>frame.contentWindow.location.reload());
 </script>
