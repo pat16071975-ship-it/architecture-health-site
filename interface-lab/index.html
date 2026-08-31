@@ -109,11 +109,16 @@ function applyDraft(){
       display:block;
       overflow:visible;
     }
+    .promo-badge{
+      width:max-content !important;
+      max-width:none !important;
+    }
     .promo-copy{
-      font-size:18px !important;
+      font-size:16.5px !important;
       font-weight:600 !important;
-      line-height:1.5 !important;
-      letter-spacing:-.01em !important;
+      line-height:1.35 !important;
+      letter-spacing:-.015em !important;
+      white-space:nowrap !important;
     }
     .promo-cta,.direction,.relation-title,.relation-item,
     .attention-eyebrow,.attention-related-label,.attention-direction,
@@ -152,7 +157,8 @@ function applyDraft(){
       .center h1{font-size:30px !important;line-height:1.12 !important;letter-spacing:-.025em !important}
       .az-system-clinic-label{font-size:8px;line-height:1.4;letter-spacing:.075em;gap:6px;margin-bottom:2px}
       .az-ecg-inline{flex-basis:43px;width:43px;height:11px}
-      .promo-copy{font-size:13px !important;line-height:1.45 !important}
+      .promo-badge{width:calc(100% - 24px) !important;max-width:560px !important}
+      .promo-copy{font-size:12px !important;line-height:1.35 !important;white-space:normal !important}
       .specialists-badge,.side-menu-badge{font-size:11px !important}
       .direction{font-size:9.5px !important;line-height:1.3 !important}
       .attention-title{font-size:27px !important;line-height:1.3 !important}
@@ -176,11 +182,16 @@ function applyDraft(){
     <span>Медицинская клиника системного подхода</span>`;
   h1.before(label);
 
+  const promoCopy=doc.querySelector('.promo-copy');
+  if(promoCopy){
+    promoCopy.textContent='Для улыбки не нужны импланты - правильная улыбка от 5000р у детей и взрослых без брекетов';
+  }
+
   requestAnimationFrame(()=>{
     const titleWidth=getTextWidth(h1);
     label.style.width=Math.ceil(titleWidth)+'px';
   });
-  status.textContent='Черновик: Montserrat + кардиограмма перед подписью';
+  status.textContent='Черновик: Montserrat + кардиограмма + промо без брекетов';
 }
 frame.addEventListener('load',applyDraft);
 modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
