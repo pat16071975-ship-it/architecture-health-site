@@ -1,0 +1,24 @@
+name: Refresh report bulk import
+on:
+  push:
+    paths:
+      - '.github/workflows/refresh-report-bulk-import.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Refresh secure importer cache key
+        run: python -c "from pathlib import Path; p=Path('reports/index.html'); s=p.read_text(); old='./secure-import.js?v=20260828-1'; new='./secure-import.js?v=20260831-1'; assert old in s, 'old cache key not found'; p.write_text(s.replace(old,new))"
+      - name: Commit changes and remove one-time workflow
+        run: |
+          rm .github/workflows/refresh-report-bulk-import.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/index.html .github/workflows/refresh-report-bulk-import.yml
+          git commit -m "Refresh bulk report secure import"
+          git push
