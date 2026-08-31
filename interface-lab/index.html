@@ -27,7 +27,7 @@
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: фон фото основателя</div>
+  <div class="status" id="status">Черновик: реальное фото + фон сайта</div>
 </header>
 <main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
@@ -40,12 +40,7 @@ const widthButtons=[...document.querySelectorAll('[data-width]')];
 let mode='draft';
 
 function clearDraft(doc){
-  const founder=doc.querySelector('.founder[data-az-lab-original-src]');
-  if(founder){
-    const original=founder.getAttribute('data-az-lab-original-src');
-    if(original) founder.setAttribute('src',original);
-    founder.removeAttribute('data-az-lab-original-src');
-  }
+  doc.getElementById('az-lab-founder-bg-style')?.remove();
 }
 function applyDraft(){
   const doc=frame.contentDocument;
@@ -60,9 +55,18 @@ function applyDraft(){
     status.textContent='Фото основателя не найдено';
     return;
   }
-  founder.setAttribute('data-az-lab-original-src',founder.getAttribute('src')||'');
-  founder.setAttribute('src','assets/founder-site-bg-preview.webp?v=20260831-1');
-  status.textContent='Черновик: реальное фото, фон сайта';
+  const style=doc.createElement('style');
+  style.id='az-lab-founder-bg-style';
+  style.textContent=`
+    .founder{
+      background:transparent !important;
+      border-color:transparent !important;
+      mix-blend-mode:multiply !important;
+      box-shadow:none !important;
+    }
+  `;
+  doc.head.appendChild(style);
+  status.textContent='Черновик: только настоящее фото, белый фон визуально слит с фоном сайта';
 }
 frame.addEventListener('load',applyDraft);
 modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
