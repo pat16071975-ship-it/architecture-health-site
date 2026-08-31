@@ -27,7 +27,7 @@
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: реальное фото + подогнанный тон</div>
+  <div class="status" id="status">Черновик: реальное фото + подогнанный тон + мягкие края</div>
 </header>
 <main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
@@ -60,15 +60,25 @@ function applyDraft(){
   style.textContent=`
     .founder{
       background:transparent !important;
-      border-color:transparent !important;
+      border:none !important;
+      border-radius:0 !important;
+      outline:none !important;
       box-shadow:none !important;
       mix-blend-mode:multiply !important;
       filter:brightness(1.035) contrast(.985) saturate(.97) sepia(.018) !important;
       opacity:.985 !important;
+      -webkit-mask-image:
+        linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%),
+        linear-gradient(to bottom,transparent 0,#000 6%,#000 94%,transparent 100%);
+      -webkit-mask-composite:source-in;
+      mask-image:
+        linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%),
+        linear-gradient(to bottom,transparent 0,#000 6%,#000 94%,transparent 100%);
+      mask-composite:intersect;
     }
   `;
   doc.head.appendChild(style);
-  status.textContent='Черновик: настоящее фото, фон сделан чуть теплее и ближе к тону сайта';
+  status.textContent='Черновик: настоящее фото, тон сохранён, прямоугольные края мягко растворены';
 }
 frame.addEventListener('load',applyDraft);
 modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
