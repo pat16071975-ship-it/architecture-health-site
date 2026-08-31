@@ -88,7 +88,7 @@ function applyDraft(){
     .positioning{display:none !important;}
     .az-system-clinic-label{
       display:block;
-      margin:0 auto 4px;
+      margin:0 auto 2px;
       text-align:right;
       font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif;
       font-size:14px;
@@ -100,14 +100,12 @@ function applyDraft(){
       white-space:nowrap;
     }
     .az-ecg-mark{
-      width:58px;
-      height:36px;
-      margin:4px auto 5px;
-      border-radius:12px;
-      overflow:hidden;
-      box-shadow:0 7px 18px rgba(53,86,64,.13);
+      width:168px;
+      height:24px;
+      margin:0 auto 4px;
+      overflow:visible;
     }
-    .az-ecg-mark svg{display:block;width:100%;height:100%}
+    .az-ecg-mark svg{display:block;width:100%;height:100%;overflow:visible}
     .promo-copy{
       font-size:18px !important;
       font-weight:600 !important;
@@ -149,8 +147,8 @@ function applyDraft(){
 
     @media(max-width:720px){
       .center h1{font-size:30px !important;line-height:1.12 !important;letter-spacing:-.025em !important}
-      .az-system-clinic-label{font-size:8px;line-height:1.4;letter-spacing:.075em;margin-bottom:2px}
-      .az-ecg-mark{width:42px;height:27px;border-radius:9px;margin:3px auto 3px}
+      .az-system-clinic-label{font-size:8px;line-height:1.4;letter-spacing:.075em;margin-bottom:1px}
+      .az-ecg-mark{width:106px;height:17px;margin:0 auto 2px}
       .promo-copy{font-size:13px !important;line-height:1.45 !important}
       .specialists-badge,.side-menu-badge{font-size:11px !important}
       .direction{font-size:9.5px !important;line-height:1.3 !important}
@@ -168,21 +166,15 @@ function applyDraft(){
   mark.className='az-ecg-mark';
   mark.setAttribute('data-az-lab-draft','');
   mark.innerHTML=`
-    <svg viewBox="0 0 116 72" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 180 28" aria-hidden="true" focusable="false">
       <defs>
-        <linearGradient id="azEcgBg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#294d3a"/>
-          <stop offset="58%" stop-color="#44634f"/>
-          <stop offset="100%" stop-color="#8a744e"/>
-        </linearGradient>
         <linearGradient id="azEcgLine" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="#d4bd8c"/>
-          <stop offset="52%" stop-color="#edf1e7"/>
+          <stop offset="0%" stop-color="#44634f"/>
+          <stop offset="48%" stop-color="#7b8f78"/>
           <stop offset="100%" stop-color="#b59662"/>
         </linearGradient>
       </defs>
-      <rect x="1.5" y="1.5" width="113" height="69" rx="20" fill="url(#azEcgBg)" stroke="#b59662" stroke-opacity=".42" stroke-width="3"/>
-      <path d="M14 38 H31 L38 27 L47 51 L58 15 L69 45 L76 34 L84 38 H102" fill="none" stroke="url(#azEcgLine)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M4 15 H39 L49 9 L59 20 L70 3 L81 24 L91 12 L100 16 H176" fill="none" stroke="url(#azEcgLine)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>`;
   h1.before(mark);
 
@@ -190,7 +182,7 @@ function applyDraft(){
     const titleWidth=getTextWidth(h1);
     label.style.width=Math.ceil(titleWidth)+'px';
   });
-  status.textContent='Черновик: Montserrat + ECG';
+  status.textContent='Черновик: Montserrat + кардиограмма';
 }
 frame.addEventListener('load',applyDraft);
 modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
