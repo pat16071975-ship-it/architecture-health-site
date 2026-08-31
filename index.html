@@ -2,6 +2,7 @@
 ---
 {% capture current_site %}{% include current-site.html %}{% endcapture %}
 {% assign current_site = current_site | replace: 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Leonardo_da_Vinci-_Vitruvian_Man.JPG', 'assets/vitruvian-original.jpg?v=20260827-1' %}
+{% assign current_site = current_site | replace: 'assets/logo-site.webp', 'assets/logo-site.webp?v=20260831-2' %}
 {% assign current_site = current_site | replace: '<div class="center"><h1>Архитектура здоровья</h1><div class="positioning">Клиника, где здоровье не делят по кабинетам</div>', '<div class="center"><div class="az-title-stack"><div class="az-system-clinic-label"><svg class="az-ecg-inline" viewBox="0 0 90 22" aria-hidden="true" focusable="false"><defs><linearGradient id="azEcgInlineLine" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#44634f"/><stop offset="48%" stop-color="#7b8f78"/><stop offset="100%" stop-color="#b59662"/></linearGradient></defs><path d="M2 12 H18 L23 8 L29 16 L35 2 L42 19 L49 9 L55 13 H88" fill="none" stroke="url(#azEcgInlineLine)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Медицинская клиника системного подхода</span></div><h1>Архитектура здоровья</h1></div>' %}
 {% assign current_site = current_site | replace: 'Для улыбки не нужны импланты - правильная улыбка от <strong>5000р</strong> у детей и взрослых', 'Для улыбки не нужны импланты - правильная улыбка от <strong>5000р</strong> у детей и взрослых без брекетов' %}
 {% capture az_head_injection %}
