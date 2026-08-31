@@ -1,1 +1,0 @@
-{"id":"az-report-2026-08-26-v1","alg":"AES-GCM-256","aad":"az-management-secure-import-v2","iv":"REDACTED_PLACEHOLDER","ciphertext":"REDACTED_PLACEHOLDER","plaintextSha256":"7ded320cdd763b55c7f65264f4baf12c7134c56aa7129bd76bea267c31dfb3b3","recordDates":["2026-01-01"]}
