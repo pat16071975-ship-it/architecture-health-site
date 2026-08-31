@@ -7,7 +7,7 @@
 <style>
 :root{--bg:#e8e4dc;--panel:#fbf8f2;--ink:#30372f;--line:#c9bda8}
 *{box-sizing:border-box}html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-.lab{height:100%;display:grid;grid-template-rows:auto 1fr}.toolbar{position:relative;z-index:20;display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 12px;background:rgba(251,248,242,.98);border-bottom:1px solid var(--line);box-shadow:0 3px 14px rgba(58,49,37,.08);flex-wrap:wrap}.brand{font:700 15px/1.1 Georgia,serif;margin-right:6px}.note{font-size:11px;color:#657066;margin-right:auto}.group{display:flex;gap:5px;align-items:center}.btn{appearance:none;border:1px solid #c6b99f;background:#fffdf9;color:#394139;border-radius:8px;padding:7px 10px;font:600 11px/1 Inter,Segoe UI,Arial,sans-serif;cursor:pointer}.btn:hover,.btn:focus-visible{outline:0;border-color:#7f947f}.btn.active{background:#e8efe9;border-color:#6d876f;color:#294231}.status{padding:7px 10px;border-radius:8px;border:1px solid rgba(181,150,98,.45);background:#f5efe4;font-size:11px;white-space:nowrap}.workspace{min-height:0;overflow:auto;padding:16px;display:flex;justify-content:center;align-items:flex-start}.frame-shell{height:calc(100vh - 90px);width:min(100%,1440px);min-width:300px;background:white;border:1px solid #bcb4a7;border-radius:10px;overflow:hidden;box-shadow:0 14px 40px rgba(58,49,37,.14);transition:width .2s ease}.frame{display:block;width:100%;height:100%;border:0;background:white}
+.lab{height:100%;display:grid;grid-template-rows:auto 1fr}.toolbar{position:relative;z-index:20;display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 12px;background:rgba(251,248,242,.98);border-bottom:1px solid var(--line);box-shadow:0 3px 14px rgba(58,49,37,.08);flex-wrap:wrap}.brand{font:700 15px/1.1 Georgia,serif;margin-right:6px}.note{font-size:11px;color:#657066;margin-right:auto}.group{display:flex;gap:5px;align-items:center}.btn{appearance:none;border:1px solid #c6b99f;background:#fffdf9;color:#394139;border-radius:8px;padding:7px 10px;font:600 11px/1 Inter,Segoe UI,Arial,sans-serif;cursor:pointer}.btn:hover,.btn:focus-visible{outline:0;border-color:#7f947f}.btn.active{background:#e8efe9;border-color:#6d876f;color:#294231}.status{padding:7px 10px;border-radius:8px;border:1px solid rgba(181,150,98,.45);background:#f5efe4;font-size:11px;white-space:nowrap}.workspace{min-height:0;overflow:auto;padding:16px;display:flex;justify-content:center;align-items:flex-start}.frame-shell{height:calc(100vh - 90px);width:min(100%,900px);min-width:300px;background:white;border:1px solid #bcb4a7;border-radius:10px;overflow:hidden;box-shadow:0 14px 40px rgba(58,49,37,.14);transition:width .2s ease}.frame{display:block;width:100%;height:100%;border:0;background:white}
 @media(max-width:700px){.toolbar{gap:6px;padding:7px}.brand{width:100%}.note{display:none}.btn{padding:7px 8px;font-size:10px}.workspace{padding:8px}.frame-shell{height:calc(100vh - 112px)}}
 </style>
 </head>
@@ -21,13 +21,13 @@
     <button class="btn active" data-mode="draft" type="button">Черновик</button>
   </div>
   <div class="group">
-    <button class="btn active" data-width="1440" type="button">ПК</button>
-    <button class="btn" data-width="900" type="button">Планшет</button>
+    <button class="btn" data-width="1440" type="button">ПК</button>
+    <button class="btn active" data-width="900" type="button">Планшет</button>
     <button class="btn" data-width="390" type="button">Телефон</button>
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: реальное фото + подогнанный тон + мягкие края</div>
+  <div class="status" id="status">Черновик: планшет и телефон</div>
 </header>
 <main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
@@ -39,9 +39,123 @@ const modeButtons=[...document.querySelectorAll('[data-mode]')];
 const widthButtons=[...document.querySelectorAll('[data-width]')];
 let mode='draft';
 
-function clearDraft(doc){
-  doc.getElementById('az-lab-founder-bg-style')?.remove();
+const responsiveDraft=`
+/* АЗ Interface Lab — адаптация планшета и телефона */
+@media (min-width:721px) and (max-width:1180px){
+  .page{width:100%!important;max-width:100vw!important;padding:14px 18px 34px!important}
+  .top{grid-template-columns:132px minmax(0,1fr) 132px!important;gap:18px!important;align-items:start!important}
+  .logo{width:124px!important;height:124px!important}
+  .founder{width:108px!important;height:108px!important}
+  .caption{max-width:150px!important;margin-top:6px!important;font-size:10.5px!important;line-height:1.3!important}
+  .center{padding-top:2px!important}
+  .az-title-stack{width:100%!important;max-width:100%!important}
+  .az-system-clinic-label{justify-content:center!important;gap:8px!important;margin-bottom:4px!important;font-size:10.5px!important;line-height:1.35!important;letter-spacing:.085em!important;white-space:nowrap!important}
+  .az-ecg-inline{flex-basis:56px!important;width:56px!important;height:14px!important}
+  .center h1{margin-top:4px!important;font-size:46px!important;line-height:1.04!important;letter-spacing:-.035em!important;white-space:nowrap!important}
+  .rule{width:160px!important;margin-top:9px!important}
+  .clinic-contact{top:160px!important;width:220px!important}
+  .clinic-phone{font-size:15px!important;line-height:1.12!important}
+  .clinic-hours{margin-top:5px!important;font-size:9.5px!important;line-height:1.35!important}
+  .promo-badge{top:142px!important;width:auto!important;max-width:min(670px,82vw)!important;padding:10px 18px 9px!important;border-radius:14px!important}
+  .promo-copy{font-size:13.5px!important;line-height:1.28!important;letter-spacing:-.01em!important;white-space:normal!important}
+  .promo-cta{margin-top:6px!important;padding-top:5px!important;font-size:9.5px!important}
+  .specialists-badge,.side-menu-badge{width:138px!important;padding:9px 9px!important;font-size:10.5px!important;line-height:1.2!important}
+  .specialists-badge{top:168px!important;right:-2px!important}
+  .side-menu-1{top:216px!important;right:-4px!important}
+  .side-menu-2{top:264px!important;right:-4px!important}
+  .side-menu-3{top:312px!important;right:-4px!important}
+  .side-menu-4{top:360px!important;right:-4px!important}
+  .direction{font-size:11px!important;line-height:1.28!important;font-weight:600!important}
+  .attention-section{padding:68px 34px 64px!important}
+  .attention-eyebrow{font-size:9.5px!important;letter-spacing:.18em!important}
+  .attention-title{font-size:31px!important;line-height:1.22!important;margin-bottom:38px!important}
+  .attention-question.mode-a{font-size:42px!important;line-height:1.05!important}
+  .attention-question.mode-b{font-size:39px!important;line-height:1.08!important}
+  .attention-question.mode-c{font-size:33px!important;line-height:1.08!important}
+  .attention-related-label{font-size:9.5px!important}
+  .attention-direction{font-size:10.5px!important;padding:7px 10px!important}
+  .attention-message-main{font-size:27px!important;line-height:1.25!important}
+  .attention-message-sub{font-size:12.5px!important;line-height:1.45!important}
+  .faq-section{padding:68px 34px 72px!important}
+  .faq-kicker{font-size:9.5px!important;letter-spacing:.18em!important}
+  .faq-title{font-size:31px!important;line-height:1.18!important}
+  .faq-intro{font-size:13px!important;line-height:1.5!important}
+  .faq-item summary{font-size:14.5px!important;line-height:1.35!important;padding:17px 48px 17px 18px!important}
+  .faq-answer{font-size:12.5px!important;line-height:1.58!important;padding:14px 18px 18px!important}
 }
+
+@media (max-width:720px){
+  .page{width:100%!important;max-width:100vw!important;padding:10px 12px 28px!important}
+  .top{display:grid!important;grid-template-columns:72px minmax(0,1fr) 72px!important;grid-template-rows:auto auto!important;column-gap:8px!important;row-gap:2px!important;align-items:start!important}
+  .left{grid-column:1!important;grid-row:1!important;min-width:0!important}
+  .right{grid-column:3!important;grid-row:1!important;min-width:0!important}
+  .center{grid-column:1/-1!important;grid-row:2!important;padding-top:0!important;margin-top:1px!important}
+  .logo{width:64px!important;height:64px!important}
+  .founder{width:58px!important;height:58px!important}
+  .caption{width:112px!important;margin-top:3px!important;margin-left:50%!important;transform:translateX(-50%)!important;font-size:7.8px!important;line-height:1.22!important}
+  .az-title-stack{width:100%!important;max-width:100%!important;margin:0 auto!important}
+  .az-system-clinic-label{justify-content:center!important;gap:6px!important;margin:2px 0 3px!important;font-size:8.2px!important;line-height:1.3!important;letter-spacing:.068em!important;white-space:nowrap!important}
+  .az-ecg-inline{flex:0 0 46px!important;width:46px!important;height:11px!important}
+  .center h1{margin:2px auto 0!important;font-size:30.5px!important;line-height:1.04!important;letter-spacing:-.035em!important;white-space:nowrap!important}
+  .rule{width:138px!important;margin-top:7px!important}
+  .promo-badge{top:170px!important;width:calc(100% - 24px)!important;max-width:520px!important;padding:9px 12px 8px!important;border-radius:13px!important}
+  .promo-copy{font-size:12.2px!important;line-height:1.3!important;letter-spacing:-.01em!important;white-space:normal!important}
+  .promo-cta{margin-top:5px!important;padding-top:5px!important;font-size:9px!important;letter-spacing:.14em!important}
+  .specialists-badge,.side-menu-badge{display:none!important}
+  .mobile-tools{display:block!important;margin:72px auto 14px!important;max-width:520px!important;text-align:center!important}
+  .mobile-contact{padding:10px 12px 9px!important;border-radius:12px!important}
+  .mobile-phone{font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:15.5px!important;font-weight:600!important;line-height:1.15!important}
+  .mobile-hours{margin-top:4px!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.4px!important;font-weight:500!important;line-height:1.35!important}
+  .mobile-nav{display:flex!important;flex-wrap:wrap!important;justify-content:center!important;gap:6px!important;margin-top:8px!important;padding:0!important;overflow:visible!important}
+  .mobile-nav a,.mobile-nav span{flex:1 1 calc(33.333% - 6px)!important;min-width:98px!important;max-width:116px!important;padding:8px 6px!important;border-radius:9px!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:10.3px!important;font-weight:600!important;line-height:1.2!important}
+  .map{gap:7px!important;padding-top:calc(min(88vw,350px) + 32px)!important}
+  .stage{width:min(88vw,350px)!important;height:min(88vw,350px)!important}
+  .direction{min-height:49px!important;margin:0!important;padding:6px 5px!important;font-size:9.7px!important;line-height:1.25!important;font-weight:600!important}
+  .attention-section{margin-top:16px!important;padding:48px 16px 50px!important}
+  .attention-eyebrow{margin-bottom:12px!important;font-size:8.8px!important;letter-spacing:.17em!important}
+  .attention-title{font-size:25px!important;line-height:1.22!important;margin-bottom:28px!important}
+  .attention-stage{min-height:650px!important}
+  .attention-question{min-height:165px!important}
+  .attention-question.mode-a{font-size:31px!important;line-height:1.08!important}
+  .attention-question.mode-b{font-size:29px!important;line-height:1.1!important}
+  .attention-question.mode-c{font-size:25px!important;line-height:1.1!important}
+  .attention-links{min-height:128px!important;margin-top:18px!important}
+  .attention-related-label{margin-bottom:9px!important;font-size:9px!important;letter-spacing:.09em!important}
+  .attention-directions{gap:6px!important}
+  .attention-direction{padding:7px 9px!important;font-size:10px!important;line-height:1.2!important}
+  .attention-message{margin-top:20px!important;padding-top:17px!important}
+  .attention-message-main{font-size:23px!important;line-height:1.27!important}
+  .attention-message-sub{margin-top:9px!important;font-size:11.5px!important;line-height:1.45!important}
+  .attention-controls{margin-top:22px!important}
+  .attention-arrow{width:38px!important;height:38px!important;font-size:16px!important}
+  .attention-counter{font-size:10.5px!important}
+  .faq-section{margin-top:16px!important;padding:48px 16px 54px!important}
+  .faq-kicker{margin-bottom:12px!important;font-size:8.8px!important;letter-spacing:.17em!important}
+  .faq-title{font-size:25px!important;line-height:1.2!important}
+  .faq-intro{margin-top:13px!important;font-size:11.8px!important;line-height:1.5!important}
+  .faq-grid{margin-top:28px!important;gap:8px!important}
+  .faq-item summary{padding:14px 42px 14px 15px!important;font-size:13.5px!important;line-height:1.35!important}
+  .faq-item summary:after{right:14px!important;font-size:20px!important}
+  .faq-answer{padding:12px 15px 16px!important;font-size:12px!important;line-height:1.55!important}
+}
+
+@media (max-width:380px){
+  .top{grid-template-columns:64px minmax(0,1fr) 64px!important}
+  .logo{width:58px!important;height:58px!important}
+  .founder{width:52px!important;height:52px!important}
+  .caption{width:104px!important;font-size:7.2px!important}
+  .az-system-clinic-label{font-size:7.4px!important;letter-spacing:.055em!important;gap:5px!important}
+  .az-ecg-inline{flex-basis:40px!important;width:40px!important;height:10px!important}
+  .center h1{font-size:28px!important}
+  .promo-badge{top:158px!important}
+  .promo-copy{font-size:11.5px!important}
+  .mobile-tools{margin-top:70px!important}
+  .mobile-nav a,.mobile-nav span{min-width:92px!important;font-size:9.8px!important}
+  .direction{font-size:9.2px!important}
+}
+`;
+
+function clearDraft(doc){doc.getElementById('az-lab-responsive-style')?.remove()}
 function applyDraft(){
   const doc=frame.contentDocument;
   if(!doc)return;
@@ -50,35 +164,12 @@ function applyDraft(){
     status.textContent='Оригинал сайта';
     return;
   }
-  const founder=doc.querySelector('.founder');
-  if(!founder){
-    status.textContent='Фото основателя не найдено';
-    return;
-  }
   const style=doc.createElement('style');
-  style.id='az-lab-founder-bg-style';
-  style.textContent=`
-    .founder{
-      background:transparent !important;
-      border:none !important;
-      border-radius:0 !important;
-      outline:none !important;
-      box-shadow:none !important;
-      mix-blend-mode:multiply !important;
-      filter:brightness(1.035) contrast(.985) saturate(.97) sepia(.018) !important;
-      opacity:.985 !important;
-      -webkit-mask-image:
-        linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%),
-        linear-gradient(to bottom,transparent 0,#000 6%,#000 94%,transparent 100%);
-      -webkit-mask-composite:source-in;
-      mask-image:
-        linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%),
-        linear-gradient(to bottom,transparent 0,#000 6%,#000 94%,transparent 100%);
-      mask-composite:intersect;
-    }
-  `;
+  style.id='az-lab-responsive-style';
+  style.textContent=responsiveDraft;
   doc.head.appendChild(style);
-  status.textContent='Черновик: настоящее фото, тон сохранён, прямоугольные края мягко растворены';
+  const w=shell.getBoundingClientRect().width;
+  status.textContent=w<=720?'Черновик: телефон — новая компоновка и размеры':'Черновик: планшет — новая компоновка и размеры';
 }
 frame.addEventListener('load',applyDraft);
 modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
