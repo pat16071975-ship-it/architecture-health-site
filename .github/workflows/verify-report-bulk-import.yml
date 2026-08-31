@@ -1,0 +1,27 @@
+name: Verify report bulk import
+on:
+  push:
+    paths:
+      - '.github/workflows/verify-report-bulk-import.yml'
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Verify importer and encrypted chunks
+        run: |
+          node --check reports/secure-import.js
+          actual="$(cat reports/secure-import-20260830.part1 reports/secure-import-20260830.part2 reports/secure-import-20260830.part3 reports/secure-import-20260830.part4 | sha256sum | cut -d' ' -f1)"
+          test "$actual" = "7eaa038d770f05e3ba82938dadc1c12dc4d8077ffe714a6475f0936f9e6a3681"
+      - name: Remove one-time workflow
+        run: |
+          rm .github/workflows/verify-report-bulk-import.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/verify-report-bulk-import.yml
+          git commit -m "Remove bulk import verification workflow"
+          git push
