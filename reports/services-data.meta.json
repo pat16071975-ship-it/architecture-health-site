@@ -1,0 +1,11 @@
+{
+  "id": "az-services-2026-through-2026-08-31-v1",
+  "alg": "AES-GCM-256",
+  "compression": "gzip",
+  "aad": "az-service-analytics-v1-gzip",
+  "iv": "8fYlqGVciV92hWK-",
+  "plaintextSha256": "bba8619c1e722a05a37a9c581dfe9b19548e2fdd53d77f860e206996e5cfa8a4",
+  "compressedSha256": "5042f74c588016e61b4fcb5821bd21a388c6639c74f8a4be480746c440d9da57",
+  "ciphertextSha256": "f6222e14cde9d01339390f01e8fb4b6338ac0550c8807236730658b0663918b2",
+  "part": "./services-data.part"
+}
