@@ -4,137 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Аналитика услуг — Архитектура здоровья</title>
-<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f7f3ec}iframe{border:0;width:100%;height:100%;display:block}</style>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f7f3ec}
+iframe{border:0;width:100%;height:100%;display:block}
+</style>
 </head>
 <body>
 <iframe id="serviceFrame" title="Аналитика услуг"></iframe>
 <script>
 const frame=document.getElementById('serviceFrame');
-frame.src='./services-base.html?v=20260901-4'+(location.hash||'');
+frame.src='./services-base.html?v=20260901-5'+(location.hash||'');
 frame.addEventListener('load',()=>{
-  const w=frame.contentWindow,d=frame.contentDocument;
-  if(location.hash)history.replaceState(null,'',location.pathname+location.search);
-  const st=d.createElement('style');
-  st.textContent=`
-    .app{width:min(1760px,99vw)!important;padding:12px 0 30px!important}
-    .topbar{margin-bottom:10px!important}.toolbar{padding:10px!important;gap:7px!important}
-    .toolbar .field{min-width:160px!important}.field label{font-size:11px!important}.field select{padding:8px 10px!important;font-size:12px!important}
-    .tabs{margin:9px 0!important}.btn{padding:8px 11px!important;font-size:12px!important}
-    .status{margin:7px 0 9px!important;font-size:10px!important}.kpis{gap:7px!important;margin:9px 0!important}.kpi{padding:8px 10px!important}.kpi span{font-size:10px!important;margin-bottom:4px!important}.kpi strong{font-size:20px!important}
-    .panel{margin-top:8px!important}.panel h2{padding:8px 12px!important;font-size:20px!important}.panel-note{padding:7px 12px!important;font-size:10px!important}
-    .table-wrap{max-height:76vh!important}.table{min-width:900px!important}.table th,.table td{padding:5px 6px!important;font-size:10px!important;line-height:1.12!important}
-    .table thead tr:nth-child(2) th{top:27px!important}.table td:first-child{min-width:225px!important;max-width:275px!important}.period-head{font-size:10px!important}
-    .matrix{min-width:1060px!important}.matrix th,.matrix td{padding:5px 6px!important;font-size:9.5px!important}.matrix th:first-child,.matrix td:first-child{min-width:185px!important}.cell-sub{font-size:9px!important}
-    .az-compare-field{min-width:185px!important}.az-compare-table th,.az-compare-table td{padding:5px 7px!important}.az-compare-note{font-size:10px;color:#6f6658;padding:7px 12px;background:#fffaf0;border-top:1px solid #eadfc9}
-  `;
-  d.head.appendChild(st);
-
-  const doctor=d.querySelector('#doctor');
-  const toolbar=d.querySelector('.toolbar');
-  const doctorField=doctor?.closest('.field');
-  let compareActive=false;
-  let syncing=false;
-
-  const doctor2Field=d.createElement('div');
-  doctor2Field.className='field az-compare-field hidden';
-  doctor2Field.innerHTML='<label>Врач 2</label><select id="azDoctor2"></select>';
-  if(doctorField)doctorField.after(doctor2Field);
-  const doctor2=doctor2Field.querySelector('select');
-
-  const tabs=d.querySelector('.tabs');
-  const matrixBtn=tabs?.querySelector('[data-tab="matrix"]');
-  const compareBtn=d.createElement('button');
-  compareBtn.className='btn';
-  compareBtn.textContent='Сравнение 2 врачей';
-  if(matrixBtn)tabs.insertBefore(compareBtn,matrixBtn); else tabs?.appendChild(compareBtn);
-
-  const money=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(n||0)+' ₽';
-  const count=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n||0);
-  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-  function currentBaseTab(){return d.querySelector('[data-tab].active')?.dataset.tab||'summary'}
-  function compactLabels(){
-    d.querySelectorAll('th').forEach(th=>{if(th.textContent.trim()==='Кол-во')th.textContent='Кол.'});
-  }
-  function names(){try{return Object.keys(w.directionData()?.doctors||{})}catch{return[]}}
-  function syncDoctorUi(){
-    if(syncing||!doctor)return;
-    syncing=true;
-    const ns=names();
-    if(compareActive){
-      doctor.disabled=false;
-      doctor2Field.classList.remove('hidden');
-      if(!ns.includes(doctor.value))doctor.value=ns[0]||'';
-      doctor2.innerHTML=ns.map(x=>'<option>'+esc(x)+'</option>').join('');
-      if(!ns.includes(doctor2.value)||doctor2.value===doctor.value)doctor2.value=ns.find(x=>x!==doctor.value)||doctor.value;
-    }else{
-      doctor2Field.classList.add('hidden');
-      const tab=currentBaseTab();
-      if(tab==='summary'||tab==='matrix'){
-        if([...doctor.options].some(o=>o.value==='all'))doctor.value='all';
-        doctor.disabled=true;
-      }else{
-        doctor.disabled=false;
-        if(doctor.value==='all'&&ns.length)doctor.value=ns[0];
-      }
-    }
-    syncing=false;
-  }
-
-  function focusGroup(){try{return w.focusGroup()}catch{return null}}
-  function cats(dd){try{return w.selectedCategories(dd)}catch{return dd?.categories||[]}}
-  function metric(dd,name,cat,g){try{return g?w.metricGroup(dd.doctors[name],cat,g):w.metricAll(dd.doctors[name],cat)}catch{return[0,0]}}
-  function renderCompare(){
-    const dd=w.directionData?.(); if(!dd)return;
-    compareActive=true;
-    d.querySelectorAll('[data-tab]').forEach(b=>b.classList.remove('active'));
-    compareBtn.classList.add('active');
-    syncDoctorUi();
-    const ns=names();
-    const a=ns.includes(doctor.value)?doctor.value:(ns[0]||'');
-    if(!ns.includes(doctor2.value)||doctor2.value===a)doctor2.value=ns.find(x=>x!==a)||a;
-    const b=doctor2.value;
-    const g=focusGroup();
-    const categories=cats(dd);
-    let aq=0,ar=0,bq=0,br=0;
-    categories.forEach(cat=>{const x=metric(dd,a,cat,g),y=metric(dd,b,cat,g);aq+=x[0];ar+=x[1];bq+=y[0];br+=y[1]});
-    d.querySelector('#kpis').innerHTML=`<div class="kpi"><span>Выручка • ${esc(a)}</span><strong>${money(ar)}</strong></div><div class="kpi"><span>Выручка • ${esc(b)}</span><strong>${money(br)}</strong></div><div class="kpi"><span>Кол. услуг • ${esc(a)}</span><strong>${count(aq)}</strong></div><div class="kpi"><span>Кол. услуг • ${esc(b)}</span><strong>${count(bq)}</strong></div>`;
-    const pLabel=g?g.label:'январь–август';
-    let h=`<div class="panel ${w.panelClass?.()||''}"><h2>Сравнение врачей — ${esc(a)} и ${esc(b)}</h2><div class="az-compare-note">Категории услуг за период: <strong>${esc(pLabel)}</strong>.</div><div class="table-wrap"><table class="table az-compare-table"><thead><tr><th rowspan="2">Категория</th><th colspan="2">${esc(a)}</th><th colspan="2">${esc(b)}</th><th rowspan="2">Δ сумма</th><th rowspan="2">Лидер</th></tr><tr><th>Кол.</th><th>Сумма</th><th>Кол.</th><th>Сумма</th></tr></thead><tbody>`;
-    categories.forEach(cat=>{
-      const x=metric(dd,a,cat,g),y=metric(dd,b,cat,g),delta=y[1]-x[1];
-      const leader=x[1]===y[1]?'Равно':(x[1]>y[1]?a:b);
-      h+=`<tr><td>${esc(cat)}</td><td>${count(x[0])}</td><td class="money">${money(x[1])}</td><td>${count(y[0])}</td><td class="money">${money(y[1])}</td><td>${money(delta)}</td><td>${esc(leader)}</td></tr>`;
-    });
-    h+='</tbody></table></div></div>';
-    let groups=[];try{groups=w.availableGroups()}catch{}
-    h+=`<div class="panel ${w.panelClass?.()||''}"><h2>Динамика двух врачей</h2><div class="table-wrap"><table class="table az-compare-table"><thead><tr><th>Период</th><th>${esc(a)} • Кол.</th><th>${esc(a)} • Сумма</th><th>${esc(b)} • Кол.</th><th>${esc(b)} • Сумма</th><th>Δ сумма</th></tr></thead><tbody>`;
-    groups.forEach(gr=>{
-      let xq=0,xr=0,yq=0,yr=0;
-      categories.forEach(cat=>{const x=metric(dd,a,cat,gr),y=metric(dd,b,cat,gr);xq+=x[0];xr+=x[1];yq+=y[0];yr+=y[1]});
-      h+=`<tr><td>${esc(gr.label)}</td><td>${count(xq)}</td><td class="money">${money(xr)}</td><td>${count(yq)}</td><td class="money">${money(yr)}</td><td>${money(yr-xr)}</td></tr>`;
-    });
-    h+='</tbody></table></div></div>';
-    d.querySelector('#content').innerHTML=h;
-    const map={month:'месяцам',quarter:'кварталам',half:'полугодиям'};
-    d.querySelector('#status').textContent=`Сравнение двух врачей по ${map[d.querySelector('#grouping')?.value]||'периодам'}.`;
-    compactLabels();
-  }
-
-  compareBtn.addEventListener('click',renderCompare);
-  d.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{
-    compareActive=false; compareBtn.classList.remove('active');
-    setTimeout(()=>{syncDoctorUi();compactLabels()},0);
-  }));
-  ['direction','grouping','focusPeriod','doctor','category'].forEach(id=>d.querySelector('#'+id)?.addEventListener('change',()=>{
-    setTimeout(()=>{if(compareActive)renderCompare();else{syncDoctorUi();compactLabels()}},0);
-  }));
-  doctor2.addEventListener('change',()=>{if(compareActive)renderCompare()});
-
-  const obs=new MutationObserver(()=>{compactLabels();if(!compareActive)syncDoctorUi()});
-  obs.observe(d.body,{subtree:true,childList:true});
-  compactLabels();syncDoctorUi();
+  if(location.hash) history.replaceState(null,'',location.pathname+location.search);
 });
 </script>
+<script src="./services-enhancements.js?v=20260901-5"></script>
 </body>
 </html>
