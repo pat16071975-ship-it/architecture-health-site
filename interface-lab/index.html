@@ -103,7 +103,7 @@ const responsiveDraft=`
   .promo-copy{font-size:10.4px!important;line-height:1.24!important;letter-spacing:-.008em!important;white-space:normal!important}
   .promo-cta{margin-top:4px!important;padding-top:4px!important;font-size:8.2px!important;letter-spacing:.13em!important}
   .specialists-badge,.side-menu-badge{display:none!important}
-  .mobile-tools{display:block!important;margin:58px auto 14px!important;max-width:520px!important;text-align:center!important}
+  .mobile-tools{display:block!important;margin:82px auto 14px!important;max-width:520px!important;text-align:center!important}
   .mobile-contact{padding:10px 12px 9px!important;border-radius:12px!important}
   .mobile-phone{font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:15.5px!important;font-weight:600!important;line-height:1.15!important}
   .mobile-hours{margin-top:4px!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.4px!important;font-weight:500!important;line-height:1.35!important}
@@ -151,7 +151,7 @@ const responsiveDraft=`
   .promo-badge{top:156px!important;width:calc(100% - 40px)!important;max-width:330px!important;padding:6px 9px 5px!important}
   .promo-copy{font-size:9.9px!important;line-height:1.23!important}
   .promo-cta{font-size:7.8px!important}
-  .mobile-tools{margin-top:56px!important}
+  .mobile-tools{margin-top:80px!important}
   .mobile-nav a,.mobile-nav span{min-width:92px!important;font-size:9.8px!important}
   .direction{font-size:9.2px!important}
 }
@@ -171,7 +171,7 @@ function applyDraft(){
   style.textContent=responsiveDraft;
   doc.head.appendChild(style);
   const w=shell.getBoundingClientRect().width;
-  status.textContent=w<=720?'Черновик: телефон — компактный оффер':'Черновик: планшет — оффер и разделы разведены';
+  status.textContent=w<=720?'Черновик: телефон — блок контактов и всё ниже опущены':'Черновик: планшет — оффер и разделы разведены';
 }
 frame.addEventListener('load',applyDraft);
 modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
