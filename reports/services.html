@@ -4,78 +4,137 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Аналитика услуг — Архитектура здоровья</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{--paper:#f7f3ec;--soft:#fffdf8;--ink:#2d342f;--green:#44634f;--green2:#dfe9e2;--gold:#b59662;--gold2:#efe5d2;--blue:#dfe9f2;--orange:#f1dfc9;--line:#d8cdbb;--red:#9a4b48;--muted:#6d746c;--focus:#f8f1e3}
-*{box-sizing:border-box}html,body{margin:0;background:linear-gradient(180deg,#fcfaf6,var(--paper));color:var(--ink);font-family:Inter,Arial,sans-serif}body{min-height:100vh}.hidden{display:none!important}a{color:inherit}
-.login{min-height:100vh;display:grid;place-items:center;padding:24px}.login-card{width:min(420px,94vw);background:rgba(255,253,248,.97);border:1px solid var(--line);border-radius:18px;padding:34px;box-shadow:0 18px 50px rgba(69,55,35,.10)}.brand{font:600 34px/1.05 'Cormorant Garamond',serif;text-align:center}.sub{margin:8px 0 24px;text-align:center;color:var(--muted);font-size:13px}.field{display:grid;gap:6px;margin:12px 0}.field label{font-size:12px;font-weight:600;color:#60685f}.field input,.field select{width:100%;padding:10px 12px;border:1px solid #cfc5b5;border-radius:10px;background:#fff;font:500 14px Inter}.field select:disabled{background:#f4f1ea;color:#7f857d;cursor:not-allowed}.btn{appearance:none;border:1px solid rgba(68,99,79,.34);background:#fff;color:#334039;border-radius:10px;padding:10px 14px;font:600 13px Inter;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}.btn.active{background:var(--green2);border-color:#9eb6a5}.error{min-height:18px;color:var(--red);font-size:12px;margin-top:8px}
-.app{width:min(1680px,98vw);margin:0 auto;padding:18px 0 44px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}.title{font:600 38px/1 'Cormorant Garamond',serif}.muted{color:var(--muted);font-size:12px}.top-actions{display:flex;gap:8px;flex-wrap:wrap}
-.toolbar{display:grid;grid-template-columns:repeat(6,minmax(170px,1fr));gap:10px;align-items:end;padding:12px;border:1px solid var(--line);background:rgba(255,253,248,.82);border-radius:14px;position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}.toolbar .field{margin:0;min-width:0}.toolbar .field.wide{grid-column:span 2}
-.tabs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.notice{margin:12px 0;padding:10px 13px;border-left:3px solid var(--gold);background:#fffaf0;color:#665b49;font-size:12px;border-radius:8px}.status{margin:10px 0 12px;font-size:12px;color:#516056}.kpis{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin:12px 0}.kpi{border:1px solid #e2d9ca;border-radius:12px;background:#fff;padding:11px 13px}.kpi span{display:block;font-size:11px;font-weight:700;color:#687067;margin-bottom:6px}.kpi strong{font:600 22px/1.05 'Cormorant Garamond',serif}
-.panel{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:rgba(255,253,248,.9);margin-top:12px}.panel h2{margin:0;padding:10px 14px;font:700 22px/1.1 'Cormorant Garamond',serif;background:var(--gold2)}.panel-note{padding:10px 14px;font-size:11px;color:#705f47;background:#fff9ef;border-top:1px solid #efe4d2}.panel.dent h2{background:var(--blue)}.panel.clinic h2{background:var(--green2)}.panel.lab h2{background:var(--orange)}
-.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:980px}.table th,.table td{padding:6px 8px;border-top:1px solid #e6ded1;font-size:11px;line-height:1.25;text-align:right;vertical-align:middle}.table th{background:#faf6ef;position:sticky;top:0;z-index:1;font-weight:700}.table th:first-child,.table td:first-child{text-align:left}.table .money{font-weight:700}.table .period-head{text-align:center}.table .subhead{font-size:10px;font-weight:700;color:#6a7169;text-transform:none}.table .focus{background:var(--focus)}.table .total-col{background:#f8f4ec}.table .total-row td{font-weight:700;background:#faf7f1}.matrix{min-width:1180px}.matrix th,.matrix td{text-align:right;white-space:nowrap}.matrix th:first-child,.matrix td:first-child{text-align:left;white-space:normal;min-width:220px;position:sticky;left:0;background:#fffdf8;z-index:2}.matrix th:first-child{background:#faf6ef;z-index:3}.cell-main{font-weight:700}.cell-sub{font-size:10px;color:#7b817b;margin-top:2px}.delta-pos{color:#2e7d32;font-weight:700}.delta-neg{color:#b04a45;font-weight:700}.delta-neutral{color:#7b817b}.empty{padding:28px;text-align:center;color:#777}.small{font-size:11px;color:var(--muted)}.chip{display:inline-block;padding:2px 8px;border-radius:999px;background:#f0ece5;color:#6b6a64;font-size:10px;font-weight:700}.compare-head{background:#f4efe5}
-@media(max-width:1200px){.toolbar{grid-template-columns:repeat(3,minmax(180px,1fr))}}@media(max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(140px,1fr))}.topbar{align-items:flex-start;flex-direction:column}.toolbar{position:static;grid-template-columns:repeat(2,minmax(160px,1fr))}.toolbar .field.wide{grid-column:span 1}}@media(max-width:560px){.kpis{grid-template-columns:1fr}.toolbar{grid-template-columns:1fr}.title{font-size:30px}.app{width:96vw}.table th,.table td{padding:5px 6px;font-size:10px}.matrix th:first-child,.matrix td:first-child{min-width:170px}}
-</style>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f7f3ec}iframe{border:0;width:100%;height:100%;display:block}</style>
 </head>
 <body>
-<div id="loginView" class="login">
-  <div class="login-card">
-    <div class="brand">Архитектура здоровья</div>
-    <div class="sub">Аналитика услуг</div>
-    <form id="loginForm">
-      <div class="field"><label>Логин</label><input id="loginName" autocomplete="username" required></div>
-      <div class="field"><label>Пароль</label><input id="loginPassword" type="password" autocomplete="current-password" required></div>
-      <button class="btn primary" style="width:100%;margin-top:8px" type="submit">Войти</button>
-      <div id="loginError" class="error"></div>
-    </form>
-  </div>
-</div>
-
-<div id="appView" class="app hidden">
-  <div class="topbar">
-    <div>
-      <div class="title">Аналитика услуг</div>
-      <div class="muted">Единые категории по прайсу • январь–август 2026</div>
-    </div>
-    <div class="top-actions">
-      <a class="btn" href="./">Управленческий отчёт</a>
-      <a class="btn" target="_blank" rel="noopener" href="https://docs.google.com/spreadsheets/d/1egOo5bL3Y-zv-bhOChjKQIjwqzv-gZnOpZcBA0BXWtk/edit">Прайс-классификатор</a>
-      <button id="logoutBtn" class="btn">Выйти</button>
-    </div>
-  </div>
-
-  <div class="toolbar">
-    <div class="field"><label>Направление</label><select id="direction"></select></div>
-    <div class="field"><label>Сравнение</label><select id="grouping"><option value="month">По месяцам</option><option value="quarter">По кварталам</option><option value="half">По полугодиям</option></select></div>
-    <div class="field"><label>Выделить период</label><select id="focusPeriod"></select></div>
-    <div class="field"><label id="doctorLabel">Врач</label><select id="doctor"></select></div>
-    <div id="doctor2Field" class="field hidden"><label>Врач 2</label><select id="doctor2"></select></div>
-    <div class="field wide"><label>Категория</label><select id="category"></select></div>
-  </div>
-  <div id="status" class="status"></div>
-  <div id="missingData" class="notice hidden">Данные аналитики ещё не загружены в этот браузер. Откройте защищёё�нную ссылку импорта один разин.</div>
-
-  <div class="tabs">
-    <button class="btn active" data-tab="summary">Сводная по всем врачам</button>
-    <button class="btn" data-tab="doctor">Таблица врача</button>
-    <button class="btn" data-tab="compare">Сравнение 2 врачей</button>
-    <button class="btn" data-tab="matrix">Матрица врачи × услуги</button>
-  </div>
-
-  <div id="kpis" class="kpis"></div>
-  <div id="content"></div>
-</div>
-
+<iframe id="serviceFrame" title="Аналитика услуг"></iframe>
 <script>
-const AUTH_USER='admin';
-const AUTH_HASH='56c30f55c895d1d96f4b82f01c09e91f1e8cdc7eb77851f98a00cdd4d6aeddbf';
-const SESSION_KEY='az-management-auth-v1';
-const DATA_KEY='az-service-analytics-v1';
-const IMPORT_KEY='az-service-import-key';
-const META_URL='./services-data.meta.json?v=20260901-1';
-const $=s=>document.querySelector(s);
-let currentTab='summary';
-let data=null;
-const money=n+>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(n
+const frame=document.getElementById('serviceFrame');
+frame.src='./services-base.html?v=20260901-4'+(location.hash||'');
+frame.addEventListener('load',()=>{
+  const w=frame.contentWindow,d=frame.contentDocument;
+  if(location.hash)history.replaceState(null,'',location.pathname+location.search);
+  const st=d.createElement('style');
+  st.textContent=`
+    .app{width:min(1760px,99vw)!important;padding:12px 0 30px!important}
+    .topbar{margin-bottom:10px!important}.toolbar{padding:10px!important;gap:7px!important}
+    .toolbar .field{min-width:160px!important}.field label{font-size:11px!important}.field select{padding:8px 10px!important;font-size:12px!important}
+    .tabs{margin:9px 0!important}.btn{padding:8px 11px!important;font-size:12px!important}
+    .status{margin:7px 0 9px!important;font-size:10px!important}.kpis{gap:7px!important;margin:9px 0!important}.kpi{padding:8px 10px!important}.kpi span{font-size:10px!important;margin-bottom:4px!important}.kpi strong{font-size:20px!important}
+    .panel{margin-top:8px!important}.panel h2{padding:8px 12px!important;font-size:20px!important}.panel-note{padding:7px 12px!important;font-size:10px!important}
+    .table-wrap{max-height:76vh!important}.table{min-width:900px!important}.table th,.table td{padding:5px 6px!important;font-size:10px!important;line-height:1.12!important}
+    .table thead tr:nth-child(2) th{top:27px!important}.table td:first-child{min-width:225px!important;max-width:275px!important}.period-head{font-size:10px!important}
+    .matrix{min-width:1060px!important}.matrix th,.matrix td{padding:5px 6px!important;font-size:9.5px!important}.matrix th:first-child,.matrix td:first-child{min-width:185px!important}.cell-sub{font-size:9px!important}
+    .az-compare-field{min-width:185px!important}.az-compare-table th,.az-compare-table td{padding:5px 7px!important}.az-compare-note{font-size:10px;color:#6f6658;padding:7px 12px;background:#fffaf0;border-top:1px solid #eadfc9}
+  `;
+  d.head.appendChild(st);
+
+  const doctor=d.querySelector('#doctor');
+  const toolbar=d.querySelector('.toolbar');
+  const doctorField=doctor?.closest('.field');
+  let compareActive=false;
+  let syncing=false;
+
+  const doctor2Field=d.createElement('div');
+  doctor2Field.className='field az-compare-field hidden';
+  doctor2Field.innerHTML='<label>Врач 2</label><select id="azDoctor2"></select>';
+  if(doctorField)doctorField.after(doctor2Field);
+  const doctor2=doctor2Field.querySelector('select');
+
+  const tabs=d.querySelector('.tabs');
+  const matrixBtn=tabs?.querySelector('[data-tab="matrix"]');
+  const compareBtn=d.createElement('button');
+  compareBtn.className='btn';
+  compareBtn.textContent='Сравнение 2 врачей';
+  if(matrixBtn)tabs.insertBefore(compareBtn,matrixBtn); else tabs?.appendChild(compareBtn);
+
+  const money=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(n||0)+' ₽';
+  const count=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n||0);
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  function currentBaseTab(){return d.querySelector('[data-tab].active')?.dataset.tab||'summary'}
+  function compactLabels(){
+    d.querySelectorAll('th').forEach(th=>{if(th.textContent.trim()==='Кол-во')th.textContent='Кол.'});
+  }
+  function names(){try{return Object.keys(w.directionData()?.doctors||{})}catch{return[]}}
+  function syncDoctorUi(){
+    if(syncing||!doctor)return;
+    syncing=true;
+    const ns=names();
+    if(compareActive){
+      doctor.disabled=false;
+      doctor2Field.classList.remove('hidden');
+      if(!ns.includes(doctor.value))doctor.value=ns[0]||'';
+      doctor2.innerHTML=ns.map(x=>'<option>'+esc(x)+'</option>').join('');
+      if(!ns.includes(doctor2.value)||doctor2.value===doctor.value)doctor2.value=ns.find(x=>x!==doctor.value)||doctor.value;
+    }else{
+      doctor2Field.classList.add('hidden');
+      const tab=currentBaseTab();
+      if(tab==='summary'||tab==='matrix'){
+        if([...doctor.options].some(o=>o.value==='all'))doctor.value='all';
+        doctor.disabled=true;
+      }else{
+        doctor.disabled=false;
+        if(doctor.value==='all'&&ns.length)doctor.value=ns[0];
+      }
+    }
+    syncing=false;
+  }
+
+  function focusGroup(){try{return w.focusGroup()}catch{return null}}
+  function cats(dd){try{return w.selectedCategories(dd)}catch{return dd?.categories||[]}}
+  function metric(dd,name,cat,g){try{return g?w.metricGroup(dd.doctors[name],cat,g):w.metricAll(dd.doctors[name],cat)}catch{return[0,0]}}
+  function renderCompare(){
+    const dd=w.directionData?.(); if(!dd)return;
+    compareActive=true;
+    d.querySelectorAll('[data-tab]').forEach(b=>b.classList.remove('active'));
+    compareBtn.classList.add('active');
+    syncDoctorUi();
+    const ns=names();
+    const a=ns.includes(doctor.value)?doctor.value:(ns[0]||'');
+    if(!ns.includes(doctor2.value)||doctor2.value===a)doctor2.value=ns.find(x=>x!==a)||a;
+    const b=doctor2.value;
+    const g=focusGroup();
+    const categories=cats(dd);
+    let aq=0,ar=0,bq=0,br=0;
+    categories.forEach(cat=>{const x=metric(dd,a,cat,g),y=metric(dd,b,cat,g);aq+=x[0];ar+=x[1];bq+=y[0];br+=y[1]});
+    d.querySelector('#kpis').innerHTML=`<div class="kpi"><span>Выручка • ${esc(a)}</span><strong>${money(ar)}</strong></div><div class="kpi"><span>Выручка • ${esc(b)}</span><strong>${money(br)}</strong></div><div class="kpi"><span>Кол. услуг • ${esc(a)}</span><strong>${count(aq)}</strong></div><div class="kpi"><span>Кол. услуг • ${esc(b)}</span><strong>${count(bq)}</strong></div>`;
+    const pLabel=g?g.label:'январь–август';
+    let h=`<div class="panel ${w.panelClass?.()||''}"><h2>Сравнение врачей — ${esc(a)} и ${esc(b)}</h2><div class="az-compare-note">Категории услуг за период: <strong>${esc(pLabel)}</strong>.</div><div class="table-wrap"><table class="table az-compare-table"><thead><tr><th rowspan="2">Категория</th><th colspan="2">${esc(a)}</th><th colspan="2">${esc(b)}</th><th rowspan="2">Δ сумма</th><th rowspan="2">Лидер</th></tr><tr><th>Кол.</th><th>Сумма</th><th>Кол.</th><th>Сумма</th></tr></thead><tbody>`;
+    categories.forEach(cat=>{
+      const x=metric(dd,a,cat,g),y=metric(dd,b,cat,g),delta=y[1]-x[1];
+      const leader=x[1]===y[1]?'Равно':(x[1]>y[1]?a:b);
+      h+=`<tr><td>${esc(cat)}</td><td>${count(x[0])}</td><td class="money">${money(x[1])}</td><td>${count(y[0])}</td><td class="money">${money(y[1])}</td><td>${money(delta)}</td><td>${esc(leader)}</td></tr>`;
+    });
+    h+='</tbody></table></div></div>';
+    let groups=[];try{groups=w.availableGroups()}catch{}
+    h+=`<div class="panel ${w.panelClass?.()||''}"><h2>Динамика двух врачей</h2><div class="table-wrap"><table class="table az-compare-table"><thead><tr><th>Период</th><th>${esc(a)} • Кол.</th><th>${esc(a)} • Сумма</th><th>${esc(b)} • Кол.</th><th>${esc(b)} • Сумма</th><th>Δ сумма</th></tr></thead><tbody>`;
+    groups.forEach(gr=>{
+      let xq=0,xr=0,yq=0,yr=0;
+      categories.forEach(cat=>{const x=metric(dd,a,cat,gr),y=metric(dd,b,cat,gr);xq+=x[0];xr+=x[1];yq+=y[0];yr+=y[1]});
+      h+=`<tr><td>${esc(gr.label)}</td><td>${count(xq)}</td><td class="money">${money(xr)}</td><td>${count(yq)}</td><td class="money">${money(yr)}</td><td>${money(yr-xr)}</td></tr>`;
+    });
+    h+='</tbody></table></div></div>';
+    d.querySelector('#content').innerHTML=h;
+    const map={month:'месяцам',quarter:'кварталам',half:'полугодиям'};
+    d.querySelector('#status').textContent=`Сравнение двух врачей по ${map[d.querySelector('#grouping')?.value]||'периодам'}.`;
+    compactLabels();
+  }
+
+  compareBtn.addEventListener('click',renderCompare);
+  d.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{
+    compareActive=false; compareBtn.classList.remove('active');
+    setTimeout(()=>{syncDoctorUi();compactLabels()},0);
+  }));
+  ['direction','grouping','focusPeriod','doctor','category'].forEach(id=>d.querySelector('#'+id)?.addEventListener('change',()=>{
+    setTimeout(()=>{if(compareActive)renderCompare();else{syncDoctorUi();compactLabels()}},0);
+  }));
+  doctor2.addEventListener('change',()=>{if(compareActive)renderCompare()});
+
+  const obs=new MutationObserver(()=>{compactLabels();if(!compareActive)syncDoctorUi()});
+  obs.observe(d.body,{subtree:true,childList:true});
+  compactLabels();syncDoctorUi();
+});
+</script>
+</body>
+</html>
