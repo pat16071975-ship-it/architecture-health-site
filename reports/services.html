@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Аналитика услуг — Архитектура здоровья</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f7f3ec;--soft:#fffdf8;--ink:#2d342f;--green:#44634f;--green2:#dfe9e2;--gold:#b59662;--gold2:#efe5d2;--blue:#dfe9f2;--line:#d8cdbb;--muted:#6d746c;--red:#9a4b48}
+*{box-sizing:border-box}html,body{margin:0;background:linear-gradient(180deg,#fcfaf6,var(--paper));color:var(--ink);font-family:Inter,Arial,sans-serif}body{min-height:100vh}.app{width:min(1500px,98vw);margin:0 auto;padding:18px 0 46px}.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.title{font:600 38px/1 'Cormorant Garamond',serif}.muted{color:var(--muted);font-size:12px}.btn{appearance:none;border:1px solid rgba(68,99,79,.34);background:#fff;color:#334039;border-radius:10px;padding:10px 14px;font:600 13px Inter;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;padding:14px;border:1px solid var(--line);background:rgba(255,253,248,.82);border-radius:14px;position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}.field{display:grid;gap:6px;min-width:170px}.field label{font-size:11px;font-weight:700;color:#60685f}.field select{width:100%;padding:10px 11px;border:1px solid #cfc5b5;border-radius:10px;background:#fff;font:500 13px Inter}.tabs{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}.tab{border:1px solid var(--line);background:#fff;padding:9px 13px;border-radius:999px;font:600 12px Inter;cursor:pointer}.tab.active{background:var(--green);color:#fff;border-color:var(--green)}.panel{display:none}.panel.active{display:block}.kpis{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px;margin:14px 0}.kpi{border:1px solid var(--line);background:rgba(255,253,248,.94);border-radius:14px;padding:14px}.kpi .name{font-size:11px;font-weight:700;color:#626b63}.kpi .value{margin-top:7px;font:700 25px/1 'Cormorant Garamond',serif}.section{border:1px solid var(--line);background:rgba(255,253,248,.9);border-radius:14px;overflow:hidden;margin-top:14px}.section h2{margin:0;padding:12px 16px;background:var(--gold2);font:700 22px/1.1 'Cormorant Garamond',serif}.table-wrap{overflow:auto}.data-table{width:100%;border-collapse:collapse;min-width:900px}.data-table th,.data-table td{border-top:1px solid #e4dccf;padding:9px 10px;font-size:12px;text-align:right}.data-table th{background:#faf6ef;font-weight:700;white-space:nowrap}.data-table th:first-child,.data-table td:first-child{text-align:left;min-width:280px}.empty{padding:34px 18px;text-align:center;color:#737a73;font-size:13px}.matrix td,.matrix th{text-align:center}.matrix td:first-child,.matrix th:first-child{text-align:left;position:sticky;left:0;background:#fffdf8;z-index:1}.legend{padding:10px 14px;font-size:11px;color:#697069;border-top:1px solid #e4dccf}.pill{display:inline-block;padding:3px 8px;border-radius:999px;background:var(--green2);font-size:11px;font-weight:700}.notice{margin:12px 0;padding:10px 13px;border-left:3px solid var(--gold);background:#fffaf0;color:#665b49;font-size:12px;border-radius:8px}@media(max-width:850px){.kpis{grid-template-columns:repeat(2,minmax(140px,1fr))}.topbar{flex-direction:column}.toolbar{position:static}.field{min-width:calc(50% - 4px)}}@media(max-width:520px){.kpis{grid-template-columns:1fr}.field{min-width:100%;width:100%}.title{font-size:31px}.app{width:96vw}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div><div class="title">Аналитика услуг</div><div class="muted">Категории, врачи и структура выручки</div></div>
+    <a class="btn" href="./index.html">← Управленческий отчёт</a>
+  </div>
+
+  <div class="toolbar">
+    <div class="field"><label>Период</label><select id="period"><option value="2026-all">2026 — январь–август</option><option value="2026-08">Август 2026</option><option value="2026-07">Июль 2026</option><option value="2026-06">Июнь 2026</option></select></div>
+    <div class="field"><label>Направление</label><select id="direction"><option value="all">Все направления</option><option value="dent">Стоматология</option><option value="clinic">Клиника</option><option value="lab">Лаборатория</option></select></div>
+    <div class="field"><label>Врач</label><select id="doctor"><option value="all">Все врачи</option></select></div>
+    <div class="field"><label>Категория</label><select id="category"><option value="all">Все категории</option></select></div>
+  </div>
+
+  <div class="notice">Структура страницы уже готова. Цифры по категориям подключаются из обработанного годового файла выручки; пока категория не загружена, отображается 0.</div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="summary">Сводная</button>
+    <button class="tab" data-tab="categories">По категориям</button>
+    <button class="tab" data-tab="doctors">По врачам</button>
+    <button class="tab" data-tab="matrix">Матрица</button>
+  </div>
+
+  <section id="summary" class="panel active">
+    <div class="kpis"><div class="kpi"><div class="name">Выручка услуг</div><div class="value" id="kpiRevenue">0 ₽</div></div><div class="kpi"><div class="name">Количество услуг</div><div class="value" id="kpiQty">0</div></div><div class="kpi"><div class="name">Средняя цена услуги</div><div class="value" id="kpiAvg">0 ₽</div></div><div class="kpi"><div class="name">Категорий с выручкой</div><div class="value" id="kpiActive">0</div></div></div>
+    <div class="section"><h2>Структура выручки</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>Категория</th><th>Количество</th><th>Выручка</th><th>Средняя цена</th><th>Доля</th></tr></thead><tbody id="summaryBody"></tbody></table></div></div>
+  </section>
+
+  <section id="categories" class="panel">
+    <div class="section"><h2>Категории по месяцам</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>Категория</th><th>Янв.</th><th>Фев.</th><th>Мар.</th><th>Апр.</th><th>Май</th><th>Июнь</th><th>Июль</th><th>Авг.</th><th>Итого</th></tr></thead><tbody id="categoryBody"></tbody></table></div></div>
+  </section>
+
+  <section id="doctors" class="panel">
+    <div class="section"><h2>Структура врача</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>Врач</th><th>Категория</th><th>Количество</th><th>Выручка</th><th>Доля у врача</th></tr></thead><tbody id="doctorBody"></tbody></table></div></div>
+  </section>
+
+  <section id="matrix" class="panel">
+    <div class="section"><h2>Матрица «категория × врач»</h2><div class="table-wrap"><table class="data-table matrix"><thead id="matrixHead"></thead><tbody id="matrixBody"></tbody></table></div><div class="legend">В ячейке показывается выручка по категории у выбранного врача. Нули сохраняются — это важно для корректной сводной аналитики.</div></div>
+  </section>
+</div>
+<script>
+const SESSION_KEY='az-management-auth-v1';
+if(sessionStorage.getItem(SESSION_KEY)!=='1'){ location.replace('./index.html'); }
+const STORE_KEY='az-service-analytics-v1';
+const dentists=['Чирков Максим Сергеевич','Мовсесян Бабкен Ашотович','Румянцева Мария Павловна','Авдалие Эрик Ишханович','Назыров Уктам Алиевич','Голышенков Владислав Александрович','Зубачев Роман Николаевич','Босак Яна Сергеевна'];
+const clinic=['Старостенко Вадим Анатольевич','Димитренко Анна Яковлевна','Лапина Наталья Сергеевна','Холодцева Валерия Евгеньевна','Любаева Алёна Юрьевна','Мамонтова Любава Геннадьевна','Павлова Алла Викторовна'];
+const dentCats=['Консультации и диагностика','Рентген / КТ / ТРГ','Профессиональная гигиена','Пародонтология','Отбеливание','Лечение кариеса / пломбирование','Эндодонтия — пульпит','Эндодонтия — периодонтит','Реставрации / эстетическая терапия','Ортопедия — диагностика / слепки / сканирование','Ортопедия — коронки / вкладки / виниры','Ортопедия — съёмное протезирование','Ортопедия — протезирование на имплантах','Хирургия — удаление зубов','Хирургия — мягкие ткани / пародонтальная хирургия','Костная пластика / синус-лифтинг','Имплантация','Немедленная нагрузка / All-on-4 / All-on-6','Ортодонтия — диагностика','Ортодонтия — брекет-системы','Ортодонтия — элайнеры / съёмная аппаратура','Функциональная стоматология / ВНЧС / функциональные аппараты','Зуботехнические / лабораторные этапы','Сопутствующие товары','Анестезия / материалы / вспомогательные услуги','Прочие стоматологические услуги'];
+const clinicCats=['Остеопатия — первичный / повторный приём','Остеопатическое лечение / коррекция','Миофасциальный массаж','DIERS / постуральная диагностика','Подиатрия / ортопедические стельки','Нутрициология / метаболизм — первичный приём','Нутрициология / метаболизм — повторный / сопровождение','Миофункциональная терапия — диагностика','Миофункциональная терапия — лечение / курсы','Логопедический массаж / логопедия','Гастроэнтерология — первичный приём','Гастроэнтерология — повторный приём','Превентивная / антивозрастная медицина','Терапия / врач-терапевт','Персональное медицинское сопровождение','Нейропсихология','Гипокситерапия / ИГГТ','Комплексные программы'];
+const labCats=['Диагностика / сравнение сканов','Функциональные аппараты','Элайнеры / сеты','Каппы / сплинты / ретенционные','3D-печать / модели','WAX-UP / моделирование','Починка / коррекция / перебазировка','Доставка / срочность'];
+const money=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Number(n)||0)+' ₽';
+const nfmt=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(Number(n)||0);
+function load(){try{return JSON.parse(localStorage.getItem(STORE_KEY)||'{}')}catch{return {}}}
+function catsFor(dir){if(dir==='dent')return dentCats;if(dir==='clinic')return clinicCats;if(dir==='lab')return labCats;return [...dentCats,...clinicCats,...labCats]}
+function docsFor(dir){if(dir==='dent')return dentists;if(dir==='clinic')return clinic;if(dir==='lab')return ['Лаборатория'];return [...dentists,...clinic,'Лаборатория']}
+function rowData(){const s=load();return Array.isArray(s.rows)?s.rows:[]}
+function filtered(){const dir=document.querySelector('#direction').value,doc=document.querySelector('#doctor').value,cat=document.querySelector('#category').value,per=document.querySelector('#period').value;return rowData().filter(r=>(dir==='all'||r.direction===dir)&&(doc==='all'||r.doctor===doc)&&(cat==='all'||r.category===cat)&&(per==='2026-all'||r.month===per));}
+function fillFilters(){const dir=document.querySelector('#direction').value;const d=document.querySelector('#doctor'),c=document.querySelector('#category');const dv=d.value,cv=c.value;d.innerHTML='<option value="all">Все врачи</option>'+docsFor(dir).map(x=>`<option>${x}</option>`).join('');c.innerHTML='<option value="all">Все категории</option>'+catsFor(dir).map(x=>`<option>${x}</option>`).join('');if([...d.options].some(o=>o.value===dv))d.value=dv;if([...c.options].some(o=>o.value===cv))c.value=cv;}
+function render(){const rows=filtered();const revenue=rows.reduce((a,r)=>a+(+r.revenue||0),0),qty=rows.reduce((a,r)=>a+(+r.qty||0),0);document.querySelector('#kpiRevenue').textContent=money(revenue);document.querySelector('#kpiQty').textContent=nfmt(qty);document.querySelector('#kpiAvg').textContent=money(qty?revenue/qty:0);const byCat={};rows.forEach(r=>{const x=byCat[r.category]||(byCat[r.category]={q:0,v:0});x.q+=+r.qty||0;x.v+=+r.revenue||0});document.querySelector('#kpiActive').textContent=Object.values(byCat).filter(x=>x.v!==0).length;const allCats=catsFor(document.querySelector('#direction').value);document.querySelector('#summaryBody').innerHTML=allCats.map(cat=>{const x=byCat[cat]||{q:0,v:0};return `<tr><td>${cat}</td><td>${nfmt(x.q)}</td><td>${money(x.v)}</td><td>${money(x.q?x.v/x.q:0)}</td><td>${revenue?new Intl.NumberFormat('ru-RU',{style:'percent',maximumFractionDigits:1}).format(x.v/revenue):'0 %'}</td></tr>`}).join('');
+const months=['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08'];document.querySelector('#categoryBody').innerHTML=allCats.map(cat=>{let total=0;const cells=months.map(m=>{const v=rowData().filter(r=>r.category===cat&&r.month===m).reduce((a,r)=>a+(+r.revenue||0),0);total+=v;return `<td>${money(v)}</td>`}).join('');return `<tr><td>${cat}</td>${cells}<td>${money(total)}</td></tr>`}).join('');
+const docs=docsFor(document.querySelector('#direction').value);const doctorRows=[];docs.forEach(doc=>{const rr=rows.filter(r=>r.doctor===doc),tot=rr.reduce((a,r)=>a+(+r.revenue||0),0);allCats.forEach(cat=>{const x=rr.filter(r=>r.category===cat).reduce((a,r)=>({q:a.q+(+r.qty||0),v:a.v+(+r.revenue||0)}),{q:0,v:0});doctorRows.push(`<tr><td>${doc}</td><td>${cat}</td><td>${nfmt(x.q)}</td><td>${money(x.v)}</td><td>${tot?new Intl.NumberFormat('ru-RU',{style:'percent',maximumFractionDigits:1}).format(x.v/tot):'0 %'}</td></tr>`)});});document.querySelector('#doctorBody').innerHTML=doctorRows.join('');document.querySelector('#matrixHead').innerHTML='<tr><th>Категория</th>'+docs.map(x=>`<th>${x.split(' ')[0]}</th>`).join('')+'</tr>';document.querySelector('#matrixBody').innerHTML=allCats.map(cat=>`<tr><td>${cat}</td>${docs.map(doc=>{const v=rows.filter(r=>r.category===cat&&r.doctor===doc).reduce((a,r)=>a+(+r.revenue||0),0);return `<td>${money(v)}</td>`}).join('')}</tr>`).join('');}
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===b.dataset.tab));}));document.querySelector('#direction').addEventListener('change',()=>{fillFilters();render()});['period','doctor','category'].forEach(id=>document.querySelector('#'+id).addEventListener('change',render));fillFilters();render();
+</script>
+</body>
+</html>
