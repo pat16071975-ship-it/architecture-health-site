@@ -72,6 +72,20 @@
     if (status) status.textContent = message;
   }
 
+  function ensureServicesLink() {
+    if (document.querySelector('#servicesAnalyticsLink')) return;
+    const topbar = document.querySelector('.topbar');
+    if (!topbar) return;
+    const link = document.createElement('a');
+    link.id = 'servicesAnalyticsLink';
+    link.className = 'btn';
+    link.href = './services.html';
+    link.textContent = 'Аналитика услуг';
+    const logout = document.querySelector('#logoutBtn');
+    if (logout && logout.parentNode === topbar) topbar.insertBefore(link, logout);
+    else topbar.appendChild(link);
+  }
+
   async function applySecureImport() {
     if (running) return;
     const importKey = sessionStorage.getItem(IMPORT_SESSION_KEY);
@@ -138,6 +152,7 @@
   }
 
   captureImportKey();
+  ensureServicesLink();
   const form = document.querySelector('#loginForm');
   if (form) form.addEventListener('submit', () => setTimeout(waitForAuthenticatedImport, 100));
   if (sessionStorage.getItem(IMPORT_SESSION_KEY)) waitForAuthenticatedImport();
