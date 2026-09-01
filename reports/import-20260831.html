@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Импорт 31.08.2026 — Архитектура здоровья</title>
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f7f3ec;color:#2d342f;font-family:Inter,Arial,sans-serif}.card{width:min(560px,92vw);padding:30px;border:1px solid #d8cdbb;border-radius:18px;background:#fffdf8;box-shadow:0 18px 50px rgba(69,55,35,.10)}h1{margin:0 0 12px;font:700 30px/1.05 Georgia,serif}p{line-height:1.5}.ok{color:#356146}.err{color:#9a4b48}.btn{display:inline-block;margin-top:12px;padding:10px 14px;border-radius:10px;background:#44634f;color:#fff;text-decoration:none;font-weight:700}
+</style>
+</head>
+<body>
+<div class="card"><h1>Загрузка 31.08.2026</h1><p id="status">Проверяю пакет и предыдущие данные…</p><a id="open" class="btn" href="./index.html" style="display:none">Открыть управленческий отчёт</a></div>
+<script>
+(() => {
+  const STORAGE_KEY='az-management-report-v1';
+  const HASH_PARAM='azimport31';
+  const PACKAGE_URL='./secure-import-20260831.json?v=20260901-1';
+  const EXPECTED_ID='az-report-2026-08-31-v1';
+  const MARKER='az-secure-imported:2026-08-31-v1';
+  const status=document.getElementById('status');
+  const open=document.getElementById('open');
+  const num=v=>v===''||v==null||Number.isNaN(+v)?0:+v;
+  const b64u=value=>{const s=String(value||'').replace(/-/g,'+').replace(/_/g,'/');const p=s+'='.repeat((4-s.length%4)%4);return Uint8Array.from(atob(p),c=>c.charCodeAt(0));};
+  const hex=bytes=>[...new Uint8Array(bytes)].map(v=>v.toString(16).padStart(2,'0')).join('');
+  const loadStore=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}};
+  const saveStore=v=>localStorage.setItem(STORAGE_KEY,JSON.stringify(v));
+  function showOk(text){status.className='ok';status.textContent=text;open.style.display='inline-block';}
+  function fail(text,error){console.error(error||text);status.className='err';status.textContent=text;open.style.display='inline-block';}
+  async function run(){
+    try{
+      const params=new URLSearchParams(location.hash.startsWith('#')?location.hash.slice(1):'');
+      const importKey=params.get(HASH_PARAM);
+      if(!importKey)throw new Error('В ссылке нет ключа импорта.');
+      history.replaceState(null,'',location.pathname+location.search);
+      const store=loadStore();
+      if(localStorage.getItem(MARKER)==='1'&&store['2026-08-31']){showOk('Данные за 31.08.2026 уже загружены.');return;}
+      const base=store['2026-08-30'];
+      if(!base)throw new Error('Не найдена запись 30.08.2026. Сначала загрузите историю по 30.08.');
+      const response=await fetch(PACKAGE_URL,{cache:'no-store'});
+      if(!response.ok)throw new Error('Не удалось получить зашифрованный пакет.');
+      const pkg=await response.json();
+      if(!pkg||pkg.id!==EXPECTED_ID)throw new Error('Неверный пакет импорта.');
+      const rawKey=b64u(importKey);
+      if(rawKey.byteLength!==32)throw new Error('Неверный ключ импорта.');
+      const key=await crypto.subtle.importKey('raw',rawKey,{name:'AES-GCM'},false,['decrypt']);
+      const plain=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:b64u(pkg.iv),additionalData:new TextEncoder().encode(pkg.aad)},key,b64u(pkg.ciphertext)));
+      const digest=hex(await crypto.subtle.digest('SHA-256',plain));
+      if(digest!==pkg.plaintextSha256)throw new Error('Проверка целостности не пройдена.');
+      const payload=JSON.parse(new TextDecoder().decode(plain));
+      if(payload.baseDate!=='2026-08-30'||payload.targetDate!=='2026-08-31'||!payload.delta)throw new Error('Неверные даты пакета.');
+      const d=payload.delta;
+      const target=JSON.parse(JSON.stringify(base));
+      target.date='2026-08-31';
+      ['factMedicine','factLab','primary','repeat','dentPrimary','dentRepeat','clinicPrimary','clinicRepeat','labOrders','labRevenue'].forEach(k=>target[k]=num(base[k])+num(d[k]));
+      target.dentists={...(base.dentists||{})};
+      Object.entries(d.dentists||{}).forEach(([k,v])=>target.dentists[k]=num(target.dentists[k])+num(v));
+      target.clinicDocs={...(base.clinicDocs||{})};
+      Object.entries(d.clinicDocs||{}).forEach(([k,v])=>target.clinicDocs[k]=num(target.clinicDocs[k])+num(v));
+      target._source='ident_exports_2026-08-31_confirmed';
+      target._baseDate='2026-08-30';
+      target._dailyDelta={factMedicine:num(d.factMedicine),factLab:num(d.factLab),primary:num(d.primary),repeat:num(d.repeat),dentPrimary:num(d.dentPrimary),dentRepeat:num(d.dentRepeat),clinicPrimary:num(d.clinicPrimary),clinicRepeat:num(d.clinicRepeat),labOrders:num(d.labOrders),labRevenue:num(d.labRevenue)};
+      if(num(target.factMedicine)-num(base.factMedicine)!==27100||num(target.factLab)-num(base.factLab)!==46800||num(target.repeat)-num(base.repeat)!==14)throw new Error('Контрольные суммы не сошлись.');
+      store['2026-08-31']=target;
+      saveStore(store);
+      localStorage.setItem(MARKER,'1');
+      showOk('Готово. 31.08.2026 добавлен к истории накопительно от 30.08. Дневной прирост: медицина 27 100 ₽, лаборатория 46 800 ₽, 14 повторных приёмов.');
+    }catch(e){fail(e.message||'Импорт не выполнен.',e);}
+  }
+  run();
+})();
+</script>
+</body>
+</html>
