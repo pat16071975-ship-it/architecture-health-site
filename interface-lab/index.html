@@ -6,8 +6,20 @@
 <title>АЗ Interface Lab</title>
 <style>
 :root{--bg:#e8e4dc;--panel:#fbf8f2;--ink:#30372f;--line:#c9bda8}
-*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-.lab{height:100%;display:grid;grid-template-rows:auto 1fr}.toolbar{position:relative;z-index:20;display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 12px;background:rgba(251,248,242,.98);border-bottom:1px solid var(--line);box-shadow:0 3px 14px rgba(58,49,37,.08);flex-wrap:wrap}.brand{font:700 15px/1.1 Georgia,serif;margin-right:6px}.note{font-size:11px;color:#657066;margin-right:auto}.group{display:flex;gap:5px;align-items:center}.btn{appearance:none;border:1px solid #c6b99f;background:#fffdf9;color:#394139;border-radius:8px;padding:7px 10px;font:600 11px/1 Inter,Segoe UI,Arial,sans-serif;cursor:pointer}.btn:hover,.btn:focus-visible{outline:0;border-color:#7f947f}.btn.active{background:#e8efe9;border-color:#6d876f;color:#294231}.status{padding:7px 10px;border-radius:8px;border:1px solid rgba(181,150,98,.45);background:#f5efe4;font-size:11px;white-space:nowrap}.workspace{min-height:0;overflow:auto;padding:16px;display:flex;justify-content:center;align-items:flex-start}.frame-shell{height:calc(100vh - 90px);width:1440px;max-width:100%;min-width:300px;background:white;border:1px solid #bcb4a7;border-radius:10px;overflow:hidden;box-shadow:0 14px 40px rgba(58,49,37,.14);transition:width .2s ease}.frame{display:block;width:100%;height:100%;border:0;background:white}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+.lab{height:100%;display:grid;grid-template-rows:auto 1fr}
+.toolbar{position:relative;z-index:20;display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 12px;background:rgba(251,248,242,.98);border-bottom:1px solid var(--line);box-shadow:0 3px 14px rgba(58,49,37,.08);flex-wrap:wrap}
+.brand{font:700 15px/1.1 Georgia,serif;margin-right:6px}
+.note{font-size:11px;color:#657066;margin-right:auto}
+.group{display:flex;gap:5px;align-items:center}
+.btn{appearance:none;border:1px solid #c6b99f;background:#fffdf9;color:#394139;border-radius:8px;padding:7px 10px;font:600 11px/1 Inter,Segoe UI,Arial,sans-serif;cursor:pointer}
+.btn:hover,.btn:focus-visible{outline:0;border-color:#7f947f}
+.btn.active{background:#e8efe9;border-color:#6d876f;color:#294231}
+.status{padding:7px 10px;border-radius:8px;border:1px solid rgba(181,150,98,.45);background:#f5efe4;font-size:11px;white-space:nowrap}
+.workspace{min-height:0;overflow:auto;padding:16px;display:flex;justify-content:center;align-items:flex-start}
+.frame-shell{height:calc(100vh - 90px);width:1440px;max-width:100%;min-width:300px;background:white;border:1px solid #bcb4a7;border-radius:10px;overflow:hidden;box-shadow:0 14px 40px rgba(58,49,37,.14);transition:width .2s ease}
+.frame{display:block;width:100%;height:100%;border:0;background:white}
 @media(max-width:700px){.toolbar{gap:6px;padding:7px}.brand{width:100%}.note{display:none}.btn{padding:7px 8px;font-size:10px}.workspace{padding:8px}.frame-shell{height:calc(100vh - 112px)}}
 </style>
 </head>
@@ -15,7 +27,7 @@
 <div class="lab">
 <header class="toolbar">
   <div class="brand">АЗ Interface Lab</div>
-  <div class="note">Черновики здесь не меняют главную страницу</div>
+  <div class="note">Просмотрщик очищен от сегодняшних экспериментов; основной сайт не изменяется</div>
   <div class="group">
     <button class="btn" data-mode="base" type="button">Оригинал</button>
     <button class="btn active" data-mode="draft" type="button">Черновик</button>
@@ -27,9 +39,9 @@
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: ПК — 2 ровных эллипса, меню 5+5</div>
+  <div class="status" id="status">Черновик = текущий оригинал</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=v9" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=reset-20260902" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -38,296 +50,11 @@ const status=document.getElementById('status');
 const modeButtons=[...document.querySelectorAll('[data-mode]')];
 const widthButtons=[...document.querySelectorAll('[data-width]')];
 let mode='draft';
-
-const responsiveDraft=`
-/* АЗ Interface Lab — адаптация планшета и телефона */
-@media (min-width:721px) and (max-width:1180px){
-  .page{width:100%!important;max-width:100vw!important;padding:14px 18px 34px!important}
-  .top{grid-template-columns:132px minmax(0,1fr) 132px!important;gap:18px!important;align-items:start!important}
-  .logo{width:124px!important;height:124px!important}
-  .founder{width:108px!important;height:108px!important}
-  .caption{max-width:150px!important;margin-top:6px!important;font-size:10.5px!important;line-height:1.3!important}
-  .center{padding-top:2px!important}
-  .az-title-stack{width:100%!important;max-width:100%!important}
-  .az-system-clinic-label{justify-content:center!important;gap:8px!important;margin-bottom:4px!important;font-size:10.5px!important;line-height:1.35!important;letter-spacing:.085em!important;white-space:nowrap!important}
-  .az-ecg-inline{flex-basis:56px!important;width:56px!important;height:14px!important}
-  .center h1{margin-top:4px!important;font-size:46px!important;line-height:1.04!important;letter-spacing:-.035em!important;white-space:nowrap!important}
-  .rule{width:160px!important;margin-top:9px!important}
-  .clinic-contact{top:160px!important;width:220px!important}
-  .clinic-phone{font-size:15px!important;line-height:1.12!important}
-  .clinic-hours{margin-top:5px!important;font-size:9.5px!important;line-height:1.35!important}
-  .promo-badge{top:142px!important;width:auto!important;max-width:min(600px,68vw)!important;padding:9px 16px 8px!important;border-radius:13px!important}
-  .promo-copy{font-size:12.6px!important;line-height:1.26!important;letter-spacing:-.01em!important;white-space:normal!important}
-  .promo-cta{margin-top:5px!important;padding-top:5px!important;font-size:9px!important}
-  .specialists-badge,.side-menu-badge{width:138px!important;padding:9px 9px!important;font-size:10.5px!important;line-height:1.2!important}
-  .specialists-badge{top:202px!important;right:-2px!important}
-  .side-menu-1{top:250px!important;right:-4px!important}
-  .side-menu-2{top:298px!important;right:-4px!important}
-  .side-menu-3{top:346px!important;right:-4px!important}
-  .side-menu-4{top:394px!important;right:-4px!important}
-  .map-shell{margin-top:52px!important}
-  .direction{font-size:11px!important;line-height:1.28!important;font-weight:600!important}
-  .attention-section{padding:68px 34px 64px!important}
-  .attention-eyebrow{font-size:9.5px!important;letter-spacing:.18em!important}
-  .attention-title{font-size:31px!important;line-height:1.22!important;margin-bottom:38px!important}
-  .attention-question.mode-a{font-size:42px!important;line-height:1.05!important}
-  .attention-question.mode-b{font-size:39px!important;line-height:1.08!important}
-  .attention-question.mode-c{font-size:33px!important;line-height:1.08!important}
-  .attention-related-label{font-size:9.5px!important}
-  .attention-direction{font-size:10.5px!important;padding:7px 10px!important}
-  .attention-message-main{font-size:27px!important;line-height:1.25!important}
-  .attention-message-sub{font-size:12.5px!important;line-height:1.45!important}
-  .faq-section{padding:68px 34px 72px!important}
-  .faq-kicker{font-size:9.5px!important;letter-spacing:.18em!important}
-  .faq-title{font-size:31px!important;line-height:1.18!important}
-  .faq-intro{font-size:13px!important;line-height:1.5!important}
-  .faq-item summary{font-size:14.5px!important;line-height:1.35!important;padding:17px 48px 17px 18px!important}
-  .faq-answer{font-size:12.5px!important;line-height:1.58!important;padding:14px 18px 18px!important}
-}
-
-@media (max-width:720px){
-  .page{width:100%!important;max-width:100vw!important;padding:10px 12px 28px!important}
-  .top{display:grid!important;grid-template-columns:72px minmax(0,1fr) 72px!important;grid-template-rows:auto auto!important;column-gap:8px!important;row-gap:2px!important;align-items:start!important}
-  .left{grid-column:1!important;grid-row:1!important;min-width:0!important}
-  .right{grid-column:3!important;grid-row:1!important;min-width:0!important}
-  .center{grid-column:1/-1!important;grid-row:2!important;padding-top:0!important;margin-top:1px!important}
-  .logo{width:64px!important;height:64px!important}
-  .founder{width:58px!important;height:58px!important}
-  .caption{width:112px!important;margin-top:3px!important;margin-left:50%!important;transform:translateX(-50%)!important;font-size:7.8px!important;line-height:1.22!important}
-  .az-title-stack{width:100%!important;max-width:100%!important;margin:0 auto!important}
-  .az-system-clinic-label{justify-content:center!important;gap:6px!important;margin:2px 0 3px!important;font-size:8.2px!important;line-height:1.3!important;letter-spacing:.068em!important;white-space:nowrap!important}
-  .az-ecg-inline{flex:0 0 46px!important;width:46px!important;height:11px!important}
-  .center h1{margin:2px auto 0!important;font-size:30.5px!important;line-height:1.04!important;letter-spacing:-.035em!important;white-space:nowrap!important}
-  .rule{width:138px!important;margin-top:7px!important}
-  .promo-badge{top:168px!important;width:calc(100% - 48px)!important;max-width:342px!important;padding:7px 10px 6px!important;border-radius:11px!important}
-  .promo-copy{font-size:10.4px!important;line-height:1.24!important;letter-spacing:-.008em!important;white-space:normal!important}
-  .promo-cta{margin-top:4px!important;padding-top:4px!important;font-size:8.2px!important;letter-spacing:.13em!important}
-  .specialists-badge,.side-menu-badge{display:none!important}
-  .mobile-tools{display:block!important;margin:82px auto 14px!important;max-width:520px!important;text-align:center!important}
-  .mobile-contact{padding:10px 12px 9px!important;border-radius:12px!important}
-  .mobile-phone{font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:15.5px!important;font-weight:600!important;line-height:1.15!important}
-  .mobile-hours{margin-top:4px!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.4px!important;font-weight:500!important;line-height:1.35!important}
-  .mobile-nav{display:flex!important;flex-wrap:wrap!important;justify-content:center!important;gap:6px!important;margin-top:8px!important;padding:0!important;overflow:visible!important}
-  .mobile-nav a,.mobile-nav span{flex:1 1 calc(33.333% - 6px)!important;min-width:98px!important;max-width:116px!important;padding:8px 6px!important;border-radius:9px!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:10.3px!important;font-weight:600!important;line-height:1.2!important}
-  .map{gap:7px!important;padding-top:calc(min(88vw,350px) + 32px)!important}
-  .stage{width:min(88vw,350px)!important;height:min(88vw,350px)!important}
-  .direction{min-height:49px!important;margin:0!important;padding:6px 5px!important;font-size:9.7px!important;line-height:1.25!important;font-weight:600!important}
-  .attention-section{margin-top:16px!important;padding:48px 16px 50px!important}
-  .attention-eyebrow{margin-bottom:12px!important;font-size:8.8px!important;letter-spacing:.17em!important}
-  .attention-title{font-size:25px!important;line-height:1.22!important;margin-bottom:28px!important}
-  .attention-stage{min-height:650px!important}
-  .attention-question{min-height:165px!important}
-  .attention-question.mode-a{font-size:31px!important;line-height:1.08!important}
-  .attention-question.mode-b{font-size:29px!important;line-height:1.1!important}
-  .attention-question.mode-c{font-size:25px!important;line-height:1.1!important}
-  .attention-links{min-height:128px!important;margin-top:18px!important}
-  .attention-related-label{margin-bottom:9px!important;font-size:9px!important;letter-spacing:.09em!important}
-  .attention-directions{gap:6px!important}
-  .attention-direction{padding:7px 9px!important;font-size:10px!important;line-height:1.2!important}
-  .attention-message{margin-top:20px!important;padding-top:17px!important}
-  .attention-message-main{font-size:23px!important;line-height:1.27!important}
-  .attention-message-sub{margin-top:9px!important;font-size:11.5px!important;line-height:1.45!important}
-  .attention-controls{margin-top:22px!important}
-  .attention-arrow{width:38px!important;height:38px!important;font-size:16px!important}
-  .attention-counter{font-size:10.5px!important}
-  .faq-section{margin-top:16px!important;padding:48px 16px 54px!important}
-  .faq-kicker{margin-bottom:12px!important;font-size:8.8px!important;letter-spacing:.17em!important}
-  .faq-title{font-size:25px!important;line-height:1.2!important}
-  .faq-intro{margin-top:13px!important;font-size:11.8px!important;line-height:1.5!important}
-  .faq-grid{margin-top:28px!important;gap:8px!important}
-  .faq-item summary{padding:14px 42px 14px 15px!important;font-size:13.5px!important;line-height:1.35!important}
-  .faq-item summary:after{right:14px!important;font-size:20px!important}
-  .faq-answer{padding:12px 15px 16px!important;font-size:12px!important;line-height:1.55!important}
-}
-
-@media (max-width:380px){
-  .top{grid-template-columns:64px minmax(0,1fr) 64px!important}
-  .logo{width:58px!important;height:58px!important}
-  .founder{width:52px!important;height:52px!important}
-  .caption{width:104px!important;font-size:7.2px!important}
-  .az-system-clinic-label{font-size:7.4px!important;letter-spacing:.055em!important;gap:5px!important}
-  .az-ecg-inline{flex-basis:40px!important;width:40px!important;height:10px!important}
-  .center h1{font-size:28px!important}
-  .promo-badge{top:156px!important;width:calc(100% - 40px)!important;max-width:330px!important;padding:6px 9px 5px!important}
-  .promo-copy{font-size:9.9px!important;line-height:1.23!important}
-  .promo-cta{font-size:7.8px!important}
-  .mobile-tools{margin-top:80px!important}
-  .mobile-nav a,.mobile-nav span{min-width:92px!important;font-size:9.8px!important}
-  .direction{font-size:9.2px!important}
-}
-
-/* orbit-layout-v9 — два ровных эллипса, отдельные планеты и меню */
-@media (min-width:1181px){
-  .page{position:relative!important}
-  .map-shell{height:760px!important;margin-top:22px!important;overflow:visible!important;position:relative!important}
-  .map{
-    position:absolute!important;left:50%!important;top:0!important;
-    width:920px!important;height:720px!important;padding:0!important;display:block!important;
-    transform:translateX(-50%)!important;overflow:visible!important;
-  }
-  .map .ring{display:none!important}
-  .relation-panel{display:none!important}
-  .stage{
-    left:460px!important;top:355px!important;width:410px!important;height:410px!important;
-    transform:translate(-50%,-50%)!important;z-index:2!important;
-  }
-  .stage:before{inset:27px!important}
-
-  /* В ПК-черновике используем собственные одинаковые планеты, чтобы базовые карточки
-     сайта не вмешивались в геометрию орбит. */
-  .map .direction{display:none!important}
-
-  .az-orbit-svg{
-    position:absolute!important;inset:0!important;width:920px!important;height:720px!important;
-    overflow:visible!important;pointer-events:none!important;z-index:1!important;
-  }
-  .az-orbit-path{fill:none!important;vector-effect:non-scaling-stroke!important}
-  .az-orbit-path.outer{stroke:rgba(181,150,98,.34)!important;stroke-width:1.2!important}
-  .az-orbit-path.inner{stroke:rgba(68,99,79,.24)!important;stroke-width:1.1!important}
-
-  .az-planet{
-    position:absolute!important;width:116px!important;height:92px!important;
-    transform:translate(-50%,-50%)!important;
-    display:flex!important;align-items:center!important;justify-content:center!important;
-    padding:8px 9px!important;margin:0!important;
-    border-radius:53% 47% 51% 49% / 47% 54% 46% 53%!important;
-    color:#30372f!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;
-    font-size:9.6px!important;line-height:1.12!important;font-weight:600!important;text-align:center!important;
-    text-shadow:none!important;z-index:8!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important;
-  }
-  .az-planet.inner{
-    background:linear-gradient(180deg,rgba(239,246,240,.98),rgba(250,247,241,.98))!important;
-    border:1.5px solid rgba(181,150,98,.68)!important;
-  }
-  .az-planet.outer{
-    background:linear-gradient(180deg,rgba(250,247,241,.99),rgba(245,238,226,.98))!important;
-    border:1.5px solid rgba(181,150,98,.48)!important;
-  }
-
-  /* Слева — прежняя утверждённая геометрия и размер. */
-  .az-left-placeholder-menu{
-    position:absolute!important;left:4px!important;top:355px!important;z-index:17!important;
-    width:330px!important;display:grid!important;gap:22px!important;pointer-events:none!important;
-  }
-  .az-left-placeholder,
-  .az-right-draft-item{
-    position:relative!important;width:230px!important;min-height:48px!important;padding:13px 18px!important;
-    display:flex!important;align-items:center!important;justify-content:center!important;
-    border-radius:10px!important;background:rgba(250,247,241,.96)!important;
-    border:1px solid rgba(181,150,98,.42)!important;box-shadow:0 9px 24px rgba(71,58,38,.08)!important;
-    color:#354039!important;font:600 17px/1.1 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;text-align:center!important;
-  }
-  .az-left-placeholder:nth-child(1){margin-left:0!important}
-  .az-left-placeholder:nth-child(2){margin-left:34px!important}
-  .az-left-placeholder:nth-child(3){margin-left:68px!important}
-  .az-left-placeholder:nth-child(4){margin-left:102px!important}
-  .az-left-placeholder:nth-child(5){margin-left:136px!important}
-
-  /* Справа — отдельная колонка в правой зоне, ниже и зеркально левой; 5 пунктов. */
-  .right .specialists-badge,.right .side-menu-badge{display:none!important}
-  .az-right-draft-menu{
-    position:absolute!important;right:20px!important;top:430px!important;z-index:17!important;
-    width:330px!important;display:grid!important;gap:22px!important;pointer-events:none!important;
-  }
-  .az-right-draft-item{justify-self:end!important}
-  .az-right-draft-item:nth-child(1){margin-right:0!important}
-  .az-right-draft-item:nth-child(2){margin-right:34px!important}
-  .az-right-draft-item:nth-child(3){margin-right:68px!important}
-  .az-right-draft-item:nth-child(4){margin-right:102px!important}
-  .az-right-draft-item:nth-child(5){margin-right:136px!important}
-}
-
-`;
-
-function normalizedName(el){return el.textContent.replace(/\s+/g,' ').trim()}
-function clearDraft(doc){
-  doc.getElementById('az-lab-responsive-style')?.remove();
-  doc.querySelectorAll('.az-orbit-svg,.az-planet,.az-left-placeholder-menu,.az-right-draft-menu').forEach(el=>el.remove());
-}
-function addMenus(doc){
-  const page=doc.querySelector('.page');
-  if(!page)return;
-  const left=doc.createElement('div');
-  left.className='az-left-placeholder-menu';
-  left.innerHTML='<div class="az-left-placeholder">заглушка</div>'.repeat(5);
-  page.appendChild(left);
-
-  const right=doc.createElement('div');
-  right.className='az-right-draft-menu';
-  right.innerHTML='<div class="az-right-draft-item">команда</div><div class="az-right-draft-item">о клинике</div><div class="az-right-draft-item">пациенту</div><div class="az-right-draft-item">лаборатория</div><div class="az-right-draft-item">контакты</div>';
-  page.appendChild(right);
-}
-function addOrbits(doc){
-  const map=doc.querySelector('.map');
-  if(!map)return;
-
-  const svg=doc.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('class','az-orbit-svg');
-  svg.setAttribute('viewBox','0 0 920 720');
-  svg.setAttribute('aria-hidden','true');
-  svg.innerHTML='<ellipse class="az-orbit-path outer" cx="460" cy="355" rx="390" ry="305"/><ellipse class="az-orbit-path inner" cx="460" cy="355" rx="300" ry="255"/>';
-  map.prepend(svg);
-
-  const planets=[
-    ['Функциональная стоматология','inner',-90],
-    ['Ортодонтия','inner',0],
-    ['Остеопатия','inner',90],
-    ['Терапия','inner',180],
-    ['ИГГТ','outer',-112.5],
-    ['Нутрициология','outer',-67.5],
-    ['Гастроэнтерология','outer',-22.5],
-    ['Превентивная медицина','outer',22.5],
-    ['Миофункциональная терапия','outer',67.5],
-    ['Детская неврология','outer',112.5],
-    ['Нейропсихология','outer',157.5],
-    ['DIERS диагностика','outer',202.5]
-  ];
-  const geom={inner:[300,255],outer:[390,305]};
-  planets.forEach(([name,kind,deg])=>{
-    const rad=deg*Math.PI/180;
-    const [rx,ry]=geom[kind];
-    const el=doc.createElement('div');
-    el.className='az-planet '+kind;
-    el.textContent=name;
-    el.style.left=(460+rx*Math.cos(rad))+'px';
-    el.style.top=(355+ry*Math.sin(rad))+'px';
-    map.appendChild(el);
-  });
-}
-function applyDraft(){
-  const doc=frame.contentDocument;
-  if(!doc)return;
-  clearDraft(doc);
-  if(mode!=='draft'){
-    status.textContent='Оригинал сайта';
-    return;
-  }
-  const style=doc.createElement('style');
-  style.id='az-lab-responsive-style';
-  style.textContent=responsiveDraft;
-  doc.head.appendChild(style);
-  const w=shell.getBoundingClientRect().width;
-  if(w>1180){
-    addMenus(doc);
-    addOrbits(doc);
-    status.textContent='Черновик: ПК — 2 ровных эллипса, меню 5+5';
-  }else{
-    status.textContent=w<=720?'Черновик: телефон — блок контактов и всё ниже опущены':'Черновик: планшет — оффер и разделы разведены';
-  }
-}
-frame.addEventListener('load',applyDraft);
-modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
-  mode=btn.dataset.mode;
-  modeButtons.forEach(x=>x.classList.toggle('active',x===btn));
-  applyDraft();
-}));
-widthButtons.forEach(btn=>btn.addEventListener('click',()=>{
-  const w=btn.dataset.width;
-  shell.style.width=w==='100%'?'100%':w+'px';
-  widthButtons.forEach(x=>x.classList.toggle('active',x===btn));
-  setTimeout(applyDraft,250);
-}));
-document.getElementById('reload').addEventListener('click',()=>frame.contentWindow.location.reload());
+function reloadFrame(){frame.src='../?lab=reset-20260902&t='+Date.now();}
+function setMode(next){mode=next;modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));status.textContent=(mode==='base'?'Оригинал':'Черновик')+' = текущий оригинал';reloadFrame();}
+modeButtons.forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+widthButtons.forEach(b=>b.addEventListener('click',()=>{widthButtons.forEach(x=>x.classList.remove('active'));b.classList.add('active');shell.style.width=b.dataset.width==='100%'?'100%':b.dataset.width+'px';}));
+document.getElementById('reload').addEventListener('click',reloadFrame);
 </script>
 </body>
 </html>
