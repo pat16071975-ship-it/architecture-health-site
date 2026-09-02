@@ -272,6 +272,32 @@ const responsiveDraft=`
   .direction:nth-of-type(4n+3){background-position:-2px 1px,6px -3px,-4px 2px,2px -2px,-3px 2px,0 0,0 0!important;border-radius:52% 48% 50% 50% / 49% 51% 48% 52%!important}
   .direction:nth-of-type(4n){background-position:3px 0,-4px -2px,5px 2px,-3px 1px,2px -3px,0 0,0 0!important;border-radius:48% 52% 52% 48% / 51% 48% 52% 49%!important}
 }
+/* planet-clean-v4 — чистая заливка без пятен и рельефа */
+@media (min-width:721px){
+  .map .direction,
+  .map .direction:nth-of-type(1),
+  .map .direction:nth-of-type(2),
+  .map .direction:nth-of-type(3),
+  .map .direction:nth-of-type(4),
+  .map .direction:nth-of-type(5),
+  .map .direction:nth-of-type(6),
+  .map .direction:nth-of-type(7),
+  .map .direction:nth-of-type(8),
+  .map .direction:nth-of-type(9),
+  .map .direction:nth-of-type(10),
+  .map .direction:nth-of-type(11),
+  .map .direction:nth-of-type(12){
+    background:#faf7f1!important;
+    background-image:none!important;
+    color:#30372f!important;
+    text-shadow:none!important;
+    border:1px solid rgba(68,99,79,.28)!important;
+    box-shadow:0 6px 16px rgba(71,58,38,.06)!important;
+  }
+  .map .direction::before,
+  .map .direction::after{content:none!important;display:none!important;background:none!important}
+}
+
 
 `;
 
