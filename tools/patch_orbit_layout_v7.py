@@ -115,7 +115,6 @@ if marker not in s:
         raise SystemExit('responsiveDraft end marker not found')
     s = s.replace(needle, css + needle, 1)
 
-# Черновик должен полностью очищать обе временные колонки меню.
 if "doc.querySelector('.az-right-draft-menu')?.remove();" not in s:
     old = "  doc.querySelector('.az-left-placeholder-menu')?.remove();\n"
     new = old + "  doc.querySelector('.az-right-draft-menu')?.remove();\n"
@@ -123,7 +122,6 @@ if "doc.querySelector('.az-right-draft-menu')?.remove();" not in s:
         raise SystemExit('clearDraft menu cleanup marker not found')
     s = s.replace(old, new, 1)
 
-# Слева должно быть пять одинаковых заглушек.
 old_left = "leftMenu.innerHTML='<div class=\"radial-badge az-left-placeholder\">заглушка</div><div class=\"radial-badge az-left-placeholder\">заглушка</div><div class=\"radial-badge az-left-placeholder\">заглушка</div><div class=\"radial-badge az-left-placeholder\">заглушка</div>';"
 new_left = "leftMenu.innerHTML='<div class=\"radial-badge az-left-placeholder\">заглушка</div><div class=\"radial-badge az-left-placeholder\">заглушка</div><div class=\"radial-badge az-left-placeholder\">заглушка</div><div class=\"radial-badge az-left-placeholder\">заглушка</div><div class=\"radial-badge az-left-placeholder\">заглушка</div>';"
 if old_left in s:
@@ -131,21 +129,18 @@ if old_left in s:
 elif new_left not in s:
     raise SystemExit('left placeholder HTML marker not found')
 
-# Справа создаём отдельную зеркальную колонку из пяти существующих пунктов.
-if "az-right-draft-menu" not in s.split("const map=doc.querySelector('.map');", 1)[0]:
+if "const rightMenu=doc.createElement('div');" not in s:
     needle = "    page.appendChild(leftMenu);\n  }\n\n  const map=doc.querySelector('.map');"
     insert = """    page.appendChild(leftMenu);\n  }\n\n  if(page && !doc.querySelector('.az-right-draft-menu')){\n    const rightMenu=doc.createElement('div');\n    rightMenu.className='az-right-draft-menu';\n    rightMenu.setAttribute('aria-label','Разделы сайта');\n    rightMenu.innerHTML='<div class=\"radial-badge az-right-draft-item\">команда</div><div class=\"radial-badge az-right-draft-item\">о клинике</div><div class=\"radial-badge az-right-draft-item\">пациенту</div><div class=\"radial-badge az-right-draft-item\">лаборатория</div><div class=\"radial-badge az-right-draft-item\">контакты</div>';\n    page.appendChild(rightMenu);\n  }\n\n  const map=doc.querySelector('.map');"""
     if needle not in s:
         raise SystemExit('right menu insertion marker not found')
     s = s.replace(needle, insert, 1)
 
-# Полностью новая геометрия двух непараллельных траекторий.
 new_svg = "svg.innerHTML='<path class=\"az-orbit-path outer\" d=\"M470 58 C600 8 790 22 900 92 C996 154 1000 247 944 322 C895 388 931 473 868 555 C793 651 635 709 507 664 C404 628 356 553 404 486 C447 425 350 379 378 300 C407 220 354 138 470 58 Z\"/><path class=\"az-orbit-path inner\" d=\"M570 108 C696 78 823 124 855 220 C883 305 842 365 806 420 C758 494 770 555 681 604 C593 652 483 605 438 526 C394 449 437 397 423 332 C408 258 444 153 570 108 Z\"/>';"
 s, n = re.subn(r"svg\.innerHTML='<path class=\\\"az-orbit-path outer\\\".*?';", new_svg, s, count=1, flags=re.S)
 if n != 1:
     raise SystemExit(f'orbit SVG replacement count={n}')
 
-# Планеты ставим непосредственно по новой геометрии, без пересечений с меню.
 new_coords = """const coords={
     'Функциональная стоматология':['570','108','inner'],
     'Ортодонтия':['855','220','inner'],
