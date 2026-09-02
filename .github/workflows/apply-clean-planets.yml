@@ -1,0 +1,72 @@
+name: Apply clean planet fill
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/apply-clean-planets.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Remove all planet texture from Interface Lab
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('interface-lab/index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = '/* planet-clean-v4 — чистая заливка без пятен и рельефа */'
+          if marker not in s:
+              css = r'''
+
+/* planet-clean-v4 — чистая заливка без пятен и рельефа */
+@media (min-width:721px){
+  .map .direction,
+  .map .direction:nth-of-type(1),
+  .map .direction:nth-of-type(2),
+  .map .direction:nth-of-type(3),
+  .map .direction:nth-of-type(4),
+  .map .direction:nth-of-type(5),
+  .map .direction:nth-of-type(6),
+  .map .direction:nth-of-type(7),
+  .map .direction:nth-of-type(8),
+  .map .direction:nth-of-type(9),
+  .map .direction:nth-of-type(10),
+  .map .direction:nth-of-type(11),
+  .map .direction:nth-of-type(12){
+    background:#faf7f1!important;
+    background-image:none!important;
+    color:#30372f!important;
+    text-shadow:none!important;
+    border:1px solid rgba(68,99,79,.28)!important;
+    box-shadow:0 6px 16px rgba(71,58,38,.06)!important;
+  }
+  .map .direction::before,
+  .map .direction::after{content:none!important;display:none!important;background:none!important}
+}
+'''
+              needle = '\n\n`;\n\nfunction clearDraft'
+              if needle not in s:
+                  raise SystemExit('responsiveDraft end marker not found')
+              s = s.replace(needle, css + needle, 1)
+              p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit patch and remove workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add interface-lab/index.html
+          git commit -m "Remove planet texture and keep clean flattened badges"
+          git rm .github/workflows/apply-clean-planets.yml
+          git commit -m "Remove one-off clean planet workflow"
+          git push origin feature/site-v1
