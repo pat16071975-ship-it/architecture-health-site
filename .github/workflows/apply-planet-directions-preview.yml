@@ -1,0 +1,42 @@
+name: Apply planet directions preview
+on:
+  push:
+    branches: [feature/site-v1]
+    paths: ['.github/workflows/apply-planet-directions-preview.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Patch Interface Lab
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('interface-lab/index.html')
+          s = p.read_text(encoding='utf-8')
+          old_desktop = ".direction{position:absolute!important;width:110px!important;height:110px!important;min-height:110px!important;margin:0!important;padding:12px 9px!important;transform:translate(-50%,-50%)!important;border-radius:50%!important;font-size:11.2px!important;line-height:1.16!important;font-weight:600!important;background:rgba(250,247,241,.97)!important;border:1px solid rgba(68,99,79,.30)!important;box-shadow:0 8px 22px rgba(71,58,38,.08)!important}"
+          new_desktop = ".direction{position:absolute!important;width:122px!important;height:96px!important;min-height:96px!important;margin:0!important;padding:11px 10px!important;transform:translate(-50%,-50%)!important;border-radius:53% 47% 51% 49% / 47% 54% 46% 53%!important;font-size:10.8px!important;line-height:1.14!important;font-weight:600!important;background-color:rgba(250,247,241,.97)!important;background-image:radial-gradient(ellipse at 22% 28%,rgba(181,150,98,.14) 0 5%,rgba(255,255,255,.24) 5.5% 7%,rgba(68,99,79,.10) 8% 9%,transparent 10%),radial-gradient(ellipse at 72% 24%,rgba(68,99,79,.10) 0 4%,rgba(255,255,255,.22) 4.5% 5.5%,rgba(181,150,98,.12) 6% 7%,transparent 8%),radial-gradient(ellipse at 66% 70%,rgba(181,150,98,.12) 0 7%,rgba(68,99,79,.09) 8% 9%,transparent 10%),radial-gradient(ellipse at 34% 73%,rgba(255,255,255,.22) 0 3%,rgba(181,150,98,.11) 4% 5%,transparent 6%),radial-gradient(ellipse at 47% 46%,rgba(68,99,79,.055) 0 2.5%,transparent 3.5%),linear-gradient(145deg,rgba(255,255,255,.20),transparent 45%,rgba(68,99,79,.055))!important;border:1px solid rgba(68,99,79,.30)!important;box-shadow:inset 9px 7px 14px rgba(255,255,255,.25),inset -11px -9px 18px rgba(71,58,38,.08),0 8px 22px rgba(71,58,38,.08)!important;overflow:hidden!important} .direction:nth-of-type(3n+2){border-radius:49% 51% 46% 54% / 54% 47% 53% 46%!important;background-position:3px -2px,0 2px,-4px 1px,2px -3px,0 0,0 0!important}.direction:nth-of-type(3n){border-radius:55% 45% 52% 48% / 45% 52% 48% 55%!important;background-position:-3px 2px,4px -2px,2px 3px,-2px 1px,0 0,0 0!important}"
+          old_tablet = ".direction{position:absolute!important;width:92px!important;height:92px!important;min-height:92px!important;margin:0!important;padding:9px 6px!important;transform:translate(-50%,-50%)!important;border-radius:50%!important;font-size:9.4px!important;line-height:1.12!important;font-weight:600!important;background:rgba(250,247,241,.97)!important;border:1px solid rgba(68,99,79,.30)!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important}"
+          new_tablet = ".direction{position:absolute!important;width:104px!important;height:80px!important;min-height:80px!important;margin:0!important;padding:8px 7px!important;transform:translate(-50%,-50%)!important;border-radius:53% 47% 51% 49% / 47% 54% 46% 53%!important;font-size:9.0px!important;line-height:1.10!important;font-weight:600!important;background-color:rgba(250,247,241,.97)!important;background-image:radial-gradient(ellipse at 22% 28%,rgba(181,150,98,.14) 0 5%,rgba(255,255,255,.24) 5.5% 7%,rgba(68,99,79,.10) 8% 9%,transparent 10%),radial-gradient(ellipse at 72% 24%,rgba(68,99,79,.10) 0 4%,rgba(255,255,255,.22) 4.5% 5.5%,rgba(181,150,98,.12) 6% 7%,transparent 8%),radial-gradient(ellipse at 66% 70%,rgba(181,150,98,.12) 0 7%,rgba(68,99,79,.09) 8% 9%,transparent 10%),radial-gradient(ellipse at 34% 73%,rgba(255,255,255,.22) 0 3%,rgba(181,150,98,.11) 4% 5%,transparent 6%),linear-gradient(145deg,rgba(255,255,255,.20),transparent 45%,rgba(68,99,79,.055))!important;border:1px solid rgba(68,99,79,.30)!important;box-shadow:inset 7px 5px 11px rgba(255,255,255,.24),inset -9px -7px 14px rgba(71,58,38,.075),0 7px 18px rgba(71,58,38,.07)!important;overflow:hidden!important}.direction:nth-of-type(3n+2){border-radius:49% 51% 46% 54% / 54% 47% 53% 46%!important}.direction:nth-of-type(3n){border-radius:55% 45% 52% 48% / 45% 52% 48% 55%!important}"
+          if old_desktop not in s:
+              raise SystemExit('desktop direction style not found')
+          if old_tablet not in s:
+              raise SystemExit('tablet direction style not found')
+          s = s.replace(old_desktop, new_desktop, 1)
+          s = s.replace(old_tablet, new_tablet, 1)
+          s = s.replace('/* Эксперимент: меньший Витрувианский человек + круглые направления вокруг */', '/* Эксперимент: меньший Витрувианский человек + приплюснутые планеты-направления с кратерной фактурой */', 1)
+          s = s.replace("'Черновик: планшет — круговые направления вокруг меньшего Витрувиана':'Черновик: ПК — круговые направления вокруг меньшего Витрувиана'", "'Черновик: планшет — планеты-направления с кратерами':'Черновик: ПК — планеты-направления с кратерами'", 1)
+          p.write_text(s, encoding='utf-8')
+      - name: Commit patch and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add interface-lab/index.html
+          git commit -m "Style direction buttons as cratered planet ovals"
+          git rm .github/workflows/apply-planet-directions-preview.yml
+          git commit -m "Remove one-off planet preview workflow"
+          git push origin feature/site-v1
