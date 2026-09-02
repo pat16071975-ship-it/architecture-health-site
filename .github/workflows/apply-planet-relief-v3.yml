@@ -1,10 +1,16 @@
 name: Apply strong planet relief v3
+
 on:
   push:
-    branches: [feature/site-v1]
-    paths: [.github/workflows/apply-planet-relief-v3.yml]
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/apply-planet-relief-v3.yml
+      - tools/patch_planet_relief_v3.py
+
 permissions:
   contents: write
+
 jobs:
   patch:
     runs-on: ubuntu-latest
@@ -13,204 +19,12 @@ jobs:
         with:
           ref: feature/site-v1
       - name: Patch Interface Lab
-        shell: python
-        run: |
-          from pathlib import Path
-          p = Path('interface-lab/index.html')
-          s = p.read_text(encoding='utf-8')
-          marker = '/* planet-surface-v3 — сильный рельеф планет + отдельные плашки названий */'
-          if marker not in s:
-              css = r'''
-
-/* planet-surface-v3 — сильный рельеф планет + отдельные плашки названий */
-@media (min-width:721px){
-  .direction{
-    isolation:isolate!important;
-    color:transparent!important;
-    background:
-      radial-gradient(circle at 29% 22%,rgba(255,255,255,.96) 0 3%,rgba(246,240,226,.96) 11%,rgba(222,211,191,.98) 29%,rgba(187,185,169,.98) 49%,rgba(142,154,139,.98) 69%,rgba(91,111,96,.99) 86%,rgba(55,72,61,1) 100%)!important;
-    border:1px solid rgba(65,88,73,.46)!important;
-    box-shadow:
-      inset 15px 12px 22px rgba(255,255,255,.62),
-      inset -20px -17px 30px rgba(43,58,48,.46),
-      inset -5px 8px 15px rgba(181,150,98,.15),
-      0 9px 22px rgba(71,58,38,.10)!important;
-    text-shadow:none!important;
-  }
-  .direction::after,
-  .direction::before{
-    content:"";
-    position:absolute;
-    inset:1px;
-    border-radius:inherit;
-    pointer-events:none;
-  }
-  .direction::after{z-index:1;opacity:.92;background-blend-mode:multiply,screen,multiply,normal}
-  .direction::before{z-index:2;opacity:.96;background-blend-mode:multiply,screen,multiply,normal}
-  .direction .planet-label{
-    position:absolute;
-    left:50%;top:50%;z-index:5;
-    transform:translate(-50%,-50%);
-    display:inline-flex;align-items:center;justify-content:center;
-    width:max-content;max-width:88%;
-    min-height:20px;
-    padding:4px 7px;
-    border:1px solid rgba(105,100,82,.32);
-    border-radius:7px;
-    background:rgba(248,244,235,.86);
-    box-shadow:0 2px 8px rgba(54,49,38,.10),inset 0 1px rgba(255,255,255,.72);
-    color:#2f392f!important;
-    font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;
-    font-size:9.2px!important;
-    line-height:1.08!important;
-    font-weight:600!important;
-    text-align:center!important;
-    text-shadow:none!important;
-    backdrop-filter:blur(.8px);
-  }
-
-  .direction:nth-of-type(1)::after{background:
-    radial-gradient(ellipse at 32% 50%,rgba(62,91,72,.58) 0 19%,rgba(94,104,83,.34) 20% 30%,transparent 32%),
-    radial-gradient(ellipse at 72% 63%,rgba(165,132,84,.42) 0 18%,rgba(203,178,132,.26) 19% 30%,transparent 32%),
-    radial-gradient(ellipse at 57% 18%,rgba(89,111,93,.34) 0 15%,transparent 28%),
-    linear-gradient(145deg,rgba(255,255,255,.12),transparent 44%,rgba(47,64,52,.28))}
-  .direction:nth-of-type(1)::before{background:
-    radial-gradient(circle at 72% 28%,rgba(49,61,50,.86) 0 4%,rgba(121,102,70,.52) 5% 7%,rgba(250,241,219,.74) 8% 10%,rgba(70,91,73,.38) 11% 13%,transparent 15%),
-    radial-gradient(circle at 28% 72%,rgba(55,66,55,.76) 0 5%,rgba(183,151,99,.42) 6% 8%,rgba(251,244,226,.68) 9% 11%,transparent 14%),
-    radial-gradient(circle at 47% 30%,rgba(61,74,61,.72) 0 2.5%,rgba(243,229,199,.58) 3.5% 5%,transparent 7%),
-    radial-gradient(circle at 82% 66%,rgba(51,63,53,.68) 0 2.5%,rgba(236,222,193,.52) 3.5% 5%,transparent 7%)}
-
-  .direction:nth-of-type(2)::after{background:
-    radial-gradient(ellipse at 58% 39%,rgba(163,123,72,.48) 0 23%,rgba(206,175,124,.28) 24% 34%,transparent 36%),
-    radial-gradient(ellipse at 24% 70%,rgba(65,95,76,.54) 0 17%,rgba(99,113,91,.30) 18% 29%,transparent 31%),
-    conic-gradient(from 210deg at 42% 42%,transparent 0 22%,rgba(93,111,89,.20) 23% 40%,transparent 41% 73%,rgba(181,150,98,.16) 74% 89%,transparent 90%)}
-  .direction:nth-of-type(2)::before{background:
-    radial-gradient(circle at 24% 32%,rgba(46,58,48,.80) 0 6%,rgba(117,99,69,.48) 7% 9%,rgba(248,238,216,.74) 10% 12%,transparent 15%),
-    radial-gradient(circle at 74% 69%,rgba(54,65,54,.82) 0 4.5%,rgba(174,142,93,.48) 5.5% 8%,rgba(251,242,220,.64) 9% 11%,transparent 14%),
-    radial-gradient(circle at 78% 23%,rgba(55,68,56,.65) 0 2.5%,rgba(239,225,196,.52) 3.5% 5%,transparent 7%),
-    radial-gradient(circle at 48% 78%,rgba(57,70,58,.60) 0 2%,rgba(235,220,191,.48) 3% 4.5%,transparent 6.5%)}
-
-  .direction:nth-of-type(3)::after{background:
-    radial-gradient(ellipse at 29% 34%,rgba(71,101,81,.58) 0 21%,rgba(111,123,98,.30) 22% 34%,transparent 36%),
-    radial-gradient(ellipse at 69% 67%,rgba(151,116,70,.46) 0 25%,rgba(198,169,121,.24) 26% 36%,transparent 38%),
-    radial-gradient(ellipse at 67% 18%,rgba(78,99,81,.33) 0 16%,transparent 29%)}
-  .direction:nth-of-type(3)::before{background:
-    radial-gradient(circle at 67% 28%,rgba(42,54,45,.87) 0 7%,rgba(110,96,68,.52) 8% 10%,rgba(251,241,218,.76) 11% 13%,rgba(74,92,75,.32) 14% 16%,transparent 18%),
-    radial-gradient(circle at 32% 63%,rgba(49,62,51,.76) 0 4%,rgba(173,141,92,.46) 5% 7%,rgba(247,237,216,.62) 8% 10%,transparent 13%),
-    radial-gradient(circle at 19% 28%,rgba(60,71,59,.62) 0 2%,rgba(238,226,200,.52) 3% 4.5%,transparent 6.5%),
-    radial-gradient(circle at 77% 77%,rgba(55,67,56,.58) 0 2.5%,rgba(232,217,188,.48) 3.5% 5%,transparent 7%)}
-
-  .direction:nth-of-type(4)::after{background:
-    radial-gradient(ellipse at 45% 48%,rgba(151,112,67,.53) 0 28%,rgba(204,171,117,.25) 29% 38%,transparent 40%),
-    radial-gradient(ellipse at 77% 26%,rgba(63,94,74,.49) 0 15%,rgba(91,108,85,.29) 16% 27%,transparent 29%),
-    radial-gradient(ellipse at 18% 75%,rgba(79,104,84,.39) 0 17%,transparent 29%)}
-  .direction:nth-of-type(4)::before{background:
-    radial-gradient(circle at 24% 27%,rgba(45,57,47,.84) 0 5%,rgba(117,98,67,.48) 6% 8%,rgba(247,238,217,.74) 9% 11%,transparent 14%),
-    radial-gradient(circle at 72% 58%,rgba(43,55,46,.88) 0 7%,rgba(120,99,68,.52) 8% 10%,rgba(250,240,216,.73) 11% 13%,rgba(68,87,70,.34) 14% 16%,transparent 18%),
-    radial-gradient(circle at 51% 24%,rgba(58,70,58,.60) 0 2.5%,rgba(236,221,191,.48) 3.5% 5%,transparent 7%),
-    radial-gradient(circle at 28% 75%,rgba(56,69,57,.62) 0 3%,rgba(239,225,195,.49) 4% 5.5%,transparent 7.5%)}
-
-  .direction:nth-of-type(5)::after{background:
-    conic-gradient(from 35deg at 48% 50%,rgba(147,111,67,.30) 0 10%,transparent 11% 18%,rgba(67,97,78,.43) 19% 34%,transparent 35% 51%,rgba(173,137,85,.32) 52% 69%,transparent 70% 83%,rgba(73,99,80,.34) 84% 100%),
-    radial-gradient(ellipse at 50% 50%,transparent 0 28%,rgba(63,80,67,.16) 29% 44%,transparent 46%)}
-  .direction:nth-of-type(5)::before{background:
-    radial-gradient(circle at 79% 27%,rgba(49,61,50,.79) 0 4%,rgba(112,96,68,.46) 5% 7%,rgba(250,241,219,.70) 8% 10%,transparent 13%),
-    radial-gradient(circle at 29% 39%,rgba(46,58,48,.85) 0 6.5%,rgba(123,102,68,.50) 7.5% 10%,rgba(248,238,214,.72) 11% 13%,transparent 16%),
-    radial-gradient(circle at 63% 71%,rgba(53,65,54,.68) 0 3%,rgba(238,225,198,.52) 4% 5.5%,transparent 7.5%),
-    radial-gradient(circle at 21% 76%,rgba(58,70,58,.57) 0 2%,rgba(234,218,187,.47) 3% 4.5%,transparent 6.5%)}
-
-  .direction:nth-of-type(6)::after{background:
-    radial-gradient(ellipse at 31% 65%,rgba(65,96,76,.58) 0 23%,rgba(102,116,91,.28) 24% 35%,transparent 37%),
-    radial-gradient(ellipse at 70% 35%,rgba(165,128,77,.50) 0 19%,rgba(206,177,129,.24) 20% 31%,transparent 33%),
-    radial-gradient(ellipse at 41% 20%,rgba(77,101,82,.30) 0 15%,transparent 27%)}
-  .direction:nth-of-type(6)::before{background:
-    radial-gradient(circle at 68% 69%,rgba(42,54,45,.87) 0 7.5%,rgba(113,97,68,.54) 8.5% 11%,rgba(251,241,217,.75) 12% 14%,rgba(72,90,73,.34) 15% 17%,transparent 19%),
-    radial-gradient(circle at 23% 28%,rgba(54,66,55,.72) 0 3.5%,rgba(239,225,196,.55) 4.5% 6%,transparent 8%),
-    radial-gradient(circle at 78% 27%,rgba(57,69,57,.61) 0 2.5%,rgba(233,219,191,.47) 3.5% 5%,transparent 7%),
-    radial-gradient(circle at 42% 43%,rgba(50,62,51,.66) 0 2%,rgba(238,225,197,.50) 3% 4.5%,transparent 6.5%)}
-
-  .direction:nth-of-type(7)::after{background:
-    radial-gradient(ellipse at 55% 57%,rgba(150,111,66,.53) 0 26%,rgba(204,173,122,.24) 27% 38%,transparent 40%),
-    radial-gradient(ellipse at 24% 29%,rgba(64,96,76,.53) 0 18%,rgba(101,115,91,.28) 19% 30%,transparent 32%),
-    radial-gradient(ellipse at 82% 25%,rgba(76,101,82,.32) 0 13%,transparent 25%)}
-  .direction:nth-of-type(7)::before{background:
-    radial-gradient(circle at 24% 63%,rgba(44,56,46,.87) 0 7%,rgba(119,99,68,.53) 8% 10%,rgba(249,239,216,.74) 11% 13%,transparent 16%),
-    radial-gradient(circle at 75% 27%,rgba(51,63,52,.76) 0 4.5%,rgba(174,143,93,.45) 5.5% 7.5%,rgba(246,236,215,.62) 8.5% 10.5%,transparent 13%),
-    radial-gradient(circle at 69% 76%,rgba(56,68,57,.58) 0 2.5%,rgba(237,223,194,.48) 3.5% 5%,transparent 7%),
-    radial-gradient(circle at 45% 27%,rgba(58,70,59,.59) 0 2%,rgba(235,220,190,.46) 3% 4.5%,transparent 6%)}
-
-  .direction:nth-of-type(8)::after{background:
-    conic-gradient(from 180deg at 49% 50%,rgba(67,96,77,.46) 0 18%,transparent 19% 32%,rgba(162,124,74,.40) 33% 49%,transparent 50% 65%,rgba(78,102,82,.35) 66% 79%,transparent 80% 100%),
-    radial-gradient(ellipse at 50% 50%,transparent 0 31%,rgba(86,99,81,.16) 32% 46%,transparent 48%)}
-  .direction:nth-of-type(8)::before{background:
-    radial-gradient(circle at 71% 62%,rgba(44,55,46,.86) 0 6%,rgba(117,98,68,.50) 7% 9%,rgba(249,239,216,.74) 10% 12%,transparent 15%),
-    radial-gradient(circle at 26% 27%,rgba(50,62,52,.74) 0 4%,rgba(174,143,92,.44) 5% 7%,rgba(246,235,213,.61) 8% 10%,transparent 12.5%),
-    radial-gradient(circle at 77% 24%,rgba(58,70,58,.58) 0 2%,rgba(234,220,192,.46) 3% 4.5%,transparent 6%),
-    radial-gradient(circle at 38% 76%,rgba(57,69,57,.61) 0 2.5%,rgba(236,222,193,.49) 3.5% 5%,transparent 7%)}
-
-  .direction:nth-of-type(9)::after{background:
-    radial-gradient(ellipse at 37% 44%,rgba(63,94,75,.61) 0 27%,rgba(100,115,91,.30) 28% 39%,transparent 41%),
-    radial-gradient(ellipse at 76% 66%,rgba(164,126,75,.44) 0 16%,rgba(207,176,126,.24) 17% 28%,transparent 30%),
-    radial-gradient(ellipse at 77% 22%,rgba(83,106,87,.29) 0 12%,transparent 25%)}
-  .direction:nth-of-type(9)::before{background:
-    radial-gradient(circle at 68% 32%,rgba(45,57,47,.86) 0 7%,rgba(120,100,69,.52) 8% 10%,rgba(250,240,216,.74) 11% 13%,rgba(71,90,73,.32) 14% 16%,transparent 18%),
-    radial-gradient(circle at 27% 70%,rgba(51,63,52,.73) 0 4%,rgba(174,143,93,.44) 5% 7%,rgba(247,236,214,.61) 8% 10%,transparent 13%),
-    radial-gradient(circle at 21% 27%,rgba(59,71,59,.59) 0 2.5%,rgba(235,221,193,.47) 3.5% 5%,transparent 7%),
-    radial-gradient(circle at 82% 76%,rgba(56,68,57,.59) 0 2%,rgba(234,219,189,.46) 3% 4.5%,transparent 6%)}
-
-  .direction:nth-of-type(10)::after{background:
-    radial-gradient(ellipse at 59% 46%,rgba(158,118,70,.54) 0 28%,rgba(206,174,122,.26) 29% 40%,transparent 42%),
-    radial-gradient(ellipse at 22% 66%,rgba(63,94,75,.53) 0 17%,rgba(99,113,90,.27) 18% 28%,transparent 30%),
-    radial-gradient(ellipse at 30% 20%,rgba(78,101,83,.30) 0 15%,transparent 27%)}
-  .direction:nth-of-type(10)::before{background:
-    radial-gradient(circle at 26% 32%,rgba(44,56,46,.86) 0 6%,rgba(118,99,68,.50) 7% 9%,rgba(249,239,216,.74) 10% 12%,transparent 15%),
-    radial-gradient(circle at 74% 68%,rgba(48,60,50,.84) 0 6.5%,rgba(118,99,68,.49) 7.5% 10%,rgba(250,240,216,.70) 11% 13%,transparent 16%),
-    radial-gradient(circle at 73% 23%,rgba(58,70,58,.58) 0 2.5%,rgba(235,221,193,.47) 3.5% 5%,transparent 7%),
-    radial-gradient(circle at 43% 77%,rgba(56,68,57,.59) 0 2%,rgba(234,219,189,.46) 3% 4.5%,transparent 6%)}
-
-  .direction:nth-of-type(11)::after{background:
-    conic-gradient(from 300deg at 48% 49%,rgba(68,98,78,.43) 0 17%,transparent 18% 28%,rgba(170,131,80,.42) 29% 46%,transparent 47% 61%,rgba(76,101,82,.37) 62% 80%,transparent 81% 100%),
-    radial-gradient(ellipse at 50% 50%,transparent 0 29%,rgba(87,101,82,.17) 30% 45%,transparent 47%)}
-  .direction:nth-of-type(11)::before{background:
-    radial-gradient(circle at 67% 28%,rgba(43,55,46,.88) 0 7%,rgba(115,98,68,.53) 8% 10%,rgba(250,240,216,.74) 11% 13%,rgba(69,88,72,.33) 14% 16%,transparent 18%),
-    radial-gradient(circle at 31% 64%,rgba(51,63,52,.73) 0 4%,rgba(174,143,93,.45) 5% 7%,rgba(247,237,215,.61) 8% 10%,transparent 13%),
-    radial-gradient(circle at 20% 27%,rgba(58,70,58,.58) 0 2%,rgba(234,220,191,.47) 3% 4.5%,transparent 6.5%),
-    radial-gradient(circle at 79% 75%,rgba(57,69,57,.60) 0 2.5%,rgba(235,221,191,.47) 3.5% 5%,transparent 7%)}
-
-  .direction:nth-of-type(12)::after{background:
-    radial-gradient(ellipse at 30% 42%,rgba(158,119,71,.50) 0 20%,rgba(205,174,124,.25) 21% 32%,transparent 34%),
-    radial-gradient(ellipse at 69% 62%,rgba(63,95,75,.58) 0 23%,rgba(100,115,91,.29) 24% 35%,transparent 37%),
-    radial-gradient(ellipse at 72% 18%,rgba(78,102,83,.31) 0 14%,transparent 27%)}
-  .direction:nth-of-type(12)::before{background:
-    radial-gradient(circle at 72% 31%,rgba(43,55,46,.87) 0 6.5%,rgba(116,98,68,.51) 7.5% 10%,rgba(250,240,216,.74) 11% 13%,transparent 16%),
-    radial-gradient(circle at 27% 69%,rgba(50,62,52,.75) 0 4.5%,rgba(175,143,92,.45) 5.5% 7.5%,rgba(247,236,214,.62) 8.5% 10.5%,transparent 13.5%),
-    radial-gradient(circle at 23% 27%,rgba(59,71,59,.60) 0 2.5%,rgba(236,222,193,.48) 3.5% 5%,transparent 7%),
-    radial-gradient(circle at 80% 75%,rgba(56,68,57,.59) 0 2%,rgba(234,219,190,.46) 3% 4.5%,transparent 6.5%)}
-}
-
-@media (min-width:721px) and (max-width:1180px){
-  .direction .planet-label{font-size:7.8px!important;max-width:91%;min-height:18px;padding:3px 5px!important;border-radius:6px!important}
-}
-'''
-              needle = '\n\n`;\n\nfunction clearDraft'
-              if needle not in s:
-                  raise SystemExit('responsiveDraft terminator not found')
-              s = s.replace(needle, css + needle, 1)
-          wrap_marker = "doc.querySelectorAll('.direction').forEach(el=>{"
-          if wrap_marker not in s:
-              needle2 = "  doc.head.appendChild(style);\n  const w=shell.getBoundingClientRect().width;"
-              repl2 = "  doc.head.appendChild(style);\n  doc.querySelectorAll('.direction').forEach(el=>{\n    if(el.querySelector('.planet-label'))return;\n    const txt=el.textContent.trim();\n    if(!txt)return;\n    el.textContent='';\n    const label=doc.createElement('span');\n    label.className='planet-label';\n    label.textContent=txt;\n    el.appendChild(label);\n  });\n  const w=shell.getBoundingClientRect().width;"
-              if needle2 not in s:
-                  raise SystemExit('applyDraft insertion point not found')
-              s = s.replace(needle2, repl2, 1)
-          s = s.replace("'Черновик: планшет — планеты v2'", "'Черновик: планшет — рельефные планеты v3'")
-          s = s.replace("'Черновик: ПК — планеты v2'", "'Черновик: ПК — рельефные планеты v3'")
-          p.write_text(s, encoding='utf-8')
+        run: python3 tools/patch_planet_relief_v3.py
       - name: Commit patch and cleanup
         run: |
-          rm -f .github/workflows/apply-planet-relief-v3.yml
+          rm -f .github/workflows/apply-planet-relief-v3.yml tools/patch_planet_relief_v3.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add interface-lab/index.html .github/workflows/apply-planet-relief-v3.yml
+          git add -A
           git commit -m "Strengthen planet relief in Interface Lab"
           git push origin feature/site-v1
