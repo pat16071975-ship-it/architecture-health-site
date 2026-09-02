@@ -5,6 +5,8 @@
   const DATA_KEY = 'az-service-analytics-v1';
   const SALARY_KEY = 'az-service-salary-v1';
   const EXTRA_KEY = 'az-service-extra-payments-v1';
+  const LAB_DIRECTION = 'Лаборатория';
+  const LAB_TOTAL_KEY = '__LAB_TOTAL__';
   let frameObserver = null;
   let draft = null;
   let state = { direction: '', month: 0, highlightDoctor: '' };
@@ -38,8 +40,9 @@
       .az-month-tabs{display:flex;gap:5px;flex-wrap:wrap;align-items:center}.az-month-tab{border:1px solid #cfc5b5;background:#fff;border-radius:8px;padding:7px 9px;font:600 11px Inter;cursor:pointer}.az-month-tab.active{background:#dfe9e2;border-color:#91aa98;color:#2f4a39}
       .az-payroll-body{padding:10px 17px 14px;overflow:auto}.az-payroll-note{margin:0 0 9px;font-size:10px;color:#6f6658}
       .az-payroll-table{width:100%;border-collapse:separate;border-spacing:0;min-width:650px}.az-payroll-table th,.az-payroll-table td{padding:7px 8px;border-bottom:1px solid #eee7dc;font-size:11px;text-align:right}.az-payroll-table th{position:sticky;top:0;background:#faf6ef;z-index:2}.az-payroll-table th:first-child,.az-payroll-table td:first-child{text-align:left;min-width:220px}.az-payroll-table input{width:125px;text-align:right;border:1px solid #d7cdbd;border-radius:7px;padding:6px 7px;font:600 11px Inter;background:#fff}.az-payroll-table tr.az-highlight td{background:#fff7df}.az-payroll-total{font-weight:700}.az-payroll-summary td{background:#faf6ef;font-weight:700;border-top:1px solid #dfd4c4}
+      .az-payroll-labbox{padding:18px;border:1px solid #eadfc9;border-radius:12px;background:#fffaf0}.az-payroll-labbox h4{margin:0 0 7px;font:700 18px/1.1 'Cormorant Garamond',serif}.az-payroll-labline{display:grid;grid-template-columns:minmax(220px,1fr) 180px 160px;gap:12px;align-items:center;margin-top:12px}.az-payroll-labline input{width:100%;text-align:right;border:1px solid #d7cdbd;border-radius:8px;padding:8px 9px;font:700 12px Inter;background:#fff}.az-payroll-labtotal{font-weight:700;text-align:right}
       .az-payroll-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 17px 14px;border-top:1px solid #e6ded1;background:#fffdf8}.az-payroll-status{font-size:10px;color:#687067}.az-payroll-buttons{display:flex;gap:8px}
-      @media(max-width:760px){.az-payroll-modal{width:98vw}.az-payroll-controls{align-items:stretch}.az-payroll-controls .field{min-width:100%}.az-month-tabs{overflow:auto;flex-wrap:nowrap;padding-bottom:2px}.az-payroll-table input{width:100px}}
+      @media(max-width:760px){.az-payroll-modal{width:98vw}.az-payroll-controls{align-items:stretch}.az-payroll-controls .field{min-width:100%}.az-month-tabs{overflow:auto;flex-wrap:nowrap;padding-bottom:2px}.az-payroll-table input{width:100px}.az-payroll-labline{grid-template-columns:1fr}.az-payroll-labtotal{text-align:left}}
     `;
     d.head.appendChild(s);
   }
@@ -52,7 +55,7 @@
     el.innerHTML = `
       <div class="az-payroll-modal" role="dialog" aria-modal="true" aria-labelledby="azPayrollTitle">
         <div class="az-payroll-head">
-          <div><h3 id="azPayrollTitle">ЗП и выплаты врачей</h3><small>Все врачи выбранного направления — месяц за месяцем</small></div>
+          <div><h3 id="azPayrollTitle">ЗП и выплаты</h3><small>Врачи по направлениям и общий ФОТ лаборатории — месяц за месяцем</small></div>
           <button id="azPayrollX" class="az-payroll-x" aria-label="Закрыть">×</button>
         </div>
         <div class="az-payroll-controls">
@@ -60,7 +63,7 @@
           <div><label style="display:block;font-size:11px;font-weight:600;color:#60685f;margin-bottom:6px">Месяц</label><div id="azPayrollMonths" class="az-month-tabs"></div></div>
         </div>
         <div class="az-payroll-body">
-          <p class="az-payroll-note">Вносишь выплаты сразу по всем врачам выбранного месяца. «Иные выплаты» — отпускные, больничные, премии и прочие доплаты. Переключай месяцы — введённые значения не потеряются до нажатия «Сохранить всё».</p>
+          <p id="azPayrollNote" class="az-payroll-note"></p>
           <div id="azPayrollTable"></div>
         </div>
         <div class="az-payroll-actions"><div id="azPayrollStatus" class="az-payroll-status"></div><div class="az-payroll-buttons"><button id="azPayrollCancel" class="btn">Отмена</button><button id="azPayrollSave" class="btn primary">Сохранить всё</button></div></div>
@@ -83,22 +86,20 @@
   function bindEntryPoints(w, d) {
     const data = getData(w);
     if (!data) return;
-
     const topActions = d.querySelector('.top-actions');
     if (topActions && !d.getElementById('azPayrollTopOpen')) {
       const btn = d.createElement('button');
       btn.id = 'azPayrollTopOpen';
       btn.className = 'btn primary az-payroll-topbtn';
-      btn.textContent = 'ЗП и выплаты врачей';
+      btn.textContent = 'ЗП и выплаты';
       const logout = d.getElementById('logoutBtn');
       logout ? topActions.insertBefore(btn, logout) : topActions.appendChild(btn);
       btn.onclick = () => openManager(w, d);
     }
-
     const old = d.getElementById('azPayOpen');
     if (old && old.dataset.managerBound !== '1') {
       old.dataset.managerBound = '1';
-      old.textContent = 'ЗП и выплаты врачей';
+      old.textContent = 'ЗП и выплаты';
       old.onclick = () => openManager(w, d, d.getElementById('doctor')?.value || '');
     }
   }
@@ -140,6 +141,12 @@
       renderManager(w, d);
     });
 
+    if (state.direction === LAB_DIRECTION) renderLaboratory(d, months);
+    else renderDoctors(data, d, months);
+  }
+
+  function renderDoctors(data, d, months) {
+    d.getElementById('azPayrollNote').textContent = 'Вносишь выплаты сразу по всем врачам выбранного месяца. «Иные выплаты» — отпускные, больничные, премии и прочие доплаты. Переключай месяцы — введённые значения не потеряются до нажатия «Сохранить всё».';
     const doctors = Object.keys(data.directions?.[state.direction]?.doctors || {});
     const rows = doctors.map(name => {
       const rec = ensureDraftRecord(state.direction, name, months.length);
@@ -152,16 +159,37 @@
         <td class="az-payroll-total">${money((+base||0)+(+extra||0))}</td>
       </tr>`;
     }).join('');
-
     d.getElementById('azPayrollTable').innerHTML = `<table class="az-payroll-table"><thead><tr><th>Врач</th><th>Основная ЗП</th><th>Иные выплаты</th><th>Всего</th></tr></thead><tbody>${rows}<tr class="az-payroll-summary"><td>ИТОГО ЗА МЕСЯЦ</td><td id="azPayrollBaseSum"></td><td id="azPayrollExtraSum"></td><td id="azPayrollGrandSum"></td></tr></tbody></table>`;
     d.querySelectorAll('.az-payroll-base,.az-payroll-extra').forEach(inp => inp.addEventListener('input', () => recalcRowAndSummary(d, inp.closest('tr'))));
     recalcSummary(d);
-    updateStatus(d, doctors, months);
+    updateDoctorStatus(d, doctors, months);
     if (state.highlightDoctor) setTimeout(() => d.querySelector(`tr[data-doctor="${cssEscape(state.highlightDoctor)}"]`)?.scrollIntoView({block:'center'}), 0);
+  }
+
+  function renderLaboratory(d, months) {
+    d.getElementById('azPayrollNote').textContent = 'Для лаборатории не разбиваем выплаты по сотрудникам: вводишь общий ФОТ всех сотрудников лаборатории за выбранный месяц одной суммой. В эту сумму включай зарплату, отпускные, больничные, премии и любые другие выплаты.';
+    const rec = ensureLabRecord(months.length);
+    const value = rec.salary[state.month];
+    d.getElementById('azPayrollTable').innerHTML = `<div class="az-payroll-labbox"><h4>Лаборатория — все сотрудники</h4><div class="small">Одна общая сумма за ${esc(months[state.month] || 'месяц')}.</div><div class="az-payroll-labline"><div><strong>ФОТ лаборатории за месяц</strong><div class="small">Все выплаты сотрудникам одной суммой</div></div><input id="azPayrollLabTotal" inputmode="decimal" value="${value==null?'':value}" placeholder="—"><div id="azPayrollLabShown" class="az-payroll-labtotal">${value==null?'—':money(value)}</div></div></div>`;
+    const inp = d.getElementById('azPayrollLabTotal');
+    if (inp) inp.addEventListener('input', () => {
+      const v = parseMoney(inp.value, null);
+      d.getElementById('azPayrollLabShown').textContent = v==null ? '—' : money(v);
+      const s = d.getElementById('azPayrollStatus');
+      if (s) s.textContent = `${months[state.month] || ''}: ${v==null?'ФОТ лаборатории не заполнен':'ФОТ лаборатории '+money(v)}`;
+    });
+    updateLabStatus(d, months, value);
   }
 
   function captureCurrentMonth(d) {
     if (!draft || !state.direction) return;
+    if (state.direction === LAB_DIRECTION) {
+      const rec = ensureLabRecord((getData(frame.contentWindow)?.months || []).length);
+      const inp = d.getElementById('azPayrollLabTotal');
+      if (inp) rec.salary[state.month] = parseMoney(inp.value, null);
+      rec.extra[state.month] = 0;
+      return;
+    }
     d.querySelectorAll('#azPayrollTable tr[data-doctor]').forEach(tr => {
       const doctor = tr.dataset.doctor;
       const rec = draft[state.direction]?.[doctor];
@@ -190,10 +218,15 @@
     if(a)a.textContent=money(base);if(b)b.textContent=money(extra);if(c)c.textContent=money(base+extra);
   }
 
-  function updateStatus(d, doctors, months) {
+  function updateDoctorStatus(d, doctors, months) {
     const filled = doctors.filter(name => ensureDraftRecord(state.direction, name, months.length).salary[state.month] != null).length;
     const s = d.getElementById('azPayrollStatus');
     if (s) s.textContent = `${months[state.month] || ''}: основная ЗП заполнена у ${filled} из ${doctors.length}`;
+  }
+
+  function updateLabStatus(d, months, value) {
+    const s = d.getElementById('azPayrollStatus');
+    if (s) s.textContent = `${months[state.month] || ''}: ${value==null?'ФОТ лаборатории не заполнен':'ФОТ лаборатории '+money(value)}`;
   }
 
   function saveAll(w, d) {
@@ -205,6 +238,12 @@
     payrollDirections(data).forEach(direction => {
       salaryStore[direction] ||= {};
       extraStore[direction] ||= {};
+      if (direction === LAB_DIRECTION) {
+        const rec = ensureLabRecord(data.months.length);
+        salaryStore[direction][LAB_TOTAL_KEY] = rec.salary.slice();
+        extraStore[direction][LAB_TOTAL_KEY] = Array(data.months.length).fill(0);
+        return;
+      }
       Object.keys(data.directions?.[direction]?.doctors || {}).forEach(doctor => {
         const rec = ensureDraftRecord(direction, doctor, data.months.length);
         salaryStore[direction][doctor] = rec.salary.slice();
@@ -224,6 +263,13 @@
     const out = {};
     payrollDirections(data).forEach(direction => {
       out[direction] = {};
+      if (direction === LAB_DIRECTION) {
+        out[direction][LAB_TOTAL_KEY] = {
+          salary: normalizeArray(salary?.[direction]?.[LAB_TOTAL_KEY], data.months.length, null),
+          extra: Array(data.months.length).fill(0)
+        };
+        return;
+      }
       Object.keys(data.directions?.[direction]?.doctors || {}).forEach(doctor => {
         out[direction][doctor] = {
           salary: normalizeArray(salary?.[direction]?.[doctor], data.months.length, null),
@@ -240,8 +286,16 @@
     return draft[direction][doctor];
   }
 
+  function ensureLabRecord(n) {
+    draft[LAB_DIRECTION] ||= {};
+    draft[LAB_DIRECTION][LAB_TOTAL_KEY] ||= { salary: Array(n).fill(null), extra: Array(n).fill(0) };
+    return draft[LAB_DIRECTION][LAB_TOTAL_KEY];
+  }
+
   function payrollDirections(data) {
-    return Object.keys(data?.directions || {}).filter(direction => direction !== 'Лаборатория' && Object.keys(data.directions?.[direction]?.doctors || {}).length);
+    const dirs = Object.keys(data?.directions || {}).filter(direction => direction !== LAB_DIRECTION && Object.keys(data.directions?.[direction]?.doctors || {}).length);
+    if (data?.directions?.[LAB_DIRECTION] || !dirs.includes(LAB_DIRECTION)) dirs.push(LAB_DIRECTION);
+    return dirs;
   }
 
   function normalizeArray(arr, n, fill) {
