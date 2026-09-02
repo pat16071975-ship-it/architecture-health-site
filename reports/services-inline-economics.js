@@ -143,7 +143,7 @@
     defs.forEach(def => {
       const row = tbody.ownerDocument.createElement('tr');
       row.className = `az-inline-econ${def.start?' az-inline-econ-start':''}${def.total?' az-inline-econ-total':''}${def.margin?' az-inline-econ-margin':''}`;
-      let html = `<td>${escapeHtml(def.label)}${def.start ? '<span class="az-inline-note">Экономика считается по всей выручке, независимо от фильтра категории</span>' : ''}</td>`;
+      let html = `<td>${escapeHtml(def.label)}${def.start ? '<span class="az-inline-note">Экономика считается по всей выручке; пустые поля выплат считаются нулём</span>' : ''}</td>`;
       groups.forEach(g => {
         const e = metricsFor(g.idx);
         html += `<td class="az-inline-dash ${focus===g.id?'focus':''}">—</td>`;
@@ -175,13 +175,8 @@
   }
 
   function economics(revenue, salary, extras, idx) {
-    const baseValues = idx.map(i => salary[i]);
-    const salaryComplete = baseValues.every(v => v !== null && v !== '' && v !== undefined && Number.isFinite(+v));
-    const extra = idx.reduce((a, i) => a + (+extras[i] || 0), 0);
-    if (!salaryComplete) {
-      return { revenue, salary:null, extras:extra, total:null, profit:null, margin:null };
-    }
-    const base = baseValues.reduce((a, v) => a + (+v || 0), 0);
+    const base = idx.reduce((a, i) => a + (Number.isFinite(+salary[i]) ? (+salary[i] || 0) : 0), 0);
+    const extra = idx.reduce((a, i) => a + (Number.isFinite(+extras[i]) ? (+extras[i] || 0) : 0), 0);
     const total = base + extra;
     const profit = revenue - total;
     return {
