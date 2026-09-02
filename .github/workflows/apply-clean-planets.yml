@@ -22,51 +22,25 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import base64
           p = Path('interface-lab/index.html')
           s = p.read_text(encoding='utf-8')
           marker = '/* planet-clean-v4 — чистая заливка без пятен и рельефа */'
           if marker not in s:
-              css = r'''
-
-/* planet-clean-v4 — чистая заливка без пятен и рельефа */
-@media (min-width:721px){
-  .map .direction,
-  .map .direction:nth-of-type(1),
-  .map .direction:nth-of-type(2),
-  .map .direction:nth-of-type(3),
-  .map .direction:nth-of-type(4),
-  .map .direction:nth-of-type(5),
-  .map .direction:nth-of-type(6),
-  .map .direction:nth-of-type(7),
-  .map .direction:nth-of-type(8),
-  .map .direction:nth-of-type(9),
-  .map .direction:nth-of-type(10),
-  .map .direction:nth-of-type(11),
-  .map .direction:nth-of-type(12){
-    background:#faf7f1!important;
-    background-image:none!important;
-    color:#30372f!important;
-    text-shadow:none!important;
-    border:1px solid rgba(68,99,79,.28)!important;
-    box-shadow:0 6px 16px rgba(71,58,38,.06)!important;
-  }
-  .map .direction::before,
-  .map .direction::after{content:none!important;display:none!important;background:none!important}
-}
-'''
+              css = base64.b64decode('Ci8qIHBsYW5ldC1jbGVhbi12NCDigJQg0YfQuNGB0YLQsNGPINC30LDQu9C40LLQutCwINCx0LXQtyDQv9GP0YLQtdC9INC4INGA0LXQu9GM0LXRhNCwICovCkBtZWRpYSAobWluLXdpZHRoOjcyMXB4KXsKICAubWFwIC5kaXJlY3Rpb24sCiAgLm1hcCAuZGlyZWN0aW9uOm50aC1vZi10eXBlKDEpLAogIC5tYXAgLmRpcmVjdGlvbjpudGgtb2YtdHlwZSgyKSwKICAubWFwIC5kaXJlY3Rpb246bnRoLW9mLXR5cGUoMyksCiAgLm1hcCAuZGlyZWN0aW9uOm50aC1vZi10eXBlKDQpLAogIC5tYXAgLmRpcmVjdGlvbjpudGgtb2YtdHlwZSg1KSwKICAubWFwIC5kaXJlY3Rpb246bnRoLW9mLXR5cGUoNiksCiAgLm1hcCAuZGlyZWN0aW9uOm50aC1vZi10eXBlKDcpLAogIC5tYXAgLmRpcmVjdGlvbjpudGgtb2YtdHlwZSg4KSwKICAubWFwIC5kaXJlY3Rpb246bnRoLW9mLXR5cGUoOSksCiAgLm1hcCAuZGlyZWN0aW9uOm50aC1vZi10eXBlKDEwKSwKICAubWFwIC5kaXJlY3Rpb246bnRoLW9mLXR5cGUoMTEpLAogIC5tYXAgLmRpcmVjdGlvbjpudGgtb2YtdHlwZSgxMil7CiAgICBiYWNrZ3JvdW5kOiNmYWY3ZjEhaW1wb3J0YW50OwogICAgYmFja2dyb3VuZC1pbWFnZTpub25lIWltcG9ydGFudDsKICAgIGNvbG9yOiMzMDM3MmYhaW1wb3J0YW50OwogICAgdGV4dC1zaGFkb3c6bm9uZSFpbXBvcnRhbnQ7CiAgICBib3JkZXI6MXB4IHNvbGlkIHJnYmEoNjgsOTksNzksLjI4KSFpbXBvcnRhbnQ7CiAgICBib3gtc2hhZG93OjAgNnB4IDE2cHggcmdiYSg3MSw1OCwzOCwuMDYpIWltcG9ydGFudDsKICB9CiAgLm1hcCAuZGlyZWN0aW9uOjpiZWZvcmUsCiAgLm1hcCAuZGlyZWN0aW9uOjphZnRlcntjb250ZW50Om5vbmUhaW1wb3J0YW50O2Rpc3BsYXk6bm9uZSFpbXBvcnRhbnQ7YmFja2dyb3VuZDpub25lIWltcG9ydGFudH0KfQo=').decode('utf-8')
               needle = '\n\n`;\n\nfunction clearDraft'
               if needle not in s:
                   raise SystemExit('responsiveDraft end marker not found')
               s = s.replace(needle, css + needle, 1)
               p.write_text(s, encoding='utf-8')
           PY
-      - name: Commit patch and remove workflow
+      - name: Commit patch and cleanup
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add interface-lab/index.html
-          git commit -m "Remove planet texture and keep clean flattened badges"
+          git commit -m "Remove all texture from flattened direction badges"
           git rm .github/workflows/apply-clean-planets.yml
           git commit -m "Remove one-off clean planet workflow"
           git push origin feature/site-v1
