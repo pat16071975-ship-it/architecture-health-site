@@ -490,12 +490,72 @@ const responsiveDraft=`
 }
 
 
+/* orbit-layout-v7b — две разные живые траектории + зеркальные меню по 5 */
+@media (min-width:1181px){
+  .map-shell{height:790px!important;margin-top:22px!important;overflow:visible!important}
+  .map{
+    position:absolute!important;left:50%!important;top:0!important;
+    width:1120px!important;height:730px!important;padding:0!important;display:block!important;
+    transform:translateX(-50%)!important;overflow:visible!important;
+  }
+  .stage{left:610px!important;top:350px!important;width:410px!important;height:410px!important;transform:translate(-50%,-50%)!important}
+  .map .ring{display:none!important}
+  .relation-panel{display:none!important}
+  .right .specialists-badge,.right .side-menu-badge{display:none!important}
+
+  .az-orbit-svg{position:absolute!important;inset:0!important;width:1120px!important;height:730px!important;overflow:visible!important;z-index:3!important;pointer-events:none!important}
+  .az-orbit-path{fill:none!important;vector-effect:non-scaling-stroke!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+  .az-orbit-path.outer{stroke:rgba(181,150,98,.30)!important;stroke-width:1.25!important}
+  .az-orbit-path.inner{stroke:rgba(68,99,79,.22)!important;stroke-width:1.15!important}
+
+  .map .direction.az-orbit-node{
+    position:absolute!important;left:var(--draft-left)!important;top:var(--draft-top)!important;
+    width:116px!important;height:92px!important;min-height:92px!important;margin:0!important;
+    transform:translate(-50%,-50%)!important;padding:8px!important;
+    font-size:9.6px!important;line-height:1.12!important;font-weight:600!important;
+    color:#30372f!important;text-shadow:none!important;z-index:8!important;
+  }
+
+  .az-left-placeholder-menu,.az-right-draft-menu{
+    position:absolute!important;z-index:17!important;width:350px!important;display:grid!important;gap:18px!important;pointer-events:none!important;
+  }
+  .az-left-placeholder-menu{left:4px!important;top:245px!important}
+  .az-right-draft-menu{right:4px!important;top:365px!important}
+
+  .az-left-placeholder,.az-right-draft-item{
+    position:relative!important;width:230px!important;min-height:48px!important;padding:13px 18px!important;
+    display:flex!important;align-items:center!important;justify-content:center!important;border-radius:10px!important;
+    background:rgba(250,247,241,.96)!important;border:1px solid rgba(181,150,98,.42)!important;
+    box-shadow:0 9px 24px rgba(71,58,38,.08)!important;color:#354039!important;
+    font:600 17px/1.1 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;text-align:center!important;
+  }
+
+  .az-left-placeholder:nth-child(1){margin-left:0!important}
+  .az-left-placeholder:nth-child(2){margin-left:28px!important}
+  .az-left-placeholder:nth-child(3){margin-left:56px!important}
+  .az-left-placeholder:nth-child(4){margin-left:84px!important}
+  .az-left-placeholder:nth-child(5){margin-left:112px!important}
+
+  .az-right-draft-item{justify-self:end!important}
+  .az-right-draft-item:nth-child(1){margin-right:0!important}
+  .az-right-draft-item:nth-child(2){margin-right:28px!important}
+  .az-right-draft-item:nth-child(3){margin-right:56px!important}
+  .az-right-draft-item:nth-child(4){margin-right:84px!important}
+  .az-right-draft-item:nth-child(5){margin-right:112px!important}
+}
+
+@media (min-width:721px) and (max-width:1180px){
+  .az-left-placeholder-menu,.az-right-draft-menu{display:none!important}
+}
+
+
 `;
 
 function clearDraft(doc){
   doc.getElementById('az-lab-responsive-style')?.remove();
   doc.querySelectorAll('.az-orbit-svg').forEach(el=>el.remove());
   doc.querySelector('.az-left-placeholder-menu')?.remove();
+  doc.querySelector('.az-right-draft-menu')?.remove();
   doc.querySelectorAll('.map .direction').forEach(el=>{
     el.classList.remove('az-orbit-inner','az-orbit-outer','az-orbit-node','az-inner-orbit','az-outer-orbit');
     el.style.removeProperty('--draft-left');
@@ -510,45 +570,52 @@ function applyDraft(){
     status.textContent='Оригинал сайта';
     return;
   }
+
   const style=doc.createElement('style');
   style.id='az-lab-responsive-style';
   style.textContent=responsiveDraft;
   doc.head.appendChild(style);
 
   const page=doc.querySelector('.page');
-  if(page && !doc.querySelector('.az-left-placeholder-menu')){
+  if(page){
     const leftMenu=doc.createElement('div');
     leftMenu.className='az-left-placeholder-menu';
     leftMenu.setAttribute('aria-label','Будущие разделы');
-    leftMenu.innerHTML='<div class="radial-badge az-left-placeholder">заглушка</div><div class="radial-badge az-left-placeholder">заглушка</div><div class="radial-badge az-left-placeholder">заглушка</div><div class="radial-badge az-left-placeholder">заглушка</div>';
+    leftMenu.innerHTML='<div class="radial-badge az-left-placeholder">заглушка</div><div class="radial-badge az-left-placeholder">заглушка</div><div class="radial-badge az-left-placeholder">заглушка</div><div class="radial-badge az-left-placeholder">заглушка</div><div class="radial-badge az-left-placeholder">заглушка</div>';
     page.appendChild(leftMenu);
+
+    const rightMenu=doc.createElement('div');
+    rightMenu.className='az-right-draft-menu';
+    rightMenu.setAttribute('aria-label','Разделы сайта');
+    rightMenu.innerHTML='<div class="radial-badge az-right-draft-item">команда</div><div class="radial-badge az-right-draft-item">о клинике</div><div class="radial-badge az-right-draft-item">пациенту</div><div class="radial-badge az-right-draft-item">лаборатория</div><div class="radial-badge az-right-draft-item">контакты</div>';
+    page.appendChild(rightMenu);
   }
 
   const map=doc.querySelector('.map');
-  if(map && !map.querySelector('.az-orbit-svg')){
+  if(map){
     const svg=doc.createElementNS('http://www.w3.org/2000/svg','svg');
     svg.setAttribute('class','az-orbit-svg');
-    svg.setAttribute('viewBox','0 0 1100 720');
+    svg.setAttribute('viewBox','0 0 1120 730');
     svg.setAttribute('aria-hidden','true');
-    svg.innerHTML='<path class="az-orbit-path outer" d="M285 67 C455 8 790 20 965 165 C1060 245 1082 424 997 545 C900 679 617 716 405 646 C237 590 160 458 155 337 C150 209 192 122 285 67 Z"/><path class="az-orbit-path inner" d="M432 137 C572 80 781 109 866 226 C939 326 912 472 798 557 C672 650 471 617 360 516 C266 430 260 310 316 230 C346 185 386 154 432 137 Z"/>';
+    svg.innerHTML='<path class="az-orbit-path outer" d="M470 58 C600 8 790 22 900 92 C996 154 1000 247 944 322 C895 388 931 473 868 555 C793 651 635 709 507 664 C404 628 356 553 404 486 C447 425 350 379 378 300 C407 220 354 138 470 58 Z"/><path class="az-orbit-path inner" d="M570 108 C696 78 823 124 855 220 C883 305 842 365 806 420 C758 494 770 555 681 604 C593 652 483 605 438 526 C394 449 437 397 423 332 C408 258 444 153 570 108 Z"/>';
     map.prepend(svg);
   }
 
   const coords={
-    'Функциональная стоматология':['550','142','inner'],
-    'Ортодонтия':['842','302','inner'],
-    'Остеопатия':['610','568','inner'],
-    'Терапия':['330','338','inner'],
-    'ИГГТ':['455','72','outer'],
-    'Нутрициология':['785','92','outer'],
-    'Гастроэнтерология':['982','225','outer'],
-    'Превентивная медицина':['1010','430','outer'],
-    'Миофункциональная терапия':['805','628','outer'],
-    'Детская неврология':['442','646','outer'],
-    'Нейропсихология':['220','475','outer'],
-    'DIERS диагностика':['225','208','outer']
+    'Функциональная стоматология':['570','108','inner'],
+    'Ортодонтия':['855','220','inner'],
+    'Остеопатия':['681','604','inner'],
+    'Терапия':['423','332','inner'],
+    'ИГГТ':['470','58','outer'],
+    'Нутрициология':['760','58','outer'],
+    'Гастроэнтерология':['944','210','outer'],
+    'Превентивная медицина':['900','430','outer'],
+    'Миофункциональная терапия':['820','600','outer'],
+    'Детская неврология':['610','685','outer'],
+    'Нейропсихология':['430','610','outer'],
+    'DIERS диагностика':['382','205','outer']
   };
-  doc.querySelectorAll('.direction').forEach(el=>{
+  doc.querySelectorAll('.map .direction').forEach(el=>{
     const name=el.textContent.replace(/\s+/g,' ').trim();
     const c=coords[name];
     if(!c)return;
@@ -556,8 +623,9 @@ function applyDraft(){
     el.style.setProperty('--draft-left',c[0]+'px');
     el.style.setProperty('--draft-top',c[1]+'px');
   });
+
   const w=shell.getBoundingClientRect().width;
-  status.textContent=w<=720?'Черновик: телефон — прежняя мобильная сетка':w<=1180?'Черновик: планшет — 2 статичные орбиты v6':'Черновик: ПК — 2 статичные орбиты v6';
+  status.textContent=w<=720?'Черновик: телефон — прежняя мобильная сетка':w<=1180?'Черновик: планшет — статичная композиция':'Черновик: ПК — орбиты v7b, меню 5+5';
 }
 frame.addEventListener('load',applyDraft);
 modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
