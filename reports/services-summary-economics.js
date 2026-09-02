@@ -108,7 +108,7 @@
     defs.forEach(def => {
       const row = tbody.ownerDocument.createElement('tr');
       row.className = `az-summary-econ${def.start?' az-summary-econ-start':''}${def.total?' az-summary-econ-total':''}${def.margin?' az-summary-econ-margin':''}`;
-      let html = `<td>${escapeHtml(def.label)}${def.start ? '<span class="az-summary-note">Экономика считается по всей выручке направления, независимо от фильтра категории</span>' : ''}</td>`;
+      let html = `<td>${escapeHtml(def.label)}${def.start ? '<span class="az-summary-note">Экономика считается по всей выручке направления; пустые поля выплат считаются нулём</span>' : ''}</td>`;
       groups.forEach(g => {
         const e = metricsFor(g.idx);
         html += `<td class="az-summary-dash ${focus===g.id?'focus':''}">—</td>`;
@@ -127,20 +127,16 @@
     const revenue = revenueDirection(dir, idx);
     let salary = 0;
     let extras = 0;
-    let complete = true;
 
     doctors.forEach(doctor => {
       const salaryArr = normalizeArray(salaryStore?.[direction]?.[doctor], monthCount, null);
       const extraArr = normalizeArray(extraStore?.[direction]?.[doctor], monthCount, 0);
       idx.forEach(i => {
-        const s = salaryArr[i];
-        if (s === null || s === '' || s === undefined || !Number.isFinite(+s)) complete = false;
-        else salary += +s || 0;
-        extras += +extraArr[i] || 0;
+        salary += Number.isFinite(+salaryArr[i]) ? (+salaryArr[i] || 0) : 0;
+        extras += Number.isFinite(+extraArr[i]) ? (+extraArr[i] || 0) : 0;
       });
     });
 
-    if (!complete) return { revenue, salary:null, extras, total:null, profit:null, margin:null };
     const total = salary + extras;
     const profit = revenue - total;
     return {
