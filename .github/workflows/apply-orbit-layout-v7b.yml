@@ -19,7 +19,8 @@ jobs:
         with:
           ref: feature/site-v1
       - name: Fix patch replacement escaping
-        run: sed -i "s/re.subn(pattern, new_runtime, s, count=1, flags=re.S)/re.subn(pattern, lambda _m: new_runtime, s, count=1, flags=re.S)/" tools/patch_orbit_layout_v7b.py
+        run: |
+          sed -i "s/re.subn(pattern, new_runtime, s, count=1, flags=re.S)/re.subn(pattern, lambda _m: new_runtime, s, count=1, flags=re.S)/" tools/patch_orbit_layout_v7b.py
       - name: Patch Interface Lab
         run: python tools/patch_orbit_layout_v7b.py
       - name: Validate Interface Lab JavaScript
