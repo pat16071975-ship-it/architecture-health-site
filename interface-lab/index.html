@@ -27,7 +27,7 @@
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: планшет и телефон</div>
+  <div class="status" id="status">Черновик: круговые направления</div>
 </header>
 <main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
@@ -66,7 +66,6 @@ const responsiveDraft=`
   .side-menu-3{top:346px!important;right:-4px!important}
   .side-menu-4{top:394px!important;right:-4px!important}
   .map-shell{margin-top:52px!important}
-  .direction{font-size:11px!important;line-height:1.28!important;font-weight:600!important}
   .attention-section{padding:68px 34px 64px!important}
   .attention-eyebrow{font-size:9.5px!important;letter-spacing:.18em!important}
   .attention-title{font-size:31px!important;line-height:1.22!important;margin-bottom:38px!important}
@@ -155,6 +154,32 @@ const responsiveDraft=`
   .mobile-nav a,.mobile-nav span{min-width:92px!important;font-size:9.8px!important}
   .direction{font-size:9.2px!important}
 }
+
+/* Эксперимент: меньший Витрувианский человек + круглые направления вокруг */
+@media (min-width:1181px){
+  .map-shell{height:760px!important;margin-top:22px!important}
+  .map{left:50%!important;top:0!important;width:980px!important;height:700px!important;transform:translateX(-50%)!important}
+  .ring.one{display:block!important;left:100px!important;top:70px!important;width:780px!important;height:560px!important;border-color:rgba(181,150,98,.22)!important}
+  .ring.two{display:block!important;left:220px!important;top:150px!important;width:540px!important;height:400px!important;border-color:rgba(68,99,79,.12)!important}
+  .ring.three{display:none!important}
+  .stage{left:50%!important;top:350px!important;width:420px!important;height:420px!important;transform:translate(-50%,-50%)!important}
+  .relation-panel{display:none!important}
+  .direction{position:absolute!important;width:110px!important;height:110px!important;min-height:110px!important;margin:0!important;padding:12px 9px!important;transform:translate(-50%,-50%)!important;border-radius:50%!important;font-size:11.2px!important;line-height:1.16!important;font-weight:600!important;background:rgba(250,247,241,.97)!important;border:1px solid rgba(68,99,79,.30)!important;box-shadow:0 8px 22px rgba(71,58,38,.08)!important}
+  .direction:nth-of-type(1){left:490px!important;top:80px!important}.direction:nth-of-type(2){left:675px!important;top:116px!important}.direction:nth-of-type(3){left:810px!important;top:215px!important}.direction:nth-of-type(4){left:860px!important;top:350px!important}.direction:nth-of-type(5){left:810px!important;top:485px!important}.direction:nth-of-type(6){left:675px!important;top:584px!important}.direction:nth-of-type(7){left:490px!important;top:620px!important}.direction:nth-of-type(8){left:305px!important;top:584px!important}.direction:nth-of-type(9){left:170px!important;top:485px!important}.direction:nth-of-type(10){left:120px!important;top:350px!important}.direction:nth-of-type(11){left:170px!important;top:215px!important}.direction:nth-of-type(12){left:305px!important;top:116px!important}
+}
+
+@media (min-width:721px) and (max-width:1180px){
+  .map-shell{height:680px!important;margin-top:70px!important}
+  .map{position:absolute!important;left:50%!important;top:0!important;width:820px!important;height:630px!important;transform:translateX(-50%)!important;display:block!important;padding:0!important}
+  .ring.one{display:block!important;left:92px!important;top:76px!important;width:636px!important;height:468px!important;border-color:rgba(181,150,98,.22)!important}
+  .ring.two{display:block!important;left:205px!important;top:150px!important;width:410px!important;height:320px!important;border-color:rgba(68,99,79,.12)!important}
+  .ring.three{display:none!important}
+  .stage{left:50%!important;top:310px!important;width:330px!important;height:330px!important;transform:translate(-50%,-50%)!important}
+  .stage:before{inset:22px!important}
+  .relation-panel{display:none!important}
+  .direction{position:absolute!important;width:92px!important;height:92px!important;min-height:92px!important;margin:0!important;padding:9px 6px!important;transform:translate(-50%,-50%)!important;border-radius:50%!important;font-size:9.4px!important;line-height:1.12!important;font-weight:600!important;background:rgba(250,247,241,.97)!important;border:1px solid rgba(68,99,79,.30)!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important}
+  .direction:nth-of-type(1){left:410px!important;top:75px!important}.direction:nth-of-type(2){left:560px!important;top:106px!important}.direction:nth-of-type(3){left:670px!important;top:192px!important}.direction:nth-of-type(4){left:710px!important;top:310px!important}.direction:nth-of-type(5){left:670px!important;top:428px!important}.direction:nth-of-type(6){left:560px!important;top:514px!important}.direction:nth-of-type(7){left:410px!important;top:545px!important}.direction:nth-of-type(8){left:260px!important;top:514px!important}.direction:nth-of-type(9){left:150px!important;top:428px!important}.direction:nth-of-type(10){left:110px!important;top:310px!important}.direction:nth-of-type(11){left:150px!important;top:192px!important}.direction:nth-of-type(12){left:260px!important;top:106px!important}
+}
 `;
 
 function clearDraft(doc){doc.getElementById('az-lab-responsive-style')?.remove()}
@@ -171,7 +196,7 @@ function applyDraft(){
   style.textContent=responsiveDraft;
   doc.head.appendChild(style);
   const w=shell.getBoundingClientRect().width;
-  status.textContent=w<=720?'Черновик: телефон — блок контактов и всё ниже опущены':'Черновик: планшет — оффер и разделы разведены';
+  status.textContent=w<=720?'Черновик: телефон — прежняя мобильная сетка':w<=1180?'Черновик: планшет — круговые направления вокруг меньшего Витрувиана':'Черновик: ПК — круговые направления вокруг меньшего Витрувиана';
 }
 frame.addEventListener('load',applyDraft);
 modeButtons.forEach(btn=>btn.addEventListener('click',()=>{
