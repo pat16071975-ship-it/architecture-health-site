@@ -1,0 +1,85 @@
+name: Split planet reference sprite
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/split-planet-sprite.yml
+
+permissions:
+  contents: write
+
+jobs:
+  split:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+
+      - name: Install image tools
+        run: python -m pip install --disable-pip-version-check pillow
+
+      - name: Split and verify sprite
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageStat
+          import json
+
+          source = Path('assets/lab-planets/reference-sprite.webp')
+          out = source.parent
+          image = Image.open(source).convert('RGBA')
+          if image.size != (232, 138):
+              raise SystemExit(f'Unexpected sprite size: {image.size}, expected (232, 138)')
+
+          cells = [
+              ('iggt', 'ИГГТ'),
+              ('diers', 'DIERS диагностика'),
+              ('functional-dentistry', 'Функциональная стоматология'),
+              ('neuropsychology', 'Нейропсихология'),
+              ('child-neurology', 'Детская неврология'),
+              ('orthodontics', 'Ортодонтия'),
+              ('myofunctional-therapy', 'Миофункциональная терапия'),
+              ('preventive-medicine', 'Превентивная медицина'),
+              ('osteopathy', 'Остеопатия'),
+              ('gastroenterology', 'Гастроэнтерология'),
+              ('nutrition', 'Нутрициология'),
+              ('therapy', 'Терапия'),
+          ]
+
+          manifest = {}
+          report = [f'sprite={image.width}x{image.height}', 'grid=4x3', 'cell=58x46']
+          for index, (slug, title) in enumerate(cells):
+              col = index % 4
+              row = index // 4
+              crop = image.crop((col * 58, row * 46, (col + 1) * 58, (row + 1) * 46))
+              alpha = crop.getchannel('A')
+              bbox = alpha.getbbox()
+              alpha_extrema = alpha.getextrema()
+              rgba_stat = ImageStat.Stat(crop)
+              # Store each reference independently at 4x source resolution so the browser never crops a sprite.
+              rendered = crop.resize((232, 184), Image.Resampling.LANCZOS)
+              filename = f'planet-{index + 1:02d}-{slug}.webp'
+              rendered.save(out / filename, 'WEBP', lossless=True, method=6)
+              manifest[title] = f'/architecture-health-site/assets/lab-planets/{filename}?v=20260903-13'
+              report.append(f'{index + 1:02d} {title}: alpha={alpha_extrema}, bbox={bbox}, mean_rgba={[round(v, 2) for v in rgba_stat.mean]}')
+
+          (out / 'reference-manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          (out / 'reference-sprite-report.txt').write_text('\n'.join(report) + '\n', encoding='utf-8')
+          PY
+
+      - name: Commit individual planet assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/lab-planets/planet-*.webp assets/lab-planets/reference-manifest.json assets/lab-planets/reference-sprite-report.txt
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Split planet references into individual assets"
+            git push origin HEAD:feature/site-v1
+          fi
