@@ -38,7 +38,7 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
   <button class="btn" id="reload" type="button">Обновить</button>
   <div class="status" id="status">Черновик: 12 присланных рисунков планет</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-10" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-11" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -69,12 +69,12 @@ function stopOrbitAnimation(){if(orbitAnimationFrame){cancelAnimationFrame(orbit
 function cleanupDraft(doc){
   stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();
   doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
-  doc.querySelectorAll('.az-lab-planet').forEach(el=>{if(el.dataset.azOriginalStyle!==undefined){if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);else el.removeAttribute('style');delete el.dataset.azOriginalStyle}el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')});
+  doc.querySelectorAll('.az-lab-planet').forEach(el=>{if(el.dataset.azOriginalHtml!==undefined){el.innerHTML=el.dataset.azOriginalHtml;delete el.dataset.azOriginalHtml}if(el.dataset.azOriginalStyle!==undefined){if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);else el.removeAttribute('style');delete el.dataset.azOriginalStyle}el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')});
 }
 function pointOnEllipse(cx,cy,rx,ry,tiltDeg,angleDeg){const t=angleDeg*Math.PI/180,a=tiltDeg*Math.PI/180,dx=rx*Math.cos(t),dy=ry*Math.sin(t);return{x:cx+dx*Math.cos(a)-dy*Math.sin(a),y:cy+dx*Math.sin(a)+dy*Math.cos(a)}}
 function collectPlanets(doc){
   const byName=new Map();doc.querySelectorAll('.direction').forEach(el=>byName.set(norm(el.innerText||el.textContent),el));
-  const prepare=(names,orbitClass)=>names.map(name=>{const el=byName.get(norm(name));if(!el)return null;if(el.dataset.azOriginalStyle===undefined)el.dataset.azOriginalStyle=el.getAttribute('style')||'';el.classList.add('az-lab-planet',orbitClass);el.style.setProperty('--az-planet-art',PLANET_SPRITE);el.style.setProperty('--az-planet-pos',planetSpritePositions[name]||'0px 0px');el.style.setProperty('transform','translate(-50%,-50%)','important');return el}).filter(Boolean);
+  const prepare=(names,orbitClass)=>names.map(name=>{const el=byName.get(norm(name));if(!el)return null;if(el.dataset.azOriginalStyle===undefined)el.dataset.azOriginalStyle=el.getAttribute('style')||'';if(el.dataset.azOriginalHtml===undefined)el.dataset.azOriginalHtml=el.innerHTML;el.classList.add('az-lab-planet',orbitClass);el.style.setProperty('--az-planet-art',PLANET_SPRITE);el.style.setProperty('--az-planet-pos',planetSpritePositions[name]||'0px 0px');el.innerHTML='<span class="az-lab-planet-art" aria-hidden="true"></span><span class="az-lab-planet-label">'+el.dataset.azOriginalHtml+'</span>';el.style.setProperty('transform','translate(-50%,-50%)','important');return el}).filter(Boolean);
   return{inner:prepare(innerNames,'az-lab-inner-planet'),outer:prepare(outerNames,'az-lab-outer-planet')};
 }
 function setPlanetPositions(planets,angles,cx,cy,rx,ry,tilt,phase){planets.forEach((el,index)=>{const p=pointOnEllipse(cx,cy,rx,ry,tilt,angles[index]+phase);el.style.setProperty('left',p.x+'px','important');el.style.setProperty('top',p.y+'px','important')})}
@@ -89,8 +89,9 @@ function drawOrbits(){
 .az-lab-orbit-host .direction{position:absolute!important;width:116px!important;height:92px!important;min-height:92px!important;padding:8px!important;border-radius:53% 47% 51% 49% / 47% 54% 46% 53%!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.6px!important;line-height:1.13!important;font-weight:600!important;letter-spacing:0!important;color:#30372f!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important;overflow:hidden!important;pointer-events:none!important;z-index:8!important;will-change:left,top!important;isolation:isolate!important}
 .az-lab-orbit-host .direction.az-lab-inner-planet{background:linear-gradient(180deg,rgba(239,246,240,.99),rgba(250,247,241,.99))!important;border:1.5px solid rgba(68,99,79,.34)!important}
 .az-lab-orbit-host .direction.az-lab-outer-planet{background:linear-gradient(180deg,rgba(250,247,241,.99),rgba(245,238,226,.99))!important;border:1.5px solid rgba(181,150,98,.48)!important}
-.az-lab-orbit-host .direction.az-lab-planet::before{content:''!important;display:block!important;position:absolute!important;inset:0!important;border-radius:inherit!important;background-image:var(--az-planet-art)!important;background-repeat:no-repeat!important;background-position:var(--az-planet-pos)!important;background-size:464px 276px!important;opacity:.72!important;mix-blend-mode:multiply!important;pointer-events:none!important;z-index:-1!important}
-.az-lab-orbit-host .direction.az-lab-planet::after{content:none!important;display:none!important}
+.az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-art{display:block!important;position:absolute!important;inset:0!important;border-radius:inherit!important;background-image:var(--az-planet-art)!important;background-repeat:no-repeat!important;background-position:var(--az-planet-pos)!important;background-size:464px 276px!important;opacity:.88!important;mix-blend-mode:multiply!important;pointer-events:none!important;z-index:0!important}
+.az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-label{position:relative!important;z-index:1!important;display:block!important;max-width:100%!important}
+.az-lab-orbit-host .direction.az-lab-planet::before,.az-lab-orbit-host .direction.az-lab-planet::after{content:none!important;display:none!important}
 }
 @media (min-width:721px) and (max-width:1180px){.az-lab-orbit-host .stage{transform:scale(.568965517)!important;transform-origin:center center!important}}
 `;doc.head.appendChild(style);
@@ -99,7 +100,7 @@ function drawOrbits(){
   const outer=doc.createElementNS(ns,'ellipse');outer.setAttribute('cx',g.cx);outer.setAttribute('cy',g.cy);outer.setAttribute('rx',g.outerRx);outer.setAttribute('ry',g.outerRy);outer.setAttribute('fill','none');outer.setAttribute('stroke','#c9aa75');outer.setAttribute('stroke-width','1.15');outer.setAttribute('stroke-opacity','.58');outer.setAttribute('transform',`rotate(${g.outerTilt} ${g.cx} ${g.cy})`);svg.append(inner,outer);host.prepend(svg);
   if((doc.defaultView?.innerWidth||0)>=1181){const planets=collectPlanets(doc);setPlanetPositions(planets.inner,innerAngles,g.cx,g.cy,g.innerRx,g.innerRy,g.innerTilt,0);setPlanetPositions(planets.outer,outerAngles,g.cx,g.cy,g.outerRx,g.outerRy,g.outerTilt,0);startOrbitAnimation(doc,planets,g)}
 }
-function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260903-10&t='+Date.now()}
+function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260903-11&t='+Date.now()}
 function setMode(next){mode=next;modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: 12 присланных рисунков · 42/76 сек';reloadFrame()}
 frame.addEventListener('load',()=>{if(mode==='draft')requestAnimationFrame(()=>requestAnimationFrame(drawOrbits))});modeButtons.forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));widthButtons.forEach(b=>b.addEventListener('click',()=>{widthButtons.forEach(x=>x.classList.remove('active'));b.classList.add('active');shell.style.width=b.dataset.width==='100%'?'100%':b.dataset.width+'px';if(mode==='draft')setTimeout(drawOrbits,220)}));document.getElementById('reload').addEventListener('click',reloadFrame);
 </script>
