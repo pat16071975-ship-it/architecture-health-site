@@ -38,7 +38,7 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
   <button class="btn" id="reload" type="button">Обновить</button>
   <div class="status" id="status">Черновик: движение планет по 2 орбитам</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-6" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-7" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -148,8 +148,8 @@ function startOrbitAnimation(doc,planets,geometry){
     const elapsed=now-started;
     const innerPhase=(elapsed/INNER_DURATION)*360;
     const outerPhase=(elapsed/OUTER_DURATION)*360;
-    setPlanetPositions(planets.inner,innerAngles,geometry.cx,geometry.cy,geometry.innerRx,geometry.innerRy,geometry.tilt,innerPhase);
-    setPlanetPositions(planets.outer,outerAngles,geometry.cx,geometry.cy,geometry.outerRx,geometry.outerRy,geometry.tilt,outerPhase);
+    setPlanetPositions(planets.inner,innerAngles,geometry.cx,geometry.cy,geometry.innerRx,geometry.innerRy,geometry.innerTilt,innerPhase);
+    setPlanetPositions(planets.outer,outerAngles,geometry.cx,geometry.cy,geometry.outerRx,geometry.outerRy,geometry.outerTilt,outerPhase);
     orbitAnimationFrame=requestAnimationFrame(tick);
   };
   orbitAnimationFrame=requestAnimationFrame(tick);
@@ -175,7 +175,8 @@ function drawOrbits(){
     innerRy:originalStageRect.height*.46,
     outerRx:originalStageRect.width*.73,
     outerRy:originalStageRect.height*.57,
-    tilt:14
+    innerTilt:18,
+    outerTilt:14
   };
 
   host.classList.add('az-lab-orbit-host');
@@ -235,25 +236,25 @@ function drawOrbits(){
   const inner=doc.createElementNS(ns,'ellipse');
   inner.setAttribute('cx',geometry.cx);inner.setAttribute('cy',geometry.cy);inner.setAttribute('rx',geometry.innerRx);inner.setAttribute('ry',geometry.innerRy);
   inner.setAttribute('fill','none');inner.setAttribute('stroke','#9aab9b');inner.setAttribute('stroke-width','1.15');inner.setAttribute('stroke-opacity','.62');
-  inner.setAttribute('transform',`rotate(${geometry.tilt} ${geometry.cx} ${geometry.cy})`);
+  inner.setAttribute('transform',`rotate(${geometry.innerTilt} ${geometry.cx} ${geometry.cy})`);
 
   const outer=doc.createElementNS(ns,'ellipse');
   outer.setAttribute('cx',geometry.cx);outer.setAttribute('cy',geometry.cy);outer.setAttribute('rx',geometry.outerRx);outer.setAttribute('ry',geometry.outerRy);
   outer.setAttribute('fill','none');outer.setAttribute('stroke','#c9aa75');outer.setAttribute('stroke-width','1.15');outer.setAttribute('stroke-opacity','.58');
-  outer.setAttribute('transform',`rotate(${geometry.tilt} ${geometry.cx} ${geometry.cy})`);
+  outer.setAttribute('transform',`rotate(${geometry.outerTilt} ${geometry.cx} ${geometry.cy})`);
 
   svg.append(inner,outer);
   host.prepend(svg);
 
   if((doc.defaultView?.innerWidth||0)>=1181){
     const planets=collectPlanets(doc);
-    setPlanetPositions(planets.inner,innerAngles,geometry.cx,geometry.cy,geometry.innerRx,geometry.innerRy,geometry.tilt,0);
-    setPlanetPositions(planets.outer,outerAngles,geometry.cx,geometry.cy,geometry.outerRx,geometry.outerRy,geometry.tilt,0);
+    setPlanetPositions(planets.inner,innerAngles,geometry.cx,geometry.cy,geometry.innerRx,geometry.innerRy,geometry.innerTilt,0);
+    setPlanetPositions(planets.outer,outerAngles,geometry.cx,geometry.cy,geometry.outerRx,geometry.outerRy,geometry.outerTilt,0);
     startOrbitAnimation(doc,planets,geometry);
   }
 }
 
-function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260903-6&t='+Date.now();}
+function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260903-7&t='+Date.now();}
 function setMode(next){
   mode=next;
   modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
