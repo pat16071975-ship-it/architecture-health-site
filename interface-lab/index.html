@@ -36,9 +36,9 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: эллипсы ближе + наклон 14°</div>
+  <div class="status" id="status">Черновик: планеты направлений на 2 орбитах</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-3" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-4" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -48,13 +48,86 @@ const modeButtons=[...document.querySelectorAll('[data-mode]')];
 const widthButtons=[...document.querySelectorAll('[data-width]')];
 let mode='draft';
 
+const innerNames=[
+  'Функциональная стоматология',
+  'Ортодонтия',
+  'Остеопатия',
+  'Терапия'
+];
+const outerNames=[
+  'ИГГТ',
+  'DIERS диагностика',
+  'Нейропсихология',
+  'Детская неврология',
+  'Миофункциональная терапия',
+  'Превентивная медицина',
+  'Гастроэнтерология',
+  'Нутрициология'
+];
+
+function norm(value){
+  return String(value||'')
+    .toLowerCase()
+    .replace(/ё/g,'е')
+    .replace(/[–—-]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function cleanupDraft(doc){
+  doc.getElementById('az-lab-orbits')?.remove();
+  doc.getElementById('az-lab-orbit-style')?.remove();
+  doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
+  doc.querySelectorAll('.az-lab-planet').forEach(el=>{
+    if(el.dataset.azOriginalStyle!==undefined){
+      if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);
+      else el.removeAttribute('style');
+      delete el.dataset.azOriginalStyle;
+    }
+    el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet');
+  });
+}
+
+function pointOnEllipse(cx,cy,rx,ry,tiltDeg,angleDeg){
+  const t=angleDeg*Math.PI/180;
+  const a=tiltDeg*Math.PI/180;
+  const dx=rx*Math.cos(t);
+  const dy=ry*Math.sin(t);
+  return {
+    x:cx+dx*Math.cos(a)-dy*Math.sin(a),
+    y:cy+dx*Math.sin(a)+dy*Math.cos(a)
+  };
+}
+
+function placePlanets(doc,host,cx,cy,innerRx,innerRy,outerRx,outerRy,tilt){
+  if((doc.defaultView?.innerWidth||0)<1181)return;
+
+  const byName=new Map();
+  doc.querySelectorAll('.direction').forEach(el=>byName.set(norm(el.textContent),el));
+
+  const place=(names,angles,rx,ry,orbitClass)=>{
+    names.forEach((name,index)=>{
+      const el=byName.get(norm(name));
+      if(!el)return;
+      if(el.dataset.azOriginalStyle===undefined)el.dataset.azOriginalStyle=el.getAttribute('style')||'';
+      const p=pointOnEllipse(cx,cy,rx,ry,tilt,angles[index]);
+      el.classList.add('az-lab-planet',orbitClass);
+      el.style.setProperty('left',p.x+'px','important');
+      el.style.setProperty('top',p.y+'px','important');
+      el.style.setProperty('transform','translate(-50%,-50%)','important');
+    });
+  };
+
+  /* Внутренние — четыре опорные точки; внешние сдвинуты на полшага, чтобы планеты двух орбит не вставали радиально друг за другом. */
+  place(innerNames,[180,270,0,90],innerRx,innerRy,'az-lab-inner-planet');
+  place(outerNames,[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5],outerRx,outerRy,'az-lab-outer-planet');
+}
+
 function drawOrbits(){
   if(mode!=='draft')return;
   const doc=frame.contentDocument;
   if(!doc)return;
-  doc.getElementById('az-lab-orbits')?.remove();
-  doc.getElementById('az-lab-orbit-style')?.remove();
-  doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
+  cleanupDraft(doc);
 
   const stage=doc.querySelector('.stage');
   if(!stage)return;
@@ -80,6 +153,37 @@ function drawOrbits(){
     .az-lab-orbit-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}
     @media (min-width:1181px){
       .az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}
+      .az-lab-orbit-host .direction.az-lab-planet{
+        width:116px!important;
+        height:92px!important;
+        min-height:92px!important;
+        padding:8px 8px!important;
+        border-radius:53% 47% 51% 49% / 47% 54% 46% 53%!important;
+        display:flex!important;
+        align-items:center!important;
+        justify-content:center!important;
+        text-align:center!important;
+        font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;
+        font-size:9.6px!important;
+        line-height:1.13!important;
+        font-weight:600!important;
+        letter-spacing:0!important;
+        color:#30372f!important;
+        box-shadow:0 7px 18px rgba(71,58,38,.07)!important;
+        overflow:hidden!important;
+        pointer-events:none!important;
+        z-index:8!important;
+      }
+      .az-lab-orbit-host .direction.az-lab-inner-planet{
+        background:linear-gradient(180deg,rgba(239,246,240,.99),rgba(250,247,241,.99))!important;
+        border:1.5px solid rgba(68,99,79,.34)!important;
+      }
+      .az-lab-orbit-host .direction.az-lab-outer-planet{
+        background:linear-gradient(180deg,rgba(250,247,241,.99),rgba(245,238,226,.99))!important;
+        border:1.5px solid rgba(181,150,98,.48)!important;
+      }
+      .az-lab-orbit-host .direction.az-lab-planet::before,
+      .az-lab-orbit-host .direction.az-lab-planet::after{content:none!important;display:none!important}
     }
     @media (min-width:721px) and (max-width:1180px){
       .az-lab-orbit-host .stage{transform:scale(.568965517)!important;transform-origin:center center!important}
@@ -106,13 +210,14 @@ function drawOrbits(){
 
   svg.append(inner,outer);
   host.prepend(svg);
+  placePlanets(doc,host,cx,cy,innerRx,innerRy,outerRx,outerRy,tilt);
 }
 
-function reloadFrame(){frame.src='../?lab=orbits-20260903-3&t='+Date.now();}
+function reloadFrame(){frame.src='../?lab=orbits-20260903-4&t='+Date.now();}
 function setMode(next){
   mode=next;
   modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
-  status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: эллипсы ближе + наклон 14°';
+  status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: 12 планет на двух орбитах';
   reloadFrame();
 }
 frame.addEventListener('load',()=>{if(mode==='draft')requestAnimationFrame(()=>requestAnimationFrame(drawOrbits));});
