@@ -36,9 +36,9 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: движение планет по 2 орбитам</div>
+  <div class="status" id="status">Черновик: контурная графика внутри планет</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-7" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-8" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -70,6 +70,28 @@ const outerNames=[
 ];
 const innerAngles=[180,270,0,90];
 const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];
+
+
+const planetSketches=[
+  `<path d="M-7 21 C9 9 21 13 30 22 S47 35 57 25 S70 8 84 11 S104 24 123 12"/><path d="M8 57 C18 45 29 48 35 58 S50 75 64 64 S79 48 91 55 S103 73 120 66"/><path d="M66 11 C60 18 60 26 67 31 S82 30 83 20"/><path d="M22 75 C28 69 38 69 42 76 S37 88 27 88"/>`,
+  `<path d="M-8 15 C13 7 27 13 41 8 S68 2 124 11"/><path d="M-6 31 C18 23 30 35 47 27 S77 17 122 24"/><path d="M-5 50 C15 42 31 54 49 47 S81 33 123 42"/><path d="M-7 72 C15 61 31 73 52 65 S88 55 124 65"/><ellipse cx="80" cy="26" rx="12" ry="5"/><ellipse cx="26" cy="60" rx="9" ry="4"/>`,
+  `<path d="M-9 26 C10 10 21 8 33 16 S40 35 52 33 S70 16 83 12 S106 14 124 4"/><path d="M4 73 C16 56 31 49 45 56 S56 74 70 67 S84 44 100 46 S113 56 122 51"/><ellipse cx="28" cy="30" rx="12" ry="7"/><ellipse cx="90" cy="67" rx="10" ry="5"/><ellipse cx="58" cy="18" rx="5" ry="3"/>`,
+  `<path d="M-8 19 C19 7 44 11 65 6 S98 5 124 13"/><path d="M-6 38 C17 28 42 34 61 27 S91 24 123 32"/><path d="M-6 58 C22 48 39 56 60 49 S96 44 123 50"/><path d="M-8 79 C16 67 39 75 61 69 S98 62 124 71"/><path d="M17 47 C25 42 34 43 40 48"/><path d="M76 62 C84 57 93 58 100 62"/>`,
+  `<path d="M-4 10 C15 12 17 26 31 27 S44 12 58 17 S67 36 82 33 S96 16 120 18"/><path d="M-6 57 C10 51 16 39 31 42 S42 63 56 66 S73 54 84 56 S98 74 121 72"/><path d="M14 73 C19 64 27 63 32 71 S31 89 19 91"/><path d="M78 6 C86 15 91 23 88 32"/><ellipse cx="99" cy="47" rx="7" ry="4"/>`,
+  `<path d="M-7 17 C15 7 30 20 48 13 S78 6 123 17"/><path d="M-7 30 C17 22 34 35 51 27 S82 19 124 29"/><path d="M-8 46 C17 35 38 49 56 40 S88 33 123 42"/><path d="M-6 63 C18 52 40 67 61 57 S93 49 124 58"/><path d="M-8 80 C15 70 39 81 61 73 S96 66 124 74"/><ellipse cx="22" cy="38" rx="8" ry="3"/><ellipse cx="84" cy="52" rx="11" ry="4"/>`,
+  `<path d="M-10 67 C10 55 18 43 32 36 S60 28 70 16 S92 1 122 6"/><path d="M-5 82 C14 70 25 60 42 54 S64 43 76 31 S99 15 123 15"/><path d="M4 22 C16 13 25 15 31 22 S30 36 19 38"/><ellipse cx="76" cy="62" rx="13" ry="6"/><ellipse cx="99" cy="38" rx="6" ry="4"/>`,
+  `<path d="M-8 21 C8 18 15 7 28 9 S43 24 56 19 S68 6 82 10 S98 29 123 25"/><path d="M-7 56 C10 48 20 57 32 53 S45 38 58 42 S69 61 83 58 S101 43 123 48"/><path d="M5 78 C17 69 30 74 37 85"/><ellipse cx="48" cy="72" rx="8" ry="5"/><ellipse cx="92" cy="22" rx="10" ry="5"/>`,
+  `<path d="M-7 30 C12 12 23 14 36 28 S54 45 69 35 S82 10 99 13 S111 25 124 20"/><path d="M-5 76 C10 64 25 54 40 60 S58 78 72 70 S87 49 103 52 S115 63 123 60"/><path d="M50 6 C45 14 47 21 55 25"/><ellipse cx="24" cy="43" rx="8" ry="5"/><ellipse cx="97" cy="74" rx="11" ry="5"/>`,
+  `<path d="M-8 16 C14 7 34 16 54 9 S92 5 124 15"/><path d="M-8 34 C16 25 34 36 55 28 S93 23 123 31"/><path d="M-7 56 C14 45 37 59 57 50 S92 43 123 51"/><path d="M-8 76 C17 65 39 79 62 69 S98 62 124 70"/><ellipse cx="18" cy="53" rx="7" ry="3"/><ellipse cx="68" cy="20" rx="10" ry="4"/><ellipse cx="94" cy="60" rx="9" ry="4"/>`,
+  `<path d="M10 -4 C17 9 16 21 9 34 S5 58 15 74 S24 87 27 98"/><path d="M37 -5 C47 10 46 26 39 39 S36 62 44 75 S51 87 54 97"/><path d="M72 -4 C81 11 79 27 73 41 S70 62 80 77 S88 88 90 98"/><path d="M101 -4 C110 10 107 25 103 38 S100 61 111 74"/><path d="M27 46 C35 38 44 39 49 47"/><path d="M78 28 C85 23 92 24 97 29"/>`,
+  `<path d="M-7 23 C10 13 24 18 36 11 S59 3 75 12 S94 29 123 18"/><path d="M-8 48 C11 39 25 46 39 39 S61 29 76 37 S96 55 123 45"/><path d="M-7 73 C12 63 30 71 46 62 S70 53 84 60 S103 77 124 68"/><ellipse cx="28" cy="28" rx="9" ry="5"/><ellipse cx="73" cy="71" rx="12" ry="5"/><ellipse cx="99" cy="37" rx="6" ry="3"/>`
+];
+
+function planetArt(index){
+  const sketch=planetSketches[index%planetSketches.length];
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 116 92"><g fill="none" stroke="#66736b" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round" opacity=".42">${sketch}</g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
 
 function norm(value){
   return String(value||'')
@@ -116,17 +138,18 @@ function pointOnEllipse(cx,cy,rx,ry,tiltDeg,angleDeg){
 function collectPlanets(doc){
   const byName=new Map();
   doc.querySelectorAll('.direction').forEach(el=>byName.set(norm(el.innerText||el.textContent),el));
-  const prepare=(names,orbitClass)=>names.map(name=>{
+  const prepare=(names,orbitClass,offset)=>names.map((name,index)=>{
     const el=byName.get(norm(name));
     if(!el)return null;
     if(el.dataset.azOriginalStyle===undefined)el.dataset.azOriginalStyle=el.getAttribute('style')||'';
     el.classList.add('az-lab-planet',orbitClass);
+    el.style.setProperty('--az-planet-art',planetArt(offset+index));
     el.style.setProperty('transform','translate(-50%,-50%)','important');
     return el;
   }).filter(Boolean);
   return {
-    inner:prepare(innerNames,'az-lab-inner-planet'),
-    outer:prepare(outerNames,'az-lab-outer-planet')
+    inner:prepare(innerNames,'az-lab-inner-planet',0),
+    outer:prepare(outerNames,'az-lab-outer-planet',4)
   };
 }
 
@@ -210,11 +233,17 @@ function drawOrbits(){
         will-change:left,top!important;
       }
       .az-lab-orbit-host .direction.az-lab-inner-planet{
-        background:linear-gradient(180deg,rgba(239,246,240,.99),rgba(250,247,241,.99))!important;
+        background-image:var(--az-planet-art),linear-gradient(180deg,rgba(239,246,240,.99),rgba(250,247,241,.99))!important;
+        background-repeat:no-repeat!important;
+        background-position:center!important;
+        background-size:100% 100%,100% 100%!important;
         border:1.5px solid rgba(68,99,79,.34)!important;
       }
       .az-lab-orbit-host .direction.az-lab-outer-planet{
-        background:linear-gradient(180deg,rgba(250,247,241,.99),rgba(245,238,226,.99))!important;
+        background-image:var(--az-planet-art),linear-gradient(180deg,rgba(250,247,241,.99),rgba(245,238,226,.99))!important;
+        background-repeat:no-repeat!important;
+        background-position:center!important;
+        background-size:100% 100%,100% 100%!important;
         border:1.5px solid rgba(181,150,98,.48)!important;
       }
       .az-lab-orbit-host .direction.az-lab-planet::before,
@@ -254,7 +283,7 @@ function drawOrbits(){
   }
 }
 
-function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260903-7&t='+Date.now();}
+function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260903-8&t='+Date.now();}
 function setMode(next){
   mode=next;
   modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
