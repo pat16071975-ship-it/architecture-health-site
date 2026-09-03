@@ -36,9 +36,9 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: планеты направлений на 2 орбитах</div>
+  <div class="status" id="status">Черновик: движение планет по 2 орбитам</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-5" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-6" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -47,6 +47,10 @@ const status=document.getElementById('status');
 const modeButtons=[...document.querySelectorAll('[data-mode]')];
 const widthButtons=[...document.querySelectorAll('[data-width]')];
 let mode='draft';
+let orbitAnimationFrame=0;
+
+const INNER_DURATION=42000;
+const OUTER_DURATION=76000;
 
 const innerNames=[
   'Функциональная стоматология',
@@ -64,6 +68,8 @@ const outerNames=[
   'Гастроэнтерология',
   'Нутрициология'
 ];
+const innerAngles=[180,270,0,90];
+const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];
 
 function norm(value){
   return String(value||'')
@@ -74,7 +80,15 @@ function norm(value){
     .trim();
 }
 
+function stopOrbitAnimation(){
+  if(orbitAnimationFrame){
+    cancelAnimationFrame(orbitAnimationFrame);
+    orbitAnimationFrame=0;
+  }
+}
+
 function cleanupDraft(doc){
+  stopOrbitAnimation();
   doc.getElementById('az-lab-orbits')?.remove();
   doc.getElementById('az-lab-orbit-style')?.remove();
   doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
@@ -99,28 +113,46 @@ function pointOnEllipse(cx,cy,rx,ry,tiltDeg,angleDeg){
   };
 }
 
-function placePlanets(doc,host,cx,cy,innerRx,innerRy,outerRx,outerRy,tilt){
-  if((doc.defaultView?.innerWidth||0)<1181)return;
-
+function collectPlanets(doc){
   const byName=new Map();
   doc.querySelectorAll('.direction').forEach(el=>byName.set(norm(el.innerText||el.textContent),el));
-
-  const place=(names,angles,rx,ry,orbitClass)=>{
-    names.forEach((name,index)=>{
-      const el=byName.get(norm(name));
-      if(!el)return;
-      if(el.dataset.azOriginalStyle===undefined)el.dataset.azOriginalStyle=el.getAttribute('style')||'';
-      const p=pointOnEllipse(cx,cy,rx,ry,tilt,angles[index]);
-      el.classList.add('az-lab-planet',orbitClass);
-      el.style.setProperty('left',p.x+'px','important');
-      el.style.setProperty('top',p.y+'px','important');
-      el.style.setProperty('transform','translate(-50%,-50%)','important');
-    });
+  const prepare=(names,orbitClass)=>names.map(name=>{
+    const el=byName.get(norm(name));
+    if(!el)return null;
+    if(el.dataset.azOriginalStyle===undefined)el.dataset.azOriginalStyle=el.getAttribute('style')||'';
+    el.classList.add('az-lab-planet',orbitClass);
+    el.style.setProperty('transform','translate(-50%,-50%)','important');
+    return el;
+  }).filter(Boolean);
+  return {
+    inner:prepare(innerNames,'az-lab-inner-planet'),
+    outer:prepare(outerNames,'az-lab-outer-planet')
   };
+}
 
-  /* Внутренние — четыре опорные точки; внешние сдвинуты на полшага, чтобы планеты двух орбит не вставали радиально друг за другом. */
-  place(innerNames,[180,270,0,90],innerRx,innerRy,'az-lab-inner-planet');
-  place(outerNames,[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5],outerRx,outerRy,'az-lab-outer-planet');
+function setPlanetPositions(planets,angles,cx,cy,rx,ry,tilt,phase){
+  planets.forEach((el,index)=>{
+    const p=pointOnEllipse(cx,cy,rx,ry,tilt,angles[index]+phase);
+    el.style.setProperty('left',p.x+'px','important');
+    el.style.setProperty('top',p.y+'px','important');
+  });
+}
+
+function startOrbitAnimation(doc,planets,geometry){
+  const started=performance.now();
+  const tick=now=>{
+    if(mode!=='draft'||frame.contentDocument!==doc||!doc.documentElement.isConnected){
+      orbitAnimationFrame=0;
+      return;
+    }
+    const elapsed=now-started;
+    const innerPhase=(elapsed/INNER_DURATION)*360;
+    const outerPhase=(elapsed/OUTER_DURATION)*360;
+    setPlanetPositions(planets.inner,innerAngles,geometry.cx,geometry.cy,geometry.innerRx,geometry.innerRy,geometry.tilt,innerPhase);
+    setPlanetPositions(planets.outer,outerAngles,geometry.cx,geometry.cy,geometry.outerRx,geometry.outerRy,geometry.tilt,outerPhase);
+    orbitAnimationFrame=requestAnimationFrame(tick);
+  };
+  orbitAnimationFrame=requestAnimationFrame(tick);
 }
 
 function drawOrbits(){
@@ -134,16 +166,17 @@ function drawOrbits(){
   const host=doc.querySelector('.map')||stage.parentElement;
   if(!host)return;
 
-  /* Меряем исходную геометрию, затем подводим обе орбиты ближе к уменьшенному stage. */
   const hostRect=host.getBoundingClientRect();
   const originalStageRect=stage.getBoundingClientRect();
-  const cx=originalStageRect.left-hostRect.left+originalStageRect.width/2;
-  const cy=originalStageRect.top-hostRect.top+originalStageRect.height/2;
-  const innerRx=originalStageRect.width*.58;
-  const innerRy=originalStageRect.height*.46;
-  const outerRx=originalStageRect.width*.73;
-  const outerRy=originalStageRect.height*.57;
-  const tilt=14;
+  const geometry={
+    cx:originalStageRect.left-hostRect.left+originalStageRect.width/2,
+    cy:originalStageRect.top-hostRect.top+originalStageRect.height/2,
+    innerRx:originalStageRect.width*.58,
+    innerRy:originalStageRect.height*.46,
+    outerRx:originalStageRect.width*.73,
+    outerRy:originalStageRect.height*.57,
+    tilt:14
+  };
 
   host.classList.add('az-lab-orbit-host');
   const style=doc.createElement('style');
@@ -173,6 +206,7 @@ function drawOrbits(){
         overflow:hidden!important;
         pointer-events:none!important;
         z-index:8!important;
+        will-change:left,top!important;
       }
       .az-lab-orbit-host .direction.az-lab-inner-planet{
         background:linear-gradient(180deg,rgba(239,246,240,.99),rgba(250,247,241,.99))!important;
@@ -199,25 +233,31 @@ function drawOrbits(){
   svg.setAttribute('preserveAspectRatio','none');
 
   const inner=doc.createElementNS(ns,'ellipse');
-  inner.setAttribute('cx',cx);inner.setAttribute('cy',cy);inner.setAttribute('rx',innerRx);inner.setAttribute('ry',innerRy);
+  inner.setAttribute('cx',geometry.cx);inner.setAttribute('cy',geometry.cy);inner.setAttribute('rx',geometry.innerRx);inner.setAttribute('ry',geometry.innerRy);
   inner.setAttribute('fill','none');inner.setAttribute('stroke','#9aab9b');inner.setAttribute('stroke-width','1.15');inner.setAttribute('stroke-opacity','.62');
-  inner.setAttribute('transform',`rotate(${tilt} ${cx} ${cy})`);
+  inner.setAttribute('transform',`rotate(${geometry.tilt} ${geometry.cx} ${geometry.cy})`);
 
   const outer=doc.createElementNS(ns,'ellipse');
-  outer.setAttribute('cx',cx);outer.setAttribute('cy',cy);outer.setAttribute('rx',outerRx);outer.setAttribute('ry',outerRy);
+  outer.setAttribute('cx',geometry.cx);outer.setAttribute('cy',geometry.cy);outer.setAttribute('rx',geometry.outerRx);outer.setAttribute('ry',geometry.outerRy);
   outer.setAttribute('fill','none');outer.setAttribute('stroke','#c9aa75');outer.setAttribute('stroke-width','1.15');outer.setAttribute('stroke-opacity','.58');
-  outer.setAttribute('transform',`rotate(${tilt} ${cx} ${cy})`);
+  outer.setAttribute('transform',`rotate(${geometry.tilt} ${geometry.cx} ${geometry.cy})`);
 
   svg.append(inner,outer);
   host.prepend(svg);
-  placePlanets(doc,host,cx,cy,innerRx,innerRy,outerRx,outerRy,tilt);
+
+  if((doc.defaultView?.innerWidth||0)>=1181){
+    const planets=collectPlanets(doc);
+    setPlanetPositions(planets.inner,innerAngles,geometry.cx,geometry.cy,geometry.innerRx,geometry.innerRy,geometry.tilt,0);
+    setPlanetPositions(planets.outer,outerAngles,geometry.cx,geometry.cy,geometry.outerRx,geometry.outerRy,geometry.tilt,0);
+    startOrbitAnimation(doc,planets,geometry);
+  }
 }
 
-function reloadFrame(){frame.src='../?lab=orbits-20260903-5&t='+Date.now();}
+function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260903-6&t='+Date.now();}
 function setMode(next){
   mode=next;
   modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
-  status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: 12 планет на двух орбитах';
+  status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: внутренняя 42 сек · внешняя 76 сек';
   reloadFrame();
 }
 frame.addEventListener('load',()=>{if(mode==='draft')requestAnimationFrame(()=>requestAnimationFrame(drawOrbits));});
