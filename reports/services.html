@@ -13,7 +13,11 @@ iframe{border:0;width:100%;height:100%;display:block}
 <iframe id="serviceFrame" title="Аналитика услуг"></iframe>
 <script>
 const frame=document.getElementById('serviceFrame');
-frame.src='./services-base.html?v=20260902-1'+(location.hash||'');
+const importHash=location.hash||'';
+if(importHash.startsWith('#azservices=')){
+  sessionStorage.setItem('az-primary-cost-import-key',importHash.slice(12));
+}
+frame.src='./services-base.html?v=20260902-1'+importHash;
 frame.addEventListener('load',()=>{
   if(location.hash) history.replaceState(null,'',location.pathname+location.search);
 });
@@ -24,5 +28,6 @@ frame.addEventListener('load',()=>{
 <script src="./services-payroll-lab-split.js?v=20260902-3"></script>
 <script src="./services-inline-economics.js?v=20260902-6"></script>
 <script src="./services-summary-economics.js?v=20260902-6"></script>
+<script src="./services-primary-patient-cost.js?v=20260903-1"></script>
 </body>
 </html>

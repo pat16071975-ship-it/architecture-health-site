@@ -1,0 +1,11 @@
+{
+  "id": "az-clinic-primary-cost-2026-jan-jul-v1",
+  "alg": "AES-GCM-256",
+  "compression": "gzip",
+  "aad": "az-clinic-primary-cost-v1-gzip",
+  "iv": "8387lg5k7JYv7hDT",
+  "plaintextSha256": "d9dd4eaba7b8d4c35559a71112b98acf5a5591e78046091006e283e3f1c1fdff",
+  "compressedSha256": "12b0564200c00fe47afcf12d5c28219759b8ade16d0bb79f0c91c5a9af960d47",
+  "ciphertextSha256": "f56fe00bc89b91280fa38ae5b3f20b9d5724b6f838f5f58bff5c28634112b706",
+  "part": "./services-primary-cost.part"
+}
