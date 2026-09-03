@@ -36,9 +36,9 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: 2 наклонённых эллипса</div>
+  <div class="status" id="status">Черновик: эллипсы + Витрувианский 420 px</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-1" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-2" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -60,22 +60,32 @@ function drawOrbits(){
   if(!stage)return;
   const host=doc.querySelector('.map')||stage.parentElement;
   if(!host)return;
-  host.classList.add('az-lab-orbit-host');
 
+  /* Сначала меряем оригинал: линии орбит остаются прежнего размера. */
+  const hostRect=host.getBoundingClientRect();
+  const originalStageRect=stage.getBoundingClientRect();
+  const cx=originalStageRect.left-hostRect.left+originalStageRect.width/2;
+  const cy=originalStageRect.top-hostRect.top+originalStageRect.height/2;
+  const innerRx=originalStageRect.width*.70;
+  const innerRy=originalStageRect.height*.56;
+  const outerRx=originalStageRect.width*.88;
+  const outerRy=originalStageRect.height*.69;
+  const tilt=9;
+
+  host.classList.add('az-lab-orbit-host');
   const style=doc.createElement('style');
   style.id='az-lab-orbit-style';
-  style.textContent='.az-lab-orbit-host{position:relative!important}.az-lab-orbit-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}';
+  style.textContent=`
+    .az-lab-orbit-host{position:relative!important}
+    .az-lab-orbit-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}
+    @media (min-width:1181px){
+      .az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}
+    }
+    @media (min-width:721px) and (max-width:1180px){
+      .az-lab-orbit-host .stage{transform:scale(.568965517)!important;transform-origin:center center!important}
+    }
+  `;
   doc.head.appendChild(style);
-
-  const hostRect=host.getBoundingClientRect();
-  const stageRect=stage.getBoundingClientRect();
-  const cx=stageRect.left-hostRect.left+stageRect.width/2;
-  const cy=stageRect.top-hostRect.top+stageRect.height/2;
-  const innerRx=stageRect.width*.70;
-  const innerRy=stageRect.height*.56;
-  const outerRx=stageRect.width*.88;
-  const outerRy=stageRect.height*.69;
-  const tilt=9;
 
   const ns='http://www.w3.org/2000/svg';
   const svg=doc.createElementNS(ns,'svg');
@@ -98,11 +108,11 @@ function drawOrbits(){
   host.prepend(svg);
 }
 
-function reloadFrame(){frame.src='../?lab=orbits-20260903-1&t='+Date.now();}
+function reloadFrame(){frame.src='../?lab=orbits-20260903-2&t='+Date.now();}
 function setMode(next){
   mode=next;
   modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
-  status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: 2 наклонённых эллипса';
+  status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: эллипсы + Витрувианский 420/330 px';
   reloadFrame();
 }
 frame.addEventListener('load',()=>{if(mode==='draft')requestAnimationFrame(()=>requestAnimationFrame(drawOrbits));});
