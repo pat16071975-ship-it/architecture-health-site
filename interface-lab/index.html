@@ -36,9 +36,9 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: эллипсы + Витрувианский 420 px</div>
+  <div class="status" id="status">Черновик: эллипсы ближе + наклон 14°</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-2" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260903-3" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -61,16 +61,16 @@ function drawOrbits(){
   const host=doc.querySelector('.map')||stage.parentElement;
   if(!host)return;
 
-  /* Сначала меряем оригинал: линии орбит остаются прежнего размера. */
+  /* Меряем исходную геометрию, затем подводим обе орбиты ближе к уменьшенному stage. */
   const hostRect=host.getBoundingClientRect();
   const originalStageRect=stage.getBoundingClientRect();
   const cx=originalStageRect.left-hostRect.left+originalStageRect.width/2;
   const cy=originalStageRect.top-hostRect.top+originalStageRect.height/2;
-  const innerRx=originalStageRect.width*.70;
-  const innerRy=originalStageRect.height*.56;
-  const outerRx=originalStageRect.width*.88;
-  const outerRy=originalStageRect.height*.69;
-  const tilt=9;
+  const innerRx=originalStageRect.width*.58;
+  const innerRy=originalStageRect.height*.46;
+  const outerRx=originalStageRect.width*.73;
+  const outerRy=originalStageRect.height*.57;
+  const tilt=14;
 
   host.classList.add('az-lab-orbit-host');
   const style=doc.createElement('style');
@@ -108,11 +108,11 @@ function drawOrbits(){
   host.prepend(svg);
 }
 
-function reloadFrame(){frame.src='../?lab=orbits-20260903-2&t='+Date.now();}
+function reloadFrame(){frame.src='../?lab=orbits-20260903-3&t='+Date.now();}
 function setMode(next){
   mode=next;
   modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
-  status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: эллипсы + Витрувианский 420/330 px';
+  status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: эллипсы ближе + наклон 14°';
   reloadFrame();
 }
 frame.addEventListener('load',()=>{if(mode==='draft')requestAnimationFrame(()=>requestAnimationFrame(drawOrbits));});
