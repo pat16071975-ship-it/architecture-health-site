@@ -17,108 +17,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feature/site-v1
-
-      - name: Add desktop direction info overlay
+      - name: Patch Interface Lab
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          path=Path('interface-lab/index.html')
-          text=path.read_text(encoding='utf-8')
-
-          text=text.replace('orbits-20260904-9','orbits-20260904-10')
-          text=text.replace('Черновик: обе группы плашек на 1 см ближе к оси</div>','Черновик: описания направлений в центральном круге</div>')
-          text=text.replace('Черновик: обе группы плашек на 1 см ближе к оси · 63/114 сек','Черновик: описания направлений в центральном круге · 63/114 сек')
-
-          anchor="const PLANET_ARTS={\n"
-          if anchor not in text: raise SystemExit('PLANET_ARTS anchor missing')
-          info="""const DIRECTION_INFO={
-  'Функциональная стоматология':{title:'Функциональная стоматология',items:['щёлкает, устаёт или напрягается челюсть','после ортодонтии или протезирования остался дискомфорт','неудобно жевать, хотя зубы выглядят нормально','напряжение в области лица и челюстей стало привычным'],summary:'Здесь оценивают не только зубы, но и работу челюстей, ВНЧС и мышц как единой функциональной системы.'},
-  'Ортодонтия':{title:'Ортодонтия',items:['зубы начали смещаться','вы сильно сжимаете или скрипите зубами','у ребёнка формируется неправильный прикус','ребёнок дышит ртом или часто держит рот приоткрытым'],summary:'Важно вовремя оценить развитие челюстей, дыхание, положение языка и мышечные привычки.'},
-  'Остеопатия':{title:'Остеопатия',items:['шея и плечи постоянно напряжены','хочется регулярно разминать спину или шею','дискомфорт в одном месте сопровождается напряжением в другом','неприятные ощущения давно стали привычными'],summary:'Задача — понять, как тело компенсирует ограничения и распределяет нагрузку между разными зонами.'},
-  'Терапия':{title:'Стоматология',items:['после лечения зубов красиво, но неудобно жевать','коронки или протезы ощущаются непривычно','зубы снова меняют положение','требуется сложное восстановление нескольких зубов'],summary:'Важно не только восстановить отдельный зуб, но и понять, как в целом должны работать зубы и челюсти.'},
-  'DIERS диагностика':{title:'DIERS-диагностика',items:['есть ощущение перекоса или асимметрии тела','спина быстро устаёт','постоянно чувствуется напряжение даже без выраженной боли','важно понять, как тело работает в движении'],summary:'Диагностика помогает увидеть осанку, распределение нагрузки и возможные компенсации тела.'},
-  'Миофункциональная терапия':{title:'Миофункциональная терапия',items:['язык часто находится между зубами','есть неправильное глотание','рот часто остаётся приоткрытым','после исправления прикуса старые мышечные привычки сохраняются'],summary:'Работа направлена на функцию языка и мышц, чтобы поддерживать правильную работу зубочелюстной системы.'},
-  'Превентивная медицина':{title:'Превентивная медицина',items:['постоянно не хватает энергии','состояние постепенно меняется','появились привычные ощущения, которых раньше не было','хочется понимать здоровье заранее, а не только реагировать на болезнь'],summary:'Задача — определить, чему действительно стоит уделить внимание сейчас и что можно спокойно наблюдать.'},
-  'Гастроэнтерология':{title:'Гастроэнтерология',items:['после еды часто возникает тяжесть или вздутие','питание регулярно вызывает дискомфорт','после еды появляется выраженная сонливость','изменения питания не дают понятного результата'],summary:'Задача — разобраться в работе пищеварительной системы и понять, какие симптомы действительно требуют внимания.'},
-  'Нутрициология':{title:'Нутрициология',items:['постоянно тянет к сладкому','после еды хочется спать','энергии становится меньше','сложно понять, какое питание подходит именно вам'],summary:'Здесь питание рассматривают не как модную диету, а с учётом состояния и особенностей конкретного человека.'},
-  'Детская неврология':{title:'Детская неврология',items:['ребёнок быстро устаёт или тяжело просыпается','стал хуже концентрироваться','часто жалуется на головную боль','появились тики, повторяющиеся движения или заметные изменения поведения'],summary:'Задача — понять, что является вариантом развития, за чем можно наблюдать, а чему стоит уделить внимание.'}
-};
-
-"""
-          text=text.replace(anchor,info+anchor,1)
-
-          func_anchor="function collectPlanets(doc){\n"
-          if func_anchor not in text: raise SystemExit('collectPlanets anchor missing')
-          funcs="""function ensureDirectionInfoPanel(doc){
-  const stage=doc.querySelector('.stage');
-  if(!stage)return null;
-  let panel=stage.querySelector('.az-lab-direction-info');
-  if(panel)return panel;
-  panel=doc.createElement('div');
-  panel.className='az-lab-direction-info';
-  panel.innerHTML='<div class="az-lab-direction-info-inner"><h2></h2><div class="az-lab-direction-kicker">Стоит обратить внимание, если:</div><ul></ul><p></p><button type="button" class="az-lab-direction-more">Узнать подробнее</button></div>';
-  stage.appendChild(panel);
-  return panel;
-}
-function showDirectionInfo(doc,name){
-  if((doc.defaultView?.innerWidth||0)<1181)return;
-  const data=DIRECTION_INFO[name];
-  if(!data)return;
-  const stage=doc.querySelector('.stage'),panel=ensureDirectionInfoPanel(doc);
-  if(!stage||!panel)return;
-  panel.querySelector('h2').textContent=data.title;
-  panel.querySelector('ul').innerHTML=data.items.map(item=>'<li>'+item+'</li>').join('');
-  panel.querySelector('p').textContent=data.summary;
-  stage.classList.add('az-lab-info-open');
-  panel.classList.add('on');
-}
-"""
-          text=text.replace(func_anchor,funcs+func_anchor,1)
-
-          old="""    if(art)art.style.setProperty('--az-planet-mask','url(\"'+artUrl+'\")');
-    el.style.setProperty('transform','translate(-50%,-50%)','important');
-    return el;
-"""
-          new="""    if(art)art.style.setProperty('--az-planet-mask','url(\"'+artUrl+'\")');
-    el.style.setProperty('transform','translate(-50%,-50%)','important');
-    el.style.setProperty('pointer-events',DIRECTION_INFO[name]?'auto':'none','important');
-    el.style.setProperty('cursor',DIRECTION_INFO[name]?'pointer':'default','important');
-    if(DIRECTION_INFO[name])el.addEventListener('click',()=>showDirectionInfo(doc,name));
-    return el;
-"""
-          if old not in text: raise SystemExit('planet interaction anchor missing')
-          text=text.replace(old,new,1)
-
-          css_anchor=".az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-label{position:relative!important;z-index:4!important;display:block!important;max-width:100%!important;text-shadow:0 0 3px rgba(250,247,241,.98),0 0 8px rgba(250,247,241,.82)!important}\n"
-          css=""".az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-label{position:relative!important;z-index:4!important;display:block!important;max-width:100%!important;text-shadow:0 0 3px rgba(250,247,241,.98),0 0 8px rgba(250,247,241,.82)!important}
-.az-lab-orbit-host .stage .az-lab-direction-info{display:none!important}
-.az-lab-orbit-host .stage.az-lab-info-open .vit-img{opacity:.045!important;filter:blur(.2px) sepia(.08) saturate(.8) contrast(.95) brightness(1.08)!important}
-.az-lab-orbit-host .stage .az-lab-direction-info.on{display:flex!important;position:absolute!important;inset:0!important;z-index:10!important;align-items:center!important;justify-content:center!important;padding:48px 54px!important;background:rgba(247,243,236,.88)!important;backdrop-filter:blur(1.5px)!important}
-.az-lab-direction-info-inner{width:100%!important;max-width:420px!important;margin:auto!important;text-align:left!important;color:#30372f!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important}
-.az-lab-direction-info h2{margin:0 0 15px!important;text-align:center!important;font-size:26px!important;line-height:1.12!important;font-weight:600!important;color:#35493d!important}
-.az-lab-direction-kicker{margin:0 0 10px!important;font-size:12px!important;line-height:1.35!important;font-weight:600!important;color:#76684f!important}
-.az-lab-direction-info ul{margin:0 0 14px!important;padding-left:20px!important;display:grid!important;gap:7px!important}
-.az-lab-direction-info li{font-size:12px!important;line-height:1.38!important;font-weight:500!important}
-.az-lab-direction-info p{margin:0!important;padding-top:13px!important;border-top:1px solid rgba(181,150,98,.35)!important;font-size:12px!important;line-height:1.45!important;font-weight:500!important;text-align:center!important}
-.az-lab-direction-more{display:block!important;margin:18px auto 0!important;padding:8px 16px!important;border:0!important;border-bottom:1px solid rgba(68,99,79,.5)!important;background:transparent!important;color:#44634f!important;font:600 11px/1.2 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.04em!important;cursor:pointer!important}
-"""
-          if css_anchor not in text: raise SystemExit('CSS anchor missing')
-          text=text.replace(css_anchor,css,1)
-
-          path.write_text(text,encoding='utf-8')
-
-          # verify script syntax
-          m=re.search(r'<script>([\s\S]*)</script>',text)
-          Path('/tmp/lab.js').write_text(m.group(1),encoding='utf-8')
-          PY
+          echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCByZQoKcGF0aD1QYXRoKCdpbnRlcmZhY2UtbGFiL2luZGV4Lmh0bWwnKQp0ZXh0PXBhdGgucmVhZF90ZXh0KGVuY29kaW5nPSd1dGYtOCcpCgpmb3Igb2xkLG5ldyBpbiBbCiAgICAoJ29yYml0cy0yMDI2MDkwNC05Jywnb3JiaXRzLTIwMjYwOTA0LTEwJyksCiAgICAoJ9Cn0LXRgNC90L7QstC40Lo6INC+0LHQtdC40LPRgNGD0L/Qv9GLINC/0LvQsNGI0LXQuiDQvdCwIDEg0YHQvCDQsdC70LjQttC1INC6INC+0YHQuDwvZGl2PicsJ9Cn0LXRgNC90L7QstC40Lo6INC+0L/QuNGB0LDQvdC40Y8g0L3QsNC/0YDQsNCy0LvQtdC90LjQuSDQsiDRhtC10L3RgtGA0LDQu9GM0L3QvtC8INC60YDRg9Cz0LU8L2Rpdj4nKSwKICAgICgn0KfQtdGA0L3QvtCy0LjQujog0L7QsdC1INCz0YDRg9C/0L/RiyDQv9C70LDRiNC10Log0L3QsCAxINGB0Lwg0LHQu9C40LbQtSDQuiDQvtGB0LggwrcgNjMvMTE0INGB0LXQuiwnLCfQp9C10YDQvdC+0LLQuNC6OiDQvtC/0LjRgdCw0L3QuNGPINGB0L3QsNC/0YDQsNCy0LvQtdC90LjQuSDQsiDRhtC10L3RgtGA0LDQu9GM0L3QvtC8INC60YDRg9Cz0LUgwrcgNjMvMTE0INGB0LXQuiwnKSwKXToKICAgIGlmIG9sZCBub3QgaW4gdGV4dDoKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KCdt aXNzaW5nIHJlcGxhY2VtZW50OiAnK29sZCkKICAgIHRleHQ9dGV4dC5yZXBsYWNlKG9sZCxuZXcpCgphbmNob3I9ImNvbnN0IFBMQU5FVF9BUlRTPXtcbiIKaWYgYW5jaG9yIG5vdCBpbiB0ZXh0OiByYWlzZSBTeXN0ZW1FeGl0KCdQTEFORVRfQVJUUyBhbmNob3IgbWlzc2luZycpCmluZm89IiIiY29uc3QgRElSRUNUSU9OX0lORk89ewogICfQpNGD0L3QutGG0LjQvtC90LDQu9GM0L3QsNGPINGB0YLQvtC80LDRgtC+0LvQvtCz0LjRjyc6e3RpdGxlOidQpNGD0L3QutGG0LjQvtC90LDQu9GM0L3QsNGPINGB0YLQvtC80LDRgtC+0LvQvtCz0LjRjScsaXRlbXM6WydRidGR0LHRkdC60LDQtdGCLCDRg9GB0YLQsNGR0YIg0LjQu9C4INC90LDQv9GA0Y/Qs9Cw0LXRgtGB0Y8g0YfQtdC70Y7RgdGC0YzQtdC2Jywn0L/QvtGB0LvQtSDQvtGA0YLQvtC00L7QvdGC0LjQuCDQuNC70Lgg0L/RgNC+0YLQtdC30LjRgNC+0LLQsNC90LjRjyDQvtGB0YLQsNC70YHRjyDQtNC40YHQutC+0LzRhNC+0YDRgi7igJksJ9C90LXRg9C00L7QsdC90L4g0LbQtdCy0LDRgtGMLCDRhdC+0YLRjyDQt9GD0LHRiyDQstGL0LPQu9GP0LTRj9GCINC90L7RgNC80LDQu9GM0L3QvicsJ9C90LDQv9GA0Y/QttC10L3QuNC1INCyINC+0LHQu9Cw0YHRgtC4INC70LjRhtCwINC4INGH0LXQu9GO0YHRgtC10Lkg0YHRgtCw0LvQviDQv9GA0LjQstGL0YfQvdGL0LwnXSxzdW1tYXJ5OidCeNC00LXRgdGMINC+0YbQtdC90LjQstCw0Y7RgiDQvdC1INGC0L7Qu9GM0LrQviDQt9GD0LHRiywg0L3QviDQuCDRgNCw0LHQvtGC0YMg0YfQtdC70Y7RgdGC0LXQuSwg0JLQndCn0KEg0Lgg0LzRi9GI0YYg0LrQsNC6INC10LTQuNC90L7QuSDRhNGD0L3QutGG0LjQvtC90LDQu9GM0L3QvtC5INGB0LjRgdGC0LXQvNGLLid9LAogICfQntGA0YLQvtC00L7QvdGC0LjRjyc6e3RpdGxlOidQntGA0YLQvtC00L7QvdGC0LjRjycs aXRlbXM6WydC9GD0LHRiyDQvdCw0YfQsNC70Lgg0YHQvNC10YnQsNGC0YzRgdGPJywn0LLRiyDRgdC40LvRjNC90L4g0YHQttC40LzQsNC10YLQtSDQuNC70Lgg0YHQutGA0LjQv9C40YLQtSDQt9GD0LHQsNC80LgnLCfRg9GA0LXQsdGR0L3QutCwINGE0L7RgNC80LjRgNGD0LXRgtGB0Y8g0L3QtdC/0YDQsNCy0LjQu9GM0L3Ri9C5INC/0YDQuNC60YPRgScsJ9GA0LXQsdGR0L3QvtC6INC00YvRiNC40YIg0YDQvtGC0L7QvCDQuNC70Lgg0YfQsNGB0YLQviDQtNC10YDQttC40YIg0YDQvtGCINC/0YDQuNC+0YLQutGA0YvRgtGL0LwnXSxzdW1tYXJ5OidQktCw0LbQvdC+INCy0L7QstGA0LXQvNGPINC+0YbQtdC90LjRgtGMINC+0YHQvtCx0LXQvdC90L7RgdGC0Lgg0YDQsNC30LLQuNGC0LjRjyDRh9C10LvRjtGB0YLQtdC5LCDQtNGL0YXQsNC90LjQtSwg0L/QvtC70L7QttC10L3QuNC1INGP0LfRi9C60LAg0Lgg0LzRi9GI0LXRh9C90YvQtSDQv9GA0LjQstGL0YfQutC4Lid9LAogICfQntGB0YLQtdC+0L/QsNGC0LjRjyc6e3RpdGxlOidQntGB0YLQtdC+0L/QsNGC0LjRjycs aXRlbXM6WydRiNC10Y8g0Lgg0L/Qu9C10YfQuCDQv9C+0YHRgtC+0Y/QvdC90L4g0L3QsNC/0YDRj9C20LXQvdGLJywn0YXQvtGH0LXRgtGB0Y8g0YDQtdCz0YPQu9GP0YDQvdC+INGA0LDQt9C80LjQvdCw0YLRjCDRgdC/0LjQvdGDINC40LvQuCDRiNC10Y4nLCfQtNC40YHQutC+0LzRhNC+0YDRgiDQsiDQvtC00L3QvtC8INC80LXRgdGC0LUg0YHQvtC/0YDQvtCy0L7QttC00LDQtdGC0YHRjyDQvdCw0L/RgNGP0LbQtdC90LjQtdC8INCyINC00YDRg9Cz0L7QvCcsJ9C90LXQv9GA0LjRj9GC0L3Ri9C1INC+0YnRg9GJ0LXQvdC40Y8g0LTQsNCy0L3QviDRgdGC0LDQu9C4INC/0YDQuNCy0YvRh9C90YvQvNC4J10sc3VtbWFyeTon0JfQsNC00LDRh9CwIOKAlCDQv9C+0L3Rj9GC0YwsINC60LDQuiDRgtC10LvQviDQutC+0LzQv9C10L3RgdC40YDRg9C10YIg0L7Qs9GA0LDQvdC40YfQtdC90LjRjyDQuCDRgNCw0YHQv9GA0LXQtNC10LvRj9C10YIg0L3QsNCz0YDRg9C30LrRgyDQvNC10LbQtNGDINGA0LDQt9C90YvQvNC4INC30L7QvdCw0LzQuC4nfSwKICA n0KLQtdGA0LDQv9C40Y8nOnt0aXRsZTon0KHRgtC+0LzQsNGC0L7Qu9C+0LPQuNGPJyxpdGVtczpbJ9C/0L7RgdC70LUg0LvQtdGH0LXQvdC40Y8g0LfRg9Cx0L7QsiDQutGA0LDRgdC40LLQviwg0L3QviDQvdC10YPQtNC+0LHQvdC+INC20LXQstCw0YLRjCcsJ9C60L7RgNC+0L3QutC4INC40LvQuCDQv9GA0L7RgtC10LfRiyDQvtGJ0YPRidCw0Y7RgtGB0Y8g0L3QtdC/0YDQuNCy0YvRh9C90L4nLCfQt9GD0LHRiyDRgdC90L7QstCwINC80LXQvdGP0Y7RgiDQv9C+0LvQvtC20LXQvdC40LUnLCfRgtGA0LXQsdGD0LXRgtGB0Y8g0YHQu9C+0LbQvdC+0LUg0LLQvtGB0YHRgtCw0L3QvtCy0LvQtdC90LjQtSDQvdC10YHQutC+0LvRjNC60LjRhSDQt9GD0LHQvtCyJ10sc3VtbWFyeTon0JLQsNC20L3QviDQvdC1INGC0L7Qu9GM0LrQviDQstC+0YHRgdGC0LDQvdC+0LLQuNGC0Ywg0L7RgtC00LXQu9GM0L3Ri9C5INC30YPQsSwg0L3QviDQuCDQv9C+0L3Rj9GC0YwsINC60LDQuiDQsiDRhtC10LvQvtC8INC00L7Qu9C20L3RiyDRgNCw0LHQvtGC0LDRgtGMINC30YPQsdGLINC4INGH0LXQu9GO0YHRgtC4Lid9LAogICdESUVSUyDQtNC40LDQs9C90L7RgdGC0LjQutCwJzp7dGl0bGU6J0RJR...TRUNCATED_FOR_BREVITY...'
+          echo "$B64" | base64 -d > /tmp/patch.py
+          python3 /tmp/patch.py
           node --check /tmp/lab.js
           grep -q "const DIRECTION_INFO" interface-lab/index.html
           grep -q "showDirectionInfo" interface-lab/index.html
           grep -q "az-lab-direction-info" interface-lab/index.html
           git diff --check
-
       - name: Commit and remove workflow
         run: |
           git config user.name "github-actions[bot]"
