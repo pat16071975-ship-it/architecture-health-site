@@ -15,13 +15,16 @@ iframe{border:0;width:100%;height:100%;display:block}
 const frame=document.getElementById('serviceFrame');
 const importHash=location.hash||'';
 if(importHash.startsWith('#azservices=')){
-  sessionStorage.setItem('az-primary-cost-import-key',importHash.slice(12));
+  const importKey=importHash.slice(12);
+  sessionStorage.setItem('az-primary-cost-import-key',importKey);
+  sessionStorage.setItem('az-transitions-import-key',importKey);
 }
 frame.src='./services-base.html?v=20260902-1'+importHash;
 frame.addEventListener('load',()=>{
   if(location.hash) history.replaceState(null,'',location.pathname+location.search);
 });
 </script>
+<script src="./transitions-loader.js?v=20260904-1"></script>
 <script src="./services-enhancements.js?v=20260902-1"></script>
 <script src="./services-payments-popup.js?v=20260902-6"></script>
 <script src="./services-payroll-manager.js?v=20260902-2"></script>
@@ -29,5 +32,6 @@ frame.addEventListener('load',()=>{
 <script src="./services-inline-economics.js?v=20260902-6"></script>
 <script src="./services-summary-economics.js?v=20260902-6"></script>
 <script src="./services-primary-patient-cost.js?v=20260903-1"></script>
+<script src="./services-transitions-tab.js?v=20260904-1"></script>
 </body>
 </html>

@@ -1,0 +1,16 @@
+{
+  "id": "az-patient-transitions-2026-jan-aug-v1",
+  "format": "compact-v2",
+  "alg": "AES-GCM-256",
+  "compression": "gzip",
+  "aad": "az-patient-transitions-v2-gzip",
+  "iv": "89KKY-Wkg1ndnA5g",
+  "plaintextSha256": "0241d2e500459544c529f45c12f02d55a1ebb246839002581727fcb567b9152b",
+  "compressedSha256": "5b9298212dfc112f96bf57f9ff7837280b8052a48f66dc42aea1ce266be37f53",
+  "ciphertextSha256": "24f4eb25c51fd30d077119ee86504c85a9aad663a17ef44430b805c8aafe7c5f",
+  "parts": [
+    "./transitions-data.part1",
+    "./transitions-data.part2",
+    "./transitions-data.part3"
+  ]
+}

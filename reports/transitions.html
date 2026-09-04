@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Переходы пациентов — Архитектура здоровья</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./transitions.css?v=20260904-1">
+</head>
+<body>
+<div id="loginView" class="login">
+  <div class="login-card">
+    <div class="brand">Архитектура здоровья</div>
+    <div class="sub">Переходы пациентов между специалистами</div>
+    <form id="loginForm">
+      <div class="field"><label>Логин</label><input id="loginName" autocomplete="username" required></div>
+      <div class="field"><label>Пароль</label><input id="loginPassword" type="password" autocomplete="current-password" required></div>
+      <button class="btn primary" style="width:100%;margin-top:8px" type="submit">Войти</button>
+      <div id="loginError" class="error"></div>
+    </form>
+  </div>
+</div>
+
+<div id="appView" class="app hidden">
+  <div class="topbar">
+    <div>
+      <div class="title">Переходы пациентов</div>
+      <div class="subtitle">После приёма у одного специалиста — последующие обращения к другим врачам и направлениям</div>
+    </div>
+    <div class="top-actions">
+      <a class="btn" href="./">Управленческий отчёт</a>
+      <button id="logoutBtn" class="btn">Выйти</button>
+    </div>
+  </div>
+
+  <div class="section-tabs">
+    <a class="btn" href="./services.html">Аналитика услуг</a>
+    <span class="btn active" aria-current="page">Переходы пациентов</span>
+  </div>
+
+  <div class="toolbar">
+    <div class="field">
+      <label>Уровень анализа</label>
+      <select id="level">
+        <option value="direction">По направлениям</option>
+        <option value="doctor">По врачам / исполнителям</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Пациенты месяца</label>
+      <select id="cohort"></select>
+    </div>
+    <div class="field source">
+      <label>После приёма у</label>
+      <select id="source"></select>
+    </div>
+    <div class="field">
+      <label>Срез матрицы</label>
+      <select id="matrixWindow">
+        <option value="30">30 дней</option>
+        <option value="60">60 дней</option>
+        <option value="90">90 дней</option>
+        <option value="all">Весь доступный период</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="status" class="status"></div>
+  <div id="missingData" class="notice hidden">Данные переходов ещё не загружены в этот браузер. Один раз откройте персональную защищённую ссылку импорта.</div>
+  <div id="partialNotice" class="notice warn hidden"></div>
+
+  <div id="kpis" class="kpis"></div>
+  <div id="detailsPanel"></div>
+  <div id="matrixPanel"></div>
+
+  <div class="panel">
+    <div class="panel-head gold"><h2>Как считается показатель</h2></div>
+    <div class="method">
+      <div class="method-grid">
+        <div class="method-item"><strong>Когорта месяца:</strong> пациенты, у которых был хотя бы один приём у выбранного врача или направления в этом месяце.</div>
+        <div class="method-item"><strong>Точка отсчёта:</strong> первый приём пациента у выбранного врача или направления в пределах выбранного месяца.</div>
+        <div class="method-item"><strong>Переход:</strong> последующий приём у другого врача или в другом направлении после точки отсчёта.</div>
+        <div class="method-item"><strong>30 / 60 / 90 дней:</strong> накопительные интервалы от исходного приёма; приём позже в тот же день учитывается как 0 дней.</div>
+        <div class="method-item"><strong>Уникальность:</strong> один пациент считается один раз в каждой паре «после кого → к кому», даже если посещал получателя несколько раз.</div>
+        <div class="method-item"><strong>Общий срез:</strong> все последующие обращения, которые успели состояться до 31.08.2026.</div>
+        <div class="method-item"><strong>Сопоставление пациента:</strong> по нормализованному полному ФИО; очевидные тестовые ФИО исключены.</div>
+        <div class="method-item"><strong>Матрица:</strong> всегда показывает все пары; выбранный источник подсвечивается отдельной строкой.</div>
+      </div>
+      <div class="footer-note">Это хронология фактических посещений, а не доказательство официального направления конкретным врачом. Один пациент может попасть в несколько строк получателей, поэтому суммы строк не равны числу уникальных пациентов, перешедших хотя бы к одному специалисту. На страницу попадают только агрегированные показатели; ФИО пациентов не сохраняются.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const h=location.hash||'';
+if(h.startsWith('#azservices=')){
+  sessionStorage.setItem('az-transitions-import-key',h.slice(12));
+  history.replaceState(null,'',location.pathname+location.search);
+}
+</script>
+<script src="./transitions-loader.js?v=20260904-1"></script>
+<script src="./transitions-page.js?v=20260904-1"></script>
+</body>
+</html>
