@@ -36,9 +36,9 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: обе группы плашек на 1 см ближе к оси</div>
+  <div class="status" id="status">Черновик: описания направлений внутри центрального круга</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260904-9" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260904-11" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -56,6 +56,20 @@ const innerNames=['Функциональная стоматология','Ор�
 const outerNames=['ИГГТ','DIERS диагностика','Нейропсихология','Детская неврология','Миофункциональная терапия','Превентивная медицина','Гастроэнтерология','Нутрициология'];
 const innerAngles=[180,270,0,90];
 const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];
+
+
+const DIRECTION_INFO={
+  'Функциональная стоматология':{title:'Функциональная стоматология',items:['щёлкает, устаёт или напрягается челюсть','после ортодонтии или протезирования остался дискомфорт','неудобно жевать, хотя зубы выглядят нормально','напряжение в области лица и челюстей стало привычным'],summary:'Здесь оценивают не только зубы, но и работу челюстей, ВНЧС и мышц как единой функциональной системы.'},
+  'Ортодонтия':{title:'Ортодонтия',items:['зубы начали смещаться','вы сильно сжимаете или скрипите зубами','у ребёнка формируется неправильный прикус','ребёнок дышит ртом или часто держит рот приоткрытым'],summary:'Важно вовремя оценить развитие челюстей, дыхание, положение языка и мышечные привычки.'},
+  'Остеопатия':{title:'Остеопатия',items:['шея и плечи постоянно напряжены','хочется регулярно разминать спину или шею','дискомфорт в одном месте сопровождается напряжением в другом','неприятные ощущения давно стали привычными'],summary:'Задача — понять, как тело компенсирует ограничения и распределяет нагрузку между разными зонами.'},
+  'Терапия':{title:'Стоматология',items:['после лечения зубов красиво, но неудобно жевать','коронки или протезы ощущаются непривычно','зубы снова меняют положение','требуется сложное восстановление нескольких зубов'],summary:'Важно не только восстановить отдельный зуб, но и понять, как в целом должны работать зубы и челюсти.'},
+  'DIERS диагностика':{title:'DIERS-диагностика',items:['есть ощущение перекоса или асимметрии тела','спина быстро устаёт','постоянно чувствуется напряжение даже без выраженной боли','важно понять, как тело работает в движении'],summary:'Диагностика помогает увидеть осанку, распределение нагрузки и возможные компенсации тела.'},
+  'Миофункциональная терапия':{title:'Миофункциональная терапия',items:['язык часто находится между зубами','есть неправильное глотание','рот часто остаётся приоткрытым','после исправления прикуса старые мышечные привычки сохраняются'],summary:'Работа направлена на функцию языка и мышц, чтобы поддерживать правильную работу зубочелюстной системы.'},
+  'Превентивная медицина':{title:'Превентивная медицина',items:['постоянно не хватает энергии','состояние постепенно меняется','появились привычные ощущения, которых раньше не было','хочется понимать здоровье заранее, а не только реагировать на болезнь'],summary:'Задача — определить, чему действительно стоит уделить внимание сейчас и что можно спокойно наблюдать.'},
+  'Гастроэнтерология':{title:'Гастроэнтерология',items:['после еды часто возникает тяжесть или вздутие','питание регулярно вызывает дискомфорт','после еды появляется выраженная сонливость','изменения питания не дают понятного результата'],summary:'Задача — разобраться в работе пищеварительной системы и понять, какие симптомы действительно требуют внимания.'},
+  'Нутрициология':{title:'Нутрициология',items:['постоянно тянет к сладкому','после еды хочется спать','энергии становится меньше','сложно понять, какое питание подходит именно вам'],summary:'Здесь питание рассматривают не как модную диету, а с учётом состояния и особенностей конкретного человека.'},
+  'Детская неврология':{title:'Детская неврология',items:['ребёнок быстро устаёт или тяжело просыпается','стал хуже концентрироваться','часто жалуется на головную боль','появились тики, повторяющиеся движения или заметные изменения поведения'],summary:'Задача — понять, что является вариантом развития, за чем можно наблюдать, а чему стоит уделить внимание.'}
+};
 
 const PLANET_ARTS={
   'ИГГТ':'/architecture-health-site/assets/lab-planets/planet-01-iggt.png?v=20260904-3',
@@ -76,8 +90,8 @@ function norm(value){return String(value||'').toLowerCase().replace(/ё/g,'е').
 function stopOrbitAnimation(){if(orbitAnimationFrame){cancelAnimationFrame(orbitAnimationFrame);orbitAnimationFrame=0}}
 function cleanupDraft(doc){
   stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
-  doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
-  doc.querySelectorAll('.az-lab-planet').forEach(el=>{if(el.dataset.azOriginalHtml!==undefined){el.innerHTML=el.dataset.azOriginalHtml;delete el.dataset.azOriginalHtml}if(el.dataset.azOriginalStyle!==undefined){if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);else el.removeAttribute('style');delete el.dataset.azOriginalStyle}el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')});
+  doc.querySelector('.az-lab-direction-info')?.remove();doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
+  doc.querySelectorAll('.az-lab-planet').forEach(el=>{if(el.dataset.azOriginalHtml!==undefined){el.innerHTML=el.dataset.azOriginalHtml;delete el.dataset.azOriginalHtml}if(el.dataset.azOriginalStyle!==undefined){if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);else el.removeAttribute('style');delete el.dataset.azOriginalStyle}el.onclick=null;delete el.dataset.azDirectionName;el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')});
 }
 function pointOnEllipse(cx,cy,rx,ry,tiltDeg,angleDeg){const t=angleDeg*Math.PI/180,a=tiltDeg*Math.PI/180,dx=rx*Math.cos(t),dy=ry*Math.sin(t);return{x:cx+dx*Math.cos(a)-dy*Math.sin(a),y:cy+dx*Math.sin(a)+dy*Math.cos(a)}}
 function shiftRightBadgeGroupInward(doc){
@@ -111,6 +125,17 @@ function addPlaceholderBadges(doc){
     page.appendChild(badge);
   });
 }
+function closeDirectionInfo(doc){doc.querySelector('.az-lab-direction-info')?.remove()}
+function showDirectionInfo(doc,name){
+  const info=DIRECTION_INFO[name];if(!info)return;
+  const stage=doc.querySelector('.stage');if(!stage)return;
+  closeDirectionInfo(doc);
+  const panel=doc.createElement('section');panel.className='az-lab-direction-info';panel.setAttribute('aria-live','polite');
+  panel.innerHTML='<button class="az-lab-direction-close" type="button" aria-label="Закрыть описание">×</button><div class="az-lab-direction-info-inner"><h2>'+info.title+'</h2><p class="az-lab-direction-lead">Стоит обратить внимание, если:</p><ul>'+info.items.map(item=>'<li>'+item+'</li>').join('')+'</ul><p class="az-lab-direction-summary">'+info.summary+'</p><button class="az-lab-direction-more" type="button">Узнать подробнее</button></div>';
+  panel.querySelector('.az-lab-direction-close').addEventListener('click',event=>{event.stopPropagation();closeDirectionInfo(doc)});
+  stage.appendChild(panel);
+}
+function enableDirectionInfo(doc,planets){planets.forEach(el=>{const name=el.dataset.azDirectionName;el.onclick=event=>{event.preventDefault();event.stopPropagation();if(DIRECTION_INFO[name])showDirectionInfo(doc,name)}})}
 function collectPlanets(doc){
   const byName=new Map();
   doc.querySelectorAll('.direction').forEach(el=>byName.set(norm(el.innerText||el.textContent),el));
@@ -119,7 +144,7 @@ function collectPlanets(doc){
     if(!el)return null;
     if(el.dataset.azOriginalStyle===undefined)el.dataset.azOriginalStyle=el.getAttribute('style')||'';
     if(el.dataset.azOriginalHtml===undefined)el.dataset.azOriginalHtml=el.innerHTML;
-    el.classList.add('az-lab-planet',orbitClass);
+    el.classList.add('az-lab-planet',orbitClass);el.dataset.azDirectionName=name;
     const artUrl=PLANET_ARTS[name]||'';
     const labelHtml=name==='Терапия'?'Стоматология':el.dataset.azOriginalHtml;
     el.innerHTML='<span class="az-lab-planet-art" aria-hidden="true"></span><span class="az-lab-planet-label">'+labelHtml+'</span>';
@@ -138,9 +163,19 @@ function drawOrbits(){
   host.classList.add('az-lab-orbit-host');const style=doc.createElement('style');style.id='az-lab-orbit-style';style.textContent=`
 .az-lab-orbit-host{position:relative!important}.az-lab-orbit-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}
 .az-lab-right-badge-shift{transform:translateX(-37.8px)!important}
+.az-lab-direction-info{position:absolute!important;inset:0!important;border-radius:50%!important;background:rgba(247,243,236,.97)!important;z-index:30!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:hidden!important;color:#30372f!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important}
+.az-lab-direction-info-inner{width:82%!important;max-height:88%!important;text-align:left!important;padding:34px 16px 20px!important}
+.az-lab-direction-info h2{margin:0 0 14px!important;text-align:center!important;font:600 30px/1.08 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;color:#344b3d!important;letter-spacing:-.02em!important}
+.az-lab-direction-lead{margin:0 0 8px!important;font-size:15px!important;line-height:1.35!important;font-weight:600!important;color:#5b655e!important}
+.az-lab-direction-info ul{margin:0 0 12px 18px!important;padding:0!important;font-size:14px!important;line-height:1.4!important}
+.az-lab-direction-info li{margin:0 0 5px!important;padding-left:2px!important}
+.az-lab-direction-summary{margin:10px 0 12px!important;padding-top:10px!important;border-top:1px solid rgba(181,150,98,.32)!important;text-align:center!important;font-size:14px!important;line-height:1.4!important;color:#465149!important}
+.az-lab-direction-more{display:block!important;margin:0 auto!important;padding:5px 12px!important;border:0!important;border-bottom:1px solid rgba(68,99,79,.55)!important;background:transparent!important;color:#44634f!important;font:600 13px/1.2 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;cursor:pointer!important}
+.az-lab-direction-close{position:absolute!important;right:34px!important;top:34px!important;width:46px!important;height:46px!important;border-radius:50%!important;border:1.5px solid rgba(68,99,79,.65)!important;background:#f7f3ec!important;color:#344b3d!important;font:400 35px/40px Arial,sans-serif!important;text-align:center!important;cursor:pointer!important;z-index:31!important;box-shadow:0 5px 14px rgba(58,49,37,.12)!important;padding:0!important}
+.az-lab-direction-close:hover,.az-lab-direction-close:focus-visible{background:#ece7dc!important;outline:2px solid rgba(181,150,98,.45)!important;outline-offset:2px!important}
 @media (min-width:1181px){
 .az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}
-.az-lab-orbit-host .direction{position:absolute!important;width:108px!important;height:102px!important;min-height:102px!important;padding:8px!important;border-radius:50%!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.4px!important;line-height:1.12!important;font-weight:600!important;letter-spacing:0!important;color:#30372f!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important;overflow:hidden!important;pointer-events:none!important;z-index:8!important;will-change:left,top!important;isolation:isolate!important}
+.az-lab-orbit-host .direction{position:absolute!important;width:108px!important;height:102px!important;min-height:102px!important;padding:8px!important;border-radius:50%!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.4px!important;line-height:1.12!important;font-weight:600!important;letter-spacing:0!important;color:#30372f!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important;overflow:hidden!important;pointer-events:auto!important;cursor:pointer!important;z-index:8!important;will-change:left,top!important;isolation:isolate!important}
 .az-lab-orbit-host .direction.az-lab-inner-planet{--az-planet-art-color:#44634f;background:radial-gradient(circle at 31% 27%,rgba(255,255,255,.78) 0,rgba(255,255,255,.22) 35%,rgba(255,255,255,0) 58%),linear-gradient(145deg,rgba(239,246,240,.99),rgba(250,247,241,.99) 64%,rgba(232,240,234,.98))!important;border:1.5px solid rgba(68,99,79,.50)!important}
 .az-lab-orbit-host .direction.az-lab-outer-planet{--az-planet-art-color:#b59662;background:radial-gradient(circle at 31% 27%,rgba(255,255,255,.76) 0,rgba(255,255,255,.20) 35%,rgba(255,255,255,0) 58%),linear-gradient(145deg,rgba(250,247,241,.99),rgba(245,238,226,.99) 64%,rgba(239,229,211,.98))!important;border:1.5px solid rgba(181,150,98,.62)!important}
 .az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-art{display:block!important;position:absolute!important;inset:0!important;border-radius:inherit!important;overflow:hidden!important;pointer-events:none!important;z-index:3!important;background-color:var(--az-planet-art-color)!important;opacity:.27!important;filter:blur(.12px) saturate(.82)!important;-webkit-mask-image:var(--az-planet-mask)!important;mask-image:var(--az-planet-mask)!important;-webkit-mask-repeat:no-repeat!important;mask-repeat:no-repeat!important;-webkit-mask-position:center!important;mask-position:center!important;-webkit-mask-size:134% 109%!important;mask-size:134% 109%!important;mix-blend-mode:normal!important}
@@ -153,10 +188,10 @@ function drawOrbits(){
   const ns='http://www.w3.org/2000/svg',svg=doc.createElementNS(ns,'svg');svg.id='az-lab-orbits';svg.setAttribute('class','az-lab-orbit-svg');svg.setAttribute('viewBox',`0 0 ${Math.max(1,hostRect.width)} ${Math.max(1,hostRect.height)}`);svg.setAttribute('preserveAspectRatio','none');
   const inner=doc.createElementNS(ns,'ellipse');inner.setAttribute('cx',g.cx);inner.setAttribute('cy',g.cy);inner.setAttribute('rx',g.innerRx);inner.setAttribute('ry',g.innerRy);inner.setAttribute('fill','none');inner.setAttribute('stroke','#9aab9b');inner.setAttribute('stroke-width','1.15');inner.setAttribute('stroke-opacity','.62');inner.setAttribute('transform',`rotate(${g.innerTilt} ${g.cx} ${g.cy})`);
   const outer=doc.createElementNS(ns,'ellipse');outer.setAttribute('cx',g.cx);outer.setAttribute('cy',g.cy);outer.setAttribute('rx',g.outerRx);outer.setAttribute('ry',g.outerRy);outer.setAttribute('fill','none');outer.setAttribute('stroke','#c9aa75');outer.setAttribute('stroke-width','1.15');outer.setAttribute('stroke-opacity','.58');outer.setAttribute('transform',`rotate(${g.outerTilt} ${g.cx} ${g.cy})`);svg.append(inner,outer);host.prepend(svg);
-  if((doc.defaultView?.innerWidth||0)>=1181){const planets=collectPlanets(doc);setPlanetPositions(planets.inner,innerAngles,g.cx,g.cy,g.innerRx,g.innerRy,g.innerTilt,0);setPlanetPositions(planets.outer,outerAngles,g.cx,g.cy,g.outerRx,g.outerRy,g.outerTilt,0);startOrbitAnimation(doc,planets,g)}
+  if((doc.defaultView?.innerWidth||0)>=1181){const planets=collectPlanets(doc);enableDirectionInfo(doc,[...planets.inner,...planets.outer]);setPlanetPositions(planets.inner,innerAngles,g.cx,g.cy,g.innerRx,g.innerRy,g.innerTilt,0);setPlanetPositions(planets.outer,outerAngles,g.cx,g.cy,g.outerRx,g.outerRy,g.outerTilt,0);startOrbitAnimation(doc,planets,g)}
 }
-function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260904-9&t='+Date.now()}
-function setMode(next){mode=next;modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: обе группы плашек на 1 см ближе к оси · 63/114 сек';reloadFrame()}
+function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260904-11&t='+Date.now()}
+function setMode(next){mode=next;modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: описания направлений внутри центрального круга · 63/114 сек';reloadFrame()}
 frame.addEventListener('load',()=>{if(mode==='draft')requestAnimationFrame(()=>requestAnimationFrame(drawOrbits))});modeButtons.forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));widthButtons.forEach(b=>b.addEventListener('click',()=>{widthButtons.forEach(x=>x.classList.remove('active'));b.classList.add('active');shell.style.width=b.dataset.width==='100%'?'100%':b.dataset.width+'px';if(mode==='draft')setTimeout(drawOrbits,220)}));document.getElementById('reload').addEventListener('click',reloadFrame);
 </script>
 </body>
