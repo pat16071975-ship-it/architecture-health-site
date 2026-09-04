@@ -43,32 +43,34 @@ jobs:
           text = text.replace(cleanup_old, cleanup_new, 1)
 
           point_function = "function pointOnEllipse(cx,cy,rx,ry,tiltDeg,angleDeg){const t=angleDeg*Math.PI/180,a=tiltDeg*Math.PI/180,dx=rx*Math.cos(t),dy=ry*Math.sin(t);return{x:cx+dx*Math.cos(a)-dy*Math.sin(a),y:cy+dx*Math.sin(a)+dy*Math.cos(a)}}\n"
-          placeholder_function = point_function + """function addPlaceholderBadges(doc){
-  const page=doc.querySelector('.page'),stage=doc.querySelector('.stage');
-  const sources=['.side-menu-4','.side-menu-3','.side-menu-2','.side-menu-1','.specialists-badge'].map(selector=>doc.querySelector(selector)).filter(Boolean);
-  if(!page||!stage||sources.length!==5)return;
-  const pageRect=page.getBoundingClientRect(),stageRect=stage.getBoundingClientRect();
-  const cx=stageRect.left-pageRect.left+stageRect.width/2,cy=stageRect.top-pageRect.top+stageRect.height/2;
-  sources.forEach((source,index)=>{
-    const r=source.getBoundingClientRect();
-    const sx=r.left-pageRect.left+r.width/2,sy=r.top-pageRect.top+r.height/2;
-    const badge=doc.createElement('div');
-    badge.className='radial-badge side-menu-badge az-lab-placeholder-badge';
-    badge.dataset.azPlaceholderIndex=String(index+1);
-    badge.dataset.azMirrorSource=source.className;
-    badge.textContent='заглушка';
-    badge.setAttribute('aria-label','Заглушка');
-    badge.style.setProperty('left',(2*cx-sx)+'px','important');
-    badge.style.setProperty('top',(2*cy-sy)+'px','important');
-    badge.style.setProperty('right','auto','important');
-    badge.style.setProperty('width',r.width+'px','important');
-    badge.style.setProperty('height',r.height+'px','important');
-    badge.style.setProperty('margin','0','important');
-    badge.style.setProperty('transform','translate(-50%,-50%)','important');
-    page.appendChild(badge);
-  });
-}
-"""
+          placeholder_lines = [
+              "function addPlaceholderBadges(doc){",
+              "  const page=doc.querySelector('.page'),stage=doc.querySelector('.stage');",
+              "  const sources=['.side-menu-4','.side-menu-3','.side-menu-2','.side-menu-1','.specialists-badge'].map(selector=>doc.querySelector(selector)).filter(Boolean);",
+              "  if(!page||!stage||sources.length!==5)return;",
+              "  const pageRect=page.getBoundingClientRect(),stageRect=stage.getBoundingClientRect();",
+              "  const cx=stageRect.left-pageRect.left+stageRect.width/2,cy=stageRect.top-pageRect.top+stageRect.height/2;",
+              "  sources.forEach((source,index)=>{",
+              "    const r=source.getBoundingClientRect();",
+              "    const sx=r.left-pageRect.left+r.width/2,sy=r.top-pageRect.top+r.height/2;",
+              "    const badge=doc.createElement('div');",
+              "    badge.className='radial-badge side-menu-badge az-lab-placeholder-badge';",
+              "    badge.dataset.azPlaceholderIndex=String(index+1);",
+              "    badge.dataset.azMirrorSource=source.className;",
+              "    badge.textContent='заглушка';",
+              "    badge.setAttribute('aria-label','Заглушка');",
+              "    badge.style.setProperty('left',(2*cx-sx)+'px','important');",
+              "    badge.style.setProperty('top',(2*cy-sy)+'px','important');",
+              "    badge.style.setProperty('right','auto','important');",
+              "    badge.style.setProperty('width',r.width+'px','important');",
+              "    badge.style.setProperty('height',r.height+'px','important');",
+              "    badge.style.setProperty('margin','0','important');",
+              "    badge.style.setProperty('transform','translate(-50%,-50%)','important');",
+              "    page.appendChild(badge);",
+              "  });",
+              "}",
+          ]
+          placeholder_function = point_function + '\n'.join(placeholder_lines) + '\n'
           if point_function not in text:
               raise SystemExit('Function insertion point not found')
           text = text.replace(point_function, placeholder_function, 1)
