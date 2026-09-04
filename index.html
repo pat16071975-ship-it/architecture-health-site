@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/approved-system.css?v=20260904-1">
 <style id="az-approved-typography">
 html,body,button,input,select,textarea,.caption,.clinic-contact,.clinic-phone,.clinic-hours,.promo-badge,.promo-copy,.promo-cta,.specialists-badge,.side-menu-badge,.direction,.relation-panel,.relation-title,.relation-item,.attention-eyebrow,.attention-title,.attention-related-label,.attention-direction,.attention-counter,.attention-arrow,.attention-message-sub,.attention-note,.faq-section,.faq-section *,details,summary{font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important}
 .az-title-stack{width:max-content;max-width:100%;margin:0 auto}
@@ -29,4 +30,6 @@ html,body,button,input,select,textarea,.caption,.clinic-contact,.clinic-phone,.c
 </head>
 {% endcapture %}
 {% assign current_site = current_site | replace: '</head>', az_head_injection %}
+{% capture az_body_injection %}<script src="assets/approved-system.js?v=20260904-1"></script></body>{% endcapture %}
+{% assign current_site = current_site | replace: '</body>', az_body_injection %}
 {{ current_site }}
