@@ -1,0 +1,76 @@
+name: AZ Lab tighten inner orbit
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/az-lab-tighten-inner-orbit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+
+      - name: Move inner planets closer to the Vitruvian figure
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('interface-lab/index.html')
+          text = path.read_text(encoding='utf-8')
+
+          old_geometry = 'innerRx:r.width*.58,innerRy:r.height*.46,outerRx:r.width*.73,outerRy:r.height*.57'
+          new_geometry = 'innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57'
+          if old_geometry not in text:
+              raise SystemExit('Current orbit geometry was not found')
+          text = text.replace(old_geometry, new_geometry, 1)
+
+          old_version = 'orbits-20260904-5'
+          new_version = 'orbits-20260904-6'
+          if old_version not in text:
+              raise SystemExit('Current cache-buster was not found')
+          text = text.replace(old_version, new_version)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path('interface-lab/index.html').read_text(encoding='utf-8')
+          required = [
+              'innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57',
+              'const INNER_DURATION=63000;',
+              'const OUTER_DURATION=114000;',
+              "const labelHtml=name==='Терапия'?'Стоматология':el.dataset.azOriginalHtml;",
+              'orbits-20260904-6'
+          ]
+          for marker in required:
+              if marker not in text:
+                  raise SystemExit('Missing marker: ' + marker)
+
+          match = re.search(r'<script>([\s\S]*)</script>', text)
+          if not match:
+              raise SystemExit('Script block not found')
+          Path('/tmp/az-interface-lab.js').write_text(match.group(1), encoding='utf-8')
+          PY
+          node --check /tmp/az-interface-lab.js
+
+      - name: Commit change and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/az-lab-tighten-inner-orbit.yml
+          git add interface-lab/index.html
+          git commit -m "Tighten inner orbit around Vitruvian figure"
+          git push origin HEAD:feature/site-v1
