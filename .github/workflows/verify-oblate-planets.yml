@@ -20,18 +20,18 @@ jobs:
 
       - name: Install Playwright Chromium
         run: |
-          npm --version
-          npx --yes playwright@1.55.0 install chromium
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install chromium
 
       - name: Verify live Interface Lab and capture screenshot
         run: |
-          cat > /tmp/verify-oblate.mjs <<'JS'
+          cat > verify-oblate.mjs <<'JS'
           import { chromium } from 'playwright';
           import fs from 'node:fs';
 
           const browser = await chromium.launch({headless: true});
           const page = await browser.newPage({viewport: {width: 1518, height: 900}, deviceScaleFactor: 1});
-          const url = 'https://pat16071975-ship-it.github.io/architecture-health-site/interface-lab/?v=20260904-3';
+          const url = 'https://pat16071975-ship-it.github.io/architecture-health-site/interface-lab/?v=20260904-4';
           await page.goto(url, {waitUntil: 'networkidle', timeout: 120000});
           await page.waitForFunction(() => {
             const frame = document.querySelector('iframe');
@@ -65,13 +65,15 @@ jobs:
             if (item.width !== '108px' || item.height !== '102px') throw new Error(`Wrong planet size for ${item.label}: ${item.width} x ${item.height}`);
             if (!item.mask || item.mask === 'none') throw new Error(`Missing artwork mask for ${item.label}`);
             if (!item.maskSize.includes('136%') || !item.maskSize.includes('111%')) throw new Error(`Wrong mask size for ${item.label}: ${item.maskSize}`);
+            if (!['rgb(68, 99, 79)', 'rgb(181, 150, 98)'].includes(item.artColor)) throw new Error(`Wrong artwork colour for ${item.label}: ${item.artColor}`);
           }
 
           fs.writeFileSync('/tmp/oblate-planets-report.json', JSON.stringify(report, null, 2));
           await page.screenshot({path: '/tmp/az-interface-lab-oblate-planets.png', fullPage: false});
           await browser.close();
           JS
-          npx --yes -p playwright@1.55.0 node /tmp/verify-oblate.mjs
+          node verify-oblate.mjs
+          rm verify-oblate.mjs
           cat /tmp/oblate-planets-report.json
 
       - uses: actions/upload-artifact@v4
