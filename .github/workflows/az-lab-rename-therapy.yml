@@ -1,0 +1,69 @@
+name: AZ Lab rename Therapy planet
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/az-lab-rename-therapy.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+
+      - name: Rename Therapy to Dentistry in the inner orbit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('interface-lab/index.html')
+          text = path.read_text(encoding='utf-8')
+
+          old = "    el.innerHTML='<span class=\"az-lab-planet-art\" aria-hidden=\"true\"></span><span class=\"az-lab-planet-label\">'+el.dataset.azOriginalHtml+'</span>';"
+          new = "    const labelHtml=name==='Терапия'?'Стоматология':el.dataset.azOriginalHtml;\n    el.innerHTML='<span class=\"az-lab-planet-art\" aria-hidden=\"true\"></span><span class=\"az-lab-planet-label\">'+labelHtml+'</span>';"
+          if old not in text:
+              raise SystemExit('Planet label markup was not found')
+          text = text.replace(old, new, 1)
+          text = text.replace('orbits-20260904-3', 'orbits-20260904-4')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path('interface-lab/index.html').read_text(encoding='utf-8')
+          required = [
+              "name==='Терапия'?'Стоматология'",
+              "const innerNames=['Функциональная стоматология','Ортодонтия','Остеопатия','Терапия'];",
+              'orbits-20260904-4'
+          ]
+          for marker in required:
+              if marker not in text:
+                  raise SystemExit('Missing marker: ' + marker)
+
+          match = re.search(r'<script>([\s\S]*)</script>', text)
+          if not match:
+              raise SystemExit('Script block not found')
+          Path('/tmp/az-interface-lab.js').write_text(match.group(1), encoding='utf-8')
+          PY
+          node --check /tmp/az-interface-lab.js
+
+      - name: Commit change and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/az-lab-rename-therapy.yml
+          git add interface-lab/index.html
+          git commit -m "Rename Therapy planet to Dentistry in Interface Lab"
+          git push origin HEAD:feature/site-v1
