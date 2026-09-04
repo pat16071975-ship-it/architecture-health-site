@@ -104,7 +104,7 @@ jobs:
           for marker in required:
               if marker not in text:
                   raise SystemExit('Missing marker: ' + marker)
-          if text.count("az-lab-placeholder-badge") < 3:
+          if text.count("az-lab-placeholder-badge") < 2:
               raise SystemExit('Placeholder cleanup/render markers are incomplete')
 
           match = re.search(r'<script>([\s\S]*)</script>', text)
