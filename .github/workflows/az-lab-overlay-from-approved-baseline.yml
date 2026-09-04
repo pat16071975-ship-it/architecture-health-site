@@ -14,57 +14,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feature/site-v1
-      - name: Isolate description from orbit geometry
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          p=Path('interface-lab/index.html')
-          s=p.read_text()
-
-          replacement="""function closeDirectionInfo(doc){doc.querySelector('.az-lab-direction-info')?.remove()}
-function showDirectionInfo(doc,name){
-  const info=DIRECTION_INFO[name];if(!info)return;
-  const stage=doc.querySelector('.stage'),host=doc.querySelector('.map')||stage?.parentElement;if(!stage||!host)return;
-  closeDirectionInfo(doc);
-  const hostRect=host.getBoundingClientRect(),stageRect=stage.getBoundingClientRect();
-  const panel=doc.createElement('section');panel.className='az-lab-direction-info';panel.setAttribute('aria-live','polite');
-  panel.style.setProperty('left',(stageRect.left-hostRect.left)+'px','important');
-  panel.style.setProperty('top',(stageRect.top-hostRect.top)+'px','important');
-  panel.style.setProperty('width',stageRect.width+'px','important');
-  panel.style.setProperty('height',stageRect.height+'px','important');
-  panel.innerHTML='<button class=\"az-lab-direction-close\" type=\"button\" aria-label=\"Закрыть описание\">×</button><div class=\"az-lab-direction-info-inner\"><h2>'+info.title+'</h2><p class=\"az-lab-direction-lead\">Стоит обратить внимание, если:</p><ul>'+info.items.map(item=>'<li>'+item+'</li>').join('')+'</ul><p class=\"az-lab-direction-summary\">'+info.summary+'</p><button class=\"az-lab-direction-more\" type=\"button\">Узнать подробнее</button></div>';
-  panel.querySelector('.az-lab-direction-close').addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();closeDirectionInfo(doc)});
-  host.appendChild(panel);
-}
-function enableDirectionInfo(doc,planets){planets.forEach(el=>{const name=el.dataset.azDirectionName;const handler=event=>{event.preventDefault();event.stopImmediatePropagation();if(DIRECTION_INFO[name])showDirectionInfo(doc,name)};el._azDirectionHandler=handler;el.addEventListener('click',handler,true)})}
-"""
-          s,n=re.subn(r"function closeDirectionInfo\(doc\)\{.*?\nfunction collectPlanets\(doc\)\{", replacement+"function collectPlanets(doc){", s, count=1, flags=re.S)
-          assert n==1
-
-          s,n=re.subn(r"el\.onclick=null;delete el\.dataset\.azDirectionName;el\.classList\.remove\('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet'\)", "if(el._azDirectionHandler){el.removeEventListener('click',el._azDirectionHandler,true);delete el._azDirectionHandler}delete el.dataset.azDirectionName;el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')", s, count=1)
-          assert n==1
-
-          assert '.az-lab-direction-info{position:absolute!important;inset:0!important;border-radius:50%!important;' in s
-          s=s.replace('.az-lab-direction-info{position:absolute!important;inset:0!important;border-radius:50%!important;','.az-lab-direction-info{position:absolute!important;border-radius:50%!important;',1)
-          s=s.replace('../?lab=orbits-20260904-12','../?lab=orbits-20260904-13')
-
-          # Exact approved orbit geometry must remain unchanged.
-          for marker in [
-            'const INNER_DURATION=63000;',
-            'const OUTER_DURATION=114000;',
-            'const innerAngles=[180,270,0,90];',
-            'const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];',
-            'innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14'
-          ]: assert marker in s, marker
-          p.write_text(s)
-          PY
+      - run: python3 tools/fix_overlay.py
       - run: git diff --check
-      - name: Commit and remove temporary workflows
-        run: |
+      - run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add interface-lab/index.html
-          git rm -f .github/workflows/az-lab-overlay-from-approved-baseline.yml .github/workflows/az-lab-isolate-overlay-from-orbits.yml
+          git rm -f .github/workflows/az-lab-overlay-from-approved-baseline.yml .github/workflows/az-lab-isolate-overlay-from-orbits.yml tools/fix_overlay.py
           git commit -m "Keep direction overlay independent from planet orbits"
           git push origin feature/site-v1
