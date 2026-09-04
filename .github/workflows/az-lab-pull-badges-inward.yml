@@ -43,19 +43,21 @@ jobs:
           text = text.replace(cleanup_old, cleanup_new, 1)
 
           function_anchor = "function addPlaceholderBadges(doc){\n"
-          pull_function = """function pullBadgesTowardCenter(doc,fraction=.30){
-  const stage=doc.querySelector('.stage');
-  const sources=['.specialists-badge','.side-menu-1','.side-menu-2','.side-menu-3','.side-menu-4'].map(selector=>doc.querySelector(selector)).filter(Boolean);
-  if(!stage||sources.length!==5)return;
-  const stageRect=stage.getBoundingClientRect(),cx=stageRect.left+stageRect.width/2,cy=stageRect.top+stageRect.height/2;
-  sources.forEach(el=>{
-    const r=el.getBoundingClientRect(),sx=r.left+r.width/2,sy=r.top+r.height/2;
-    el.style.setProperty('--az-badge-shift-x',((cx-sx)*fraction)+'px');
-    el.style.setProperty('--az-badge-shift-y',((cy-sy)*fraction)+'px');
-    el.classList.add('az-lab-radial-shift');
-  });
-}
-"""
+          pull_lines = [
+              "function pullBadgesTowardCenter(doc,fraction=.30){",
+              "  const stage=doc.querySelector('.stage');",
+              "  const sources=['.specialists-badge','.side-menu-1','.side-menu-2','.side-menu-3','.side-menu-4'].map(selector=>doc.querySelector(selector)).filter(Boolean);",
+              "  if(!stage||sources.length!==5)return;",
+              "  const stageRect=stage.getBoundingClientRect(),cx=stageRect.left+stageRect.width/2,cy=stageRect.top+stageRect.height/2;",
+              "  sources.forEach(el=>{",
+              "    const r=el.getBoundingClientRect(),sx=r.left+r.width/2,sy=r.top+r.height/2;",
+              "    el.style.setProperty('--az-badge-shift-x',((cx-sx)*fraction)+'px');",
+              "    el.style.setProperty('--az-badge-shift-y',((cy-sy)*fraction)+'px');",
+              "    el.classList.add('az-lab-radial-shift');",
+              "  });",
+              "}",
+          ]
+          pull_function = '\n'.join(pull_lines) + '\n'
           if function_anchor not in text:
               raise SystemExit('Function insertion point not found')
           text = text.replace(function_anchor, pull_function + function_anchor, 1)
