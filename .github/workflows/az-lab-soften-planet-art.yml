@@ -33,7 +33,6 @@ jobs:
               'opacity:.48!important;-webkit-mask-image': 'opacity:.27!important;filter:blur(.12px) saturate(.82)!important;-webkit-mask-image',
               '.az-lab-orbit-host .direction.az-lab-outer-planet .az-lab-planet-art{opacity:.52!important}': '.az-lab-orbit-host .direction.az-lab-outer-planet .az-lab-planet-art{opacity:.30!important}',
               '-webkit-mask-size:136% 111%!important;mask-size:136% 111%!important': '-webkit-mask-size:134% 109%!important;mask-size:134% 109%!important',
-              "Черновик: лёгкое уплощение · графика по всей поверхности · 42/76 сек": "Черновик: мягкая тонкая графика по всей поверхности · 42/76 сек",
           }
 
           for old, new in replacements.items():
