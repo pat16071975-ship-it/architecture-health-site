@@ -1,0 +1,220 @@
+name: AZ Lab add left placeholder badges
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/az-lab-add-left-placeholders.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+
+      - name: Add five mirrored placeholder badges on the left
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('interface-lab/index.html')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = [
+              ('orbits-20260904-6', 'orbits-20260904-7'),
+              ('Черновик: мягкая тонкая графика по всей поверхности</div>', 'Черновик: 5 плашек-заглушек слева</div>'),
+              ("Черновик: мягкая тонкая графика по всей поверхности · 63/114 сек", "Черновик: 5 плашек-заглушек слева · 63/114 сек"),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit('Missing expected fragment: ' + old)
+              text = text.replace(old, new)
+
+          cleanup_old = "  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();\n"
+          cleanup_new = "  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());\n"
+          if cleanup_old not in text:
+              raise SystemExit('Cleanup insertion point not found')
+          text = text.replace(cleanup_old, cleanup_new, 1)
+
+          point_function = "function pointOnEllipse(cx,cy,rx,ry,tiltDeg,angleDeg){const t=angleDeg*Math.PI/180,a=tiltDeg*Math.PI/180,dx=rx*Math.cos(t),dy=ry*Math.sin(t);return{x:cx+dx*Math.cos(a)-dy*Math.sin(a),y:cy+dx*Math.sin(a)+dy*Math.cos(a)}}\n"
+          placeholder_function = point_function + """function addPlaceholderBadges(doc){
+  const page=doc.querySelector('.page'),stage=doc.querySelector('.stage');
+  const sources=['.side-menu-4','.side-menu-3','.side-menu-2','.side-menu-1','.specialists-badge'].map(selector=>doc.querySelector(selector)).filter(Boolean);
+  if(!page||!stage||sources.length!==5)return;
+  const pageRect=page.getBoundingClientRect(),stageRect=stage.getBoundingClientRect();
+  const cx=stageRect.left-pageRect.left+stageRect.width/2,cy=stageRect.top-pageRect.top+stageRect.height/2;
+  sources.forEach((source,index)=>{
+    const r=source.getBoundingClientRect();
+    const sx=r.left-pageRect.left+r.width/2,sy=r.top-pageRect.top+r.height/2;
+    const badge=doc.createElement('div');
+    badge.className='radial-badge side-menu-badge az-lab-placeholder-badge';
+    badge.dataset.azPlaceholderIndex=String(index+1);
+    badge.dataset.azMirrorSource=source.className;
+    badge.textContent='заглушка';
+    badge.setAttribute('aria-label','Заглушка');
+    badge.style.setProperty('left',(2*cx-sx)+'px','important');
+    badge.style.setProperty('top',(2*cy-sy)+'px','important');
+    badge.style.setProperty('right','auto','important');
+    badge.style.setProperty('width',r.width+'px','important');
+    badge.style.setProperty('height',r.height+'px','important');
+    badge.style.setProperty('margin','0','important');
+    badge.style.setProperty('transform','translate(-50%,-50%)','important');
+    page.appendChild(badge);
+  });
+}
+"""
+          if point_function not in text:
+              raise SystemExit('Function insertion point not found')
+          text = text.replace(point_function, placeholder_function, 1)
+
+          append_old = "`;doc.head.appendChild(style);\n"
+          append_new = "`;doc.head.appendChild(style);addPlaceholderBadges(doc);\n"
+          if append_old not in text:
+              raise SystemExit('Placeholder render insertion point not found')
+          text = text.replace(append_old, append_new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify source patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path('interface-lab/index.html').read_text(encoding='utf-8')
+          required = [
+              "function addPlaceholderBadges(doc)",
+              "['.side-menu-4','.side-menu-3','.side-menu-2','.side-menu-1','.specialists-badge']",
+              "badge.textContent='заглушка'",
+              "badge.style.setProperty('left',(2*cx-sx)+'px','important')",
+              "badge.style.setProperty('top',(2*cy-sy)+'px','important')",
+              "addPlaceholderBadges(doc)",
+              "orbits-20260904-7",
+              "5 плашек-заглушек слева",
+          ]
+          for marker in required:
+              if marker not in text:
+                  raise SystemExit('Missing marker: ' + marker)
+          if text.count("az-lab-placeholder-badge") < 3:
+              raise SystemExit('Placeholder cleanup/render markers are incomplete')
+
+          match = re.search(r'<script>([\s\S]*)</script>', text)
+          if not match:
+              raise SystemExit('Script block not found')
+          Path('/tmp/az-interface-lab.js').write_text(match.group(1), encoding='utf-8')
+          PY
+          node --check /tmp/az-interface-lab.js
+          git diff --check
+
+      - name: Commit Interface Lab change and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/az-lab-add-left-placeholders.yml
+          git add interface-lab/index.html
+          git commit -m "Add mirrored left placeholder badges to Interface Lab"
+          git push origin HEAD:feature/site-v1
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium
+
+      - name: Verify live geometry and capture screenshot
+        run: |
+          cat > /tmp/verify-left-placeholders.cjs <<'JS'
+          const { chromium } = require('playwright');
+          const fs = require('node:fs');
+
+          (async () => {
+            const browser = await chromium.launch({headless: true});
+            const page = await browser.newPage({viewport: {width: 1800, height: 1100}, deviceScaleFactor: 1});
+            const baseUrl = 'https://pat16071975-ship-it.github.io/architecture-health-site/interface-lab/';
+            let deployed = false;
+
+            for (let attempt = 0; attempt < 36; attempt += 1) {
+              await page.goto(`${baseUrl}?v=20260904-10&t=${Date.now()}`, {waitUntil: 'domcontentloaded', timeout: 120000});
+              const html = await page.content();
+              if (html.includes('orbits-20260904-7') && html.includes('5 плашек-заглушек слева')) {
+                deployed = true;
+                break;
+              }
+              await page.waitForTimeout(5000);
+            }
+            if (!deployed) throw new Error('Updated Interface Lab was not deployed in time');
+
+            await page.waitForFunction(() => {
+              const frame = document.querySelector('iframe');
+              return frame && frame.contentDocument && frame.contentDocument.querySelectorAll('.az-lab-placeholder-badge').length === 5;
+            }, {timeout: 30000});
+            await page.waitForTimeout(1000);
+
+            const report = await page.evaluate(() => {
+              const doc = document.querySelector('iframe').contentDocument;
+              const stage = doc.querySelector('.stage');
+              const sources = ['.side-menu-4','.side-menu-3','.side-menu-2','.side-menu-1','.specialists-badge'].map(selector => doc.querySelector(selector));
+              const targets = [...doc.querySelectorAll('.az-lab-placeholder-badge')].sort((a,b) => Number(a.dataset.azPlaceholderIndex)-Number(b.dataset.azPlaceholderIndex));
+              const center = rect => ({x: rect.left + rect.width / 2, y: rect.top + rect.height / 2});
+              const stageCenter = center(stage.getBoundingClientRect());
+              return {
+                existingRightTexts: [doc.querySelector('.specialists-badge'),doc.querySelector('.side-menu-1'),doc.querySelector('.side-menu-2'),doc.querySelector('.side-menu-3'),doc.querySelector('.side-menu-4')].map(el => el.textContent.trim()),
+                placeholders: targets.map((target,index) => {
+                  const tr = target.getBoundingClientRect();
+                  const sr = sources[index].getBoundingClientRect();
+                  const tc = center(tr), sc = center(sr);
+                  return {
+                    index: Number(target.dataset.azPlaceholderIndex),
+                    text: target.textContent.trim(),
+                    width: tr.width,
+                    height: tr.height,
+                    sourceWidth: sr.width,
+                    sourceHeight: sr.height,
+                    midpointErrorX: Math.abs((tc.x + sc.x) / 2 - stageCenter.x),
+                    midpointErrorY: Math.abs((tc.y + sc.y) / 2 - stageCenter.y),
+                    centerX: tc.x,
+                    centerY: tc.y,
+                  };
+                })
+              };
+            });
+
+            if (report.placeholders.length !== 5) throw new Error(`Expected 5 placeholders, got ${report.placeholders.length}`);
+            const expectedRight = ['команда','о клинике','пациенту','лаборатория','контакты'];
+            if (JSON.stringify(report.existingRightTexts) !== JSON.stringify(expectedRight)) throw new Error(`Existing right badges changed: ${JSON.stringify(report.existingRightTexts)}`);
+            for (const item of report.placeholders) {
+              if (item.text !== 'заглушка') throw new Error(`Wrong placeholder text at ${item.index}: ${item.text}`);
+              if (Math.abs(item.width-item.sourceWidth) > 0.6 || Math.abs(item.height-item.sourceHeight) > 0.6) throw new Error(`Size mismatch at ${item.index}`);
+              if (item.midpointErrorX > 1 || item.midpointErrorY > 1) throw new Error(`Mirror alignment mismatch at ${item.index}: ${item.midpointErrorX}, ${item.midpointErrorY}`);
+            }
+            for (let i = 1; i < report.placeholders.length; i += 1) {
+              if (report.placeholders[i].centerY <= report.placeholders[i-1].centerY) throw new Error('Left placeholders do not continue downward');
+              if (report.placeholders[i].centerX >= report.placeholders[i-1].centerX) throw new Error('Left placeholders do not continue leftward');
+            }
+
+            fs.writeFileSync('/tmp/left-placeholders-report.json', JSON.stringify(report, null, 2));
+            await page.screenshot({path: '/tmp/az-interface-lab-left-placeholders.png', fullPage: true});
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          JS
+          node /tmp/verify-left-placeholders.cjs
+          cat /tmp/left-placeholders-report.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: az-interface-lab-left-placeholders-check
+          path: |
+            /tmp/az-interface-lab-left-placeholders.png
+            /tmp/left-placeholders-report.json
+          if-no-files-found: ignore
+          retention-days: 3
