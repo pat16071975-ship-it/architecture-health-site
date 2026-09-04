@@ -1,0 +1,80 @@
+name: AZ Lab soften planet artwork
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/az-lab-soften-planet-art.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+
+      - name: Soften inner planet graphics
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('interface-lab/index.html')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = {
+              'orbits-20260904-2': 'orbits-20260904-3',
+              '?v=20260904-2': '?v=20260904-3',
+              'Черновик: лёгкое уплощение · графика по всей поверхности': 'Черновик: мягкая тонкая графика по всей поверхности',
+              'opacity:.48!important;-webkit-mask-image': 'opacity:.27!important;filter:blur(.12px) saturate(.82)!important;-webkit-mask-image',
+              '.az-lab-orbit-host .direction.az-lab-outer-planet .az-lab-planet-art{opacity:.52!important}': '.az-lab-orbit-host .direction.az-lab-outer-planet .az-lab-planet-art{opacity:.30!important}',
+              '-webkit-mask-size:136% 111%!important;mask-size:136% 111%!important': '-webkit-mask-size:134% 109%!important;mask-size:134% 109%!important',
+              "Черновик: лёгкое уплощение · графика по всей поверхности · 42/76 сек": "Черновик: мягкая тонкая графика по всей поверхности · 42/76 сек",
+          }
+
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit('Missing expected fragment: ' + old)
+              text = text.replace(old, new)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path('interface-lab/index.html').read_text(encoding='utf-8')
+          required = [
+              'opacity:.27!important',
+              'opacity:.30!important',
+              'filter:blur(.12px) saturate(.82)!important',
+              '-webkit-mask-size:134% 109%!important',
+              'orbits-20260904-3',
+              'мягкая тонкая графика по всей поверхности'
+          ]
+          for marker in required:
+              if marker not in text:
+                  raise SystemExit('Missing marker: ' + marker)
+
+          match = re.search(r'<script>([\s\S]*)</script>', text)
+          if not match:
+              raise SystemExit('Script block not found')
+          Path('/tmp/az-interface-lab.js').write_text(match.group(1), encoding='utf-8')
+          PY
+          node --check /tmp/az-interface-lab.js
+
+      - name: Commit refinement and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/az-lab-soften-planet-art.yml
+          git add interface-lab/index.html
+          git commit -m "Soften and lighten planet surface artwork"
+          git push origin HEAD:feature/site-v1
