@@ -36,9 +36,9 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: мягкая тонкая графика по всей поверхности</div>
+  <div class="status" id="status">Черновик: 5 плашек-заглушек слева</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260904-6" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260904-7" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -75,11 +75,36 @@ const PLANET_ARTS={
 function norm(value){return String(value||'').toLowerCase().replace(/ё/g,'е').replace(/[–—-]/g,' ').replace(/\s+/g,' ').trim()}
 function stopOrbitAnimation(){if(orbitAnimationFrame){cancelAnimationFrame(orbitAnimationFrame);orbitAnimationFrame=0}}
 function cleanupDraft(doc){
-  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();
+  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());
   doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
   doc.querySelectorAll('.az-lab-planet').forEach(el=>{if(el.dataset.azOriginalHtml!==undefined){el.innerHTML=el.dataset.azOriginalHtml;delete el.dataset.azOriginalHtml}if(el.dataset.azOriginalStyle!==undefined){if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);else el.removeAttribute('style');delete el.dataset.azOriginalStyle}el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')});
 }
 function pointOnEllipse(cx,cy,rx,ry,tiltDeg,angleDeg){const t=angleDeg*Math.PI/180,a=tiltDeg*Math.PI/180,dx=rx*Math.cos(t),dy=ry*Math.sin(t);return{x:cx+dx*Math.cos(a)-dy*Math.sin(a),y:cy+dx*Math.sin(a)+dy*Math.cos(a)}}
+function addPlaceholderBadges(doc){
+  const page=doc.querySelector('.page'),stage=doc.querySelector('.stage');
+  const sources=['.side-menu-4','.side-menu-3','.side-menu-2','.side-menu-1','.specialists-badge'].map(selector=>doc.querySelector(selector)).filter(Boolean);
+  if(!page||!stage||sources.length!==5)return;
+  const pageRect=page.getBoundingClientRect(),stageRect=stage.getBoundingClientRect();
+  const cx=stageRect.left-pageRect.left+stageRect.width/2,cy=stageRect.top-pageRect.top+stageRect.height/2;
+  sources.forEach((source,index)=>{
+    const r=source.getBoundingClientRect();
+    const sx=r.left-pageRect.left+r.width/2,sy=r.top-pageRect.top+r.height/2;
+    const badge=doc.createElement('div');
+    badge.className='radial-badge side-menu-badge az-lab-placeholder-badge';
+    badge.dataset.azPlaceholderIndex=String(index+1);
+    badge.dataset.azMirrorSource=source.className;
+    badge.textContent='заглушка';
+    badge.setAttribute('aria-label','Заглушка');
+    badge.style.setProperty('left',(2*cx-sx)+'px','important');
+    badge.style.setProperty('top',(2*cy-sy)+'px','important');
+    badge.style.setProperty('right','auto','important');
+    badge.style.setProperty('width',r.width+'px','important');
+    badge.style.setProperty('height',r.height+'px','important');
+    badge.style.setProperty('margin','0','important');
+    badge.style.setProperty('transform','translate(-50%,-50%)','important');
+    page.appendChild(badge);
+  });
+}
 function collectPlanets(doc){
   const byName=new Map();
   doc.querySelectorAll('.direction').forEach(el=>byName.set(norm(el.innerText||el.textContent),el));
@@ -117,14 +142,14 @@ function drawOrbits(){
 .az-lab-orbit-host .direction.az-lab-planet::before,.az-lab-orbit-host .direction.az-lab-planet::after{content:none!important;display:none!important}
 }
 @media (min-width:721px) and (max-width:1180px){.az-lab-orbit-host .stage{transform:scale(.568965517)!important;transform-origin:center center!important}}
-`;doc.head.appendChild(style);
+`;doc.head.appendChild(style);addPlaceholderBadges(doc);
   const ns='http://www.w3.org/2000/svg',svg=doc.createElementNS(ns,'svg');svg.id='az-lab-orbits';svg.setAttribute('class','az-lab-orbit-svg');svg.setAttribute('viewBox',`0 0 ${Math.max(1,hostRect.width)} ${Math.max(1,hostRect.height)}`);svg.setAttribute('preserveAspectRatio','none');
   const inner=doc.createElementNS(ns,'ellipse');inner.setAttribute('cx',g.cx);inner.setAttribute('cy',g.cy);inner.setAttribute('rx',g.innerRx);inner.setAttribute('ry',g.innerRy);inner.setAttribute('fill','none');inner.setAttribute('stroke','#9aab9b');inner.setAttribute('stroke-width','1.15');inner.setAttribute('stroke-opacity','.62');inner.setAttribute('transform',`rotate(${g.innerTilt} ${g.cx} ${g.cy})`);
   const outer=doc.createElementNS(ns,'ellipse');outer.setAttribute('cx',g.cx);outer.setAttribute('cy',g.cy);outer.setAttribute('rx',g.outerRx);outer.setAttribute('ry',g.outerRy);outer.setAttribute('fill','none');outer.setAttribute('stroke','#c9aa75');outer.setAttribute('stroke-width','1.15');outer.setAttribute('stroke-opacity','.58');outer.setAttribute('transform',`rotate(${g.outerTilt} ${g.cx} ${g.cy})`);svg.append(inner,outer);host.prepend(svg);
   if((doc.defaultView?.innerWidth||0)>=1181){const planets=collectPlanets(doc);setPlanetPositions(planets.inner,innerAngles,g.cx,g.cy,g.innerRx,g.innerRy,g.innerTilt,0);setPlanetPositions(planets.outer,outerAngles,g.cx,g.cy,g.outerRx,g.outerRy,g.outerTilt,0);startOrbitAnimation(doc,planets,g)}
 }
-function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260904-6&t='+Date.now()}
-function setMode(next){mode=next;modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: мягкая тонкая графика по всей поверхности · 63/114 сек';reloadFrame()}
+function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260904-7&t='+Date.now()}
+function setMode(next){mode=next;modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: 5 плашек-заглушек слева · 63/114 сек';reloadFrame()}
 frame.addEventListener('load',()=>{if(mode==='draft')requestAnimationFrame(()=>requestAnimationFrame(drawOrbits))});modeButtons.forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));widthButtons.forEach(b=>b.addEventListener('click',()=>{widthButtons.forEach(x=>x.classList.remove('active'));b.classList.add('active');shell.style.width=b.dataset.width==='100%'?'100%':b.dataset.width+'px';if(mode==='draft')setTimeout(drawOrbits,220)}));document.getElementById('reload').addEventListener('click',reloadFrame);
 </script>
 </body>
