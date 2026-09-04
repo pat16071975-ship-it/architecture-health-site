@@ -1,0 +1,129 @@
+name: AZ Lab direction info in center
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/az-lab-direction-info.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+
+      - name: Add desktop direction info overlay
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path=Path('interface-lab/index.html')
+          text=path.read_text(encoding='utf-8')
+
+          text=text.replace('orbits-20260904-9','orbits-20260904-10')
+          text=text.replace('Черновик: обе группы плашек на 1 см ближе к оси</div>','Черновик: описания направлений в центральном круге</div>')
+          text=text.replace('Черновик: обе группы плашек на 1 см ближе к оси · 63/114 сек','Черновик: описания направлений в центральном круге · 63/114 сек')
+
+          anchor="const PLANET_ARTS={\n"
+          if anchor not in text: raise SystemExit('PLANET_ARTS anchor missing')
+          info="""const DIRECTION_INFO={
+  'Функциональная стоматология':{title:'Функциональная стоматология',items:['щёлкает, устаёт или напрягается челюсть','после ортодонтии или протезирования остался дискомфорт','неудобно жевать, хотя зубы выглядят нормально','напряжение в области лица и челюстей стало привычным'],summary:'Здесь оценивают не только зубы, но и работу челюстей, ВНЧС и мышц как единой функциональной системы.'},
+  'Ортодонтия':{title:'Ортодонтия',items:['зубы начали смещаться','вы сильно сжимаете или скрипите зубами','у ребёнка формируется неправильный прикус','ребёнок дышит ртом или часто держит рот приоткрытым'],summary:'Важно вовремя оценить развитие челюстей, дыхание, положение языка и мышечные привычки.'},
+  'Остеопатия':{title:'Остеопатия',items:['шея и плечи постоянно напряжены','хочется регулярно разминать спину или шею','дискомфорт в одном месте сопровождается напряжением в другом','неприятные ощущения давно стали привычными'],summary:'Задача — понять, как тело компенсирует ограничения и распределяет нагрузку между разными зонами.'},
+  'Терапия':{title:'Стоматология',items:['после лечения зубов красиво, но неудобно жевать','коронки или протезы ощущаются непривычно','зубы снова меняют положение','требуется сложное восстановление нескольких зубов'],summary:'Важно не только восстановить отдельный зуб, но и понять, как в целом должны работать зубы и челюсти.'},
+  'DIERS диагностика':{title:'DIERS-диагностика',items:['есть ощущение перекоса или асимметрии тела','спина быстро устаёт','постоянно чувствуется напряжение даже без выраженной боли','важно понять, как тело работает в движении'],summary:'Диагностика помогает увидеть осанку, распределение нагрузки и возможные компенсации тела.'},
+  'Миофункциональная терапия':{title:'Миофункциональная терапия',items:['язык часто находится между зубами','есть неправильное глотание','рот часто остаётся приоткрытым','после исправления прикуса старые мышечные привычки сохраняются'],summary:'Работа направлена на функцию языка и мышц, чтобы поддерживать правильную работу зубочелюстной системы.'},
+  'Превентивная медицина':{title:'Превентивная медицина',items:['постоянно не хватает энергии','состояние постепенно меняется','появились привычные ощущения, которых раньше не было','хочется понимать здоровье заранее, а не только реагировать на болезнь'],summary:'Задача — определить, чему действительно стоит уделить внимание сейчас и что можно спокойно наблюдать.'},
+  'Гастроэнтерология':{title:'Гастроэнтерология',items:['после еды часто возникает тяжесть или вздутие','питание регулярно вызывает дискомфорт','после еды появляется выраженная сонливость','изменения питания не дают понятного результата'],summary:'Задача — разобраться в работе пищеварительной системы и понять, какие симптомы действительно требуют внимания.'},
+  'Нутрициология':{title:'Нутрициология',items:['постоянно тянет к сладкому','после еды хочется спать','энергии становится меньше','сложно понять, какое питание подходит именно вам'],summary:'Здесь питание рассматривают не как модную диету, а с учётом состояния и особенностей конкретного человека.'},
+  'Детская неврология':{title:'Детская неврология',items:['ребёнок быстро устаёт или тяжело просыпается','стал хуже концентрироваться','часто жалуется на головную боль','появились тики, повторяющиеся движения или заметные изменения поведения'],summary:'Задача — понять, что является вариантом развития, за чем можно наблюдать, а чему стоит уделить внимание.'}
+};
+
+"""
+          text=text.replace(anchor,info+anchor,1)
+
+          func_anchor="function collectPlanets(doc){\n"
+          if func_anchor not in text: raise SystemExit('collectPlanets anchor missing')
+          funcs="""function ensureDirectionInfoPanel(doc){
+  const stage=doc.querySelector('.stage');
+  if(!stage)return null;
+  let panel=stage.querySelector('.az-lab-direction-info');
+  if(panel)return panel;
+  panel=doc.createElement('div');
+  panel.className='az-lab-direction-info';
+  panel.innerHTML='<div class="az-lab-direction-info-inner"><h2></h2><div class="az-lab-direction-kicker">Стоит обратить внимание, если:</div><ul></ul><p></p><button type="button" class="az-lab-direction-more">Узнать подробнее</button></div>';
+  stage.appendChild(panel);
+  return panel;
+}
+function showDirectionInfo(doc,name){
+  if((doc.defaultView?.innerWidth||0)<1181)return;
+  const data=DIRECTION_INFO[name];
+  if(!data)return;
+  const stage=doc.querySelector('.stage'),panel=ensureDirectionInfoPanel(doc);
+  if(!stage||!panel)return;
+  panel.querySelector('h2').textContent=data.title;
+  panel.querySelector('ul').innerHTML=data.items.map(item=>'<li>'+item+'</li>').join('');
+  panel.querySelector('p').textContent=data.summary;
+  stage.classList.add('az-lab-info-open');
+  panel.classList.add('on');
+}
+"""
+          text=text.replace(func_anchor,funcs+func_anchor,1)
+
+          old="""    if(art)art.style.setProperty('--az-planet-mask','url(\"'+artUrl+'\")');
+    el.style.setProperty('transform','translate(-50%,-50%)','important');
+    return el;
+"""
+          new="""    if(art)art.style.setProperty('--az-planet-mask','url(\"'+artUrl+'\")');
+    el.style.setProperty('transform','translate(-50%,-50%)','important');
+    el.style.setProperty('pointer-events',DIRECTION_INFO[name]?'auto':'none','important');
+    el.style.setProperty('cursor',DIRECTION_INFO[name]?'pointer':'default','important');
+    if(DIRECTION_INFO[name])el.addEventListener('click',()=>showDirectionInfo(doc,name));
+    return el;
+"""
+          if old not in text: raise SystemExit('planet interaction anchor missing')
+          text=text.replace(old,new,1)
+
+          css_anchor=".az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-label{position:relative!important;z-index:4!important;display:block!important;max-width:100%!important;text-shadow:0 0 3px rgba(250,247,241,.98),0 0 8px rgba(250,247,241,.82)!important}\n"
+          css=""".az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-label{position:relative!important;z-index:4!important;display:block!important;max-width:100%!important;text-shadow:0 0 3px rgba(250,247,241,.98),0 0 8px rgba(250,247,241,.82)!important}
+.az-lab-orbit-host .stage .az-lab-direction-info{display:none!important}
+.az-lab-orbit-host .stage.az-lab-info-open .vit-img{opacity:.045!important;filter:blur(.2px) sepia(.08) saturate(.8) contrast(.95) brightness(1.08)!important}
+.az-lab-orbit-host .stage .az-lab-direction-info.on{display:flex!important;position:absolute!important;inset:0!important;z-index:10!important;align-items:center!important;justify-content:center!important;padding:48px 54px!important;background:rgba(247,243,236,.88)!important;backdrop-filter:blur(1.5px)!important}
+.az-lab-direction-info-inner{width:100%!important;max-width:420px!important;margin:auto!important;text-align:left!important;color:#30372f!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important}
+.az-lab-direction-info h2{margin:0 0 15px!important;text-align:center!important;font-size:26px!important;line-height:1.12!important;font-weight:600!important;color:#35493d!important}
+.az-lab-direction-kicker{margin:0 0 10px!important;font-size:12px!important;line-height:1.35!important;font-weight:600!important;color:#76684f!important}
+.az-lab-direction-info ul{margin:0 0 14px!important;padding-left:20px!important;display:grid!important;gap:7px!important}
+.az-lab-direction-info li{font-size:12px!important;line-height:1.38!important;font-weight:500!important}
+.az-lab-direction-info p{margin:0!important;padding-top:13px!important;border-top:1px solid rgba(181,150,98,.35)!important;font-size:12px!important;line-height:1.45!important;font-weight:500!important;text-align:center!important}
+.az-lab-direction-more{display:block!important;margin:18px auto 0!important;padding:8px 16px!important;border:0!important;border-bottom:1px solid rgba(68,99,79,.5)!important;background:transparent!important;color:#44634f!important;font:600 11px/1.2 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.04em!important;cursor:pointer!important}
+"""
+          if css_anchor not in text: raise SystemExit('CSS anchor missing')
+          text=text.replace(css_anchor,css,1)
+
+          path.write_text(text,encoding='utf-8')
+
+          # verify script syntax
+          m=re.search(r'<script>([\s\S]*)</script>',text)
+          Path('/tmp/lab.js').write_text(m.group(1),encoding='utf-8')
+          PY
+          node --check /tmp/lab.js
+          grep -q "const DIRECTION_INFO" interface-lab/index.html
+          grep -q "showDirectionInfo" interface-lab/index.html
+          grep -q "az-lab-direction-info" interface-lab/index.html
+          git diff --check
+
+      - name: Commit and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/az-lab-direction-info.yml
+          git add interface-lab/index.html
+          git commit -m "Add direction info panels to Interface Lab"
+          git push origin HEAD:feature/site-v1
