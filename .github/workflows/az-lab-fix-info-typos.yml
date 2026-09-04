@@ -1,0 +1,40 @@
+name: AZ Lab fix direction info typos
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/az-lab-fix-info-typos.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Fix approved text typos
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('interface-lab/index.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('рот часто остаБтся приоткрытым','рот часто остаётся приоткрытым')
+          s=s.replace('не как модную диеть, а с учётом','не как модную диету, а с учётом')
+          p.write_text(s,encoding='utf-8')
+          PY
+          grep -q "рот часто остаётся приоткрытым" interface-lab/index.html
+          grep -q "не как модную диету, а с учётом" interface-lab/index.html
+          git diff --check
+      - name: Commit and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/az-lab-fix-info-typos.yml
+          git add interface-lab/index.html
+          git commit -m "Fix approved direction info text typos"
+          git push origin HEAD:feature/site-v1
