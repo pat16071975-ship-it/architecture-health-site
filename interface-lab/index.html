@@ -36,9 +36,9 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: 12 рисунков внутри движущихся планет</div>
+  <div class="status" id="status">Черновик: лёгкое уплощение · графика по всей поверхности</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260904-1" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260904-2" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -58,18 +58,18 @@ const innerAngles=[180,270,0,90];
 const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];
 
 const PLANET_ARTS={
-  'ИГГТ':'/architecture-health-site/assets/lab-planets/planet-01-iggt.png?v=20260904-1',
-  'DIERS диагностика':'/architecture-health-site/assets/lab-planets/planet-02-diers.png?v=20260904-1',
-  'Функциональная стоматология':'/architecture-health-site/assets/lab-planets/planet-03-functional-dentistry.png?v=20260904-1',
-  'Нейропсихология':'/architecture-health-site/assets/lab-planets/planet-04-neuropsychology.png?v=20260904-1',
-  'Детская неврология':'/architecture-health-site/assets/lab-planets/planet-05-pediatric-neurology.png?v=20260904-1',
-  'Ортодонтия':'/architecture-health-site/assets/lab-planets/planet-06-orthodontics.png?v=20260904-1',
-  'Миофункциональная терапия':'/architecture-health-site/assets/lab-planets/planet-07-myofunctional.png?v=20260904-1',
-  'Превентивная медицина':'/architecture-health-site/assets/lab-planets/planet-08-preventive.png?v=20260904-1',
-  'Остеопатия':'/architecture-health-site/assets/lab-planets/planet-09-osteopathy.png?v=20260904-1',
-  'Гастроэнтерология':'/architecture-health-site/assets/lab-planets/planet-10-gastroenterology.png?v=20260904-1',
-  'Нутрициология':'/architecture-health-site/assets/lab-planets/planet-11-nutrition.png?v=20260904-1',
-  'Терапия':'/architecture-health-site/assets/lab-planets/planet-12-therapy.png?v=20260904-1',
+  'ИГГТ':'/architecture-health-site/assets/lab-planets/planet-01-iggt.png?v=20260904-2',
+  'DIERS диагностика':'/architecture-health-site/assets/lab-planets/planet-02-diers.png?v=20260904-2',
+  'Функциональная стоматология':'/architecture-health-site/assets/lab-planets/planet-03-functional-dentistry.png?v=20260904-2',
+  'Нейропсихология':'/architecture-health-site/assets/lab-planets/planet-04-neuropsychology.png?v=20260904-2',
+  'Детская неврология':'/architecture-health-site/assets/lab-planets/planet-05-pediatric-neurology.png?v=20260904-2',
+  'Ортодонтия':'/architecture-health-site/assets/lab-planets/planet-06-orthodontics.png?v=20260904-2',
+  'Миофункциональная терапия':'/architecture-health-site/assets/lab-planets/planet-07-myofunctional.png?v=20260904-2',
+  'Превентивная медицина':'/architecture-health-site/assets/lab-planets/planet-08-preventive.png?v=20260904-2',
+  'Остеопатия':'/architecture-health-site/assets/lab-planets/planet-09-osteopathy.png?v=20260904-2',
+  'Гастроэнтерология':'/architecture-health-site/assets/lab-planets/planet-10-gastroenterology.png?v=20260904-2',
+  'Нутрициология':'/architecture-health-site/assets/lab-planets/planet-11-nutrition.png?v=20260904-2',
+  'Терапия':'/architecture-health-site/assets/lab-planets/planet-12-therapy.png?v=20260904-2',
 };
 
 function norm(value){return String(value||'').toLowerCase().replace(/ё/g,'е').replace(/[–—-]/g,' ').replace(/\s+/g,' ').trim()}
@@ -90,7 +90,9 @@ function collectPlanets(doc){
     if(el.dataset.azOriginalHtml===undefined)el.dataset.azOriginalHtml=el.innerHTML;
     el.classList.add('az-lab-planet',orbitClass);
     const artUrl=PLANET_ARTS[name]||'';
-    el.innerHTML='<span class="az-lab-planet-art" aria-hidden="true"><img class="az-lab-planet-art-img" src="'+artUrl+'" alt=""></span><span class="az-lab-planet-label">'+el.dataset.azOriginalHtml+'</span>';
+    el.innerHTML='<span class="az-lab-planet-art" aria-hidden="true"></span><span class="az-lab-planet-label">'+el.dataset.azOriginalHtml+'</span>';
+    const art=el.querySelector('.az-lab-planet-art');
+    if(art)art.style.setProperty('--az-planet-mask','url("'+artUrl+'")');
     el.style.setProperty('transform','translate(-50%,-50%)','important');
     return el;
   }).filter(Boolean);
@@ -105,12 +107,12 @@ function drawOrbits(){
 .az-lab-orbit-host{position:relative!important}.az-lab-orbit-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}
 @media (min-width:1181px){
 .az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}
-.az-lab-orbit-host .direction{position:absolute!important;width:116px!important;height:92px!important;min-height:92px!important;padding:8px!important;border-radius:53% 47% 51% 49% / 47% 54% 46% 53%!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.6px!important;line-height:1.13!important;font-weight:600!important;letter-spacing:0!important;color:#30372f!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important;overflow:hidden!important;pointer-events:none!important;z-index:8!important;will-change:left,top!important;isolation:isolate!important}
-.az-lab-orbit-host .direction.az-lab-inner-planet{background:linear-gradient(180deg,rgba(239,246,240,.99),rgba(250,247,241,.99))!important;border:1.5px solid rgba(68,99,79,.34)!important}
-.az-lab-orbit-host .direction.az-lab-outer-planet{background:linear-gradient(180deg,rgba(250,247,241,.99),rgba(245,238,226,.99))!important;border:1.5px solid rgba(181,150,98,.48)!important}
-.az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-art{display:block!important;position:absolute!important;inset:0!important;border-radius:inherit!important;overflow:hidden!important;pointer-events:none!important;z-index:3!important;opacity:1!important;mix-blend-mode:normal!important}
-.az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-art-img{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;object-fit:fill!important;opacity:1!important;filter:none!important;mix-blend-mode:normal!important;pointer-events:none!important;z-index:3!important}
-.az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-label{position:relative!important;z-index:4!important;display:block!important;max-width:100%!important}
+.az-lab-orbit-host .direction{position:absolute!important;width:108px!important;height:102px!important;min-height:102px!important;padding:8px!important;border-radius:50%!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.4px!important;line-height:1.12!important;font-weight:600!important;letter-spacing:0!important;color:#30372f!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important;overflow:hidden!important;pointer-events:none!important;z-index:8!important;will-change:left,top!important;isolation:isolate!important}
+.az-lab-orbit-host .direction.az-lab-inner-planet{--az-planet-art-color:#44634f;background:radial-gradient(circle at 31% 27%,rgba(255,255,255,.78) 0,rgba(255,255,255,.22) 35%,rgba(255,255,255,0) 58%),linear-gradient(145deg,rgba(239,246,240,.99),rgba(250,247,241,.99) 64%,rgba(232,240,234,.98))!important;border:1.5px solid rgba(68,99,79,.50)!important}
+.az-lab-orbit-host .direction.az-lab-outer-planet{--az-planet-art-color:#b59662;background:radial-gradient(circle at 31% 27%,rgba(255,255,255,.76) 0,rgba(255,255,255,.20) 35%,rgba(255,255,255,0) 58%),linear-gradient(145deg,rgba(250,247,241,.99),rgba(245,238,226,.99) 64%,rgba(239,229,211,.98))!important;border:1.5px solid rgba(181,150,98,.62)!important}
+.az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-art{display:block!important;position:absolute!important;inset:0!important;border-radius:inherit!important;overflow:hidden!important;pointer-events:none!important;z-index:3!important;background-color:var(--az-planet-art-color)!important;opacity:.48!important;-webkit-mask-image:var(--az-planet-mask)!important;mask-image:var(--az-planet-mask)!important;-webkit-mask-repeat:no-repeat!important;mask-repeat:no-repeat!important;-webkit-mask-position:center!important;mask-position:center!important;-webkit-mask-size:136% 111%!important;mask-size:136% 111%!important;mix-blend-mode:normal!important}
+.az-lab-orbit-host .direction.az-lab-outer-planet .az-lab-planet-art{opacity:.52!important}
+.az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-label{position:relative!important;z-index:4!important;display:block!important;max-width:100%!important;text-shadow:0 0 3px rgba(250,247,241,.98),0 0 8px rgba(250,247,241,.82)!important}
 .az-lab-orbit-host .direction.az-lab-planet::before,.az-lab-orbit-host .direction.az-lab-planet::after{content:none!important;display:none!important}
 }
 @media (min-width:721px) and (max-width:1180px){.az-lab-orbit-host .stage{transform:scale(.568965517)!important;transform-origin:center center!important}}
@@ -120,8 +122,8 @@ function drawOrbits(){
   const outer=doc.createElementNS(ns,'ellipse');outer.setAttribute('cx',g.cx);outer.setAttribute('cy',g.cy);outer.setAttribute('rx',g.outerRx);outer.setAttribute('ry',g.outerRy);outer.setAttribute('fill','none');outer.setAttribute('stroke','#c9aa75');outer.setAttribute('stroke-width','1.15');outer.setAttribute('stroke-opacity','.58');outer.setAttribute('transform',`rotate(${g.outerTilt} ${g.cx} ${g.cy})`);svg.append(inner,outer);host.prepend(svg);
   if((doc.defaultView?.innerWidth||0)>=1181){const planets=collectPlanets(doc);setPlanetPositions(planets.inner,innerAngles,g.cx,g.cy,g.innerRx,g.innerRy,g.innerTilt,0);setPlanetPositions(planets.outer,outerAngles,g.cx,g.cy,g.outerRx,g.outerRy,g.outerTilt,0);startOrbitAnimation(doc,planets,g)}
 }
-function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260904-1&t='+Date.now()}
-function setMode(next){mode=next;modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: 12 рисунков внутри движущихся планет · 42/76 сек';reloadFrame()}
+function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260904-2&t='+Date.now()}
+function setMode(next){mode=next;modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: лёгкое уплощение · графика по всей поверхности · 42/76 сек';reloadFrame()}
 frame.addEventListener('load',()=>{if(mode==='draft')requestAnimationFrame(()=>requestAnimationFrame(drawOrbits))});modeButtons.forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));widthButtons.forEach(b=>b.addEventListener('click',()=>{widthButtons.forEach(x=>x.classList.remove('active'));b.classList.add('active');shell.style.width=b.dataset.width==='100%'?'100%':b.dataset.width+'px';if(mode==='draft')setTimeout(drawOrbits,220)}));document.getElementById('reload').addEventListener('click',reloadFrame);
 </script>
 </body>
