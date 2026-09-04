@@ -1,0 +1,142 @@
+name: Verify left placeholder badges live
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/verify-left-placeholders-live.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium
+
+      - name: Verify live geometry and capture screenshot
+        run: |
+          cat > verify-left-placeholders.cjs <<'JS'
+          const { chromium } = require('playwright');
+          const fs = require('node:fs');
+
+          (async () => {
+            const browser = await chromium.launch({headless: true});
+            const page = await browser.newPage({viewport: {width: 1800, height: 1100}, deviceScaleFactor: 1});
+            const baseUrl = 'https://pat16071975-ship-it.github.io/architecture-health-site/interface-lab/';
+            let deployed = false;
+
+            for (let attempt = 0; attempt < 36; attempt += 1) {
+              await page.goto(`${baseUrl}?v=20260904-11&t=${Date.now()}`, {waitUntil: 'domcontentloaded', timeout: 120000});
+              const html = await page.content();
+              if (html.includes('orbits-20260904-7') && html.includes('5 плашек-заглушек слева')) {
+                deployed = true;
+                break;
+              }
+              await page.waitForTimeout(5000);
+            }
+            if (!deployed) throw new Error('Updated Interface Lab was not deployed in time');
+
+            await page.waitForFunction(() => {
+              const frame = document.querySelector('iframe');
+              return frame && frame.contentDocument && frame.contentDocument.querySelectorAll('.az-lab-placeholder-badge').length === 5;
+            }, {timeout: 30000});
+            await page.waitForTimeout(1200);
+
+            const report = await page.evaluate(() => {
+              const doc = document.querySelector('iframe').contentDocument;
+              const stage = doc.querySelector('.stage');
+              const sourceSelectors = ['.side-menu-4','.side-menu-3','.side-menu-2','.side-menu-1','.specialists-badge'];
+              const sources = sourceSelectors.map(selector => doc.querySelector(selector));
+              const targets = [...doc.querySelectorAll('.az-lab-placeholder-badge')].sort((a,b) => Number(a.dataset.azPlaceholderIndex)-Number(b.dataset.azPlaceholderIndex));
+              const center = rect => ({x: rect.left + rect.width / 2, y: rect.top + rect.height / 2});
+              const stageCenter = center(stage.getBoundingClientRect());
+              return {
+                status: document.querySelector('#status')?.textContent,
+                frameUrl: document.querySelector('iframe')?.src,
+                viewport: {width: innerWidth, height: innerHeight},
+                existingRightTexts: [doc.querySelector('.specialists-badge'),doc.querySelector('.side-menu-1'),doc.querySelector('.side-menu-2'),doc.querySelector('.side-menu-3'),doc.querySelector('.side-menu-4')].map(el => el.textContent.trim()),
+                planetCount: doc.querySelectorAll('.az-lab-planet').length,
+                stageCenter,
+                placeholders: targets.map((target,index) => {
+                  const tr = target.getBoundingClientRect();
+                  const sr = sources[index].getBoundingClientRect();
+                  const tc = center(tr), sc = center(sr);
+                  const style = getComputedStyle(target);
+                  return {
+                    index: Number(target.dataset.azPlaceholderIndex),
+                    source: sourceSelectors[index],
+                    text: target.textContent.trim(),
+                    width: tr.width,
+                    height: tr.height,
+                    sourceWidth: sr.width,
+                    sourceHeight: sr.height,
+                    centerX: tc.x,
+                    centerY: tc.y,
+                    sourceCenterX: sc.x,
+                    sourceCenterY: sc.y,
+                    midpointErrorX: Math.abs((tc.x + sc.x) / 2 - stageCenter.x),
+                    midpointErrorY: Math.abs((tc.y + sc.y) / 2 - stageCenter.y),
+                    display: style.display,
+                    borderRadius: style.borderRadius,
+                    borderColor: style.borderColor,
+                    fontSize: style.fontSize
+                  };
+                })
+              };
+            });
+
+            if (report.placeholders.length !== 5) throw new Error(`Expected 5 placeholders, got ${report.placeholders.length}`);
+            const expectedRight = ['команда','о клинике','пациенту','лаборатория','контакты'];
+            if (JSON.stringify(report.existingRightTexts) !== JSON.stringify(expectedRight)) throw new Error(`Existing right badges changed: ${JSON.stringify(report.existingRightTexts)}`);
+            if (report.planetCount !== 12) throw new Error(`Expected 12 planets, got ${report.planetCount}`);
+            for (const item of report.placeholders) {
+              if (item.text !== 'заглушка') throw new Error(`Wrong placeholder text at ${item.index}: ${item.text}`);
+              if (Math.abs(item.width-item.sourceWidth) > 0.6 || Math.abs(item.height-item.sourceHeight) > 0.6) throw new Error(`Size mismatch at ${item.index}`);
+              if (item.midpointErrorX > 1 || item.midpointErrorY > 1) throw new Error(`Mirror alignment mismatch at ${item.index}: ${item.midpointErrorX}, ${item.midpointErrorY}`);
+              if (item.display === 'none') throw new Error(`Placeholder ${item.index} is hidden`);
+            }
+            for (let i = 1; i < report.placeholders.length; i += 1) {
+              if (report.placeholders[i].centerY <= report.placeholders[i-1].centerY) throw new Error('Left placeholders do not continue downward');
+              if (report.placeholders[i].centerX >= report.placeholders[i-1].centerX) throw new Error('Left placeholders do not continue leftward');
+            }
+
+            fs.writeFileSync('/tmp/left-placeholders-report.json', JSON.stringify(report, null, 2));
+            await page.screenshot({path: '/tmp/az-interface-lab-left-placeholders.png', fullPage: true});
+            await browser.close();
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          JS
+          node verify-left-placeholders.cjs
+          cat /tmp/left-placeholders-report.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: az-interface-lab-left-placeholders-live-check
+          path: |
+            /tmp/az-interface-lab-left-placeholders.png
+            /tmp/left-placeholders-report.json
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Remove temporary verification workflow
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f verify-left-placeholders.cjs
+          git rm .github/workflows/verify-left-placeholders-live.yml
+          git commit -m "Remove temporary left placeholder verification workflow"
+          git push origin HEAD:feature/site-v1
