@@ -1,0 +1,46 @@
+name: AZ Lab move close button
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/az-lab-move-close-button.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Move close button only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('interface-lab/index.html')
+          s=p.read_text()
+          old=".az-lab-direction-close{position:absolute!important;left:50%!important;right:auto!important;top:8px!important;transform:translateX(-50%)!important;width:92px!important;height:92px!important;"
+          new=".az-lab-direction-close{position:absolute!important;left:auto!important;right:28px!important;top:22px!important;transform:none!important;width:92px!important;height:92px!important;"
+          assert old in s, 'close-button marker not found'
+          s=s.replace(old,new,1)
+          s=s.replace('../?lab=orbits-20260904-20','../?lab=orbits-20260904-21')
+          for marker in [
+            'const INNER_DURATION=63000;',
+            'const OUTER_DURATION=114000;',
+            'const innerAngles=[180,270,0,90];',
+            'const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];',
+            'innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14'
+          ]:
+            assert marker in s, marker
+          p.write_text(s)
+          PY
+      - run: git diff --check
+      - name: Commit and self-remove
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add interface-lab/index.html
+          git rm .github/workflows/az-lab-move-close-button.yml
+          git commit -m "Move description close button away from title"
+          git push origin feature/site-v1
