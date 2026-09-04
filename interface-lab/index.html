@@ -36,9 +36,9 @@ html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;backg
     <button class="btn" data-width="100%" type="button">По ширине</button>
   </div>
   <button class="btn" id="reload" type="button">Обновить</button>
-  <div class="status" id="status">Черновик: обе группы плашек на 1 см ближе к оси</div>
+  <div class="status" id="status">Черновик: описания направлений в центральном круге</div>
 </header>
-<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260904-9" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
+<main class="workspace"><div class="frame-shell" id="shell"><iframe class="frame" id="frame" src="../?lab=orbits-20260904-10" title="Предпросмотр Архитектуры здоровья"></iframe></div></main>
 </div>
 <script>
 const frame=document.getElementById('frame');
@@ -56,6 +56,19 @@ const innerNames=['Функциональная стоматология','Ор�
 const outerNames=['ИГГТ','DIERS диагностика','Нейропсихология','Детская неврология','Миофункциональная терапия','Превентивная медицина','Гастроэнтерология','Нутрициология'];
 const innerAngles=[180,270,0,90];
 const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];
+
+const DIRECTION_INFO={
+  'Функциональная стоматология':{title:'Функциональная стоматология',items:['щёлкает, устаёт или напрягается челюсть','после ортодонтии или протезирования остался дискомфорт','неудобно жевать, хотя зубы выглядят нормально','напряжение в области лица и челюстей стало привычным'],summary:'Здесь оценивают не только зубы, но и работу челюстей, ВНЧС и мышц как единой функциональной системы.'},
+  'Ортодонтия':{title:'Ортодонтия',items:['зубы начали смещаться','вы сильно сжимаете или скрипите зубами','у ребёнка формируется неправильный прикус','ребёнок дышит ртом или часто держит рот приоткрытым'],summary:'Важно вовремя оценить развитие челюстей, дыхание, положение языка и мышечные привычки.'},
+  'Остеопатия':{title:'Остеопатия',items:['шея и плечи постоянно напряжены','хочется регулярно разминать спину или шею','дискомфорт в одном месте сопровождается напряжением в другом','неприятные ощущения давно стали привычными'],summary:'Задача — понять, как тело компенсирует ограничения и распределяет нагрузку между разными зонами.'},
+  'Терапия':{title:'Стоматология',items:['после лечения зубов красиво, но неудобно жевать','коронки или протезы ощущаются непривычно','зубы снова меняют положение','требуется сложное восстановление нескольких зубов'],summary:'Важно не только восстановить отдельный зуб, но и понять, как в целом должны работать зубы и челюсти.'},
+  'DIERS диагностика':{title:'DIERS-диагностика',items:['есть ощущение перекоса или асимметрии тела','спина быстро устаёт','постоянно чувствуется напряжение даже без выраженной боли','важно понять, как тело работает в движении'],summary:'Диагностика помогает увидеть осанку, распределение нагрузки и возможные компенсации тела.'},
+  'Миофункциональная терапия':{title:'Миофункциональная терапия',items:['язык часто находится между зубами','есть неправильное глотание','рот часто остаБтся приоткрытым','после исправления прикуса старые мышечные привычки сохраняются'],summary:'Работа направлена на функцию языка и мышц, чтобы поддерживать правильную работу зубочелюстной системы.'},
+  'Превентивная медицина':{title:'Превентивная медицина',items:['постоянно не хватает энергии','состояние постепенно меняется','появились привычные ощущения, которых раньше не было','хочется понимать здоровье заранее, а не только реагировать на болезнь'],summary:'Задача — определить, чему действительно стоит уделить внимание сейчас и что можно спокойно наблюдать.'},
+  'Гастроэнтерология':{title:'Гастроэнтерология',items:['после еды часто возникает тяжесть или вздутие','питание регулярно вызывает дискомфорт','после еды появляется выраженная сонливость','изменения питания не дают понятного результата'],summary:'Задача — разобраться в работе пищеварительной системы и понять, какие симптомы действительно требуют внимания.'},
+  'Нутрициология':{title:'Нутрициология',items:['постоянно тянет к сладкому','после еды хочется спать','энергии становится меньше','сложно понять, какое питание подходит именно вам'],summary:'Здесь питание рассматривают не как модную диеть, а с учётом состояния и особенностей конкретного человека.'},
+  'Детская неврология':{title:'Детская неврология',items:['ребёнок быстро устаёт или тяжело просыпается','стал хуже концентрироваться','часто жалуется на головную боль','появились тики, повторяющиеся движения или заметные изменения поведения'],summary:'Задача — понять, что является вариантом развития, за чем можно наблюдать, а чему стоит уделить внимание.'}
+};
 
 const PLANET_ARTS={
   'ИГГТ':'/architecture-health-site/assets/lab-planets/planet-01-iggt.png?v=20260904-3',
@@ -111,6 +124,30 @@ function addPlaceholderBadges(doc){
     page.appendChild(badge);
   });
 }
+function ensureDirectionInfoPanel(doc){
+  const stage=doc.querySelector('.stage');
+  if(!stage)return null;
+  let panel=stage.querySelector('.az-lab-direction-info');
+  if(panel)return panel;
+  panel=doc.createElement('div');
+  panel.className='az-lab-direction-info';
+  panel.innerHTML='<div class="az-lab-direction-info-inner"><h2></h2><div class="az-lab-direction-kicker">Стоит обратить внимание, если:</div><ul></ul><p></p><button type="button" class="az-lab-direction-more">Узнать подробнее</button></div>';
+  stage.appendChild(panel);
+  return panel;
+}
+function showDirectionInfo(doc,name){
+  if((doc.defaultView?.innerWidth||0)<1181)return;
+  const data=DIRECTION_INFO[name];
+  if(!data)return;
+  const stage=doc.querySelector('.stage'),panel=ensureDirectionInfoPanel(doc);
+  if(!stage||!panel)return;
+  panel.querySelector('h2').textContent=data.title;
+  panel.querySelector('ul').innerHTML=data.items.map(item=>'<li>'+item+'</li>').join('');
+  panel.querySelector('p').textContent=data.summary;
+  stage.classList.add('az-lab-info-open');
+  panel.classList.add('on');
+}
+
 function collectPlanets(doc){
   const byName=new Map();
   doc.querySelectorAll('.direction').forEach(el=>byName.set(norm(el.innerText||el.textContent),el));
@@ -126,6 +163,9 @@ function collectPlanets(doc){
     const art=el.querySelector('.az-lab-planet-art');
     if(art)art.style.setProperty('--az-planet-mask','url("'+artUrl+'")');
     el.style.setProperty('transform','translate(-50%,-50%)','important');
+    el.style.setProperty('pointer-events',DIRECTION_INFO[name]?'auto':'none','important');
+    el.style.setProperty('cursor',DIRECTION_INFO[name]?'pointer':'default','important');
+    if(DIRECTION_INFO[name])el.addEventListener('click',()=>showDirectionInfo(doc,name));
     return el;
   }).filter(Boolean);
   return{inner:prepare(innerNames,'az-lab-inner-planet'),outer:prepare(outerNames,'az-lab-outer-planet')};
@@ -146,6 +186,16 @@ function drawOrbits(){
 .az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-art{display:block!important;position:absolute!important;inset:0!important;border-radius:inherit!important;overflow:hidden!important;pointer-events:none!important;z-index:3!important;background-color:var(--az-planet-art-color)!important;opacity:.27!important;filter:blur(.12px) saturate(.82)!important;-webkit-mask-image:var(--az-planet-mask)!important;mask-image:var(--az-planet-mask)!important;-webkit-mask-repeat:no-repeat!important;mask-repeat:no-repeat!important;-webkit-mask-position:center!important;mask-position:center!important;-webkit-mask-size:134% 109%!important;mask-size:134% 109%!important;mix-blend-mode:normal!important}
 .az-lab-orbit-host .direction.az-lab-outer-planet .az-lab-planet-art{opacity:.30!important}
 .az-lab-orbit-host .direction.az-lab-planet .az-lab-planet-label{position:relative!important;z-index:4!important;display:block!important;max-width:100%!important;text-shadow:0 0 3px rgba(250,247,241,.98),0 0 8px rgba(250,247,241,.82)!important}
+.az-lab-orbit-host .stage .az-lab-direction-info{display:none!important}
+.az-lab-orbit-host .stage.az-lab-info-open .vit-img{opacity:.045!important;filter:blur(.2px) sepia(.08) saturate(.8) contrast(.95) brightness(1.08)!important}
+.az-lab-orbit-host .stage .az-lab-direction-info.on{display:flex!important;position:absolute!important;inset:0!important;z-index:10!important;align-items:center!important;justify-content:center!important;padding:48px 54px!important;background:rgba(247,243,236,.88)!important;backdrop-filter:blur(1.5px)!important}
+.az-lab-direction-info-inner{width:100%!important;max-width:420px!important;margin:auto!important;text-align:left!important;color:#30372f!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important}
+.az-lab-direction-info h2{margin:0 0 15px!important;text-align:center!important;font-size:26px!important;line-height:1.12!important;font-weight:600!important;color:#35493d!important}
+.az-lab-direction-kicker{margin:0 0 10px!important;font-size:12px!important;line-height:1.35!important;font-weight:600!important;color:#76684f!important}
+.az-lab-direction-info ul{margin:0 0 14px!important;padding-left:20px!important;display:grid!important;gap:7px!important}
+.az-lab-direction-info li{font-size:12px!important;line-height:1.38!important;font-weight:500!important}
+.az-lab-direction-info p{margin:0!important;padding-top:13px!important;border-top:1px solid rgba(181,150,98,.35)!important;font-size:12px!important;line-height:1.45!important;font-weight:500!important;text-align:center!important}
+.az-lab-direction-more{display:block!important;margin:18px auto 0!important;padding:8px 16px!important;border:0!important;border-bottom:1px solid rgba(68,99,79,.5)!important;background:transparent!important;color:#44634f!important;font:600 11px/1.2 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.04em!important;cursor:pointer!important}
 .az-lab-orbit-host .direction.az-lab-planet::before,.az-lab-orbit-host .direction.az-lab-planet::after{content:none!important;display:none!important}
 }
 @media (min-width:721px) and (max-width:1180px){.az-lab-orbit-host .stage{transform:scale(.568965517)!important;transform-origin:center center!important}}
@@ -155,8 +205,8 @@ function drawOrbits(){
   const outer=doc.createElementNS(ns,'ellipse');outer.setAttribute('cx',g.cx);outer.setAttribute('cy',g.cy);outer.setAttribute('rx',g.outerRx);outer.setAttribute('ry',g.outerRy);outer.setAttribute('fill','none');outer.setAttribute('stroke','#c9aa75');outer.setAttribute('stroke-width','1.15');outer.setAttribute('stroke-opacity','.58');outer.setAttribute('transform',`rotate(${g.outerTilt} ${g.cx} ${g.cy})`);svg.append(inner,outer);host.prepend(svg);
   if((doc.defaultView?.innerWidth||0)>=1181){const planets=collectPlanets(doc);setPlanetPositions(planets.inner,innerAngles,g.cx,g.cy,g.innerRx,g.innerRy,g.innerTilt,0);setPlanetPositions(planets.outer,outerAngles,g.cx,g.cy,g.outerRx,g.outerRy,g.outerTilt,0);startOrbitAnimation(doc,planets,g)}
 }
-function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260904-9&t='+Date.now()}
-function setMode(next){mode=next;modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: обе группы плашек на 1 см ближе к оси · 63/114 сек';reloadFrame()}
+function reloadFrame(){stopOrbitAnimation();frame.src='../?lab=orbits-20260904-10&t='+Date.now()}
+function setMode(next){mode=next;modeButtons.forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));status.textContent=mode==='base'?'Оригинал без изменений':'Черновик: описания направлений в центральном круге · 63/114 сек';reloadFrame()}
 frame.addEventListener('load',()=>{if(mode==='draft')requestAnimationFrame(()=>requestAnimationFrame(drawOrbits))});modeButtons.forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));widthButtons.forEach(b=>b.addEventListener('click',()=>{widthButtons.forEach(x=>x.classList.remove('active'));b.classList.add('active');shell.style.width=b.dataset.width==='100%'?'100%':b.dataset.width+'px';if(mode==='draft')setTimeout(drawOrbits,220)}));document.getElementById('reload').addEventListener('click',reloadFrame);
 </script>
 </body>
