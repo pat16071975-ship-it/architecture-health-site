@@ -1,0 +1,116 @@
+name: Verify live planet drawings
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/verify-live-planet-drawings.yml
+
+permissions:
+  contents: write
+
+env:
+  LIVE_URL: https://pat16071975-ship-it.github.io/architecture-health-site/interface-lab/?v=20260904-visual-check-1
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+
+      - name: Wait for the fixed Interface Lab deployment
+        run: |
+          for attempt in $(seq 1 36); do
+            body="$(curl -fsSL "$LIVE_URL" || true)"
+            if printf '%s' "$body" | grep -Fq '12 рисунков внутри движущихся планет'; then
+              echo "Fixed viewer is live."
+              exit 0
+            fi
+            echo "Waiting for live viewer, attempt $attempt/36..."
+            sleep 5
+          done
+          echo "Fixed viewer marker did not appear in time."
+          exit 1
+
+      - name: Verify all 12 images in a real browser and capture screenshot
+        run: |
+          mkdir -p /tmp/az-visual-check
+          cd /tmp/az-visual-check
+          npm init -y >/dev/null 2>&1
+          npm install puppeteer-core@24 --no-save --no-audit --no-fund >/dev/null
+          cat > verify.mjs <<'JS'
+          import fs from 'node:fs';
+          import puppeteer from 'puppeteer-core';
+
+          const executablePath = process.env.CHROME_PATH || '/usr/bin/google-chrome';
+          const browser = await puppeteer.launch({
+            executablePath,
+            headless: true,
+            args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
+            defaultViewport: { width: 1517, height: 907, deviceScaleFactor: 1 }
+          });
+
+          try {
+            const page = await browser.newPage();
+            await page.goto(process.env.LIVE_URL, { waitUntil: 'networkidle2', timeout: 90000 });
+            await new Promise(resolve => setTimeout(resolve, 3500));
+
+            const siteFrame = page.frames().find(frame => frame.url().includes('/architecture-health-site/?lab=orbits-20260904-1'));
+            if (!siteFrame) throw new Error('Site iframe with the fixed cache marker was not found');
+
+            await siteFrame.waitForSelector('.az-lab-planet-art-img', { timeout: 30000 });
+            const report = await siteFrame.evaluate(() => {
+              const images = [...document.querySelectorAll('.az-lab-planet-art-img')];
+              return images.map((img, index) => ({
+                index: index + 1,
+                src: img.currentSrc || img.src,
+                complete: img.complete,
+                naturalWidth: img.naturalWidth,
+                naturalHeight: img.naturalHeight,
+                renderedWidth: img.getBoundingClientRect().width,
+                renderedHeight: img.getBoundingClientRect().height,
+                opacity: getComputedStyle(img).opacity,
+                display: getComputedStyle(img).display,
+                visibility: getComputedStyle(img).visibility,
+                zIndex: getComputedStyle(img).zIndex
+              }));
+            });
+
+            if (report.length !== 12) throw new Error(`Expected 12 planet images, found ${report.length}`);
+            const bad = report.filter(item => !item.complete || item.naturalWidth !== 116 || item.naturalHeight !== 92 || item.renderedWidth < 100 || item.renderedHeight < 80 || item.opacity === '0' || item.display === 'none' || item.visibility === 'hidden');
+            if (bad.length) throw new Error(`Planet images failed browser checks: ${JSON.stringify(bad)}`);
+
+            fs.writeFileSync('planet-browser-report.json', JSON.stringify(report, null, 2));
+            await page.screenshot({ path: 'az-interface-lab-live.png', fullPage: false });
+            console.log(JSON.stringify(report, null, 2));
+          } finally {
+            await browser.close();
+          }
+          JS
+          export CHROME_PATH="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_PATH"
+          node verify.mjs
+          cp az-interface-lab-live.png "$GITHUB_WORKSPACE/az-interface-lab-live.png"
+          cp planet-browser-report.json "$GITHUB_WORKSPACE/planet-browser-report.json"
+
+      - name: Upload visual verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: az-interface-lab-live-planet-check
+          path: |
+            az-interface-lab-live.png
+            planet-browser-report.json
+          retention-days: 3
+
+      - name: Remove temporary verification workflow
+        run: |
+          rm -f .github/workflows/verify-live-planet-drawings.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Remove temporary live planet verification workflow"
+          git push origin HEAD:feature/site-v1 || (git pull --rebase origin feature/site-v1 && git push origin HEAD:feature/site-v1)
