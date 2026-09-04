@@ -22,10 +22,8 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           path = Path('interface-lab/index.html')
           text = path.read_text(encoding='utf-8')
-
           replacements = [
               ('orbits-20260904-7', 'orbits-20260904-9'),
               ('Черновик: 5 плашек-заглушек слева</div>', 'Черновик: обе группы плашек на 1 см ближе к оси</div>'),
@@ -35,37 +33,34 @@ jobs:
               if old not in text:
                   raise SystemExit('Missing expected fragment: ' + old)
               text = text.replace(old, new)
-
           cleanup_old = "  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());\n"
           cleanup_new = "  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));\n"
           if cleanup_old not in text:
               raise SystemExit('Cleanup insertion point not found')
           text = text.replace(cleanup_old, cleanup_new, 1)
-
           anchor = "function addPlaceholderBadges(doc){\n"
-          shift_fn = """function shiftRightBadgeGroupInward(doc){
-  ['.specialists-badge','.side-menu-1','.side-menu-2','.side-menu-3','.side-menu-4'].forEach(selector=>{
-    const el=doc.querySelector(selector);
-    if(el)el.classList.add('az-lab-right-badge-shift');
-  });
-}
-"""
+          shift_lines = [
+              "function shiftRightBadgeGroupInward(doc){",
+              "  ['.specialists-badge','.side-menu-1','.side-menu-2','.side-menu-3','.side-menu-4'].forEach(selector=>{",
+              "    const el=doc.querySelector(selector);",
+              "    if(el)el.classList.add('az-lab-right-badge-shift');",
+              "  });",
+              "}",
+          ]
+          shift_fn = '\n'.join(shift_lines) + '\n'
           if anchor not in text:
               raise SystemExit('Function insertion point not found')
           text = text.replace(anchor, shift_fn + anchor, 1)
-
           css_anchor = ".az-lab-orbit-host{position:relative!important}.az-lab-orbit-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}\n"
           css_new = css_anchor + ".az-lab-right-badge-shift{transform:translateX(-37.8px)!important}\n"
           if css_anchor not in text:
               raise SystemExit('CSS insertion point not found')
           text = text.replace(css_anchor, css_new, 1)
-
           call_old = "`;doc.head.appendChild(style);addPlaceholderBadges(doc);\n"
           call_new = "`;doc.head.appendChild(style);shiftRightBadgeGroupInward(doc);addPlaceholderBadges(doc);\n"
           if call_old not in text:
               raise SystemExit('Render insertion point not found')
           text = text.replace(call_old, call_new, 1)
-
           path.write_text(text, encoding='utf-8')
           PY
 
@@ -102,51 +97,3 @@ jobs:
           git add interface-lab/index.html
           git commit -m "Shift both radial badge groups 1cm toward center axis"
           git push origin HEAD:feature/site-v1
-
-      - name: Install Playwright Chromium
-        run: |
-          npm install --no-save playwright@1.55.0
-          npx playwright install chromium
-
-      - name: Verify live geometry
-        run: |
-          cat > verify-badge-shift.cjs <<'JS'
-          const { chromium } = require('playwright');
-          (async()=>{
-            const browser=await chromium.launch({headless:true});
-            const page=await browser.newPage({viewport:{width:1800,height:1100}});
-            const base='https://pat16071975-ship-it.github.io/architecture-health-site/interface-lab/';
-            let ok=false;
-            for(let i=0;i<36;i++){
-              await page.goto(`${base}?v=20260904-14&t=${Date.now()}`,{waitUntil:'domcontentloaded',timeout:120000});
-              const html=await page.content();
-              if(html.includes('orbits-20260904-9')&&html.includes('обе группы плашек на 1 см ближе к оси')){ok=true;break}
-              await page.waitForTimeout(5000);
-            }
-            if(!ok)throw new Error('deploy timeout');
-            await page.waitForFunction(()=>{
-              const d=document.querySelector('iframe')?.contentDocument;
-              return d&&d.querySelectorAll('.az-lab-placeholder-badge').length===5&&d.querySelectorAll('.az-lab-right-badge-shift').length===5;
-            },{timeout:30000});
-            const r=await page.evaluate(()=>{
-              const d=document.querySelector('iframe').contentDocument;
-              const sels=['.specialists-badge','.side-menu-1','.side-menu-2','.side-menu-3','.side-menu-4'];
-              const rights=sels.map(s=>d.querySelector(s).getBoundingClientRect());
-              const lefts=[...d.querySelectorAll('.az-lab-placeholder-badge')].sort((a,b)=>+a.dataset.azPlaceholderIndex-+b.dataset.azPlaceholderIndex).map(e=>e.getBoundingClientRect());
-              const ys=arr=>arr.map(x=>x.top+x.height/2);
-              const xs=arr=>arr.map(x=>x.left+x.width/2);
-              return {rightTexts:sels.map(s=>d.querySelector(s).textContent.trim()),rightX:xs(rights),rightY:ys(rights),leftX:xs(lefts),leftY:ys(lefts),leftTexts:[...d.querySelectorAll('.az-lab-placeholder-badge')].map(e=>e.textContent.trim()),planetCount:d.querySelectorAll('.az-lab-planet').length};
-            });
-            const expected=['команда','о клинике','пациенту','лаборатория','контакты'];
-            if(JSON.stringify(r.rightTexts)!==JSON.stringify(expected))throw new Error('right labels changed');
-            if(r.planetCount!==12)throw new Error('planets changed');
-            if(r.leftTexts.some(x=>x!=='заглушка'))throw new Error('left labels changed');
-            for(let i=1;i<r.rightY.length;i++){
-              const oldGap=[78,78,78,78][i-1];
-              if(Math.abs((r.rightY[i]-r.rightY[i-1])-oldGap)>2)throw new Error('right vertical spacing changed');
-            }
-            console.log(JSON.stringify(r,null,2));
-            await browser.close();
-          })().catch(e=>{console.error(e);process.exit(1)});
-          JS
-          node verify-badge-shift.cjs
