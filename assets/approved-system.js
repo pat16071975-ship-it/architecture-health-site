@@ -1,4 +1,5 @@
 (()=>{
+if(new URLSearchParams(window.location.search).has('lab'))return;
 const INNER_DURATION=63000,OUTER_DURATION=114000;
 const innerNames=['Функциональная стоматология','Ортодонтия','Остеопатия','Терапия'];
 const outerNames=['ИГГТ','DIERS диагностика','Нейропсихология','Детская неврология','Миофункциональная терапия','Превентивная медицина','Гастроэнтерология','Нутрициология'];
