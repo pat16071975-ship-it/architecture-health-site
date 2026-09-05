@@ -1,0 +1,33 @@
+name: AZ Lab wire functional dentistry detail
+on:
+  push:
+    branches: [feature/site-v1]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Wire detail page
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('interface-lab/index.html')
+          s=p.read_text()
+          old="  panel.querySelector('.az-lab-direction-close').addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();closeDirectionInfo(doc)});\n  host.appendChild(panel);"
+          new="  panel.querySelector('.az-lab-direction-close').addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();closeDirectionInfo(doc)});\n  const more=panel.querySelector('.az-lab-direction-more');if(more&&name==='Функциональная стоматология')more.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();stopOrbitAnimation();frame.src='./functional-dentistry.html?v=20260905-1';status.textContent='Черновик страницы: Функциональная стоматология'});\n  host.appendChild(panel);"
+          if old not in s:
+              raise SystemExit('Expected insertion point not found')
+          p.write_text(s.replace(old,new,1))
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add interface-lab/index.html
+          git rm .github/workflows/az-lab-wire-functional-detail.yml
+          git commit -m "Connect functional dentistry detail page in Interface Lab"
+          git push origin HEAD:feature/site-v1
