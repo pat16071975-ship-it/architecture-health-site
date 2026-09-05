@@ -136,9 +136,8 @@ function showDirectionInfo(doc,name){
   panel.style.setProperty('top',(stageRect.top-hostRect.top)+'px','important');
   panel.style.setProperty('width',stageRect.width+'px','important');
   panel.style.setProperty('height',stageRect.height+'px','important');
-  panel.innerHTML='<button class="az-lab-direction-close" type="button" aria-label="Закрыть описание">×</button><div class="az-lab-direction-info-inner"><h2>'+info.title+'</h2><p class="az-lab-direction-lead">Стоит обратить внимание, если:</p><ul>'+info.items.map(item=>'<li>'+item+'</li>').join('')+'</ul><p class="az-lab-direction-summary">'+info.summary+'</p><button class="az-lab-direction-more" type="button">Узнать подробнее</button></div>';
+  panel.innerHTML='<button class="az-lab-direction-close" type="button" aria-label="Закрыть описание">×</button><div class="az-lab-direction-info-inner"><h2>'+info.title+'</h2><p class="az-lab-direction-lead">Стоит обратить внимание, если:</p><ul>'+info.items.map(item=>'<li>'+item+'</li>').join('')+'</ul><p class="az-lab-direction-summary">'+info.summary+'</p><a class="az-lab-direction-more" href="functional-dentistry.html" target="_top">Узнать подробнее</a></div>';
   panel.querySelector('.az-lab-direction-close').addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();closeDirectionInfo(doc)});
-  const more=panel.querySelector('.az-lab-direction-more');if(more&&name==='Функциональная стоматология')more.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();stopOrbitAnimation();frame.src='./functional-dentistry.html?v=20260905-1';status.textContent='Черновик страницы: Функциональная стоматология'});
   host.appendChild(panel);
 }
 function enableDirectionInfo(doc,planets){planets.forEach(el=>{const name=el.dataset.azDirectionName;const handler=event=>{event.preventDefault();event.stopImmediatePropagation();if(DIRECTION_INFO[name])showDirectionInfo(doc,name)};el._azDirectionHandler=handler;el.addEventListener('click',handler,true)})}
