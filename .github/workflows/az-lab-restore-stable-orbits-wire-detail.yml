@@ -1,0 +1,35 @@
+name: AZ Lab restore stable orbits and wire detail
+on:
+  push:
+    branches: [feature/site-v1]
+    paths: ['.github/workflows/az-lab-restore-stable-orbits-wire-detail.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Restore approved Interface Lab geometry and wire only detail link
+        run: |
+          git show 7d8aad0ed1d5bda644dddf3f00f11e6d3719ff3e:interface-lab/index.html > interface-lab/index.html
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('interface-lab/index.html')
+          s=p.read_text()
+          old='<button class="az-lab-direction-more" type="button">Узнать подробнее</button>'
+          new='<a class="az-lab-direction-more" href="functional-dentistry.html" target="_top">Узнать подробнее</a>'
+          if s.count(old)!=1:
+              raise SystemExit(f'Expected exactly one detail button template, found {s.count(old)}')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          git rm .github/workflows/az-lab-restore-stable-orbits-wire-detail.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add interface-lab/index.html
+          git commit -m 'Restore approved Interface Lab geometry and wire detail link only'
+          git push origin HEAD:feature/site-v1
