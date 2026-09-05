@@ -1,0 +1,38 @@
+name: AZ fix functional dentistry route
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - '.github/workflows/az-fix-functional-route.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+      - name: Update only detail link
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('interface-lab/index.html')
+          s=p.read_text()
+          old='href="functional-dentistry.html" target="_top"'
+          new='href="functional-dentistry/" target="_top"'
+          if old not in s:
+              raise SystemExit('expected old link not found')
+          if s.count(old)!=1:
+              raise SystemExit(f'unexpected old link count: {s.count(old)}')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - name: Commit link-only change and remove workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/az-fix-functional-route.yml
+          git add interface-lab/index.html
+          git diff --cached --exit-code && exit 1 || true
+          git commit -m 'Point functional dentistry detail to folder route'
+          git push origin feature/site-v1
