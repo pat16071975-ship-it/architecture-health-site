@@ -16,7 +16,7 @@ body{min-height:100vh;overflow-x:hidden}
 .top{display:grid;grid-template-columns:220px 1fr 220px;gap:24px;align-items:start;position:relative;z-index:10}
 .left,.right{display:flex;flex-direction:column;align-items:center;position:relative}
 .logo{width:188px;height:188px;object-fit:contain}
-.founder{width:156px;height:156px;object-fit:cover;background:transparent;border:none;border-radius:0;outline:none;box-shadow:none;mix-blend-mode:multiply;filter:brightness(1.035) contrast(.985) saturate(.97) sepia(.018);opacity:.985;-webkit-mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 6%,#000 94%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 6%,#000 94%,transparent 100%);mask-composite:intersect}
+.founder{width:156px;height:156px;object-fit:cover!important;background:transparent!important;border:none!important;border-radius:0!important;outline:none!important;box-shadow:none!important;mix-blend-mode:multiply!important;filter:brightness(1.035) contrast(.985) saturate(.97) sepia(.018)!important;opacity:.985!important;-webkit-mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 6%,#000 94%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%),linear-gradient(to bottom,transparent 0,#000 6%,#000 94%,transparent 100%);mask-composite:intersect}
 .caption{margin-top:10px;text-align:center;font-size:14px;line-height:1.35;color:#515951}
 .caption strong{color:var(--ink);font-weight:600}
 .clinic-contact{margin-top:10px;text-align:center;color:#394139}
@@ -29,19 +29,16 @@ body{min-height:100vh;overflow-x:hidden}
 .az-ecg-inline{flex:0 0 76px;width:76px;height:17px;display:block;overflow:visible}
 h1{margin:7px 0 0;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif;font-size:68px;font-weight:500;line-height:1.08;letter-spacing:-.035em}
 .rule{width:220px;height:1px;margin:12px auto 0;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
-
 .home-shell{position:relative;min-height:610px;margin-top:20px;display:flex;align-items:center;justify-content:center;padding:34px 430px 34px 250px}
 .menu-column{position:relative;z-index:5;width:340px;display:grid;gap:18px;transform:translateY(-84px)}
 .menu-btn{width:100%;min-height:60px;padding:15px 24px;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid rgba(181,150,98,.42);border-radius:10px;background:rgba(250,247,241,.96);box-shadow:0 9px 24px rgba(71,58,38,.08);backdrop-filter:blur(7px);color:#354039;font:600 16px/1.15 'Montserrat',Inter,Segoe UI,Arial,sans-serif;letter-spacing:.005em;text-decoration:none;transition:border-color .18s,background .18s,box-shadow .18s,transform .18s}
 .menu-btn.active{cursor:pointer}
 .menu-btn.active:hover,.menu-btn.active:focus-visible{outline:0;border-color:rgba(68,99,79,.55);background:#fbf8f2;box-shadow:0 12px 30px rgba(71,58,38,.12);transform:translateY(-1px);color:var(--green)}
 .menu-btn.placeholder{opacity:.58;cursor:default}
-
 .vit-shell{position:absolute;right:54px;top:calc(50% - 84px);width:360px;height:360px;transform:translateY(-50%);border-radius:50%;background:radial-gradient(circle at 50% 44%,#f8f4eb 0,#f2eadc 68%,#ece1d0 100%);border:1px solid rgba(181,150,98,.42);box-shadow:0 18px 60px rgba(76,58,34,.09);overflow:hidden}
 .vit-shell:before{content:'';position:absolute;inset:26px;border-radius:50%;border:1px solid rgba(181,150,98,.36);z-index:3;pointer-events:none}
 .vit-shell:after{content:'';position:absolute;inset:-20px;border-radius:50%;border:1px solid rgba(181,150,98,.14);z-index:0;pointer-events:none}
 .vit-img{position:absolute;left:50%;top:53%;width:98%;height:98%;object-fit:cover;object-position:center 52%;transform:translate(-50%,-50%);filter:sepia(.08) saturate(.9) contrast(.97) brightness(1.04);mix-blend-mode:multiply}
-
 @media(max-width:1180px){
   .page{width:1000px;max-width:96vw}
   .top{grid-template-columns:160px 1fr 160px}
@@ -88,7 +85,6 @@ h1{margin:7px 0 0;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif;font-
         <div class="clinic-hours">Пн-Пт — 08:00—21:00,<br>Сб-Вс — 09:00—21:00</div>
       </div>
     </div>
-
     <div class="center">
       <div class="az-title-stack">
         <div class="az-system-clinic-label">
@@ -102,13 +98,11 @@ h1{margin:7px 0 0;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif;font-
       </div>
       <div class="rule"></div>
     </div>
-
     <div class="right">
       <img class="founder" src="../assets/founder-site.webp" alt="Зубачёв Роман Николаевич">
       <div class="caption">Основатель клиники<br><strong>Зубачёв Роман Николаевич</strong></div>
     </div>
   </header>
-
   <section class="home-shell" aria-label="Разделы AZ-BAZE">
     <nav class="menu-column" aria-label="Оглавление">
       <a class="menu-btn active" href="../reports/">Отчёты</a>
@@ -117,7 +111,6 @@ h1{margin:7px 0 0;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif;font-
       <div class="menu-btn placeholder" aria-disabled="true">Раздел в разработке</div>
       <div class="menu-btn placeholder" aria-disabled="true">Раздел в разработке</div>
     </nav>
-
     <div class="vit-shell" aria-hidden="true">
       <img class="vit-img" src="../assets/vitruvian-original.jpg?v=20260827-1" alt="">
     </div>
