@@ -107,14 +107,26 @@ h1{margin:7px 0 0;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif;font-
     <nav class="menu-column" aria-label="Оглавление">
       <a class="menu-btn active" href="../reports/">Отчёты</a>
       <a class="menu-btn active" href="#knowledge" id="knowledge">База знаний</a>
-      <div class="menu-btn placeholder" aria-disabled="true">Рабочие контакты</div>
-      <div class="menu-btn placeholder" aria-disabled="true">Дни рождения сотрудников</div>
-      <div class="menu-btn placeholder" aria-disabled="true">Раздел в разработке</div>
+      <div class="menu-btn placeholder" data-section="section3" aria-disabled="true" hidden>Рабочие контакты</div>
+      <div class="menu-btn placeholder" data-section="section4" aria-disabled="true" hidden>Дни рождения сотрудников</div>
+      <div class="menu-btn placeholder" data-section="section5" aria-disabled="true" hidden>Раздел в разработке</div>
     </nav>
     <div class="vit-shell" aria-hidden="true">
       <img class="vit-img" src="../assets/vitruvian-original.jpg?v=20260827-1" alt="">
     </div>
   </section>
 </main>
+<script>
+fetch('/api/me',{credentials:'same-origin'})
+  .then(r=>r.ok?r.json():Promise.reject())
+  .then(me=>{
+    const allowed=new Set(me.permissions||[]);
+    document.querySelectorAll('[data-section]').forEach(el=>{
+      if(allowed.has(el.dataset.section)) el.hidden=false;
+      else el.remove();
+    });
+  })
+  .catch(()=>document.querySelectorAll('[data-section]').forEach(el=>el.remove()));
+</script>
 </body>
 </html>
