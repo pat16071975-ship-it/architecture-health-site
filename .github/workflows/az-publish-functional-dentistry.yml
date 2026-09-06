@@ -1,0 +1,58 @@
+name: AZ publish functional dentistry
+on:
+  push:
+    branches: [feature/site-v1]
+    paths: ['.github/workflows/az-publish-functional-dentistry.yml']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Publish approved page and wire main CTA
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          src = Path('interface-lab/functional-dentistry/index.html')
+          dst = Path('functional-dentistry/index.html')
+          if not src.exists():
+              raise SystemExit('Source functional dentistry page not found')
+
+          html = src.read_text(encoding='utf-8')
+          if 'functional-dentistry-calm-approved.webp?v=20260906-5' not in html:
+              raise SystemExit('Approved calm visual marker not found in source page')
+          html = html.replace('../../assets/', '../assets/')
+          html = html.replace('onclick="history.back()"', 'onclick="location.href=\'../\'"')
+          dst.parent.mkdir(parents=True, exist_ok=True)
+          dst.write_text(html, encoding='utf-8')
+
+          js_path = Path('assets/approved-system.js')
+          js = js_path.read_text(encoding='utf-8')
+          old = "panel.querySelector('.az-approved-direction-close').addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();closeDirectionInfo()});host.appendChild(panel)}"
+          new = "panel.querySelector('.az-approved-direction-close').addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();closeDirectionInfo()});const more=panel.querySelector('.az-approved-direction-more');if(more&&name==='Функциональная стоматология')more.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation();window.location.href='functional-dentistry/'});host.appendChild(panel)}"
+          if old not in js:
+              raise SystemExit('Main direction-card hook marker not found')
+          js = js.replace(old, new, 1)
+          js_path.write_text(js, encoding='utf-8')
+
+          # Safety checks: approved orbit geometry/speeds must remain untouched.
+          for marker in [
+              'const INNER_DURATION=63000,OUTER_DURATION=114000;',
+              'innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14'
+          ]:
+              if marker not in js:
+                  raise SystemExit('Protected orbit marker changed/missing: ' + marker)
+          PY
+      - name: Commit published page
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/az-publish-functional-dentistry.yml
+          git add functional-dentistry/index.html assets/approved-system.js
+          git commit -m 'Publish approved functional dentistry page'
+          git push origin feature/site-v1
