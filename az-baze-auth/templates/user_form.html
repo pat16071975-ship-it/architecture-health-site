@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <div class="row between"><h2 class="section-title">{{ title }}</h2><a class="btn" href="/admin">Назад</a></div>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="field"><label>ФИО</label><input name="full_name" value="{{ user['full_name'] if user else '' }}" required></div>
+    <div class="field"><label>E-mail</label><input name="email" type="email" value="{{ user['email'] if user else '' }}" required></div>
+    <div class="checks">
+      <label class="check"><input type="checkbox" name="is_admin" value="1" {% if user and user['is_admin'] %}checked{% endif %}> Администратор — полный доступ</label>
+      {% if user %}<label class="check"><input type="checkbox" name="active" value="1" {% if user['active'] %}checked{% endif %}> Учётная запись активна</label>{% endif %}
+    </div>
+    <h3 style="margin:24px 0 8px;font-size:15px">Доступ к разделам</h3>
+    <div class="checks">
+      {% for key,label in sections %}<label class="check"><input type="checkbox" name="perm_{{ key }}" value="1" {% if key in current_permissions %}checked{% endif %}> {{ label }}</label>{% endfor %}
+    </div>
+    <p class="muted">Для администратора галочки разделов не ограничивают доступ: администратор всегда видит всё.</p>
+    <button class="btn primary" type="submit">{% if user %}Сохранить права{% else %}Создать пользователя{% endif %}</button>
+  </form>
+</div>
+{% endblock %}
