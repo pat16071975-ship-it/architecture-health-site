@@ -1,8 +1,10 @@
-name: AZ functional dentistry calm photo
-on:
+name: AZ calm dentistry photo
+"on":
   push:
-    branches: [feature/site-v1]
-    paths: ['.github/workflows/az-functional-dentistry-calm-photo.yml']
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/az-functional-dentistry-calm-photo.yml
 permissions:
   contents: write
 jobs:
@@ -12,27 +14,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feature/site-v1
-      - name: Patch only functional dentistry hero visual
+      - name: Patch detail page only
+        shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('interface-lab/functional-dentistry/index.html')
-          s=p.read_text()
-          old='''<div class="visual"><span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span><div class="photo-shell"><div class="photo"><img src="https://optim.tildacdn.com/tild3864-3837-4037-a134-343937613762/-/resize/820x/-/format/webp/DSCF0409JPG.webp" alt="Функциональная стоматология"></div></div><div class="visual-tag tag-1"><span class="tag-dot"></span>ВНЧС и мышцы</div><div class="visual-tag tag-2"><span class="tag-dot"></span>Прикус и дыхание</div></div>'''
-          new='''<div class="visual calm-visual"><span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span><div class="calm-photo-shell"><div class="calm-photo"><img src="https://images.unsplash.com/photo-1778517436057-4ed5f9fe95bd?auto=format&fit=crop&fm=jpg&q=86&w=1600" alt="Спокойный профиль — функциональная стоматология"></div></div><div class="calm-tag calm-tag-joint"><span></span>ВНЧС</div><div class="calm-tag calm-tag-bite"><span></span>Прикус</div><div class="calm-tag calm-tag-muscle"><span></span>Мышцы</div><div class="calm-tag calm-tag-breath"><span></span>Дыхание</div><div class="calm-tag calm-tag-posture"><span></span>Голова, шея и осанка</div><i class="calm-point point-joint"></i><i class="calm-point point-bite"></i><i class="calm-point point-muscle"></i><i class="calm-point point-breath"></i><i class="calm-point point-posture"></i></div>'''
+          p = Path('interface-lab/functional-dentistry/index.html')
+          s = p.read_text()
+          old = '<div class="visual"><span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span><div class="photo-shell"><div class="photo"><img src="https://optim.tildacdn.com/tild3864-3837-4037-a134-343937613762/-/resize/820x/-/format/webp/DSCF0409JPG.webp" alt="Функциональная стоматология"></div></div><div class="visual-tag tag-1"><span class="tag-dot"></span>ВНЧС и мышцы</div><div class="visual-tag tag-2"><span class="tag-dot"></span>Прикус и дыхание</div></div>'
+          new = '<div class="visual calm-visual"><span class="ring r1"></span><span class="ring r2"></span><span class="ring r3"></span><div class="calm-photo-shell"><div class="calm-photo"><img src="https://images.unsplash.com/photo-1778517436057-4ed5f9fe95bd?auto=format&fit=crop&fm=jpg&q=86&w=1600" alt="Спокойный профиль — функциональная стоматология"></div></div><div class="calm-tag calm-tag-joint"><span></span>ВНЧС</div><div class="calm-tag calm-tag-bite"><span></span>Прикус</div><div class="calm-tag calm-tag-muscle"><span></span>Мышцы</div><div class="calm-tag calm-tag-breath"><span></span>Дыхание</div><div class="calm-tag calm-tag-posture"><span></span>Голова, шея и осанка</div></div>'
           if old not in s:
-              raise SystemExit('expected original hero visual not found')
-          s=s.replace(old,new,1)
-          css='''
-.calm-visual{min-height:520px}.calm-photo-shell{position:absolute;inset:20px 28px 28px 58px;z-index:1}.calm-photo{position:absolute;inset:0;border-radius:48% 52% 46% 54%/43% 46% 54% 57%;overflow:hidden;background:#efe8db;box-shadow:0 24px 60px rgba(65,55,42,.10)}.calm-photo img{width:100%;height:100%;object-fit:cover;object-position:52% 42%;filter:sepia(.42) saturate(.48) contrast(.88) brightness(1.14);transform:scale(1.03)}.calm-photo:after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(247,243,236,.24),rgba(239,232,219,.08) 46%,rgba(181,150,98,.13));mix-blend-mode:screen;pointer-events:none}.calm-tag{position:absolute;z-index:5;display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:999px;background:rgba(251,248,242,.95);border:1px solid rgba(68,99,79,.15);box-shadow:0 10px 24px rgba(65,55,42,.07);font-size:11px;font-weight:600;color:#4b5c51;white-space:nowrap}.calm-tag span{width:8px;height:8px;border-radius:50%;background:#b59662;flex:0 0 auto}.calm-tag-joint{left:8px;top:72px}.calm-tag-bite{right:-12px;top:190px}.calm-tag-muscle{left:-4px;bottom:112px}.calm-tag-breath{right:-4px;bottom:102px}.calm-tag-posture{left:50%;bottom:28px;transform:translateX(-50%)}.calm-point{position:absolute;z-index:4;width:12px;height:12px;border-radius:50%;background:#fbf8f2;border:2px solid #b59662;box-shadow:0 2px 8px rgba(65,55,42,.10)}.point-joint{left:43%;top:31%}.point-bite{right:23%;top:46%}.point-muscle{left:46%;bottom:28%}.point-breath{right:35%;bottom:31%}.point-posture{left:55%;bottom:17%}.calm-tag:after{content:"";position:absolute;height:1px;background:rgba(181,150,98,.48)}.calm-tag-joint:after{width:94px;left:100%;top:50%;transform:rotate(18deg);transform-origin:left center}.calm-tag-bite:after{width:78px;right:100%;top:50%;transform:rotate(-16deg);transform-origin:right center}.calm-tag-muscle:after{width:96px;left:100%;top:50%;transform:rotate(-14deg);transform-origin:left center}.calm-tag-breath:after{width:86px;right:100%;top:50%;transform:rotate(14deg);transform-origin:right center}.calm-tag-posture:after{width:1px;height:58px;left:50%;bottom:100%;background:rgba(181,150,98,.45)}
-@media(max-width:600px){.calm-visual{min-height:390px}.calm-photo-shell{inset:18px 18px 36px 34px}.calm-tag{font-size:9px;padding:7px 9px}.calm-tag-joint{left:0;top:58px}.calm-tag-bite{right:0;top:146px}.calm-tag-muscle{left:0;bottom:92px}.calm-tag-breath{right:0;bottom:84px}.calm-tag-posture{bottom:18px}.calm-tag:after{display:none}.calm-point{display:none}}
+              raise SystemExit('hero visual source not found')
+          s = s.replace(old, new, 1)
+          css = '''
+.calm-visual{min-height:520px}.calm-photo-shell{position:absolute;inset:20px 28px 28px 58px;z-index:1}.calm-photo{position:absolute;inset:0;border-radius:48% 52% 46% 54%/43% 46% 54% 57%;overflow:hidden;background:#efe8db;box-shadow:0 24px 60px rgba(65,55,42,.10)}.calm-photo img{width:100%;height:100%;object-fit:cover;object-position:52% 42%;filter:sepia(.42) saturate(.48) contrast(.88) brightness(1.14);transform:scale(1.03)}.calm-photo:after{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(247,243,236,.24),rgba(239,232,219,.08) 46%,rgba(181,150,98,.13));mix-blend-mode:screen;pointer-events:none}.calm-tag{position:absolute;z-index:5;display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:999px;background:rgba(251,248,242,.95);border:1px solid rgba(68,99,79,.15);box-shadow:0 10px 24px rgba(65,55,42,.07);font-size:11px;font-weight:600;color:#4b5c51;white-space:nowrap}.calm-tag span{width:8px;height:8px;border-radius:50%;background:#b59662;flex:0 0 auto}.calm-tag-joint{left:8px;top:72px}.calm-tag-bite{right:-12px;top:190px}.calm-tag-muscle{left:-4px;bottom:112px}.calm-tag-breath{right:-4px;bottom:102px}.calm-tag-posture{left:50%;bottom:28px;transform:translateX(-50%)}.calm-tag:after{content:"";position:absolute;height:1px;background:rgba(181,150,98,.48)}.calm-tag-joint:after{width:94px;left:100%;top:50%;transform:rotate(18deg);transform-origin:left center}.calm-tag-bite:after{width:78px;right:100%;top:50%;transform:rotate(-16deg);transform-origin:right center}.calm-tag-muscle:after{width:96px;left:100%;top:50%;transform:rotate(-14deg);transform-origin:left center}.calm-tag-breath:after{width:86px;right:100%;top:50%;transform:rotate(14deg);transform-origin:right center}.calm-tag-posture:after{width:1px;height:58px;left:50%;bottom:100%;background:rgba(181,150,98,.45)}
+@media(max-width:600px){.calm-visual{min-height:390px}.calm-photo-shell{inset:18px 18px 36px 34px}.calm-tag{font-size:9px;padding:7px 9px}.calm-tag-joint{left:0;top:58px}.calm-tag-bite{right:0;top:146px}.calm-tag-muscle{left:0;bottom:92px}.calm-tag-breath{right:0;bottom:84px}.calm-tag-posture{bottom:18px}.calm-tag:after{display:none}}
 '''
-          s=s.replace('</style>',css+'</style>',1)
+          s = s.replace('</style>', css + '</style>', 1)
           p.write_text(s)
           PY
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git rm .github/workflows/az-functional-dentistry-calm-photo.yml
           git add interface-lab/functional-dentistry/index.html
-          git commit -m 'Add calm functional dentistry portrait visual'
+          git commit -m "Add calm functional dentistry portrait visual"
           git push origin feature/site-v1
