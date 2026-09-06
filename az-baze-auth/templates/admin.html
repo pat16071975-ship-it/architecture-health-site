@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <div class="row between" style="margin-bottom:18px">
+    <div><h2 class="section-title" style="margin-bottom:4px">Управление доступом</h2><div class="muted">Администраторы видят все разделы и могут управлять пользователями.</div></div>
+    <div class="row"><a class="btn" href="/">На главную</a><a class="btn primary" href="/admin/users/new">Добавить пользователя</a></div>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Пользователь</th><th>E-mail</th><th>Доступ</th><th>Состояние</th><th></th></tr></thead>
+      <tbody>
+      {% for user in users %}
+        <tr>
+          <td><strong>{{ user['full_name'] }}</strong>{% if user['is_admin'] %}<br><span class="badge admin">Администратор</span>{% endif %}</td>
+          <td>{{ user['email'] }}</td>
+          <td>{% for key,label in sections %}{% if key in perms[user['id']] %}<span class="badge">{{ label }}</span>{% endif %}{% endfor %}</td>
+          <td>{% if user['active'] %}Активен{% else %}<span style="color:#9a4b48">Отключён</span>{% endif %}{% if user['must_change_password'] %}<br><span class="muted">ожидается смена пароля</span>{% endif %}</td>
+          <td><div class="row"><a class="btn" href="/admin/users/{{ user['id'] }}/edit">Права</a><form method="post" action="/admin/users/{{ user['id'] }}/reset-password"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Временный пароль</button></form></div></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="spacer"></div>
+<div class="card">
+  <h2 class="section-title">Последние изменения доступа</h2>
+  <div class="table-wrap"><table class="table"><thead><tr><th>Время</th><th>Кто</th><th>Действие</th><th>Пользователь</th><th>Детали</th></tr></thead><tbody>
+  {% for log in logs %}<tr><td>{{ log['created_at'][:19].replace('T',' ') }}</td><td>{{ log['actor_name'] or 'система' }}</td><td>{{ log['action'] }}</td><td>{{ log['target_name'] or '' }}</td><td>{{ log['details'] or '' }}</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+{% endblock %}
