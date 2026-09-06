@@ -7,8 +7,28 @@
   <form method="post">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="field"><label>E-mail</label><input name="email" type="email" autocomplete="username" required autofocus></div>
-    <div class="field"><label>Пароль</label><input name="password" type="password" autocomplete="current-password" required></div>
+    <div class="field">
+      <label>Пароль</label>
+      <div style="position:relative">
+        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required style="padding-right:46px">
+        <button id="togglePassword" type="button" aria-label="Показать пароль" title="Показать пароль" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:36px;border:0;background:transparent;color:#526158;cursor:pointer;font-size:18px;line-height:1">◉</button>
+      </div>
+    </div>
     <button class="btn primary" type="submit" style="width:100%;margin-top:8px">Войти</button>
   </form>
 </div>
+<script>
+(() => {
+  const input = document.getElementById('loginPassword');
+  const button = document.getElementById('togglePassword');
+  button.addEventListener('click', () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    button.textContent = show ? '⊙' : '◉';
+    button.setAttribute('aria-label', show ? 'Скрыть пароль' : 'Показать пароль');
+    button.setAttribute('title', show ? 'Скрыть пароль' : 'Показать пароль');
+    input.focus();
+  });
+})();
+</script>
 {% endblock %}
