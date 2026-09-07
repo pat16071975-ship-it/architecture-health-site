@@ -102,7 +102,12 @@ def register_finrez(app):
     @permission_required("reports")
     def finrez_page():
         path = SITE_ROOT / "reports" / "finrez.html"
-        return Response(path.read_text(encoding="utf-8"), mimetype="text/html")
+        html = path.read_text(encoding="utf-8")
+        html = html.replace(
+            "MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index)).filter(n=>hasAny(n.values))",
+            "MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index))",
+        )
+        return Response(html, mimetype="text/html")
 
     @app.get("/api/reports/finrez")
     @permission_required("reports")
