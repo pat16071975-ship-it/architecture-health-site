@@ -1,0 +1,54 @@
+name: AZ execute orthodontics page
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - '.github/workflows/az-execute-orthodontics-page.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Build page and local image
+        run: |
+          curl -L --fail --retry 3 --connect-timeout 15 \
+            'https://images.unsplash.com/photo-1634232058891-2c200c251507?auto=format&fit=crop&fm=webp&q=82&w=1600' \
+            -o assets/orthodontics-hero.webp
+          test $(wc -c < assets/orthodontics-hero.webp) -gt 20000
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+          src=Path('.github/workflows/az-lab-create-orthodontics-page.yml').read_text(encoding='utf-8')
+          marker="cat > interface-lab/orthodontics/index.html <<'HTML'"
+          if marker not in src:
+              raise SystemExit('page template marker not found')
+          tail=src.split(marker,1)[1]
+          lines=tail.splitlines()[1:]
+          out=[]
+          found=False
+          for line in lines:
+              if line.strip()=='HTML':
+                  found=True
+                  break
+              out.append(line)
+          if not found:
+              raise SystemExit('page template terminator not found')
+          html=textwrap.dedent('\n'.join(out)).strip()+'\n'
+          p=Path('interface-lab/orthodontics/index.html')
+          p.parent.mkdir(parents=True,exist_ok=True)
+          p.write_text(html,encoding='utf-8')
+          if '<h1>Ортодонтия</h1>' not in html:
+              raise SystemExit('orthodontics heading missing')
+          PY
+      - name: Commit only page assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/orthodontics-hero.webp interface-lab/orthodontics/index.html
+          git commit -m "Create orthodontics page in Interface Lab"
+          git push origin feature/site-v1
