@@ -5,6 +5,55 @@ OLD = "Клиника"
 NEW = "Отделение структуры"
 
 
+REPORT_UI_GUARD = r'''<script id="az-report-terminology-guard">
+(() => {
+  const exactOld='\u041a\u043b\u0438\u043d\u0438\u043a\u0430';
+  const exactNew='\u041e\u0442\u0434\u0435\u043b\u0435\u043d\u0438\u0435 \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u044b';
+  const genOld='\u043a\u043b\u0438\u043d\u0438\u043a\u0438';
+  const genNew='\u043e\u0442\u0434\u0435\u043b\u0435\u043d\u0438\u044f \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u044b';
+  const genCapOld='\u041a\u043b\u0438\u043d\u0438\u043a\u0438';
+  const genCapNew='\u041e\u0442\u0434\u0435\u043b\u0435\u043d\u0438\u044f \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u044b';
+  const quotedOld='\u00ab'+exactOld+'\u00bb';
+  const quotedNew='\u00ab'+exactNew+'\u00bb';
+
+  function patchText(node){
+    if(!node || !node.nodeValue) return;
+    const parent=node.parentElement;
+    if(parent && /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA)$/.test(parent.tagName)) return;
+    let value=node.nodeValue;
+    const trimmed=value.trim();
+    if(trimmed===exactOld) value=value.replace(exactOld,exactNew);
+    if(value.includes(quotedOld)) value=value.split(quotedOld).join(quotedNew);
+    if(value.includes(genCapOld)) value=value.split(genCapOld).join(genCapNew);
+    if(value.includes(genOld)) value=value.split(genOld).join(genNew);
+    if(value!==node.nodeValue) node.nodeValue=value;
+  }
+
+  function patch(root){
+    if(!root) return;
+    if(root.nodeType===Node.TEXT_NODE){patchText(root);return;}
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    let node;
+    while((node=walker.nextNode())) patchText(node);
+  }
+
+  function start(){
+    patch(document.body);
+    const observer=new MutationObserver(mutations=>{
+      for(const mutation of mutations){
+        if(mutation.type==='characterData') patchText(mutation.target);
+        for(const node of mutation.addedNodes) patch(node);
+      }
+    });
+    observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+})();
+</script>'''
+
+
 def _replace_text(value):
     return value.replace(OLD, NEW) if isinstance(value, str) else value
 
@@ -99,6 +148,15 @@ def install(app, report_storage):
             old = OLD.encode('utf-8')
             if old in data:
                 response.set_data(data.replace(old, NEW.encode('utf-8')))
+
+            if 'text/html' in content_type:
+                html = response.get_data(as_text=True)
+                if 'az-report-terminology-guard' not in html:
+                    if '</body>' in html:
+                        html = html.replace('</body>', REPORT_UI_GUARD + '\n</body>', 1)
+                    else:
+                        html += REPORT_UI_GUARD
+                    response.set_data(html)
         except Exception:
             pass
         return response
