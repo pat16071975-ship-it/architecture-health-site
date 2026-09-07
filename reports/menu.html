@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Отчёты — AZ-BAZE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f7f3ec;--paper2:#efe8db;--ink:#2d342f;--green:#44634f;--gold:#b59662}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fcfaf6 0,var(--paper) 65%,var(--paper2) 100%);color:var(--ink);font-family:'Montserrat',Arial,sans-serif}
+body{min-height:100vh}
+.page{width:min(1040px,94vw);min-height:100vh;margin:0 auto;padding:30px 0 44px;display:flex;flex-direction:column;align-items:center}
+.top{width:100%;display:grid;grid-template-columns:120px 1fr 120px;align-items:center}
+.logo{width:104px;height:104px;object-fit:contain}
+.heading{text-align:center}.eyebrow{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#607067}.title{margin:7px 0 0;font-size:44px;font-weight:500;line-height:1.05;letter-spacing:-.025em}.rule{width:180px;height:1px;margin:12px auto 0;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.home-link{justify-self:end;padding:9px 12px;border:1px solid rgba(181,150,98,.42);border-radius:9px;background:#faf7f1;color:#354039;text-decoration:none;font-size:12px;font-weight:600}
+.menu{width:min(380px,100%);display:grid;gap:14px;margin-top:46px}
+.btn{min-height:58px;padding:14px 22px;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid rgba(181,150,98,.42);border-radius:10px;background:rgba(250,247,241,.96);box-shadow:0 9px 24px rgba(71,58,38,.08);color:#354039;font-size:15px;font-weight:600;text-decoration:none;transition:.18s}
+.btn.active:hover,.btn.active:focus-visible{outline:0;border-color:rgba(68,99,79,.55);background:#fbf8f2;box-shadow:0 12px 30px rgba(71,58,38,.12);transform:translateY(-1px);color:var(--green)}
+.btn.placeholder{opacity:.55;cursor:default}
+.note{margin-top:24px;text-align:center;color:#72786f;font-size:11px;line-height:1.45}
+@media(max-width:650px){.page{padding:18px 14px 30px}.top{grid-template-columns:64px 1fr 64px;gap:8px}.logo{width:60px;height:60px}.home-link{padding:7px 8px;font-size:10px}.eyebrow{font-size:8px}.title{font-size:30px}.rule{width:110px;margin-top:8px}.menu{margin-top:30px;gap:10px}.btn{min-height:52px;font-size:13px}}
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="top">
+    <img class="logo" src="/assets/logo-site.webp" alt="Архитектура здоровья">
+    <div class="heading"><div class="eyebrow">Архитектура здоровья</div><h1 class="title">Отчёты</h1><div class="rule"></div></div>
+    <a class="home-link" href="/">На главную</a>
+  </header>
+
+  <nav class="menu" aria-label="Разделы отчётов">
+    <a class="btn active" href="/reports/dashboard.html">Дашборд</a>
+    <a class="btn active" href="/reports/management/">Управленческий учёт</a>
+    <a class="btn active" href="/reports/services.html">Аналитика услуг</a>
+    <a class="btn active" href="/reports/transitions.html">Перенаправление</a>
+    <div class="btn placeholder" aria-disabled="true">Раздел в разработке</div>
+    <div class="btn placeholder" aria-disabled="true">Раздел в разработке</div>
+    <div class="btn placeholder" aria-disabled="true">Раздел в разработке</div>
+  </nav>
+
+  <div class="note">Новые отчёты будем добавлять сюда, не меняя главную страницу AZ-BAZE.</div>
+</main>
+</body>
+</html>
