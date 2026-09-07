@@ -1,0 +1,25 @@
+/* SEO direction pages from clinic-approved Word copy */
+.seo-lead{font-size:17px!important;line-height:1.72!important}
+.long-section{padding:82px 0}
+.long-section.alt{background:linear-gradient(180deg,rgba(239,232,219,.68),rgba(247,243,236,.12))}
+.long-wrap{width:min(1020px,calc(100% - 48px));margin:0 auto}
+.long-title{margin:8px 0 28px;font-size:39px;line-height:1.14;font-weight:500;letter-spacing:-.032em;color:#344b3d}
+.long-text{font-size:15px;line-height:1.82;color:#536058}
+.long-text p{margin:22px 0 0}
+.clean-list{margin:18px 0 0;padding:0;list-style:none;display:grid;gap:10px}
+.clean-list li{position:relative;padding:13px 16px 13px 42px;border:1px solid rgba(68,99,79,.13);border-radius:16px;background:rgba(251,248,242,.72);font-size:14px;line-height:1.55;color:#4d5951}
+.clean-list li:before{content:"";position:absolute;left:18px;top:20px;width:7px;height:7px;border-radius:50%;background:#b59662}
+.process-panel{padding:30px 30px;border:1px solid rgba(68,99,79,.14);border-radius:24px;background:rgba(251,248,242,.76);box-shadow:0 12px 32px rgba(65,55,42,.04)}
+.process-panel p{margin:0}
+.faq-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.faq-item{padding:26px;border:1px solid rgba(68,99,79,.14);border-radius:22px;background:rgba(251,248,242,.72)}
+.faq-item h3{margin:0 0 12px;font-size:16px;line-height:1.4;font-weight:600;color:#3f5547}
+.faq-item p{margin:0;font-size:13.5px;line-height:1.72;color:#59645d}
+.faq-item .clean-list{gap:7px;margin-top:10px}.faq-item .clean-list li{padding:7px 7px 7px 25px;border:0;background:transparent;font-size:12.5px}.faq-item .clean-list li:before{left:6px;top:14px;width:6px;height:6px}
+.photo.planet{display:grid;place-items:center;background:radial-gradient(circle at 50% 45%,rgba(251,248,242,.98),rgba(239,232,219,.72));overflow:hidden}
+.photo.planet img{object-fit:contain!important;object-position:center!important;filter:none!important;transform:none!important;padding:72px}
+.photo.planet:after{background:linear-gradient(135deg,rgba(68,99,79,.02),rgba(181,150,98,.08))}
+.route-card p+p{margin-top:12px}.route-card .clean-list{gap:7px;margin-top:12px}.route-card .clean-list li{padding:8px 8px 8px 27px;border:0;background:transparent;font-size:12.5px}.route-card .clean-list li:before{left:7px;top:15px;width:6px;height:6px}
+.cta-box p{max-width:760px}
+@media(max-width:900px){.faq-grid{grid-template-columns:1fr}.long-section{padding:66px 0}.photo.planet img{padding:55px}}
+@media(max-width:600px){.long-wrap{width:min(100% - 28px,1020px)}.long-title{font-size:30px}.long-text{font-size:14px}.long-section{padding:54px 0}.faq-item{padding:22px 20px}.photo.planet img{padding:38px}}
