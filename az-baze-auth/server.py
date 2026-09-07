@@ -3,11 +3,13 @@ import re
 from flask import request
 
 from app import app
+import ident_import
 import report_storage
 import terminology
 
 report_storage.register_report_storage(app)
 terminology.install(app, report_storage)
+ident_import.register_ident_import(app)
 
 
 @app.after_request
