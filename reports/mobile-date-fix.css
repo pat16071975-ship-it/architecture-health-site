@@ -17,41 +17,12 @@
   #dentDoctors td:last-child,#clinicDoctors td:last-child{flex:0 0 110px;width:110px;text-align:left}
   #dentDoctors input,#clinicDoctors input{width:110px!important;max-width:110px;padding:7px 8px;text-align:right;font-size:12px}
 
-  /* Сводка по месяцам: статичная колонка не больше 30% экрана.
-     Она всегда непрозрачная, чтобы значения прокручиваемых месяцев
-     не просвечивали под названиями показателей. */
-  .period-compare thead th:first-child,
-  .date-compare-table thead th:first-child,
-  .period-compare tbody td:first-child:not([colspan]),
-  .date-compare-table tbody td:first-child:not([colspan]){
-    position:sticky!important;
-    left:0!important;
-    width:30vw!important;
-    min-width:30vw!important;
-    max-width:30vw!important;
-    white-space:normal!important;
-    overflow-wrap:anywhere!important;
-    box-sizing:border-box!important;
-    box-shadow:2px 0 0 rgba(216,205,187,.65)!important;
-  }
-  .period-compare thead th:first-child,
-  .date-compare-table thead th:first-child{
-    z-index:12!important;
-    background:#f8f4ec!important;
-  }
-  .period-compare tbody td:first-child:not([colspan]),
-  .date-compare-table tbody td:first-child:not([colspan]){
-    z-index:8!important;
-    background:#fffdf8!important;
-  }
-  .period-compare table,
-  .date-compare-table table{
-    min-width:max(760px,100%)!important;
-  }
-  .period-compare th:not(:first-child),
-  .period-compare td:not(:first-child),
-  .date-compare-table th:not(:first-child),
-  .date-compare-table td:not(:first-child){
-    min-width:118px;
+  /* Мобильную сетку сводных таблиц по месяцам строит отдельный JS.
+     Здесь больше нет правил ширины и sticky-позиционирования, чтобы
+     CSS не сдвигал месяцы относительно значений. */
+  .period-compare,.date-compare-table{
+    overflow-x:auto!important;
+    overflow-y:visible!important;
+    -webkit-overflow-scrolling:touch;
   }
 }
