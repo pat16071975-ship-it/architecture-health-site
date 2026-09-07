@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Финрез — AZ-BAZE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f7f3ec;--soft:#fffdf8;--ink:#2d342f;--green:#44634f;--green2:#dfe9e2;--gold:#b59662;--gold2:#efe5d2;--blue:#dfe9f2;--line:#d8cdbb;--red:#9a4b48}
+*{box-sizing:border-box}html,body{margin:0;background:linear-gradient(180deg,#fcfaf6,var(--paper));color:var(--ink);font-family:Montserrat,Arial,sans-serif}body{min-height:100vh}
+.page{width:min(1780px,98vw);margin:0 auto;padding:18px 0 40px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:12px}.title{margin:0;font:700 38px/1 'Cormorant Garamond',serif}.sub{margin-top:6px;color:#6d746c;font-size:11px;line-height:1.45}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:1px solid rgba(68,99,79,.3);border-radius:9px;background:#fff;color:#334039;text-decoration:none;font-size:11px;font-weight:600}.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.controls{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:10px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,253,248,.9)}.field{display:grid;gap:5px}.field label{font-size:10px;font-weight:600;color:#667067}.field select{min-width:120px;padding:8px 10px;border:1px solid #cfc5b5;border-radius:8px;background:#fff;font:600 12px Montserrat}.legend{margin-left:auto;color:#747a73;font-size:10px}
+.wrap{border:1px solid var(--line);border-radius:14px;background:#fffdf8;overflow:auto;max-height:calc(100vh - 170px);box-shadow:0 12px 34px rgba(65,54,38,.06)}
+table{border-collapse:separate;border-spacing:0;min-width:1660px;width:max-content}.col-label{width:330px;min-width:330px;max-width:330px}.month-col{width:110px;min-width:110px;max-width:110px}
+th,td{padding:8px 9px;border-bottom:1px solid #e8e0d4;border-right:1px solid #eee7dc;text-align:right;font-size:10.5px;white-space:nowrap}thead th{position:sticky;top:0;z-index:30;background:#f8f4ec;text-align:center;font-weight:700}.first{position:sticky;left:0;z-index:18;text-align:left!important;background:#fffdf8!important;white-space:normal!important}.head-first{z-index:40!important;background:#f8f4ec!important}
+.label{display:flex;align-items:center;gap:6px;min-height:18px}.indent{display:inline-block;width:calc(var(--level)*16px);flex:0 0 calc(var(--level)*16px)}.toggle{width:20px;height:20px;padding:0;border:1px solid #b8c5ba;border-radius:6px;background:#fff;color:#36503e;font:700 13px/18px Montserrat;cursor:pointer;flex:0 0 20px}.leaf-space{width:20px;flex:0 0 20px}.row-label{overflow:hidden;text-overflow:ellipsis}.row-label.detail{font-size:9.5px;color:#697069}.detail-date{font-variant-numeric:tabular-nums;color:#8b8174}
+tr.plan td{background:#fbf7ed}tr.fact td{background:#eef5f0;font-weight:700}tr.execution td{background:#f2eee4;font-weight:700}tr.revenue td{background:#eef4f8;font-weight:700}tr.expenses td{background:#fff7e9;font-weight:700}tr.operating td{background:#edf5ee;font-weight:800}tr.debt td{background:#f3edf4;font-weight:700}tr.net td{background:#e4efe7;font-weight:800}
+tr.category td:first-child{font-weight:700}tr.subcategory td:first-child{font-weight:600}.negative{color:var(--red)}.positive{color:#32724b}.muted{color:#aaa}.status{margin:10px 0;padding:9px 12px;border-radius:8px;background:#fffaf0;color:#6b6255;font-size:10px}.hidden{display:none!important}
+@media(max-width:760px){.page{width:100%;padding:10px 0 20px}.top{padding:0 10px}.title{font-size:30px}.sub{font-size:9px}.controls{margin:8px 8px 10px}.legend{display:none}.wrap{border-radius:0;max-height:none;border-left:0;border-right:0}.col-label{width:34vw;min-width:34vw;max-width:34vw}.month-col{width:104px;min-width:104px;max-width:104px}th,td{padding:7px 6px;font-size:10px}.actions .btn{padding:7px 9px;font-size:9px}}
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="top">
+    <div><h1 class="title">Финрез</h1><div class="sub">Один столбец на месяц. Расходы — по фактической дате оплаты. «+» раскрывает направления, категории и детализацию.</div></div>
+    <div class="actions"><a class="btn primary" href="/reports/">К отчётам</a><a class="btn" href="/">На главную</a></div>
+  </header>
+  <div class="controls">
+    <div class="field"><label>Год</label><select id="year"></select></div>
+    <div class="legend">Первые строки каждого месяца: план выручки → факт → выполнение плана.</div>
+  </div>
+  <div id="status" class="status">Загрузка…</div>
+  <div class="wrap">
+    <table id="finrezTable">
+      <colgroup><col class="col-label"><col class="month-col" span="12"></colgroup>
+      <thead><tr id="head"></tr></thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+</main>
+<script>
+const MONTHS=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const MAIN_ORDER=['ФОТ','Налоги и взносы на ФОТ','Аренда','Коммунальные и содержание помещений','Медицинские расходы','Маркетинг и реклама','Связь, интернет, программы и IT','Хозяйственные и офисные расходы','Ремонт и обслуживание оборудования','Оборудование, мебель и обновление','Обучение и командировки','Профессиональные и административные услуги','Банковские услуги','Прочие операционные / разовые расходы'];
+const money=v=>v===null||v===undefined||v===''||!isFinite(+v)?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(+v)+' ₽';
+const percent=v=>v===null||v===undefined||!isFinite(+v)?'—':new Intl.NumberFormat('ru-RU',{style:'percent',maximumFractionDigits:1}).format(+v);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let DATA=null;
+let expanded=new Set();
+const $=s=>document.querySelector(s);
+
+function ym(year,i){return `${year}-${String(i+1).padStart(2,'0')}`}
+function managementRecord(year,i){return DATA?.management?.[ym(year,i)]||null}
+function expenseMonth(year,i){return DATA?.expenses?.months?.[ym(year,i)]||{operating:{},debt:{}}}
+function num(v){const n=+v;return Number.isFinite(n)?n:0}
+function factFor(year,i){const r=managementRecord(year,i);return r?num(r.factMedicine)+num(r.factLab):null}
+function planFor(year,i){const r=managementRecord(year,i);if(!r)return null;const n=+r.plan;return Number.isFinite(n)&&n!==0?n:null}
+function operatingExpenses(year,i){return Object.values(expenseMonth(year,i).operating||{}).reduce((a,x)=>a+num(x.total),0)}
+function debtExpenses(year,i){return Object.values(expenseMonth(year,i).debt||{}).reduce((a,x)=>a+num(x.total),0)}
+function values12(fn){return Array.from({length:12},(_,i)=>fn(i))}
+function hasAny(vals){return vals.some(v=>v!==null&&v!==undefined&&Math.abs(num(v))>.004)}
+function node(id,label,level,values,children=[],cls='',fmt='money'){return{id,label,level,values,children,cls,fmt}}
+
+function revenueTree(year){
+  const total=values12(i=>factFor(year,i));
+  const dent=values12(i=>{const r=managementRecord(year,i);return r?Object.values(r.dentists||{}).reduce((a,v)=>a+num(v),0):null});
+  const structure=values12(i=>{const r=managementRecord(year,i);return r?Object.values(r.structureDoctors||{}).reduce((a,v)=>a+num(v),0):null});
+  const lab=values12(i=>{const r=managementRecord(year,i);return r?num(r.factLab):null});
+
+  const doctorNames=new Set();
+  const structureNames=new Set();
+  for(let i=0;i<12;i++){
+    const r=managementRecord(year,i);
+    Object.keys(r?.dentists||{}).forEach(x=>doctorNames.add(x));
+    Object.keys(r?.structureDoctors||{}).forEach(x=>structureNames.add(x));
+  }
+  const dentChildren=[...doctorNames].sort().map((name,idx)=>node(`rev-dent-doc-${idx}`,name,2,values12(i=>managementRecord(year,i)?num(managementRecord(year,i).dentists?.[name]):null),[],'detail'));
+  const structureChildren=[...structureNames].sort().map((name,idx)=>node(`rev-struct-doc-${idx}`,name,2,values12(i=>managementRecord(year,i)?num(managementRecord(year,i).structureDoctors?.[name]):null),[],'detail'));
+  const assigned=values12(i=>{
+    if(total[i]===null)return null;
+    return num(dent[i])+num(structure[i])+num(lab[i]);
+  });
+  const other=values12(i=>total[i]===null?null:Math.max(0,num(total[i])-num(assigned[i])));
+
+  const dirs=[
+    node('rev-dent','Стоматология',1,dent,dentChildren,'category'),
+    node('rev-structure','Отделение структуры',1,structure,structureChildren,'category'),
+    node('rev-lab','Лаборатория',1,lab,[],'category'),
+  ];
+  if(hasAny(other)) dirs.push(node('rev-other','Прочая / не распределённая выручка',1,other,[],'category'));
+  return node('revenue','Выручка',0,total,dirs,'revenue');
+}
+
+function expenseCategoryNode(year,mainName,index){
+  const vals=values12(i=>num(expenseMonth(year,i).operating?.[mainName]?.total));
+  const subNames=new Set();
+  for(let i=0;i<12;i++)Object.keys(expenseMonth(year,i).operating?.[mainName]?.subs||{}).forEach(x=>subNames.add(x));
+  const subChildren=[...subNames].sort().map((subName,subIndex)=>{
+    const subVals=values12(i=>num(expenseMonth(year,i).operating?.[mainName]?.subs?.[subName]?.total));
+    const detailRows=[];
+    for(let mi=0;mi<12;mi++){
+      const items=expenseMonth(year,mi).operating?.[mainName]?.subs?.[subName]?.items||[];
+      items.forEach((item,itemIndex)=>{
+        const vals=Array(12).fill(null); vals[mi]=num(item.amount);
+        detailRows.push(node(`exp-${index}-${subIndex}-${mi}-${itemIndex}`,`${item.date.slice(8,10)}.${item.date.slice(5,7)} — ${item.label}`,3,vals,[],'detail'));
+      });
+    }
+    return node(`exp-${index}-sub-${subIndex}`,subName,2,subVals,detailRows,'subcategory');
+  });
+  return node(`exp-cat-${index}`,mainName,1,vals,subChildren,'category');
+}
+
+function expenseTree(year){
+  const categories=MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index)).filter(n=>hasAny(n.values));
+  return node('expenses','Операционные расходы',0,values12(i=>operatingExpenses(year,i)),categories,'expenses');
+}
+
+function debtTree(year){
+  const names=new Set();
+  for(let i=0;i<12;i++)Object.keys(expenseMonth(year,i).debt||{}).forEach(x=>names.add(x));
+  const children=[...names].sort().map((name,index)=>{
+    const vals=values12(i=>num(expenseMonth(year,i).debt?.[name]?.total));
+    const items=[];
+    for(let mi=0;mi<12;mi++){
+      (expenseMonth(year,mi).debt?.[name]?.items||[]).forEach((item,itemIndex)=>{
+        const v=Array(12).fill(null);v[mi]=num(item.amount);
+        items.push(node(`debt-${index}-${mi}-${itemIndex}`,`${item.date.slice(8,10)}.${item.date.slice(5,7)} — ${item.label}`,2,v,[],'detail'));
+      });
+    }
+    return node(`debt-${index}`,name,1,vals,items,'category');
+  });
+  return node('debt','Кредитные и иные долговые обязательства',0,values12(i=>debtExpenses(year,i)),children,'debt');
+}
+
+function buildRows(year){
+  const plan=node('plan','План выручки',0,values12(i=>planFor(year,i)),[],'plan');
+  const fact=node('fact','Факт выручки',0,values12(i=>factFor(year,i)),[],'fact');
+  const execution=node('execution','Выполнение плана',0,values12(i=>{const p=planFor(year,i),f=factFor(year,i);return p&&f!==null?f/p:null}),[],'execution','percent');
+  const revenue=revenueTree(year);
+  const expenses=expenseTree(year);
+  const op=node('operating','Операционная прибыль',0,values12(i=>{const f=factFor(year,i);return f===null?null:f-operatingExpenses(year,i)}),[],'operating');
+  const debt=debtTree(year);
+  const net=node('net','Чистая прибыль',0,values12(i=>{const f=factFor(year,i);return f===null?null:f-operatingExpenses(year,i)-debtExpenses(year,i)}),[],'net');
+  return [plan,fact,execution,revenue,expenses,op,debt,net];
+}
+
+function flatten(nodes,out=[]){
+  nodes.forEach(n=>{
+    out.push(n);
+    if(n.children?.length&&expanded.has(n.id))flatten(n.children,out);
+  });
+  return out;
+}
+
+function render(){
+  const year=+$('#year').value;
+  $('#head').innerHTML='<th class="first head-first">Показатель</th>'+MONTHS.map(m=>`<th>${m}</th>`).join('');
+  const rows=flatten(buildRows(year));
+  $('#body').innerHTML=rows.map(r=>{
+    const hasChildren=!!r.children?.length;
+    const toggle=hasChildren?`<button class="toggle" data-id="${esc(r.id)}">${expanded.has(r.id)?'−':'+'}</button>`:'<span class="leaf-space"></span>';
+    const label=`<td class="first"><div class="label"><span class="indent" style="--level:${r.level}"></span>${toggle}<span class="row-label ${r.cls==='detail'?'detail':''}" title="${esc(r.label)}">${esc(r.label)}</span></div></td>`;
+    const cells=r.values.map(v=>{
+      const formatted=r.fmt==='percent'?percent(v):money(v);
+      let cls='';
+      if((r.cls==='operating'||r.cls==='net')&&v!==null&&v!==undefined)cls=num(v)>=0?'positive':'negative';
+      if(formatted==='—')cls+=' muted';
+      return `<td class="${cls.trim()}">${formatted}</td>`;
+    }).join('');
+    return `<tr class="${esc(r.cls)}">${label}${cells}</tr>`;
+  }).join('');
+  document.querySelectorAll('.toggle').forEach(btn=>btn.onclick=()=>{
+    const id=btn.dataset.id;
+    expanded.has(id)?expanded.delete(id):expanded.add(id);
+    render();
+  });
+}
+
+function fillYears(){
+  const years=new Set();
+  Object.keys(DATA?.expenses?.months||{}).forEach(k=>years.add(+k.slice(0,4)));
+  Object.keys(DATA?.management||{}).forEach(k=>years.add(+k.slice(0,4)));
+  const arr=[...years].filter(Boolean).sort((a,b)=>a-b);
+  const select=$('#year');
+  select.innerHTML=arr.map(y=>`<option value="${y}">${y}</option>`).join('');
+  select.value=String(arr.includes(new Date().getFullYear())?new Date().getFullYear():arr[arr.length-1]);
+  select.onchange=()=>{expanded.clear();render()};
+}
+
+(async()=>{
+  try{
+    const r=await fetch('/api/reports/finrez',{credentials:'same-origin',cache:'no-store'});
+    if(!r.ok)throw new Error('Не удалось загрузить финрез.');
+    DATA=await r.json();
+    fillYears();
+    render();
+    const p=DATA?.expenses?.period||{};
+    $('#status').textContent=DATA?.expenses?.available
+      ? `Расходы разнесены по дате фактической оплаты: ${p.from||'—'} — ${p.to||'—'}. Повторные записи из реестра исключены.`
+      : 'Данные расходов ещё не установлены на сервере.';
+  }catch(error){
+    console.error(error);
+    $('#status').textContent=error.message||'Ошибка загрузки финреза.';
+  }
+})();
+</script>
+</body>
+</html>
