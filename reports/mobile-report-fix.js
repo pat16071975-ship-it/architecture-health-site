@@ -8,11 +8,18 @@
   const DOC_FLAG = '__azMobileReportFixInstalled';
   const TABLE_SELECTOR = '#content table.table,#content table.matrix,.table-wrap table,.matrix-wrap table';
   const NUMERIC_WIDTH = 92;
+  const signatures = new WeakMap();
+
+  function mobile() {
+    return window.matchMedia('(max-width:700px)').matches;
+  }
 
   function logicalColumns(table) {
     const rows = Array.from(table.tHead?.rows || []);
     if (!rows.length) return 0;
-    return Math.max(...rows.map(row => Array.from(row.cells).reduce((sum, cell) => sum + (cell.colSpan || 1), 0)));
+    return Math.max(...rows.map(row =>
+      Array.from(row.cells).reduce((sum, cell) => sum + (cell.colSpan || 1), 0)
+    ));
   }
 
   function ensureStyle(d) {
@@ -22,6 +29,8 @@
     style.textContent = `
       @media (max-width:700px) {
         html,body{
+          height:auto!important;
+          min-height:100%!important;
           overflow-x:hidden!important;
           overflow-y:auto!important;
           overscroll-behavior-y:auto!important;
@@ -30,10 +39,10 @@
         .az-sticky-report-scroll,.table-wrap,.matrix-wrap{
           max-height:none!important;
           overflow-x:auto!important;
-          overflow-y:hidden!important;
+          overflow-y:visible!important;
           overscroll-behavior-x:contain!important;
           overscroll-behavior-y:auto!important;
-          touch-action:pan-x pan-y!important;
+          touch-action:auto!important;
           -webkit-overflow-scrolling:touch;
         }
         .az-mobile-fixed-table{
@@ -87,13 +96,28 @@
     (d.head || d.documentElement).appendChild(style);
   }
 
+  function ensureColgroup(table, count) {
+    let group = table.querySelector(':scope > colgroup[data-az-mobile-cols]');
+    if (!group) {
+      group = table.ownerDocument.createElement('colgroup');
+      group.dataset.azMobileCols = '1';
+      table.insertBefore(group, table.firstChild);
+    }
+    if (group.children.length !== count) {
+      group.replaceChildren();
+      for (let i = 0; i < count; i += 1) group.appendChild(table.ownerDocument.createElement('col'));
+    }
+    Array.from(group.children).forEach((col, index) => {
+      col.style.width = index === 0 ? '30vw' : `${NUMERIC_WIDTH}px`;
+    });
+  }
+
   function applyColumns(table) {
     const count = logicalColumns(table);
     if (count < 2) return;
 
+    const signature = `${count}:${window.innerWidth}`;
     table.classList.add('az-mobile-fixed-table');
-    table.querySelectorAll('.az-mobile-first-head').forEach(c => c.classList.remove('az-mobile-first-head'));
-    table.querySelectorAll('.az-mobile-first-col').forEach(c => c.classList.remove('az-mobile-first-col'));
 
     const firstHead = table.tHead?.rows?.[0]?.cells?.[0];
     if (firstHead) firstHead.classList.add('az-mobile-first-head');
@@ -105,30 +129,25 @@
       });
     });
 
-    table.querySelector('colgroup[data-az-mobile-cols]')?.remove();
-    const group = table.ownerDocument.createElement('colgroup');
-    group.dataset.azMobileCols = '1';
-    for (let i = 0; i < count; i += 1) {
-      const col = table.ownerDocument.createElement('col');
-      col.style.width = i === 0 ? '30vw' : `${NUMERIC_WIDTH}px`;
-      group.appendChild(col);
-    }
-    table.insertBefore(group, table.firstChild);
+    if (signatures.get(table) === signature && table.querySelector(':scope > colgroup[data-az-mobile-cols]')) return;
 
+    ensureColgroup(table, count);
     const numericTotal = (count - 1) * NUMERIC_WIDTH;
     table.style.setProperty('width', `calc(30vw + ${numericTotal}px)`, 'important');
     table.style.setProperty('min-width', `calc(30vw + ${numericTotal}px)`, 'important');
     table.style.setProperty('max-width', 'none', 'important');
+    signatures.set(table, signature);
   }
 
   function layout(d) {
-    if (!d || !matchMedia('(max-width:700px)').matches) return;
+    if (!d || !mobile()) return;
     d.querySelectorAll(TABLE_SELECTOR).forEach(applyColumns);
   }
 
   function install() {
     const d = frame.contentDocument;
-    if (!d) return;
+    if (!d || !mobile()) return;
+
     ensureStyle(d);
     layout(d);
 
@@ -139,16 +158,29 @@
     const schedule = () => {
       if (pending) return;
       pending = true;
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         pending = false;
         layout(d);
-      }, 0);
+      });
     };
 
+    const target = d.getElementById('content') || d.body || d.documentElement;
     const Observer = frame.contentWindow?.MutationObserver || MutationObserver;
-    const observer = new Observer(schedule);
-    observer.observe(d.body || d.documentElement, {childList:true, subtree:true});
+    const observer = new Observer(records => {
+      const relevant = records.some(record =>
+        Array.from(record.addedNodes || []).some(node =>
+          node.nodeType === 1 && (
+            node.matches?.(TABLE_SELECTOR) ||
+            node.querySelector?.(TABLE_SELECTOR)
+          )
+        )
+      );
+      if (relevant) schedule();
+    });
+    observer.observe(target, {childList:true, subtree:true});
+
     frame.contentWindow?.addEventListener('resize', schedule, {passive:true});
+    d.addEventListener('change', () => setTimeout(schedule, 0), true);
   }
 
   frame.addEventListener('load', () => {
