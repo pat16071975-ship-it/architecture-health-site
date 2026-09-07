@@ -45,11 +45,35 @@ def _normalize_record(date, record):
     return normalized
 
 
-def _render_server_reports():
-    path = SITE_ROOT / "reports" / "index.html"
+def _read_report_file(name):
+    path = SITE_ROOT / "reports" / name
     if not path.exists():
         abort(404)
-    html = path.read_text(encoding="utf-8")
+    return path.read_text(encoding="utf-8")
+
+
+def _render_reports_menu():
+    return _read_report_file("menu.html")
+
+
+def _render_transitions():
+    html = _read_report_file("transitions.html")
+    html = html.replace('<div id="loginView" class="login">', '<div id="loginView" class="login hidden">')
+    html = html.replace('<div id="appView" class="app hidden">', '<div id="appView" class="app">')
+    html = html.replace(
+        '<a class="btn" href="./">Управленческий отчёт</a>\n      <button id="logoutBtn" class="btn">Выйти</button>',
+        '<a class="btn" href="/reports/">К отчётам</a>\n      <a class="btn" href="/">На главную</a>\n      <button id="logoutBtn" class="btn hidden" style="display:none">Выйти</button>'
+    )
+    html = html.replace(
+        '<script src="./transitions-page.js?v=20260904-1"></script>',
+        '<script>sessionStorage.setItem("az-management-auth-v1","1");</script>\n<script src="./transitions-page.js?v=20260904-1"></script>'
+    )
+    return html
+
+
+def _render_server_reports():
+    html = _read_report_file("index.html")
+    html = html.replace("<head>", '<head>\n<base href="/reports/">', 1)
 
     html = html.replace('<div id="loginView" class="login">', '<div id="loginView" class="login hidden">')
     html = html.replace('<div id="appView" class="app hidden">', '<div id="appView" class="app">')
@@ -57,7 +81,7 @@ def _render_server_reports():
         '<div><div class="title">Управленческий отчёт</div><div class="muted">Ручной режим ввода данных</div></div>',
         '<div><div class="title">Управленческий отчёт</div><div class="muted">Данные хранятся на сервере AZ-BAZE</div></div>'
     )
-    html = html.replace('<button id="logoutBtn" class="btn">Выйти</button>', '<button id="logoutBtn" class="btn">На главную</button>')
+    html = html.replace('<button id="logoutBtn" class="btn">Выйти</button>', '<button id="logoutBtn" class="btn">К отчётам</button>')
     html = html.replace(
         '<div class="notice">Временный режим: данные сохраняются только в этом браузере на этом устройстве. Для реальной многопользовательской работы следующим этапом нужен закрытый серверный контур.</div>',
         '<div class="notice">Данные отчёта хранятся централизованно на сервере AZ-BAZE и доступны после авторизации с разрешённых устройств.</div>'
@@ -103,7 +127,7 @@ async function loadServerStore(){
     html = html.replace(old_import, new_import)
 
     init_pattern = re.compile(r"function init\(\)\{.*?\}\ninit\(\);", re.S)
-    new_init = """async function init(){renderStructure();const ys=$('#year');const cy=new Date().getFullYear();for(let y=2025;y<=cy+3;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===cy)o.selected=true;ys.appendChild(o)}const today=new Date();$('#reportDate').value=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');document.addEventListener('input',e=>{if(e.target.matches('[data-key]:not([readonly]),[data-doctor]'))refreshAutos()});$('#reportDate').addEventListener('change',loadDate);$('#mode').addEventListener('change',switchMode);$('#quarter').addEventListener('change',renderPeriod);$('#half').addEventListener('change',renderPeriod);$('#year').addEventListener('change',()=>$('#mode').value==='date'?null:renderPeriod());$('#saveBtn').addEventListener('click',saveDate);$('#deleteBtn').addEventListener('click',deleteDate);$('#backupBtn').addEventListener('click',exportBackup);$('#restoreInput').addEventListener('change',e=>e.target.files[0]&&importBackup(e.target.files[0]));$('#logoutBtn').addEventListener('click',()=>location.href='/');try{await loadServerStore();loadDate()}catch(error){console.error(error);$('#status').textContent='Не удалось загрузить серверные данные. Обновите страницу.'}}
+    new_init = """async function init(){renderStructure();const ys=$('#year');const cy=new Date().getFullYear();for(let y=2025;y<=cy+3;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===cy)o.selected=true;ys.appendChild(o)}const today=new Date();$('#reportDate').value=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');document.addEventListener('input',e=>{if(e.target.matches('[data-key]:not([readonly]),[data-doctor]'))refreshAutos()});$('#reportDate').addEventListener('change',loadDate);$('#mode').addEventListener('change',switchMode);$('#quarter').addEventListener('change',renderPeriod);$('#half').addEventListener('change',renderPeriod);$('#year').addEventListener('change',()=>$('#mode').value==='date'?null:renderPeriod());$('#saveBtn').addEventListener('click',saveDate);$('#deleteBtn').addEventListener('click',deleteDate);$('#backupBtn').addEventListener('click',exportBackup);$('#restoreInput').addEventListener('change',e=>e.target.files[0]&&importBackup(e.target.files[0]));$('#logoutBtn').addEventListener('click',()=>location.href='/reports/');try{await loadServerStore();loadDate()}catch(error){console.error(error);$('#status').textContent='Не удалось загрузить серверные данные. Обновите страницу.'}}
 init();"""
     html, count = init_pattern.subn(new_init, html, count=1)
     if count != 1:
@@ -116,14 +140,20 @@ def register_report_storage(app):
     _ensure_schema()
 
     @app.before_request
-    def serve_server_report_index():
-        if request.path != "/reports/" or request.method != "GET":
+    def serve_report_pages():
+        if request.method != "GET":
+            return None
+        if request.path not in {"/reports/", "/reports/management/", "/reports/transitions.html"}:
             return None
         if not getattr(g, "user", None):
             return None
         if "reports" not in user_permissions(g.user):
             return None
-        return Response(_render_server_reports(), mimetype="text/html")
+        if request.path == "/reports/":
+            return Response(_render_reports_menu(), mimetype="text/html")
+        if request.path == "/reports/management/":
+            return Response(_render_server_reports(), mimetype="text/html")
+        return Response(_render_transitions(), mimetype="text/html")
 
     @app.get("/api/reports/data")
     @permission_required("reports")
