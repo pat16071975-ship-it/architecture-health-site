@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Перенос отчётов — AZ-BAZE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f7f3ec;--paper2:#efe8db;--ink:#2d342f;--green:#44634f;--gold:#b59662;--red:#9a4b48}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fcfaf6,var(--paper));color:var(--ink);font-family:Montserrat,Arial,sans-serif}
+.page{width:min(720px,92vw);margin:0 auto;padding:44px 0}
+.top{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:30px}
+h1{margin:0;font-size:32px;font-weight:500}
+.back{padding:9px 12px;border:1px solid rgba(181,150,98,.42);border-radius:9px;color:#354039;text-decoration:none;font-size:12px;font-weight:600}
+.card{padding:26px;border:1px solid rgba(181,150,98,.38);border-radius:14px;background:rgba(255,253,248,.92);box-shadow:0 12px 34px rgba(71,58,38,.08)}
+.note{font-size:13px;line-height:1.55;color:#616a63;margin-bottom:20px}
+.file{display:block;width:100%;padding:14px;border:1px solid #d8cdbb;border-radius:10px;background:#fff}
+.actions{display:flex;gap:10px;margin-top:16px}
+button{appearance:none;border:0;border-radius:10px;padding:12px 18px;background:var(--green);color:#fff;font:600 13px Montserrat;cursor:pointer}
+button:disabled{opacity:.45;cursor:default}
+.status{margin-top:18px;padding:12px 14px;border-radius:9px;background:#f4efe5;font-size:12px;line-height:1.5;min-height:42px}
+.status.error{color:var(--red)}
+.status.ok{color:#315a40;background:#e5eee7}
+@media(max-width:560px){.page{padding:24px 0}.top{align-items:flex-start}.card{padding:18px}h1{font-size:25px}.actions button{width:100%}}
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="top">
+    <h1>Перенос отчётов на сервер</h1>
+    <a class="back" href="/reports/">К отчётам</a>
+  </div>
+  <section class="card">
+    <div class="note">Выберите полную резервную копию AZ из рабочего браузера. Управленческий отчёт, аналитика услуг, перенаправления и связанные данные будут сохранены в общей базе AZ-BAZE.</div>
+    <input class="file" id="file" type="file" accept="application/json,.json">
+    <div class="actions"><button id="send" type="button" disabled>Перенести данные</button></div>
+    <div id="status" class="status">Файл ещё не выбран.</div>
+  </section>
+</main>
+<script>
+const fileInput=document.getElementById('file');
+const send=document.getElementById('send');
+const statusBox=document.getElementById('status');
+let csrf='';
+
+function status(text,kind=''){
+  statusBox.textContent=text;
+  statusBox.className='status'+(kind?' '+kind:'');
+}
+
+async function loadCsrf(){
+  const response=await fetch('/api/reports/storage',{credentials:'same-origin',cache:'no-store'});
+  if(!response.ok)throw new Error('Не удалось получить доступ к серверному хранилищу.');
+  const data=await response.json();
+  csrf=data.csrf||'';
+  if(!csrf)throw new Error('Не удалось подготовить защищённый импорт.');
+}
+
+fileInput.addEventListener('change',()=>{
+  send.disabled=!fileInput.files[0];
+  status(fileInput.files[0]?'Файл выбран. Нажмите «Перенести данные».':'Файл ещё не выбран.');
+});
+
+send.addEventListener('click',async()=>{
+  const file=fileInput.files[0];
+  if(!file)return;
+  send.disabled=true;
+  status('Проверяю файл и переношу данные на сервер…');
+  try{
+    const payload=JSON.parse(await file.text());
+    if(!payload||payload.version!==1||!payload.storage||typeof payload.storage!=='object'){
+      throw new Error('Это не полная резервная копия AZ.');
+    }
+    if(!payload.storage['az-management-report-v1']){
+      throw new Error('В файле нет управленческого отчёта.');
+    }
+    if(!csrf)await loadCsrf();
+    const response=await fetch('/api/reports/import-all',{
+      method:'POST',
+      credentials:'same-origin',
+      headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},
+      body:JSON.stringify(payload)
+    });
+    if(!response.ok){
+      const text=await response.text();
+      throw new Error(text||'Сервер отклонил импорт.');
+    }
+    const result=await response.json();
+    status(`Готово. Управленческий отчёт: ${result.managementRecords} записей. Дополнительных наборов данных: ${result.datasets.length}.`,'ok');
+  }catch(error){
+    console.error(error);
+    status(error.message||'Не удалось перенести данные.','error');
+    send.disabled=false;
+  }
+});
+
+loadCsrf().catch(error=>status(error.message||'Не удалось подготовить импорт.','error'));
+</script>
+</body>
+</html>
