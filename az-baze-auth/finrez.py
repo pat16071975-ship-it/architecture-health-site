@@ -91,6 +91,10 @@ def _management_months():
             "plan": record.get("plan", ""),
             "factMedicine": record.get("factMedicine", 0),
             "factLab": record.get("factLab", record.get("labRevenue", 0)),
+            "dentPrimary": record.get("dentPrimary", 0),
+            "dentRepeat": record.get("dentRepeat", 0),
+            "clinicPrimary": record.get("clinicPrimary", 0),
+            "clinicRepeat": record.get("clinicRepeat", 0),
             "dentists": record.get("dentists") if isinstance(record.get("dentists"), dict) else {},
             "structureDoctors": record.get("clinicDocs") if isinstance(record.get("clinicDocs"), dict) else {},
         }
@@ -108,6 +112,12 @@ def register_finrez(app):
             "MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index))",
         )
         return Response(html, mimetype="text/html")
+
+    @app.get("/reports/forecast/")
+    @permission_required("reports")
+    def forecast_page():
+        path = SITE_ROOT / "reports" / "forecast.html"
+        return Response(path.read_text(encoding="utf-8"), mimetype="text/html")
 
     @app.get("/api/reports/finrez")
     @permission_required("reports")
