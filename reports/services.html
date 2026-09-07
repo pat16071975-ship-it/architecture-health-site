@@ -5,12 +5,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Аналитика услуг — Архитектура здоровья</title>
 <style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f7f3ec}
-iframe{border:0;width:100%;height:100%;display:block}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f7f3ec;font-family:Arial,sans-serif}
+.shell{width:100%;height:100%;display:grid;grid-template-rows:58px 1fr}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 14px;border-bottom:1px solid #d8cdbb;background:#fffdf8;box-shadow:0 3px 12px rgba(58,49,37,.06);z-index:20}
+.nav-title{font-size:14px;font-weight:700;color:#354039}.nav-actions{display:flex;gap:8px}.nav a{padding:9px 12px;border:1px solid rgba(68,99,79,.28);border-radius:9px;background:#fff;color:#334039;text-decoration:none;font-size:12px;font-weight:700}.nav a.primary{background:#44634f;color:#fff;border-color:#44634f}
+iframe{border:0;width:100%;height:100%;display:block;min-height:0}
+@media(max-width:620px){.shell{grid-template-rows:52px 1fr}.nav{padding:6px 8px}.nav-title{font-size:11px}.nav a{padding:7px 9px;font-size:10px}}
 </style>
 </head>
 <body>
-<iframe id="serviceFrame" title="Аналитика услуг"></iframe>
+<div class="shell">
+  <div class="nav">
+    <div class="nav-title">Аналитика услуг</div>
+    <div class="nav-actions"><a class="primary" href="/reports/">К отчётам</a><a href="/">На главную</a></div>
+  </div>
+  <iframe id="serviceFrame" title="Аналитика услуг"></iframe>
+</div>
 <script>
 const frame=document.getElementById('serviceFrame');
 const importHash=location.hash||'';
