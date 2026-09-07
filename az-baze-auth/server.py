@@ -32,9 +32,15 @@ def tune_report_response(response):
         html = response.get_data(as_text=True)
         html = re.sub(
             r"mobile-date-fix\.css\?v=[0-9-]+",
-            "mobile-date-fix.css?v=20260907-3",
+            "mobile-date-fix.css?v=20260907-4",
             html,
         )
+        if "management-mobile-layout.js" not in html:
+            html = html.replace(
+                "</body>",
+                '<script src="./management-mobile-layout.js?v=20260907-1"></script>\n</body>',
+                1,
+            )
         response.set_data(html)
 
     return response
