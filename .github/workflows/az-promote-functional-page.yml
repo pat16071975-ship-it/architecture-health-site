@@ -1,0 +1,46 @@
+name: AZ promote functional dentistry page
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - '.github/workflows/az-promote-functional-page.yml'
+permissions:
+  contents: write
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Promote approved viewer page to main route
+        run: |
+          cp interface-lab/functional-dentistry/index.html functional-dentistry/index.html
+          cp interface-lab/direction-page.css direction-page.css
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('functional-dentistry/index.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('<meta name="robots" content="noindex,nofollow">\n','',1)
+          s=s.replace('href="../direction-page.css?v=20260907-2"','href="../direction-page.css?v=20260907-2"',1)
+          s=s.replace('src="../../assets/logo-site.webp?v=20260907-1"','src="../assets/logo-site.webp?v=20260907-1"',1)
+          s=s.replace('src="../../assets/functional-dentistry-calm-approved.webp?v=20260906-5"','src="../assets/functional-dentistry-calm-approved.webp?v=20260906-5"',1)
+          s=s.replace('href="../?v=20260907-5"','href="../"',1)
+          if 'noindex,nofollow' in s:
+              raise SystemExit('noindex still present')
+          if '../../assets/' in s:
+              raise SystemExit('viewer asset path still present')
+          p.write_text(s,encoding='utf-8')
+          PY
+          grep -q '<h1>Функциональная стоматология в Новосибирске</h1>' functional-dentistry/index.html
+          grep -q 'Диагностика прикуса и ВНЧС' functional-dentistry/index.html
+          grep -q 'Вопросы и ответы' functional-dentistry/index.html
+          grep -q '../assets/functional-dentistry-calm-approved.webp' functional-dentistry/index.html
+      - name: Commit promoted page
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add functional-dentistry/index.html direction-page.css
+          git commit -m "Promote approved functional dentistry page to main site"
+          git push origin feature/site-v1
