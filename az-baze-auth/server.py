@@ -1,9 +1,11 @@
 from flask import request
 
 from app import app
-from report_storage import register_report_storage
+import report_storage
+from terminology import install as install_report_terminology
 
-register_report_storage(app)
+install_report_terminology(app, report_storage)
+report_storage.register_report_storage(app)
 
 
 @app.after_request
