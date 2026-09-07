@@ -1,0 +1,40 @@
+name: AZ Lab use company logo
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - '.github/workflows/az-lab-use-company-logo.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Replace temporary mark with company logo in viewer only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('interface-lab/functional-dentistry/index.html')
+          s=p.read_text(encoding='utf-8')
+          old='<div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>Архитектура здоровья</span></div>'
+          new='<div class="brand"><img class="az-company-brand-mark" src="../../assets/logo-site.webp?v=20260907-1" alt="Логотип Архитектура здоровья"><span>Архитектура здоровья</span></div>'
+          if old not in s:
+              raise SystemExit('Expected viewer brand markup not found')
+          s=s.replace(old,new,1)
+          css='''\n/* official company logo in viewer header */\n.az-company-brand-mark{width:44px;height:44px;display:block;object-fit:contain;flex:0 0 44px}\n@media(max-width:600px){.az-company-brand-mark{width:36px;height:36px;flex-basis:36px}}\n'''
+          if '/* official company logo in viewer header */' not in s:
+              s=s.replace('</style>',css+'</style>',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit viewer-only change and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/az-lab-use-company-logo.yml
+          git add interface-lab/functional-dentistry/index.html
+          git commit -m "Use company logo in dentistry viewer"
+          git push origin feature/site-v1
