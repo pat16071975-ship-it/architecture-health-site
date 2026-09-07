@@ -1,0 +1,38 @@
+name: AZ fix orthodontics workflow
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - '.github/workflows/az-fix-orthodontics-workflow.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Fix verification for new untracked files
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/az-lab-create-orthodontics-page.yml')
+          s=p.read_text(encoding='utf-8')
+          a="git diff --name-only | grep -qx 'assets/orthodontics-hero.webp'"
+          b="git diff --name-only | grep -qx 'interface-lab/orthodontics/index.html'"
+          if a not in s or b not in s:
+              raise SystemExit('expected verification lines not found')
+          s=s.replace(a,"git status --porcelain | grep -q 'assets/orthodontics-hero.webp'",1)
+          s=s.replace(b,"git status --porcelain | grep -q 'interface-lab/orthodontics/index.html'",1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit fix and self-remove
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/az-fix-orthodontics-workflow.yml
+          git add .github/workflows/az-lab-create-orthodontics-page.yml
+          git commit -m "Fix orthodontics page workflow verification"
+          git push origin feature/site-v1
