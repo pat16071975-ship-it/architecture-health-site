@@ -27,4 +27,13 @@ def tune_report_response(response):
             html = html.replace('<a class="btn" href="/reports/">К отчётам</a>', '')
             html = html.replace('<a class="btn" href="/">На главную</a>', '')
             response.set_data(html)
+
+    if request.path == "/reports/management/" and response.mimetype == "text/html":
+        html = response.get_data(as_text=True)
+        html = html.replace(
+            "mobile-date-fix.css?v=20260826-1",
+            "mobile-date-fix.css?v=20260907-2",
+        )
+        response.set_data(html)
+
     return response
