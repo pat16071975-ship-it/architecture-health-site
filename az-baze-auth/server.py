@@ -30,9 +30,10 @@ def tune_report_response(response):
 
     if request.path == "/reports/management/" and response.mimetype == "text/html":
         html = response.get_data(as_text=True)
-        html = html.replace(
-            "mobile-date-fix.css?v=20260826-1",
-            "mobile-date-fix.css?v=20260907-2",
+        html = re.sub(
+            r"mobile-date-fix\.css\?v=[0-9-]+",
+            "mobile-date-fix.css?v=20260907-3",
+            html,
         )
         response.set_data(html)
 
