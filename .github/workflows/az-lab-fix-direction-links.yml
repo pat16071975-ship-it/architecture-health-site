@@ -1,0 +1,53 @@
+name: AZ Lab fix direction links
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - '.github/workflows/az-lab-fix-direction-links.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Map each ready direction to its own viewer page
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('interface-lab/index.html')
+          s=p.read_text(encoding='utf-8')
+          old="""  panel.innerHTML='<button class=\"az-lab-direction-close\" type=\"button\" aria-label=\"Закрыть описание\">×</button><div class=\"az-lab-direction-info-inner\"><h2>'+info.title+'</h2><p class=\"az-lab-direction-lead\">Стоит обратить внимание, если:</p><ul>'+info.items.map(item=>'<li>'+item+'</li>').join('')+'</ul><p class=\"az-lab-direction-summary\">'+info.summary+'</p><a class=\"az-lab-direction-more\" href=\"/architecture-health-site/interface-lab/functional-dentistry/\" target=\"_top\">Узнать подробнее</a></div>';
+"""
+          new="""  const detailPaths={'Функциональная стоматология':'/architecture-health-site/interface-lab/functional-dentistry/','Ортодонтия':'/architecture-health-site/interface-lab/orthodontics/','Остеопатия':'/architecture-health-site/interface-lab/osteopathy/','Терапия':'/architecture-health-site/interface-lab/dentistry/'};
+  const detailPath=detailPaths[name];
+  const more=detailPath?'<a class=\"az-lab-direction-more\" href=\"'+detailPath+'\" target=\"_top\">Узнать подробнее</a>':'<span class=\"az-lab-direction-more\" aria-disabled=\"true\">Узнать подробнее</span>';
+  panel.innerHTML='<button class=\"az-lab-direction-close\" type=\"button\" aria-label=\"Закрыть описание\">×</button><div class=\"az-lab-direction-info-inner\"><h2>'+info.title+'</h2><p class=\"az-lab-direction-lead\">Стоит обратить внимание, если:</p><ul>'+info.items.map(item=>'<li>'+item+'</li>').join('')+'</ul><p class=\"az-lab-direction-summary\">'+info.summary+'</p>'+more+'</div>';
+"""
+          if old not in s:
+              raise SystemExit('Expected hardcoded detail link not found')
+          s=s.replace(old,new,1)
+          css=".az-lab-direction-more[aria-disabled=\"true\"]{opacity:.42!important;cursor:default!important;pointer-events:none!important}\n"
+          marker=".az-lab-direction-close{position:absolute!important;"
+          if css not in s:
+              if marker not in s: raise SystemExit('CSS marker not found')
+              s=s.replace(marker,css+marker,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          test -f interface-lab/functional-dentistry/index.html
+          test -f interface-lab/orthodontics/index.html
+          test -f interface-lab/dentistry/index.html
+          test -f interface-lab/osteopathy/index.html
+          grep -q "interface-lab/orthodontics/" interface-lab/index.html
+          grep -q "interface-lab/dentistry/" interface-lab/index.html
+          grep -q "interface-lab/osteopathy/" interface-lab/index.html
+      - name: Commit viewer link fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add interface-lab/index.html
+          git commit -m "Fix direction detail links in Interface Lab"
+          git push origin feature/site-v1
