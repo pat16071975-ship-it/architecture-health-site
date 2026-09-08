@@ -10,6 +10,7 @@
   let economics = null;
   let syncing = false;
   let textObserver = null;
+  let syncRetries = 0;
 
   const norm = value => String(value || '')
     .toLowerCase()
@@ -44,7 +45,6 @@
 
   function monthArrayFromAssignments(assignments, period, count) {
     const out = Array(count).fill(null);
-    const index = new Map(period.map((month, i) => [month, i]));
     period.forEach((month, i) => {
       if (i >= count) return;
       let total = 0;
@@ -99,6 +99,10 @@
       badge.style.background = '#fff0e8';
       badge.style.borderColor = '#e1b7aa';
       badge.style.color = '#8b493d';
+    } else {
+      badge.style.background = '#edf5ee';
+      badge.style.borderColor = '#c8d4ca';
+      badge.style.color = '#355440';
     }
   }
 
@@ -134,7 +138,11 @@
     const d = frame.contentDocument;
     if (!w || !d) return;
     const analytics = loadJson(w.localStorage, DATA_KEY, null);
-    if (!analytics?.directions || !Array.isArray(analytics.months)) return;
+    if (!analytics?.directions || !Array.isArray(analytics.months)) {
+      if (syncRetries++ < 30) setTimeout(syncIntoExistingReport, 150);
+      return;
+    }
+    syncRetries = 0;
 
     syncing = true;
     try {
