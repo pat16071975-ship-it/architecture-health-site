@@ -122,7 +122,7 @@ def register_finrez(app):
             "MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index)).filter(n=>hasAny(n.values))",
             "MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index))",
         )
-        html = _inject_script(html, "finrez-economics-integrated.js", "20260908-1")
+        html = _inject_script(html, "finrez-economics-integrated.js", "20260908-2")
         return Response(html, mimetype="text/html")
 
     @app.get("/reports/forecast/")
