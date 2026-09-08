@@ -24,6 +24,54 @@ def _xor_stream(data, key, nonce):
     return bytes(out)
 
 
+def _close(left, right, tolerance=1.0):
+    return abs(float(left or 0) - float(right or 0)) <= tolerance
+
+
+def _self_checks(data):
+    payroll = data.get('payroll') or {}
+    opu = data.get('opu') or {}
+    employees = payroll.get('employees') or []
+    payments = payroll.get('payments') or []
+    groups = payroll.get('groups') or {}
+    period = data.get('period') or []
+    total = float(payroll.get('total') or 0)
+
+    checks = {}
+    checks['payroll_employee_total'] = _close(sum(float(x.get('total') or 0) for x in employees), total)
+    checks['payroll_group_total'] = _close(sum(float(x.get('total') or 0) for x in groups.values()), total)
+    checks['payroll_payment_total'] = _close(sum(float(x.get('amount') or 0) for x in payments), total)
+    checks['payment_ids_unique'] = len({x.get('payment_id') for x in payments}) == len(payments)
+    checks['employee_ids_present'] = all(x.get('employee_id') for x in payments)
+
+    monthly_ok = True
+    for month in period:
+        employee_month = sum(float((x.get('months') or {}).get(month) or 0) for x in employees)
+        expected = float((payroll.get('total_by_month') or {}).get(month) or 0)
+        monthly_ok = monthly_ok and _close(employee_month, expected)
+    checks['payroll_months_reconcile'] = monthly_ok
+
+    expense_lines = opu.get('expense_lines') or []
+    normalized_expenses = sum(float(x.get('total') or 0) for x in expense_lines)
+    source_expenses = sum(float(x or 0) for x in (opu.get('direct_expenses') or {}).values()) + sum(
+        float(x or 0) for x in (opu.get('indirect_expenses') or {}).values()
+    )
+    checks['opu_expenses_reconcile'] = _close(normalized_expenses, source_expenses)
+    checks['assistants_not_materials'] = sum(float(x or 0) for x in (opu.get('assistant_salary') or {}).values()) > 0 and sum(
+        float(x or 0) for x in (opu.get('materials') or {}).values()
+    ) > 0
+
+    failed = [name for name, ok in checks.items() if not ok]
+    if failed:
+        raise ValueError('economics control failed: ' + ', '.join(failed))
+    return {
+        'status': 'OK',
+        'checks': checks,
+        'uniqueEmployees': len({x.get('employee_id') for x in payments if x.get('employee_id')}),
+        'payments': len(payments),
+    }
+
+
 def _load_data():
     if not DATA_PATH.exists() or not KEY_PATH.exists():
         return {'version': 1, 'available': False, 'source': '', 'period': []}
@@ -44,6 +92,7 @@ def _load_data():
     data = json.loads(plain.decode('utf-8'))
     if not isinstance(data, dict) or data.get('version') != 1:
         raise ValueError('invalid economics payload')
+    data['control'] = _self_checks(data)
     data['available'] = True
     return data
 
