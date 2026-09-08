@@ -147,50 +147,23 @@
     const detailNodes = bucketOrder.map((bucket, bucketIndex) => {
       const items = grouped.get(bucket) || [];
       if (!items.length) return null;
-      const values = items.reduce(
-        (sum, item) => addValues(sum, auditedValues(year, item.line.months || {})),
-        Array(12).fill(null)
-      );
-      const children = items.map(({ line, lineIndex }) => node(
-        `audit-med-source-${bucketIndex}-${lineIndex}`,
-        line.source_name,
-        4,
-        auditedValues(year, line.months || {}),
-        [],
-        'detail'
-      ));
+      const values = items.reduce((sum, item) => addValues(sum, auditedValues(year, item.line.months || {})), Array(12).fill(null));
+      const children = items.map(({ line, lineIndex }) => node(`audit-med-source-${bucketIndex}-${lineIndex}`, line.source_name, 4, auditedValues(year, line.months || {}), [], 'detail'));
       return node(`audit-med-bucket-${bucketIndex}`, bucket, 3, values, children, 'subcategory');
     }).filter(Boolean);
 
     const materialsValues = auditedValues(year, economics?.opu?.materials || {});
-    const materialBucketNames = new Set([
-      'Стоматологические материалы',
-      'Материалы для ЗТЛ',
-      'Расходные медицинские материалы',
-      'Услуги лаборатории',
-      'Прочие материалы'
-    ]);
+    const materialBucketNames = new Set(['Стоматологические материалы','Материалы для ЗТЛ','Расходные медицинские материалы','Услуги лаборатории','Прочие материалы']);
     const materialChildren = detailNodes.filter(item => materialBucketNames.has(item.label));
-    const materialChildrenTotal = materialChildren.reduce(
-      (sum, item) => addValues(sum, item.values),
-      Array(12).fill(null)
-    );
+    const materialChildrenTotal = materialChildren.reduce((sum, item) => addValues(sum, item.values), Array(12).fill(null));
     const residual = subtractValues(materialsValues, materialChildrenTotal);
-    if (hasAnyValue(residual)) {
-      materialChildren.push(node('audit-materials-residual', 'Прочие материалы', 3, residual, [], 'detail'));
-    }
+    if (hasAnyValue(residual)) materialChildren.push(node('audit-materials-residual', 'Прочие материалы', 3, residual, [], 'detail'));
 
     const result = [];
-    if (materialsValues.some(value => value !== null)) {
-      result.push(node('audit-materials-accrued', 'Материалы — начислено', 2, materialsValues, materialChildren, 'subcategory'));
-    }
-
+    if (materialsValues.some(value => value !== null)) result.push(node('audit-materials-accrued', 'Материалы — начислено', 2, materialsValues, materialChildren, 'subcategory'));
     const nonMaterialNodes = detailNodes.filter(item => !materialBucketNames.has(item.label));
     if (nonMaterialNodes.length) {
-      const values = nonMaterialNodes.reduce(
-        (sum, item) => addValues(sum, item.values),
-        Array(12).fill(null)
-      );
+      const values = nonMaterialNodes.reduce((sum, item) => addValues(sum, item.values), Array(12).fill(null));
       result.push(node('audit-medical-other-accrued', 'Прочие медицинские расходы — начислено', 2, values, nonMaterialNodes, 'subcategory'));
     }
     return result;
@@ -229,12 +202,9 @@
 
   function annualShare(row, year, value) {
     if (!row?.shareMode || value === null || value === undefined) return '';
-    const all = Array.from({ length: 12 }, (_, index) => operatingExpenses(year, index))
-      .reduce((sum, item) => sum + (Number(item) || 0), 0);
+    const all = Array.from({ length: 12 }, (_, index) => operatingExpenses(year, index)).reduce((sum, item) => sum + (Number(item) || 0), 0);
     const allShare = all ? Number(value) / all : null;
-    if (row.shareMode === 'all') {
-      return `<span class="cell-share"><strong>${sharePercent(allShare)}</strong> всех расходов</span>`;
-    }
+    if (row.shareMode === 'all') return `<span class="cell-share"><strong>${sharePercent(allShare)}</strong> всех расходов</span>`;
     const categoryTotal = sumPresent(row.categoryValues);
     const categoryShare = categoryTotal ? Number(value) / categoryTotal : null;
     return `<span class="cell-share"><strong>${sharePercent(allShare)}</strong> всех · <span class="share-category"><strong>${sharePercent(categoryShare)}</strong> категории</span></span>`;
@@ -248,7 +218,6 @@
       originalRender();
       const year = +$('#year').value;
       const rows = flatten(buildRows(year));
-
       let style = document.getElementById('azFinrezTotalStyle');
       if (!style) {
         style = document.createElement('style');
@@ -257,9 +226,7 @@
         document.head.appendChild(style);
       }
       const head = $('#head');
-      if (head && !head.querySelector('.az-finrez-total-head')) {
-        head.insertAdjacentHTML('beforeend', '<th class="az-finrez-total az-finrez-total-head">Итого</th>');
-      }
+      if (head && !head.querySelector('.az-finrez-total-head')) head.insertAdjacentHTML('beforeend', '<th class="az-finrez-total az-finrez-total-head">Итого</th>');
       const colgroup = document.querySelector('#finrezTable colgroup');
       if (colgroup && !colgroup.querySelector('col[data-az-total]')) {
         const col = document.createElement('col');
@@ -274,9 +241,7 @@
         const value = totalForRow(row, year);
         const formatted = row.fmt === 'percent' ? percent(value) : money(value);
         let cls = 'az-finrez-total';
-        if ((row.cls === 'operating' || row.cls === 'net') && value !== null && value !== undefined) {
-          cls += Number(value) >= 0 ? ' positive' : ' negative';
-        }
+        if ((row.cls === 'operating' || row.cls === 'net') && value !== null && value !== undefined) cls += Number(value) >= 0 ? ' positive' : ' negative';
         if (formatted === '—') cls += ' muted';
         const share = row.fmt === 'money' ? annualShare(row, year, value) : '';
         tr.insertAdjacentHTML('beforeend', `<td class="${cls}"><span class="cell-main">${formatted}</span>${share}</td>`);
@@ -289,52 +254,24 @@
     if (typeof expenseCategoryNode !== 'function' || typeof node !== 'function' || typeof render !== 'function') return;
     economicsInstalled = true;
     const originalExpenseCategoryNode = expenseCategoryNode;
-
     expenseCategoryNode = function(year, mainName, index) {
       const base = originalExpenseCategoryNode(year, mainName, index);
       if (year !== 2026) return base;
-
       if (mainName === 'ФОТ') {
         const accruedValues = auditedValues(year, economics.payroll?.total_by_month || {});
         const revenueValues = auditedValues(year, economics.opu?.revenue_net || {});
-        const ratioValues = accruedValues.map((value, monthIndex) => {
-          if (value === null || revenueValues[monthIndex] === null || !revenueValues[monthIndex]) return null;
-          return value / revenueValues[monthIndex];
-        });
+        const ratioValues = accruedValues.map((value, monthIndex) => value === null || revenueValues[monthIndex] === null || !revenueValues[monthIndex] ? null : value / revenueValues[monthIndex]);
         const ratioNode = node('audit-fot-ratio', 'ФОТ / выручка', 3, ratioValues, [], 'detail', 'percent');
         const totalFot = sumPresent(accruedValues);
         const totalRevenue = sumPresent(revenueValues);
         ratioNode.yearTotal = totalFot !== null && totalRevenue ? totalFot / totalRevenue : null;
-
-        const accruedNode = node(
-          'audit-fot-accrued',
-          'Начисленный ФОТ по зарплатному реестру',
-          2,
-          accruedValues,
-          [ratioNode, ...payrollReportingNodes(year)],
-          'subcategory'
-        );
-        const paidDetail = node(
-          'fot-paid-detail',
-          'ФОТ по фактическим выплатам — детализация',
-          2,
-          base.values,
-          base.children || [],
-          'subcategory'
-        );
+        const accruedNode = node('audit-fot-accrued', 'Начисленный ФОТ по зарплатному реестру', 2, accruedValues, [ratioNode, ...payrollReportingNodes(year)], 'subcategory');
+        const paidDetail = node('fot-paid-detail', 'ФОТ по фактическим выплатам — детализация', 2, base.values, base.children || [], 'subcategory');
         base.children = [accruedNode, paidDetail];
         return base;
       }
-
       if (mainName === 'Медицинские расходы') {
-        const paidDetail = node(
-          'medical-paid-detail',
-          'Медицинские расходы по фактическим оплатам — детализация',
-          2,
-          base.values,
-          base.children || [],
-          'subcategory'
-        );
+        const paidDetail = node('medical-paid-detail', 'Медицинские расходы по фактическим оплатам — детализация', 2, base.values, base.children || [], 'subcategory');
         base.children = [...medicalAccrualNodes(year), paidDetail];
         return base;
       }
@@ -344,6 +281,7 @@
 
   async function load() {
     installTotalColumn();
+    if (typeof DATA !== 'undefined' && DATA) render();
     try {
       const response = await fetch('/api/reports/economics-control', { credentials: 'same-origin', cache: 'no-store' });
       if (!response.ok) return;
