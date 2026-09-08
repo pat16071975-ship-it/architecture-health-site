@@ -11,11 +11,15 @@
     .replace(/\s+/g, ' ')
     .trim();
 
-  function assignmentDirection(item) {
+  function doctorDirection(item) {
     if (item?.group !== 'Врачи') return null;
     const text = norm([item.department, item.role, item.function].join(' '));
-    if (/(остеопат|нутрициолог|подиатр|гастроэнтеролог|нейропсихолог|массаж|миофункцион|логопед|медицинская сестра по массажу)/.test(text)) return 'structure';
-    if (/(ортодонт|стоматолог|ортопед|хирург|гигиенист|терапия|терапевт)/.test(text)) return 'dent';
+    if (/(отделение структуры|остеопат|нутрициолог|подиатр|гастроэнтеролог|нейропсихолог|массаж|миофункцион|логопед|медицинская сестра по массажу)/.test(text)) {
+      return 'structure';
+    }
+    if (/(функциональная стоматология|ортодонт|стоматолог|ортопед|хирург|гигиенист|отделение терапии|терапия|терапевт)/.test(text)) {
+      return 'dent';
+    }
     return null;
   }
 
@@ -29,7 +33,7 @@
         .reduce((sum, item) => sum + (Number(item.months?.[month]) || 0), 0);
     }
     return assignments
-      .filter(item => item.group === 'Врачи' && assignmentDirection(item) === direction)
+      .filter(item => item.group === 'Врачи' && doctorDirection(item) === direction)
       .reduce((sum, item) => sum + (Number(item.months?.[month]) || 0), 0);
   }
 
@@ -53,7 +57,6 @@
       if (uiRetries++ < 50) setTimeout(refreshUiWhenReady, 100);
       return;
     }
-
     if (typeof fillSegments === 'function' && typeof applyBase === 'function' && typeof calculate === 'function') {
       for (const [direction] of (typeof DIRS !== 'undefined' ? DIRS : [])) {
         fillSegments(direction);
