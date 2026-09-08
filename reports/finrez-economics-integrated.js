@@ -1,94 +1,360 @@
 (() => {
-  let E=null, installed=false;
-  const norm=v=>String(v||'').toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim();
-  const ym=(y,i)=>`${y}-${String(i+1).padStart(2,'0')}`;
-  const vals=(y,src)=>Array.from({length:12},(_,i)=>{const m=ym(y,i);return (E?.period||[]).includes(m)?(Number(src?.[m])||0):null});
-  const allAssignments=()=>E?.payroll?.assignments||[];
-  const sumAssignments=(y,list)=>{const src={};(E?.period||[]).forEach(m=>src[m]=list.reduce((s,x)=>s+(Number(x.months?.[m])||0),0));return vals(y,src)};
-  const direction=x=>{
-    if(x?.group!=='Врачи')return null;
-    const t=norm([x.department,x.role,x.function].join(' '));
-    if(/остеопат|нутрициолог|подиатр|гастроэнтеролог|нейропсихолог|массаж|миофункцион|логопед/.test(t))return 'structure';
-    if(/ортодонт|стоматолог|ортопед|хирург|гигиенист|терапевт|терапия/.test(t))return 'dent';
+  let economics = null;
+  let economicsInstalled = false;
+  let totalColumnInstalled = false;
+
+  const norm = value => String(value || '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/\(\s*[cс]\s*\)/gi, '')
+    .replace(/[^а-яa-z0-9\s-]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const assistantAssignment = item => {
+    if (item?.group !== 'Вспомогательный персонал') return false;
+    const text = norm([item.role, item.function, item.department].join(' '));
+    return /ассист|стаж/.test(text);
+  };
+
+  const doctorDirection = item => {
+    if (item?.group !== 'Врачи') return null;
+    const text = norm([item.department, item.role, item.function].join(' '));
+    if (/(отделение структуры|остеопат|нутрициолог|подиатр|гастроэнтеролог|нейропсихолог|массаж|миофункцион|логопед|медицинская сестра по массажу)/.test(text)) {
+      return 'Отделение структуры';
+    }
+    if (/(функциональная стоматология|ортодонт|стоматолог|ортопед|хирург|гигиенист|отделение терапии|терапия|терапевт)/.test(text)) {
+      return 'Стоматология';
+    }
     return null;
   };
-  const people=(y,list,prefix)=>list.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ru')).map((x,i)=>node(`${prefix}-${i}`,`${x.name} — ${x.role}`,4,vals(y,x.months||{}),[],'detail'));
-  const ordinaryGroup=(y,g,i)=>{const gd=E?.payroll?.groups?.[g];if(!gd)return null;const list=allAssignments().filter(x=>x.group===g);return node(`audit-fot-group-${i}`,g,3,vals(y,gd.months||{}),people(y,list,`audit-fot-group-${i}`),'subcategory')};
 
-  function fotChildren(y,accrued){
-    const rev=vals(y,E?.opu?.revenue_net||{});
-    const ratio=accrued.map((v,i)=>v===null||rev[i]===null||!rev[i]?null:v/rev[i]);
-    const dent=allAssignments().filter(x=>x.group==='Врачи'&&direction(x)==='dent');
-    const structure=allAssignments().filter(x=>x.group==='Врачи'&&direction(x)==='structure');
-    const unassigned=allAssignments().filter(x=>x.group==='Врачи'&&!direction(x));
-    const aux=vals(y,E?.payroll?.groups?.['Вспомогательный персонал']?.months||{});
-    const assistants=vals(y,E?.opu?.assistant_salary||{});
-    const restAux=aux.map((v,i)=>v===null?null:v-(Number(assistants[i])||0));
-    return [
-      node('audit-fot-ratio','ФОТ / выручка',3,ratio,[],'detail','percent'),
-      dent.length?node('audit-fot-dent','Стоматология — врачи',3,sumAssignments(y,dent),people(y,dent,'audit-fot-dent'),'subcategory'):null,
-      structure.length?node('audit-fot-structure','Отделение структуры — врачи',3,sumAssignments(y,structure),people(y,structure,'audit-fot-structure'),'subcategory'):null,
-      unassigned.length?node('audit-fot-unassigned','Врачи — не распределено по направлению',3,sumAssignments(y,unassigned),people(y,unassigned,'audit-fot-unassigned'),'subcategory'):null,
-      node('audit-fot-assistants','Ассистенты стоматологов',3,assistants,[],'subcategory'),
-      node('audit-fot-aux-rest','Остальной вспомогательный персонал',3,restAux,[],'subcategory'),
-      ordinaryGroup(y,'АУП',2),
-      ordinaryGroup(y,'Администраторы',3),
-      ordinaryGroup(y,'Лаборатория',4),
-      ordinaryGroup(y,'Штатный маркетинг',5)
-    ].filter(Boolean);
+  const reportGroups = [
+    { key: 'dent-doctors', label: 'Стоматология — врачи', filter: item => doctorDirection(item) === 'Стоматология' },
+    { key: 'structure-doctors', label: 'Отделение структуры — врачи', filter: item => doctorDirection(item) === 'Отделение структуры' },
+    { key: 'assistants', label: 'Ассистенты стоматологов', filter: assistantAssignment },
+    { key: 'aux-other', label: 'Остальной вспомогательный персонал', filter: item => item?.group === 'Вспомогательный персонал' && !assistantAssignment(item) },
+    { key: 'aup', label: 'АУП', filter: item => item?.group === 'АУП' },
+    { key: 'admins', label: 'Администраторы', filter: item => item?.group === 'Администраторы' },
+    { key: 'lab', label: 'Лаборатория', filter: item => item?.group === 'Лаборатория' },
+    { key: 'marketing', label: 'Штатный маркетинг', filter: item => item?.group === 'Штатный маркетинг' }
+  ];
+
+  function auditedMonth(year, index) {
+    const month = `${year}-${String(index + 1).padStart(2, '0')}`;
+    return (economics?.period || []).includes(month) ? month : null;
   }
 
-  const add=(a,b)=>Array.from({length:12},(_,i)=>a?.[i]===null&&b?.[i]===null?null:(Number(a?.[i])||0)+(Number(b?.[i])||0));
-  const sub=(a,b)=>Array.from({length:12},(_,i)=>a?.[i]===null?null:(Number(a?.[i])||0)-(Number(b?.[i])||0));
-  const any=v=>(v||[]).some(x=>x!==null&&Math.abs(Number(x)||0)>.01);
-  const bucket=name=>{
-    const n=norm(name);
-    if(n.includes('услуги лаборатории'))return 'Услуги лаборатории';
-    if(n.includes('материалы для зтл'))return 'Материалы для ЗТЛ';
-    if(n.includes('стоматологические материалы'))return 'Стоматологические материалы';
-    if(n.includes('расходные материалы')||n.includes('стоматологические принадлежности'))return 'Расходные медицинские материалы';
-    if(n.includes('компьютерная томография')||n.includes('диагност'))return 'Диагностика / КТ';
-    if(n.includes('утилизац')||n.includes('спецодеж')||n.includes('санитар'))return 'Санитарные и медицинские расходы';
-    if(n.includes('материал'))return 'Прочие материалы';
-    return 'Прочие медицинские расходы';
-  };
+  function auditedValues(year, source) {
+    return Array.from({ length: 12 }, (_, index) => {
+      const month = auditedMonth(year, index);
+      return month ? (Number(source?.[month]) || 0) : null;
+    });
+  }
 
-  function medicalNodes(y){
-    const lines=(E?.opu?.expense_lines||[]).filter(x=>x.category==='Медицинские расходы');
-    const order=['Стоматологические материалы','Материалы для ЗТЛ','Расходные медицинские материалы','Услуги лаборатории','Диагностика / КТ','Санитарные и медицинские расходы','Прочие материалы','Прочие медицинские расходы'];
-    const grouped=new Map();
-    lines.forEach((x,i)=>{const b=bucket(x.source_name);if(!grouped.has(b))grouped.set(b,[]);grouped.get(b).push({x,i})});
-    const detail=order.map((b,bi)=>{const arr=grouped.get(b)||[];if(!arr.length)return null;const v=arr.reduce((s,it)=>add(s,vals(y,it.x.months||{})),Array(12).fill(null));return node(`audit-med-bucket-${bi}`,b,3,v,arr.map(it=>node(`audit-med-source-${bi}-${it.i}`,it.x.source_name,4,vals(y,it.x.months||{}),[],'detail')),'subcategory')}).filter(Boolean);
-    const materialNames=new Set(['Стоматологические материалы','Материалы для ЗТЛ','Расходные медицинские материалы','Услуги лаборатории','Прочие материалы']);
-    const materials=vals(y,E?.opu?.materials||{});
-    const materialChildren=detail.filter(x=>materialNames.has(x.label));
-    const materialKnown=materialChildren.reduce((s,x)=>add(s,x.values),Array(12).fill(null));
-    const residual=sub(materials,materialKnown);
-    if(any(residual))materialChildren.push(node('audit-materials-residual','Прочие материалы',3,residual,[],'detail'));
-    const result=[];
-    if(materials.some(x=>x!==null))result.push(node('audit-materials-accrued','Материалы — начислено',2,materials,materialChildren,'subcategory'));
-    const other=detail.filter(x=>!materialNames.has(x.label));
-    if(other.length)result.push(node('audit-medical-other-accrued','Прочие медицинские расходы — начислено',2,other.reduce((s,x)=>add(s,x.values),Array(12).fill(null)),other,'subcategory'));
+  function valuesForAssignments(year, assignments) {
+    return Array.from({ length: 12 }, (_, index) => {
+      const month = auditedMonth(year, index);
+      if (!month) return null;
+      return assignments.reduce((sum, item) => sum + (Number(item?.months?.[month]) || 0), 0);
+    });
+  }
+
+  function addValues(left, right) {
+    return Array.from({ length: 12 }, (_, index) => {
+      const a = left?.[index];
+      const b = right?.[index];
+      if (a === null && b === null) return null;
+      return (Number(a) || 0) + (Number(b) || 0);
+    });
+  }
+
+  function subtractValues(left, right) {
+    return Array.from({ length: 12 }, (_, index) => {
+      const a = left?.[index];
+      const b = right?.[index];
+      if (a === null) return null;
+      const value = (Number(a) || 0) - (Number(b) || 0);
+      return Math.abs(value) < 0.01 ? 0 : value;
+    });
+  }
+
+  function hasAnyValue(values) {
+    return (values || []).some(value => value !== null && Math.abs(Number(value) || 0) > 0.01);
+  }
+
+  function employeeNodes(year, assignments, parentKey) {
+    return assignments
+      .slice()
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ru'))
+      .map((item, index) => node(
+        `audit-fot-${parentKey}-${index}`,
+        `${item.name} — ${item.role}`,
+        4,
+        auditedValues(year, item.months || {}),
+        [],
+        'detail'
+      ));
+  }
+
+  function payrollReportingNodes(year) {
+    const assignments = economics?.payroll?.assignments || [];
+    return reportGroups.map((definition, groupIndex) => {
+      const selected = assignments.filter(definition.filter);
+      if (!selected.length) return null;
+      return node(
+        `audit-fot-group-${definition.key}-${groupIndex}`,
+        definition.label,
+        3,
+        valuesForAssignments(year, selected),
+        employeeNodes(year, selected, definition.key),
+        'subcategory'
+      );
+    }).filter(Boolean);
+  }
+
+  function medicalBucket(sourceName) {
+    const name = norm(sourceName);
+    if (name.includes('услуги лаборатории')) return 'Услуги лаборатории';
+    if (name.includes('материалы для зтл')) return 'Материалы для ЗТЛ';
+    if (name.includes('стоматологические материалы')) return 'Стоматологические материалы';
+    if (name.includes('расходные материалы') || name.includes('стоматологические принадлежности')) return 'Расходные медицинские материалы';
+    if (name.includes('компьютерная томография') || name.includes('диагност')) return 'Диагностика / КТ';
+    if (name.includes('утилизац') || name.includes('спецодеж') || name.includes('санитар')) return 'Санитарные и медицинские расходы';
+    if (name.includes('материал')) return 'Прочие материалы';
+    return 'Прочие медицинские расходы';
+  }
+
+  function medicalAccrualNodes(year) {
+    const lines = (economics?.opu?.expense_lines || []).filter(line => line.category === 'Медицинские расходы');
+    const bucketOrder = [
+      'Стоматологические материалы',
+      'Материалы для ЗТЛ',
+      'Расходные медицинские материалы',
+      'Услуги лаборатории',
+      'Диагностика / КТ',
+      'Санитарные и медицинские расходы',
+      'Прочие материалы',
+      'Прочие медицинские расходы'
+    ];
+    const grouped = new Map();
+    lines.forEach((line, lineIndex) => {
+      const bucket = medicalBucket(line.source_name);
+      if (!grouped.has(bucket)) grouped.set(bucket, []);
+      grouped.get(bucket).push({ line, lineIndex });
+    });
+
+    const detailNodes = bucketOrder.map((bucket, bucketIndex) => {
+      const items = grouped.get(bucket) || [];
+      if (!items.length) return null;
+      const values = items.reduce(
+        (sum, item) => addValues(sum, auditedValues(year, item.line.months || {})),
+        Array(12).fill(null)
+      );
+      const children = items.map(({ line, lineIndex }) => node(
+        `audit-med-source-${bucketIndex}-${lineIndex}`,
+        line.source_name,
+        4,
+        auditedValues(year, line.months || {}),
+        [],
+        'detail'
+      ));
+      return node(`audit-med-bucket-${bucketIndex}`, bucket, 3, values, children, 'subcategory');
+    }).filter(Boolean);
+
+    const materialsValues = auditedValues(year, economics?.opu?.materials || {});
+    const materialBucketNames = new Set([
+      'Стоматологические материалы',
+      'Материалы для ЗТЛ',
+      'Расходные медицинские материалы',
+      'Услуги лаборатории',
+      'Прочие материалы'
+    ]);
+    const materialChildren = detailNodes.filter(item => materialBucketNames.has(item.label));
+    const materialChildrenTotal = materialChildren.reduce(
+      (sum, item) => addValues(sum, item.values),
+      Array(12).fill(null)
+    );
+    const residual = subtractValues(materialsValues, materialChildrenTotal);
+    if (hasAnyValue(residual)) {
+      materialChildren.push(node('audit-materials-residual', 'Прочие материалы', 3, residual, [], 'detail'));
+    }
+
+    const result = [];
+    if (materialsValues.some(value => value !== null)) {
+      result.push(node('audit-materials-accrued', 'Материалы — начислено', 2, materialsValues, materialChildren, 'subcategory'));
+    }
+
+    const nonMaterialNodes = detailNodes.filter(item => !materialBucketNames.has(item.label));
+    if (nonMaterialNodes.length) {
+      const values = nonMaterialNodes.reduce(
+        (sum, item) => addValues(sum, item.values),
+        Array(12).fill(null)
+      );
+      result.push(node('audit-medical-other-accrued', 'Прочие медицинские расходы — начислено', 2, values, nonMaterialNodes, 'subcategory'));
+    }
     return result;
   }
 
-  function install(){
-    if(installed||!E?.available||E?.control?.status!=='OK'||typeof expenseCategoryNode!=='function'||typeof node!=='function'||typeof render!=='function')return;
-    installed=true;const original=expenseCategoryNode;
-    expenseCategoryNode=function(y,name,i){
-      const base=original(y,name,i);if(y!==2026)return base;
-      if(name==='ФОТ'){
-        const accrued=vals(y,E.payroll?.total_by_month||{});
-        base.children=[
-          node('audit-fot-accrued','Начисленный ФОТ по зарплатному реестру',2,accrued,fotChildren(y,accrued),'subcategory'),
-          node('fot-paid-detail','ФОТ по фактическим выплатам — детализация',2,base.values,base.children||[],'subcategory')
-        ];
-      }
-      if(name==='Медицинские расходы')base.children=[...medicalNodes(y),node('medical-paid-detail','Медицинские расходы по фактическим оплатам — детализация',2,base.values,base.children||[],'subcategory')];
-      return base;
-    };
-    if(typeof DATA!=='undefined'&&DATA)render();
+  function sumPresent(values) {
+    let any = false;
+    let total = 0;
+    (values || []).forEach(value => {
+      if (value === null || value === undefined || value === '' || !Number.isFinite(+value)) return;
+      any = true;
+      total += +value;
+    });
+    return any ? total : null;
   }
 
-  fetch('/api/reports/economics-control',{credentials:'same-origin',cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{E=p?.data;install()}).catch(e=>console.error('AZ finrez economics integration failed',e));
+  function totalForRow(row, year) {
+    if (row && Object.prototype.hasOwnProperty.call(row, 'yearTotal')) return row.yearTotal;
+    if (row?.id === 'execution') {
+      let planTotal = 0;
+      let factTotal = 0;
+      let any = false;
+      for (let index = 0; index < 12; index++) {
+        const fact = factFor(year, index);
+        const plan = planFor(year, index);
+        if (fact === null || plan === null) continue;
+        factTotal += Number(fact) || 0;
+        planTotal += Number(plan) || 0;
+        any = true;
+      }
+      return any && planTotal ? factTotal / planTotal : null;
+    }
+    if (row?.fmt === 'percent') return null;
+    return sumPresent(row?.values);
+  }
+
+  function annualShare(row, year, value) {
+    if (!row?.shareMode || value === null || value === undefined) return '';
+    const all = Array.from({ length: 12 }, (_, index) => operatingExpenses(year, index))
+      .reduce((sum, item) => sum + (Number(item) || 0), 0);
+    const allShare = all ? Number(value) / all : null;
+    if (row.shareMode === 'all') {
+      return `<span class="cell-share"><strong>${sharePercent(allShare)}</strong> всех расходов</span>`;
+    }
+    const categoryTotal = sumPresent(row.categoryValues);
+    const categoryShare = categoryTotal ? Number(value) / categoryTotal : null;
+    return `<span class="cell-share"><strong>${sharePercent(allShare)}</strong> всех · <span class="share-category"><strong>${sharePercent(categoryShare)}</strong> категории</span></span>`;
+  }
+
+  function installTotalColumn() {
+    if (totalColumnInstalled || typeof render !== 'function' || typeof flatten !== 'function') return;
+    totalColumnInstalled = true;
+    const originalRender = render;
+    render = function() {
+      originalRender();
+      const year = +$('#year').value;
+      const rows = flatten(buildRows(year));
+
+      let style = document.getElementById('azFinrezTotalStyle');
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'azFinrezTotalStyle';
+        style.textContent = '.az-finrez-total{background:#f6f0e4!important;font-weight:700}.az-finrez-total-head{background:#eee5d6!important;font-weight:800}';
+        document.head.appendChild(style);
+      }
+      const head = $('#head');
+      if (head && !head.querySelector('.az-finrez-total-head')) {
+        head.insertAdjacentHTML('beforeend', '<th class="az-finrez-total az-finrez-total-head">Итого</th>');
+      }
+      const colgroup = document.querySelector('#finrezTable colgroup');
+      if (colgroup && !colgroup.querySelector('col[data-az-total]')) {
+        const col = document.createElement('col');
+        col.className = 'month-col';
+        col.dataset.azTotal = '1';
+        colgroup.appendChild(col);
+      }
+      document.querySelectorAll('#body > tr').forEach((tr, index) => {
+        if (tr.querySelector('td.az-finrez-total')) return;
+        const row = rows[index];
+        if (!row) return;
+        const value = totalForRow(row, year);
+        const formatted = row.fmt === 'percent' ? percent(value) : money(value);
+        let cls = 'az-finrez-total';
+        if ((row.cls === 'operating' || row.cls === 'net') && value !== null && value !== undefined) {
+          cls += Number(value) >= 0 ? ' positive' : ' negative';
+        }
+        if (formatted === '—') cls += ' muted';
+        const share = row.fmt === 'money' ? annualShare(row, year, value) : '';
+        tr.insertAdjacentHTML('beforeend', `<td class="${cls}"><span class="cell-main">${formatted}</span>${share}</td>`);
+      });
+    };
+  }
+
+  function installEconomics() {
+    if (economicsInstalled || !economics?.available || economics?.control?.status !== 'OK') return;
+    if (typeof expenseCategoryNode !== 'function' || typeof node !== 'function' || typeof render !== 'function') return;
+    economicsInstalled = true;
+    const originalExpenseCategoryNode = expenseCategoryNode;
+
+    expenseCategoryNode = function(year, mainName, index) {
+      const base = originalExpenseCategoryNode(year, mainName, index);
+      if (year !== 2026) return base;
+
+      if (mainName === 'ФОТ') {
+        const accruedValues = auditedValues(year, economics.payroll?.total_by_month || {});
+        const revenueValues = auditedValues(year, economics.opu?.revenue_net || {});
+        const ratioValues = accruedValues.map((value, monthIndex) => {
+          if (value === null || revenueValues[monthIndex] === null || !revenueValues[monthIndex]) return null;
+          return value / revenueValues[monthIndex];
+        });
+        const ratioNode = node('audit-fot-ratio', 'ФОТ / выручка', 3, ratioValues, [], 'detail', 'percent');
+        const totalFot = sumPresent(accruedValues);
+        const totalRevenue = sumPresent(revenueValues);
+        ratioNode.yearTotal = totalFot !== null && totalRevenue ? totalFot / totalRevenue : null;
+
+        const accruedNode = node(
+          'audit-fot-accrued',
+          'Начисленный ФОТ по зарплатному реестру',
+          2,
+          accruedValues,
+          [ratioNode, ...payrollReportingNodes(year)],
+          'subcategory'
+        );
+        const paidDetail = node(
+          'fot-paid-detail',
+          'ФОТ по фактическим выплатам — детализация',
+          2,
+          base.values,
+          base.children || [],
+          'subcategory'
+        );
+        base.children = [accruedNode, paidDetail];
+        return base;
+      }
+
+      if (mainName === 'Медицинские расходы') {
+        const paidDetail = node(
+          'medical-paid-detail',
+          'Медицинские расходы по фактическим оплатам — детализация',
+          2,
+          base.values,
+          base.children || [],
+          'subcategory'
+        );
+        base.children = [...medicalAccrualNodes(year), paidDetail];
+        return base;
+      }
+      return base;
+    };
+  }
+
+  async function load() {
+    installTotalColumn();
+    try {
+      const response = await fetch('/api/reports/economics-control', { credentials: 'same-origin', cache: 'no-store' });
+      if (!response.ok) return;
+      const payload = await response.json();
+      economics = payload.data;
+      installEconomics();
+      if (typeof DATA !== 'undefined' && DATA) render();
+    } catch (error) {
+      console.error('AZ finrez economics integration failed', error);
+    }
+  }
+
+  load();
 })();
