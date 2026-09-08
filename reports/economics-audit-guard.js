@@ -2,7 +2,8 @@
   const frame = document.getElementById('serviceFrame');
   if (!frame) return;
   let observer = null;
-  const schedule = () => setTimeout(apply, 80);
+  let timer = null;
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(apply, 90); };
 
   frame.addEventListener('load', () => {
     const d = frame.contentDocument;
@@ -32,7 +33,7 @@
     const d = frame.contentDocument;
     if (!d?.body) return;
     replaceText(d);
-    guardMargins(d);
+    guardIncompleteEconomics(d);
     addLabNote(d);
   }
 
@@ -65,28 +66,33 @@
     });
   }
 
-  function rowByLabel(d, re) {
-    return [...d.querySelectorAll('#content tr')].find(r => re.test((r.cells?.[0]?.textContent||'').trim()));
-  }
+  function rows(d) { return [...d.querySelectorAll('#content tr')]; }
+  function rowByLabel(d, re) { return rows(d).find(r => re.test((r.cells?.[0]?.textContent||'').trim())); }
   function moneyValue(text) {
     const s=String(text||'').replace(/\s/g,'').replace('₽','').replace(',','.');
     const n=Number(s.replace(/[^0-9.-]/g,''));
     return Number.isFinite(n)?n:null;
   }
-  function guardMargins(d) {
+  function mark(cell) {
+    if (!cell) return;
+    cell.textContent='Неполные данные';
+    cell.classList.add('az-audit-partial');
+    cell.title='ФОТ отсутствует или не подтверждён. Отсутствующее значение не считается нулевым.';
+  }
+  function guardIncompleteEconomics(d) {
     const revenue=rowByLabel(d,/^Выручка (врача|всех врачей|лаборатории)/i);
     const salary=rowByLabel(d,/^(Основная ЗП|ФОТ лаборатории)/i);
+    const profit=rowByLabel(d,/^(Доход|Финансовый результат) после (ЗП|ФОТ|выплат)/i);
     const margin=rowByLabel(d,/^(Маржинальность|Рентабельность) после выплат/i);
-    if (!revenue || !salary || !margin) return;
-    const n=Math.min(revenue.cells.length,salary.cells.length,margin.cells.length);
+    if (!revenue || !salary) return;
+    const n=Math.min(revenue.cells.length,salary.cells.length);
     for(let i=1;i<n;i++){
       const rv=moneyValue(revenue.cells[i].textContent);
       const st=(salary.cells[i].textContent||'').trim();
       const sv=moneyValue(st);
       if(rv>0 && (st==='—' || sv===0)){
-        margin.cells[i].textContent='Неполные данные';
-        margin.cells[i].classList.add('az-audit-partial');
-        margin.cells[i].title='ФОТ отсутствует или не подтверждён. Нулевой ФОТ не используется как подтверждённое значение.';
+        mark(profit?.cells[i]);
+        mark(margin?.cells[i]);
       }
     }
   }
