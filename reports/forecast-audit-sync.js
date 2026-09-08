@@ -1,6 +1,7 @@
 (() => {
   let economics = null;
   let previousFotRate = null;
+  let uiRetries = 0;
 
   const norm = value => String(value || '')
     .toLowerCase()
@@ -59,18 +60,29 @@
     }
   }
 
-  function patchForecast() {
-    if (typeof fotRate !== 'function') return;
-    if (!previousFotRate) previousFotRate = fotRate;
-    fotRate = function(month, direction, revenue) {
-      const total = auditedFot(month, direction);
-      if (total !== null && revenue > 0) return total / revenue;
-      return previousFotRate(month, direction, revenue);
-    };
+  function installRatePatch() {
+    if (typeof fotRate !== 'function') return false;
+    if (!previousFotRate) {
+      previousFotRate = fotRate;
+      fotRate = function(month, direction, revenue) {
+        const total = auditedFot(month, direction);
+        if (total !== null && revenue > 0) return total / revenue;
+        return previousFotRate(month, direction, revenue);
+      };
+    }
+    return true;
+  }
+
+  function refreshUiWhenReady() {
+    const baseMonth = document.getElementById('baseMonth');
+    const structureSelect = document.getElementById('seg-structure');
+    if (!baseMonth || !baseMonth.options.length || !structureSelect) {
+      if (uiRetries++ < 50) setTimeout(refreshUiWhenReady, 100);
+      return;
+    }
 
     installBanner();
-    const baseMonth = document.getElementById('baseMonth');
-    if (baseMonth && economics?.period?.length) {
+    if (economics?.period?.length) {
       const latestAudited = economics.period[economics.period.length - 1];
       if ([...baseMonth.options].some(option => option.value === latestAudited)) {
         baseMonth.value = latestAudited;
@@ -88,6 +100,14 @@
       }
       calculate();
     }
+  }
+
+  function patchForecast() {
+    if (!installRatePatch()) {
+      setTimeout(patchForecast, 100);
+      return;
+    }
+    refreshUiWhenReady();
   }
 
   async function load() {
