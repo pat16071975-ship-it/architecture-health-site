@@ -17,11 +17,7 @@ FINREZ_KEY_PATH = Path(os.environ.get("AZ_FINREZ_KEY_PATH", "/var/lib/az-baze/fi
 def _xor_hmac_stream(data, key, nonce):
     out = bytearray(len(data))
     for block_index in range((len(data) + 31) // 32):
-        stream = hmac.new(
-            key,
-            nonce + block_index.to_bytes(8, "big"),
-            hashlib.sha256,
-        ).digest()
+        stream = hmac.new(key, nonce + block_index.to_bytes(8, "big"), hashlib.sha256).digest()
         start = block_index * 32
         block = data[start : start + 32]
         for index, value in enumerate(block):
@@ -31,15 +27,7 @@ def _xor_hmac_stream(data, key, nonce):
 
 def _load_private_data():
     if not FINREZ_DATA_PATH.exists() or not FINREZ_KEY_PATH.exists():
-        return {
-            "version": 1,
-            "source": "",
-            "period": {},
-            "meta": {},
-            "months": {},
-            "available": False,
-        }
-
+        return {"version": 1, "source": "", "period": {}, "meta": {}, "months": {}, "available": False}
     master = base64.urlsafe_b64decode(FINREZ_KEY_PATH.read_text(encoding="utf-8").strip())
     text = FINREZ_DATA_PATH.read_text(encoding="utf-8").strip()
     if not text.startswith("AZFIN1."):
@@ -47,7 +35,6 @@ def _load_private_data():
     packed = base64.urlsafe_b64decode(text.split(".", 1)[1])
     if len(packed) < 48:
         raise ValueError("invalid finrez data")
-
     nonce = packed[:16]
     tag = packed[-32:]
     cipher = packed[16:-32]
@@ -56,7 +43,6 @@ def _load_private_data():
     expected = hmac.new(mac_key, nonce + cipher, hashlib.sha256).digest()
     if not hmac.compare_digest(tag, expected):
         raise ValueError("finrez data authentication failed")
-
     compressed = _xor_hmac_stream(cipher, enc_key, nonce)
     payload = json.loads(zlib.decompress(compressed).decode("utf-8"))
     if not isinstance(payload, dict) or payload.get("version") != 1:
@@ -82,7 +68,6 @@ def _management_months():
         current = latest.get(month)
         if current is None or date > current["date"]:
             latest[month] = {"date": date, "record": record}
-
     result = {}
     for month, entry in latest.items():
         record = entry["record"]
@@ -105,11 +90,7 @@ def _inject_script(html, filename, version):
     marker = f'src="/reports/{filename}'
     if marker in html:
         return html
-    return html.replace(
-        "</body>",
-        f'<script src="/reports/{filename}?v={version}"></script>\n</body>',
-        1,
-    )
+    return html.replace("</body>", f'<script src="/reports/{filename}?v={version}"></script>\n</body>', 1)
 
 
 def register_finrez(app):
@@ -122,7 +103,7 @@ def register_finrez(app):
             "MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index)).filter(n=>hasAny(n.values))",
             "MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index))",
         )
-        html = _inject_script(html, "finrez-economics-integrated.js", "20260908-4")
+        html = _inject_script(html, "finrez-economics-integrated.js", "20260908-5")
         return Response(html, mimetype="text/html")
 
     @app.get("/reports/forecast/")
@@ -140,18 +121,6 @@ def register_finrez(app):
             expenses = _load_private_data()
             private_error = ""
         except Exception as error:
-            expenses = {
-                "version": 1,
-                "source": "",
-                "period": {},
-                "meta": {},
-                "months": {},
-                "available": False,
-            }
+            expenses = {"version": 1, "source": "", "period": {}, "meta": {}, "months": {}, "available": False}
             private_error = str(error)
-        return jsonify(
-            expenses=expenses,
-            management=_management_months(),
-            privateError=private_error,
-            csrf=csrf_token(),
-        )
+        return jsonify(expenses=expenses, management=_management_months(), privateError=private_error, csrf=csrf_token())
