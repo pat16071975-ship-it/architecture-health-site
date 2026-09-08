@@ -9,7 +9,6 @@
   const LAB_TOTAL_KEY = '__LAB_TOTAL__';
   let economics = null;
   let syncing = false;
-  let textObserver = null;
   let syncRetries = 0;
 
   const norm = value => String(value || '')
@@ -25,12 +24,8 @@
   function assignmentDirection(item) {
     if (item?.group !== 'Врачи') return null;
     const text = norm([item.department, item.role, item.function].join(' '));
-    if (/(остеопат|нутрициолог|подиатр|гастроэнтеролог|нейропсихолог|массаж|миофункцион|логопед|медицинская сестра по массажу)/.test(text)) {
-      return 'Отделение структуры';
-    }
-    if (/(ортодонт|стоматолог|ортопед|хирург|гигиенист|терапия|терапевт)/.test(text)) {
-      return 'Стоматология';
-    }
+    if (/(остеопат|нутрициолог|подиатр|гастроэнтеролог|нейропсихолог|массаж|миофункцион|логопед|медицинская сестра по массажу)/.test(text)) return 'Отделение структуры';
+    if (/(ортодонт|стоматолог|ортопед|хирург|гигиенист|терапия|терапевт)/.test(text)) return 'Стоматология';
     return null;
   }
 
@@ -86,52 +81,6 @@
     );
   }
 
-  function showStatus(message, bad = false) {
-    let badge = document.getElementById('azEconomicsSyncBadge');
-    if (!badge) {
-      badge = document.createElement('div');
-      badge.id = 'azEconomicsSyncBadge';
-      badge.style.cssText = 'font-size:9px;font-weight:700;padding:5px 8px;border-radius:999px;border:1px solid #c8d4ca;background:#edf5ee;color:#355440;white-space:nowrap';
-      document.querySelector('.nav')?.insertBefore(badge, document.querySelector('.nav-actions'));
-    }
-    badge.textContent = message;
-    if (bad) {
-      badge.style.background = '#fff0e8';
-      badge.style.borderColor = '#e1b7aa';
-      badge.style.color = '#8b493d';
-    } else {
-      badge.style.background = '#edf5ee';
-      badge.style.borderColor = '#c8d4ca';
-      badge.style.color = '#355440';
-    }
-  }
-
-  function relabelAuditedEconomics(d) {
-    if (!d?.body) return;
-    const replacements = [
-      [/Основная ЗП врачей/g, 'ФОТ врачей по зарплатному реестру'],
-      [/Основная ЗП/g, 'ФОТ по зарплатному реестру'],
-      [/Прочие выплаты врачам/g, 'Доп. выплаты вне зарплатного реестра'],
-      [/Прочие выплаты/g, 'Доп. выплаты вне зарплатного реестра'],
-      [/пустые поля выплат считаются нулём/g, 'январь–июнь: зарплатный реестр; отсутствие ФОТ не считается нулём'],
-    ];
-    const walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT);
-    const nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-    nodes.forEach(node => {
-      let value = node.nodeValue || '';
-      replacements.forEach(([re, to]) => { value = value.replace(re, to); });
-      node.nodeValue = value;
-    });
-  }
-
-  function startRelabelObserver(d) {
-    relabelAuditedEconomics(d);
-    if (textObserver) textObserver.disconnect();
-    textObserver = new MutationObserver(() => setTimeout(() => relabelAuditedEconomics(d), 0));
-    textObserver.observe(d.body, { childList: true, subtree: true });
-  }
-
   function syncIntoExistingReport() {
     if (syncing || !economics?.available || economics?.control?.status !== 'OK') return;
     const w = frame.contentWindow;
@@ -177,18 +126,8 @@
 
       w.localStorage.setItem(SALARY_KEY, JSON.stringify(salaryStore));
       w.localStorage.setItem(EXTRA_KEY, JSON.stringify(extraStore));
-      w.localStorage.setItem('az-economics-sync-meta', JSON.stringify({
-        generatedAt: economics.generated_at,
-        control: economics.control.status,
-        period: economics.period,
-        source: economics.source,
-      }));
-
-      startRelabelObserver(d);
-      showStatus('Экономика: реестр ФОТ OK');
       const direction = d.getElementById('direction');
       if (direction) direction.dispatchEvent(new Event('change', { bubbles: true }));
-      window.dispatchEvent(new CustomEvent('az-economics-synced', { detail: economics }));
     } finally {
       syncing = false;
     }
@@ -197,16 +136,11 @@
   async function loadEconomics() {
     try {
       const response = await fetch('/api/reports/economics-control', { credentials: 'same-origin', cache: 'no-store' });
-      if (!response.ok) throw new Error('HTTP ' + response.status);
+      if (!response.ok) return;
       const payload = await response.json();
       economics = payload.data;
-      if (!economics?.available || economics?.control?.status !== 'OK') {
-        showStatus('Экономика: неполные данные', true);
-        return;
-      }
-      syncIntoExistingReport();
+      if (economics?.available && economics?.control?.status === 'OK') syncIntoExistingReport();
     } catch (error) {
-      showStatus('Экономика: ошибка загрузки', true);
       console.error('AZ economics sync failed', error);
     }
   }
