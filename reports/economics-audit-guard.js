@@ -42,12 +42,12 @@
     const nodes=[];
     while (walker.nextNode()) nodes.push(walker.currentNode);
     nodes.forEach(n => {
-      let t=n.nodeValue || '';
-      t=t.replace(/Прибыль врача/g,'Распределённая прибыль');
-      t=t.replace(/прибыль врача/g,'распределённая прибыль');
-      t=t.replace(/Потерянная выручка/g,'Оценочная потенциальная выручка');
-      t=t.replace(/потерянная выручка/g,'оценочная потенциальная выручка');
-      n.nodeValue=t;
+      const old=n.nodeValue || '';
+      let t=old.replace(/Прибыль врача/g,'Распределённая прибыль')
+        .replace(/прибыль врача/g,'распределённая прибыль')
+        .replace(/Потерянная выручка/g,'Оценочная потенциальная выручка')
+        .replace(/потерянная выручка/g,'оценочная потенциальная выручка');
+      if(t!==old)n.nodeValue=t;
     });
     d.querySelectorAll('td,th,label,div,span').forEach(el=>{
       const txt=(el.textContent||'').trim();
@@ -74,7 +74,7 @@
     return Number.isFinite(n)?n:null;
   }
   function mark(cell) {
-    if (!cell) return;
+    if (!cell || (cell.classList.contains('az-audit-partial') && cell.textContent==='Неполные данные')) return;
     cell.textContent='Неполные данные';
     cell.classList.add('az-audit-partial');
     cell.title='ФОТ отсутствует или не подтверждён. Отсутствующее значение не считается нулевым.';
