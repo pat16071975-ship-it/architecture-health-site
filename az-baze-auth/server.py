@@ -9,6 +9,10 @@ import ident_import
 import report_storage
 import terminology
 
+# Economic source workbooks are ~9 MB. Keep the application limit aligned
+# with the Nginx upload limit so valid admin imports are not rejected.
+app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+
 report_storage.register_report_storage(app)
 terminology.install(app, report_storage)
 ident_import.register_ident_import(app)
