@@ -103,7 +103,7 @@ function stopOrbitAnimation(){
   orbitAnimationState=null;
 }
 function cleanupDraft(doc){
-  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.querySelectorAll('.az-lab-vitruvian-wave-img').forEach(el=>el.remove());doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
+  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
   doc.querySelector('.az-lab-direction-info')?.remove();doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
   doc.querySelectorAll('.az-lab-planet').forEach(el=>{if(el.dataset.azOriginalHtml!==undefined){el.innerHTML=el.dataset.azOriginalHtml;delete el.dataset.azOriginalHtml}if(el.dataset.azOriginalStyle!==undefined){if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);else el.removeAttribute('style');delete el.dataset.azOriginalStyle}if(el._azDirectionHandler){el.removeEventListener('click',el._azDirectionHandler,true);delete el._azDirectionHandler}delete el.dataset.azDirectionName;el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')});
 }
@@ -139,11 +139,6 @@ function addPlaceholderBadges(doc){
     page.appendChild(badge);
   });
 }
-function addVitruvianGoldWave(doc){
-  const stage=doc.querySelector('.stage'),source=stage?.querySelector('.vit-img'),viewportWidth=doc.defaultView?.innerWidth||0;
-  if(!stage||!source||viewportWidth<721||stage.querySelector('.az-lab-vitruvian-wave-img'))return;
-  const wave=source.cloneNode(false);wave.removeAttribute('id');wave.classList.add('az-lab-vitruvian-wave-img');wave.setAttribute('aria-hidden','true');wave.setAttribute('draggable','false');stage.appendChild(wave);
-}
 function addVitruvianRingText(doc,host,stageRect,hostRect){
   const viewportWidth=doc.defaultView?.innerWidth||0;if(viewportWidth<721)return;
   doc.getElementById('az-lab-vitruvian-ring-text')?.remove();
@@ -154,11 +149,11 @@ function addVitruvianRingText(doc,host,stageRect,hostRect){
   const start=point(180),end=point(360),ns='http://www.w3.org/2000/svg';
   const svg=doc.createElementNS(ns,'svg');svg.id='az-lab-vitruvian-ring-text';svg.setAttribute('viewBox',`0 0 ${Math.max(1,hostRect.width)} ${Math.max(1,hostRect.height)}`);svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');svg.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:14;pointer-events:none;overflow:visible';
   const defs=doc.createElementNS(ns,'defs'),path=doc.createElementNS(ns,'path');path.id='az-lab-vitruvian-ring-path';path.setAttribute('d',`M ${start.x} ${start.y} A ${radius} ${radius} 0 0 1 ${end.x} ${end.y}`);path.setAttribute('fill','none');defs.appendChild(path);
-  const gradient=doc.createElementNS(ns,'linearGradient');gradient.id='az-lab-slogan-gradient';gradient.setAttribute('gradientUnits','userSpaceOnUse');gradient.setAttribute('x1','0');gradient.setAttribute('x2','0');gradient.setAttribute('y1',String(cy-radius*1.6));gradient.setAttribute('y2',String(cy-radius*.8));
+  const gradient=doc.createElementNS(ns,'linearGradient');gradient.id='az-lab-slogan-gradient';gradient.setAttribute('gradientUnits','userSpaceOnUse');gradient.setAttribute('y1','0');gradient.setAttribute('y2','0');gradient.setAttribute('x1',String(cx-radius*3));gradient.setAttribute('x2',String(cx-radius));
   [['0%','#526158'],['38%','#526158'],['50%','#b59662'],['62%','#526158'],['100%','#526158']].forEach(([offset,color])=>{const stop=doc.createElementNS(ns,'stop');stop.setAttribute('offset',offset);stop.setAttribute('stop-color',color);gradient.appendChild(stop)});
   if(!(doc.defaultView?.matchMedia('(prefers-reduced-motion: reduce)').matches)){
-    const ay1=doc.createElementNS(ns,'animate');ay1.setAttribute('attributeName','y1');ay1.setAttribute('values',`${cy-radius*1.6};${cy+radius*.8}`);ay1.setAttribute('dur','5.8s');ay1.setAttribute('repeatCount','indefinite');gradient.appendChild(ay1);
-    const ay2=doc.createElementNS(ns,'animate');ay2.setAttribute('attributeName','y2');ay2.setAttribute('values',`${cy-radius*.8};${cy+radius*1.6}`);ay2.setAttribute('dur','5.8s');ay2.setAttribute('repeatCount','indefinite');gradient.appendChild(ay2);
+    const ax1=doc.createElementNS(ns,'animate');ax1.setAttribute('attributeName','x1');ax1.setAttribute('values',`${cx-radius*3};${cx+radius}`);ax1.setAttribute('dur','5.8s');ax1.setAttribute('repeatCount','indefinite');gradient.appendChild(ax1);
+    const ax2=doc.createElementNS(ns,'animate');ax2.setAttribute('attributeName','x2');ax2.setAttribute('values',`${cx-radius};${cx+radius*3}`);ax2.setAttribute('dur','5.8s');ax2.setAttribute('repeatCount','indefinite');gradient.appendChild(ax2);
   }
   defs.appendChild(gradient);svg.appendChild(defs);
   const text=doc.createElementNS(ns,'text');text.setAttribute('fill','url(#az-lab-slogan-gradient)');text.setAttribute('stroke','#f7f3ec');text.setAttribute('stroke-width',viewportWidth>=1181?'2.8':'2.2');text.setAttribute('paint-order','stroke fill');text.setAttribute('font-family','Montserrat,Inter,Segoe UI,Arial,sans-serif');text.setAttribute('font-size',viewportWidth>=1181?'15':'12');text.setAttribute('font-weight','600');text.setAttribute('letter-spacing',viewportWidth>=1181?'1.08':'.82');text.setAttribute('opacity','.98');text.style.filter='drop-shadow(0 1px 2px rgba(58,49,37,.16))';
@@ -246,7 +241,6 @@ function drawOrbits(){
   if(mode!=='draft')return;const doc=frame.contentDocument;if(!doc)return;cleanupDraft(doc);doc.querySelectorAll('link[href*="fonts.googleapis.com"],link[href*="fonts.gstatic.com"]').forEach(link=>link.remove());const stage=doc.querySelector('.stage');if(!stage)return;const host=doc.querySelector('.map')||stage.parentElement;if(!host)return;
   const hostRect=host.getBoundingClientRect(),r=stage.getBoundingClientRect();const g={cx:r.left-hostRect.left+r.width/2,cy:r.top-hostRect.top+r.height/2,innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14};
   addVitruvianRingText(doc,host,r,hostRect);
-  addVitruvianGoldWave(doc);
   host.classList.add('az-lab-orbit-host');const style=doc.createElement('style');style.id='az-lab-orbit-style';style.textContent=`
 @font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Regular.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
 @font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Medium.woff2') format('woff2');font-style:normal;font-weight:500;font-display:swap}
@@ -264,9 +258,7 @@ function drawOrbits(){
 .az-lab-direction-more{display:block!important;margin:0 auto!important;padding:4px 10px!important;border:0!important;border-bottom:1px solid rgba(68,99,79,.55)!important;background:transparent!important;color:#44634f!important;font:600 11.5px/1.15 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;cursor:pointer!important}
 .az-lab-direction-close{position:absolute!important;left:50%!important;right:auto!important;top:12px!important;transform:translateX(-50%)!important;width:58px!important;height:58px!important;border-radius:50%!important;border:2px solid rgba(68,99,79,.78)!important;background:#f7f3ec!important;color:#344b3d!important;font:400 42px/52px Arial,sans-serif!important;text-align:center!important;cursor:pointer!important;z-index:31!important;box-shadow:0 6px 15px rgba(58,49,37,.14)!important;padding:0!important}
 .az-lab-direction-close:hover,.az-lab-direction-close:focus-visible{background:#ece7dc!important;outline:2px solid rgba(181,150,98,.45)!important;outline-offset:2px!important}
-.az-lab-vitruvian-wave-img{pointer-events:none!important;z-index:3!important;opacity:.24!important;filter:sepia(.86) saturate(2.25) hue-rotate(350deg) brightness(1.05) contrast(1.08)!important;mix-blend-mode:multiply!important;clip-path:inset(-5% 0 85% 0)!important;animation:azLabVitruvianGoldWave 5.8s linear infinite!important;will-change:clip-path,opacity!important}
-@keyframes azLabVitruvianGoldWave{0%{clip-path:inset(-5% 0 85% 0);opacity:0}8%{opacity:.18}28%{opacity:.27}72%{opacity:.27}92%{opacity:.18}100%{clip-path:inset(85% 0 -5% 0);opacity:0}}
-@media (prefers-reduced-motion:reduce){.az-lab-orbit-host .direction{will-change:auto!important}.az-lab-vitruvian-wave-img{animation:none!important;opacity:0!important;will-change:auto!important}}
+@media (prefers-reduced-motion:reduce){.az-lab-orbit-host .direction{will-change:auto!important}}
 @media (min-width:1181px){
 .az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}
 .az-lab-orbit-host .direction{position:absolute!important;width:108px!important;height:102px!important;min-height:102px!important;padding:8px!important;border-radius:50%!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.4px!important;line-height:1.12!important;font-weight:600!important;letter-spacing:0!important;color:#30372f!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important;overflow:hidden!important;pointer-events:auto!important;cursor:pointer!important;z-index:8!important;will-change:left,top!important;isolation:isolate!important}
