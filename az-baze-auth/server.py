@@ -48,6 +48,12 @@ def tune_report_response(response):
             "mobile-date-fix.css?v=20260907-4",
             html,
         )
+        if "management-compact-metrics.css" not in html:
+            html = html.replace(
+                "</head>",
+                '<link rel="stylesheet" href="./management-compact-metrics.css?v=20260909-1">\n</head>',
+                1,
+            )
         if "management-mobile-layout.js" not in html:
             html = html.replace(
                 "</body>",
