@@ -18,57 +18,36 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re, textwrap
           p=Path('interface-lab/index.html')
           s=p.read_text(encoding='utf-8')
-
-          old="""function addVitruvianRingText(doc){
-  const stage=doc.querySelector('.stage');if(!stage||doc.getElementById('az-lab-vitruvian-ring-text'))return;
-  stage.insertAdjacentHTML('beforeend','<svg id=\"az-lab-vitruvian-ring-text\" viewBox=\"0 0 580 580\" aria-hidden=\"true\" style=\"position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:visible\"><defs><path id=\"az-lab-vitruvian-ring-path\" d=\"M107.566 472.434 A258 258 0 1 1 472.434 472.434\" fill=\"none\"/></defs><text fill=\"#526158\" font-family=\"Montserrat,Inter,Segoe UI,Arial,sans-serif\" font-size=\"13\" font-weight=\"500\" letter-spacing=\"1.15\" opacity=\".94\"><textPath href=\"#az-lab-vitruvian-ring-path\" startOffset=\"50%\" text-anchor=\"middle\">Не лечим по отдельности. Понимаем, как всё связано в вашем организме</textPath></text></svg>');
-}
-"""
-          new="""function addVitruvianRingText(doc,host,stageRect,hostRect){
-  const viewportWidth=doc.defaultView?.innerWidth||0;if(viewportWidth<721)return;
-  doc.getElementById('az-lab-vitruvian-ring-text')?.remove();
-  const scale=viewportWidth>=1181?.724137931:.568965517;
-  const cx=stageRect.left-hostRect.left+stageRect.width/2,cy=stageRect.top-hostRect.top+stageRect.height/2;
-  const radius=Math.min(stageRect.width,stageRect.height)*scale*.5+(viewportWidth>=1181?18:14);
-  const point=deg=>{const a=deg*Math.PI/180;return{x:cx+radius*Math.cos(a),y:cy+radius*Math.sin(a)}};
-  const start=point(180),end=point(360),ns='http://www.w3.org/2000/svg';
-  const svg=doc.createElementNS(ns,'svg');svg.id='az-lab-vitruvian-ring-text';svg.setAttribute('viewBox',`0 0 ${Math.max(1,hostRect.width)} ${Math.max(1,hostRect.height)}`);svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');svg.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:7;pointer-events:none;overflow:visible';
-  const defs=doc.createElementNS(ns,'defs'),path=doc.createElementNS(ns,'path');path.id='az-lab-vitruvian-ring-path';path.setAttribute('d',`M ${start.x} ${start.y} A ${radius} ${radius} 0 0 1 ${end.x} ${end.y}`);path.setAttribute('fill','none');defs.appendChild(path);svg.appendChild(defs);
-  const text=doc.createElementNS(ns,'text');text.setAttribute('fill','#526158');text.setAttribute('font-family','Montserrat,Inter,Segoe UI,Arial,sans-serif');text.setAttribute('font-size',viewportWidth>=1181?'13':'11');text.setAttribute('font-weight','500');text.setAttribute('letter-spacing',viewportWidth>=1181?'1.05':'.8');text.setAttribute('opacity','.94');
-  const textPath=doc.createElementNS(ns,'textPath');textPath.setAttribute('href','#az-lab-vitruvian-ring-path');textPath.setAttribute('startOffset','50%');textPath.setAttribute('text-anchor','middle');textPath.textContent='Не лечим по отдельности. Понимаем, как всё связано в вашем организме';text.appendChild(textPath);svg.appendChild(text);host.appendChild(svg);
-}
-"""
-          if old not in s:
-              raise SystemExit('STOP: current ring-text function not found')
-          s=s.replace(old,new,1)
-
-          cleanup="stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();"
-          cleanup_new="stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();"
-          if cleanup not in s:
-              raise SystemExit('STOP: cleanup marker not found')
-          s=s.replace(cleanup,cleanup_new,1)
-
-          call="  addVitruvianRingText(doc);"
-          if call not in s:
-              raise SystemExit('STOP: current slogan call not found')
-          s=s.replace(call,"  addVitruvianRingText(doc,host,r,hostRect);",1)
-
-          protected=[
-            'const INNER_DURATION=63000;',
-            'const OUTER_DURATION=114000;',
-            "const innerAngles=[180,270,0,90];",
-            "const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];",
-            'innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14',
-            '.az-lab-right-badge-shift{transform:translateX(-37.8px)!important}',
-            ".az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}",
-          ]
+          new=textwrap.dedent('''\
+          function addVitruvianRingText(doc,host,stageRect,hostRect){
+            const viewportWidth=doc.defaultView?.innerWidth||0;if(viewportWidth<721)return;
+            doc.getElementById('az-lab-vitruvian-ring-text')?.remove();
+            const scale=viewportWidth>=1181?.724137931:.568965517;
+            const cx=stageRect.left-hostRect.left+stageRect.width/2,cy=stageRect.top-hostRect.top+stageRect.height/2;
+            const radius=Math.min(stageRect.width,stageRect.height)*scale*.5+(viewportWidth>=1181?18:14);
+            const point=deg=>{const a=deg*Math.PI/180;return{x:cx+radius*Math.cos(a),y:cy+radius*Math.sin(a)}};
+            const start=point(180),end=point(360),ns='http://www.w3.org/2000/svg';
+            const svg=doc.createElementNS(ns,'svg');svg.id='az-lab-vitruvian-ring-text';svg.setAttribute('viewBox',`0 0 ${Math.max(1,hostRect.width)} ${Math.max(1,hostRect.height)}`);svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');svg.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:7;pointer-events:none;overflow:visible';
+            const defs=doc.createElementNS(ns,'defs'),path=doc.createElementNS(ns,'path');path.id='az-lab-vitruvian-ring-path';path.setAttribute('d',`M ${start.x} ${start.y} A ${radius} ${radius} 0 0 1 ${end.x} ${end.y}`);path.setAttribute('fill','none');defs.appendChild(path);svg.appendChild(defs);
+            const text=doc.createElementNS(ns,'text');text.setAttribute('fill','#526158');text.setAttribute('font-family','Montserrat,Inter,Segoe UI,Arial,sans-serif');text.setAttribute('font-size',viewportWidth>=1181?'13':'11');text.setAttribute('font-weight','500');text.setAttribute('letter-spacing',viewportWidth>=1181?'1.05':'.8');text.setAttribute('opacity','.94');
+            const textPath=doc.createElementNS(ns,'textPath');textPath.setAttribute('href','#az-lab-vitruvian-ring-path');textPath.setAttribute('startOffset','50%');textPath.setAttribute('text-anchor','middle');textPath.textContent='Не лечим по отдельности. Понимаем, как всё связано в вашем организме';text.appendChild(textPath);svg.appendChild(text);host.appendChild(svg);
+          }
+          ''')
+          s,n=re.subn(r"function addVitruvianRingText\(doc\)\{.*?\n\}",new.rstrip(),s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('STOP: current ring-text function not found')
+          old="stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();"
+          rep="stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();"
+          if old not in s: raise SystemExit('STOP: cleanup marker not found')
+          s=s.replace(old,rep,1)
+          if '  addVitruvianRingText(doc);' not in s: raise SystemExit('STOP: slogan call not found')
+          s=s.replace('  addVitruvianRingText(doc);','  addVitruvianRingText(doc,host,r,hostRect);',1)
+          protected=['const INNER_DURATION=63000;','const OUTER_DURATION=114000;',"const innerAngles=[180,270,0,90];","const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];",'innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14','.az-lab-right-badge-shift{transform:translateX(-37.8px)!important}',".az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}"]
           for marker in protected:
-              if marker not in s:
-                  raise SystemExit(f'STOP: approved orbit marker missing: {marker}')
-          if "host.appendChild(svg);" not in s or "point(180),end=point(360)" not in s:
-              raise SystemExit('STOP: outside circular slogan verification failed')
+            if marker not in s: raise SystemExit(f'STOP: approved orbit marker missing: {marker}')
+          if "host.appendChild(svg);" not in s or "point(180),end=point(360)" not in s: raise SystemExit('STOP: outside slogan verification failed')
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit viewer-only fix
