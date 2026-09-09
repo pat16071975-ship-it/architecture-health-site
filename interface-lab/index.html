@@ -4,10 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>АЗ Interface Lab</title>
+<link rel="stylesheet" href="local-fonts.css?v=20260909-1">
 <style>
 :root{--bg:#e8e4dc;--panel:#fbf8f2;--ink:#30372f;--line:#c9bda8}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+html,body{margin:0;height:100%;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
 .lab{height:100%;display:grid;grid-template-rows:auto 1fr}
 .toolbar{position:relative;z-index:20;display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 12px;background:rgba(251,248,242,.98);border-bottom:1px solid var(--line);box-shadow:0 3px 14px rgba(58,49,37,.08);flex-wrap:wrap}
 .brand{font:700 15px/1.1 Georgia,serif;margin-right:6px}.note{font-size:11px;color:#657066;margin-right:auto}.group{display:flex;gap:5px;align-items:center}
@@ -48,6 +49,7 @@ const modeButtons=[...document.querySelectorAll('[data-mode]')];
 const widthButtons=[...document.querySelectorAll('[data-width]')];
 let mode='draft';
 let orbitAnimationFrame=0;
+let orbitAnimationState=null;
 
 const INNER_DURATION=63000;
 const OUTER_DURATION=114000;
@@ -89,7 +91,17 @@ const PLANET_ARTS={
 };
 
 function norm(value){return String(value||'').toLowerCase().replace(/ё/g,'е').replace(/[–—-]/g,' ').replace(/\s+/g,' ').trim()}
-function stopOrbitAnimation(){if(orbitAnimationFrame){cancelAnimationFrame(orbitAnimationFrame);orbitAnimationFrame=0}}
+function stopOrbitAnimation(){
+  const state=orbitAnimationState;
+  if(state){
+    if(orbitAnimationFrame){try{state.win.cancelAnimationFrame(orbitAnimationFrame)}catch(_){cancelAnimationFrame(orbitAnimationFrame)}orbitAnimationFrame=0}
+    state.observer?.disconnect();
+    state.doc?.removeEventListener('visibilitychange',state.onVisibility);
+    document.removeEventListener('visibilitychange',state.onVisibility);
+    if(state.motionQuery&&state.onMotionChange){if(state.motionQuery.removeEventListener)state.motionQuery.removeEventListener('change',state.onMotionChange);else state.motionQuery.removeListener(state.onMotionChange)}
+  }else if(orbitAnimationFrame){cancelAnimationFrame(orbitAnimationFrame);orbitAnimationFrame=0}
+  orbitAnimationState=null;
+}
 function cleanupDraft(doc){
   stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
   doc.querySelector('.az-lab-direction-info')?.remove();doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
@@ -166,11 +178,52 @@ function collectPlanets(doc){
   return{inner:prepare(innerNames,'az-lab-inner-planet'),outer:prepare(outerNames,'az-lab-outer-planet')};
 }
 function setPlanetPositions(planets,angles,cx,cy,rx,ry,tilt,phase){planets.forEach((el,index)=>{const p=pointOnEllipse(cx,cy,rx,ry,tilt,angles[index]+phase);el.style.setProperty('left',p.x+'px','important');el.style.setProperty('top',p.y+'px','important')})}
-function startOrbitAnimation(doc,planets,g){const started=performance.now();const tick=now=>{if(mode!=='draft'||frame.contentDocument!==doc||!doc.documentElement.isConnected){orbitAnimationFrame=0;return}const elapsed=now-started;setPlanetPositions(planets.inner,innerAngles,g.cx,g.cy,g.innerRx,g.innerRy,g.innerTilt,(elapsed/INNER_DURATION)*360);setPlanetPositions(planets.outer,outerAngles,g.cx,g.cy,g.outerRx,g.outerRy,g.outerTilt,(elapsed/OUTER_DURATION)*360);orbitAnimationFrame=requestAnimationFrame(tick)};orbitAnimationFrame=requestAnimationFrame(tick)}
+function startOrbitAnimation(doc,planets,g){
+  const win=doc.defaultView||frame.contentWindow;if(!win)return;
+  const motionQuery=win.matchMedia('(prefers-reduced-motion: reduce)');
+  const state={doc,planets,g,win,motionQuery,elapsed:0,startedAt:0,running:false,inView:true,observer:null,onVisibility:null,onMotionChange:null};
+  orbitAnimationState=state;
+  const render=elapsed=>{
+    setPlanetPositions(planets.inner,innerAngles,g.cx,g.cy,g.innerRx,g.innerRy,g.innerTilt,(elapsed/INNER_DURATION)*360);
+    setPlanetPositions(planets.outer,outerAngles,g.cx,g.cy,g.outerRx,g.outerRy,g.outerTilt,(elapsed/OUTER_DURATION)*360);
+  };
+  const canRun=()=>orbitAnimationState===state&&mode==='draft'&&frame.contentDocument===doc&&doc.documentElement.isConnected&&!document.hidden&&!doc.hidden&&state.inView&&!motionQuery.matches;
+  const pause=()=>{
+    if(!state.running)return;
+    state.elapsed+=Math.max(0,win.performance.now()-state.startedAt);state.running=false;
+    if(orbitAnimationFrame){win.cancelAnimationFrame(orbitAnimationFrame);orbitAnimationFrame=0}
+  };
+  const tick=now=>{
+    if(!canRun()){pause();return}
+    const elapsed=state.elapsed+Math.max(0,now-state.startedAt);render(elapsed);
+    orbitAnimationFrame=win.requestAnimationFrame(tick);
+  };
+  const resume=()=>{
+    if(orbitAnimationState!==state)return;
+    if(motionQuery.matches){state.elapsed=0;render(0);return}
+    if(!canRun()||state.running)return;
+    state.startedAt=win.performance.now();state.running=true;orbitAnimationFrame=win.requestAnimationFrame(tick);
+  };
+  state.onVisibility=()=>{if(canRun())resume();else pause()};
+  state.onMotionChange=()=>{if(motionQuery.matches){pause();state.elapsed=0;render(0)}else resume()};
+  doc.addEventListener('visibilitychange',state.onVisibility);
+  document.addEventListener('visibilitychange',state.onVisibility);
+  if(motionQuery.addEventListener)motionQuery.addEventListener('change',state.onMotionChange);else motionQuery.addListener(state.onMotionChange);
+  const observed=doc.querySelector('.az-lab-orbit-host')||doc.querySelector('.map')||doc.querySelector('.stage');
+  if(observed&&win.IntersectionObserver){
+    state.observer=new win.IntersectionObserver(entries=>{const entry=entries[0];state.inView=!!entry&&entry.isIntersecting&&entry.intersectionRatio>0;if(canRun())resume();else pause()},{threshold:.01});
+    state.observer.observe(observed);
+  }
+  render(0);
+  if(!motionQuery.matches)resume();
+}
 function drawOrbits(){
-  if(mode!=='draft')return;const doc=frame.contentDocument;if(!doc)return;cleanupDraft(doc);const stage=doc.querySelector('.stage');if(!stage)return;const host=doc.querySelector('.map')||stage.parentElement;if(!host)return;
+  if(mode!=='draft')return;const doc=frame.contentDocument;if(!doc)return;cleanupDraft(doc);doc.querySelectorAll('link[href*="fonts.googleapis.com"],link[href*="fonts.gstatic.com"]').forEach(link=>link.remove());const stage=doc.querySelector('.stage');if(!stage)return;const host=doc.querySelector('.map')||stage.parentElement;if(!host)return;
   const hostRect=host.getBoundingClientRect(),r=stage.getBoundingClientRect();const g={cx:r.left-hostRect.left+r.width/2,cy:r.top-hostRect.top+r.height/2,innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14};
   host.classList.add('az-lab-orbit-host');const style=doc.createElement('style');style.id='az-lab-orbit-style';style.textContent=`
+@font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Regular.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Medium.woff2') format('woff2');font-style:normal;font-weight:500;font-display:swap}
+@font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-SemiBold.woff2') format('woff2');font-style:normal;font-weight:600;font-display:swap}
 .az-lab-orbit-host{position:relative!important}.az-lab-orbit-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}
 .az-lab-right-badge-shift{transform:translateX(-37.8px)!important}
 .relation-panel{display:none!important}
@@ -184,6 +237,7 @@ function drawOrbits(){
 .az-lab-direction-more{display:block!important;margin:0 auto!important;padding:4px 10px!important;border:0!important;border-bottom:1px solid rgba(68,99,79,.55)!important;background:transparent!important;color:#44634f!important;font:600 11.5px/1.15 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;cursor:pointer!important}
 .az-lab-direction-close{position:absolute!important;left:50%!important;right:auto!important;top:12px!important;transform:translateX(-50%)!important;width:58px!important;height:58px!important;border-radius:50%!important;border:2px solid rgba(68,99,79,.78)!important;background:#f7f3ec!important;color:#344b3d!important;font:400 42px/52px Arial,sans-serif!important;text-align:center!important;cursor:pointer!important;z-index:31!important;box-shadow:0 6px 15px rgba(58,49,37,.14)!important;padding:0!important}
 .az-lab-direction-close:hover,.az-lab-direction-close:focus-visible{background:#ece7dc!important;outline:2px solid rgba(181,150,98,.45)!important;outline-offset:2px!important}
+@media (prefers-reduced-motion:reduce){.az-lab-orbit-host .direction{will-change:auto!important}}
 @media (min-width:1181px){
 .az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}
 .az-lab-orbit-host .direction{position:absolute!important;width:108px!important;height:102px!important;min-height:102px!important;padding:8px!important;border-radius:50%!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.4px!important;line-height:1.12!important;font-weight:600!important;letter-spacing:0!important;color:#30372f!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important;overflow:hidden!important;pointer-events:auto!important;cursor:pointer!important;z-index:8!important;will-change:left,top!important;isolation:isolate!important}
