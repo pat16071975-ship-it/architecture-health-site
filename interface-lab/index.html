@@ -103,7 +103,7 @@ function stopOrbitAnimation(){
   orbitAnimationState=null;
 }
 function cleanupDraft(doc){
-  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
+  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-vitruvian-motion')?.remove();doc.querySelector('.vit-img')?.classList.remove('az-lab-vitruvian-static');doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
   doc.querySelector('.az-lab-direction-info')?.remove();doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
   doc.querySelectorAll('.az-lab-planet').forEach(el=>{if(el.dataset.azOriginalHtml!==undefined){el.innerHTML=el.dataset.azOriginalHtml;delete el.dataset.azOriginalHtml}if(el.dataset.azOriginalStyle!==undefined){if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);else el.removeAttribute('style');delete el.dataset.azOriginalStyle}if(el._azDirectionHandler){el.removeEventListener('click',el._azDirectionHandler,true);delete el._azDirectionHandler}delete el.dataset.azDirectionName;el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')});
 }
@@ -138,6 +138,20 @@ function addPlaceholderBadges(doc){
     badge.style.setProperty('transform','translate(-50%,-50%)','important');
     page.appendChild(badge);
   });
+}
+function addVitruvianMotion(doc){
+  const stage=doc.querySelector('.stage'),source=stage?.querySelector('.vit-img'),viewportWidth=doc.defaultView?.innerWidth||0;
+  if(!stage||!source||viewportWidth<721||doc.getElementById('az-lab-vitruvian-motion'))return;
+  source.classList.add('az-lab-vitruvian-static');
+  const root=doc.createElement('div');root.id='az-lab-vitruvian-motion';root.setAttribute('aria-hidden','true');
+  const addPart=(name,clip)=>{const img=source.cloneNode(false);img.removeAttribute('id');img.className='az-lab-vitruvian-part az-lab-vitruvian-'+name;img.style.clipPath=clip;img.style.webkitClipPath=clip;img.setAttribute('draggable','false');root.appendChild(img)};
+  addPart('torso','polygon(36% 5%,64% 5%,66% 74%,34% 74%)');
+  addPart('arm-left','polygon(0 17%,51% 17%,51% 60%,0 60%)');
+  addPart('arm-right','polygon(49% 17%,100% 17%,100% 60%,49% 60%)');
+  addPart('leg-left','polygon(20% 49%,51% 49%,51% 100%,8% 100%)');
+  addPart('leg-right','polygon(49% 49%,80% 49%,92% 100%,49% 100%)');
+  const cloth=doc.createElement('div');cloth.className='az-lab-vitruvian-loincloth';root.appendChild(cloth);
+  stage.appendChild(root);
 }
 function addVitruvianRingText(doc,host,stageRect,hostRect){
   const viewportWidth=doc.defaultView?.innerWidth||0;if(viewportWidth<721)return;
@@ -241,6 +255,7 @@ function drawOrbits(){
   if(mode!=='draft')return;const doc=frame.contentDocument;if(!doc)return;cleanupDraft(doc);doc.querySelectorAll('link[href*="fonts.googleapis.com"],link[href*="fonts.gstatic.com"]').forEach(link=>link.remove());const stage=doc.querySelector('.stage');if(!stage)return;const host=doc.querySelector('.map')||stage.parentElement;if(!host)return;
   const hostRect=host.getBoundingClientRect(),r=stage.getBoundingClientRect();const g={cx:r.left-hostRect.left+r.width/2,cy:r.top-hostRect.top+r.height/2,innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14};
   addVitruvianRingText(doc,host,r,hostRect);
+  addVitruvianMotion(doc);
   host.classList.add('az-lab-orbit-host');const style=doc.createElement('style');style.id='az-lab-orbit-style';style.textContent=`
 @font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Regular.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
 @font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Medium.woff2') format('woff2');font-style:normal;font-weight:500;font-display:swap}
@@ -258,7 +273,22 @@ function drawOrbits(){
 .az-lab-direction-more{display:block!important;margin:0 auto!important;padding:4px 10px!important;border:0!important;border-bottom:1px solid rgba(68,99,79,.55)!important;background:transparent!important;color:#44634f!important;font:600 11.5px/1.15 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;cursor:pointer!important}
 .az-lab-direction-close{position:absolute!important;left:50%!important;right:auto!important;top:12px!important;transform:translateX(-50%)!important;width:58px!important;height:58px!important;border-radius:50%!important;border:2px solid rgba(68,99,79,.78)!important;background:#f7f3ec!important;color:#344b3d!important;font:400 42px/52px Arial,sans-serif!important;text-align:center!important;cursor:pointer!important;z-index:31!important;box-shadow:0 6px 15px rgba(58,49,37,.14)!important;padding:0!important}
 .az-lab-direction-close:hover,.az-lab-direction-close:focus-visible{background:#ece7dc!important;outline:2px solid rgba(181,150,98,.45)!important;outline-offset:2px!important}
-@media (prefers-reduced-motion:reduce){.az-lab-orbit-host .direction{will-change:auto!important}}
+#az-lab-vitruvian-motion{position:absolute!important;inset:0!important;z-index:3!important;pointer-events:none!important;overflow:hidden!important;border-radius:50%!important}
+.az-lab-vitruvian-part{position:absolute!important;left:50%!important;top:54%!important;width:102%!important;height:102%!important;object-fit:cover!important;object-position:center 52%!important;transform:translate(-50%,-50%)!important;filter:sepia(.08) saturate(.9) contrast(.97) brightness(1.04)!important;mix-blend-mode:multiply!important;opacity:.66!important;will-change:transform,opacity!important}
+.az-lab-vitruvian-static{opacity:.58!important}
+.az-lab-vitruvian-torso{z-index:5!important;transform-origin:50% 54%!important;animation:azLabVitruvianTorso 18s ease-in-out infinite!important}
+.az-lab-vitruvian-arm-left{z-index:4!important;transform-origin:42% 38%!important;animation:azLabVitruvianArmLeft 18s ease-in-out infinite!important}
+.az-lab-vitruvian-arm-right{z-index:4!important;transform-origin:58% 38%!important;animation:azLabVitruvianArmRight 18s ease-in-out infinite!important}
+.az-lab-vitruvian-leg-left{z-index:4!important;transform-origin:46% 58%!important;animation:azLabVitruvianLegLeft 18s ease-in-out infinite!important}
+.az-lab-vitruvian-leg-right{z-index:4!important;transform-origin:54% 58%!important;animation:azLabVitruvianLegRight 18s ease-in-out infinite!important}
+.az-lab-vitruvian-loincloth{position:absolute!important;left:50%!important;top:57.4%!important;width:20.5%!important;height:11.4%!important;z-index:8!important;transform:translate(-50%,-50%)!important;clip-path:polygon(12% 9%,88% 9%,78% 92%,22% 92%)!important;background:linear-gradient(180deg,rgba(239,232,219,.96),rgba(218,204,180,.94) 72%,rgba(181,150,98,.78))!important;border-top:1px solid rgba(123,96,60,.48)!important;border-radius:38% 38% 18% 18%/22% 22% 34% 34%!important;box-shadow:inset 0 4px 8px rgba(255,255,255,.28),0 2px 5px rgba(87,66,39,.10)!important;filter:sepia(.08)!important;animation:azLabVitruvianCloth 18s ease-in-out infinite!important;will-change:transform!important}
+@keyframes azLabVitruvianTorso{0%,56%,100%{transform:translate(-50%,-50%) rotate(0deg) translateY(0)}64%{transform:translate(-50%,-50%) rotate(-1.1deg) translateY(-.3%)}72%{transform:translate(-50%,-50%) rotate(1.25deg) translateY(.45%)}80%{transform:translate(-50%,-50%) rotate(0deg) translateY(1.15%) scaleY(.992)}88%{transform:translate(-50%,-50%) rotate(0deg) translateY(0)}}
+@keyframes azLabVitruvianArmLeft{0%,56%,100%{transform:translate(-50%,-50%) rotate(0deg)}66%{transform:translate(-50%,-50%) rotate(-4.8deg)}74%{transform:translate(-50%,-50%) rotate(-7deg)}82%{transform:translate(-50%,-50%) rotate(-2.2deg) translateY(.8%)}90%{transform:translate(-50%,-50%) rotate(0deg)}}
+@keyframes azLabVitruvianArmRight{0%,56%,100%{transform:translate(-50%,-50%) rotate(0deg)}66%{transform:translate(-50%,-50%) rotate(4.8deg)}74%{transform:translate(-50%,-50%) rotate(7deg)}82%{transform:translate(-50%,-50%) rotate(2.2deg) translateY(.8%)}90%{transform:translate(-50%,-50%) rotate(0deg)}}
+@keyframes azLabVitruvianLegLeft{0%,62%,100%{transform:translate(-50%,-50%) rotate(0deg) scaleY(1)}74%{transform:translate(-50%,-50%) rotate(.7deg) scaleY(.997)}82%{transform:translate(-50%,-49.1%) rotate(1.35deg) scaleY(.985)}90%{transform:translate(-50%,-50%) rotate(0deg) scaleY(1)}}
+@keyframes azLabVitruvianLegRight{0%,62%,100%{transform:translate(-50%,-50%) rotate(0deg) scaleY(1)}74%{transform:translate(-50%,-50%) rotate(-.7deg) scaleY(.997)}82%{transform:translate(-50%,-49.1%) rotate(-1.35deg) scaleY(.985)}90%{transform:translate(-50%,-50%) rotate(0deg) scaleY(1)}}
+@keyframes azLabVitruvianCloth{0%,56%,100%{transform:translate(-50%,-50%) rotate(0deg)}64%{transform:translate(-50%,-50%) rotate(-1deg)}72%{transform:translate(-50%,-50%) rotate(1.1deg)}80%{transform:translate(-50%,-48.9%) scaleY(.992)}90%{transform:translate(-50%,-50%) rotate(0deg)}}
+@media (prefers-reduced-motion:reduce){.az-lab-orbit-host .direction{will-change:auto!important}.az-lab-vitruvian-static{opacity:1!important}#az-lab-vitruvian-motion .az-lab-vitruvian-part{display:none!important}.az-lab-vitruvian-loincloth{animation:none!important;will-change:auto!important}}
 @media (min-width:1181px){
 .az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}
 .az-lab-orbit-host .direction{position:absolute!important;width:108px!important;height:102px!important;min-height:102px!important;padding:8px!important;border-radius:50%!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.4px!important;line-height:1.12!important;font-weight:600!important;letter-spacing:0!important;color:#30372f!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important;overflow:hidden!important;pointer-events:auto!important;cursor:pointer!important;z-index:8!important;will-change:left,top!important;isolation:isolate!important}
