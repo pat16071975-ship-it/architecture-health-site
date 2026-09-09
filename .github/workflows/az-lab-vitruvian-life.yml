@@ -1,4 +1,3 @@
-# retry after workflow registration
 name: AZ Lab Vitruvian life effect
 on:
   push:
@@ -19,62 +18,39 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
           p=Path('interface-lab/index.html')
           s=p.read_text(encoding='utf-8')
-
           cleanup_old="doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();"
           cleanup_new="doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-vitruvian-life')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();"
-          if cleanup_old not in s:
-              raise SystemExit('STOP: cleanup marker not found')
+          if cleanup_old not in s: raise SystemExit('STOP: cleanup marker not found')
           s=s.replace(cleanup_old,cleanup_new,1)
-
-          fn="""function addVitruvianLifeEffect(doc){
-  const stage=doc.querySelector('.stage'),viewportWidth=doc.defaultView?.innerWidth||0;if(!stage||viewportWidth<721||doc.getElementById('az-lab-vitruvian-life'))return;
-  const life=doc.createElement('div');life.id='az-lab-vitruvian-life';life.setAttribute('aria-hidden','true');stage.appendChild(life);
-}
-"""
+          fn=("function addVitruvianLifeEffect(doc){\n"
+              "  const stage=doc.querySelector('.stage'),viewportWidth=doc.defaultView?.innerWidth||0;if(!stage||viewportWidth<721||doc.getElementById('az-lab-vitruvian-life'))return;\n"
+              "  const life=doc.createElement('div');life.id='az-lab-vitruvian-life';life.setAttribute('aria-hidden','true');stage.appendChild(life);\n"
+              "}\n")
           marker="function addVitruvianRingText(doc,host,stageRect,hostRect){"
-          if marker not in s:
-              raise SystemExit('STOP: ring text marker not found')
+          if marker not in s: raise SystemExit('STOP: ring text marker not found')
           s=s.replace(marker,fn+marker,1)
-
           call_old="  addVitruvianRingText(doc,host,r,hostRect);\n  host.classList.add('az-lab-orbit-host');"
           call_new="  addVitruvianRingText(doc,host,r,hostRect);\n  addVitruvianLifeEffect(doc);\n  host.classList.add('az-lab-orbit-host');"
-          if call_old not in s:
-              raise SystemExit('STOP: draw call marker not found')
+          if call_old not in s: raise SystemExit('STOP: draw call marker not found')
           s=s.replace(call_old,call_new,1)
-
           motion_old="@media (prefers-reduced-motion:reduce){.az-lab-orbit-host .direction{will-change:auto!important}}"
-          motion_new=""".az-lab-vitruvian-life{position:absolute!important;inset:0!important;border-radius:50%!important;overflow:hidden!important;pointer-events:none!important;z-index:3!important}
-.az-lab-vitruvian-life::before{content:''!important;position:absolute!important;left:50%!important;top:46%!important;width:22%!important;aspect-ratio:1!important;border-radius:50%!important;border:1px solid rgba(181,150,98,.32)!important;box-shadow:0 0 24px rgba(181,150,98,.16),inset 0 0 20px rgba(68,99,79,.08)!important;transform:translate(-50%,-50%) scale(.38)!important;opacity:0;animation:azLabVitruvianPulse 7.4s ease-out infinite 1.2s!important}
-.az-lab-vitruvian-life::after{content:''!important;position:absolute!important;inset:-32%!important;background:linear-gradient(116deg,transparent 41%,rgba(255,255,255,0) 45%,rgba(255,255,255,.22) 50%,rgba(181,150,98,.12) 53%,rgba(68,99,79,.07) 56%,transparent 63%)!important;mix-blend-mode:soft-light!important;transform:translateX(-58%) rotate(-5deg)!important;opacity:0;animation:azLabVitruvianSweep 9.8s ease-in-out infinite 2.1s!important}
-.az-lab-orbit-host .vit-img{animation:azLabVitruvianBreath 9.6s ease-in-out infinite!important;transform-origin:center center!important;will-change:transform!important}
-@keyframes azLabVitruvianBreath{0%,100%{transform:translate(-50%,-50%) scale(1)}46%,56%{transform:translate(-50%,-50.35%) scale(1.012)}}
-@keyframes azLabVitruvianPulse{0%{transform:translate(-50%,-50%) scale(.38);opacity:0}14%{opacity:.34}68%{opacity:.08}100%{transform:translate(-50%,-50%) scale(2.05);opacity:0}}
-@keyframes azLabVitruvianSweep{0%,16%{transform:translateX(-58%) rotate(-5deg);opacity:0}31%{opacity:.26}67%{opacity:.18}82%,100%{transform:translateX(58%) rotate(-5deg);opacity:0}}
-@media (prefers-reduced-motion:reduce){.az-lab-orbit-host .direction{will-change:auto!important}.az-lab-orbit-host .vit-img{animation:none!important;transform:translate(-50%,-50%)!important;will-change:auto!important}.az-lab-vitruvian-life::before,.az-lab-vitruvian-life::after{animation:none!important;opacity:0!important}}"""
-          if motion_old not in s:
-              raise SystemExit('STOP: reduced motion marker not found')
+          motion_new=(".az-lab-vitruvian-life{position:absolute!important;inset:0!important;border-radius:50%!important;overflow:hidden!important;pointer-events:none!important;z-index:3!important}\n"
+                      ".az-lab-vitruvian-life::before{content:''!important;position:absolute!important;left:50%!important;top:46%!important;width:22%!important;aspect-ratio:1!important;border-radius:50%!important;border:1px solid rgba(181,150,98,.32)!important;box-shadow:0 0 24px rgba(181,150,98,.16),inset 0 0 20px rgba(68,99,79,.08)!important;transform:translate(-50%,-50%) scale(.38)!important;opacity:0;animation:azLabVitruvianPulse 7.4s ease-out infinite 1.2s!important}\n"
+                      ".az-lab-vitruvian-life::after{content:''!important;position:absolute!important;inset:-32%!important;background:linear-gradient(116deg,transparent 41%,rgba(255,255,255,0) 45%,rgba(255,255,255,.22) 50%,rgba(181,150,98,.12) 53%,rgba(68,99,79,.07) 56%,transparent 63%)!important;mix-blend-mode:soft-light!important;transform:translateX(-58%) rotate(-5deg)!important;opacity:0;animation:azLabVitruvianSweep 9.8s ease-in-out infinite 2.1s!important}\n"
+                      ".az-lab-orbit-host .vit-img{animation:azLabVitruvianBreath 9.6s ease-in-out infinite!important;transform-origin:center center!important;will-change:transform!important}\n"
+                      "@keyframes azLabVitruvianBreath{0%,100%{transform:translate(-50%,-50%) scale(1)}46%,56%{transform:translate(-50%,-50.35%) scale(1.012)}}\n"
+                      "@keyframes azLabVitruvianPulse{0%{transform:translate(-50%,-50%) scale(.38);opacity:0}14%{opacity:.34}68%{opacity:.08}100%{transform:translate(-50%,-50%) scale(2.05);opacity:0}}\n"
+                      "@keyframes azLabVitruvianSweep{0%,16%{transform:translateX(-58%) rotate(-5deg);opacity:0}31%{opacity:.26}67%{opacity:.18}82%,100%{transform:translateX(58%) rotate(-5deg);opacity:0}}\n"
+                      "@media (prefers-reduced-motion:reduce){.az-lab-orbit-host .direction{will-change:auto!important}.az-lab-orbit-host .vit-img{animation:none!important;transform:translate(-50%,-50%)!important;will-change:auto!important}.az-lab-vitruvian-life::before,.az-lab-vitruvian-life::after{animation:none!important;opacity:0!important}}")
+          if motion_old not in s: raise SystemExit('STOP: reduced motion marker not found')
           s=s.replace(motion_old,motion_new,1)
-
-          protected=[
-            'const INNER_DURATION=63000;',
-            'const OUTER_DURATION=114000;',
-            "const innerAngles=[180,270,0,90];",
-            "const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];",
-            'innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14',
-            '.az-lab-right-badge-shift{transform:translateX(-37.8px)!important}',
-            ".az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}",
-            "svg.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:14;pointer-events:none;overflow:visible'",
-          ]
+          protected=['const INNER_DURATION=63000;','const OUTER_DURATION=114000;',"const innerAngles=[180,270,0,90];","const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];",'innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14','.az-lab-right-badge-shift{transform:translateX(-37.8px)!important}',".az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}","svg.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:14;pointer-events:none;overflow:visible'"]
           for m in protected:
-              if m not in s:
-                  raise SystemExit(f'STOP: protected marker missing: {m}')
+              if m not in s: raise SystemExit(f'STOP: protected marker missing: {m}')
           for m in ['addVitruvianLifeEffect(doc);','azLabVitruvianBreath','azLabVitruvianPulse','azLabVitruvianSweep']:
-              if m not in s:
-                  raise SystemExit(f'STOP: life effect marker missing: {m}')
-
+              if m not in s: raise SystemExit(f'STOP: life effect marker missing: {m}')
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit viewer-only effect and remove temporary workflow
