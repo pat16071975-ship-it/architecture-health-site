@@ -103,7 +103,7 @@ function stopOrbitAnimation(){
   orbitAnimationState=null;
 }
 function cleanupDraft(doc){
-  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
+  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
   doc.querySelector('.az-lab-direction-info')?.remove();doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
   doc.querySelectorAll('.az-lab-planet').forEach(el=>{if(el.dataset.azOriginalHtml!==undefined){el.innerHTML=el.dataset.azOriginalHtml;delete el.dataset.azOriginalHtml}if(el.dataset.azOriginalStyle!==undefined){if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);else el.removeAttribute('style');delete el.dataset.azOriginalStyle}if(el._azDirectionHandler){el.removeEventListener('click',el._azDirectionHandler,true);delete el._azDirectionHandler}delete el.dataset.azDirectionName;el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')});
 }
@@ -139,9 +139,18 @@ function addPlaceholderBadges(doc){
     page.appendChild(badge);
   });
 }
-function addVitruvianRingText(doc){
-  const stage=doc.querySelector('.stage');if(!stage||doc.getElementById('az-lab-vitruvian-ring-text'))return;
-  stage.insertAdjacentHTML('beforeend','<svg id="az-lab-vitruvian-ring-text" viewBox="0 0 580 580" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:visible"><defs><path id="az-lab-vitruvian-ring-path" d="M107.566 472.434 A258 258 0 1 1 472.434 472.434" fill="none"/></defs><text fill="#526158" font-family="Montserrat,Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="500" letter-spacing="1.15" opacity=".94"><textPath href="#az-lab-vitruvian-ring-path" startOffset="50%" text-anchor="middle">Не лечим по отдельности. Понимаем, как всё связано в вашем организме</textPath></text></svg>');
+function addVitruvianRingText(doc,host,stageRect,hostRect){
+  const viewportWidth=doc.defaultView?.innerWidth||0;if(viewportWidth<721)return;
+  doc.getElementById('az-lab-vitruvian-ring-text')?.remove();
+  const scale=viewportWidth>=1181?.724137931:.568965517;
+  const cx=stageRect.left-hostRect.left+stageRect.width/2,cy=stageRect.top-hostRect.top+stageRect.height/2;
+  const radius=Math.min(stageRect.width,stageRect.height)*scale*.5+(viewportWidth>=1181?18:14);
+  const point=deg=>{const a=deg*Math.PI/180;return{x:cx+radius*Math.cos(a),y:cy+radius*Math.sin(a)}};
+  const start=point(180),end=point(360),ns='http://www.w3.org/2000/svg';
+  const svg=doc.createElementNS(ns,'svg');svg.id='az-lab-vitruvian-ring-text';svg.setAttribute('viewBox',`0 0 ${Math.max(1,hostRect.width)} ${Math.max(1,hostRect.height)}`);svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');svg.style.cssText='position:absolute;inset:0;width:100%;height:100%;z-index:7;pointer-events:none;overflow:visible';
+  const defs=doc.createElementNS(ns,'defs'),path=doc.createElementNS(ns,'path');path.id='az-lab-vitruvian-ring-path';path.setAttribute('d',`M ${start.x} ${start.y} A ${radius} ${radius} 0 0 1 ${end.x} ${end.y}`);path.setAttribute('fill','none');defs.appendChild(path);svg.appendChild(defs);
+  const text=doc.createElementNS(ns,'text');text.setAttribute('fill','#526158');text.setAttribute('font-family','Montserrat,Inter,Segoe UI,Arial,sans-serif');text.setAttribute('font-size',viewportWidth>=1181?'13':'11');text.setAttribute('font-weight','500');text.setAttribute('letter-spacing',viewportWidth>=1181?'1.05':'.8');text.setAttribute('opacity','.94');
+  const textPath=doc.createElementNS(ns,'textPath');textPath.setAttribute('href','#az-lab-vitruvian-ring-path');textPath.setAttribute('startOffset','50%');textPath.setAttribute('text-anchor','middle');textPath.textContent='Не лечим по отдельности. Понимаем, как всё связано в вашем организме';text.appendChild(textPath);svg.appendChild(text);host.appendChild(svg);
 }
 function closeDirectionInfo(doc){doc.querySelector('.az-lab-direction-info')?.remove()}
 function showDirectionInfo(doc,name){
@@ -224,7 +233,7 @@ function startOrbitAnimation(doc,planets,g){
 function drawOrbits(){
   if(mode!=='draft')return;const doc=frame.contentDocument;if(!doc)return;cleanupDraft(doc);doc.querySelectorAll('link[href*="fonts.googleapis.com"],link[href*="fonts.gstatic.com"]').forEach(link=>link.remove());const stage=doc.querySelector('.stage');if(!stage)return;const host=doc.querySelector('.map')||stage.parentElement;if(!host)return;
   const hostRect=host.getBoundingClientRect(),r=stage.getBoundingClientRect();const g={cx:r.left-hostRect.left+r.width/2,cy:r.top-hostRect.top+r.height/2,innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14};
-  addVitruvianRingText(doc);
+  addVitruvianRingText(doc,host,r,hostRect);
   host.classList.add('az-lab-orbit-host');const style=doc.createElement('style');style.id='az-lab-orbit-style';style.textContent=`
 @font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Regular.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
 @font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Medium.woff2') format('woff2');font-style:normal;font-weight:500;font-display:swap}
