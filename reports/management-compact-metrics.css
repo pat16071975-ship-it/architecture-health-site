@@ -1,110 +1,41 @@
-/* AZ-BAZE management report: dense desktop layout.
-   Presentation only; report data and calculations are untouched. */
+/* AZ-BAZE management report: reduce vertical height only on desktop.
+   Widths/layout stay as in the original report. Data and calculations untouched. */
 @media (min-width: 851px) {
-  /* Remove the wide empty area around KPI cards. */
-  #editView .section {
-    width: max-content;
-    max-width: 100%;
-    margin-top: 10px;
-  }
-
+  /* KPI blocks: keep original width, cut vertical space roughly in half. */
   #editView .grid {
-    display: flex;
-    width: max-content;
-    max-width: 100%;
-    flex-wrap: wrap;
-    align-items: stretch;
-    gap: 4px;
-    padding: 5px 6px;
+    gap: 5px 10px;
+    padding: 7px 14px;
   }
 
   #editView .metric {
-    flex: 0 0 92px;
-    width: 92px;
-    min-width: 92px;
-    max-width: 92px;
-    min-height: 40px;
-    padding: 3px 5px;
-    border-radius: 6px;
+    min-height: 0;
+    padding: 4px 9px;
   }
 
   #editView .metric label {
-    margin: 0 0 1px;
-    font-size: 8px;
+    margin-bottom: 2px;
     line-height: 1.05;
   }
 
   #editView .metric input {
-    padding: 1px 0;
-    min-height: 15px;
-    font-size: 11px;
+    padding: 2px 0;
     line-height: 1.05;
   }
 
-  #generalGrid .metric {
-    flex-basis: 92px;
-  }
-
+  /* Section headers: half the vertical padding, original width untouched. */
   #editView .section h2 {
-    padding: 6px 10px;
-    font-size: 18px;
+    padding: 6px 16px;
   }
 
-  /* Doctors/specialists: compact table instead of a full-page-width row. */
-  #editView .section.dent .table-wrap,
-  #editView .section.clinic .table-wrap {
-    width: 540px;
-    max-width: 100%;
-    overflow: auto;
+  /* Doctors/specialists: preserve original full width, halve row height. */
+  #editView .data-table th,
+  #editView .data-table td {
+    padding: 4px 10px;
   }
 
-  #editView .section.dent .data-table,
-  #editView .section.clinic .data-table {
-    width: 540px;
-    min-width: 540px;
-  }
-
-  #editView .section.dent .data-table th,
-  #editView .section.dent .data-table td,
-  #editView .section.clinic .data-table th,
-  #editView .section.clinic .data-table td {
-    padding: 4px 7px;
-    font-size: 10.5px;
-  }
-
-  #editView .section.dent .data-table th:first-child,
-  #editView .section.dent .data-table td:first-child,
-  #editView .section.clinic .data-table th:first-child,
-  #editView .section.clinic .data-table td:first-child {
-    width: 390px;
-  }
-
-  #editView .section.dent .data-table th:last-child,
-  #editView .section.dent .data-table td:last-child,
-  #editView .section.clinic .data-table th:last-child,
-  #editView .section.clinic .data-table td:last-child {
-    width: 120px;
-  }
-
-  #editView .section.dent .data-table input,
-  #editView .section.clinic .data-table input {
-    width: 92px;
-    padding: 4px 6px;
-    border-radius: 6px;
-    font-size: 10.5px;
+  #editView .data-table input {
+    padding: 3px 7px;
   }
 }
 
-/* Keep the previously approved mobile layout unchanged. */
-@media (max-width: 850px) {
-  #editView .grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(130px, 1fr));
-  }
-}
-
-@media (max-width: 520px) {
-  #editView .grid {
-    grid-template-columns: 1fr;
-  }
-}
+/* Mobile layout remains unchanged. */
