@@ -103,7 +103,7 @@ function stopOrbitAnimation(){
   orbitAnimationState=null;
 }
 function cleanupDraft(doc){
-  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
+  stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-vitruvian-life')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
   doc.querySelector('.az-lab-direction-info')?.remove();doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
   doc.querySelectorAll('.az-lab-planet').forEach(el=>{if(el.dataset.azOriginalHtml!==undefined){el.innerHTML=el.dataset.azOriginalHtml;delete el.dataset.azOriginalHtml}if(el.dataset.azOriginalStyle!==undefined){if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);else el.removeAttribute('style');delete el.dataset.azOriginalStyle}if(el._azDirectionHandler){el.removeEventListener('click',el._azDirectionHandler,true);delete el._azDirectionHandler}delete el.dataset.azDirectionName;el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')});
 }
@@ -138,6 +138,10 @@ function addPlaceholderBadges(doc){
     badge.style.setProperty('transform','translate(-50%,-50%)','important');
     page.appendChild(badge);
   });
+}
+function addVitruvianLifeEffect(doc){
+  const stage=doc.querySelector('.stage'),viewportWidth=doc.defaultView?.innerWidth||0;if(!stage||viewportWidth<721||doc.getElementById('az-lab-vitruvian-life'))return;
+  const life=doc.createElement('div');life.id='az-lab-vitruvian-life';life.setAttribute('aria-hidden','true');stage.appendChild(life);
 }
 function addVitruvianRingText(doc,host,stageRect,hostRect){
   const viewportWidth=doc.defaultView?.innerWidth||0;if(viewportWidth<721)return;
@@ -241,6 +245,7 @@ function drawOrbits(){
   if(mode!=='draft')return;const doc=frame.contentDocument;if(!doc)return;cleanupDraft(doc);doc.querySelectorAll('link[href*="fonts.googleapis.com"],link[href*="fonts.gstatic.com"]').forEach(link=>link.remove());const stage=doc.querySelector('.stage');if(!stage)return;const host=doc.querySelector('.map')||stage.parentElement;if(!host)return;
   const hostRect=host.getBoundingClientRect(),r=stage.getBoundingClientRect();const g={cx:r.left-hostRect.left+r.width/2,cy:r.top-hostRect.top+r.height/2,innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14};
   addVitruvianRingText(doc,host,r,hostRect);
+  addVitruvianLifeEffect(doc);
   host.classList.add('az-lab-orbit-host');const style=doc.createElement('style');style.id='az-lab-orbit-style';style.textContent=`
 @font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Regular.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
 @font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Medium.woff2') format('woff2');font-style:normal;font-weight:500;font-display:swap}
@@ -258,7 +263,14 @@ function drawOrbits(){
 .az-lab-direction-more{display:block!important;margin:0 auto!important;padding:4px 10px!important;border:0!important;border-bottom:1px solid rgba(68,99,79,.55)!important;background:transparent!important;color:#44634f!important;font:600 11.5px/1.15 'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;cursor:pointer!important}
 .az-lab-direction-close{position:absolute!important;left:50%!important;right:auto!important;top:12px!important;transform:translateX(-50%)!important;width:58px!important;height:58px!important;border-radius:50%!important;border:2px solid rgba(68,99,79,.78)!important;background:#f7f3ec!important;color:#344b3d!important;font:400 42px/52px Arial,sans-serif!important;text-align:center!important;cursor:pointer!important;z-index:31!important;box-shadow:0 6px 15px rgba(58,49,37,.14)!important;padding:0!important}
 .az-lab-direction-close:hover,.az-lab-direction-close:focus-visible{background:#ece7dc!important;outline:2px solid rgba(181,150,98,.45)!important;outline-offset:2px!important}
-@media (prefers-reduced-motion:reduce){.az-lab-orbit-host .direction{will-change:auto!important}}
+.az-lab-vitruvian-life{position:absolute!important;inset:0!important;border-radius:50%!important;overflow:hidden!important;pointer-events:none!important;z-index:3!important}
+.az-lab-vitruvian-life::before{content:''!important;position:absolute!important;left:50%!important;top:46%!important;width:22%!important;aspect-ratio:1!important;border-radius:50%!important;border:1px solid rgba(181,150,98,.32)!important;box-shadow:0 0 24px rgba(181,150,98,.16),inset 0 0 20px rgba(68,99,79,.08)!important;transform:translate(-50%,-50%) scale(.38)!important;opacity:0;animation:azLabVitruvianPulse 7.4s ease-out infinite 1.2s!important}
+.az-lab-vitruvian-life::after{content:''!important;position:absolute!important;inset:-32%!important;background:linear-gradient(116deg,transparent 41%,rgba(255,255,255,0) 45%,rgba(255,255,255,.22) 50%,rgba(181,150,98,.12) 53%,rgba(68,99,79,.07) 56%,transparent 63%)!important;mix-blend-mode:soft-light!important;transform:translateX(-58%) rotate(-5deg)!important;opacity:0;animation:azLabVitruvianSweep 9.8s ease-in-out infinite 2.1s!important}
+.az-lab-orbit-host .vit-img{animation:azLabVitruvianBreath 9.6s ease-in-out infinite!important;transform-origin:center center!important;will-change:transform!important}
+@keyframes azLabVitruvianBreath{0%,100%{transform:translate(-50%,-50%) scale(1)}46%,56%{transform:translate(-50%,-50.35%) scale(1.012)}}
+@keyframes azLabVitruvianPulse{0%{transform:translate(-50%,-50%) scale(.38);opacity:0}14%{opacity:.34}68%{opacity:.08}100%{transform:translate(-50%,-50%) scale(2.05);opacity:0}}
+@keyframes azLabVitruvianSweep{0%,16%{transform:translateX(-58%) rotate(-5deg);opacity:0}31%{opacity:.26}67%{opacity:.18}82%,100%{transform:translateX(58%) rotate(-5deg);opacity:0}}
+@media (prefers-reduced-motion:reduce){.az-lab-orbit-host .direction{will-change:auto!important}.az-lab-orbit-host .vit-img{animation:none!important;transform:translate(-50%,-50%)!important;will-change:auto!important}.az-lab-vitruvian-life::before,.az-lab-vitruvian-life::after{animation:none!important;opacity:0!important}}
 @media (min-width:1181px){
 .az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}
 .az-lab-orbit-host .direction{position:absolute!important;width:108px!important;height:102px!important;min-height:102px!important;padding:8px!important;border-radius:50%!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-family:'Montserrat',Inter,Segoe UI,Arial,sans-serif!important;font-size:9.4px!important;line-height:1.12!important;font-weight:600!important;letter-spacing:0!important;color:#30372f!important;box-shadow:0 7px 18px rgba(71,58,38,.07)!important;overflow:hidden!important;pointer-events:auto!important;cursor:pointer!important;z-index:8!important;will-change:left,top!important;isolation:isolate!important}
