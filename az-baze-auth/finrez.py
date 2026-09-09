@@ -104,6 +104,7 @@ def register_finrez(app):
             "MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index))",
         )
         html = _inject_script(html, "finrez-economics-integrated.js", "20260908-6")
+        html = _inject_script(html, "finrez-total-column.js", "20260909-1")
         return Response(html, mimetype="text/html")
 
     @app.get("/reports/forecast/")
