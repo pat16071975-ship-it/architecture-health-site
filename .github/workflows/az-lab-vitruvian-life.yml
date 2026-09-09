@@ -1,3 +1,4 @@
+# retry after workflow registration
 name: AZ Lab Vitruvian life effect
 on:
   push:
