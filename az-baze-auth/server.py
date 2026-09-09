@@ -51,13 +51,13 @@ def tune_report_response(response):
         if "management-compact-metrics.css" not in html:
             html = html.replace(
                 "</head>",
-                '<link rel="stylesheet" href="./management-compact-metrics.css?v=20260909-3">\n</head>',
+                '<link rel="stylesheet" href="./management-compact-metrics.css?v=20260909-4">\n</head>',
                 1,
             )
         else:
             html = re.sub(
                 r"management-compact-metrics\.css\?v=[0-9-]+",
-                "management-compact-metrics.css?v=20260909-3",
+                "management-compact-metrics.css?v=20260909-4",
                 html,
             )
         if "management-mobile-layout.js" not in html:
