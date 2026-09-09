@@ -80,7 +80,8 @@ jobs:
           for x in protected:
               if x not in s:
                   raise SystemExit(f'STOP: protected marker missing: {x}')
-          for x in ['addVitruvianGoldWave(doc);','azLabVitruvianGoldWave','attributeName\',\'y1','attributeName\',\'y2']:
+          synchronized=['addVitruvianGoldWave(doc);','azLabVitruvianGoldWave',"attributeName','y1","attributeName','y2"]
+          for x in synchronized:
               if x not in s:
                   raise SystemExit(f'STOP: synchronized wave marker missing: {x}')
 
