@@ -1,38 +1,44 @@
-/* AZ-BAZE management report: compact KPI cards on desktop.
-   Only presentation changes; report data and calculations are untouched. */
+/* AZ-BAZE management report: extra-compact KPI cards on desktop.
+   Presentation only; report data and calculations are untouched. */
 @media (min-width: 851px) {
   #editView .grid {
     display: flex;
     flex-wrap: wrap;
     align-items: stretch;
-    gap: 6px;
-    padding: 8px 10px;
+    gap: 4px;
+    padding: 5px 7px;
   }
 
   #editView .metric {
-    flex: 0 0 112px;
-    width: 112px;
-    min-width: 112px;
-    max-width: 112px;
-    min-height: 58px;
-    padding: 6px 7px;
-    border-radius: 8px;
+    flex: 0 0 94px;
+    width: 94px;
+    min-width: 94px;
+    max-width: 94px;
+    min-height: 44px;
+    padding: 4px 5px;
+    border-radius: 6px;
   }
 
   #editView .metric label {
-    margin-bottom: 3px;
-    font-size: 9px;
-    line-height: 1.15;
+    margin: 0 0 2px;
+    font-size: 8px;
+    line-height: 1.05;
   }
 
   #editView .metric input {
-    padding: 2px 0;
-    font-size: 13px;
-    line-height: 1.2;
+    padding: 1px 0 0;
+    min-height: 16px;
+    font-size: 11.5px;
+    line-height: 1.05;
   }
 
   #generalGrid .metric {
-    flex-basis: 112px;
+    flex-basis: 94px;
+  }
+
+  #editView .section h2 {
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
 }
 
