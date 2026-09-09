@@ -139,6 +139,10 @@ function addPlaceholderBadges(doc){
     page.appendChild(badge);
   });
 }
+function addVitruvianRingText(doc){
+  const stage=doc.querySelector('.stage');if(!stage||doc.getElementById('az-lab-vitruvian-ring-text'))return;
+  stage.insertAdjacentHTML('beforeend','<svg id="az-lab-vitruvian-ring-text" viewBox="0 0 580 580" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:visible"><defs><path id="az-lab-vitruvian-ring-path" d="M107.566 472.434 A258 258 0 1 1 472.434 472.434" fill="none"/></defs><text fill="#526158" font-family="Montserrat,Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="500" letter-spacing="1.15" opacity=".94"><textPath href="#az-lab-vitruvian-ring-path" startOffset="50%" text-anchor="middle">Не лечим по отдельности. Понимаем, как всё связано в вашем организме</textPath></text></svg>');
+}
 function closeDirectionInfo(doc){doc.querySelector('.az-lab-direction-info')?.remove()}
 function showDirectionInfo(doc,name){
   const info=DIRECTION_INFO[name];if(!info)return;
@@ -220,6 +224,7 @@ function startOrbitAnimation(doc,planets,g){
 function drawOrbits(){
   if(mode!=='draft')return;const doc=frame.contentDocument;if(!doc)return;cleanupDraft(doc);doc.querySelectorAll('link[href*="fonts.googleapis.com"],link[href*="fonts.gstatic.com"]').forEach(link=>link.remove());const stage=doc.querySelector('.stage');if(!stage)return;const host=doc.querySelector('.map')||stage.parentElement;if(!host)return;
   const hostRect=host.getBoundingClientRect(),r=stage.getBoundingClientRect();const g={cx:r.left-hostRect.left+r.width/2,cy:r.top-hostRect.top+r.height/2,innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14};
+  addVitruvianRingText(doc);
   host.classList.add('az-lab-orbit-host');const style=doc.createElement('style');style.id='az-lab-orbit-style';style.textContent=`
 @font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Regular.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
 @font-face{font-family:'Montserrat';src:url('/architecture-health-site/assets/fonts/Montserrat-Medium.woff2') format('woff2');font-style:normal;font-weight:500;font-display:swap}
