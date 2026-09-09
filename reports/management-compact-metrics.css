@@ -1,40 +1,61 @@
-/* AZ-BAZE management report: reduce vertical height only on desktop.
-   Widths/layout stay as in the original report. Data and calculations untouched. */
+/* AZ-BAZE management report: compact cards + reduced vertical height on desktop.
+   Keep the compact one-line KPI layout, but reduce only vertical spacing further.
+   Report data and calculations are untouched. */
 @media (min-width: 851px) {
-  /* KPI blocks: keep original width, cut vertical space roughly in half. */
+  /* Preserve compact narrow KPI cards in one line where the viewport allows. */
   #editView .grid {
-    gap: 5px 10px;
-    padding: 7px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 4px;
+    padding: 4px 7px;
   }
 
   #editView .metric {
-    min-height: 0;
-    padding: 4px 9px;
+    flex: 0 0 94px;
+    width: 94px;
+    min-width: 94px;
+    max-width: 94px;
+    min-height: 32px;
+    padding: 2px 5px;
+    border-radius: 6px;
   }
 
   #editView .metric label {
-    margin-bottom: 2px;
-    line-height: 1.05;
+    margin: 0 0 1px;
+    font-size: 8px;
+    line-height: 1;
   }
 
   #editView .metric input {
-    padding: 2px 0;
-    line-height: 1.05;
+    padding: 0;
+    min-height: 13px;
+    font-size: 11.5px;
+    line-height: 1;
   }
 
-  /* Section headers: half the vertical padding, original width untouched. */
+  #generalGrid .metric {
+    flex-basis: 94px;
+  }
+
+  /* Section headers: reduce height without changing section width. */
   #editView .section h2 {
-    padding: 6px 16px;
+    padding: 5px 10px;
   }
 
-  /* Doctors/specialists: preserve original full width, halve row height. */
+  /* Doctors/specialists: keep full table width, only reduce row height. */
   #editView .data-table th,
   #editView .data-table td {
-    padding: 4px 10px;
+    padding: 2px 10px;
+    line-height: 1.1;
   }
 
   #editView .data-table input {
-    padding: 3px 7px;
+    width: 128px;
+    padding: 2px 7px;
+    min-height: 24px;
+    font-size: 11px;
+    line-height: 1.05;
   }
 }
 
