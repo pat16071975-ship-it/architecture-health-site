@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.upload-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.upload-title{margin:0;font-size:24px;font-weight:500}.status-line{margin:10px 0 18px;padding:10px 12px;border-left:3px solid #b59662;background:#fffaf0;border-radius:8px;font-size:12px}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload-box{border:1px solid #ded5c8;border-radius:11px;background:#fff;padding:14px}.upload-box h3{margin:0 0 5px;font-size:14px}.upload-box p{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}.upload-box input[type=file]{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}.lock{padding:10px;border-radius:8px;background:#f2eee7;color:#7c756d;font-size:11px}.result{margin:14px 0 0;padding:11px 13px;border-radius:9px;font-size:12px;line-height:1.5}.result.ok{background:#e5eee7;color:#315a40}.result.error{background:#f7e8e6;color:#8a403b}.hint{margin-top:10px;color:#72786f;font-size:10.5px;line-height:1.5}.journal-title{margin:0 0 10px;font-size:18px;font-weight:500}.state-imported,.state-replaced{color:#315a40}.state-duplicate{color:#7a684c}.state-denied_replace{color:#9a4b48}@media(max-width:700px){.upload-grid{grid-template-columns:1fr}.upload-head{flex-direction:column}}
+</style>
+<div class="card">
+  <div class="upload-head">
+    <div><h2 class="upload-title">Загрузка данных</h2><div class="muted">Ежедневные выгрузки за один день. Система проверяет файлы до изменения отчётов.</div></div>
+    <a class="btn" href="/">На главную</a>
+  </div>
+
+  <div class="status-line">
+    {% if latest %}Ежедневные данные загружены по <strong>{{ latest['data_date'] }}</strong>{% if latest['revision']|int > 1 %} · версия {{ latest['revision'] }}{% endif %}.{% else %}Ежедневных загрузок через этот раздел пока нет.{% endif %}
+  </div>
+
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="upload-grid">
+      <div class="upload-box">
+        <h3>1. Завершённые приёмы</h3>
+        <p>Выгрузка из МИС ровно за один день.</p>
+        {% if 'upload_completed' in perms %}
+          <input type="file" name="completed" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
+        {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
+      </div>
+      <div class="upload-box">
+        <h3>2. Выполненные услуги</h3>
+        <p>Выгрузка из МИС за тот же день.</p>
+        {% if 'upload_services' in perms %}
+          <input type="file" name="services" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
+        {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
+      </div>
+    </div>
+    {% if can_daily %}
+      <button class="btn primary" type="submit" style="margin-top:14px">Загрузить данные за день</button>
+    {% else %}
+      <div class="hint">Для загрузки комплекта нужны права на оба обязательных файла.</div>
+    {% endif %}
+    <div class="hint">Повторная загрузка одинакового комплекта не дублирует данные. Замена изменённого комплекта разрешается только отдельным правом.</div>
+    {% if result %}<div class="result ok">{{ result['message'] }}</div>{% endif %}
+    {% if error %}<div class="result error">{{ error }}</div>{% endif %}
+  </form>
+</div>
+
+{% if 'upload_history' in perms %}
+<div class="spacer"></div>
+<div class="card">
+  <h2 class="journal-title">Журнал загрузок</h2>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Когда</th><th>Дата данных</th><th>Кто</th><th>Статус</th><th>Файлы</th></tr></thead>
+    <tbody>
+    {% for row in history %}
+      <tr>
+        <td>{{ row['created_at'][:19].replace('T',' ') }}</td>
+        <td>{{ row['data_date'] or '—' }}</td>
+        <td>{{ row['user_name'] or 'система' }}</td>
+        <td class="state-{{ row['status'] }}">{% if row['status']=='imported' %}Загружено{% elif row['status']=='replaced' %}Заменено{% elif row['status']=='duplicate' %}Дубль — без изменений{% elif row['status']=='denied_replace' %}Замена запрещена{% else %}{{ row['status'] }}{% endif %}</td>
+        <td>{{ row['completed_filename'] or '' }}{% if row['completed_filename'] and row['services_filename'] %}<br>{% endif %}{{ row['services_filename'] or '' }}</td>
+      </tr>
+    {% else %}<tr><td colspan="5" class="muted">Журнал пока пуст.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}
