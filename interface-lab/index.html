@@ -54,10 +54,10 @@ let orbitAnimationState=null;
 const INNER_DURATION=63000;
 const OUTER_DURATION=114000;
 
-const innerNames=['Функциональная стоматология','Ортодонтия','Остеопатия','Терапия'];
-const outerNames=['ИГГТ','DIERS диагностика','Нейропсихология','Детская неврология','Миофункциональная терапия','Превентивная медицина','Гастроэнтерология','Нутрициология'];
-const innerAngles=[180,270,0,90];
-const outerAngles=[157.5,202.5,247.5,292.5,337.5,22.5,67.5,112.5];
+const innerNames=['Функциональная стоматология','Ортодонтия','Стоматология ортопедия','Стоматология хирургия','Стоматология терапия'];
+const outerNames=['ИГГТ','DIERS диагностика','Нейропсихология','Детская неврология','Миофункциональная терапия','Превентивная медицина','Гастроэнтерология','Нутрициология','Остеопатия'];
+const innerAngles=[180,252,324,36,108];
+const outerAngles=[160,200,240,280,320,0,40,80,120];
 
 
 const DIRECTION_INFO={
@@ -87,7 +87,9 @@ const PLANET_ARTS={
   'Остеопатия':'/architecture-health-site/assets/lab-planets/planet-09-osteopathy.png?v=20260904-3',
   'Гастроэнтерология':'/architecture-health-site/assets/lab-planets/planet-10-gastroenterology.png?v=20260904-3',
   'Нутрициология':'/architecture-health-site/assets/lab-planets/planet-11-nutrition.png?v=20260904-3',
-  'Терапия':'/architecture-health-site/assets/lab-planets/planet-12-therapy.png?v=20260904-3',
+  'Стоматология терапия':'/architecture-health-site/assets/lab-planets/planet-12-therapy.png?v=20260904-3',
+  'Стоматология ортопедия':'/architecture-health-site/assets/lab-planets/planet-13-dentistry-orthopedics.svg?v=20260910-1',
+  'Стоматология хирургия':'/architecture-health-site/assets/lab-planets/planet-14-dentistry-surgery.svg?v=20260910-1',
 };
 
 function norm(value){return String(value||'').toLowerCase().replace(/ё/g,'е').replace(/[–—-]/g,' ').replace(/\s+/g,' ').trim()}
@@ -104,7 +106,7 @@ function stopOrbitAnimation(){
 }
 function cleanupDraft(doc){
   stopOrbitAnimation();doc.getElementById('az-lab-orbits')?.remove();doc.getElementById('az-lab-vitruvian-ring-text')?.remove();doc.getElementById('az-lab-orbit-style')?.remove();doc.querySelectorAll('.az-lab-placeholder-badge').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-right-badge-shift').forEach(el=>el.classList.remove('az-lab-right-badge-shift'));
-  doc.querySelector('.az-lab-direction-info')?.remove();doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
+  doc.querySelector('.az-lab-direction-info')?.remove();doc.querySelectorAll('.az-lab-generated-direction').forEach(el=>el.remove());doc.querySelectorAll('.az-lab-orbit-host').forEach(el=>el.classList.remove('az-lab-orbit-host'));
   doc.querySelectorAll('.az-lab-planet').forEach(el=>{if(el.dataset.azOriginalHtml!==undefined){el.innerHTML=el.dataset.azOriginalHtml;delete el.dataset.azOriginalHtml}if(el.dataset.azOriginalStyle!==undefined){if(el.dataset.azOriginalStyle)el.setAttribute('style',el.dataset.azOriginalStyle);else el.removeAttribute('style');delete el.dataset.azOriginalStyle}if(el._azDirectionHandler){el.removeEventListener('click',el._azDirectionHandler,true);delete el._azDirectionHandler}delete el.dataset.azDirectionName;el.classList.remove('az-lab-planet','az-lab-inner-planet','az-lab-outer-planet')});
 }
 function pointOnEllipse(cx,cy,rx,ry,tiltDeg,angleDeg){const t=angleDeg*Math.PI/180,a=tiltDeg*Math.PI/180,dx=rx*Math.cos(t),dy=ry*Math.sin(t);return{x:cx+dx*Math.cos(a)-dy*Math.sin(a),y:cy+dx*Math.sin(a)+dy*Math.cos(a)}}
@@ -182,13 +184,17 @@ function collectPlanets(doc){
   const byName=new Map();
   doc.querySelectorAll('.direction').forEach(el=>byName.set(norm(el.innerText||el.textContent),el));
   const prepare=(names,orbitClass)=>names.map(name=>{
-    const el=byName.get(norm(name))||(name==='Терапия'?byName.get(norm('Стоматология')):null);
-    if(!el)return null;
+    let el=byName.get(norm(name));
+    if(name==='Стоматология терапия')el=el||byName.get(norm('Терапия'))||byName.get(norm('Стоматология'));
+    if(!el){
+      const planetHost=doc.querySelector('.map')||doc.querySelector('.stage')?.parentElement;if(!planetHost)return null;
+      el=doc.createElement('div');el.className='direction az-lab-generated-direction';el.textContent=name;planetHost.appendChild(el);byName.set(norm(name),el);
+    }
     if(el.dataset.azOriginalStyle===undefined)el.dataset.azOriginalStyle=el.getAttribute('style')||'';
     if(el.dataset.azOriginalHtml===undefined)el.dataset.azOriginalHtml=el.innerHTML;
     el.classList.add('az-lab-planet',orbitClass);el.dataset.azDirectionName=name;
     const artUrl=PLANET_ARTS[name]||'';
-    const labelHtml=name==='Терапия'?'Стоматология':el.dataset.azOriginalHtml;
+    const labelHtml=name==='Стоматология терапия'?'Стоматология<br>терапия':name==='Стоматология ортопедия'?'Стоматология<br>ортопедия':name==='Стоматология хирургия'?'Стоматология<br>хирургия':el.dataset.azOriginalHtml;
     el.innerHTML='<span class="az-lab-planet-art" aria-hidden="true"></span><span class="az-lab-planet-label">'+labelHtml+'</span>';
     const art=el.querySelector('.az-lab-planet-art');
     if(art)art.style.setProperty('--az-planet-mask','url("'+artUrl+'")');
