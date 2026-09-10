@@ -1,23 +1,40 @@
 import re
 
-from flask import request, send_from_directory
+from flask import g, request, send_from_directory
 
+import app as app_core
 from app import SITE_ROOT, app
+import daily_upload
 import economics_control
 import finrez
 import ident_import
 import report_storage
 import terminology
 
-# Economic source workbooks are ~9 MB. Keep the application limit aligned
-# with the Nginx upload limit so valid admin imports are not rejected.
+# Economic source workbooks and daily exports can be several MB.
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+
+UPLOAD_PERMISSION_OPTIONS = [
+    ("upload_completed", "Загружать файл «Завершённые приёмы»"),
+    ("upload_services", "Загружать файл «Выполненные услуги»"),
+    ("upload_history", "Просматривать журнал загрузок"),
+    ("upload_replace", "Заменять ранее загруженные данные за дату"),
+]
+# The existing permissions table stores string keys, so no DB migration is needed.
+# section5 is reused as the visible «Загрузка данных» section; capabilities are granular.
+app_core.SECTION_KEYS.update(key for key, _label in UPLOAD_PERMISSION_OPTIONS)
 
 report_storage.register_report_storage(app)
 terminology.install(app, report_storage)
 ident_import.register_ident_import(app)
 finrez.register_finrez(app)
 economics_control.register_economics_control(app)
+daily_upload.register_daily_upload(app)
+
+
+@app.context_processor
+def upload_permissions_context():
+    return {"upload_permission_options": UPLOAD_PERMISSION_OPTIONS}
 
 
 MANAGEMENT_COMPACT_CSS = r"""
@@ -153,8 +170,6 @@ def tune_report_response(response):
             "mobile-date-fix.css?v=20260907-4",
             html,
         )
-        # Use inline desktop overrides so the approved compact layout cannot be lost
-        # because of a stale/missing external stylesheet.
         html = _inject_before_head_close(html, MANAGEMENT_COMPACT_CSS)
         if "management-mobile-layout.js" not in html:
             html = html.replace(
@@ -173,6 +188,17 @@ def tune_report_response(response):
         html = response.get_data(as_text=True)
         html = _inject_before_head_close(html, TRANSITIONS_COMPACT_CSS)
         response.set_data(html)
+
+    if request.path == "/" and response.mimetype == "text/html":
+        html = response.get_data(as_text=True)
+        old = '<div class="menu-btn placeholder" data-section="section5" aria-disabled="true" hidden>Раздел в разработке</div>'
+        if old in html and g.user and "section5" in app_core.user_permissions(g.user):
+            html = html.replace(
+                old,
+                '<a class="menu-btn active" href="/uploads/" data-section="section5">Загрузка данных</a>',
+                1,
+            )
+            response.set_data(html)
 
     if response.mimetype == "text/html":
         html = response.get_data(as_text=True)
