@@ -1,0 +1,54 @@
+name: AZ Lab remixed dentistry reliefs
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - '.github/workflows/az-lab-relief-mix.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Switch only the two new dentistry planet reliefs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('interface-lab/index.html')
+          s=p.read_text(encoding='utf-8')
+          replacements={
+            "'Стоматология ортопедия':'/architecture-health-site/assets/lab-planets/planet-13-dentistry-orthopedics.svg?v=20260910-2',":"'Стоматология ортопедия':'/architecture-health-site/assets/lab-planets/planet-13-dentistry-orthopedics-mix.png?v=20260910-3',",
+            "'Стоматология хирургия':'/architecture-health-site/assets/lab-planets/planet-14-dentistry-surgery.svg?v=20260910-2',":"'Стоматология хирургия':'/architecture-health-site/assets/lab-planets/planet-14-dentistry-surgery-mix.png?v=20260910-3',",
+          }
+          for old,new in replacements.items():
+            if s.count(old)!=1:
+              raise SystemExit('STOP: expected relief reference not found exactly once: '+old)
+            s=s.replace(old,new,1)
+          protected=[
+            'const INNER_DURATION=63000;',
+            'const OUTER_DURATION=114000;',
+            "const innerNames=['Функциональная стоматология','Ортодонтия','Стоматология ортопедия','Стоматология хирургия','Стоматология терапия'];",
+            "const outerNames=['ИГГТ','DIERS диагностика','Нейропсихология','Детская неврология','Миофункциональная терапия','Превентивная медицина','Гастроэнтерология','Нутрициология','Остеопатия'];",
+            'const innerAngles=[180,252,324,36,108];',
+            'const outerAngles=[160,200,240,280,320,0,40,80,120];',
+            'innerRx:r.width*.55,innerRy:r.height*.44,outerRx:r.width*.73,outerRy:r.height*.57,innerTilt:18,outerTilt:14',
+            '.az-lab-right-badge-shift{transform:translateX(-37.8px)!important}',
+            ".az-lab-orbit-host .stage{transform:scale(.724137931)!important;transform-origin:center center!important}",
+          ]
+          for item in protected:
+            if item not in s:
+              raise SystemExit('STOP: protected marker missing: '+item)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit viewer-only relief switch
+        run: |
+          rm -f .github/workflows/az-lab-relief-mix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add interface-lab/index.html .github/workflows/az-lab-relief-mix.yml
+          git commit -m 'Use remixed neighboring reliefs for dentistry planets'
+          git push origin feature/site-v1
