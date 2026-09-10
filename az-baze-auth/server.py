@@ -1,6 +1,6 @@
 import re
 
-from flask import g, request, send_from_directory
+from flask import g, render_template, request, send_from_directory
 
 import app as app_core
 from app import SITE_ROOT, app
@@ -160,6 +160,12 @@ def favicon_svg():
     return send_from_directory(SITE_ROOT / "assets", "favicon.svg", mimetype="image/svg+xml")
 
 
+@app.get("/credentials/")
+@app_core.admin_required
+def credentials():
+    return render_template("credentials.html")
+
+
 @app.after_request
 def tune_report_response(response):
     if request.path == "/reports/services-base.html":
@@ -205,6 +211,12 @@ def tune_report_response(response):
 
     if request.path == "/" and response.mimetype == "text/html":
         html = response.get_data(as_text=True)
+        knowledge_link = '<a class="menu-btn active" href="/knowledge/" id="knowledge">База знаний</a>'
+        credentials_link = '<a class="menu-btn active" href="/credentials/">Доступы и пароли</a>'
+        if g.user and g.user["is_admin"] and credentials_link not in html and knowledge_link in html:
+            html = html.replace(knowledge_link, knowledge_link + "\n" + credentials_link, 1)
+            response.set_data(html)
+
         old = '<div class="menu-btn placeholder" data-section="section5" aria-disabled="true" hidden>Раздел в разработке</div>'
         if old in html and g.user and "section5" in app_core.user_permissions(g.user):
             html = html.replace(
