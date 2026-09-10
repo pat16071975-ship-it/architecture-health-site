@@ -20,6 +20,11 @@
       {% for key,label in upload_permission_options %}<label class="check"><input type="checkbox" name="perm_{{ key }}" value="1" {% if key in current_permissions %}checked{% endif %}> {{ label }}</label>{% endfor %}
     </div>
     <p class="muted">Для ежедневной загрузки нужны права на «Завершённые приёмы» и «Выполненные услуги». Право на замену ранее загруженных данных выдаётся отдельно. Администратор системы всегда имеет полный доступ.</p>
+    <h3 style="margin:24px 0 8px;font-size:15px">Доступы и пароли — персональные права</h3>
+    <div class="checks">
+      {% for key,label in credential_permission_options %}<label class="check"><input type="checkbox" name="perm_{{ key }}" value="1" {% if key in current_permissions %}checked{% endif %}> {{ label }}</label>{% endfor %}
+    </div>
+    <p class="muted">Для работы с разделом сначала выдайте право «Просматривать список доступов». Показ/копирование паролей, изменение и удаление выдаются отдельно. Администратор системы всегда имеет полный доступ.</p>
     <button class="btn primary" type="submit">{% if user %}Сохранить права{% else %}Создать пользователя{% endif %}</button>
   </form>
 </div>
