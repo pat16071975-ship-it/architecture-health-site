@@ -8,14 +8,18 @@
     <div class="field"><label>ФИО</label><input name="full_name" value="{{ user['full_name'] if user else '' }}" required></div>
     <div class="field"><label>E-mail</label><input name="email" type="email" value="{{ user['email'] if user else '' }}" required></div>
     <div class="checks">
-      <label class="check"><input type="checkbox" name="is_admin" value="1" {% if user and user['is_admin'] %}checked{% endif %}> Администратор — полный доступ</label>
+      <label class="check"><input type="checkbox" name="is_admin" value="1" {% if user and user['is_admin'] %}checked{% endif %}> Администратор системы — полный доступ</label>
       {% if user %}<label class="check"><input type="checkbox" name="active" value="1" {% if user['active'] %}checked{% endif %}> Учётная запись активна</label>{% endif %}
     </div>
     <h3 style="margin:24px 0 8px;font-size:15px">Доступ к разделам</h3>
     <div class="checks">
-      {% for key,label in sections %}<label class="check"><input type="checkbox" name="perm_{{ key }}" value="1" {% if key in current_permissions %}checked{% endif %}> {% if key == 'section3' %}Рабочие контакты{% elif key == 'section4' %}Дни рождения сотрудников{% else %}{{ label }}{% endif %}</label>{% endfor %}
+      {% for key,label in sections %}<label class="check"><input type="checkbox" name="perm_{{ key }}" value="1" {% if key in current_permissions %}checked{% endif %}> {% if key == 'section3' %}Рабочие контакты{% elif key == 'section4' %}Дни рождения сотрудников{% elif key == 'section5' %}Загрузка данных{% else %}{{ label }}{% endif %}</label>{% endfor %}
     </div>
-    <p class="muted">Для администратора галочки разделов не ограничивают доступ: администратор всегда видит всё.</p>
+    <h3 style="margin:24px 0 8px;font-size:15px">Загрузка данных — персональные права</h3>
+    <div class="checks">
+      {% for key,label in upload_permission_options %}<label class="check"><input type="checkbox" name="perm_{{ key }}" value="1" {% if key in current_permissions %}checked{% endif %}> {{ label }}</label>{% endfor %}
+    </div>
+    <p class="muted">Для ежедневной загрузки нужны права на «Завершённые приёмы» и «Выполненные услуги». Право на замену ранее загруженных данных выдаётся отдельно. Администратор системы всегда имеет полный доступ.</p>
     <button class="btn primary" type="submit">{% if user %}Сохранить права{% else %}Создать пользователя{% endif %}</button>
   </form>
 </div>
