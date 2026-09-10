@@ -5,6 +5,7 @@ from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 from flask import abort, g, jsonify, redirect, render_template, request, url_for
+from werkzeug.security import check_password_hash
 
 import app as app_core
 
@@ -19,6 +20,8 @@ PERMISSION_OPTIONS = [
 KEY_PATH = Path(
     os.environ.get("AZBAZE_CREDENTIALS_KEY", "/var/lib/az-baze/credentials.key")
 )
+
+PURGE_EMAILS_ENV = "AZBAZE_CREDENTIALS_PURGE_EMAILS"
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
@@ -38,6 +41,16 @@ CREATE TABLE IF NOT EXISTS credentials (
 );
 CREATE INDEX IF NOT EXISTS idx_credentials_service_name
     ON credentials(service_name COLLATE NOCASE);
+
+CREATE TABLE IF NOT EXISTS credential_trash (
+    credential_id INTEGER PRIMARY KEY,
+    deleted_by INTEGER,
+    deleted_at TEXT NOT NULL,
+    FOREIGN KEY (credential_id) REFERENCES credentials(id) ON DELETE CASCADE,
+    FOREIGN KEY (deleted_by) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_credential_trash_deleted_at
+    ON credential_trash(deleted_at);
 """
 
 
@@ -125,9 +138,15 @@ def _form_values():
     return service_name, site_url, login, password, note
 
 
-def _get_credential(credential_id):
+def _get_credential(credential_id, trashed=False):
+    trash_clause = "IS NOT NULL" if trashed else "IS NULL"
     row = app_core.db().execute(
-        "SELECT * FROM credentials WHERE id=?",
+        f"""
+        SELECT c.*, t.deleted_by, t.deleted_at
+        FROM credentials c
+        LEFT JOIN credential_trash t ON t.credential_id=c.id
+        WHERE c.id=? AND t.credential_id {trash_clause}
+        """,
         (credential_id,),
     ).fetchone()
     if not row:
@@ -141,6 +160,31 @@ def _require_csrf():
 
 def _permissions():
     return app_core.user_permissions(g.user)
+
+
+def _purge_allowlist():
+    raw = os.environ.get(PURGE_EMAILS_ENV, "")
+    return {
+        value.strip().casefold()
+        for value in raw.split(",")
+        if value.strip()
+    }
+
+
+def _can_purge(user):
+    email = (user["email"] or "").strip().casefold()
+    return bool(email) and email in _purge_allowlist()
+
+
+def _current_password_ok(password):
+    return bool(password) and check_password_hash(g.user["password_hash"], password)
+
+
+def _audit_failed_confirmation(action, credential_id, reason):
+    app_core.audit(
+        action,
+        details=f"credential_id={credential_id}; reason={reason}",
+    )
 
 
 def register_credentials(app):
@@ -157,11 +201,16 @@ def register_credentials(app):
     def credentials_index():
         rows = app_core.db().execute(
             """
-            SELECT id, service_name, site_url, login, note, created_at, updated_at
-            FROM credentials
-            ORDER BY service_name COLLATE NOCASE, id
+            SELECT c.id, c.service_name, c.site_url, c.login, c.note, c.created_at, c.updated_at
+            FROM credentials c
+            LEFT JOIN credential_trash t ON t.credential_id=c.id
+            WHERE t.credential_id IS NULL
+            ORDER BY c.service_name COLLATE NOCASE, c.id
             """
         ).fetchall()
+        trash_count = app_core.db().execute(
+            "SELECT COUNT(*) AS n FROM credential_trash"
+        ).fetchone()["n"]
         perms = _permissions()
         return render_template(
             "credentials.html",
@@ -169,6 +218,7 @@ def register_credentials(app):
             can_reveal="credentials_reveal" in perms,
             can_edit="credentials_edit" in perms,
             can_delete="credentials_delete" in perms,
+            trash_count=trash_count,
             csrf=app_core.csrf_token(),
         )
 
@@ -313,22 +363,142 @@ def register_credentials(app):
             csrf=app_core.csrf_token(),
         )
 
-    @app.post("/credentials/<int:credential_id>/delete")
+    @app.route("/credentials/<int:credential_id>/delete", methods=["GET", "POST"])
     @app_core.permission_required("credentials_view")
     @app_core.permission_required("credentials_delete")
     def credentials_delete(credential_id):
+        row = _get_credential(credential_id)
+        error = None
+
+        if request.method == "POST":
+            _require_csrf()
+            password = request.form.get("current_password", "")
+            service_confirmation = request.form.get("service_confirmation", "").strip()
+
+            if not _current_password_ok(password):
+                _audit_failed_confirmation(
+                    "credential_trash_failed",
+                    credential_id,
+                    "password",
+                )
+                error = "Пароль AZ-BAZE неверен."
+            elif service_confirmation != row["service_name"]:
+                _audit_failed_confirmation(
+                    "credential_trash_failed",
+                    credential_id,
+                    "service_confirmation",
+                )
+                error = "Название сервиса введено не точно."
+            else:
+                now = app_core.iso_now()
+                app_core.db().execute(
+                    """
+                    INSERT INTO credential_trash(credential_id, deleted_by, deleted_at)
+                    VALUES(?,?,?)
+                    """,
+                    (credential_id, g.user["id"], now),
+                )
+                app_core.db().commit()
+                app_core.audit(
+                    "credential_trashed",
+                    details=f"credential_id={credential_id}",
+                )
+                return redirect(url_for("credentials_index"))
+
+        return render_template(
+            "credential_delete_confirm.html",
+            row=row,
+            error=error,
+            csrf=app_core.csrf_token(),
+        )
+
+    @app.get("/credentials/trash")
+    @app_core.permission_required("credentials_view")
+    @app_core.permission_required("credentials_delete")
+    def credentials_trash():
+        rows = app_core.db().execute(
+            """
+            SELECT c.id, c.service_name, c.site_url, c.login, c.note,
+                   t.deleted_at, u.full_name AS deleted_by_name
+            FROM credential_trash t
+            JOIN credentials c ON c.id=t.credential_id
+            LEFT JOIN users u ON u.id=t.deleted_by
+            ORDER BY t.deleted_at DESC, c.id DESC
+            """
+        ).fetchall()
+        return render_template(
+            "credentials_trash.html",
+            rows=rows,
+            can_purge=_can_purge(g.user),
+            csrf=app_core.csrf_token(),
+        )
+
+    @app.post("/credentials/<int:credential_id>/restore")
+    @app_core.permission_required("credentials_view")
+    @app_core.permission_required("credentials_delete")
+    def credentials_restore(credential_id):
         _require_csrf()
-        _get_credential(credential_id)
+        _get_credential(credential_id, trashed=True)
         app_core.db().execute(
-            "DELETE FROM credentials WHERE id=?",
+            "DELETE FROM credential_trash WHERE credential_id=?",
             (credential_id,),
         )
         app_core.db().commit()
         app_core.audit(
-            "credential_deleted",
+            "credential_restored",
             details=f"credential_id={credential_id}",
         )
-        return redirect(url_for("credentials_index"))
+        return redirect(url_for("credentials_trash"))
+
+    @app.route("/credentials/<int:credential_id>/purge", methods=["GET", "POST"])
+    @app_core.permission_required("credentials_view")
+    @app_core.permission_required("credentials_delete")
+    def credentials_purge(credential_id):
+        if not _can_purge(g.user):
+            abort(403)
+
+        row = _get_credential(credential_id, trashed=True)
+        phrase = f"УДАЛИТЬ НАВСЕГДА {row['service_name']}"
+        error = None
+
+        if request.method == "POST":
+            _require_csrf()
+            password = request.form.get("current_password", "")
+            confirmation = request.form.get("purge_confirmation", "").strip()
+
+            if not _current_password_ok(password):
+                _audit_failed_confirmation(
+                    "credential_purge_failed",
+                    credential_id,
+                    "password",
+                )
+                error = "Пароль AZ-BAZE неверен."
+            elif confirmation != phrase:
+                _audit_failed_confirmation(
+                    "credential_purge_failed",
+                    credential_id,
+                    "phrase_confirmation",
+                )
+                error = "Подтверждающая фраза введена не точно."
+            else:
+                app_core.db().execute(
+                    "DELETE FROM credentials WHERE id=?",
+                    (credential_id,),
+                )
+                app_core.db().commit()
+                app_core.audit(
+                    "credential_purged",
+                    details=f"credential_id={credential_id}",
+                )
+                return redirect(url_for("credentials_trash"))
+
+        return render_template(
+            "credential_purge_confirm.html",
+            row=row,
+            phrase=phrase,
+            error=error,
+            csrf=app_core.csrf_token(),
+        )
 
     @app.post("/credentials/<int:credential_id>/secret")
     @app_core.permission_required("credentials_view")
