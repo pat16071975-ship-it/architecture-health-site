@@ -1,0 +1,27 @@
+name: AZ Lab surgery planet cache bump
+on:
+  push:
+    branches: [feature/site-v1]
+    paths:
+      - '.github/workflows/az-lab-surgery-cache-bump.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - name: Bump surgery planet asset version
+        run: |
+          python3 -c "from pathlib import Path; p=Path('interface-lab/index.html'); s=p.read_text(encoding='utf-8'); old=\"'Стоматология хирургия':'/architecture-health-site/assets/lab-planets/planet-14-dentistry-surgery-mix.png?v=20260910-3'\"; new=\"'Стоматология хирургия':'/architecture-health-site/assets/lab-planets/planet-14-dentistry-surgery-mix.png?v=20260910-4'\"; assert old in s; s=s.replace(old,new,1); assert \"const innerNames=['Функциональная стоматология','Ортодонтия','Стоматология ортопедия','Стоматология хирургия','Стоматология терапия'];\" in s; assert \"const outerNames=['ИГГТ','DIERS диагностика','Нейропсихология','Детская неврология','Миофункциональная терапия','Превентивная медицина','Гастроэнтерология','Нутрициология','Остеопатия'];\" in s; assert 'const INNER_DURATION=63000;' in s and 'const OUTER_DURATION=114000;' in s; p.write_text(s,encoding='utf-8')"
+      - name: Commit cache bump and remove temporary workflow
+        run: |
+          rm -f .github/workflows/az-lab-surgery-cache-bump.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add interface-lab/index.html .github/workflows/az-lab-surgery-cache-bump.yml
+          git commit -m 'Refresh surgery planet relief asset'
+          git push origin feature/site-v1
