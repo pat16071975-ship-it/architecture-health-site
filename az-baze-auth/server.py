@@ -24,6 +24,20 @@ UPLOAD_PERMISSION_OPTIONS = [
 # section5 is reused as the visible «Загрузка данных» section; capabilities are granular.
 app_core.SECTION_KEYS.update(key for key, _label in UPLOAD_PERMISSION_OPTIONS)
 
+# Any granular upload permission automatically opens the «Загрузка данных» section.
+# This removes the need to tick the section checkbox separately and also repairs
+# already-created users that have upload_* permissions but no explicit section5 row.
+_original_user_permissions = app_core.user_permissions
+
+def _user_permissions_with_upload_section(user):
+    permissions = set(_original_user_permissions(user))
+    if any(key.startswith("upload_") for key in permissions):
+        permissions.add("section5")
+    return permissions
+
+app_core.user_permissions = _user_permissions_with_upload_section
+daily_upload.user_permissions = _user_permissions_with_upload_section
+
 report_storage.register_report_storage(app)
 terminology.install(app, report_storage)
 ident_import.register_ident_import(app)
