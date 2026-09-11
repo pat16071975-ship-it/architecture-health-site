@@ -131,6 +131,11 @@ def _process_period_upload(completed_file, services_file):
     services_name = services_file.filename or "Выполненные услуги"
     conn = core.db()
 
+    service_data = core.ident_import._load_blob("az-service-analytics-v1")
+    if not service_data:
+        raise ValueError("База «Аналитики услуг» ещё не подготовлена.")
+    through = core._service_through(service_data)
+
     # Full preflight first: no report data is changed until every date in the
     # uploaded period has passed duplicate/replacement checks.
     actions = []
@@ -142,6 +147,7 @@ def _process_period_upload(completed_file, services_file):
         ).fetchone()
         old_normalized = None
         action = "imported"
+        baseline_covered = False
 
         if existing:
             try:
@@ -169,6 +175,11 @@ def _process_period_upload(completed_file, services_file):
                         f"За {_format_date(data_date)} данные уже загружены и отличаются. "
                         "Для замены требуется отдельное право."
                     )
+        elif through and data_date <= through:
+            # Before daily uploads were introduced, this date was already included
+            # in the cumulative service/report baseline. Do not add it again.
+            action = "duplicate"
+            baseline_covered = True
 
         actions.append(
             {
@@ -176,17 +187,23 @@ def _process_period_upload(completed_file, services_file):
                 "existing": existing,
                 "old_normalized": old_normalized,
                 "action": action,
+                "baseline_covered": baseline_covered,
             }
         )
 
     changed = [row for row in actions if row["action"] != "duplicate"]
     if not changed:
         for row in actions:
+            detail = (
+                "Дата уже входит в ранее загруженную сводную базу; пропущена без изменений."
+                if row["baseline_covered"]
+                else "Повторная загрузка идентичных данных за день; ничего не изменено."
+            )
             core._log(
                 conn,
                 "duplicate",
                 row["data_date"],
-                "Повторная загрузка идентичных данных за день; ничего не изменено.",
+                detail,
                 completed_name,
                 services_name,
             )
@@ -194,17 +211,12 @@ def _process_period_upload(completed_file, services_file):
         return {
             "status": "duplicate",
             "message": (
-                f"Период {_format_date(dates[0])}–{_format_date(dates[-1])} уже загружен. "
+                f"Период {_format_date(dates[0])}–{_format_date(dates[-1])} уже покрыт загруженными данными. "
                 "Повторно ничего не изменено."
             ),
             "data_date": dates[-1],
         }
 
-    service_data = core.ident_import._load_blob("az-service-analytics-v1")
-    if not service_data:
-        raise ValueError("База «Аналитики услуг» ещё не подготовлена.")
-
-    through = core._service_through(service_data)
     for row in changed:
         if row["action"] == "imported" and through and row["data_date"] <= through:
             raise ValueError(
@@ -246,11 +258,16 @@ def _process_period_upload(completed_file, services_file):
         for row in actions:
             data_date = row["data_date"]
             if row["action"] == "duplicate":
+                detail = (
+                    "Дата уже входит в ранее загруженную сводную базу; пропущена без изменений."
+                    if row["baseline_covered"]
+                    else "Дата уже загружена идентично; данные пропущены без изменений."
+                )
                 core._log(
                     conn,
                     "duplicate",
                     data_date,
-                    "Дата уже загружена идентично; данные пропущены без изменений.",
+                    detail,
                     completed_name,
                     services_name,
                 )
@@ -324,7 +341,10 @@ def _process_period_upload(completed_file, services_file):
     counts = {
         "imported": sum(1 for row in actions if row["action"] == "imported"),
         "replaced": sum(1 for row in actions if row["action"] == "replaced"),
-        "duplicate": sum(1 for row in actions if row["action"] == "duplicate"),
+        "duplicate": sum(
+            1 for row in actions if row["action"] == "duplicate" and not row["baseline_covered"]
+        ),
+        "covered": sum(1 for row in actions if row["baseline_covered"]),
     }
     core.audit(
         "period_reports_imported",
@@ -332,7 +352,7 @@ def _process_period_upload(completed_file, services_file):
         details=(
             f"period={dates[0]}..{dates[-1]}; imported={counts['imported']}; "
             f"replaced={counts['replaced']}; duplicate={counts['duplicate']}; "
-            f"completed={completed_name}; services={services_name}"
+            f"covered={counts['covered']}; completed={completed_name}; services={services_name}"
         ),
     )
 
@@ -340,7 +360,9 @@ def _process_period_upload(completed_file, services_file):
     if counts["replaced"]:
         parts.append(f"заменено: {counts['replaced']}")
     if counts["duplicate"]:
-        parts.append(f"уже были и пропущены: {counts['duplicate']}")
+        parts.append(f"совпали и пропущены: {counts['duplicate']}")
+    if counts["covered"]:
+        parts.append(f"уже входили в сводную базу и пропущены: {counts['covered']}")
     return {
         "status": "imported" if counts["imported"] else "replaced",
         "message": (
