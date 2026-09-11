@@ -1,5 +1,7 @@
 import hashlib
 import json
+import re
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 from flask import abort, g, render_template, request
@@ -10,6 +12,29 @@ from app import csrf_token, permission_required, require_csrf
 # server.py replaces this module variable with the upload-aware permission wrapper
 # before register_daily_upload() is called.
 user_permissions = core.user_permissions
+
+# Providers present in the current IDENT exports but absent from the historical
+# hard-coded directory. They are added centrally so management rebuilding and
+# service analytics use the same department mapping.
+EXTRA_DENTISTS = {
+    "Филатова А. Д.": "Филатова А. Д.",
+}
+EXTRA_STRUCTURE_DOCTORS = {
+    "Diers И.": "Diers И.",
+    "Алатарцева П. В.": "Алатарцева П. В.",
+    "Борисовская А. И.": "Борисовская А. И.",
+}
+core.ident_import.DENTISTS.update(EXTRA_DENTISTS)
+core.ident_import.STRUCTURE_DOCTORS.update(EXTRA_STRUCTURE_DOCTORS)
+core.ident_import.KNOWN_STAFF.update(EXTRA_DENTISTS)
+core.ident_import.KNOWN_STAFF.update(EXTRA_STRUCTURE_DOCTORS)
+
+STAFF_HEADER_RE = re.compile(
+    r"^(?:[A-Za-zА-ЯЁа-яё-]+(?:\s+[A-Za-zА-ЯЁа-яё-]+)*)\s+[A-ZА-ЯЁ]\.\s*(?:[A-ZА-ЯЁ]\.)?$"
+)
+DATE_RE = re.compile(r"^\d{2}\.\d{2}\.\d{4}$")
+COUNT_RE = re.compile(r"^(\d+)\s*\((\d+)\)$")
+KINDS = {"Первичные", "Отконсультированные", "Повторные"}
 
 
 def _canonical(value):
@@ -32,7 +57,263 @@ def _format_date(value):
         return str(value or "")
 
 
-def _split_period(overall, doctors, items, lab_invoices):
+def _iso(value):
+    return datetime.strptime(value, "%d.%m.%Y").strftime("%Y-%m-%d")
+
+
+def _money(value):
+    value = str(value or "").replace("₽", "").replace("\xa0", " ").strip()
+    value = value.replace(" ", "").replace(",", ".")
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
+def _is_staff_header(value):
+    value = str(value or "").strip()
+    return value in core.ident_import.KNOWN_STAFF or bool(STAFF_HEADER_RE.fullmatch(value))
+
+
+def _person_key(value):
+    text = str(value or "").lower().replace("ё", "е")
+    parts = re.findall(r"[a-zа-я]+", text)
+    if not parts:
+        return ""
+    surname = parts[0]
+    initials = "".join(part[0] for part in parts[1:3])
+    return surname + "_" + initials
+
+
+def _is_retail_item(row):
+    text = (str(row.get("group") or "") + " " + str(row.get("service") or "")).lower()
+    return "сопутствующие товары" in text
+
+
+def _parse_revenue_text(text):
+    items = []
+    lab_invoices = []
+    current_staff = None
+    current_patient = None
+    current_date = None
+    current_group = ""
+    current_invoice = None
+
+    for raw_line in text.splitlines()[2:]:
+        cols = raw_line.split("\t")
+        cols += [""] * max(0, 7 - len(cols))
+        first = cols[0].strip()
+        second = cols[1].strip()
+        service = cols[2].strip()
+        qty_text = cols[3].strip()
+
+        if _is_staff_header(first):
+            current_staff = first
+            current_patient = None
+            current_date = None
+            current_group = ""
+            current_invoice = None
+            continue
+
+        match = core.ident_import.INVOICE_RE.match(first)
+        if match:
+            current_invoice = match.group(1)
+            current_date = _iso(match.group(2))
+            current_group = ""
+            if current_staff in core.ident_import.LAB_DOCTORS:
+                lab_invoices.append((current_invoice, current_date))
+            continue
+
+        # Patient header between the staff header and invoice/service lines.
+        if first and not second and not service and not qty_text:
+            current_patient = first
+            continue
+
+        amount = _money(cols[6] if len(cols) > 6 else "")
+        if not current_staff or not current_date or not qty_text or amount is None:
+            continue
+
+        try:
+            qty = float(qty_text.replace(",", "."))
+        except ValueError:
+            continue
+
+        if first:
+            current_group = first
+
+        items.append(
+            {
+                "staff": current_staff,
+                "patient": current_patient or "",
+                "date": current_date,
+                "group": current_group,
+                "service": service,
+                "qty": qty,
+                "amount": amount,
+                "invoice": current_invoice,
+            }
+        )
+
+    if not items:
+        raise ValueError("Файл «Выполненные услуги» не содержит распознаваемых услуг.")
+
+    months = {(int(row["date"][0:4]), int(row["date"][5:7])) for row in items}
+    if len(months) != 1:
+        raise ValueError("Файл «Выполненные услуги» должен содержать один календарный месяц.")
+
+    return items, lab_invoices, next(iter(months))
+
+
+def _parse_completed_text(text):
+    overall = defaultdict(lambda: defaultdict(int))
+    visits = []
+    current_date = None
+    current_kind = None
+
+    for raw_line in text.splitlines()[4:]:
+        cols = raw_line.split("\t")
+        cols += [""] * max(0, 13 - len(cols))
+        first = cols[0].strip()
+        second = cols[1].strip()
+        count_text = cols[2].strip()
+
+        if DATE_RE.fullmatch(first) and not second and COUNT_RE.fullmatch(count_text):
+            current_date = _iso(first)
+            current_kind = None
+            continue
+
+        if current_date and first in KINDS:
+            match = COUNT_RE.fullmatch(count_text)
+            if match:
+                overall[current_date][first] = int(match.group(1))
+                current_kind = first
+            continue
+
+        # Current IDENT format: detail rows repeat the date in column A and
+        # contain patient initials in column B; one row = one completed visit.
+        if current_date and current_kind and DATE_RE.fullmatch(first) and second:
+            visits.append(
+                {
+                    "date": _iso(first),
+                    "patient": second,
+                    "kind": current_kind,
+                }
+            )
+
+    if not overall:
+        raise ValueError("Файл «Завершённые приёмы» не содержит распознаваемых приёмов.")
+    return overall, visits
+
+
+def _parse_fixed_file(file_storage, kind):
+    raw = file_storage.read()
+    if not raw:
+        raise ValueError("Выбран пустой файл.")
+    if len(raw) > 25 * 1024 * 1024:
+        raise ValueError("Размер файла превышает 25 МБ.")
+
+    candidates = core._table_candidates(raw, file_storage.filename or "")
+    last_error = None
+    for sheet_name, text in candidates:
+        try:
+            parsed = _parse_completed_text(text) if kind == "completed" else _parse_revenue_text(text)
+            return raw, parsed, sheet_name
+        except Exception as exc:
+            last_error = exc
+
+    label = "«Завершённые приёмы»" if kind == "completed" else "«Выполненные услуги»"
+    if isinstance(last_error, ValueError):
+        raise last_error
+    raise ValueError(f"Не удалось распознать структуру файла {label}.") from last_error
+
+
+def _doctor_attribution(visits, items):
+    # The completed-visits export contains patient/date rows but no doctor column.
+    # Link them to the revenue export by patient + date. When a patient has visits
+    # in both departments on the same date, allocate at least one visit to each.
+    providers = defaultdict(list)
+    for row in items:
+        staff = row.get("staff")
+        if staff in core.ident_import.DENTISTS:
+            department = "dent"
+        elif staff in core.ident_import.STRUCTURE_DOCTORS:
+            department = "structure"
+        else:
+            continue
+        key = (str(row.get("date") or ""), _person_key(row.get("patient")))
+        if not key[0] or not key[1]:
+            continue
+        pair = (department, staff)
+        if pair not in providers[key]:
+            providers[key].append(pair)
+
+    # If an employee is the patient and there is no revenue row linked to them,
+    # their own staff identity still gives us a safe department fallback.
+    self_provider = {}
+    for short, full in core.ident_import.DENTISTS.items():
+        self_provider[_person_key(short)] = ("dent", short)
+        self_provider[_person_key(full)] = ("dent", short)
+    for short, full in core.ident_import.STRUCTURE_DOCTORS.items():
+        self_provider[_person_key(short)] = ("structure", short)
+        self_provider[_person_key(full)] = ("structure", short)
+
+    grouped_visits = defaultdict(list)
+    for visit in visits:
+        key = (str(visit.get("date") or ""), _person_key(visit.get("patient")))
+        if key[0] and key[1]:
+            grouped_visits[key].append(str(visit.get("kind") or ""))
+
+    doctors = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    for key, kinds in grouped_visits.items():
+        candidates = list(providers.get(key, []))
+        if not candidates and key[1] in self_provider:
+            candidates = [self_provider[key[1]]]
+        if not candidates:
+            continue
+
+        representatives = []
+        seen_departments = set()
+        for department, staff in candidates:
+            if department in seen_departments:
+                continue
+            representatives.append((department, staff))
+            seen_departments.add(department)
+
+        assignments = representatives[: len(kinds)]
+        while len(assignments) < len(kinds):
+            assignments.append(candidates[0])
+
+        data_date = key[0]
+        for kind, (_department, staff) in zip(kinds, assignments):
+            doctors[data_date][kind][staff] += 1
+
+    return doctors
+
+
+def _ensure_extra_service_doctors(data, year, month):
+    # Make new providers visible to «Аналитика услуг» as well. Existing historical
+    # doctor dictionaries are preserved; missing doctors start with zero series.
+    core._ensure_month(data, year, month)
+    month_count = len(data.get("months", []))
+    for direction_name, doctor_names in (
+        ("Стоматология", EXTRA_DENTISTS.values()),
+        ("Отделение структуры", EXTRA_STRUCTURE_DOCTORS.values()),
+    ):
+        direction = data.get("directions", {}).get(direction_name)
+        if not isinstance(direction, dict):
+            continue
+        categories = list(direction.get("categories", []))
+        doctors = direction.setdefault("doctors", {})
+        for doctor_name in doctor_names:
+            if doctor_name in doctors:
+                continue
+            doctors[doctor_name] = {
+                category: [[0, 0] for _ in range(month_count)]
+                for category in categories
+            }
+
+
+def _split_period(overall, visits, items, lab_invoices):
     completed_dates = sorted(str(value) for value in overall)
     service_dates = sorted({str(row.get("date") or "") for row in items if row.get("date")})
 
@@ -51,37 +332,53 @@ def _split_period(overall, doctors, items, lab_invoices):
         suffix = "; ".join(details)
         raise ValueError("Даты в двух файлах не совпадают" + (f" ({suffix})." if suffix else "."))
 
+    clinical_items = [row for row in items if not _is_retail_item(row)]
+    doctors = _doctor_attribution(visits, clinical_items)
     result = []
     for data_date in completed_dates:
         day_overall = {data_date: core._plain(overall.get(data_date, {}))}
         day_doctors = {data_date: core._plain(doctors.get(data_date, {}))}
-        day_items = [core._plain(row) for row in items if str(row.get("date") or "") == data_date]
+        day_visits = [core._plain(row) for row in visits if str(row.get("date") or "") == data_date]
+        day_items = [
+            core._plain(row)
+            for row in clinical_items
+            if str(row.get("date") or "") == data_date
+        ]
+        day_retail = [
+            core._plain(row)
+            for row in items
+            if str(row.get("date") or "") == data_date and _is_retail_item(row)
+        ]
         day_lab = [
             core._plain(row)
             for row in lab_invoices
             if len(row) >= 2 and str(row[1]) == data_date
         ]
         if not day_items:
-            raise ValueError(f"За {_format_date(data_date)} в файле услуг нет строк для загрузки.")
+            raise ValueError(f"За {_format_date(data_date)} в файле услуг нет медицинских строк для загрузки.")
 
         normalized = {
             "data_date": data_date,
             "items": day_items,
+            "retail_items": day_retail,
             "lab_invoices": day_lab,
             "overall": day_overall,
             "doctors": day_doctors,
+            "visits": day_visits,
         }
         completed_hash = _payload_hash(
             {
                 "data_date": data_date,
                 "overall": day_overall,
                 "doctors": day_doctors,
+                "visits": day_visits,
             }
         )
         services_hash = _payload_hash(
             {
                 "data_date": data_date,
                 "items": day_items,
+                "retail_items": day_retail,
                 "lab_invoices": day_lab,
             }
         )
@@ -116,12 +413,12 @@ def _process_period_upload(completed_file, services_file):
     if "upload_completed" not in perms or "upload_services" not in perms:
         abort(403)
 
-    _completed_raw, completed_parsed, completed_sheet = core._parse_file(completed_file, "completed")
-    _services_raw, services_parsed, services_sheet = core._parse_file(services_file, "services")
-    overall, doctors = completed_parsed
+    _completed_raw, completed_parsed, completed_sheet = _parse_fixed_file(completed_file, "completed")
+    _services_raw, services_parsed, services_sheet = _parse_fixed_file(services_file, "services")
+    overall, visits = completed_parsed
     items, lab_invoices, (year, month) = services_parsed
 
-    period = _split_period(overall, doctors, items, lab_invoices)
+    period = _split_period(overall, visits, items, lab_invoices)
     dates = [row["data_date"] for row in period]
     month_key = f"{year:04d}-{month:02d}"
     if any(data_date[:7] != month_key for data_date in dates):
@@ -176,8 +473,6 @@ def _process_period_upload(completed_file, services_file):
                         "Для замены требуется отдельное право."
                     )
         elif through and data_date <= through:
-            # Before daily uploads were introduced, this date was already included
-            # in the cumulative service/report baseline. Do not add it again.
             action = "duplicate"
             baseline_covered = True
 
@@ -224,7 +519,8 @@ def _process_period_upload(completed_file, services_file):
                 f"по {_format_date(through)}. Начинайте выгрузку со следующего дня."
             )
 
-    month_index = None
+    _ensure_extra_service_doctors(service_data, year, month)
+    month_index = core._ensure_month(service_data, year, month)
     for row in changed:
         if row["old_normalized"]:
             core._apply_service_items(

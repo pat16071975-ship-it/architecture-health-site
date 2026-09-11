@@ -164,3 +164,82 @@
   setTimeout(schedule, 150);
   setTimeout(schedule, 700);
 })();
+
+(() => {
+  'use strict';
+
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const EXTRA_DENTISTS = ['Филатова А. Д.'];
+  const EXTRA_STRUCTURE = ['Diers И.'];
+
+  let structureChanged = false;
+  EXTRA_DENTISTS.forEach(name => {
+    if (!dentists.includes(name)) {
+      dentists.push(name);
+      structureChanged = true;
+    }
+  });
+  EXTRA_STRUCTURE.forEach(name => {
+    if (!clinicDocs.includes(name)) {
+      clinicDocs.push(name);
+      structureChanged = true;
+    }
+  });
+
+  if (structureChanged && typeof renderStructure === 'function') {
+    renderStructure();
+    if (typeof loadDate === 'function') loadDate();
+  }
+
+  // УТВЕРЖДЁННЫЕ ФОРМУЛЫ НЕ ПЕРЕОПРЕДЕЛЯЕМ.
+  // Основной derive() остаётся источником правил:
+  // средний чек медицины = factMedicine / primary;
+  // стоматология = dentRev / dentPrimary;
+  // клиника = clinicRev / clinicPrimary.
+
+  const nativeLoadStore = window.loadStore;
+  if (typeof nativeLoadStore === 'function' && !window.__azManagementCompareStoreFix) {
+    window.__azManagementCompareStoreFix = true;
+    window.loadStore = function fixedManagementLoadStore() {
+      const store = nativeLoadStore();
+      const compare = document.getElementById('dateViewMode')?.value === 'compare';
+      if (!compare || !store || typeof store !== 'object') return store;
+
+      return new Proxy(store, {
+        get(target, prop, receiver) {
+          if (typeof prop !== 'string' || !DATE_RE.test(prop)) {
+            return Reflect.get(target, prop, receiver);
+          }
+          if (Object.prototype.hasOwnProperty.call(target, prop)) return target[prop];
+          const month = prop.slice(0, 7);
+          const latest = Object.keys(target)
+            .filter(key => DATE_RE.test(key) && key.slice(0, 7) === month && key <= prop)
+            .sort()
+            .pop();
+          if (!latest) return undefined;
+          return {...target[latest], date: prop};
+        }
+      });
+    };
+  }
+
+  function markCumulativeMode() {
+    if (document.getElementById('dateViewMode')?.value !== 'compare') return;
+    const hint = document.getElementById('dateCompareHint');
+    const note = document.getElementById('dateSummaryNote');
+    if (hint) hint.textContent = 'Каждый месяц: накопительный итог с 1-го числа по выбранный день включительно.';
+    if (note) note.textContent = 'Абсолютные показатели берутся накопительно с начала месяца. Средний чек: выручка / первичные приёмы соответствующего направления. ПП в день, выполнение и конверсии пересчитываются из накопительных итогов.';
+  }
+
+  function refreshComparison() {
+    const range = document.getElementById('compareRange');
+    if (document.getElementById('dateViewMode')?.value === 'compare' && range) {
+      range.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+    setTimeout(markCumulativeMode, 60);
+  }
+
+  document.addEventListener('change', () => setTimeout(markCumulativeMode, 80), true);
+  setTimeout(refreshComparison, 0);
+  setTimeout(markCumulativeMode, 200);
+})();
