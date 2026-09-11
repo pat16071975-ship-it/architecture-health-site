@@ -170,7 +170,7 @@
 
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   const EXTRA_DENTISTS = ['Филатова А. Д.'];
-  const EXTRA_STRUCTURE = ['Diers И.'];
+  const EXTRA_STRUCTURE = ['Diers И.', 'Алатарцева П. В.', 'Борисовская А. И.'];
 
   let structureChanged = false;
   EXTRA_DENTISTS.forEach(name => {
