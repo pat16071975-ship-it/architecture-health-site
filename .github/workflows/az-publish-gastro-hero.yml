@@ -1,0 +1,67 @@
+name: AZ publish gastroenterology hero
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/az-publish-gastro-hero.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet pillow
+      - name: Rebuild and verify approved gastroenterology hero
+        run: |
+          python - <<'PY'
+          import base64, hashlib
+          from pathlib import Path
+          from PIL import Image
+          parts=[]
+          for i in range(9):
+              p=Path(f'.tmp-gastro-upload/part{i:02d}.b64')
+              s=p.read_text(encoding='utf-8').strip()
+              print(p.name, len(s), hashlib.sha256(s.encode()).hexdigest())
+              parts.append(s)
+          joined=''.join(parts).encode('ascii')
+          print('BASE64',len(joined),hashlib.sha256(joined).hexdigest())
+          raw=base64.b64decode(joined,validate=True)
+          print('RAW',len(raw),hashlib.sha256(raw).hexdigest())
+          if len(raw)!=30324 or hashlib.sha256(raw).hexdigest()!='6105b940310011872a92fd91c4449fc9c01aca8a394c82c2621e13354324e2be':
+              raise SystemExit('Decoded binary mismatch')
+          out=Path('assets/direction-hero/gastroenterology-balanced-plate.webp')
+          out.write_bytes(raw)
+          im=Image.open(out); im.load()
+          print('IMAGE',im.format,im.size,out.stat().st_size)
+          if im.format!='WEBP' or im.size!=(500,625):
+              raise SystemExit(f'Invalid image: {im.format} {im.size}')
+          PY
+      - name: Refresh page cache-buster
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('interface-lab/gastroenterology/index.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('gastroenterology-balanced-plate.webp?v=20260914-1','gastroenterology-balanced-plate.webp?v=20260914-2')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit verified asset and clean staging
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/direction-hero/gastroenterology-balanced-plate.webp interface-lab/gastroenterology/index.html
+          git rm -r .tmp-gastro-upload
+          git rm .github/workflows/az-publish-gastro-hero.yml
+          git commit -m 'Publish verified gastroenterology balanced nutrition hero'
+          git push origin HEAD:feature/site-v1
