@@ -22,20 +22,45 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install --quiet pillow
-      - name: Verify approved dentistry hero
+      - name: Rebuild and verify approved dentistry hero
         run: |
           python - <<'PY'
-          import hashlib
+          import base64, hashlib
           from pathlib import Path
           from PIL import Image
-          p=Path('assets/direction-hero/dentistry-patient-approved.webp')
-          raw=p.read_bytes()
-          print('RAW',len(raw),hashlib.sha256(raw).hexdigest())
-          if hashlib.sha256(raw).hexdigest()!='5ce7797629aa155aabec1a8d3231fa7fb6ca08dd31e6725a7afe3496a3b91aaf':
-              raise SystemExit('Dentistry hero binary mismatch')
-          im=Image.open(p); im.load()
-          print('IMAGE',im.format,im.size)
-          if im.format!='WEBP' or im.size!=(1122,1402):
+          expected = [
+            'ef0e447c010536eb6a34534ff54abc51ad0c217837d0677502c74c61b07c2441',
+            '2879389a6bdee412b35d7a722dbf08aed3cc2fb7cf1d4c309b5a787b29bfd04c',
+            '9e3179fbc42e02f530b183ac9647c3f451fdb27a84cad8bc31a231de054677cb',
+            '909430f787a0c46d0779b293102a9f81f65b67475b202a0e16d5970526d36bea',
+            '724c11b732b0685f236f7209347cf079e091954291142356e18d78e7a9030ed5',
+            '737ef0885474e0a2761c13d07e9a992dd1b513a6fd671ef82e16feec70c93906',
+            '665ccf019fae86a6014a5db4caa3081d2fc7fc5aa5d625b50d04d355e511d536',
+            'f684c37aec5eefc0bd508d0e034569590aed290d267718c1544c7be13dd7f13c',
+          ]
+          parts=[]
+          for i, exp in enumerate(expected):
+              p=Path(f'.tmp-dentistry-upload/part{i:02d}.b64')
+              s=p.read_text(encoding='utf-8').strip()
+              got=hashlib.sha256(s.encode()).hexdigest()
+              print(p.name, len(s), got)
+              if got != exp:
+                  raise SystemExit(f'Chunk mismatch {p.name}: {got}')
+              parts.append(s)
+          joined=''.join(parts).encode('ascii')
+          print('BASE64',len(joined),hashlib.sha256(joined).hexdigest())
+          if len(joined) != 86012:
+              raise SystemExit(f'Unexpected base64 length {len(joined)}')
+          raw=base64.b64decode(joined,validate=True)
+          got=hashlib.sha256(raw).hexdigest()
+          print('RAW',len(raw),got)
+          if len(raw)!=64508 or got!='24872434315cfef38dac76c3b9c86f5756fac0ffb5e8db8b5a19e82152bd1c57':
+              raise SystemExit('Decoded binary mismatch')
+          out=Path('assets/direction-hero/dentistry-patient-approved.webp')
+          out.write_bytes(raw)
+          im=Image.open(out); im.load()
+          print('IMAGE',im.format,im.size,out.stat().st_size)
+          if im.format!='WEBP' or im.size!=(700,875):
               raise SystemExit(f'Invalid image: {im.format} {im.size}')
           PY
       - name: Put approved image into dentistry viewer
@@ -46,7 +71,7 @@ jobs:
           p=Path('interface-lab/dentistry/index.html')
           s=p.read_text(encoding='utf-8')
           pattern=r'<div class="photo-shell"><div class="photo fit"><img src="../../assets/functional-dentistry-calm-approved\.webp\?v=20260907-1"[^>]*></div></div>'
-          repl='<div class="photo-shell"><div class="photo dentistry-photo"><img src="../../assets/direction-hero/dentistry-patient-approved.webp?v=20260914-1" alt="Довольный пациент стоматологии в клинике Архитектура здоровья" width="1122" height="1402" decoding="async" loading="eager" fetchpriority="high"></div></div>'
+          repl='<div class="photo-shell"><div class="photo dentistry-photo"><img src="../../assets/direction-hero/dentistry-patient-approved.webp?v=20260914-1" alt="Довольный пациент стоматологии в клинике Архитектура здоровья" width="700" height="875" decoding="async" loading="eager" fetchpriority="high"></div></div>'
           s2,n=re.subn(pattern,repl,s,count=1)
           if n!=1:
               raise SystemExit(f'Hero replacement count={n}')
@@ -55,11 +80,12 @@ jobs:
               s2=s2.replace('</style>',css+'</style>',1)
           p.write_text(s2,encoding='utf-8')
           PY
-      - name: Commit dentistry hero and clean workflow
+      - name: Commit verified dentistry hero and clean staging
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add interface-lab/dentistry/index.html
+          git add assets/direction-hero/dentistry-patient-approved.webp interface-lab/dentistry/index.html
+          git rm -r .tmp-dentistry-upload
           git rm .github/workflows/az-publish-dentistry-hero.yml
-          git commit -m 'Use approved dentistry patient hero photo'
+          git commit -m 'Publish verified dentistry patient hero'
           git push origin HEAD:feature/site-v1
