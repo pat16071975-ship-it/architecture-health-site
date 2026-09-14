@@ -31,7 +31,7 @@ body:has(.hero-photo) .route-card{min-width:0}
 
 /* Orthopedics hero tags are decorative: no connector lines. */
 body:has(.orthopedics-photo) .tag:after{display:none!important}
-body:has(.orthopedics-photo) .t2{top:158px;right:18px}
+body:has(.orthopedics-photo) .t2{top:22px;right:63px}
 
 @media(max-width:900px){.faq-grid{grid-template-columns:1fr}.long-section{padding:66px 0}.photo.planet img{padding:55px}body:has(.hero-photo) .route{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.long-wrap{width:min(100% - 28px,1020px)}.long-title{font-size:30px}.long-text{font-size:14px}.long-section{padding:54px 0}.faq-item{padding:22px 20px}.photo.planet img{padding:38px}body:has(.hero-photo) .route{grid-template-columns:1fr}body:has(.orthopedics-photo) .t2{top:118px;right:0}}
