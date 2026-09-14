@@ -249,7 +249,7 @@
 
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   const SECTION_ID = 'azMarketingSourcesSection';
-  const ROW_MARKER = 'azMarketingSources';
+  const ROW_ATTR = 'data-az-marketing-sources';
   const SOURCE_TITLE = 'Источники первичных пациентов (внесенные администраторами)';
   const countFmt = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 0});
   const shareFmt = new Intl.NumberFormat('ru-RU', {style: 'percent', maximumFractionDigits: 1});
@@ -425,7 +425,7 @@
 
   function appendComparisonSources(tbody, columns) {
     if (!tbody) return;
-    tbody.querySelectorAll(`[data-${ROW_MARKER}]`).forEach(row => row.remove());
+    tbody.querySelectorAll(`[${ROW_ATTR}]`).forEach(row => row.remove());
     if (!columns.length) return;
 
     const expectedColumns = (tbody.closest('table')?.tHead?.rows?.[0]?.cells?.length || 1) - 1;
@@ -443,13 +443,13 @@
 
     const group = document.createElement('tr');
     group.className = 'group-row group-marketing';
-    group.dataset[ROW_MARKER] = '1';
+    group.setAttribute(ROW_ATTR, '1');
     group.innerHTML = `<td colspan="${colSpan}">${SOURCE_TITLE}</td>`;
     tbody.appendChild(group);
 
     if (!sortedLabels.length) {
       const empty = document.createElement('tr');
-      empty.dataset[ROW_MARKER] = '1';
+      empty.setAttribute(ROW_ATTR, '1');
       empty.className = 'row-marketing-input';
       empty.innerHTML = `<td>Источники</td>${columns.map(() => '<td><span class="empty">—</span></td>').join('')}`;
       tbody.appendChild(empty);
@@ -458,7 +458,7 @@
 
     sortedLabels.forEach(label => {
       const row = document.createElement('tr');
-      row.dataset[ROW_MARKER] = '1';
+      row.setAttribute(ROW_ATTR, '1');
       row.className = 'row-marketing-input';
       row.innerHTML = `<td>${escapeHtml(label)}</td>` + columns.map((sources, index) => {
         const value = cleanSources(sources)[label] || 0;
@@ -468,12 +468,22 @@
     });
 
     const totalRow = document.createElement('tr');
-    totalRow.dataset[ROW_MARKER] = '1';
+    totalRow.setAttribute(ROW_ATTR, '1');
     totalRow.className = 'row-marketing-input important';
     totalRow.innerHTML = '<td>Всего первичных по источникам</td>' + totals.map(total =>
       `<td>${total ? `${countFmt.format(total)} · 100%` : '<span class="empty">—</span>'}</td>`
     ).join('');
     tbody.appendChild(totalRow);
+
+    if (window.matchMedia('(max-width:720px)').matches && tbody.closest('table')?.classList.contains('az-management-mobile-table')) {
+      tbody.querySelectorAll(`[${ROW_ATTR}]`).forEach(row => {
+        const firstCell = row.cells?.[0];
+        if (!firstCell || (firstCell.colSpan || 1) !== 1) return;
+        firstCell.classList.add('az-mgmt-label-cell');
+        const background = getComputedStyle(firstCell).backgroundColor;
+        firstCell.style.setProperty('background-color', background && background !== 'rgba(0, 0, 0, 0)' ? background : '#fcf9fc', 'important');
+      });
+    }
   }
 
   function renderComparisonSources() {
