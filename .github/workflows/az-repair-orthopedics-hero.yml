@@ -11,29 +11,84 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  repair:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: feature/site-v1
           fetch-depth: 0
-      - name: Record corrected chunk diagnostics
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet pillow
+      - name: Rebuild and verify approved hero
         run: |
           python - <<'PY'
-          import hashlib
+          import base64, hashlib
           from pathlib import Path
-          lines=[]
-          for p in sorted(Path('.tmp-ortho-fix').glob('fix*.b64')):
-              data=p.read_bytes()
-              lines.append(f'{p.name} {len(data)} {hashlib.sha256(data).hexdigest()}')
-          Path('.tmp-ortho-fix/diagnostics.txt').write_text('\n'.join(lines)+'\n',encoding='utf-8')
-          print('\n'.join(lines))
+          from PIL import Image
+
+          def read(path):
+              return Path(path).read_text(encoding='utf-8').strip()
+          def checked(path, expected):
+              s=read(path)
+              got=hashlib.sha256(s.encode()).hexdigest()
+              print(path, len(s), got)
+              if got!=expected:
+                  raise SystemExit(f'Checksum mismatch: {path}')
+              return s
+
+          p00=checked('.tmp-ortho-q75/part00.b64','658aeb6c3d482ad845da8475169480c8f127a55e1672e7960cf34bd49b803ebe')
+          p01=checked('.tmp-ortho-q75/part01.b64','b1e3bbbdff0895bb9f8f83d7e790ee3524ecc909a83e23ecb06d4da5bfdfe20a')
+          p02=''.join([
+              checked('.tmp-ortho-fix/fix02_0.b64','dce6ffb8a822fd3b9eb5774ec079daadc48a768f055c336d21d7debc433cb015'),
+              checked('.tmp-ortho-fix/fix02_1.b64','1dfdf5e1468566d4a4674a3505f040ee2cf7c8a40ebb2323a054fb62d5474370'),
+              checked('.tmp-ortho-fix/fix02_2.b64','70cf7d3846cf654312fb7da7cef04f8d2f6a60f4436aa03312abf6277b4e1060'),
+              checked('.tmp-ortho-fix/fix02_3.b64','c410d686bbd0bdea23392a62e254d40f88c2e90d3f9b7be7a6c453477f187025'),
+          ])
+          p03=checked('.tmp-ortho-q75/part03.b64','d9323a636341aeb447e7ebecb187e587eba0d41a00212a98578188833a3b1ed3')
+          p04=checked('.tmp-ortho-q75/part04.b64','769455eabb655297c4f16b162b0c8443f707ac0b809641014acef4f095cad64b')
+          p05=checked('.tmp-ortho-q75/part05.b64','d7a2c50088757f2666b4dc7bd18d0fb5d61704cf2590164506f20c1d303de0ec')
+          p060=''.join([
+              checked('.tmp-ortho-fix2/fix060_0.b64','575d592b0e728464a03bac51913e5d24268366b25a06b866e3c8a7054d9bea2a'),
+              checked('.tmp-ortho-fix2/fix060_1.b64','e05f4b4321f453ef31b51f9f13e8b500317b2fe439d487b87f35bfd0e39bfbff'),
+              checked('.tmp-ortho-fix2/fix060_2.b64','49fb04c273f875e06818887bfe4461bb41896442af7f6fc4970851996e9874f5'),
+              checked('.tmp-ortho-fix2/fix060_3.b64','ed61cf113bebe4771fc9edbe847e049041ad00073c9b851ece8d7bdf1aeea217'),
+          ])
+          p061=checked('.tmp-ortho-fix/fix06_1.b64','88a2c58600a592ff7cc1bc0b9a2f714cdbf6f6ce8d2b426155136150b5176702')
+          p062=checked('.tmp-ortho-fix/fix06_2.b64','60320c5beef7efd8e4f504e12855052184b5e4ace893676164a8b8abd01410ca')
+          p063=checked('.tmp-ortho-fix/fix06_3.b64','43a420c4b29c75f1f774e3398b0e2f225cf5fdaac37fc9a1121963a24dd0ffd2')
+          p06=p060+p061+p062+p063
+          p07=checked('.tmp-ortho-q75/part07.b64','26e35cb76c473f0f1f448c5d46ff648ef2f8bb976d503522c64a67a8f9cfedb5')
+          joined=(p00+p01+p02+p03+p04+p05+p06+p07).encode('ascii')
+          print('BASE64',len(joined),hashlib.sha256(joined).hexdigest())
+          raw=base64.b64decode(joined,validate=True)
+          print('RAW',len(raw),hashlib.sha256(raw).hexdigest())
+          out=Path('assets/direction-hero/dentistry-orthopedics-consultation.webp')
+          out.write_bytes(raw)
+          im=Image.open(out); im.load()
+          print('IMAGE',im.format,im.size,out.stat().st_size)
+          if im.format!='WEBP' or im.size!=(600,750):
+              raise SystemExit(f'Invalid image: {im.format} {im.size}')
           PY
-      - name: Commit diagnostics
+      - name: Update page to verified asset
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          p=Path('interface-lab/dentistry-orthopedics/index.html')
+          s=p.read_text(encoding='utf-8')
+          s,n=re.subn(r'(\.\./\.\./assets/direction-hero/dentistry-orthopedics-consultation\.webp)\?v=[^"\']+',r'\1?v=20260914-10',s,count=1)
+          if n!=1: raise SystemExit(f'Hero src replacement count={n}')
+          s,n=re.subn(r'(<img src="\.\./\.\./assets/direction-hero/dentistry-orthopedics-consultation\.webp\?v=20260914-10"[^>]*?)width="\d+" height="\d+"',r'\1width="600" height="750"',s,count=1)
+          if n!=1: raise SystemExit(f'Hero dimensions replacement count={n}')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit verified image and page
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .tmp-ortho-fix/diagnostics.txt
-          git commit -m 'Record corrected orthopedics chunk diagnostics'
+          git add assets/direction-hero/dentistry-orthopedics-consultation.webp interface-lab/dentistry-orthopedics/index.html
+          git commit -m 'Publish verified orthopedics hero image'
           git push origin HEAD:feature/site-v1
