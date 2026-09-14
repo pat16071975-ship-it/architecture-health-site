@@ -6,9 +6,19 @@
   <div class="error">Учётная запись пользователя и назначенные ей права будут удалены.</div>
   <div class="code">{{ user['full_name'] }}{% if user['email'] %}<br>{{ user['email'] }}{% endif %}</div>
   <div class="spacer"></div>
-  <form method="post">
+  <form method="post" id="deleteUserForm">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="row"><button class="btn warn" type="submit">Удалить пользователя</button><a class="btn" href="/admin">Отмена</a></div>
   </form>
 </div>
+<script>
+(() => {
+  const form = document.getElementById("deleteUserForm");
+  const userName = {{ user['full_name']|tojson }};
+  form.addEventListener("submit", (event) => {
+    const ok = window.confirm(`Вы точно хотите удалить пользователя «${userName}»?\n\nЭто действие нельзя отменить.`);
+    if (!ok) event.preventDefault();
+  });
+})();
+</script>
 {% endblock %}
