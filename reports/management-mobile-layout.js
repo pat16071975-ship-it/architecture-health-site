@@ -243,3 +243,295 @@
   setTimeout(refreshComparison, 0);
   setTimeout(markCumulativeMode, 200);
 })();
+
+(() => {
+  'use strict';
+
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const SECTION_ID = 'azMarketingSourcesSection';
+  const ROW_MARKER = 'azMarketingSources';
+  const SOURCE_TITLE = 'Источники первичных пациентов (внесенные администраторами)';
+  const countFmt = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 0});
+  const shareFmt = new Intl.NumberFormat('ru-RU', {style: 'percent', maximumFractionDigits: 1});
+
+  const TEXT_REPLACEMENTS = new Map([
+    ['Клиника', 'Отделение структуры'],
+    ['Выручка клиника', 'Выручка отделения структуры'],
+    ['Выручка клиники', 'Выручка отделения структуры'],
+    ['Клиника ср. чек', 'Средний чек отделения структуры'],
+    ['Средний чек клиники', 'Средний чек отделения структуры'],
+    ['Первичные клиника', 'Первичные отделение структуры'],
+    ['Повторные клиника', 'Повторные отделение структуры'],
+    ['Первичные — клиника', 'Первичные — отделение структуры'],
+    ['Повторные — клиника', 'Повторные — отделение структуры'],
+    ['Клиника — целевые лиды', 'Отделение структуры — целевые лиды'],
+    ['Целевые лиды — клиника', 'Целевые лиды — отделение структуры'],
+    ['Конверсия клиника', 'Конверсия отделение структуры'],
+  ]);
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, ch => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;'
+    }[ch]));
+  }
+
+  function replaceLabels(root = document) {
+    root.querySelectorAll('h2,h3,label,th,td').forEach(node => {
+      if (node.children.length) return;
+      const current = node.textContent.trim();
+      const replacement = TEXT_REPLACEMENTS.get(current);
+      if (replacement) node.textContent = replacement;
+    });
+  }
+
+  function cleanSources(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const result = {};
+    Object.entries(value).forEach(([label, raw]) => {
+      const n = Number(raw);
+      if (!label || !Number.isFinite(n) || n <= 0) return;
+      result[String(label)] = n;
+    });
+    return result;
+  }
+
+  function sortedSourceEntries(sources) {
+    return Object.entries(cleanSources(sources))
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ru'));
+  }
+
+  function sourceTotal(sources) {
+    return Object.values(cleanSources(sources)).reduce((sum, value) => sum + value, 0);
+  }
+
+  function formatSourceValue(value, total) {
+    if (!value || !total) return '—';
+    return `${countFmt.format(value)} · ${shareFmt.format(value / total)}`;
+  }
+
+  function ensureSingleDateSection() {
+    const editView = document.getElementById('editView');
+    if (!editView) return null;
+    let section = document.getElementById(SECTION_ID);
+    if (section) return section;
+    const marketing = editView.querySelector('.section.marketing');
+    if (!marketing) return null;
+
+    section = document.createElement('div');
+    section.id = SECTION_ID;
+    section.className = 'section marketing az-marketing-sources';
+    section.innerHTML = `
+      <h2>${SOURCE_TITLE}</h2>
+      <div class="table-wrap">
+        <table class="data-table" style="min-width:560px">
+          <thead><tr><th>Источник</th><th>Первичные пациенты</th><th>Доля</th></tr></thead>
+          <tbody data-source-body></tbody>
+        </table>
+      </div>`;
+    marketing.insertAdjacentElement('afterend', section);
+    return section;
+  }
+
+  function currentRecord() {
+    const date = document.getElementById('reportDate')?.value;
+    if (!date || typeof window.loadStore !== 'function') return null;
+    const store = window.loadStore();
+    return store && typeof store === 'object' ? (store[date] || null) : null;
+  }
+
+  function renderSingleDateSources() {
+    const section = ensureSingleDateSection();
+    if (!section) return;
+    const body = section.querySelector('[data-source-body]');
+    if (!body) return;
+    const sources = cleanSources(currentRecord()?.marketingSources);
+    const entries = sortedSourceEntries(sources);
+    const total = sourceTotal(sources);
+
+    if (!entries.length) {
+      body.innerHTML = '<tr><td colspan="3" class="muted">Данные об источниках первичных пациентов пока не загружены.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = entries.map(([label, value]) =>
+      `<tr><td>${escapeHtml(label)}</td><td>${countFmt.format(value)}</td><td>${shareFmt.format(value / total)}</td></tr>`
+    ).join('') + `<tr class="sum-row"><td>Всего первичных по источникам</td><td>${countFmt.format(total)}</td><td>100%</td></tr>`;
+  }
+
+  function addSources(target, sources) {
+    Object.entries(cleanSources(sources)).forEach(([label, value]) => {
+      target[label] = (target[label] || 0) + value;
+    });
+    return target;
+  }
+
+  function latestMonthRows(store, year, startMonth, endMonth) {
+    const byMonth = {};
+    Object.entries(store || {}).forEach(([dateValue, row]) => {
+      if (!DATE_RE.test(dateValue) || !row || typeof row !== 'object') return;
+      const yearValue = Number(dateValue.slice(0, 4));
+      const month = Number(dateValue.slice(5, 7));
+      if (yearValue !== year || month < startMonth || month > endMonth) return;
+      if (!byMonth[month] || dateValue > byMonth[month].date) byMonth[month] = {date: dateValue, row};
+    });
+    return Object.values(byMonth).sort((a, b) => a.date.localeCompare(b.date)).map(item => item.row);
+  }
+
+  function periodSourceColumns() {
+    const mode = document.getElementById('mode')?.value;
+    const year = Number(document.getElementById('year')?.value);
+    if (!year || !['quarter', 'half', 'year'].includes(mode) || typeof window.loadStore !== 'function') return [];
+    const store = window.loadStore();
+    let defs;
+    if (mode === 'quarter') defs = [[1,3],[4,6],[7,9],[10,12]];
+    else if (mode === 'half') defs = [[1,6],[7,12]];
+    else defs = [[1,12]];
+    return defs.map(([startMonth, endMonth]) => {
+      const combined = {};
+      latestMonthRows(store, year, startMonth, endMonth).forEach(row => addSources(combined, row.marketingSources));
+      return combined;
+    });
+  }
+
+  function clampDate(year, month, day) {
+    const last = new Date(year, month, 0).getDate();
+    return `${year}-${String(month).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`;
+  }
+
+  function comparisonMonths(range, selectedMonth) {
+    const defs = {
+      q1:[1,3], q2:[4,6], q3:[7,9], q4:[10,12],
+      h1:[1,6], h2:[7,12], year:[1,12], ytd:[1,selectedMonth]
+    };
+    const [start, end] = defs[range] || defs.ytd;
+    return Array.from({length: end - start + 1}, (_, index) => start + index);
+  }
+
+  function dateSourceColumns() {
+    if (document.getElementById('dateViewMode')?.value !== 'compare' || typeof window.loadStore !== 'function') return [];
+    const selected = document.getElementById('reportDate')?.value;
+    if (!selected || !DATE_RE.test(selected)) return [];
+    const base = new Date(selected + 'T12:00:00');
+    const year = base.getFullYear();
+    const day = base.getDate();
+    const selectedMonth = base.getMonth() + 1;
+    const range = document.getElementById('compareRange')?.value || 'ytd';
+    const store = window.loadStore();
+    return comparisonMonths(range, selectedMonth).map(month => {
+      const target = clampDate(year, month, day);
+      return cleanSources(store?.[target]?.marketingSources);
+    });
+  }
+
+  function appendComparisonSources(tbody, columns) {
+    if (!tbody) return;
+    tbody.querySelectorAll(`[data-${ROW_MARKER}]`).forEach(row => row.remove());
+    if (!columns.length) return;
+
+    const expectedColumns = (tbody.closest('table')?.tHead?.rows?.[0]?.cells?.length || 1) - 1;
+    if (expectedColumns !== columns.length) return;
+
+    const totals = columns.map(sourceTotal);
+    const labels = new Set();
+    columns.forEach(sources => Object.keys(cleanSources(sources)).forEach(label => labels.add(label)));
+    const sortedLabels = Array.from(labels).sort((a, b) => {
+      const totalA = columns.reduce((sum, sources) => sum + (cleanSources(sources)[a] || 0), 0);
+      const totalB = columns.reduce((sum, sources) => sum + (cleanSources(sources)[b] || 0), 0);
+      return totalB - totalA || a.localeCompare(b, 'ru');
+    });
+    const colSpan = columns.length + 1;
+
+    const group = document.createElement('tr');
+    group.className = 'group-row group-marketing';
+    group.dataset[ROW_MARKER] = '1';
+    group.innerHTML = `<td colspan="${colSpan}">${SOURCE_TITLE}</td>`;
+    tbody.appendChild(group);
+
+    if (!sortedLabels.length) {
+      const empty = document.createElement('tr');
+      empty.dataset[ROW_MARKER] = '1';
+      empty.className = 'row-marketing-input';
+      empty.innerHTML = `<td>Источники</td>${columns.map(() => '<td><span class="empty">—</span></td>').join('')}`;
+      tbody.appendChild(empty);
+      return;
+    }
+
+    sortedLabels.forEach(label => {
+      const row = document.createElement('tr');
+      row.dataset[ROW_MARKER] = '1';
+      row.className = 'row-marketing-input';
+      row.innerHTML = `<td>${escapeHtml(label)}</td>` + columns.map((sources, index) => {
+        const value = cleanSources(sources)[label] || 0;
+        return `<td>${value ? formatSourceValue(value, totals[index]) : '<span class="empty">—</span>'}</td>`;
+      }).join('');
+      tbody.appendChild(row);
+    });
+
+    const totalRow = document.createElement('tr');
+    totalRow.dataset[ROW_MARKER] = '1';
+    totalRow.className = 'row-marketing-input important';
+    totalRow.innerHTML = '<td>Всего первичных по источникам</td>' + totals.map(total =>
+      `<td>${total ? `${countFmt.format(total)} · 100%` : '<span class="empty">—</span>'}</td>`
+    ).join('');
+    tbody.appendChild(totalRow);
+  }
+
+  function renderComparisonSources() {
+    appendComparisonSources(document.getElementById('periodCompareBody'), periodSourceColumns());
+    appendComparisonSources(document.getElementById('dateCompareBody'), dateSourceColumns());
+  }
+
+  function refreshAll() {
+    replaceLabels();
+    renderSingleDateSources();
+    renderComparisonSources();
+  }
+
+  // Ручное редактирование отчёта не должно стирать автоматически загруженные источники.
+  const nativeSaveStore = window.saveStore;
+  if (typeof nativeSaveStore === 'function' && !window.__azMarketingSourcesSaveGuard) {
+    window.__azMarketingSourcesSaveGuard = true;
+    window.saveStore = function preservingMarketingSources(nextStore) {
+      const previousStore = typeof window.loadStore === 'function' ? window.loadStore() : {};
+      if (nextStore && typeof nextStore === 'object') {
+        Object.entries(nextStore).forEach(([dateValue, row]) => {
+          if (!row || typeof row !== 'object' || Object.prototype.hasOwnProperty.call(row, 'marketingSources')) return;
+          const previous = previousStore?.[dateValue]?.marketingSources;
+          if (previous && typeof previous === 'object' && !Array.isArray(previous)) row.marketingSources = {...previous};
+        });
+      }
+      const result = nativeSaveStore(nextStore);
+      setTimeout(refreshAll, 0);
+      return result;
+    };
+  }
+
+  const nativeLoadDate = window.loadDate;
+  if (typeof nativeLoadDate === 'function' && !window.__azMarketingSourcesLoadDateHook) {
+    window.__azMarketingSourcesLoadDateHook = true;
+    window.loadDate = function marketingSourcesLoadDateHook(...args) {
+      const result = nativeLoadDate.apply(this, args);
+      Promise.resolve(result).finally(() => setTimeout(refreshAll, 0));
+      return result;
+    };
+  }
+
+  const nativeRenderPeriod = window.renderPeriod;
+  if (typeof nativeRenderPeriod === 'function' && !window.__azMarketingSourcesPeriodHook) {
+    window.__azMarketingSourcesPeriodHook = true;
+    window.renderPeriod = function marketingSourcesPeriodHook(...args) {
+      const result = nativeRenderPeriod.apply(this, args);
+      setTimeout(refreshAll, 0);
+      return result;
+    };
+  }
+
+  document.addEventListener('change', () => setTimeout(refreshAll, 0), true);
+  document.addEventListener('click', event => {
+    if (event.target?.closest?.('#entryBtn,#entrySave,#todayBtn')) setTimeout(refreshAll, 80);
+  }, true);
+
+  setTimeout(refreshAll, 0);
+  setTimeout(refreshAll, 250);
+  setTimeout(refreshAll, 800);
+})();
