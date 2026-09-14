@@ -8,16 +8,90 @@
   <div class="spacer"></div>
   <form method="post" id="deleteUserForm">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div class="row"><button class="btn warn" type="submit">Удалить пользователя</button><a class="btn" href="/admin">Отмена</a></div>
+    <div class="row"><button class="btn warn" type="button" id="openDeleteModal">Удалить пользователя</button><a class="btn" href="/admin">Отмена</a></div>
   </form>
 </div>
+
+<div class="az-modal-backdrop" id="deleteUserModal" hidden>
+  <div class="az-modal" role="dialog" aria-modal="true" aria-labelledby="deleteUserModalTitle" aria-describedby="deleteUserModalText">
+    <h3 id="deleteUserModalTitle">Подтвердите удаление</h3>
+    <p id="deleteUserModalText">Вы точно хотите удалить пользователя <strong>«{{ user['full_name'] }}»</strong>?</p>
+    <p class="az-modal-warning">Это действие нельзя отменить.</p>
+    <div class="row az-modal-actions">
+      <button class="btn" type="button" id="cancelDeleteModal">Отмена</button>
+      <button class="btn warn" type="button" id="confirmDeleteModal">Да, удалить</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.az-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(45,52,47,.46);
+  backdrop-filter:blur(3px);
+}
+.az-modal-backdrop[hidden]{display:none}
+.az-modal{
+  width:min(460px,100%);
+  padding:26px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:rgba(255,253,248,.99);
+  box-shadow:0 22px 70px rgba(45,52,47,.22);
+}
+.az-modal h3{
+  margin:0 0 14px;
+  font-size:21px;
+  font-weight:500;
+}
+.az-modal p{
+  margin:0 0 10px;
+  font-size:13px;
+  line-height:1.55;
+}
+.az-modal-warning{
+  color:var(--red);
+  font-weight:600;
+}
+.az-modal-actions{
+  justify-content:flex-end;
+  margin-top:20px;
+}
+</style>
+
 <script>
 (() => {
   const form = document.getElementById("deleteUserForm");
-  const userName = {{ user['full_name']|tojson }};
-  form.addEventListener("submit", (event) => {
-    const ok = window.confirm(`Вы точно хотите удалить пользователя «${userName}»?\n\nЭто действие нельзя отменить.`);
-    if (!ok) event.preventDefault();
+  const modal = document.getElementById("deleteUserModal");
+  const openButton = document.getElementById("openDeleteModal");
+  const cancelButton = document.getElementById("cancelDeleteModal");
+  const confirmButton = document.getElementById("confirmDeleteModal");
+
+  const closeModal = () => {
+    modal.hidden = true;
+    openButton.focus();
+  };
+
+  openButton.addEventListener("click", () => {
+    modal.hidden = false;
+    cancelButton.focus();
+  });
+
+  cancelButton.addEventListener("click", closeModal);
+  confirmButton.addEventListener("click", () => form.submit());
+
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeModal();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !modal.hidden) closeModal();
   });
 })();
 </script>
