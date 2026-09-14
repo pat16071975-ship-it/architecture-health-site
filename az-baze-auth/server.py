@@ -1,6 +1,6 @@
 import re
 
-from flask import g, request, send_from_directory
+from flask import abort, g, request, send_from_directory
 
 import app as app_core
 from app import SITE_ROOT, app
@@ -12,6 +12,11 @@ import finrez
 import ident_import
 import report_storage
 import terminology
+
+# «Раздел 3» был старым местом для рабочих контактов и больше не используется.
+# Убираем его из действующей модели прав, не затрагивая новый раздел «Доступы и контакты».
+app_core.SECTIONS[:] = [item for item in app_core.SECTIONS if item[0] != "section3"]
+app_core.SECTION_KEYS.discard("section3")
 
 # Economic source workbooks and daily exports can be several MB.
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
@@ -157,6 +162,12 @@ def _inject_before_head_close(html, fragment):
     if fragment.split('id="', 1)[1].split('"', 1)[0] in html:
         return html
     return html.replace("</head>", fragment + "\n</head>", 1)
+
+
+@app.before_request
+def reject_retired_section3():
+    if request.path == "/section3/" or request.path.startswith("/section3/"):
+        abort(404)
 
 
 @app.get("/favicon.svg")
