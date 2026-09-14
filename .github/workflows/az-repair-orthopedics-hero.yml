@@ -22,43 +22,75 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install --quiet pillow
-      - name: Decode and verify current full-resolution hero
+      - name: Recover and verify best available hero blob
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           python - <<'PY'
+          import base64, io, json, os, urllib.request
           from PIL import Image
           from pathlib import Path
-          src = Path('assets/direction-hero/dentistry-orthopedics-consultation.webp')
-          im = Image.open(src)
-          im.load()
-          print('SOURCE', im.format, im.size, src.stat().st_size)
-          if im.size[0] < 1000 or im.size[1] < 1200:
-              raise SystemExit(f'Image unexpectedly small: {im.size}')
+
+          candidates = [
+              '231564d9b346fde731a42836e33d10daa9ec09d9',
+              '58c01e6e5ffe23e1c0a5cc14b7c339ec209ba6fa',
+              'ec2fd40dc77318f4964265e8200f7b51b0c6b09d',
+          ]
+          token = os.environ['GH_TOKEN']
+          repo = os.environ['GH_REPO']
+          valid = []
+          for sha in candidates:
+              req = urllib.request.Request(
+                  f'https://api.github.com/repos/{repo}/git/blobs/{sha}',
+                  headers={
+                      'Authorization': f'Bearer {token}',
+                      'Accept': 'application/vnd.github+json',
+                      'X-GitHub-Api-Version': '2022-11-28',
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      data = json.load(r)
+                  raw = base64.b64decode(data['content'])
+                  im = Image.open(io.BytesIO(raw))
+                  im.load()
+                  print('VALID', sha, im.format, im.size, len(raw))
+                  valid.append((im.width * im.height, sha, im.copy()))
+              except Exception as e:
+                  print('INVALID', sha, repr(e))
+          if not valid:
+              raise SystemExit('No decodable orthopedics hero blob found')
+          valid.sort(reverse=True, key=lambda x: x[0])
+          _, sha, im = valid[0]
+          if im.width < 700 or im.height < 850:
+              raise SystemExit(f'Best valid source is too small: {im.size}, {sha}')
           out = Path('assets/direction-hero/dentistry-orthopedics-consultation-full.png')
           im.convert('RGB').save(out, 'PNG', optimize=False)
-          check = Image.open(out)
-          check.load()
-          print('OUTPUT', check.format, check.size, out.stat().st_size)
-          if check.size != im.size:
-              raise SystemExit('Output dimensions changed')
+          check = Image.open(out); check.load()
+          print('SELECTED', sha, check.format, check.size, out.stat().st_size)
           PY
       - name: Point page to verified PNG
         run: |
           python - <<'PY'
+          import re
           from pathlib import Path
           p = Path('interface-lab/dentistry-orthopedics/index.html')
           s = p.read_text(encoding='utf-8')
-          old = '../../assets/direction-hero/dentistry-orthopedics-consultation.webp?v=20260914-3'
-          if old not in s:
-              old = '../../assets/direction-hero/dentistry-orthopedics-consultation.webp?v=20260914-2'
-          if old not in s:
-              raise SystemExit('Expected orthopedics hero reference not found')
-          s = s.replace(old, '../../assets/direction-hero/dentistry-orthopedics-consultation-full.png?v=20260914-5')
-          p.write_text(s, encoding='utf-8')
+          s2, n = re.subn(
+              r'\.\./\.\./assets/direction-hero/dentistry-orthopedics-consultation(?:-full)?\.(?:webp|png)\?v=[^"\']+',
+              '../../assets/direction-hero/dentistry-orthopedics-consultation-full.png?v=20260914-6',
+              s,
+              count=1,
+          )
+          if n != 1:
+              raise SystemExit(f'Hero reference replacement count={n}')
+          p.write_text(s2, encoding='utf-8')
           PY
-      - name: Commit verified PNG and page reference
+      - name: Commit verified full-resolution PNG and page reference
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add assets/direction-hero/dentistry-orthopedics-consultation-full.png interface-lab/dentistry-orthopedics/index.html
-          git commit -m 'Publish verified full-resolution orthopedics hero PNG'
+          git commit -m 'Publish verified orthopedics hero image'
           git push origin HEAD:feature/site-v1
