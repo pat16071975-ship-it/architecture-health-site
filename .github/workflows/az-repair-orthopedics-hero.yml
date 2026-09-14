@@ -11,71 +11,29 @@ permissions:
   contents: write
 
 jobs:
-  repair:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: feature/site-v1
           fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python -m pip install --quiet pillow
-      - name: Rebuild and verify approved hero
+      - name: Record corrected chunk diagnostics
         run: |
           python - <<'PY'
-          import base64, hashlib
+          import hashlib
           from pathlib import Path
-          from PIL import Image
-
-          def read(path):
-              return Path(path).read_text(encoding='utf-8').strip()
-
-          pieces = [
-              read('.tmp-ortho-q75/part00.b64'),
-              read('.tmp-ortho-q75/part01.b64'),
-              ''.join(read(f'.tmp-ortho-fix/fix02_{i}.b64') for i in range(4)),
-              read('.tmp-ortho-q75/part03.b64'),
-              read('.tmp-ortho-q75/part04.b64'),
-              read('.tmp-ortho-q75/part05.b64'),
-              ''.join(read(f'.tmp-ortho-fix/fix06_{i}.b64') for i in range(4)),
-              read('.tmp-ortho-q75/part07.b64'),
-          ]
-          joined=''.join(pieces).encode('ascii')
-          print('BASE64', len(joined), hashlib.sha256(joined).hexdigest())
-          if len(joined)!=37528 or hashlib.sha256(joined).hexdigest()!='debe65e5d22ba47dfebfead1cd5d7e4b08715ea9637eca120f6a7ef30b32dd4c':
-              raise SystemExit('Staged source checksum mismatch')
-          raw=base64.b64decode(joined,validate=True)
-          print('RAW', len(raw), hashlib.sha256(raw).hexdigest())
-          if len(raw)!=28146 or hashlib.sha256(raw).hexdigest()!='6e248763f558bb53c6fdd63f0117773c2d6cee88ca7eb2ce7b65fe2f9cdc56e2':
-              raise SystemExit('Decoded binary checksum mismatch')
-          out=Path('assets/direction-hero/dentistry-orthopedics-consultation.webp')
-          out.write_bytes(raw)
-          im=Image.open(out); im.load()
-          print('IMAGE', im.format, im.size, out.stat().st_size)
-          if im.format!='WEBP' or im.size!=(600,750):
-              raise SystemExit(f'Invalid image: {im.format} {im.size}')
+          lines=[]
+          for p in sorted(Path('.tmp-ortho-fix').glob('fix*.b64')):
+              data=p.read_bytes()
+              lines.append(f'{p.name} {len(data)} {hashlib.sha256(data).hexdigest()}')
+          Path('.tmp-ortho-fix/diagnostics.txt').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+          print('\n'.join(lines))
           PY
-      - name: Update page to verified asset
-        run: |
-          python - <<'PY'
-          import re
-          from pathlib import Path
-          p=Path('interface-lab/dentistry-orthopedics/index.html')
-          s=p.read_text(encoding='utf-8')
-          s,n=re.subn(r'(\.\./\.\./assets/direction-hero/dentistry-orthopedics-consultation\.webp)\?v=[^"\']+',r'\1?v=20260914-9',s,count=1)
-          if n!=1:
-              raise SystemExit(f'Hero src replacement count={n}')
-          s,n=re.subn(r'(<img src="\.\./\.\./assets/direction-hero/dentistry-orthopedics-consultation\.webp\?v=20260914-9"[^>]*?)width="\d+" height="\d+"',r'\1width="600" height="750"',s,count=1)
-          if n!=1:
-              raise SystemExit(f'Hero dimensions replacement count={n}')
-          p.write_text(s,encoding='utf-8')
-          PY
-      - name: Commit verified image and page
+      - name: Commit diagnostics
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add assets/direction-hero/dentistry-orthopedics-consultation.webp interface-lab/dentistry-orthopedics/index.html
-          git commit -m 'Publish verified orthopedics hero image'
+          git add .tmp-ortho-fix/diagnostics.txt
+          git commit -m 'Record corrected orthopedics chunk diagnostics'
           git push origin HEAD:feature/site-v1
