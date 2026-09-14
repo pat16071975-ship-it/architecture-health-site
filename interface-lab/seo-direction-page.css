@@ -22,9 +22,10 @@
 .route-card p+p{margin-top:12px}.route-card .clean-list{gap:7px;margin-top:12px}.route-card .clean-list li{padding:8px 8px 8px 27px;border:0;background:transparent;font-size:12.5px}.route-card .clean-list li:before{left:7px;top:15px;width:6px;height:6px}
 .cta-box p{max-width:760px}
 
-/* Surgical dentistry: approved generated hero visual is a direct HTML image. */
+/* Approved generated hero visuals are direct HTML images. */
 .photo.hero-photo{background:#efe8db}
 .photo.hero-photo img{width:100%;height:100%;object-fit:cover!important;object-position:center 42%!important;filter:sepia(.18) saturate(.82) contrast(.96) brightness(1.04)!important;transform:scale(1.02)!important;padding:0!important;opacity:1!important}
+.photo.orthopedics-photo img{object-position:center 40%!important;filter:contrast(1.04) saturate(1.01) brightness(1.01)!important;transform:none!important;image-rendering:auto}
 body:has(.hero-photo) .route{grid-template-columns:repeat(4,minmax(0,1fr))}
 body:has(.hero-photo) .route-card{min-width:0}
 
