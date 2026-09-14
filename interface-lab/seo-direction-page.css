@@ -21,5 +21,12 @@
 .photo.planet:after{background:linear-gradient(135deg,rgba(68,99,79,.02),rgba(181,150,98,.08))}
 .route-card p+p{margin-top:12px}.route-card .clean-list{gap:7px;margin-top:12px}.route-card .clean-list li{padding:8px 8px 8px 27px;border:0;background:transparent;font-size:12.5px}.route-card .clean-list li:before{left:7px;top:15px;width:6px;height:6px}
 .cta-box p{max-width:760px}
-@media(max-width:900px){.faq-grid{grid-template-columns:1fr}.long-section{padding:66px 0}.photo.planet img{padding:55px}}
-@media(max-width:600px){.long-wrap{width:min(100% - 28px,1020px)}.long-title{font-size:30px}.long-text{font-size:14px}.long-section{padding:54px 0}.faq-item{padding:22px 20px}.photo.planet img{padding:38px}}
+
+/* Surgical dentistry: approved generated hero visual lives in Interface Lab, not in chat. */
+.photo.planet:has(img[src*="planet-14-dentistry-surgery-mix"]){background-image:url('../assets/direction-hero/dentistry-surgery-consultation.webp');background-size:cover;background-position:center 42%;background-repeat:no-repeat}
+.photo.planet:has(img[src*="planet-14-dentistry-surgery-mix"]) img{opacity:0!important;padding:0!important}
+body:has(img[src*="planet-14-dentistry-surgery-mix"]) .route{grid-template-columns:repeat(4,minmax(0,1fr))}
+body:has(img[src*="planet-14-dentistry-surgery-mix"]) .route-card{min-width:0}
+
+@media(max-width:900px){.faq-grid{grid-template-columns:1fr}.long-section{padding:66px 0}.photo.planet img{padding:55px}body:has(img[src*="planet-14-dentistry-surgery-mix"]) .route{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.long-wrap{width:min(100% - 28px,1020px)}.long-title{font-size:30px}.long-text{font-size:14px}.long-section{padding:54px 0}.faq-item{padding:22px 20px}.photo.planet img{padding:38px}body:has(img[src*="planet-14-dentistry-surgery-mix"]) .route{grid-template-columns:1fr}}
