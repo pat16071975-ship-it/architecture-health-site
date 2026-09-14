@@ -4,6 +4,7 @@ from flask import g, request, send_from_directory
 
 import app as app_core
 from app import SITE_ROOT, app
+import access_contacts_ext
 import credentials_store
 import daily_upload
 import economics_control
@@ -46,6 +47,7 @@ finrez.register_finrez(app)
 economics_control.register_economics_control(app)
 daily_upload.register_daily_upload(app)
 credentials_store.register_credentials(app)
+access_contacts_ext.register(app)
 
 
 @app.context_processor

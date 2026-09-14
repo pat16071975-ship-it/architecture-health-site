@@ -14,11 +14,18 @@
           <td><strong>{{ user['full_name'] }}</strong>{% if user['is_admin'] %}<br><span class="badge admin">Администратор системы</span>{% endif %}</td>
           <td>{{ user['email'] }}</td>
           <td>
-            {% for key,label in sections %}{% if key in perms[user['id']] %}<span class="badge">{% if key == 'section3' %}Рабочие контакты{% elif key == 'section4' %}Дни рождения сотрудников{% elif key == 'section5' %}Загрузка данных{% else %}{{ label }}{% endif %}</span>{% endif %}{% endfor %}
+            {% for key,label in sections %}{% if key in perms[user['id']] %}<span class="badge">{% if key == 'section4' %}Дни рождения сотрудников{% elif key == 'section5' %}Загрузка данных{% else %}{{ label }}{% endif %}</span>{% endif %}{% endfor %}
             {% if 'section5' in perms[user['id']] %}{% for key,label in upload_permission_options %}{% if key in perms[user['id']] %}<span class="badge">{{ label }}</span>{% endif %}{% endfor %}{% endif %}
+            {% if 'credentials_view' in perms[user['id']] %}<span class="badge">Доступы и контакты</span>{% endif %}
           </td>
           <td>{% if user['active'] %}Активен{% else %}<span style="color:#9a4b48">Отключён</span>{% endif %}{% if user['must_change_password'] %}<br><span class="muted">ожидается смена пароля</span>{% endif %}</td>
-          <td><div class="row"><a class="btn" href="/admin/users/{{ user['id'] }}/edit">Права</a><form method="post" action="/admin/users/{{ user['id'] }}/reset-password"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Временный пароль</button></form></div></td>
+          <td>
+            <div class="row">
+              <a class="btn" href="/admin/users/{{ user['id'] }}/edit">Изменить</a>
+              <form method="post" action="/admin/users/{{ user['id'] }}/reset-password"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Временный пароль</button></form>
+              {% if user['id'] != g.user['id'] %}<a class="btn warn" href="/admin/users/{{ user['id'] }}/delete">Удалить</a>{% endif %}
+            </div>
+          </td>
         </tr>
       {% endfor %}
       </tbody>

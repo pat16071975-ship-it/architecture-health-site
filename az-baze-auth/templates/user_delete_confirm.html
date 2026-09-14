@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% set title = "Удалить пользователя — AZ-BAZE" %}
+{% block content %}
+<div class="card narrow">
+  <h2 class="section-title">Удалить пользователя</h2>
+  <div class="error">Учётная запись пользователя и назначенные ей права будут удалены.</div>
+  <div class="code">{{ user['full_name'] }}{% if user['email'] %}<br>{{ user['email'] }}{% endif %}</div>
+  <div class="spacer"></div>
+  <form method="post">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="row"><button class="btn warn" type="submit">Удалить пользователя</button><a class="btn" href="/admin">Отмена</a></div>
+  </form>
+</div>
+{% endblock %}
