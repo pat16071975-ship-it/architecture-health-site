@@ -24,6 +24,20 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
+      @media(min-width:901px){
+        .period-compare,.date-compare-table{
+          overflow:visible!important;
+        }
+        .period-compare thead th,.date-compare-table thead th{
+          top:var(--az-management-sticky-top,0px)!important;
+          z-index:40!important;
+          background:#f8f4ec!important;
+          box-shadow:0 1px 0 rgba(216,205,187,.95)!important;
+        }
+        .period-compare thead th:first-child,.date-compare-table thead th:first-child{
+          z-index:41!important;
+        }
+      }
       @media(max-width:720px){
         .period-compare,.date-compare-table{
           overflow-x:auto!important;
@@ -128,9 +142,21 @@
     signatures.set(table, signature);
   }
 
+  function syncStickyTop() {
+    const toolbar = document.querySelector('.toolbar');
+    if (!toolbar || window.innerWidth <= 900) {
+      document.documentElement.style.setProperty('--az-management-sticky-top', '0px');
+      return;
+    }
+    const style = getComputedStyle(toolbar);
+    const top = style.position === 'sticky' ? Math.ceil(toolbar.getBoundingClientRect().height) : 0;
+    document.documentElement.style.setProperty('--az-management-sticky-top', `${Math.max(0, top)}px`);
+  }
+
   function applyAll() {
-    if (!mobile()) return;
     ensureStyle();
+    syncStickyTop();
+    if (!mobile()) return;
     document.querySelectorAll(TABLE_SELECTOR).forEach(applyTable);
   }
 
@@ -306,7 +332,7 @@
 
   function formatSourceValue(value, total) {
     if (!value || !total) return '—';
-    return `${countFmt.format(value)} · ${shareFmt.format(value / total)}`;
+    return `${countFmt.format(value)} (${shareFmt.format(value / total)})`;
   }
 
   function ensureSingleDateSection() {
@@ -471,7 +497,7 @@
     totalRow.setAttribute(ROW_ATTR, '1');
     totalRow.className = 'row-marketing-input important';
     totalRow.innerHTML = '<td>Всего первичных по источникам</td>' + totals.map(total =>
-      `<td>${total ? `${countFmt.format(total)} · 100%` : '<span class="empty">—</span>'}</td>`
+      `<td>${total ? `${countFmt.format(total)} (100%)` : '<span class="empty">—</span>'}</td>`
     ).join('');
     tbody.appendChild(totalRow);
 
