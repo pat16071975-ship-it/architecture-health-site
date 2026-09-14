@@ -11,75 +11,29 @@ permissions:
   contents: write
 
 jobs:
-  repair:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: feature/site-v1
           fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python -m pip install --quiet pillow
-      - name: Decode staged approved hero and verify binary
+      - name: Record staged chunk checksums
         run: |
           python - <<'PY'
-          import base64, hashlib
+          import hashlib
           from pathlib import Path
-          from PIL import Image
-
-          expected = [
-              ('part00.b64',4800,'658aeb6c3d482ad845da8475169480c8f127a55e1672e7960cf34bd49b803ebe'),
-              ('part01.b64',4800,'b1e3bbbdff0895bb9f8f83d7e790ee3524ecc909a83e23ecb06d4da5bfdfe20a'),
-              ('part02.b64',4800,'415714d3c6915bfd8e60c077cfec612aa47c3e92a860b2c3d03041ae017cd1c3'),
-              ('part03.b64',4800,'d9323a636341aeb447e7ebecb187e587eba0d41a00212a98578188833a3b1ed3'),
-              ('part04.b64',4800,'769455eabb655297c4f16b162b0c8443f707ac0b809641014acef4f095cad64b'),
-              ('part05.b64',4800,'d7a2c50088757f2666b4dc7bd18d0fb5d61704cf2590164506f20c1d303de0ec'),
-              ('part06.b64',4800,'fccdd37b3df9af51b620809d5dbd4bd7a3ff053aa0c97899b8b0e01035b59e1a'),
-              ('part07.b64',3928,'26e35cb76c473f0f1f448c5d46ff648ef2f8bb976d503522c64a67a8f9cfedb5'),
-          ]
-          chunks=[]
-          for name,size,sha in expected:
-              p=Path('.tmp-ortho-q75')/name
+          lines=[]
+          for p in sorted(Path('.tmp-ortho-q75').glob('part*.b64')):
               data=p.read_bytes()
-              got=hashlib.sha256(data).hexdigest()
-              print(name, len(data), got)
-              if len(data)!=size or got!=sha:
-                  raise SystemExit(f'Chunk mismatch: {name}')
-              chunks.append(data)
-          joined=b''.join(chunks)
-          if len(joined)!=37528 or hashlib.sha256(joined).hexdigest()!='debe65e5d22ba47dfebfead1cd5d7e4b08715ea9637eca120f6a7ef30b32dd4c':
-              raise SystemExit('Joined base64 mismatch')
-          raw=base64.b64decode(joined,validate=True)
-          if len(raw)!=28146 or hashlib.sha256(raw).hexdigest()!='6e248763f558bb53c6fdd63f0117773c2d6cee88ca7eb2ce7b65fe2f9cdc56e2':
-              raise SystemExit('Decoded binary mismatch')
-          out=Path('assets/direction-hero/dentistry-orthopedics-consultation.webp')
-          out.write_bytes(raw)
-          im=Image.open(out); im.load()
-          print('VERIFIED', im.format, im.size, out.stat().st_size)
-          if im.format!='WEBP' or im.size!=(600,750):
-              raise SystemExit(f'Image verification failed: {im.format} {im.size}')
+              lines.append(f'{p.name} {len(data)} {hashlib.sha256(data).hexdigest()}')
+          Path('.tmp-ortho-q75/diagnostics.txt').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+          print('\n'.join(lines))
           PY
-      - name: Update page cache-buster and actual dimensions
-        run: |
-          python - <<'PY'
-          import re
-          from pathlib import Path
-          p=Path('interface-lab/dentistry-orthopedics/index.html')
-          s=p.read_text(encoding='utf-8')
-          s2,n=re.subn(r'(\.\./\.\./assets/direction-hero/dentistry-orthopedics-consultation\.webp)\?v=[^"\']+',r'\1?v=20260914-8',s,count=1)
-          if n!=1:
-              raise SystemExit(f'Hero reference replacement count={n}')
-          s2,n2=re.subn(r'(<img src="\.\./\.\./assets/direction-hero/dentistry-orthopedics-consultation\.webp\?v=20260914-8"[^>]*?)width="\d+" height="\d+"',r'\1width="600" height="750"',s2,count=1)
-          if n2!=1:
-              raise SystemExit(f'Dimension replacement count={n2}')
-          p.write_text(s2,encoding='utf-8')
-          PY
-      - name: Commit verified image and page reference
+      - name: Commit diagnostics
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add assets/direction-hero/dentistry-orthopedics-consultation.webp interface-lab/dentistry-orthopedics/index.html
-          git commit -m 'Publish verified orthopedics hero image'
+          git add .tmp-ortho-q75/diagnostics.txt
+          git commit -m 'Record orthopedics hero staging diagnostics'
           git push origin HEAD:feature/site-v1
