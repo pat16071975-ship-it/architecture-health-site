@@ -1,0 +1,65 @@
+name: AZ publish dentistry hero
+
+on:
+  push:
+    branches:
+      - feature/site-v1
+    paths:
+      - .github/workflows/az-publish-dentistry-hero.yml
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/site-v1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --quiet pillow
+      - name: Verify approved dentistry hero
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          from PIL import Image
+          p=Path('assets/direction-hero/dentistry-patient-approved.webp')
+          raw=p.read_bytes()
+          print('RAW',len(raw),hashlib.sha256(raw).hexdigest())
+          if hashlib.sha256(raw).hexdigest()!='5ce7797629aa155aabec1a8d3231fa7fb6ca08dd31e6725a7afe3496a3b91aaf':
+              raise SystemExit('Dentistry hero binary mismatch')
+          im=Image.open(p); im.load()
+          print('IMAGE',im.format,im.size)
+          if im.format!='WEBP' or im.size!=(1122,1402):
+              raise SystemExit(f'Invalid image: {im.format} {im.size}')
+          PY
+      - name: Put approved image into dentistry viewer
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('interface-lab/dentistry/index.html')
+          s=p.read_text(encoding='utf-8')
+          pattern=r'<div class="photo-shell"><div class="photo fit"><img src="../../assets/functional-dentistry-calm-approved\.webp\?v=20260907-1"[^>]*></div></div>'
+          repl='<div class="photo-shell"><div class="photo dentistry-photo"><img src="../../assets/direction-hero/dentistry-patient-approved.webp?v=20260914-1" alt="Довольный пациент стоматологии в клинике Архитектура здоровья" width="1122" height="1402" decoding="async" loading="eager" fetchpriority="high"></div></div>'
+          s2,n=re.subn(pattern,repl,s,count=1)
+          if n!=1:
+              raise SystemExit(f'Hero replacement count={n}')
+          css='.photo.dentistry-photo img{width:100%;height:100%;object-fit:cover;object-position:center 38%;filter:none;transform:none;padding:0}\n'
+          if css not in s2:
+              s2=s2.replace('</style>',css+'</style>',1)
+          p.write_text(s2,encoding='utf-8')
+          PY
+      - name: Commit dentistry hero and clean workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add interface-lab/dentistry/index.html
+          git rm .github/workflows/az-publish-dentistry-hero.yml
+          git commit -m 'Use approved dentistry patient hero photo'
+          git push origin HEAD:feature/site-v1
