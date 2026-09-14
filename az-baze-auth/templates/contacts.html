@@ -4,26 +4,34 @@
 <style>
 .contacts-head{display:flex;gap:14px;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
 .contacts-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.contacts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
-.contact-card{border:1px solid #ded5c8;border-radius:12px;background:#fff;padding:15px;min-width:0}
-.contact-card h3{margin:0 0 12px;font-size:16px;font-weight:600;overflow-wrap:anywhere}
-.contact-line{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;border-top:1px solid #f0ebe3}
-.contact-line:first-of-type{border-top:0}
-.contact-label{font-size:10px;color:#6c746d;text-transform:uppercase;letter-spacing:.06em}
-.contact-value{font-size:12px;line-height:1.45;overflow-wrap:anywhere;white-space:pre-wrap;min-width:0}
-.mini-btn{min-height:32px;padding:6px 9px;font-size:10px}
-.contact-footer{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}
+.contacts-list{border:1px solid #ded5c8;border-radius:12px;background:#fff;overflow:hidden}
+.contacts-columns,.contact-card{display:grid;grid-template-columns:minmax(140px,1.15fr) minmax(120px,.85fr) minmax(150px,1fr) minmax(170px,1fr) minmax(190px,1.35fr) auto;gap:10px;align-items:center}
+.contacts-columns{padding:7px 10px;background:#faf7f1;border-bottom:1px solid #e8e0d4;color:#6c746d;font-size:9px;text-transform:uppercase;letter-spacing:.06em}
+.contact-card{padding:7px 10px;border-bottom:1px solid #eee7dc;min-width:0}
+.contact-card:last-child{border-bottom:0}
+.contact-cell{min-width:0}
+.mobile-label{display:none}
+.contact-value{font-size:11px;line-height:1.3;min-width:0}
+.name-value{font-weight:600}
+.truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inline-cell{display:flex;gap:5px;align-items:center;min-width:0}
+.inline-cell .contact-value{flex:1 1 auto}
+.actions-cell{display:flex;gap:5px;justify-content:flex-end;align-items:center;white-space:nowrap}
+.mini-btn{min-height:28px;padding:4px 7px;font-size:9px;white-space:nowrap}
 .empty-state{text-align:center;padding:28px 16px}
 .copy-status{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:100;padding:9px 13px;border-radius:9px;background:#334039;color:#fff;font:600 11px Montserrat,Arial,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.16);display:none}
-@media(max-width:650px){
+@media(max-width:760px){
   .contacts-head{display:grid}
   .contacts-actions{justify-content:stretch}
   .contacts-actions .btn{flex:1 1 auto}
-  .contacts-grid{grid-template-columns:1fr}
-  .contact-line{grid-template-columns:90px minmax(0,1fr);align-items:start}
-  .contact-line .mini-btn{grid-column:2;width:100%;margin-top:2px}
-  .contact-footer{display:grid;grid-template-columns:1fr 1fr}
-  .contact-footer .btn{width:100%}
+  .contacts-list{border:0;background:transparent;overflow:visible}
+  .contacts-columns{display:none}
+  .contact-card{display:block;border:1px solid #ded5c8;border-radius:10px;background:#fff;margin-bottom:8px;padding:8px 10px}
+  .contact-cell{display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:center;padding:4px 0;border-top:1px solid #f0ebe3}
+  .contact-cell:first-child{border-top:0}
+  .mobile-label{display:block;font-size:9px;color:#6c746d;text-transform:uppercase;letter-spacing:.05em}
+  .truncate{white-space:normal;overflow:visible;text-overflow:clip}
+  .actions-cell{display:flex;justify-content:flex-start;flex-wrap:wrap;margin-top:7px;padding-top:7px;border-top:1px solid #f0ebe3}
 }
 </style>
 <div class="card">
@@ -40,22 +48,40 @@
   </div>
 
   {% if rows %}
-  <div class="contacts-grid">
+  <div class="contacts-list">
+    <div class="contacts-columns" aria-hidden="true">
+      <div>Организация</div><div>Роль</div><div>ФИО</div><div>Телефон</div><div>Курирует</div><div>Действия</div>
+    </div>
     {% for row in rows %}
     <article class="contact-card">
-      <h3>{{ row['full_name'] or row['organization'] or 'Контакт без названия' }}</h3>
-      {% if row['organization'] %}<div class="contact-line"><div class="contact-label">Организация</div><div class="contact-value">{{ row['organization'] }}</div></div>{% endif %}
-      {% if row['organization_role'] %}<div class="contact-line"><div class="contact-label">Роль</div><div class="contact-value">{{ row['organization_role'] }}</div></div>{% endif %}
-      {% if row['full_name'] %}<div class="contact-line"><div class="contact-label">ФИО</div><div class="contact-value">{{ row['full_name'] }}</div></div>{% endif %}
-      {% if row['phone'] %}
-      <div class="contact-line">
-        <div class="contact-label">Телефон</div>
-        <div class="contact-value phone-value">{{ row['phone'] }}</div>
-        <button class="btn mini-btn copy-phone" type="button">Копировать</button>
+      <div class="contact-cell">
+        <span class="mobile-label">Организация</span>
+        {% if row['organization'] %}<div class="contact-value truncate" title="{{ row['organization'] }}">{{ row['organization'] }}</div>{% endif %}
       </div>
-      {% endif %}
-      {% if row['responsibility'] %}<div class="contact-line"><div class="contact-label">Курирует</div><div class="contact-value">{{ row['responsibility'] }}</div></div>{% endif %}
-      <div class="contact-footer">
+
+      <div class="contact-cell">
+        <span class="mobile-label">Роль</span>
+        {% if row['organization_role'] %}<div class="contact-value truncate" title="{{ row['organization_role'] }}">{{ row['organization_role'] }}</div>{% endif %}
+      </div>
+
+      <div class="contact-cell">
+        <span class="mobile-label">ФИО</span>
+        <div class="contact-value name-value truncate" title="{{ row['full_name'] or '' }}">{{ row['full_name'] or row['organization'] or 'Контакт без названия' }}</div>
+      </div>
+
+      <div class="contact-cell">
+        <span class="mobile-label">Телефон</span>
+        <div class="inline-cell">
+          {% if row['phone'] %}<div class="contact-value phone-value truncate" title="{{ row['phone'] }}">{{ row['phone'] }}</div><button class="btn mini-btn copy-phone" type="button">Копировать</button>{% endif %}
+        </div>
+      </div>
+
+      <div class="contact-cell">
+        <span class="mobile-label">Курирует</span>
+        {% if row['responsibility'] %}<div class="contact-value truncate" title="{{ row['responsibility'] }}">{{ row['responsibility'] }}</div>{% endif %}
+      </div>
+
+      <div class="actions-cell">
         {% if can_edit %}<a class="btn mini-btn" href="/contacts/{{ row['id'] }}/edit">Изменить</a>{% endif %}
         {% if can_delete %}<a class="btn warn mini-btn" href="/contacts/{{ row['id'] }}/delete">Удалить</a>{% endif %}
       </div>
