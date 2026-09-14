@@ -28,24 +28,27 @@ jobs:
           import base64, hashlib
           from pathlib import Path
           from PIL import Image
-          expected = [
-            'ef0e447c010536eb6a34534ff54abc51ad0c217837d0677502c74c61b07c2441',
-            '2879389a6bdee412b35d7a722dbf08aed3cc2fb7cf1d4c309b5a787b29bfd04c',
-            '9e3179fbc42e02f530b183ac9647c3f451fdb27a84cad8bc31a231de054677cb',
-            '909430f787a0c46d0779b293102a9f81f65b67475b202a0e16d5970526d36bea',
-            '724c11b732b0685f236f7209347cf079e091954291142356e18d78e7a9030ed5',
-            '737ef0885474e0a2761c13d07e9a992dd1b513a6fd671ef82e16feec70c93906',
-            '665ccf019fae86a6014a5db4caa3081d2fc7fc5aa5d625b50d04d355e511d536',
-            'f684c37aec5eefc0bd508d0e034569590aed290d267718c1544c7be13dd7f13c',
+          specs=[
+            ('part00.b64','ef0e447c010536eb6a34534ff54abc51ad0c217837d0677502c74c61b07c2441'),
+            ('part01.b64','2879389a6bdee412b35d7a722dbf08aed3cc2fb7cf1d4c309b5a787b29bfd04c'),
+            ('part02_0.b64','51ed2f965105951374fa73c57c448ccc4d8420db0e4afb440bb72987a5a6a79f'),
+            ('part02_1.b64','d36873139f7ec9b735796e352c398237f284507eb361e5c45554c8e114110a7f'),
+            ('part02_2.b64','7571798ec69079d3a2791f6a88505632824f80f1f534c519f10a7f24e788c557'),
+            ('part02_3.b64','f983e7e2dec29900377ce2b7932173187678c0530f42e912bf0d5f2902658d8c'),
+            ('part03.b64','909430f787a0c46d0779b293102a9f81f65b67475b202a0e16d5970526d36bea'),
+            ('part04.b64','724c11b732b0685f236f7209347cf079e091954291142356e18d78e7a9030ed5'),
+            ('part05.b64','737ef0885474e0a2761c13d07e9a992dd1b513a6fd671ef82e16feec70c93906'),
+            ('part06.b64','665ccf019fae86a6014a5db4caa3081d2fc7fc5aa5d625b50d04d355e511d536'),
+            ('part07.b64','f684c37aec5eefc0bd508d0e034569590aed290d267718c1544c7be13dd7f13c'),
           ]
           parts=[]
-          for i, exp in enumerate(expected):
-              p=Path(f'.tmp-dentistry-upload/part{i:02d}.b64')
+          for name, exp in specs:
+              p=Path('.tmp-dentistry-upload')/name
               s=p.read_text(encoding='utf-8').strip()
               got=hashlib.sha256(s.encode()).hexdigest()
-              print(p.name, len(s), got)
+              print(name, len(s), got)
               if got != exp:
-                  raise SystemExit(f'Chunk mismatch {p.name}: {got}')
+                  raise SystemExit(f'Chunk mismatch {name}: {got}')
               parts.append(s)
           joined=''.join(parts).encode('ascii')
           print('BASE64',len(joined),hashlib.sha256(joined).hexdigest())
