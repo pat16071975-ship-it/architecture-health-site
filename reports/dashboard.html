@@ -77,7 +77,7 @@ const money=v=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(M
 const count=v=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(num(v));
 const pct=v=>v===null||v===undefined||v===''||!Number.isFinite(+v)?'—':new Intl.NumberFormat('ru-RU',{style:'percent',maximumFractionDigits:1}).format(+v);
 const fmtDate=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}.${m[2]}.${m[1]}`:'—'};
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const monthLabel=ym=>{const [y,m]=ym.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'long',year:'numeric'})};
 const shortMonth=ym=>{const [y,m]=ym.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'short'}).replace('.','')};
 let STORE={}, FIN=null, MONTHS=[];
