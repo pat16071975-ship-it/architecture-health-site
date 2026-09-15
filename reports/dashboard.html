@@ -6,11 +6,166 @@
 <title>Дашборд — AZ-BAZE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--paper:#f7f3ec;--ink:#2d342f;--green:#44634f;--gold:#b59662}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fcfaf6,var(--paper));color:var(--ink);font-family:'Montserrat',Arial,sans-serif}body{min-height:100vh;display:grid;place-items:center;padding:20px}.card{width:min(640px,94vw);padding:34px;border:1px solid rgba(181,150,98,.42);border-radius:16px;background:#fffdf8;box-shadow:0 18px 50px rgba(69,55,35,.08);text-align:center}h1{margin:0;font-size:36px;font-weight:500}.sub{margin:12px 0 24px;color:#667067;font-size:13px;line-height:1.5}.actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}.btn{padding:10px 14px;border:1px solid rgba(68,99,79,.34);border-radius:10px;background:#fff;color:#334039;text-decoration:none;font-size:12px;font-weight:600}.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}
+:root{--paper:#f7f3ec;--paper2:#efe8db;--soft:#fffdf8;--ink:#2d342f;--muted:#6d746c;--green:#44634f;--green2:#dfe9e2;--gold:#b59662;--gold2:#efe5d2;--blue:#dfe9f2;--violet:#eee5f1;--orange:#f1dfc9;--line:#d8cdbb;--red:#9a4b48}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fcfaf6 0,var(--paper) 68%,var(--paper2) 100%);color:var(--ink);font-family:Montserrat,Arial,sans-serif}body{min-height:100vh}.page{width:min(1420px,97vw);margin:0 auto;padding:20px 0 44px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.title{margin:0;font:700 42px/1 'Cormorant Garamond',serif}.sub{margin-top:7px;color:var(--muted);font-size:11px;line-height:1.5}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:1px solid rgba(68,99,79,.3);border-radius:9px;background:#fff;color:#334039;text-decoration:none;font-size:11px;font-weight:700}.btn.primary{background:var(--green);border-color:var(--green);color:#fff}.bar{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:14px 0 12px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,253,248,.92)}.field{display:grid;gap:5px}.field label{font-size:9px;font-weight:700;color:#667067}.field select{min-width:170px;padding:8px 10px;border:1px solid #cfc5b5;border-radius:8px;background:#fff;font:600 11px Montserrat}.fresh{margin-left:auto;text-align:right;color:#5e695f;font-size:10px;line-height:1.4}.fresh strong{display:block;color:#334039;font-size:11px}.loading,.error{margin:14px 0;padding:12px 14px;border-radius:10px;background:#fffaf0;color:#675f53;font-size:11px}.error{background:#fff2f1;color:#87433f}.hidden{display:none!important}
+.metrics{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px}.metric{padding:13px 14px;border:1px solid var(--line);border-radius:13px;background:var(--soft);box-shadow:0 8px 24px rgba(70,58,38,.05)}.metric span{display:block;color:#747b73;font-size:9px;font-weight:700;line-height:1.3}.metric strong{display:block;margin-top:6px;font:700 24px/1 'Cormorant Garamond',serif}.metric small{display:block;margin-top:5px;color:#7a8078;font-size:8.5px;line-height:1.35}.positive{color:#2f7048}.negative{color:var(--red)}
+.section{margin-top:12px;border:1px solid var(--line);border-radius:14px;background:rgba(255,253,248,.92);overflow:hidden;box-shadow:0 8px 28px rgba(67,55,37,.04)}.section-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #e5ddcf}.section-head h2{margin:0;font:700 23px/1 'Cormorant Garamond',serif}.section-head .hint{font-size:9px;color:#7b817b;text-align:right}.section.general .section-head{background:var(--gold2)}.section.directions .section-head{background:var(--green2)}.section.marketing .section-head{background:var(--violet)}.section.finance .section-head{background:var(--blue)}
+.directions-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}.direction{border:1px solid #ded5c7;border-radius:12px;background:#fff;overflow:hidden}.direction h3{margin:0;padding:10px 12px;font:700 19px/1 'Cormorant Garamond',serif}.direction.dent h3{background:var(--blue)}.direction.structure h3{background:var(--green2)}.direction.lab h3{background:var(--orange)}.drows{padding:7px 12px 10px}.drow{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid #eee7dc;font-size:9px}.drow:last-child{border-bottom:0}.drow span{color:#6e756e}.drow strong{text-align:right}
+.chart-wrap{padding:14px;overflow-x:auto}.chart{display:grid;grid-template-columns:repeat(var(--months),minmax(88px,1fr));gap:10px;align-items:end;min-width:720px;height:250px;padding:12px 8px 2px;border-left:1px solid #e5ddcf;border-bottom:1px solid #e5ddcf;background:linear-gradient(to top,rgba(239,232,219,.55) 1px,transparent 1px);background-size:100% 25%}.month{height:100%;display:grid;grid-template-rows:1fr auto;gap:6px;align-items:end}.bars{height:100%;display:flex;justify-content:center;align-items:end;gap:6px}.barcol{width:26px;min-height:2px;border-radius:6px 6px 2px 2px;position:relative}.barcol.plan{background:#d7c29f}.barcol.fact{background:#688372}.barcol:hover::after{content:attr(data-title);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);z-index:20;white-space:nowrap;background:#303833;color:#fff;padding:5px 7px;border-radius:6px;font-size:8px}.month-label{text-align:center;font-size:8.5px;font-weight:700;color:#697069}.legend{display:flex;gap:14px;align-items:center;padding:0 14px 12px;color:#6e756e;font-size:8.5px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}.legend .lp{background:#d7c29f}.legend .lf{background:#688372}
+.marketing-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;padding:12px}.marketing-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.small-card{border:1px solid #e3daca;border-radius:10px;background:#fff;padding:10px}.small-card span{display:block;font-size:8.5px;color:#727970;font-weight:700}.small-card strong{display:block;margin-top:5px;font:700 20px/1 'Cormorant Garamond',serif}.source-list{border:1px solid #e3daca;border-radius:10px;background:#fff;padding:8px 10px}.source-list h3{margin:0 0 5px;font-size:10px}.source-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #eee7dc;font-size:8.5px}.source-row:last-child{border-bottom:0}.source-row span{color:#626b63;overflow:hidden;text-overflow:ellipsis}.source-row strong{white-space:nowrap}
+.finance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}.finance-note{padding:0 12px 12px;color:#6f766f;font-size:9px;line-height:1.45}.links{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.link-card{flex:1 1 220px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:#fffdf8;color:#354039;text-decoration:none;font-size:10px;font-weight:700}.link-card span{display:block;margin-top:4px;color:#737a73;font-size:8.5px;font-weight:500}
+@media(max-width:1100px){.metrics{grid-template-columns:repeat(3,1fr)}.marketing-grid{grid-template-columns:1fr}.finance-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.page{width:100%;padding:12px 8px 28px}.top{flex-direction:column}.title{font-size:34px}.bar{border-radius:10px}.fresh{width:100%;margin-left:0;text-align:left}.metrics{grid-template-columns:repeat(2,1fr)}.metric strong{font-size:21px}.directions-grid{grid-template-columns:1fr}.finance-grid{grid-template-columns:1fr}.marketing-metrics{grid-template-columns:repeat(2,1fr)}.section-head{align-items:flex-start}.section-head .hint{max-width:50%}.actions .btn{font-size:9px;padding:7px 9px}}
+@media(max-width:440px){.metrics,.marketing-metrics{grid-template-columns:1fr 1fr}.metric{padding:10px}.metric strong{font-size:18px}.small-card strong{font-size:18px}.field,.field select{width:100%}}
 </style>
 </head>
-<body><main class="card"><h1>Дашборд</h1><div class="sub">Раздел подготовлен в меню. Состав показателей и внешний вид дашборда настроим отдельно.</div><div class="actions"><a class="btn primary" href="/reports/">К отчётам</a><a class="btn" href="/">На главную</a></div></main></body>
+<body>
+<main class="page">
+  <header class="top">
+    <div><h1 class="title">Дашборд</h1><div class="sub">Короткая управленческая картина по фактическим данным AZ-BAZE. Детализация остаётся в профильных отчётах.</div></div>
+    <div class="actions"><a class="btn primary" href="/reports/">К отчётам</a><a class="btn" href="/">На главную</a></div>
+  </header>
+
+  <div class="bar">
+    <div class="field"><label>Период</label><select id="period"></select></div>
+    <div class="fresh"><span>Актуальность</span><strong id="freshness">Загрузка…</strong></div>
+  </div>
+
+  <div id="loading" class="loading">Загружаем данные дашборда…</div>
+  <div id="error" class="error hidden"></div>
+  <div id="app" class="hidden">
+    <div id="metrics" class="metrics"></div>
+
+    <section class="section directions">
+      <div class="section-head"><h2>Направления</h2><div class="hint" id="directionHint"></div></div>
+      <div id="directions" class="directions-grid"></div>
+    </section>
+
+    <section class="section general">
+      <div class="section-head"><h2>План и факт по месяцам</h2><div class="hint">План показан пропорционально последней загруженной дате каждого месяца</div></div>
+      <div class="chart-wrap"><div id="chart" class="chart"></div></div>
+      <div class="legend"><span><i class="lp"></i>Должно быть к дате</span><span><i class="lf"></i>Факт</span></div>
+    </section>
+
+    <section class="section marketing">
+      <div class="section-head"><h2>Маркетинг</h2><div class="hint">Конверсии считаются по утверждённым формулам управленческого отчёта</div></div>
+      <div class="marketing-grid">
+        <div id="marketingMetrics" class="marketing-metrics"></div>
+        <div class="source-list"><h3>Источники первичных пациентов</h3><div id="sources"></div></div>
+      </div>
+    </section>
+
+    <section class="section finance">
+      <div class="section-head"><h2>Финансовая картина</h2><div class="hint" id="financeHint"></div></div>
+      <div id="finance" class="finance-grid"></div>
+      <div id="financeNote" class="finance-note"></div>
+    </section>
+
+    <div class="links">
+      <a class="link-card" href="/reports/management/">Управленческий учёт<span>Показатели, сравнения и детализация</span></a>
+      <a class="link-card" href="/reports/finrez/">Финрез<span>Расходы, прибыль и месячная структура</span></a>
+      <a class="link-card" href="/reports/services.html">Аналитика услуг<span>Услуги, врачи и экономика направлений</span></a>
+    </div>
+  </div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const num=v=>Number.isFinite(+v)?+v:0;
+const money=v=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(num(v)))+' ₽';
+const count=v=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(num(v));
+const pct=v=>v===null||v===undefined||v===''||!Number.isFinite(+v)?'—':new Intl.NumberFormat('ru-RU',{style:'percent',maximumFractionDigits:1}).format(+v);
+const fmtDate=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}.${m[2]}.${m[1]}`:'—'};
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const monthLabel=ym=>{const [y,m]=ym.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'long',year:'numeric'})};
+const shortMonth=ym=>{const [y,m]=ym.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'short'}).replace('.','')};
+let STORE={}, FIN=null, MONTHS=[];
+
+function daysInMonth(date){const d=new Date(date+'T12:00:00');return new Date(d.getFullYear(),d.getMonth()+1,0).getDate()}
+function sumObject(obj){return Object.values(obj||{}).reduce((a,v)=>a+num(v),0)}
+function primaryOf(r){const direct=num(r?.primary);return direct||num(r?.dentPrimary)+num(r?.clinicPrimary)}
+function repeatOf(r){const direct=num(r?.repeat);return direct||num(r?.dentRepeat)+num(r?.clinicRepeat)}
+function derive(r){
+  const date=r?.date||''; const d=new Date(date+'T12:00:00'); const day=d.getDate()||1;
+  const plan=num(r?.plan), factMedicine=num(r?.factMedicine), factLab=num(r?.factLab);
+  const primary=primaryOf(r), repeat=repeatOf(r), dentPrimary=num(r?.dentPrimary), dentRepeat=num(r?.dentRepeat), clinicPrimary=num(r?.clinicPrimary), clinicRepeat=num(r?.clinicRepeat);
+  const dentRev=sumObject(r?.dentists), structureRev=sumObject(r?.clinicDocs), labRevenue=num(r?.labRevenue||r?.factLab), labOrders=num(r?.labOrders);
+  const due=plan?plan*day/daysInMonth(date):0, factTotal=factMedicine+factLab;
+  const leadsDent=num(r?.leadsDent), leadsStructure=num(r?.leadsClinic), leadsReserve=num(r?.leadsReserve), totalLeads=leadsDent+leadsStructure+leadsReserve;
+  return {date,plan,due,factMedicine,factLab,factTotal,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:leadsDent?dentPrimary/leadsDent:null,convStructure:leadsStructure?clinicPrimary/leadsStructure:null,totalConv:totalLeads?primary/totalLeads:null,execution:due?factTotal/due:null};
+}
+function latestByMonth(data){
+  const map={}; Object.entries(data||{}).forEach(([date,r])=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;const ym=date.slice(0,7);if(!map[ym]||date>map[ym].date)map[ym]={...r,date}}); return map;
+}
+function metric(label,value,small='',cls=''){return `<div class="metric"><span>${label}</span><strong class="${cls}">${value}</strong>${small?`<small>${small}</small>`:''}</div>`}
+function smallMetric(label,value,cls=''){return `<div class="small-card"><span>${label}</span><strong class="${cls}">${value}</strong></div>`}
+function row(label,value){return `<div class="drow"><span>${label}</span><strong>${value}</strong></div>`}
+function selected(){const ym=$('#period').value;return {ym,record:MONTHS.find(x=>x.ym===ym)?.record||null}}
+function sourceEntries(r){return Object.entries(r?.marketingSources||{}).map(([k,v])=>[k,num(v)]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ru'))}
+
+function renderMetrics(r){
+  const d=derive(r); const cls=d.execution===null?'':d.execution>=1?'positive':'negative';
+  $('#metrics').innerHTML=[
+    metric('Выручка',money(d.factTotal),'Медицина + лаборатория'),
+    metric('Должно быть к дате',money(d.due),`План месяца: ${money(d.plan)}`),
+    metric('Выполнение плана',pct(d.execution),'Факт / должно быть',cls),
+    metric('Первичные',count(d.primary),'Стоматология + отделение структуры'),
+    metric('Повторные',count(d.repeat),'За выбранный период'),
+    metric('Средний чек',money(d.avgCheck),'Выручка медицины / первичные')
+  ].join('');
+}
+function renderDirections(r){
+  const d=derive(r); $('#directionHint').textContent=`Срез на ${fmtDate(d.date)}`;
+  $('#directions').innerHTML=`
+    <div class="direction dent"><h3>Стоматология</h3><div class="drows">${row('Выручка',money(d.dentRev))}${row('Первичные',count(d.dentPrimary))}${row('Повторные',count(d.dentRepeat))}${row('Средний чек',money(d.dentAvg))}</div></div>
+    <div class="direction structure"><h3>Отделение структуры</h3><div class="drows">${row('Выручка',money(d.structureRev))}${row('Первичные',count(d.clinicPrimary))}${row('Повторные',count(d.clinicRepeat))}${row('Средний чек',money(d.structureAvg))}</div></div>
+    <div class="direction lab"><h3>Лаборатория</h3><div class="drows">${row('Выручка',money(d.labRevenue))}${row('Заказы',count(d.labOrders))}${row('Средний чек',d.labOrders?money(d.labAvg):'—')}${row('Доля в общей выручке',d.factTotal?pct(d.labRevenue/d.factTotal):'—')}</div></div>`;
+}
+function renderChart(){
+  const year=selected().ym.slice(0,4); const data=MONTHS.filter(x=>x.ym.slice(0,4)===year).map(x=>({ym:x.ym,...derive(x.record)})); const max=Math.max(1,...data.flatMap(x=>[x.due,x.factTotal]));
+  $('#chart').style.setProperty('--months',data.length||1);
+  $('#chart').innerHTML=data.map(x=>{const hp=x.due>0?Math.max(2,Math.round(x.due/max*100)):0,hf=x.factTotal>0?Math.max(2,Math.round(x.factTotal/max*100)):0;return `<div class="month"><div class="bars"><div class="barcol plan" style="height:${hp}%" data-title="Должно быть: ${money(x.due)}"></div><div class="barcol fact" style="height:${hf}%" data-title="Факт: ${money(x.factTotal)}"></div></div><div class="month-label">${shortMonth(x.ym)}</div></div>`}).join('');
+}
+function renderMarketing(r){
+  const d=derive(r); $('#marketingMetrics').innerHTML=[
+    smallMetric('Целевые лиды — стоматология',count(d.leadsDent)),
+    smallMetric('Конверсия — стоматология',pct(d.convDent)),
+    smallMetric('Целевые лиды — отделение структуры',count(d.leadsStructure)),
+    smallMetric('Конверсия — отделение структуры',pct(d.convStructure)),
+    smallMetric('Всего целевых лидов',count(d.totalLeads)),
+    smallMetric('Общая конверсия',pct(d.totalConv))
+  ].join('');
+  const entries=sourceEntries(r), total=entries.reduce((a,x)=>a+x[1],0); const top=entries.slice(0,6);
+  $('#sources').innerHTML=top.length?top.map(([name,value])=>`<div class="source-row"><span title="${esc(name)}">${esc(name)}</span><strong>${count(value)}${total?` (${pct(value/total)})`:''}</strong></div>`).join(''):'<div class="source-row"><span>Нет данных</span><strong>—</strong></div>';
+}
+function expenseItems(main){const subs=Object.values(main?.subs||{});return subs.flatMap(s=>Array.isArray(s?.items)?s.items:[])}
+function operatingExpenseTo(date){
+  const ym=date.slice(0,7), month=FIN?.expenses?.months?.[ym]?.operating||{}; let total=0;
+  Object.values(month).forEach(main=>{const items=expenseItems(main);if(items.length)total+=items.filter(i=>String(i?.date||'')<=date).reduce((a,i)=>a+num(i?.amount),0);else total+=num(main?.total)}); return total;
+}
+function renderFinance(r){
+  const d=derive(r), exp=FIN?.expenses||{}, available=!!exp.available, expenseTo=exp?.period?.to||'';
+  if(!available){$('#financeHint').textContent='Расходы ещё не загружены';$('#finance').innerHTML=[metric('Выручка',money(d.factTotal)),metric('Операционные расходы','—'),metric('Операционная прибыль','—')].join('');$('#financeNote').textContent='Для расчёта прибыли нужны данные расходов Финреза.';return}
+  const covered=expenseTo>=d.date; const effective=covered?d.date:expenseTo; const op=effective?operatingExpenseTo(effective):0;
+  $('#financeHint').textContent=expenseTo?`Реестр расходов доступен по ${fmtDate(expenseTo)}`:'Период расходов не определён';
+  const profit=d.factTotal-op, pcls=profit>=0?'positive':'negative';
+  $('#finance').innerHTML=[metric('Выручка',money(d.factTotal),`по ${fmtDate(d.date)}`),metric('Операционные расходы',effective?money(op):'—',effective?`учтены по ${fmtDate(effective)}`:''),metric('Операционная прибыль',covered?money(profit):'—',covered?'Выручка − операционные расходы':'Не считаем при неполном покрытии расходов',covered?pcls:'')].join('');
+  $('#financeNote').textContent=covered?'Доходы и операционные расходы приведены к одной дате. Кредитные и иные долговые обязательства в операционную прибыль не входят.':`Расходы доступны только по ${fmtDate(expenseTo)}, а управленческие данные — по ${fmtDate(d.date)}. Чтобы не смешивать разные периоды, операционная прибыль не рассчитывается.`;
+}
+function render(){const {record}=selected();if(!record)return;renderMetrics(record);renderDirections(record);renderChart();renderMarketing(record);renderFinance(record)}
+async function init(){
+  try{
+    const [dr,fr]=await Promise.all([fetch('/api/reports/data',{credentials:'same-origin',cache:'no-store'}),fetch('/api/reports/finrez',{credentials:'same-origin',cache:'no-store'})]);
+    if(!dr.ok||!fr.ok)throw new Error('Не удалось получить серверные данные.');
+    const data=(await dr.json()).data||{}; FIN=await fr.json(); STORE=data; const map=latestByMonth(data);
+    MONTHS=Object.keys(map).sort().map(ym=>({ym,record:map[ym]})); if(!MONTHS.length)throw new Error('В управленческом отчёте пока нет данных.');
+    const latest=MONTHS[MONTHS.length-1].record.date; $('#freshness').textContent=`Данные по ${fmtDate(latest)} включительно`;
+    $('#period').innerHTML=MONTHS.slice().reverse().map(x=>`<option value="${x.ym}">${monthLabel(x.ym)} · по ${fmtDate(x.record.date)}</option>`).join(''); $('#period').value=MONTHS[MONTHS.length-1].ym; $('#period').onchange=render;
+    $('#loading').classList.add('hidden');$('#app').classList.remove('hidden');render();
+  }catch(error){console.error(error);$('#loading').classList.add('hidden');$('#error').textContent=error.message||'Ошибка загрузки дашборда.';$('#error').classList.remove('hidden')}
+}
+init();
+</script>
+</body>
 </html>
