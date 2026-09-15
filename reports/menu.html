@@ -39,7 +39,7 @@ body{min-height:100vh}
     <a class="btn active" href="/reports/dashboard.html"><span class="btn-label">Дашборд</span><span class="freshness warn">Следующий этап — в разработке</span></a>
     <a class="btn active" href="/reports/management/"><span class="btn-label">Управленческий учёт</span><span class="freshness" id="fresh-management">Проверяем актуальность…</span></a>
     <a class="btn active" href="/reports/finrez/"><span class="btn-label">Финрез</span><span class="freshness" id="fresh-finrez">Проверяем актуальность…</span></a>
-    <a class="btn active" href="/reports/forecast/"><span class="btn-label">Прогноз роста</span><span class="freshness" id="fresh-forecast">Проверяем актуальность…</span></a>
+    <a class="btn active" href="/reports/forecast/"><span class="btn-label">Прогноз роста</span></a>
     <a class="btn active" href="/reports/services.html"><span class="btn-label">Аналитика услуг</span><span class="freshness" id="fresh-services">Проверяем актуальность…</span></a>
     <a class="btn active" href="/reports/transitions.html"><span class="btn-label">Перенаправление</span><span class="freshness" id="fresh-transitions">Проверяем актуальность…</span></a>
     <div class="btn placeholder" aria-disabled="true"><span class="btn-label">Раздел в разработке</span></div>
@@ -86,17 +86,9 @@ async function loadFreshness(){
     const transitionData=parseStored(storage,'az-patient-transitions-v1');
     const transitionEnd=transitionData?.dataEnd||'';
     setFresh('fresh-transitions',transitionEnd?`Данные по ${fmtDate(transitionEnd)} включительно`:'Данные ещё не загружены',transitionEnd?'':'warn');
-
-    if(latestManagement&&serviceMonth){
-      setFresh('fresh-forecast',`База по ${fmtDate(latestManagement)} · аналитика услуг: ${serviceMonth}`);
-    }else if(latestManagement){
-      setFresh('fresh-forecast',`База по ${fmtDate(latestManagement)}`);
-    }else{
-      setFresh('fresh-forecast','Базовые данные ещё не загружены','warn');
-    }
   }catch(error){
     console.error(error);
-    ['fresh-management','fresh-finrez','fresh-forecast','fresh-services','fresh-transitions'].forEach(id=>setFresh(id,'Не удалось определить актуальность','error'));
+    ['fresh-management','fresh-finrez','fresh-services','fresh-transitions'].forEach(id=>setFresh(id,'Не удалось определить актуальность','error'));
   }
 }
 loadFreshness();
