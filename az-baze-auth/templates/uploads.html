@@ -17,7 +17,7 @@
     {% if latest %}Ежедневные данные загружены по <strong>{{ latest['data_date'] }}</strong>{% if latest['revision']|int > 1 %} · версия {{ latest['revision'] }}{% endif %}.{% else %}Отдельных ежедневных загрузок через этот раздел пока нет. Дата выше определяется по уже загруженной сводной базе.{% endif %}
   </div>
 
-  <form method="post" enctype="multipart/form-data">
+  <form method="post" enctype="multipart/form-data" data-az-upload-form>
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="upload-grid">
       <div class="upload-box">
@@ -45,6 +45,16 @@
     {% if error %}<div class="result error">{{ error }}</div>{% endif %}
   </form>
 </div>
+
+{% if result %}
+<div data-az-upload-feedback data-status="{{ result['status'] }}" hidden>
+  <span data-feedback-message>{{ result['message'] }}</span>
+</div>
+{% elif error %}
+<div data-az-upload-feedback data-status="error" hidden>
+  <span data-feedback-message>{{ error }}</span>
+</div>
+{% endif %}
 
 {% if 'upload_history' in perms %}
 <div class="spacer"></div>
