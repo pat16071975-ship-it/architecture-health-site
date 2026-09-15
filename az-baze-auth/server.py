@@ -12,6 +12,7 @@ import finrez
 import ident_import
 import report_storage
 import terminology
+import upload_integrity
 
 # «Раздел 3» был старым местом для рабочих контактов и больше не используется.
 # Убираем его из действующей модели прав, не затрагивая новый раздел «Доступы и контакты».
@@ -44,6 +45,11 @@ def _user_permissions_with_upload_section(user):
 
 app_core.user_permissions = _user_permissions_with_upload_section
 daily_upload.user_permissions = _user_permissions_with_upload_section
+
+# One upload-integrity contract is installed before any upload routes are
+# registered. Future upload handlers must reuse the same contract rather than
+# rebuilding report payloads independently.
+upload_integrity.install(daily_upload.core)
 
 report_storage.register_report_storage(app)
 terminology.install(app, report_storage)
