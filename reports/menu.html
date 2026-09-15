@@ -17,12 +17,14 @@ body{min-height:100vh}
 .logo{width:104px;height:104px;object-fit:contain}
 .heading{text-align:center}.eyebrow{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#607067}.title{margin:7px 0 0;font-size:44px;font-weight:500;line-height:1.05;letter-spacing:-.025em}.rule{width:180px;height:1px;margin:12px auto 0;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
 .home-link{justify-self:end;padding:9px 12px;border:1px solid rgba(181,150,98,.42);border-radius:9px;background:#faf7f1;color:#354039;text-decoration:none;font-size:12px;font-weight:600}
-.menu{width:min(380px,100%);display:grid;gap:14px;margin-top:46px}
-.btn{min-height:58px;padding:14px 22px;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid rgba(181,150,98,.42);border-radius:10px;background:rgba(250,247,241,.96);box-shadow:0 9px 24px rgba(71,58,38,.08);color:#354039;font-size:15px;font-weight:600;text-decoration:none;transition:.18s}
+.menu{width:min(420px,100%);display:grid;gap:14px;margin-top:46px}
+.btn{min-height:66px;padding:12px 22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:1px solid rgba(181,150,98,.42);border-radius:10px;background:rgba(250,247,241,.96);box-shadow:0 9px 24px rgba(71,58,38,.08);color:#354039;text-decoration:none;transition:.18s}
+.btn-label{font-size:15px;font-weight:600;line-height:1.25}.freshness{margin-top:5px;color:#72786f;font-size:10px;font-weight:500;line-height:1.35}.freshness.warn{color:#8a6b3f}.freshness.error{color:#9a4b48}
 .btn.active:hover,.btn.active:focus-visible{outline:0;border-color:rgba(68,99,79,.55);background:#fbf8f2;box-shadow:0 12px 30px rgba(71,58,38,.12);transform:translateY(-1px);color:var(--green)}
+.btn.active:hover .freshness,.btn.active:focus-visible .freshness{color:#607067}
 .btn.placeholder{opacity:.55;cursor:default}
 .note{margin-top:24px;text-align:center;color:#72786f;font-size:11px;line-height:1.45}
-@media(max-width:650px){.page{padding:18px 14px 30px}.top{grid-template-columns:64px 1fr 64px;gap:8px}.logo{width:60px;height:60px}.home-link{padding:7px 8px;font-size:10px}.eyebrow{font-size:8px}.title{font-size:30px}.rule{width:110px;margin-top:8px}.menu{margin-top:30px;gap:10px}.btn{min-height:52px;font-size:13px}}
+@media(max-width:650px){.page{padding:18px 14px 30px}.top{grid-template-columns:64px 1fr 64px;gap:8px}.logo{width:60px;height:60px}.home-link{padding:7px 8px;font-size:10px}.eyebrow{font-size:8px}.title{font-size:30px}.rule{width:110px;margin-top:8px}.menu{margin-top:30px;gap:10px}.btn{min-height:60px;padding:10px 14px}.btn-label{font-size:13px}.freshness{font-size:9px}}
 </style>
 </head>
 <body>
@@ -34,16 +36,70 @@ body{min-height:100vh}
   </header>
 
   <nav class="menu" aria-label="Разделы отчётов">
-    <a class="btn active" href="/reports/dashboard.html">Дашборд</a>
-    <a class="btn active" href="/reports/management/">Управленческий учёт</a>
-    <a class="btn active" href="/reports/finrez/">Финрез</a>
-    <a class="btn active" href="/reports/forecast/">Прогноз роста</a>
-    <a class="btn active" href="/reports/services.html">Аналитика услуг</a>
-    <a class="btn active" href="/reports/transitions.html">Перенаправление</a>
-    <div class="btn placeholder" aria-disabled="true">Раздел в разработке</div>
+    <a class="btn active" href="/reports/dashboard.html"><span class="btn-label">Дашборд</span><span class="freshness warn">Следующий этап — в разработке</span></a>
+    <a class="btn active" href="/reports/management/"><span class="btn-label">Управленческий учёт</span><span class="freshness" id="fresh-management">Проверяем актуальность…</span></a>
+    <a class="btn active" href="/reports/finrez/"><span class="btn-label">Финрез</span><span class="freshness" id="fresh-finrez">Проверяем актуальность…</span></a>
+    <a class="btn active" href="/reports/forecast/"><span class="btn-label">Прогноз роста</span><span class="freshness" id="fresh-forecast">Проверяем актуальность…</span></a>
+    <a class="btn active" href="/reports/services.html"><span class="btn-label">Аналитика услуг</span><span class="freshness" id="fresh-services">Проверяем актуальность…</span></a>
+    <a class="btn active" href="/reports/transitions.html"><span class="btn-label">Перенаправление</span><span class="freshness" id="fresh-transitions">Проверяем актуальность…</span></a>
+    <div class="btn placeholder" aria-disabled="true"><span class="btn-label">Раздел в разработке</span></div>
   </nav>
 
-  <div class="note">Новые отчёты будем добавлять сюда, не меняя главную страницу AZ-BAZE.</div>
+  <div class="note">Статусы актуальности формируются автоматически по данным, которые сейчас хранятся на сервере AZ-BAZE.</div>
 </main>
+<script>
+const byId=id=>document.getElementById(id);
+const fmtDate=value=>{const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}.${m[2]}.${m[1]}`:''};
+const setFresh=(id,text,cls='')=>{const el=byId(id);if(!el)return;el.textContent=text;el.className='freshness'+(cls?' '+cls:'')};
+const parseStored=(storage,key)=>{try{return JSON.parse(storage?.[key]||'null')}catch{return null}};
+const lastMonthLabel=payload=>{const months=Array.isArray(payload?.months)?payload.months:[];const usable=months.filter(x=>x&&x!=='all'&&x?.id!=='all');if(!usable.length)return'';const last=usable[usable.length-1];return typeof last==='string'?last:(last.label||last.id||'')};
+
+async function loadFreshness(){
+  try{
+    const [dataResponse,finrezResponse,storageResponse]=await Promise.all([
+      fetch('/api/reports/data',{credentials:'same-origin',cache:'no-store'}),
+      fetch('/api/reports/finrez',{credentials:'same-origin',cache:'no-store'}),
+      fetch('/api/reports/storage',{credentials:'same-origin',cache:'no-store'})
+    ]);
+    if(!dataResponse.ok||!finrezResponse.ok||!storageResponse.ok)throw new Error('status api');
+    const management=await dataResponse.json();
+    const finrez=await finrezResponse.json();
+    const storage=(await storageResponse.json()).storage||{};
+
+    const managementDates=Object.keys(management.data||{}).sort();
+    const latestManagement=managementDates[managementDates.length-1]||'';
+    setFresh('fresh-management',latestManagement?`Данные по ${fmtDate(latestManagement)} включительно`:'Данные ещё не загружены',latestManagement?'':'warn');
+
+    const expenseTo=finrez?.expenses?.period?.to||'';
+    if(latestManagement&&expenseTo){
+      setFresh('fresh-finrez',`Выручка по ${fmtDate(latestManagement)} · расходы по ${fmtDate(expenseTo)}`);
+    }else if(latestManagement){
+      setFresh('fresh-finrez',`Выручка по ${fmtDate(latestManagement)} · расходы не загружены`,'warn');
+    }else{
+      setFresh('fresh-finrez','Данные ещё не загружены','warn');
+    }
+
+    const serviceData=parseStored(storage,'az-service-analytics-v1');
+    const serviceMonth=lastMonthLabel(serviceData);
+    setFresh('fresh-services',serviceMonth?`Последний доступный месяц: ${serviceMonth}`:'Данные ещё не загружены',serviceMonth?'':'warn');
+
+    const transitionData=parseStored(storage,'az-patient-transitions-v1');
+    const transitionEnd=transitionData?.dataEnd||'';
+    setFresh('fresh-transitions',transitionEnd?`Данные по ${fmtDate(transitionEnd)} включительно`:'Данные ещё не загружены',transitionEnd?'':'warn');
+
+    if(latestManagement&&serviceMonth){
+      setFresh('fresh-forecast',`База по ${fmtDate(latestManagement)} · аналитика услуг: ${serviceMonth}`);
+    }else if(latestManagement){
+      setFresh('fresh-forecast',`База по ${fmtDate(latestManagement)}`);
+    }else{
+      setFresh('fresh-forecast','Базовые данные ещё не загружены','warn');
+    }
+  }catch(error){
+    console.error(error);
+    ['fresh-management','fresh-finrez','fresh-forecast','fresh-services','fresh-transitions'].forEach(id=>setFresh(id,'Не удалось определить актуальность','error'));
+  }
+}
+loadFreshness();
+</script>
 </body>
 </html>
