@@ -10,11 +10,11 @@
 <style>
 :root{--paper:#f7f3ec;--paper2:#efe8db;--soft:#fffdf8;--ink:#2d342f;--muted:#6d746c;--green:#44634f;--green2:#dfe9e2;--gold:#b59662;--gold2:#efe5d2;--blue:#dfe9f2;--violet:#eee5f1;--orange:#f1dfc9;--line:#d8cdbb;--red:#9a4b48}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fcfaf6 0,var(--paper) 68%,var(--paper2) 100%);color:var(--ink);font-family:Montserrat,Arial,sans-serif}body{min-height:100vh}.page{width:min(1420px,97vw);margin:0 auto;padding:20px 0 44px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.title{margin:0;font:700 42px/1 'Cormorant Garamond',serif}.sub{margin-top:7px;color:var(--muted);font-size:11px;line-height:1.5}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:1px solid rgba(68,99,79,.3);border-radius:9px;background:#fff;color:#334039;text-decoration:none;font-size:11px;font-weight:700}.btn.primary{background:var(--green);border-color:var(--green);color:#fff}.bar{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:14px 0 12px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,253,248,.92)}.field{display:grid;gap:5px}.field label{font-size:9px;font-weight:700;color:#667067}.field select{min-width:170px;padding:8px 10px;border:1px solid #cfc5b5;border-radius:8px;background:#fff;font:600 11px Montserrat}.fresh{margin-left:auto;text-align:right;color:#5e695f;font-size:10px;line-height:1.4}.fresh strong{display:block;color:#334039;font-size:11px}.loading,.error{margin:14px 0;padding:12px 14px;border-radius:10px;background:#fffaf0;color:#675f53;font-size:11px}.error{background:#fff2f1;color:#87433f}.hidden{display:none!important}
-.metrics{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px}.metric{padding:13px 14px;border:1px solid var(--line);border-radius:13px;background:var(--soft);box-shadow:0 8px 24px rgba(70,58,38,.05)}.metric span{display:block;color:#747b73;font-size:9px;font-weight:700;line-height:1.3}.metric strong{display:block;margin-top:6px;font:700 24px/1 'Cormorant Garamond',serif}.metric small{display:block;margin-top:5px;color:#7a8078;font-size:8.5px;line-height:1.35}.positive{color:#2f7048}.negative{color:var(--red)}
+.metrics{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px}.metric{padding:13px 14px;border:1px solid var(--line);border-radius:13px;background:var(--soft);box-shadow:0 8px 24px rgba(70,58,38,.05)}.metric span{display:block;color:#747b73;font-size:9px;font-weight:700;line-height:1.3}.metric strong{display:block;margin-top:6px;font:700 24px/1 'Cormorant Garamond',serif}.metric strong.missing{font:600 15px/1.15 Montserrat,Arial,sans-serif;color:#6d746c}.metric small{display:block;margin-top:5px;color:#7a8078;font-size:8.5px;line-height:1.35}.metric small.delta{font-weight:700;color:#5f685f}.positive{color:#2f7048}.negative{color:var(--red)}
 .section{margin-top:12px;border:1px solid var(--line);border-radius:14px;background:rgba(255,253,248,.92);overflow:hidden;box-shadow:0 8px 28px rgba(67,55,37,.04)}.section-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #e5ddcf}.section-head h2{margin:0;font:700 23px/1 'Cormorant Garamond',serif}.section-head .hint{font-size:9px;color:#7b817b;text-align:right}.section.general .section-head{background:var(--gold2)}.section.directions .section-head{background:var(--green2)}.section.marketing .section-head{background:var(--violet)}.section.finance .section-head{background:var(--blue)}
 .directions-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}.direction{border:1px solid #ded5c7;border-radius:12px;background:#fff;overflow:hidden}.direction h3{margin:0;padding:10px 12px;font:700 19px/1 'Cormorant Garamond',serif}.direction.dent h3{background:var(--blue)}.direction.structure h3{background:var(--green2)}.direction.lab h3{background:var(--orange)}.drows{padding:7px 12px 10px}.drow{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid #eee7dc;font-size:9px}.drow:last-child{border-bottom:0}.drow span{color:#6e756e}.drow strong{text-align:right}
 .chart-wrap{padding:14px;overflow-x:auto}.chart{display:grid;grid-template-columns:repeat(var(--months),minmax(88px,1fr));gap:10px;align-items:end;min-width:720px;height:250px;padding:12px 8px 2px;border-left:1px solid #e5ddcf;border-bottom:1px solid #e5ddcf;background:linear-gradient(to top,rgba(239,232,219,.55) 1px,transparent 1px);background-size:100% 25%}.month{height:100%;display:grid;grid-template-rows:1fr auto;gap:6px;align-items:end}.bars{height:100%;display:flex;justify-content:center;align-items:end;gap:6px}.barcol{width:26px;min-height:2px;border-radius:6px 6px 2px 2px;position:relative}.barcol.plan{background:#d7c29f}.barcol.fact{background:#688372}.barcol:hover::after{content:attr(data-title);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);z-index:20;white-space:nowrap;background:#303833;color:#fff;padding:5px 7px;border-radius:6px;font-size:8px}.month-label{text-align:center;font-size:8.5px;font-weight:700;color:#697069}.legend{display:flex;gap:14px;align-items:center;padding:0 14px 12px;color:#6e756e;font-size:8.5px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}.legend .lp{background:#d7c29f}.legend .lf{background:#688372}
-.marketing-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;padding:12px}.marketing-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.small-card{border:1px solid #e3daca;border-radius:10px;background:#fff;padding:10px}.small-card span{display:block;font-size:8.5px;color:#727970;font-weight:700}.small-card strong{display:block;margin-top:5px;font:700 20px/1 'Cormorant Garamond',serif}.source-list{border:1px solid #e3daca;border-radius:10px;background:#fff;padding:8px 10px}.source-list h3{margin:0 0 3px;font-size:10px}.source-fresh{margin:0 0 5px;color:#7b817b;font-size:8px;line-height:1.35}.source-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #eee7dc;font-size:8.5px}.source-row:last-child{border-bottom:0}.source-row span{color:#626b63;overflow:hidden;text-overflow:ellipsis}.source-row strong{white-space:nowrap}
+.marketing-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;padding:12px}.marketing-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.small-card{border:1px solid #e3daca;border-radius:10px;background:#fff;padding:10px}.small-card span{display:block;font-size:8.5px;color:#727970;font-weight:700}.small-card strong{display:block;margin-top:5px;font:700 20px/1 'Cormorant Garamond',serif}.small-card strong.missing{font:600 13px/1.2 Montserrat,Arial,sans-serif;color:#6d746c}.source-list{border:1px solid #e3daca;border-radius:10px;background:#fff;padding:8px 10px}.source-list h3{margin:0 0 3px;font-size:10px}.source-fresh{margin:0 0 5px;color:#7b817b;font-size:8px;line-height:1.35}.source-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #eee7dc;font-size:8.5px}.source-row:last-child{border-bottom:0}.source-row span{color:#626b63;overflow:hidden;text-overflow:ellipsis}.source-row strong{white-space:nowrap}
 .finance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}.finance-note{padding:0 12px 12px;color:#6f766f;font-size:9px;line-height:1.45}.links{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.link-card{flex:1 1 220px;padding:12px 14px;border:1px solid rgba(181,150,98,.62);border-radius:11px;background:var(--gold2);box-shadow:0 9px 24px rgba(71,58,38,.10);color:#354039;text-decoration:none;font-size:10px;font-weight:700;transition:.18s}.link-card span{display:block;margin-top:4px;color:#6f675b;font-size:8.5px;font-weight:500}.link-card:hover,.link-card:focus-visible{outline:0;border-color:rgba(68,99,79,.55);background:#e7dbc4;box-shadow:0 12px 30px rgba(71,58,38,.14);transform:translateY(-1px);color:var(--green)}
 @media(max-width:1100px){.metrics{grid-template-columns:repeat(3,1fr)}.marketing-grid{grid-template-columns:1fr}.finance-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){.page{width:100%;padding:12px 8px 28px}.top{flex-direction:column}.title{font-size:34px}.bar{border-radius:10px}.fresh{width:100%;margin-left:0;text-align:left}.metrics{grid-template-columns:repeat(2,1fr)}.metric strong{font-size:21px}.directions-grid{grid-template-columns:1fr}.finance-grid{grid-template-columns:1fr}.marketing-metrics{grid-template-columns:repeat(2,1fr)}.section-head{align-items:flex-start}.section-head .hint{max-width:50%}.actions .btn{font-size:9px;padding:7px 9px}}
@@ -76,6 +76,7 @@ const num=v=>Number.isFinite(+v)?+v:0;
 const money=v=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(num(v)))+' ₽';
 const count=v=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(num(v));
 const pct=v=>v===null||v===undefined||v===''||!Number.isFinite(+v)?'—':new Intl.NumberFormat('ru-RU',{style:'percent',maximumFractionDigits:1}).format(+v);
+const signedNumber=(v,digits=1)=>{const n=num(v),sign=n>0?'+':n<0?'−':'';return sign+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:digits}).format(Math.abs(n))};
 const fmtDate=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}.${m[2]}.${m[1]}`:'—'};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const monthLabel=ym=>{const [y,m]=ym.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'long',year:'numeric'})};
@@ -88,31 +89,44 @@ function primaryOf(r){const direct=num(r?.primary);return direct||num(r?.dentPri
 function repeatOf(r){const direct=num(r?.repeat);return direct||num(r?.dentRepeat)+num(r?.clinicRepeat)}
 function derive(r){
   const date=r?.date||''; const d=new Date(date+'T12:00:00'); const day=d.getDate()||1;
-  const plan=num(r?.plan), factMedicine=num(r?.factMedicine), factLab=num(r?.factLab);
+  const rawPlan=r?.plan, hasPlan=rawPlan!==null&&rawPlan!==undefined&&rawPlan!==''&&Number.isFinite(+rawPlan)&&+rawPlan>0, plan=hasPlan?+rawPlan:0;
+  const factMedicine=num(r?.factMedicine), factLab=num(r?.factLab);
   const primary=primaryOf(r), repeat=repeatOf(r), dentPrimary=num(r?.dentPrimary), dentRepeat=num(r?.dentRepeat), clinicPrimary=num(r?.clinicPrimary), clinicRepeat=num(r?.clinicRepeat);
   const dentRev=sumObject(r?.dentists), structureRev=sumObject(r?.clinicDocs), labRevenue=num(r?.labRevenue||r?.factLab), labOrders=num(r?.labOrders);
-  const due=plan?plan*day/daysInMonth(date):0, factTotal=factMedicine+factLab;
+  const due=hasPlan?plan*day/daysInMonth(date):0, factTotal=factMedicine+factLab;
   const leadsDent=num(r?.leadsDent), leadsStructure=num(r?.leadsClinic), leadsReserve=num(r?.leadsReserve), totalLeads=leadsDent+leadsStructure+leadsReserve;
-  return {date,plan,due,factMedicine,factLab,factTotal,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:leadsDent?dentPrimary/leadsDent:null,convStructure:leadsStructure?clinicPrimary/leadsStructure:null,totalConv:totalLeads?primary/totalLeads:null,execution:due?factTotal/due:null};
+  const hasLeads=[r?.leadsDent,r?.leadsClinic,r?.leadsReserve].some(v=>Number.isFinite(+v)&&+v>0);
+  return {date,hasPlan,plan,due,factMedicine,factLab,factTotal,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&due?factTotal/due:null};
 }
 function latestByMonth(data){
   const map={}; Object.entries(data||{}).forEach(([date,r])=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;const ym=date.slice(0,7);if(!map[ym]||date>map[ym].date)map[ym]={...r,date}}); return map;
 }
-function metric(label,value,small='',cls=''){return `<div class="metric"><span>${label}</span><strong class="${cls}">${value}</strong>${small?`<small>${small}</small>`:''}</div>`}
+function periodCompareLabel(date){const d=new Date(date+'T12:00:00');if(!Number.isFinite(d.getTime()))return '';const day=d.getDate();const month=d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'}).replace(/^\d+\s+/,'');return day===1?`1 ${month}`:`1–${day} ${month}`}
+function previousComparable(r){
+  const m=String(r?.date||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return null;
+  const y=+m[1],mo=+m[2],day=+m[3],p=new Date(y,mo-2,1),py=p.getFullYear(),pm=p.getMonth()+1,last=new Date(py,pm,0).getDate(),targetDay=Math.min(day,last);
+  const prefix=`${py}-${String(pm).padStart(2,'0')}-`,target=`${prefix}${String(targetDay).padStart(2,'0')}`;
+  const dates=Object.keys(STORE).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)&&x.startsWith(prefix)&&x<=target).sort();
+  const chosen=dates[dates.length-1];if(!chosen)return null;return {record:{...(STORE[chosen]||{}),date:chosen},label:periodCompareLabel(chosen)};
+}
+function trendPercent(current,previous,label){if(!label||!Number.isFinite(+current)||!Number.isFinite(+previous)||+previous===0)return '';return `К периоду ${label}: ${signedNumber((+current-+previous)/Math.abs(+previous)*100)} %`}
+function trendCount(current,previous,label){if(!label||!Number.isFinite(+current)||!Number.isFinite(+previous))return '';return `К периоду ${label}: ${signedNumber(+current-+previous)}`}
+function trendPoints(current,previous,label){if(!label||!Number.isFinite(+current)||!Number.isFinite(+previous))return '';return `К периоду ${label}: ${signedNumber((+current-+previous)*100)} п.п.`}
+function metric(label,value,small='',cls='',delta=''){return `<div class="metric"><span>${label}</span><strong class="${cls}">${value}</strong>${small?`<small>${small}</small>`:''}${delta?`<small class="delta">${delta}</small>`:''}</div>`}
 function smallMetric(label,value,cls=''){return `<div class="small-card"><span>${label}</span><strong class="${cls}">${value}</strong></div>`}
 function row(label,value){return `<div class="drow"><span>${label}</span><strong>${value}</strong></div>`}
 function selected(){const ym=$('#period').value;return {ym,record:MONTHS.find(x=>x.ym===ym)?.record||null}}
 function sourceEntries(r){return Object.entries(r?.marketingSources||{}).map(([k,v])=>[k,num(v)]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ru'))}
 
 function renderMetrics(r){
-  const d=derive(r); const cls=d.execution===null?'':d.execution>=1?'positive':'negative';
+  const d=derive(r),comp=previousComparable(r),p=comp?derive(comp.record):null,label=comp?.label||''; const cls=d.execution===null?'':d.execution>=1?'positive':'negative';
   $('#metrics').innerHTML=[
-    metric('Выручка',money(d.factTotal),'Медицина + лаборатория'),
-    metric('Должно быть к дате',money(d.due),`План месяца: ${money(d.plan)}`),
-    metric('Выполнение плана',pct(d.execution),'Факт / должно быть',cls),
-    metric('Первичные',count(d.primary),'Стоматология + отделение структуры'),
-    metric('Повторные',count(d.repeat),'За выбранный период'),
-    metric('Средний чек',money(d.avgCheck),'Выручка медицины / первичные')
+    metric('Выручка',money(d.factTotal),'Медицина + лаборатория','',p?trendPercent(d.factTotal,p.factTotal,label):''),
+    metric('Должно быть к дате',d.hasPlan?money(d.due):'План не задан',d.hasPlan?`План месяца: ${money(d.plan)}`:'В Финрезе нет плана на месяц',d.hasPlan?'':'missing',d.hasPlan&&p?.hasPlan?trendPercent(d.due,p.due,label):''),
+    metric('Выполнение плана',d.hasPlan?pct(d.execution):'План не задан',d.hasPlan?'Факт / должно быть':'Расчёт появится после задания плана',d.hasPlan?cls:'missing',d.hasPlan&&p?.hasPlan&&d.execution!==null&&p.execution!==null?trendPoints(d.execution,p.execution,label):''),
+    metric('Первичные',count(d.primary),'Стоматология + отделение структуры','',p?trendCount(d.primary,p.primary,label):''),
+    metric('Повторные',count(d.repeat),'За выбранный период','',p?trendCount(d.repeat,p.repeat,label):''),
+    metric('Средний чек',money(d.avgCheck),'Выручка медицины / первичные','',p?trendPercent(d.avgCheck,p.avgCheck,label):'')
   ].join('');
 }
 function renderDirections(r){
@@ -128,13 +142,13 @@ function renderChart(){
   $('#chart').innerHTML=data.map(x=>{const hp=x.due>0?Math.max(2,Math.round(x.due/max*100)):0,hf=x.factTotal>0?Math.max(2,Math.round(x.factTotal/max*100)):0;return `<div class="month"><div class="bars"><div class="barcol plan" style="height:${hp}%" data-title="Должно быть: ${money(x.due)}"></div><div class="barcol fact" style="height:${hf}%" data-title="Факт: ${money(x.factTotal)}"></div></div><div class="month-label">${shortMonth(x.ym)}</div></div>`}).join('');
 }
 function renderMarketing(r){
-  const d=derive(r); $('#marketingMetrics').innerHTML=[
-    smallMetric('Целевые лиды — стоматология',count(d.leadsDent)),
-    smallMetric('Конверсия — стоматология',pct(d.convDent)),
-    smallMetric('Целевые лиды — отделение структуры',count(d.leadsStructure)),
-    smallMetric('Конверсия — отделение структуры',pct(d.convStructure)),
-    smallMetric('Всего целевых лидов',count(d.totalLeads)),
-    smallMetric('Общая конверсия',pct(d.totalConv))
+  const d=derive(r),missing=d.hasLeads?'':'missing',lead=v=>d.hasLeads?count(v):'Нет данных',conversion=v=>d.hasLeads?pct(v):'Нет данных'; $('#marketingMetrics').innerHTML=[
+    smallMetric('Целевые лиды — стоматология',lead(d.leadsDent),missing),
+    smallMetric('Конверсия — стоматология',conversion(d.convDent),missing),
+    smallMetric('Целевые лиды — отделение структуры',lead(d.leadsStructure),missing),
+    smallMetric('Конверсия — отделение структуры',conversion(d.convStructure),missing),
+    smallMetric('Всего целевых лидов',lead(d.totalLeads),missing),
+    smallMetric('Общая конверсия',conversion(d.totalConv),missing)
   ].join('');
   const entries=sourceEntries(r), total=entries.reduce((a,x)=>a+x[1],0), sourceAsOf=entries.length?String(r?.marketingSourcesAsOf||r?.date||'').trim():''; const top=entries.slice(0,6);
   $('#sourcesFreshness').textContent=sourceAsOf?`Данные по ${fmtDate(sourceAsOf)} включительно`:'';
