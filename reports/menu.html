@@ -36,7 +36,7 @@ body{min-height:100vh}
   </header>
 
   <nav class="menu" aria-label="Разделы отчётов">
-    <a class="btn active" href="/reports/dashboard.html"><span class="btn-label">Дашборд</span><span class="freshness warn">Следующий этап — в разработке</span></a>
+    <a class="btn active" href="/reports/dashboard.html"><span class="btn-label">Дашборд</span><span class="freshness" id="fresh-dashboard">Проверяем актуальность…</span></a>
     <a class="btn active" href="/reports/management/"><span class="btn-label">Управленческий учёт</span><span class="freshness" id="fresh-management">Проверяем актуальность…</span></a>
     <a class="btn active" href="/reports/finrez/"><span class="btn-label">Финрез</span><span class="freshness" id="fresh-finrez">Проверяем актуальность…</span></a>
     <a class="btn active" href="/reports/forecast/"><span class="btn-label">Прогноз роста</span></a>
@@ -68,6 +68,7 @@ async function loadFreshness(){
 
     const managementDates=Object.keys(management.data||{}).sort();
     const latestManagement=managementDates[managementDates.length-1]||'';
+    setFresh('fresh-dashboard',latestManagement?`Данные по ${fmtDate(latestManagement)} включительно`:'Данные ещё не загружены',latestManagement?'':'warn');
     setFresh('fresh-management',latestManagement?`Данные по ${fmtDate(latestManagement)} включительно`:'Данные ещё не загружены',latestManagement?'':'warn');
 
     const expenseTo=finrez?.expenses?.period?.to||'';
@@ -88,7 +89,7 @@ async function loadFreshness(){
     setFresh('fresh-transitions',transitionEnd?`Данные по ${fmtDate(transitionEnd)} включительно`:'Данные ещё не загружены',transitionEnd?'':'warn');
   }catch(error){
     console.error(error);
-    ['fresh-management','fresh-finrez','fresh-services','fresh-transitions'].forEach(id=>setFresh(id,'Не удалось определить актуальность','error'));
+    ['fresh-dashboard','fresh-management','fresh-finrez','fresh-services','fresh-transitions'].forEach(id=>setFresh(id,'Не удалось определить актуальность','error'));
   }
 }
 loadFreshness();
