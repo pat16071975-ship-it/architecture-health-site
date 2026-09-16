@@ -1,4 +1,6 @@
 /* Global report overrides */
+#entryBtn{display:none!important}
+
 #periodCompareBody > tr:nth-child(3) > td.heat-cell,
 #periodCompareBody > tr:nth-child(4) > td.heat-cell,
 #dateCompareBody > tr:nth-child(3) > td.heat-cell,
