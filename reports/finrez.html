@@ -17,11 +17,11 @@ table{border-collapse:separate;border-spacing:0;min-width:1660px;width:max-conte
 th,td{padding:8px 9px;border-bottom:1px solid #e8e0d4;border-right:1px solid #eee7dc;text-align:right;font-size:10.5px;white-space:nowrap}thead th{position:sticky;top:0;z-index:30;background:#f8f4ec;text-align:center;font-weight:700}.first{position:sticky;left:0;z-index:18;text-align:left!important;background:#fffdf8!important;white-space:normal!important}.head-first{z-index:40!important;background:#f8f4ec!important}
 .label{display:flex;align-items:center;gap:6px;min-height:18px}.indent{display:inline-block;width:calc(var(--level)*16px);flex:0 0 calc(var(--level)*16px)}.toggle{width:20px;height:20px;padding:0;border:1px solid #b8c5ba;border-radius:6px;background:#fff;color:#36503e;font:700 13px/18px Montserrat;cursor:pointer;flex:0 0 20px}.leaf-space{width:20px;flex:0 0 20px}.row-label{overflow:hidden;text-overflow:ellipsis}.row-label.detail{font-size:9.5px;color:#697069}
 .cell-main{font-weight:inherit}.cell-share{display:block;margin-top:2px;font-size:8.5px;line-height:1.18;color:#7b817b;font-weight:500;white-space:normal}.cell-share strong{font-weight:700;color:#566158}.share-category{color:#8a7350}
-tr.plan td{background:#fbf7ed}tr.fact td{background:#eef5f0;font-weight:700}tr.execution td{background:#f2eee4;font-weight:700}tr.revenue td{background:#eef4f8;font-weight:700}
+tr.plan td{background:#fbf7ed}tr.fact td{background:#eef5f0;font-weight:700}tr.fact-detail td{background:#f7f9f7;color:#7e857f;font-size:9.2px;font-weight:500;padding-top:6px;padding-bottom:6px}tr.fact-detail td.first{background:#f7f9f7!important}tr.fact-detail .row-label{font-size:9.2px;color:#7e857f}tr.execution td{background:#f2eee4;font-weight:700}tr.revenue td{background:#eef4f8;font-weight:700}
 tr.variable td{background:#f5f0e5;font-weight:700}tr.margin td{background:#e8f1ea;font-weight:800}tr.fixed td{background:#faf4e8;font-weight:700}tr.production td{background:#f6f1e8;font-weight:700}tr.gross td{background:#e8eef3;font-weight:800}
 tr.commercial td{background:#fff4e6;font-weight:700}tr.administrative td{background:#f7f1e9;font-weight:700}tr.ebitda td{background:#dfeadd;font-weight:800}tr.unavailable td{background:#f4f1eb;font-weight:700;color:#8d867a}tr.capex td{background:#eee8f2;font-weight:700}tr.debt td{background:#f3edf4;font-weight:700}
 tr.category td:first-child{font-weight:700}tr.subcategory td:first-child{font-weight:600}.negative{color:var(--red)}.positive{color:#32724b}.muted{color:#aaa}.status{margin:10px 0;padding:9px 12px;border-radius:8px;background:#fffaf0;color:#6b6255;font-size:10px}.hidden{display:none!important}
-@media(max-width:760px){.page{width:100%;padding:10px 0 20px}.top{padding:0 10px}.title{font-size:30px}.sub{font-size:9px}.controls{margin:8px 8px 10px}.legend{display:none}.wrap{border-radius:0;max-height:none;border-left:0;border-right:0}.col-label{width:38vw;min-width:38vw;max-width:38vw}.month-col{width:108px;min-width:108px;max-width:108px}th,td{padding:7px 6px;font-size:10px}.cell-share{font-size:8px}.actions .btn{padding:7px 9px;font-size:9px}}
+@media(max-width:760px){.page{width:100%;padding:10px 0 20px}.top{padding:0 10px}.title{font-size:30px}.sub{font-size:9px}.controls{margin:8px 8px 10px}.legend{display:none}.wrap{border-radius:0;max-height:none;border-left:0;border-right:0}.col-label{width:38vw;min-width:38vw;max-width:38vw}.month-col{width:108px;min-width:108px;max-width:108px}th,td{padding:7px 6px;font-size:10px}.cell-share{font-size:8px}.actions .btn{padding:7px 9px;font-size:9px}tr.fact-detail td,tr.fact-detail .row-label{font-size:8.5px}}
 </style>
 </head>
 <body>
@@ -32,7 +32,7 @@ tr.category td:first-child{font-weight:700}tr.subcategory td:first-child{font-we
   </header>
   <div class="controls">
     <div class="field"><label>Год</label><select id="year"></select></div>
-    <div class="legend">Фактически получено → маржинальная прибыль → валовая прибыль → EBITDA. Амортизация, проценты и налог добавим после появления надёжных данных.</div>
+    <div class="legend">План → Факт → маржинальная прибыль → валовая прибыль → EBITDA. Амортизацию, проценты и налог добавим после появления надёжных данных.</div>
   </div>
   <div id="status" class="status">Загрузка…</div>
   <div class="wrap">
@@ -67,6 +67,8 @@ function expenseMonth(year,i){return DATA?.expenses?.months?.[ym(year,i)]||{oper
 function num(v){const n=+v;return Number.isFinite(n)?n:0}
 function factFor(year,i){const r=managementRecord(year,i);return r?num(r.factMedicine)+num(r.factLab):null}
 function planFor(year,i){const r=managementRecord(year,i);if(!r)return null;const n=+r.plan;return Number.isFinite(n)&&n!==0?n:null}
+function discountFor(year,i){const r=managementRecord(year,i);if(!r||r.discountDataComplete!==true)return null;const n=+r.discountAmount;return Number.isFinite(n)?n:null}
+function grossRevenueFor(year,i){const r=managementRecord(year,i);if(!r||r.discountDataComplete!==true)return null;const n=+r.grossRevenue;return Number.isFinite(n)?n:null}
 function categoryTotal(year,i,name){return num(expenseMonth(year,i).operating?.[name]?.total)}
 function groupTotal(year,i,names){return names.reduce((sum,name)=>sum+categoryTotal(year,i,name),0)}
 function operatingExpenses(year,i){return Object.values(expenseMonth(year,i).operating||{}).reduce((a,x)=>a+num(x.total),0)}
@@ -133,8 +135,10 @@ function debtTree(year){
   return node('debt','Кредитные и иные долговые платежи — справочно, не уменьшают прибыль',0,values12(i=>debtExpenses(year,i)),children,'debt');
 }
 function buildRows(year){
-  const plan=node('plan','План поступлений',0,values12(i=>planFor(year,i)),[],'plan');
-  const fact=node('fact','Фактически получено после скидок',0,values12(i=>factFor(year,i)),[],'fact');
+  const plan=node('plan','План',0,values12(i=>planFor(year,i)),[],'plan');
+  const fact=node('fact','Факт',0,values12(i=>factFor(year,i)),[],'fact');
+  const discount=node('discount','Скидки',1,values12(i=>discountFor(year,i)),[],'fact-detail');
+  const grossBeforeDiscount=node('gross-before-discount','Выручка без скидок',1,values12(i=>grossRevenueFor(year,i)),[],'fact-detail');
   const execution=node('execution','Выполнение плана',0,values12(i=>{const p=planFor(year,i),f=factFor(year,i);return p&&f!==null?f/p:null}),[],'execution','percent');
   const revenue=revenueTree(year);
   const variable=expenseGroupTree(year,'variable','Переменные расходы',GROUPS.variable,'variable');
@@ -153,7 +157,7 @@ function buildRows(year){
   const net=node('net','Чистая прибыль — после добавления амортизации, процентов и налога',0,Array(12).fill(null),[],'unavailable');
   const capex=expenseGroupTree(year,'capex','Оборудование, мебель и обновление — вне EBITDA',GROUPS.capex,'capex');
   const debt=debtTree(year);
-  return [plan,fact,execution,revenue,variable,margin,fixed,production,gross,commercial,administrative,ebitda,amortization,ebit,interest,ebt,incomeTax,net,capex,debt];
+  return [plan,fact,discount,grossBeforeDiscount,execution,revenue,variable,margin,fixed,production,gross,commercial,administrative,ebitda,amortization,ebit,interest,ebt,incomeTax,net,capex,debt];
 }
 function flatten(nodes,out=[]){nodes.forEach(n=>{out.push(n);if(n.children?.length&&expanded.has(n.id))flatten(n.children,out)});return out}
 function shareHtml(row,year,monthIndex,value){

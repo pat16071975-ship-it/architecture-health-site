@@ -1,4 +1,6 @@
+import re
 import unittest
+from datetime import datetime
 from types import SimpleNamespace
 
 import upload_integrity
@@ -56,6 +58,93 @@ class UploadIntegrityTests(unittest.TestCase):
         self.assertEqual(delta["repeat"], 5)
         self.assertEqual(delta["unassignedPrimary"], 1)
         self.assertEqual(delta["unassignedRepeat"], 2)
+
+    def test_discount_data_complete_when_source_columns_reconcile(self):
+        normalized = {
+            "data_date": "2026-10-01",
+            "items": [
+                {
+                    "staff": "Dent D.",
+                    "amount": 80,
+                    "gross_amount": 100,
+                    "discount_amount": 20,
+                },
+                {
+                    "staff": "Struct S.",
+                    "amount": 50,
+                    "gross_amount": 50,
+                    "discount_amount": 0,
+                },
+            ],
+            "lab_invoices": [],
+            "overall": {"2026-10-01": {}},
+            "doctors": {"2026-10-01": {}},
+        }
+        delta = upload_integrity.daily_delta(self.core, normalized)
+        self.assertEqual(delta["grossRevenue"], 150)
+        self.assertEqual(delta["discountAmount"], 20)
+        self.assertTrue(delta["discountDataComplete"])
+        self.assertEqual(delta["factMedicine"], 130)
+
+    def test_missing_discount_columns_stay_incomplete(self):
+        normalized = {
+            "data_date": "2026-09-14",
+            "items": [{"staff": "Dent D.", "amount": 80}],
+            "lab_invoices": [],
+            "overall": {"2026-09-14": {}},
+            "doctors": {"2026-09-14": {}},
+        }
+        delta = upload_integrity.daily_delta(self.core, normalized)
+        self.assertFalse(delta["discountDataComplete"])
+        self.assertEqual(delta["grossRevenue"], 0)
+        self.assertEqual(delta["discountAmount"], 0)
+        self.assertEqual(delta["factMedicine"], 80)
+
+    def test_enrich_service_items_reads_price_discount_and_net(self):
+        ident = SimpleNamespace(
+            KNOWN_STAFF={"Dent D."},
+            INVOICE_RE=re.compile(r"Счет №(\d+) от (\d{2}\.\d{2}\.\d{4})"),
+            _iso=lambda value: datetime.strptime(value, "%d.%m.%Y").strftime("%Y-%m-%d"),
+            _money=lambda value: float(str(value).replace(" ", "").replace(",", ".")) if str(value).strip() else None,
+        )
+        core = SimpleNamespace(ident_import=ident)
+        parsed = (
+            [
+                {
+                    "staff": "Dent D.",
+                    "date": "2026-09-14",
+                    "group": "Лечение",
+                    "service": "Услуга",
+                    "qty": 1.0,
+                    "amount": 80.0,
+                    "invoice": "123",
+                }
+            ],
+            [],
+            (2026, 9),
+        )
+        text = (
+            "header\nheader2\nDent D.\n"
+            "Счет №123 от 14.09.2026 10:00:00\n"
+            "Лечение\t14.09.2026 10:00\tУслуга\t1\t100\t20\t80\n"
+        )
+        enriched, _, _ = upload_integrity.enrich_service_items(core, parsed, text)
+        self.assertEqual(enriched[0]["gross_amount"], 100)
+        self.assertEqual(enriched[0]["discount_amount"], 20)
+
+    def test_full_import_management_gets_cumulative_discount_fields(self):
+        management = {"2026-10-01": {}, "2026-10-02": {}}
+        items = [
+            {"date": "2026-10-01", "amount": 80, "gross_amount": 100, "discount_amount": 20},
+            {"date": "2026-10-02", "amount": 50, "gross_amount": 50, "discount_amount": 0},
+        ]
+        result = upload_integrity.enrich_management_discounts(management, items)
+        self.assertEqual(result["2026-10-01"]["grossRevenue"], 100)
+        self.assertEqual(result["2026-10-01"]["discountAmount"], 20)
+        self.assertTrue(result["2026-10-01"]["discountDataComplete"])
+        self.assertEqual(result["2026-10-02"]["grossRevenue"], 150)
+        self.assertEqual(result["2026-10-02"]["discountAmount"], 20)
+        self.assertTrue(result["2026-10-02"]["discountDataComplete"])
 
     def test_merge_preserves_unmanaged_payload_and_marketing_sources(self):
         existing = {
@@ -120,6 +209,35 @@ class UploadIntegrityTests(unittest.TestCase):
         self.assertEqual(record["_uploadControl"]["sourceRepeat"], 211)
         self.assertEqual(record["_uploadControl"]["unassignedRepeat"], 6)
         self.assertEqual(record["manualFlag"], "keep")
+        self.assertFalse(record["discountDataComplete"])
+
+    def test_fresh_month_can_establish_complete_discount_data(self):
+        normalized = {
+            "data_date": "2026-10-01",
+            "items": [
+                {
+                    "staff": "Dent D.",
+                    "amount": 80,
+                    "gross_amount": 100,
+                    "discount_amount": 20,
+                }
+            ],
+            "lab_invoices": [],
+            "overall": {"2026-10-01": {}},
+            "doctors": {"2026-10-01": {}},
+        }
+        core = SimpleNamespace(
+            ident_import=self.core.ident_import,
+            _active_month_rows=lambda _month: [("2026-10-01", normalized)],
+            _latest_prior_report=lambda _date: {},
+            _load_report=lambda _date: {},
+            db=lambda: FakeConn(),
+        )
+        rebuilt = upload_integrity.rebuild_management(core, "2026-10", "test")
+        record = rebuilt["2026-10-01"]
+        self.assertTrue(record["discountDataComplete"])
+        self.assertEqual(record["grossRevenue"], 100)
+        self.assertEqual(record["discountAmount"], 20)
 
 
 if __name__ == "__main__":

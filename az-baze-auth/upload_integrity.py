@@ -47,6 +47,133 @@ def _payload(row):
     return value if isinstance(value, dict) else {}
 
 
+def enrich_service_items(core, parsed, text):
+    """Add price-list and discount amounts to parsed IDENT service rows.
+
+    The canonical IDENT revenue export contains three money columns: price-list
+    amount, discount and amount after discount. The legacy parser used only the
+    final amount. We keep that parser as the source of truth and enrich its rows
+    only when a second pass over the same source text matches row-for-row.
+    """
+    items, lab_invoices, year_month = parsed
+    extras = []
+    current_staff = None
+    current_date = None
+    current_group = ""
+    current_invoice = None
+
+    for raw_line in text.splitlines()[2:]:
+        cols = raw_line.split("\t")
+        cols += [""] * max(0, 7 - len(cols))
+        first = cols[0].strip()
+
+        if first in core.ident_import.KNOWN_STAFF:
+            current_staff = first
+            current_date = None
+            current_group = ""
+            current_invoice = None
+            continue
+
+        match = core.ident_import.INVOICE_RE.match(first)
+        if match:
+            current_invoice = match.group(1)
+            current_date = core.ident_import._iso(match.group(2))
+            current_group = ""
+            continue
+
+        qty_text = cols[3].strip()
+        amount = core.ident_import._money(cols[6] if len(cols) > 6 else "")
+        if not current_staff or not current_date or not qty_text or amount is None:
+            continue
+
+        try:
+            qty = float(qty_text.replace(",", "."))
+        except ValueError:
+            continue
+
+        if first:
+            current_group = first
+
+        extras.append(
+            {
+                "staff": current_staff,
+                "date": current_date,
+                "group": current_group,
+                "service": cols[2].strip(),
+                "qty": qty,
+                "amount": amount,
+                "invoice": current_invoice,
+                "gross_amount": core.ident_import._money(cols[4] if len(cols) > 4 else ""),
+                "discount_amount": core.ident_import._money(cols[5] if len(cols) > 5 else ""),
+            }
+        )
+
+    if len(extras) != len(items):
+        return parsed
+
+    enriched = []
+    for item, extra in zip(items, extras):
+        same = (
+            str(item.get("staff") or "") == str(extra.get("staff") or "")
+            and str(item.get("date") or "") == str(extra.get("date") or "")
+            and str(item.get("group") or "") == str(extra.get("group") or "")
+            and str(item.get("service") or "") == str(extra.get("service") or "")
+            and str(item.get("invoice") or "") == str(extra.get("invoice") or "")
+            and abs(_float(item.get("qty")) - _float(extra.get("qty"))) < 0.0001
+            and abs(_float(item.get("amount")) - _float(extra.get("amount"))) < 0.01
+        )
+        if not same:
+            return parsed
+        row = dict(item)
+        row["gross_amount"] = extra.get("gross_amount")
+        row["discount_amount"] = extra.get("discount_amount")
+        enriched.append(row)
+
+    return enriched, lab_invoices, year_month
+
+
+def _discount_parts(items):
+    gross_revenue = 0.0
+    discount_amount = 0.0
+    complete = True
+    for row in items:
+        net = _float(row.get("amount"))
+        gross_raw = row.get("gross_amount")
+        discount_raw = row.get("discount_amount")
+        if gross_raw is None or discount_raw is None:
+            complete = False
+            continue
+        gross = _float(gross_raw)
+        discount = _float(discount_raw)
+        if abs((gross - discount) - net) > 0.02:
+            complete = False
+            continue
+        gross_revenue += gross
+        discount_amount += discount
+    return round(gross_revenue, 2), round(discount_amount, 2), bool(complete)
+
+
+def enrich_management_discounts(management, items):
+    """Add cumulative gross/discount fields to full-month IDENT management import."""
+    by_date = defaultdict(list)
+    for row in items:
+        by_date[str(row.get("date") or "")].append(row)
+
+    gross_total = 0.0
+    discount_total = 0.0
+    complete = True
+    for data_date in sorted(management):
+        gross, discount, day_complete = _discount_parts(by_date.get(data_date, []))
+        gross_total += gross
+        discount_total += discount
+        complete = bool(complete and day_complete)
+        record = management[data_date]
+        record["grossRevenue"] = round(gross_total, 2)
+        record["discountAmount"] = round(discount_total, 2)
+        record["discountDataComplete"] = complete
+    return management
+
+
 def daily_delta(core, normalized):
     """Return one-day management deltas using only attributed clinical visits.
 
@@ -63,6 +190,7 @@ def daily_delta(core, normalized):
     staff = defaultdict(float)
     for row in items:
         staff[str(row.get("staff") or "")] += _float(row.get("amount"))
+    gross_revenue, discount_amount, discount_data_complete = _discount_parts(items)
 
     total_revenue = sum(staff.values())
     lab_revenue = staff.get("Казанцев Л. Е.", 0.0)
@@ -96,6 +224,9 @@ def daily_delta(core, normalized):
     return {
         "factMedicine": round(total_revenue - lab_revenue, 2),
         "factLab": round(lab_revenue, 2),
+        "grossRevenue": gross_revenue,
+        "discountAmount": discount_amount,
+        "discountDataComplete": discount_data_complete,
         "primary": primary,
         "repeat": repeat,
         "dentPrimary": dent_primary,
@@ -180,9 +311,17 @@ def rebuild_management(core, month, source):
     if not isinstance(baseline_control, dict):
         baseline_control = {}
 
+    # No baseline means the new month can establish complete discount data from
+    # its own daily uploads. An old baseline without an explicit completeness
+    # flag is deliberately treated as incomplete instead of inventing history.
+    baseline_discount_complete = (not baseline) or baseline.get("discountDataComplete") is True
+
     current = {
         "factMedicine": _float(baseline.get("factMedicine")),
         "factLab": _float(baseline.get("factLab")),
+        "grossRevenue": _float(baseline.get("grossRevenue")),
+        "discountAmount": _float(baseline.get("discountAmount")),
+        "discountDataComplete": baseline_discount_complete,
         "primary": baseline_primary,
         "repeat": baseline_repeat,
         "dentPrimary": baseline_dent_primary,
@@ -215,6 +354,8 @@ def rebuild_management(core, month, source):
         for key in (
             "factMedicine",
             "factLab",
+            "grossRevenue",
+            "discountAmount",
             "dentPrimary",
             "dentRepeat",
             "clinicPrimary",
@@ -228,6 +369,9 @@ def rebuild_management(core, month, source):
         ):
             current[key] += delta[key]
 
+        current["discountDataComplete"] = bool(
+            current["discountDataComplete"] and delta["discountDataComplete"]
+        )
         current["primary"] = current["dentPrimary"] + current["clinicPrimary"]
         current["repeat"] = current["dentRepeat"] + current["clinicRepeat"]
 
@@ -249,6 +393,9 @@ def rebuild_management(core, month, source):
             "plan": existing.get("plan", ""),
             "factMedicine": round(current["factMedicine"], 2),
             "factLab": round(current["factLab"], 2),
+            "grossRevenue": round(current["grossRevenue"], 2),
+            "discountAmount": round(current["discountAmount"], 2),
+            "discountDataComplete": bool(current["discountDataComplete"]),
             "pp25": existing.get("pp25", ""),
             "avg25": existing.get("avg25", ""),
             "primary": current["primary"],
@@ -299,6 +446,22 @@ def install(core):
     """Install the common upload-integrity contract before routes are registered."""
     if getattr(core, "_az_upload_integrity_installed", False):
         return
+
+    original_parse_revenue = core.ident_import._parse_revenue
+    original_build_management = core.ident_import._build_management
+
+    def parse_revenue_with_discounts(text):
+        parsed = original_parse_revenue(text)
+        return enrich_service_items(core, parsed, text)
+
+    def build_management_with_discounts(items, lab_invoices, overall, doctors, source):
+        management = original_build_management(items, lab_invoices, overall, doctors, source)
+        return enrich_management_discounts(management, items)
+
+    # ident_import is a shared module object, so these wrappers cover both the
+    # canonical daily upload and the existing full IDENT import route.
+    core.ident_import._parse_revenue = parse_revenue_with_discounts
+    core.ident_import._build_management = build_management_with_discounts
     core._daily_delta = lambda normalized: daily_delta(core, normalized)
     core._rebuild_management = lambda month, source: rebuild_management(
         core, month, source
