@@ -73,6 +73,14 @@
     return (values || []).some(value => value !== null && Math.abs(Number(value) || 0) > 0.01);
   }
 
+  function accruedFot(year, index) {
+    const month = auditedMonth(year, index);
+    if (!month) return null;
+    const value = economics?.payroll?.total_by_month?.[month];
+    if (value === null || value === undefined || value === '' || !Number.isFinite(+value)) return null;
+    return +value;
+  }
+
   function employeeNodes(year, assignments, parentKey) {
     return assignments
       .slice()
@@ -253,16 +261,44 @@
 
   function installEconomics() {
     if (economicsInstalled || !economics?.available || economics?.control?.status !== 'OK') return;
-    if (typeof expenseCategoryNode !== 'function' || typeof node !== 'function' || typeof render !== 'function') return;
+    if (typeof expenseCategoryNode !== 'function' || typeof categoryTotal !== 'function' || typeof operatingExpenses !== 'function' || typeof node !== 'function' || typeof render !== 'function') return;
     economicsInstalled = true;
+
+    const originalCategoryTotal = categoryTotal;
+    const originalOperatingExpenses = operatingExpenses;
     const originalExpenseCategoryNode = expenseCategoryNode;
 
+    const effectiveCategoryTotal = function(year, index, name) {
+      if (year === 2026 && name === 'ФОТ') {
+        const accrued = accruedFot(year, index);
+        if (accrued !== null) return accrued;
+      }
+      return originalCategoryTotal(year, index, name);
+    };
+
+    categoryTotal = effectiveCategoryTotal;
+    operatingExpenses = function(year, index) {
+      const original = originalOperatingExpenses(year, index);
+      if (year !== 2026) return original;
+      const accrued = accruedFot(year, index);
+      if (accrued === null) return original;
+      return original - originalCategoryTotal(year, index, 'ФОТ') + accrued;
+    };
+
     expenseCategoryNode = function(year, mainName, index) {
-      const base = originalExpenseCategoryNode(year, mainName, index);
+      let base;
+      categoryTotal = originalCategoryTotal;
+      try {
+        base = originalExpenseCategoryNode(year, mainName, index);
+      } finally {
+        categoryTotal = effectiveCategoryTotal;
+      }
       if (year !== 2026) return base;
 
       if (mainName === 'ФОТ') {
         const accruedValues = auditedValues(year, economics.payroll?.total_by_month || {});
+        const paidValues = Array.from({ length: 12 }, (_, monthIndex) => originalCategoryTotal(year, monthIndex, 'ФОТ'));
+        const effectiveValues = accruedValues.map((value, monthIndex) => value === null ? paidValues[monthIndex] : value);
         const revenueValues = auditedValues(year, economics.opu?.revenue_net || {});
         const ratioValues = accruedValues.map((value, monthIndex) => {
           if (value === null || revenueValues[monthIndex] === null || !revenueValues[monthIndex]) return null;
@@ -276,7 +312,7 @@
 
         const accruedNode = node(
           'audit-fot-accrued',
-          'Начисленный ФОТ по зарплатному реестру',
+          'Начисленный ФОТ по зарплатному реестру — основа расчёта прибыли',
           2,
           accruedValues,
           [ratioNode, ...payrollReportingNodes(year)],
@@ -286,10 +322,11 @@
           'fot-paid-detail',
           'ФОТ по фактическим выплатам — детализация',
           2,
-          base.values,
+          paidValues,
           base.children || [],
           'subcategory'
         );
+        base.values = effectiveValues;
         base.children = [accruedNode, paidDetail];
         return base;
       }
