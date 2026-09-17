@@ -8,6 +8,15 @@
     'Чистая прибыль'
   ];
 
+  const FUTURE_PROFIT_IDS = [
+    'amortization',
+    'ebit',
+    'interest',
+    'ebt',
+    'income-tax',
+    'net'
+  ];
+
   const style = document.createElement('style');
   style.id = 'az-finrez-profit-emphasis-style';
   style.textContent = `
@@ -37,10 +46,33 @@
   `;
   document.head.appendChild(style);
 
+  function collapseFutureProfitRows(rows) {
+    const targetIds = new Set(FUTURE_PROFIT_IDS);
+    const children = rows
+      .filter(row => targetIds.has(row.id))
+      .map(row => ({ ...row, level: 1 }));
+    if (children.length !== FUTURE_PROFIT_IDS.length) return rows;
+
+    const compactRows = rows.filter(row => !targetIds.has(row.id));
+    const ebitdaIndex = compactRows.findIndex(row => row.id === 'ebitda');
+    if (ebitdaIndex < 0) return rows;
+
+    const group = node(
+      'future-profit-block',
+      'Показатели после EBITDA — данные пока не загружены',
+      0,
+      Array(12).fill(null),
+      children,
+      'unavailable'
+    );
+    compactRows.splice(ebitdaIndex + 1, 0, group);
+    return compactRows;
+  }
+
   if (typeof buildRows === 'function' && typeof node === 'function' && typeof values12 === 'function') {
     const originalBuildRows = buildRows;
     buildRows = function(year) {
-      const rows = originalBuildRows(year);
+      const rows = collapseFutureProfitRows(originalBuildRows(year));
       const cashResult = node(
         'cash-result',
         'Остаток после всех учтённых выплат',
