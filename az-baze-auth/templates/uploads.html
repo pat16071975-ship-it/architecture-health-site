@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <style>
-.upload-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.upload-title{margin:0;font-size:24px;font-weight:500}.upload-home{white-space:nowrap;min-width:124px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.next-upload{margin:12px 0 16px;padding:16px 18px;border:2px solid #b59662;background:#fff8e8;border-radius:11px;font-size:22px;line-height:1.3;font-weight:700;color:#5d4930}.next-upload strong{font-size:28px}.status-line{margin:10px 0 18px;padding:10px 12px;border-left:3px solid #b59662;background:#fffaf0;border-radius:8px;font-size:12px}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload-box{border:1px solid #ded5c8;border-radius:11px;background:#fff;padding:14px}.upload-box h3{margin:0 0 5px;font-size:14px}.upload-box p{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}.upload-box input[type=file]{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}.lock{padding:10px;border-radius:8px;background:#f2eee7;color:#7c756d;font-size:11px}.result{margin:14px 0 0;padding:11px 13px;border-radius:9px;font-size:12px;line-height:1.5}.result.ok{background:#e5eee7;color:#315a40}.result.error{background:#f7e8e6;color:#8a403b}.hint{margin-top:10px;color:#72786f;font-size:10.5px;line-height:1.5}.journal-title{margin:0 0 10px;font-size:18px;font-weight:500}.state-imported,.state-replaced{color:#315a40}.state-duplicate{color:#7a684c}.state-denied_replace{color:#9a4b48}@media(max-width:700px){.upload-grid{grid-template-columns:1fr}.upload-head{flex-direction:column}.next-upload{font-size:18px}.next-upload strong{font-size:22px}}
+.upload-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.upload-title{margin:0;font-size:24px;font-weight:500}.upload-home{white-space:nowrap;min-width:124px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.next-upload{margin:12px 0 16px;padding:16px 18px;border:2px solid #b59662;background:#fff8e8;border-radius:11px;font-size:22px;line-height:1.3;font-weight:700;color:#5d4930}.next-upload strong{font-size:28px}.status-line{margin:10px 0 18px;padding:10px 12px;border-left:3px solid #b59662;background:#fffaf0;border-radius:8px;font-size:12px}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload-box{border:1px solid #ded5c8;border-radius:11px;background:#fff;padding:14px}.upload-box h3{margin:0 0 5px;font-size:14px}.upload-box p{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}.upload-box input[type=file]{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}.lock{padding:10px;border-radius:8px;background:#f2eee7;color:#7c756d;font-size:11px}.result{margin:14px 0 0;padding:11px 13px;border-radius:9px;font-size:12px;line-height:1.5}.result.ok{background:#e5eee7;color:#315a40}.result.error{background:#f7e8e6;color:#8a403b}.hint{margin-top:10px;color:#72786f;font-size:10.5px;line-height:1.5}.journal-title{margin:0 0 10px;font-size:18px;font-weight:500}.state-imported,.state-replaced{color:#315a40}.state-duplicate{color:#7a684c}.state-denied_replace{color:#9a4b48}.manual-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.manual-head h2{margin:0 0 5px;font-size:20px;font-weight:500}.manual-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px}.manual-field{display:grid;gap:5px}.manual-field label{font-size:10.5px;font-weight:700;color:#5f675f}.manual-field input{width:100%;min-width:0;padding:9px 10px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;color:#2d342f;font:600 12px Montserrat,Arial,sans-serif}.manual-field input:focus{outline:2px solid rgba(68,99,79,.16);border-color:#78917f}.manual-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}.manual-note{margin:0 0 14px;padding:10px 12px;border-left:3px solid #44634f;background:#f1f6f2;border-radius:8px;color:#4b5b50;font-size:11px;line-height:1.5}.manual-status{min-height:18px;font-size:11px}.manual-status.ok{color:#315a40}.manual-status.error{color:#9a4b48}@media(max-width:900px){.manual-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}}@media(max-width:700px){.upload-grid{grid-template-columns:1fr}.upload-head,.manual-head{flex-direction:column}.next-upload{font-size:18px}.next-upload strong{font-size:22px}.manual-grid{grid-template-columns:1fr}}
 </style>
 <div class="card">
   <div class="upload-head">
@@ -46,6 +46,32 @@
   </form>
 </div>
 
+<div class="spacer"></div>
+<div class="card" id="management-manual">
+  <div class="manual-head">
+    <div><h2>3. План и ручные показатели</h2><div class="muted">Ручная часть управленческого отчёта, которая не приходит из ежедневных выгрузок МИС.</div></div>
+  </div>
+  {% if 'reports' in perms %}
+    <div class="manual-note">Фактическая выручка, приёмы, врачи и лаборатория заполняются двумя файлами выше и здесь не дублируются. Здесь сохраняются только поля, которые автоматический пересчёт специально оставляет ручными.</div>
+    <form id="managementManualForm" autocomplete="off">
+      <input type="hidden" id="managementCsrf" value="{{ csrf }}">
+      <div class="manual-grid">
+        <div class="manual-field"><label for="managementDate">Дата записи</label><input id="managementDate" type="date" required></div>
+        <div class="manual-field"><label for="manualPlan">План</label><input id="manualPlan" inputmode="decimal" data-management-key="plan"></div>
+        <div class="manual-field"><label for="manualPp25">ПП 2025 на этот день</label><input id="manualPp25" inputmode="decimal" data-management-key="pp25"></div>
+        <div class="manual-field"><label for="manualAvg25">Средний чек 2025</label><input id="manualAvg25" inputmode="decimal" data-management-key="avg25"></div>
+        <div class="manual-field"><label for="manualLeadsDent">Стоматология — целевые лиды</label><input id="manualLeadsDent" inputmode="decimal" data-management-key="leadsDent"></div>
+        <div class="manual-field"><label for="manualLeadsDentLost">Отказ / мониторинг — стоматология</label><input id="manualLeadsDentLost" inputmode="decimal" data-management-key="leadsDentLost"></div>
+        <div class="manual-field"><label for="manualLeadsClinic">Клиника — целевые лиды</label><input id="manualLeadsClinic" inputmode="decimal" data-management-key="leadsClinic"></div>
+        <div class="manual-field"><label for="manualLeadsReserve">Резерв</label><input id="manualLeadsReserve" inputmode="decimal" data-management-key="leadsReserve"></div>
+      </div>
+      <div class="manual-actions"><button class="btn primary" type="submit">Сохранить ручные показатели</button><span id="managementManualStatus" class="manual-status"></span></div>
+    </form>
+  {% else %}
+    <div class="lock">Для изменения ручных показателей требуется право на управленческие отчёты.</div>
+  {% endif %}
+</div>
+
 {% if result %}
 <div data-az-upload-feedback data-status="{{ result['status'] }}" hidden>
   <span data-feedback-message>{{ result['message'] }}</span>
@@ -75,5 +101,73 @@
     </tbody>
   </table></div>
 </div>
+{% endif %}
+
+{% if 'reports' in perms %}
+<script>
+(()=>{
+  const form=document.getElementById('managementManualForm');
+  const dateInput=document.getElementById('managementDate');
+  const status=document.getElementById('managementManualStatus');
+  const csrf=document.getElementById('managementCsrf')?.value||'';
+  const fields=[...document.querySelectorAll('[data-management-key]')];
+  let store={};
+
+  function setStatus(text,type=''){
+    status.textContent=text||'';
+    status.className='manual-status'+(type?' '+type:'');
+  }
+  function parseNumber(value){
+    const text=String(value??'').trim().replace(/\u00a0/g,'').replace(/\s+/g,'').replace(',','.');
+    if(!text)return '';
+    const number=Number(text);
+    if(!Number.isFinite(number))throw new Error('Проверьте числовые значения.');
+    return number;
+  }
+  function fill(date){
+    const record=store[date]||{};
+    fields.forEach(input=>{input.value=record[input.dataset.managementKey]??''});
+    setStatus(record.date?'Загружены сохранённые ручные показатели за эту дату.':'Для этой даты ручные показатели ещё не сохранены.');
+  }
+  async function loadStore(preferredDate=''){
+    const response=await fetch('/api/reports/data',{credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)throw new Error('Не удалось загрузить управленческие данные.');
+    const payload=await response.json();
+    store=payload.data||{};
+    const dates=Object.keys(store).sort();
+    const date=preferredDate||dateInput.value||dates[dates.length-1]||new Date().toISOString().slice(0,10);
+    dateInput.value=date;
+    fill(date);
+    return payload;
+  }
+  dateInput.addEventListener('change',()=>fill(dateInput.value));
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const date=dateInput.value;
+    if(!date){setStatus('Выберите дату.','error');return}
+    setStatus('Сохраняю…');
+    try{
+      const response=await fetch('/api/reports/data',{credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw new Error('Не удалось проверить текущую запись.');
+      const payload=await response.json();
+      const fresh=payload.data||{};
+      const record={...(fresh[date]||{}),date};
+      fields.forEach(input=>{record[input.dataset.managementKey]=parseNumber(input.value)});
+      const saved=await fetch('/api/reports/data/'+encodeURIComponent(date),{
+        method:'PUT',credentials:'same-origin',
+        headers:{'Content-Type':'application/json','X-CSRF-Token':payload.csrf||csrf},
+        body:JSON.stringify(record)
+      });
+      if(!saved.ok)throw new Error('Сервер не принял изменения.');
+      store={...fresh,[date]:record};
+      setStatus('Сохранено на сервере AZ-BAZE.','ok');
+    }catch(error){
+      console.error(error);
+      setStatus(error.message||'Не удалось сохранить данные.','error');
+    }
+  });
+  loadStore().catch(error=>{console.error(error);setStatus(error.message||'Не удалось загрузить данные.','error')});
+})();
+</script>
 {% endif %}
 {% endblock %}
