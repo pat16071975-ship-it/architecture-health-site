@@ -347,6 +347,13 @@
     };
   }
 
+  function updateAccountingStatus() {
+    const status = document.querySelector('#status');
+    if (!status || !DATA?.expenses?.available || !economics?.available || economics?.control?.status !== 'OK') return;
+    const period = DATA?.expenses?.period || {};
+    status.textContent = `Первый вариант: ФОТ в месяцах зарплатного реестра считается по начислению; фактические выплаты ФОТ оставлены в детализации. Остальные расходы пока берутся по текущей дате фактической оплаты (${period.from || '—'} — ${period.to || '—'}). EBITDA считается по этой смешанной базе; EBIT и чистая прибыль пока не рассчитываются без надёжных данных амортизации, процентов и налога.`;
+  }
+
   async function load() {
     installTotalColumn();
     if (typeof DATA !== 'undefined' && DATA) render();
@@ -360,6 +367,7 @@
       economics = payload.data;
       installEconomics();
       if (typeof DATA !== 'undefined' && DATA) render();
+      updateAccountingStatus();
     } catch (error) {
       console.error('AZ finrez economics integration failed', error);
     }
