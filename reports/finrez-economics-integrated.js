@@ -81,6 +81,19 @@
     return +value;
   }
 
+  function accruedPayrollTax(year, index) {
+    const month = auditedMonth(year, index);
+    if (!month) return null;
+    const lines = (economics?.opu?.expense_lines || [])
+      .filter(line => line.category === 'Налоги и взносы на ФОТ');
+    if (!lines.length) return null;
+    return lines.reduce((sum, line) => sum + (Number(line?.months?.[month]) || 0), 0);
+  }
+
+  function accruedPayrollTaxValues(year) {
+    return Array.from({ length: 12 }, (_, index) => accruedPayrollTax(year, index));
+  }
+
   function employeeNodes(year, assignments, parentKey) {
     return assignments
       .slice()
@@ -109,6 +122,19 @@
         'subcategory'
       );
     }).filter(Boolean);
+  }
+
+  function payrollTaxAccrualNodes(year) {
+    return (economics?.opu?.expense_lines || [])
+      .filter(line => line.category === 'Налоги и взносы на ФОТ')
+      .map((line, lineIndex) => node(
+        `audit-payroll-tax-source-${lineIndex}`,
+        `${line.section || 'ОПУ'} — ${line.source_name || 'НДФЛ и соц.взносы'}`,
+        3,
+        auditedValues(year, line.months || {}),
+        [],
+        'detail'
+      ));
   }
 
   function medicalBucket(sourceName) {
@@ -273,6 +299,10 @@
         const accrued = accruedFot(year, index);
         if (accrued !== null) return accrued;
       }
+      if (year === 2026 && name === 'Налоги и взносы на ФОТ') {
+        const accrued = accruedPayrollTax(year, index);
+        if (accrued !== null) return accrued;
+      }
       return originalCategoryTotal(year, index, name);
     };
 
@@ -280,9 +310,16 @@
     operatingExpenses = function(year, index) {
       const original = originalOperatingExpenses(year, index);
       if (year !== 2026) return original;
-      const accrued = accruedFot(year, index);
-      if (accrued === null) return original;
-      return original - originalCategoryTotal(year, index, 'ФОТ') + accrued;
+      let adjusted = original;
+      const accruedFotValue = accruedFot(year, index);
+      if (accruedFotValue !== null) {
+        adjusted += accruedFotValue - originalCategoryTotal(year, index, 'ФОТ');
+      }
+      const accruedTaxValue = accruedPayrollTax(year, index);
+      if (accruedTaxValue !== null) {
+        adjusted += accruedTaxValue - originalCategoryTotal(year, index, 'Налоги и взносы на ФОТ');
+      }
+      return adjusted;
     };
 
     expenseCategoryNode = function(year, mainName, index) {
@@ -331,6 +368,36 @@
         return base;
       }
 
+      if (mainName === 'Налоги и взносы на ФОТ') {
+        const accruedValues = accruedPayrollTaxValues(year);
+        const paidValues = Array.from(
+          { length: 12 },
+          (_, monthIndex) => originalCategoryTotal(year, monthIndex, 'Налоги и взносы на ФОТ')
+        );
+        const effectiveValues = accruedValues.map(
+          (value, monthIndex) => value === null ? paidValues[monthIndex] : value
+        );
+        const accruedNode = node(
+          'audit-payroll-tax-accrued',
+          'Начисленные налоги и взносы на ФОТ — основа расчёта прибыли',
+          2,
+          accruedValues,
+          payrollTaxAccrualNodes(year),
+          'subcategory'
+        );
+        const paidDetail = node(
+          'payroll-tax-paid-detail',
+          'Налоги и взносы на ФОТ по фактическим выплатам — детализация',
+          2,
+          paidValues,
+          base.children || [],
+          'subcategory'
+        );
+        base.values = effectiveValues;
+        base.children = [accruedNode, paidDetail];
+        return base;
+      }
+
       if (mainName === 'Медицинские расходы') {
         const paidDetail = node(
           'medical-paid-detail',
@@ -351,7 +418,7 @@
     const status = document.querySelector('#status');
     if (!status || !DATA?.expenses?.available || !economics?.available || economics?.control?.status !== 'OK') return;
     const period = DATA?.expenses?.period || {};
-    status.textContent = `Первый вариант: ФОТ в месяцах зарплатного реестра считается по начислению; фактические выплаты ФОТ оставлены в детализации. Остальные расходы пока берутся по текущей дате фактической оплаты (${period.from || '—'} — ${period.to || '—'}). EBITDA считается по этой смешанной базе; EBIT и чистая прибыль пока не рассчитываются без надёжных данных амортизации, процентов и налога.`;
+    status.textContent = `Первый вариант: ФОТ и налоги/взносы на ФОТ в месяцах подтверждённого экономического источника считаются по начислению; фактические выплаты оставлены в детализации. Остальные расходы пока берутся по текущей дате фактической оплаты (${period.from || '—'} — ${period.to || '—'}). EBITDA считается по этой смешанной базе; EBIT и чистая прибыль пока не рассчитываются без надёжных данных амортизации, процентов и налога.`;
   }
 
   async function load() {
