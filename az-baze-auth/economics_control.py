@@ -11,10 +11,11 @@ from flask import Response, g, jsonify, request
 from app import SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, require_csrf
 
 DATA_PATH = Path("/var/lib/az-baze/economics-control.json")
-PERIOD = [f"2026-{m:02d}" for m in range(1, 7)]
-MONTHS_RU = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь"]
-OPU_COLS = [21, 23, 25, 27, 29, 31]
-PAYROLL_COLS = [14, 15, 16, 17, 18, 19]
+PERIOD = [f"2026-{m:02d}" for m in range(1, 9)]
+MONTHS_RU = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август"]
+OPU_COLS = [21, 23, 25, 27, 29, 31, 33, 35]
+PAYROLL_COLS = [14, 15, 16, 17, 18, 19, 20, 21]
+MAX_SOURCE_COL = max(OPU_COLS + PAYROLL_COLS + [5])
 
 _XLSX_MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 _XLSX_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -61,7 +62,10 @@ def _num(value):
 
 
 def _dict_series(values):
-    return {PERIOD[i]: _num(values[i]) for i in range(6)}
+    return {
+        month: _num(values[index] if index < len(values) else 0)
+        for index, month in enumerate(PERIOD)
+    }
 
 
 def _norm_name(value):
@@ -179,7 +183,7 @@ def _load_xlsx_subset(stream):
                 row_values = {}
                 for cell in row_node.findall(f"{{{_XLSX_MAIN_NS}}}c"):
                     col = _col_number(cell.attrib.get("r"))
-                    if not col or col > 31:
+                    if not col or col > MAX_SOURCE_COL:
                         continue
                     row_values[col] = _xlsx_cell_value(cell, shared_strings)
                 if row_values:
