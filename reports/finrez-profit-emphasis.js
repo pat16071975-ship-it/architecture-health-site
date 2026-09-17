@@ -35,7 +35,12 @@
     #body tr.cash-result td:last-child { border-right:2px solid #9d8357 !important; }
     #body tr.az-profit-row .row-label,
     #body tr.cash-result .row-label { font-size:12.5px !important; font-weight:800 !important; }
+    #body tr.margin.az-profit-row td.first { background:#e8f1ea !important; }
+    #body tr.gross.az-profit-row td.first { background:#e8eef3 !important; }
+    #body tr.ebitda.az-profit-row td.first { background:#dfeadd !important; }
+    #body tr.unavailable.az-profit-row td.first { background:#f4f1eb !important; }
     #body tr.cash-result td { background:#d8e7dc !important; }
+    #body tr.cash-result td.first { background:#d8e7dc !important; }
     #body tr.cash-result .cell-main { font-size:12.5px !important; }
     @media(max-width:760px){
       #body tr.az-profit-row td,
