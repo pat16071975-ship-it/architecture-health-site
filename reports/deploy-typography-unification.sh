@@ -16,7 +16,7 @@ declare -A BASE=(
   [economics-dashboard.html]="daa642144f584dff73342728bccee1d0082ab443"
   [transitions.html]="61878c44cc7de49f50e36e76ec15d7b7fc2ee53c"
   [import-20260831.html]="1044db19cdb853ed7e0b029f6b183a22d880d026"
-  [services.html]="063c17fe045cf03d1964467dcf6cfef5293ad66b"
+  [services.html]="206545a727bd2d7e8738f2cc2dd260e5e9a15f5a"
   [economics-import.html]="6b0bf2f4d832969386f89ddc935c62eb971eb1e6"
 )
 
@@ -29,7 +29,7 @@ declare -A TARGET=(
   [economics-dashboard.html]="dbe7502966eca0d2bbf151310a5afc085ab214e6"
   [transitions.html]="654697860a2e13071882336148fdf98d26d4229a"
   [import-20260831.html]="07b5f6da1521393639b045bf2080aa92d877c742"
-  [services.html]="f6ea41943e830c54eddc72640b191fc2d120fbba"
+  [services.html]="4dd01dd2b2680a3f4e76beb7c4021951b2a532cd"
   [economics-import.html]="c6500819c3699a3bab4b0747c44e0ecb590e9384"
 )
 
@@ -81,7 +81,26 @@ done
 echo "PRECHECK LIVE BASES: OK"
 
 for file in "${FILES[@]}"; do
-  curl -fsSL "https://raw.githubusercontent.com/pat16071975-ship-it/architecture-health-site/$TARGET_COMMIT/reports/$file" -o "$TMP/$file"
+  if [ "$file" = "services.html" ]; then
+    cp -a "$ROOT/$file" "$TMP/$file"
+    python3 - "$TMP/$file" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+old = "font-family:Arial,sans-serif"
+new = "font-family:Montserrat,Arial,sans-serif"
+if old not in s:
+    raise SystemExit("services.html font anchor missing")
+s = s.replace(old, new, 1)
+link = '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">'
+if link not in s:
+    s = s.replace("</title>", "</title>\n" + link, 1)
+p.write_text(s, encoding="utf-8")
+PY
+  else
+    curl -fsSL "https://raw.githubusercontent.com/pat16071975-ship-it/architecture-health-site/$TARGET_COMMIT/reports/$file" -o "$TMP/$file"
+  fi
   actual="$(git hash-object "$TMP/$file")"
   [ "$actual" = "${TARGET[$file]}" ] || {
     echo "TARGET BLOB FAIL $file: $actual"
