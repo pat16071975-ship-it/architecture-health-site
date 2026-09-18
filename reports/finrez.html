@@ -66,7 +66,7 @@ function managementRecord(year,i){return DATA?.management?.[ym(year,i)]||null}
 function expenseMonth(year,i){return DATA?.expenses?.months?.[ym(year,i)]||{operating:{},debt:{}}}
 function num(v){const n=+v;return Number.isFinite(n)?n:0}
 function factFor(year,i){const r=managementRecord(year,i);return r?num(r.factMedicine)+num(r.factLab):null}
-function planFor(year,i){const r=managementRecord(year,i);if(!r)return null;const n=+r.plan;return Number.isFinite(n)&&n!==0?n:null}
+function planFor(year,i){const key=ym(year,i),saved=DATA?.plans?.[key];if(saved!==null&&saved!==undefined&&saved!==''){const n=+saved;if(Number.isFinite(n)&&n!==0)return n}const r=managementRecord(year,i);if(!r)return null;const n=+r.plan;return Number.isFinite(n)&&n!==0?n:null}
 function discountFor(year,i){const r=managementRecord(year,i);if(!r||r.discountDataComplete!==true)return null;const n=+r.discountAmount;return Number.isFinite(n)?n:null}
 function grossRevenueFor(year,i){const r=managementRecord(year,i);if(!r||r.discountDataComplete!==true)return null;const n=+r.grossRevenue;return Number.isFinite(n)?n:null}
 function categoryTotal(year,i,name){return num(expenseMonth(year,i).operating?.[name]?.total)}
