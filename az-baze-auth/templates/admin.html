@@ -2,7 +2,7 @@
 {% block content %}
 <div class="card">
   <div class="row between" style="margin-bottom:18px">
-    <div><h2 class="section-title" style="margin-bottom:4px">Управление доступом</h2><div class="muted">Администраторы системы видят все разделы и могут управлять пользователями.</div></div>
+    <div><h2 class="section-title" style="margin-bottom:4px">Управление доступом</h2><div class="muted">Администраторы системы видят обычные разделы и могут управлять пользователями. Права «Опросы» выдаются отдельно.</div></div>
     <div class="row"><a class="btn" href="/">На главную</a><a class="btn primary" href="/admin/users/new">Добавить пользователя</a></div>
   </div>
   <div class="table-wrap">
@@ -16,6 +16,7 @@
           <td>
             {% for key,label in sections %}{% if key in perms[user['id']] %}<span class="badge">{% if key == 'section4' %}Дни рождения сотрудников{% elif key == 'section5' %}Загрузка данных{% else %}{{ label }}{% endif %}</span>{% endif %}{% endfor %}
             {% if 'section5' in perms[user['id']] %}{% for key,label in upload_permission_options %}{% if key in perms[user['id']] %}<span class="badge">{{ label }}</span>{% endif %}{% endfor %}{% endif %}
+            {% for key,label in survey_permission_options %}{% if key in perms[user['id']] %}<span class="badge">{{ label }}</span>{% endif %}{% endfor %}
             {% if 'credentials_view' in perms[user['id']] %}<span class="badge">Доступы и контакты</span>{% endif %}
           </td>
           <td>{% if user['active'] %}Активен{% else %}<span style="color:#9a4b48">Отключён</span>{% endif %}{% if user['must_change_password'] %}<br><span class="muted">ожидается смена пароля</span>{% endif %}</td>
