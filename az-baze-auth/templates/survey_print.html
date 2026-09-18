@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ results.survey.title }} — результаты</title>
+<style>
+body{margin:0;padding:24px;color:#222;font-family:Arial,sans-serif;background:#fff}main{max-width:920px;margin:0 auto}h1{margin:0 0 6px;font-size:26px}h2{margin:24px 0 10px;font-size:18px}h3{margin:18px 0 8px;font-size:14px}.meta{font-size:12px;line-height:1.5;color:#555}.summary{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0;padding:12px;border:1px solid #ccc}.summary b{display:block;font-size:18px}.question{margin:8px 0;padding:10px;border:1px solid #ddd;break-inside:avoid}.q{font-weight:700;font-size:12px}.small{margin-top:5px;font-size:11px;color:#555}.comment{margin:8px 0;padding:10px;border-left:3px solid #999;background:#f7f7f7;white-space:pre-wrap;font-size:11px;break-inside:avoid}.no-print{margin-bottom:14px}@media print{.no-print{display:none}body{padding:0}}
+</style>
+</head>
+<body>
+<main>
+  <button class="no-print" onclick="window.print()">Печать / сохранить PDF</button>
+  <h1>{{ results.survey.title }}</h1>
+  <div class="meta">{{ results.survey.category }}{% if results.survey.period %} · {{ results.survey.period }}{% endif %}</div>
+  <div class="summary">
+    <div><span>Ожидалось</span><b>{{ results.survey.expected_responses }}</b></div>
+    <div><span>Получено</span><b>{{ results.survey.received_responses }}</b></div>
+    <div><span>Доля участия</span><b>{% if results.survey.participation is not none %}{{ (results.survey.participation*100)|round(1) }} %{% else %}—{% endif %}</b></div>
+    <div><span>Итоговый балл</span><b>{{ results.overall_score if results.overall_score is not none else '—' }}</b></div>
+  </div>
+  {% if not results.enough_for_overall %}<p><strong>Недостаточно данных для сводной оценки.</strong></p>{% endif %}
+
+  <h2>Выводы</h2>
+  <h3>Сильные стороны</h3>
+  <ul>{% for item in results.conclusions.strongest %}<li>{{ item.question }} — {{ item.mean }} ({{ item.zone }})</li>{% else %}<li>Нет оценённых вопросов.</li>{% endfor %}</ul>
+  <h3>Зоны внимания</h3>
+  <ul>{% for item in results.conclusions.attention %}<li>{{ item.question }} — {{ item.mean }} ({{ item.zone }})</li>{% else %}<li>Нет оценённых вопросов.</li>{% endfor %}</ul>
+  <h3>Недостаточно наблюдений</h3>
+  <ul>{% for item in results.conclusions.insufficient %}<li>{{ item.question }} — Н/О {{ (item.no_observation_ratio*100)|round(0)|int }} %</li>{% else %}<li>Нет.</li>{% endfor %}</ul>
+
+  <h2>Блоки</h2>
+  {% for block in results.blocks %}<div class="question"><div class="q">{{ block.title }}</div><div class="small">Среднее {{ block.mean }} · оценок {{ block.count }} · {{ block.zone }}</div></div>{% else %}<div class="meta">Нет оценённых блоков.</div>{% endfor %}
+
+  <h2>Вопросы</h2>
+  {% for item in results.questions %}
+    <div class="question">
+      <div class="q">{% if item.section %}{{ item.section }} · {% endif %}{{ item.question }}</div>
+      {% if item.type=='scale' %}
+        <div class="small">Оценок {{ item.count }} · среднее {{ item.mean if item.mean is not none else '—' }} · медиана {{ item.median if item.median is not none else '—' }} · 1={{ item.distribution['1'] }}, 2={{ item.distribution['2'] }}, 3={{ item.distribution['3'] }}, 4={{ item.distribution['4'] }}, 5={{ item.distribution['5'] }} · Н/О={{ item.no_observation }}</div>
+      {% elif item.type in ['single','multi'] %}
+        <div class="small">{% for option in item.options %}{{ option.label }}={{ option.count }}{% if not loop.last %}; {% endif %}{% endfor %}</div>
+      {% else %}
+        <div class="small">Комментариев: {{ item.count }}</div>
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  <h2>Комментарии сотрудников</h2>
+  <div class="meta">Без ФИО, номера анкеты, номера ссылки и времени отправки.</div>
+  {% for item in results.comments %}<div class="comment"><strong>{{ item.question }}</strong><br>{{ item.text }}</div>{% else %}<div class="meta">Комментариев нет.</div>{% endfor %}
+</main>
+</body>
+</html>
