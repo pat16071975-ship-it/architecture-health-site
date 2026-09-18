@@ -41,7 +41,7 @@
           <div class="survey-card">
             <h4>{{ survey['title'] }}</h4>
             <div class="survey-meta">
-              <span>Период: {{ survey['period_label'] or 'не указан' }}</span>
+              <span>Период: {{ survey['period_display'] or 'не указан' }}</span>
               <span>Получено {{ survey['response_count'] }} / ожидается {{ survey['expected_responses'] }}</span>
               <span>Статус: {{ status_labels[survey['status']] }}</span>
             </div>
