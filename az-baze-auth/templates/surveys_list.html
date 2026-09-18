@@ -46,10 +46,20 @@
               <span>Статус: {{ status_labels[survey['status']] }}</span>
             </div>
             <div class="row">
-              <a class="btn" href="/surveys/{{ survey['id'] }}/">Открыть</a>
-              {% if survey['status']=='DRAFT' %}<a class="btn" href="/surveys/{{ survey['id'] }}/edit">Редактировать</a>{% endif %}
-              {% if survey['status']=='OPEN' %}<a class="btn" href="/surveys/{{ survey['id'] }}/invites">Ссылки участия</a>{% endif %}
-              {% if survey['status'] in ['CLOSED','ARCHIVED'] %}<a class="btn primary" href="/surveys/{{ survey['id'] }}/results">Результаты</a>{% endif %}
+              <a class="btn" href="/surveys/{{ survey['id'] }}/">Карточка</a>
+              {% if survey['status']=='DRAFT' %}
+                <a class="btn" href="/surveys/{{ survey['id'] }}/edit">Редактировать</a>
+                <form method="post" action="/surveys/{{ survey['id'] }}/open"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary" type="submit" onclick="return confirm('Открыть опрос? После открытия вопросы изменить нельзя.')">Открыть</button></form>
+              {% elif survey['status']=='OPEN' %}
+                <a class="btn" href="/surveys/{{ survey['id'] }}/invites">Ссылки участия</a>
+                <form method="post" action="/surveys/{{ survey['id'] }}/close"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn warn" type="submit" onclick="return confirm('Закрыть опрос?')">Закрыть</button></form>
+              {% elif survey['status']=='CLOSED' %}
+                <a class="btn primary" href="/surveys/{{ survey['id'] }}/results">Результаты</a>
+                <a class="btn" href="/surveys/{{ survey['id'] }}/export.csv">Экспорт</a>
+                <form method="post" action="/surveys/{{ survey['id'] }}/clone"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Клонировать</button></form>
+              {% elif survey['status']=='ARCHIVED' %}
+                <a class="btn primary" href="/surveys/{{ survey['id'] }}/results">Результаты</a>
+              {% endif %}
             </div>
           </div>
           {% endfor %}
