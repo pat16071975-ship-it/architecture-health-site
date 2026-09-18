@@ -1,12 +1,17 @@
 {% extends 'base.html' %}
 {% block content %}
 <style>
-.upload-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.upload-title{margin:0;font-size:24px;font-weight:500}.upload-home{white-space:nowrap;min-width:124px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.next-upload{margin:12px 0 16px;padding:16px 18px;border:2px solid #b59662;background:#fff8e8;border-radius:11px;font-size:22px;line-height:1.3;font-weight:700;color:#5d4930}.next-upload strong{font-size:28px}.status-line{margin:10px 0 18px;padding:10px 12px;border-left:3px solid #b59662;background:#fffaf0;border-radius:8px;font-size:12px}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload-box{border:1px solid #ded5c8;border-radius:11px;background:#fff;padding:14px}.upload-box h3{margin:0 0 5px;font-size:14px}.upload-box p{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}.upload-box input[type=file]{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}.lock{padding:10px;border-radius:8px;background:#f2eee7;color:#7c756d;font-size:11px}.result{margin:14px 0 0;padding:11px 13px;border-radius:9px;font-size:12px;line-height:1.5}.result.ok{background:#e5eee7;color:#315a40}.result.error{background:#f7e8e6;color:#8a403b}.hint{margin-top:10px;color:#72786f;font-size:10.5px;line-height:1.5}.journal-title{margin:0 0 10px;font-size:18px;font-weight:500}.state-imported,.state-replaced{color:#315a40}.state-duplicate{color:#7a684c}.state-denied_replace{color:#9a4b48}.manual-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.manual-head h2{margin:0 0 5px;font-size:20px;font-weight:500}.manual-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px}.manual-field{display:grid;gap:5px}.manual-field label{font-size:10.5px;font-weight:700;color:#5f675f}.manual-field input{width:100%;min-width:0;padding:9px 10px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;color:#2d342f;font:600 12px Montserrat,Arial,sans-serif}.manual-field input:focus{outline:2px solid rgba(68,99,79,.16);border-color:#78917f}.manual-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}.manual-note{margin:0 0 14px;padding:10px 12px;border-left:3px solid #44634f;background:#f1f6f2;border-radius:8px;color:#4b5b50;font-size:11px;line-height:1.5}.manual-status{min-height:18px;font-size:11px}.manual-status.ok{color:#315a40}.manual-status.error{color:#9a4b48}@media(max-width:900px){.manual-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}}@media(max-width:700px){.upload-grid{grid-template-columns:1fr}.upload-head,.manual-head{flex-direction:column}.next-upload{font-size:18px}.next-upload strong{font-size:22px}.manual-grid{grid-template-columns:1fr}}
+.upload-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.upload-title{margin:0;font-size:24px;font-weight:500}.upload-head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.upload-home{white-space:nowrap;min-width:124px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.next-upload{margin:12px 0 16px;padding:16px 18px;border:2px solid #b59662;background:#fff8e8;border-radius:11px;font-size:22px;line-height:1.3;font-weight:700;color:#5d4930}.next-upload strong{font-size:28px}.status-line{margin:10px 0 18px;padding:10px 12px;border-left:3px solid #b59662;background:#fffaf0;border-radius:8px;font-size:12px}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload-box{border:1px solid #ded5c8;border-radius:11px;background:#fff;padding:14px}.upload-box h3{margin:0 0 5px;font-size:14px}.upload-box p{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}.upload-box input[type=file]{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}.lock{padding:10px;border-radius:8px;background:#f2eee7;color:#7c756d;font-size:11px}.result{margin:14px 0 0;padding:11px 13px;border-radius:9px;font-size:12px;line-height:1.5}.result.ok{background:#e5eee7;color:#315a40}.result.error{background:#f7e8e6;color:#8a403b}.hint{margin-top:10px;color:#72786f;font-size:10.5px;line-height:1.5}.journal-title{margin:0 0 10px;font-size:18px;font-weight:500}.state-imported,.state-replaced{color:#315a40}.state-duplicate{color:#7a684c}.state-denied_replace{color:#9a4b48}
+.plan-overlay{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:18px;background:rgba(38,45,40,.38);backdrop-filter:blur(3px)}.plan-dialog{width:min(720px,96vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid #d8cdbb;border-radius:16px;background:#fffdf8;box-shadow:0 24px 80px rgba(37,42,39,.26)}.plan-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:15px 17px;border-bottom:1px solid #e3dacd;background:#faf6ef}.plan-head h2{margin:0;font-size:21px;font-weight:500}.plan-head .muted{margin-top:4px}.plan-close{border:0;background:transparent;color:#687067;font-size:24px;line-height:1;cursor:pointer;padding:2px 6px}.plan-body{overflow:auto;padding:15px 17px}.plan-year{display:grid;grid-template-columns:140px 1fr;gap:12px;align-items:end;margin-bottom:14px}.plan-field{display:grid;gap:5px}.plan-field label{font-size:10.5px;font-weight:700;color:#5f675f}.plan-field input,.plan-field select{width:100%;min-width:0;padding:9px 10px;border:1px solid #d8cdbb;border-radius:8px;background:#fff;color:#2d342f;font:600 12px Montserrat,Arial,sans-serif}.plan-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:9px}.plan-note{padding:10px 12px;border-left:3px solid #44634f;border-radius:8px;background:#f1f6f2;color:#4b5b50;font-size:11px;line-height:1.45}.plan-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 17px;border-top:1px solid #e3dacd;background:#faf7f1}.plan-status{min-height:16px;font-size:10.5px}.plan-status.ok{color:#315a40}.plan-status.error{color:#9a4b48}.plan-actions{display:flex;gap:8px}.hidden{display:none!important}
+@media(max-width:700px){.upload-grid{grid-template-columns:1fr}.upload-head{flex-direction:column}.upload-head-actions{width:100%}.next-upload{font-size:18px}.next-upload strong{font-size:22px}.plan-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.plan-dialog{width:100vw;max-height:100vh;height:100vh;border-radius:0}.plan-overlay{padding:0}.plan-foot{align-items:stretch;flex-direction:column}.plan-actions .btn{flex:1}}
 </style>
 <div class="card">
   <div class="upload-head">
     <div><h2 class="upload-title">Загрузка данных</h2><div class="muted">Можно загрузить выгрузки за один день или сразу за несколько дней одного месяца. Система сначала проверяет весь период и только потом изменяет отчёты.</div></div>
-    <a class="btn upload-home" href="/">На главную</a>
+    <div class="upload-head-actions">
+      {% if 'reports' in perms %}<button class="btn primary upload-home" type="button" id="planPopupOpen">План</button>{% endif %}
+      <a class="btn upload-home" href="/">На главную</a>
+    </div>
   </div>
 
   <div class="next-upload">
@@ -46,32 +51,6 @@
   </form>
 </div>
 
-<div class="spacer"></div>
-<div class="card" id="management-manual">
-  <div class="manual-head">
-    <div><h2>3. План и ручные показатели</h2><div class="muted">Ручная часть управленческого отчёта, которая не приходит из ежедневных выгрузок МИС.</div></div>
-  </div>
-  {% if 'reports' in perms %}
-    <div class="manual-note">Фактическая выручка, приёмы, врачи и лаборатория заполняются двумя файлами выше и здесь не дублируются. Здесь сохраняются только поля, которые автоматический пересчёт специально оставляет ручными.</div>
-    <form id="managementManualForm" autocomplete="off">
-      <input type="hidden" id="managementCsrf" value="{{ csrf }}">
-      <div class="manual-grid">
-        <div class="manual-field"><label for="managementDate">Дата записи</label><input id="managementDate" type="date" required></div>
-        <div class="manual-field"><label for="manualPlan">План</label><input id="manualPlan" inputmode="decimal" data-management-key="plan"></div>
-        <div class="manual-field"><label for="manualPp25">ПП 2025 на этот день</label><input id="manualPp25" inputmode="decimal" data-management-key="pp25"></div>
-        <div class="manual-field"><label for="manualAvg25">Средний чек 2025</label><input id="manualAvg25" inputmode="decimal" data-management-key="avg25"></div>
-        <div class="manual-field"><label for="manualLeadsDent">Стоматология — целевые лиды</label><input id="manualLeadsDent" inputmode="decimal" data-management-key="leadsDent"></div>
-        <div class="manual-field"><label for="manualLeadsDentLost">Отказ / мониторинг — стоматология</label><input id="manualLeadsDentLost" inputmode="decimal" data-management-key="leadsDentLost"></div>
-        <div class="manual-field"><label for="manualLeadsClinic">Клиника — целевые лиды</label><input id="manualLeadsClinic" inputmode="decimal" data-management-key="leadsClinic"></div>
-        <div class="manual-field"><label for="manualLeadsReserve">Резерв</label><input id="manualLeadsReserve" inputmode="decimal" data-management-key="leadsReserve"></div>
-      </div>
-      <div class="manual-actions"><button class="btn primary" type="submit">Сохранить ручные показатели</button><span id="managementManualStatus" class="manual-status"></span></div>
-    </form>
-  {% else %}
-    <div class="lock">Для изменения ручных показателей требуется право на управленческие отчёты.</div>
-  {% endif %}
-</div>
-
 {% if result %}
 <div data-az-upload-feedback data-status="{{ result['status'] }}" hidden>
   <span data-feedback-message>{{ result['message'] }}</span>
@@ -104,69 +83,112 @@
 {% endif %}
 
 {% if 'reports' in perms %}
+<div id="planPopup" class="plan-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="planPopupTitle">
+  <div class="plan-dialog">
+    <div class="plan-head">
+      <div><h2 id="planPopupTitle">План по месяцам</h2><div class="muted">Ручной месячный план. Фактические показатели сюда не дублируются.</div></div>
+      <button type="button" class="plan-close" id="planPopupClose" aria-label="Закрыть">×</button>
+    </div>
+    <div class="plan-body">
+      <div class="plan-year">
+        <div class="plan-field"><label for="planYear">Год</label><select id="planYear"></select></div>
+        <div class="plan-note">План хранится отдельно от ежедневных загрузок. Можно заранее заполнить будущие месяцы — фактические данные это не изменит.</div>
+      </div>
+      <div class="plan-grid">
+        <div class="plan-field"><label>Январь</label><input inputmode="decimal" data-plan-month="01"></div>
+        <div class="plan-field"><label>Февраль</label><input inputmode="decimal" data-plan-month="02"></div>
+        <div class="plan-field"><label>Март</label><input inputmode="decimal" data-plan-month="03"></div>
+        <div class="plan-field"><label>Апрель</label><input inputmode="decimal" data-plan-month="04"></div>
+        <div class="plan-field"><label>Май</label><input inputmode="decimal" data-plan-month="05"></div>
+        <div class="plan-field"><label>Июнь</label><input inputmode="decimal" data-plan-month="06"></div>
+        <div class="plan-field"><label>Июль</label><input inputmode="decimal" data-plan-month="07"></div>
+        <div class="plan-field"><label>Август</label><input inputmode="decimal" data-plan-month="08"></div>
+        <div class="plan-field"><label>Сентябрь</label><input inputmode="decimal" data-plan-month="09"></div>
+        <div class="plan-field"><label>Октябрь</label><input inputmode="decimal" data-plan-month="10"></div>
+        <div class="plan-field"><label>Ноябрь</label><input inputmode="decimal" data-plan-month="11"></div>
+        <div class="plan-field"><label>Декабрь</label><input inputmode="decimal" data-plan-month="12"></div>
+      </div>
+    </div>
+    <div class="plan-foot">
+      <span id="planPopupStatus" class="plan-status"></span>
+      <div class="plan-actions"><button type="button" class="btn" id="planPopupCancel">Отмена</button><button type="button" class="btn primary" id="planPopupSave">Сохранить</button></div>
+    </div>
+  </div>
+</div>
 <script>
 (()=>{
-  const form=document.getElementById('managementManualForm');
-  const dateInput=document.getElementById('managementDate');
-  const status=document.getElementById('managementManualStatus');
-  const csrf=document.getElementById('managementCsrf')?.value||'';
-  const fields=[...document.querySelectorAll('[data-management-key]')];
-  let store={};
+  const KEY='az-management-monthly-plan-v1';
+  const overlay=document.getElementById('planPopup');
+  const openBtn=document.getElementById('planPopupOpen');
+  const closeBtn=document.getElementById('planPopupClose');
+  const cancelBtn=document.getElementById('planPopupCancel');
+  const saveBtn=document.getElementById('planPopupSave');
+  const yearSelect=document.getElementById('planYear');
+  const status=document.getElementById('planPopupStatus');
+  const inputs=[...document.querySelectorAll('[data-plan-month]')];
+  let csrf='{{ csrf }}';
+  let plans={};
 
-  function setStatus(text,type=''){
-    status.textContent=text||'';
-    status.className='manual-status'+(type?' '+type:'');
+  function setStatus(text,type=''){status.textContent=text||'';status.className='plan-status'+(type?' '+type:'')}
+  function parseValue(raw){
+    const text=String(raw??'').trim().replace(/\u00a0/g,'').replace(/\s+/g,'').replace(',','.');
+    if(!text)return null;
+    const value=Number(text);
+    if(!Number.isFinite(value)||value<0)throw new Error('План должен быть неотрицательным числом.');
+    return value;
   }
-  function parseNumber(value){
-    const text=String(value??'').trim().replace(/\u00a0/g,'').replace(/\s+/g,'').replace(',','.');
-    if(!text)return '';
-    const number=Number(text);
-    if(!Number.isFinite(number))throw new Error('Проверьте числовые значения.');
-    return number;
+  function fill(){
+    const year=yearSelect.value;
+    inputs.forEach(input=>{const key=year+'-'+input.dataset.planMonth;input.value=plans[key]??''});
+    setStatus('');
   }
-  function fill(date){
-    const record=store[date]||{};
-    fields.forEach(input=>{input.value=record[input.dataset.managementKey]??''});
-    setStatus(record.date?'Загружены сохранённые ручные показатели за эту дату.':'Для этой даты ручные показатели ещё не сохранены.');
+  function buildYears(){
+    const current=new Date().getFullYear();
+    const years=new Set([2025,current-1,current,current+1,current+2,current+3,current+4]);
+    Object.keys(plans).forEach(key=>{const y=Number(String(key).slice(0,4));if(Number.isInteger(y))years.add(y)});
+    yearSelect.innerHTML=[...years].filter(y=>y>=2020&&y<=2100).sort((a,b)=>a-b).map(y=>'<option value="'+y+'">'+y+'</option>').join('');
+    yearSelect.value=String(years.has(current)?current:[...years].sort((a,b)=>a-b).pop());
   }
-  async function loadStore(preferredDate=''){
-    const response=await fetch('/api/reports/data',{credentials:'same-origin',cache:'no-store'});
-    if(!response.ok)throw new Error('Не удалось загрузить управленческие данные.');
+  async function load(){
+    const response=await fetch('/api/reports/storage',{credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)throw new Error('Не удалось загрузить сохранённый план.');
     const payload=await response.json();
-    store=payload.data||{};
-    const dates=Object.keys(store).sort();
-    const date=preferredDate||dateInput.value||dates[dates.length-1]||new Date().toISOString().slice(0,10);
-    dateInput.value=date;
-    fill(date);
-    return payload;
+    csrf=payload.csrf||csrf;
+    const raw=payload.storage?.[KEY];
+    if(raw){
+      const parsed=JSON.parse(raw);
+      plans=parsed&&parsed.version===1&&parsed.months&&typeof parsed.months==='object'?{...parsed.months}:{};
+    }else plans={};
+    buildYears();fill();
   }
-  dateInput.addEventListener('change',()=>fill(dateInput.value));
-  form.addEventListener('submit',async event=>{
-    event.preventDefault();
-    const date=dateInput.value;
-    if(!date){setStatus('Выберите дату.','error');return}
+  async function open(){
+    setStatus('Загрузка…');
+    overlay.classList.remove('hidden');document.body.style.overflow='hidden';
+    try{await load()}catch(error){console.error(error);setStatus(error.message||'Не удалось загрузить план.','error')}
+  }
+  function close(){overlay.classList.add('hidden');document.body.style.overflow=''}
+  async function save(){
     setStatus('Сохраняю…');
     try{
-      const response=await fetch('/api/reports/data',{credentials:'same-origin',cache:'no-store'});
-      if(!response.ok)throw new Error('Не удалось проверить текущую запись.');
-      const payload=await response.json();
-      const fresh=payload.data||{};
-      const record={...(fresh[date]||{}),date};
-      fields.forEach(input=>{record[input.dataset.managementKey]=parseNumber(input.value)});
-      const saved=await fetch('/api/reports/data/'+encodeURIComponent(date),{
+      const year=yearSelect.value;
+      inputs.forEach(input=>{const key=year+'-'+input.dataset.planMonth,value=parseValue(input.value);if(value===null)delete plans[key];else plans[key]=value});
+      const payload=JSON.stringify({version:1,months:plans});
+      const response=await fetch('/api/reports/storage/'+encodeURIComponent(KEY),{
         method:'PUT',credentials:'same-origin',
-        headers:{'Content-Type':'application/json','X-CSRF-Token':payload.csrf||csrf},
-        body:JSON.stringify(record)
+        headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},
+        body:JSON.stringify({payload})
       });
-      if(!saved.ok)throw new Error('Сервер не принял изменения.');
-      store={...fresh,[date]:record};
-      setStatus('Сохранено на сервере AZ-BAZE.','ok');
-    }catch(error){
-      console.error(error);
-      setStatus(error.message||'Не удалось сохранить данные.','error');
-    }
-  });
-  loadStore().catch(error=>{console.error(error);setStatus(error.message||'Не удалось загрузить данные.','error')});
+      if(!response.ok)throw new Error('Сервер не принял план.');
+      setStatus('План сохранён.','ok');
+    }catch(error){console.error(error);setStatus(error.message||'Не удалось сохранить план.','error')}
+  }
+  openBtn?.addEventListener('click',open);
+  closeBtn?.addEventListener('click',close);
+  cancelBtn?.addEventListener('click',close);
+  saveBtn?.addEventListener('click',save);
+  yearSelect?.addEventListener('change',fill);
+  overlay?.addEventListener('click',event=>{if(event.target===overlay)close()});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!overlay.classList.contains('hidden'))close()});
 })();
 </script>
 {% endif %}
