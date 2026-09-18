@@ -271,6 +271,31 @@ def _structure(survey_id):
     return sections, questions
 
 
+def _display_date(value):
+    value = str(value or "").strip()
+    if not value:
+        return ""
+    try:
+        return time.strftime("%d.%m.%Y", time.strptime(value, "%Y-%m-%d"))
+    except ValueError:
+        return value
+
+
+def period_display(survey):
+    label = str(survey["period_label"] or "").strip()
+    if label:
+        return label
+    start = _display_date(survey["starts_at"])
+    end = _display_date(survey["ends_at"])
+    if start and end:
+        return f"{start}–{end}"
+    if start:
+        return f"с {start}"
+    if end:
+        return f"до {end}"
+    return ""
+
+
 def _validate_date(value, label):
     value = (value or "").strip()
     if not value:
@@ -761,7 +786,7 @@ def _results_payload(survey):
         "survey": {
             "title": survey["title"],
             "category": survey["category"],
-            "period": survey["period_label"] or "",
+            "period": period_display(survey),
             "status": survey["status"],
             "status_label": STATUS_LABELS[survey["status"]],
             "expected_responses": expected,
@@ -845,7 +870,9 @@ def register_surveys(app):
             for category_name in CATEGORIES
         }
         for row in rows:
-            groups[row["category"]][row["status"]].append(dict(row))
+            item = dict(row)
+            item["period_display"] = period_display(row)
+            groups[row["category"]][row["status"]].append(item)
         return render_template(
             "surveys_list.html",
             groups=groups,
@@ -978,6 +1005,7 @@ def register_surveys(app):
         return render_template(
             "survey_detail.html",
             survey=survey,
+            period_display=period_display(survey),
             sections=sections,
             question_count=len(questions),
             response_count=_response_count(survey_id),
@@ -1078,6 +1106,7 @@ def register_surveys(app):
         return render_template(
             "survey_invites.html",
             survey=survey,
+            period_display=period_display(survey),
             links=links,
             response_count=_response_count(survey_id),
             csrf=csrf_token(),
@@ -1261,7 +1290,7 @@ def register_surveys(app):
                 ok=True,
                 survey={
                     "title": invite["title"],
-                    "period": invite["period_label"] or "",
+                    "period": period_display(invite),
                     "description": invite["description"] or "",
                 },
                 sections=public_sections,
