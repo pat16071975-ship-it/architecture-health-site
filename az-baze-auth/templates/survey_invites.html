@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.invite-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.invite-head h2{margin:0;font-size:24px;font-weight:500}.invite-note{margin:14px 0;padding:12px;border-left:3px solid #b59662;background:#fffaf0;border-radius:8px;font-size:11px;line-height:1.5}.invite-list{display:grid;gap:9px}.invite-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:10px;border:1px solid #ded5c8;border-radius:9px;background:#fff}.invite-url{min-width:0;padding:9px;border:1px solid #e1d8ca;border-radius:7px;background:#faf8f4;font:500 10px/1.35 monospace;word-break:break-all}.state{font-size:10px;white-space:nowrap}.state.used{color:#8b5f58}.state.free{color:#3e6950}.copy{min-width:96px}@media(max-width:700px){.invite-head{flex-direction:column}.invite-row{grid-template-columns:1fr}.copy{width:100%}}
+</style>
+<div class="card">
+  <div class="invite-head">
+    <div><h2>Ссылки участия</h2><div class="muted">{{ survey['title'] }}{% if survey['period_label'] %} · {{ survey['period_label'] }}{% endif %}</div></div>
+    <div class="row"><a class="btn" href="/surveys/{{ survey['id'] }}/">К опросу</a><a class="btn" href="/surveys/">Все опросы</a></div>
+  </div>
+  <div class="invite-note">Создано {{ links|length }} одноразовых ссылок. Ссылка расходуется только после успешной отправки анкеты. Не подписывайте ссылки именами сотрудников и не храните рядом с ними персональные данные.</div>
+  <div class="muted" style="margin-bottom:12px">Получено ответов: <strong>{{ response_count }}</strong> из <strong>{{ survey['expected_responses'] }}</strong>.</div>
+  <div class="invite-list">
+    {% for item in links %}
+      <div class="invite-row">
+        {% if item.valid %}
+          <div class="invite-url">{{ item.url }}</div>
+          <span class="state {{ 'used' if item.used else 'free' }}">{{ 'использована' if item.used else 'доступна' }}</span>
+          <button class="btn copy" type="button" data-copy="{{ item.url }}" {% if item.used %}disabled{% endif %}>Копировать</button>
+        {% else %}
+          <div class="invite-url">Ссылка недоступна: изменился ключ генерации.</div>
+          <span class="state used">ошибка</span><span></span>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+<script>
+document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-copy]');
+  if(!button)return;
+  try{
+    await navigator.clipboard.writeText(button.dataset.copy);
+    const old=button.textContent;
+    button.textContent='Скопировано';
+    setTimeout(()=>button.textContent=old,1200);
+  }catch(error){
+    alert('Не удалось скопировать автоматически. Выделите ссылку вручную.');
+  }
+});
+</script>
+{% endblock %}
