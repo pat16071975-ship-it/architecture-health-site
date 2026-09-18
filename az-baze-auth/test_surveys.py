@@ -175,28 +175,40 @@ class SurveyPublicRouteTests(unittest.TestCase):
             )
             conn.commit()
 
-    def test_anonymous_page_has_privacy_headers_and_no_external_fonts(self):
+    def test_anonymous_shell_has_privacy_headers_no_external_fonts_and_no_token_path(self):
         client = app_core.app.test_client()
-        response = client.get(f"/survey/{self.token}")
+        response = client.get("/survey/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("default-src 'self'", response.headers.get("Content-Security-Policy", ""))
         self.assertEqual(response.headers.get("Referrer-Policy"), "no-referrer")
         self.assertNotIn(b"fonts.googleapis", response.data)
-        self.assertIn("Опрос анонимный".encode("utf-8"), response.data)
+        self.assertNotIn(self.token.encode("ascii"), response.data)
+        self.assertFalse(any("<token>" in rule.rule for rule in app_core.app.url_map.iter_rules()))
 
-    def test_public_submit_is_one_time_and_has_no_login(self):
+    def test_public_load_and_submit_are_one_time_without_login(self):
         client = app_core.app.test_client()
+        loaded = client.post(
+            "/survey/",
+            data={"action": "load", "token": self.token},
+            headers={"Accept": "application/json"},
+        )
+        self.assertEqual(loaded.status_code, 200)
+        payload = loaded.get_json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["survey"]["title"], "Тест")
+        self.assertEqual(payload["survey"]["period"], "Сентябрь 2026")
+
         response = client.post(
-            f"/survey/{self.token}",
-            data={f"q_{self.question_id}": "5"},
-            headers={"X-AZ-Survey": "1", "Accept": "application/json"},
+            "/survey/",
+            data={"action": "submit", "token": self.token, f"q_{self.question_id}": "5"},
+            headers={"Accept": "application/json"},
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()["ok"])
         second = client.post(
-            f"/survey/{self.token}",
-            data={f"q_{self.question_id}": "4"},
-            headers={"X-AZ-Survey": "1", "Accept": "application/json"},
+            "/survey/",
+            data={"action": "submit", "token": self.token, f"q_{self.question_id}": "4"},
+            headers={"Accept": "application/json"},
         )
         self.assertEqual(second.status_code, 410)
         with app_core.app.app_context():
