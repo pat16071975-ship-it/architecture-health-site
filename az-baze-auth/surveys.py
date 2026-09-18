@@ -1070,7 +1070,7 @@ def register_surveys(app):
                     "used": bool(row["used"]),
                     "valid": valid,
                     "url": (
-                        request.url_root.rstrip("/") + url_for("survey_public", token=token)
+                        request.url_root.rstrip("/") + url_for("survey_public") + "#" + token
                         if valid else ""
                     ),
                 }
@@ -1202,21 +1202,19 @@ def register_surveys(app):
         )
         return redirect(url_for("survey_edit", survey_id=new_id))
 
-    @app.route("/survey/<token>", methods=["GET", "POST"])
-    def survey_public(token):
+    @app.route("/survey/", methods=["GET", "POST"])
+    def survey_public():
+        if request.method == "GET":
+            return render_template("survey_public.html", max_text_length=MAX_TEXT_LENGTH)
+
+        action = request.form.get("action", "").strip()
+        token = request.form.get("token", "").strip()
+        if not token or len(token) > 256:
+            return jsonify(ok=False, error="Ссылка недействительна."), 404
+
         digest = token_hash(token)
-        action = "post" if request.method == "POST" else "get"
-        if not _rate_limit(digest, action, 12 if action == "post" else 60, 600):
-            response = Response(
-                render_template(
-                    "survey_public_message.html",
-                    title="Слишком много запросов",
-                    message="Попробуйте ещё раз немного позже.",
-                ),
-                status=429,
-                mimetype="text/html",
-            )
-            return response
+        if not _rate_limit(digest, action or "post", 12 if action == "submit" else 60, 600):
+            return jsonify(ok=False, error="Слишком много запросов. Попробуйте немного позже."), 429
 
         invite = db().execute(
             """
@@ -1228,61 +1226,57 @@ def register_surveys(app):
             (digest,),
         ).fetchone()
         if not invite:
-            return Response(
-                render_template(
-                    "survey_public_message.html",
-                    title="Ссылка недействительна",
-                    message="Проверьте адрес ссылки.",
-                ),
-                status=404,
-                mimetype="text/html",
-            )
+            return jsonify(ok=False, error="Ссылка недействительна."), 404
         if int(invite["used"]):
-            return Response(
-                render_template(
-                    "survey_public_message.html",
-                    title="Ответ уже отправлен",
-                    message="Эта одноразовая ссылка уже использована.",
-                ),
-                status=410,
-                mimetype="text/html",
-            )
+            return jsonify(ok=False, error="Эта одноразовая ссылка уже использована."), 410
         if invite["status"] != "OPEN":
-            return Response(
-                render_template(
-                    "survey_public_message.html",
-                    title="Опрос закрыт",
-                    message="Этот опрос сейчас не принимает ответы.",
-                ),
-                status=410,
-                mimetype="text/html",
-            )
+            return jsonify(ok=False, error="Этот опрос сейчас не принимает ответы."), 410
 
         sections, questions = _structure(invite["survey_id"])
-        survey = dict(invite)
-        error = None
-        submitted = _submitted_values()
-        if request.method == "POST":
-            try:
-                answer_rows = _answer_rows_for_request(questions)
-                if not record_response(db(), invite["survey_id"], digest, answer_rows):
-                    raise RuntimeError("Ссылка уже использована или опрос закрыт.")
-                if request.headers.get("X-AZ-Survey") == "1":
-                    return jsonify(ok=True, message="Спасибо. Ваш ответ принят.")
-                return render_template("survey_public_thanks.html")
-            except ValueError as exc:
-                error = str(exc)
-            except RuntimeError as exc:
-                error = str(exc)
 
-            if request.headers.get("X-AZ-Survey") == "1":
-                return jsonify(ok=False, error=error or "Не удалось сохранить ответ."), 400
+        if action == "load":
+            public_sections = []
+            for section in sections:
+                public_questions = []
+                for question in section["questions"]:
+                    public_questions.append(
+                        {
+                            "id": question["id"],
+                            "text": question["text"],
+                            "type": question["question_type"],
+                            "required": bool(question["required"]),
+                            "options": [
+                                {"value": option["value"], "label": option["label"]}
+                                for option in question["options"]
+                            ],
+                        }
+                    )
+                public_sections.append(
+                    {
+                        "title": section["title"],
+                        "questions": public_questions,
+                    }
+                )
+            return jsonify(
+                ok=True,
+                survey={
+                    "title": invite["title"],
+                    "period": invite["period_label"] or "",
+                    "description": invite["description"] or "",
+                },
+                sections=public_sections,
+                maxTextLength=MAX_TEXT_LENGTH,
+            )
 
-        return render_template(
-            "survey_public.html",
-            survey=survey,
-            sections=sections,
-            error=error,
-            submitted=submitted,
-            max_text_length=MAX_TEXT_LENGTH,
-        )
+        if action != "submit":
+            return jsonify(ok=False, error="Некорректный запрос."), 400
+
+        try:
+            answer_rows = _answer_rows_for_request(questions)
+            if not record_response(db(), invite["survey_id"], digest, answer_rows):
+                return jsonify(ok=False, error="Ссылка уже использована или опрос закрыт."), 409
+        except ValueError as exc:
+            return jsonify(ok=False, error=str(exc)), 400
+
+        return jsonify(ok=True, message="Спасибо. Ваш ответ принят.")
+
