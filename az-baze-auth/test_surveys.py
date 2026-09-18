@@ -1,4 +1,6 @@
+import json
 import os
+import re
 import sqlite3
 import tempfile
 import threading
@@ -215,6 +217,187 @@ class SurveyPublicRouteTests(unittest.TestCase):
             conn = app_core.db()
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM survey_responses").fetchone()[0], 1)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM survey_answers").fetchone()[0], 1)
+
+
+class SurveyLifecycleIntegrationTests(unittest.TestCase):
+    def setUp(self):
+        app_core.init_db_file()
+        surveys.init_surveys_schema()
+        with app_core.app.app_context():
+            conn = app_core.db()
+            for table in (
+                "survey_answers", "survey_responses", "survey_invites",
+                "survey_options", "survey_questions", "survey_sections", "surveys"
+            ):
+                conn.execute(f"DELETE FROM {table}")
+            conn.execute("DELETE FROM permissions")
+            conn.execute("DELETE FROM users")
+            conn.execute(
+                """
+                INSERT INTO users(
+                    id,email,full_name,password_hash,is_admin,active,must_change_password,
+                    failed_attempts,locked_until,created_at,updated_at
+                ) VALUES(1,'lead@example.test','Lead','x',0,1,0,0,NULL,'now','now')
+                """
+            )
+            conn.execute("INSERT INTO permissions(user_id,section) VALUES(1,'surveys')")
+            conn.commit()
+        self.client = app_core.app.test_client()
+        with self.client.session_transaction() as session:
+            session["user_id"] = 1
+            session["csrf"] = "survey-test-csrf"
+
+    def test_full_draft_open_answer_close_results_export_clone_flow(self):
+        questions = [
+            {
+                "section": "Оценка",
+                "text": "Работа организована понятно.",
+                "type": "scale",
+                "required": True,
+                "options": [],
+            },
+            {
+                "section": "Комментарии",
+                "text": "Что ещё важно?",
+                "type": "text",
+                "required": False,
+                "options": [],
+            },
+        ]
+        created = self.client.post(
+            "/surveys/new",
+            data={
+                "csrf": "survey-test-csrf",
+                "title": "Интеграционный тест",
+                "category": "Административные",
+                "description": "Тестовый запуск",
+                "period_label": "Сентябрь 2026",
+                "starts_at": "",
+                "ends_at": "",
+                "expected_responses": "4",
+                "questions_json": json.dumps(questions, ensure_ascii=False),
+            },
+        )
+        self.assertEqual(created.status_code, 302)
+        match = re.search(r"/surveys/(\d+)/", created.headers["Location"])
+        self.assertIsNotNone(match)
+        survey_id = int(match.group(1))
+
+        opened = self.client.post(
+            f"/surveys/{survey_id}/open",
+            data={"csrf": "survey-test-csrf"},
+        )
+        self.assertEqual(opened.status_code, 302)
+
+        # OPEN survey structure is immutable and results stay closed.
+        self.assertEqual(self.client.get(f"/surveys/{survey_id}/edit").status_code, 409)
+        self.assertEqual(self.client.get(f"/surveys/{survey_id}/results").status_code, 403)
+
+        with app_core.app.app_context():
+            conn = app_core.db()
+            invites = conn.execute(
+                "SELECT id FROM survey_invites WHERE survey_id=? ORDER BY id",
+                (survey_id,),
+            ).fetchall()
+            self.assertEqual(len(invites), 4)
+            qrows = conn.execute(
+                "SELECT id,question_type FROM survey_questions WHERE survey_id=? ORDER BY sort_order",
+                (survey_id,),
+            ).fetchall()
+            scale_id = qrows[0]["id"]
+            text_id = qrows[1]["id"]
+            tokens = [
+                surveys.derive_invite_token(app_core.app.config["SECRET_KEY"], row["id"])
+                for row in invites
+            ]
+
+        # Secret stays out of the HTTP request URL; it is POST body data only.
+        for index, (token, score) in enumerate(zip(tokens[:3], ("5", "3", "1"))):
+            loaded = self.client.post(
+                "/survey/",
+                data={"action": "load", "token": token},
+                headers={"Accept": "application/json"},
+            )
+            self.assertEqual(loaded.status_code, 200)
+            self.assertTrue(loaded.get_json()["ok"])
+            payload = {
+                "action": "submit",
+                "token": token,
+                f"q_{scale_id}": score,
+            }
+            if index == 0:
+                payload[f"q_{text_id}"] = "<script>alert(1)</script>"
+            submitted = self.client.post(
+                "/survey/",
+                data=payload,
+                headers={"Accept": "application/json"},
+            )
+            self.assertEqual(submitted.status_code, 200)
+            self.assertTrue(submitted.get_json()["ok"])
+
+        detail = self.client.get(f"/surveys/{survey_id}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertIn("3 / 4".encode("utf-8"), detail.data)
+
+        closed = self.client.post(
+            f"/surveys/{survey_id}/close",
+            data={"csrf": "survey-test-csrf"},
+        )
+        self.assertEqual(closed.status_code, 302)
+
+        # An unused fourth invite cannot be submitted after CLOSED.
+        blocked = self.client.post(
+            "/survey/",
+            data={
+                "action": "submit",
+                "token": tokens[3],
+                f"q_{scale_id}": "5",
+            },
+            headers={"Accept": "application/json"},
+        )
+        self.assertEqual(blocked.status_code, 410)
+
+        results = self.client.get(f"/surveys/{survey_id}/results")
+        self.assertEqual(results.status_code, 200)
+        self.assertIn(b"3.0", results.data)
+        self.assertIn(b"&lt;script&gt;alert(1)&lt;/script&gt;", results.data)
+        self.assertNotIn(b"<script>alert(1)</script>", results.data)
+
+        exported_json = self.client.get(f"/surveys/{survey_id}/export.json")
+        self.assertEqual(exported_json.status_code, 200)
+        json_text = exported_json.get_data(as_text=True)
+        for forbidden in tokens + ["token_hash", "invite_id", "response_id", "user_id"]:
+            self.assertNotIn(forbidden, json_text)
+
+        exported_csv = self.client.get(f"/surveys/{survey_id}/export.csv")
+        self.assertEqual(exported_csv.status_code, 200)
+        csv_text = exported_csv.get_data(as_text=True)
+        for forbidden in tokens + ["token_hash", "invite_id", "response_id", "user_id"]:
+            self.assertNotIn(forbidden, csv_text)
+
+        cloned = self.client.post(
+            f"/surveys/{survey_id}/clone",
+            data={"csrf": "survey-test-csrf"},
+        )
+        self.assertEqual(cloned.status_code, 302)
+        clone_match = re.search(r"/surveys/(\d+)/edit", cloned.headers["Location"])
+        self.assertIsNotNone(clone_match)
+        clone_id = int(clone_match.group(1))
+        self.assertNotEqual(clone_id, survey_id)
+
+        with app_core.app.app_context():
+            conn = app_core.db()
+            clone = conn.execute("SELECT status,period_label FROM surveys WHERE id=?", (clone_id,)).fetchone()
+            self.assertEqual(clone["status"], "DRAFT")
+            self.assertEqual(clone["period_label"], "")
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM survey_invites WHERE survey_id=?", (clone_id,)).fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM survey_responses WHERE survey_id=?", (clone_id,)).fetchone()[0],
+                0,
+            )
 
 
 class SurveyAtomicResponseTests(unittest.TestCase):
