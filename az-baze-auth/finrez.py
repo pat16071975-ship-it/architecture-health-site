@@ -9,6 +9,7 @@ from pathlib import Path
 from flask import Response, jsonify
 
 from app import SITE_ROOT, csrf_token, db, permission_required
+from report_storage import management_monthly_plans
 
 FINREZ_DATA_PATH = Path(os.environ.get("AZ_FINREZ_DATA_PATH", "/var/lib/az-baze/finrez-data.enc"))
 FINREZ_KEY_PATH = Path(os.environ.get("AZ_FINREZ_KEY_PATH", "/var/lib/az-baze/finrez.key"))
@@ -128,4 +129,4 @@ def register_finrez(app):
         except Exception as error:
             expenses = {"version": 1, "source": "", "period": {}, "meta": {}, "months": {}, "available": False}
             private_error = str(error)
-        return jsonify(expenses=expenses, management=_management_months(), privateError=private_error, csrf=csrf_token())
+        return jsonify(expenses=expenses, management=_management_months(), plans=management_monthly_plans(), privateError=private_error, csrf=csrf_token())
