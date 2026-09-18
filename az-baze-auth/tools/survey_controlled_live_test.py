@@ -16,6 +16,10 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+APP_ROOT = Path(os.environ.get("AZ_SURVEY_TEST_APP_ROOT", "/opt/az-baze-auth"))
+if str(APP_ROOT) not in sys.path:
+    sys.path.insert(0, str(APP_ROOT))
+
 OWNER_EMAIL = "balda@inbox.ru"
 BASE_URL = os.environ.get("AZ_SURVEY_TEST_BASE_URL", "https://az-baze.ru").rstrip("/")
 STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
