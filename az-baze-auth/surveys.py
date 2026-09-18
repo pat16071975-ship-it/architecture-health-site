@@ -15,7 +15,7 @@ from pathlib import Path
 
 from flask import Response, abort, current_app, g, jsonify, redirect, render_template, request, url_for
 
-from app import DB_PATH, audit, csrf_token, db, iso_now, permission_required, require_csrf
+from app import DB_PATH, audit, csrf_token, db, iso_now, permission_required, require_csrf, user_permissions
 
 
 CATEGORIES = [
@@ -206,6 +206,14 @@ def _rate_limit(key, action, limit, window_seconds):
             for stale_key in stale[:1000]:
                 _rate_events.pop(stale_key, None)
     return True
+
+
+def _survey_access_flags():
+    permissions = user_permissions(g.user) if getattr(g, "user", None) else set()
+    return {
+        "can_create": "surveys_create" in permissions,
+        "can_view": "surveys_view" in permissions,
+    }
 
 
 def _survey_row(survey_id):
@@ -879,11 +887,12 @@ def register_surveys(app):
             categories=CATEGORIES,
             status_labels=STATUS_LABELS,
             filters={"category": category, "status": status, "period": period},
+            **_survey_access_flags(),
             csrf=csrf_token(),
         )
 
     @app.route("/surveys/new", methods=["GET", "POST"])
-    @permission_required("surveys")
+    @permission_required("surveys_create")
     def survey_new():
         error = None
         form_data = manager_template_form() if request.args.get("template") == "manager" else {
@@ -932,7 +941,7 @@ def register_surveys(app):
         )
 
     @app.route("/surveys/<int:survey_id>/edit", methods=["GET", "POST"])
-    @permission_required("surveys")
+    @permission_required("surveys_create")
     def survey_edit(survey_id):
         survey = _survey_row(survey_id)
         if survey["status"] != "DRAFT":
@@ -1011,11 +1020,12 @@ def register_surveys(app):
             response_count=_response_count(survey_id),
             status_labels=STATUS_LABELS,
             type_labels=QUESTION_TYPE_LABELS,
+            **_survey_access_flags(),
             csrf=csrf_token(),
         )
 
     @app.post("/surveys/<int:survey_id>/open")
-    @permission_required("surveys")
+    @permission_required("surveys_create")
     def survey_open(survey_id):
         require_csrf()
         conn = db()
@@ -1052,7 +1062,7 @@ def register_surveys(app):
         return redirect(url_for("survey_invites", survey_id=survey_id))
 
     @app.post("/surveys/<int:survey_id>/close")
-    @permission_required("surveys")
+    @permission_required("surveys_create")
     def survey_close(survey_id):
         require_csrf()
         updated = db().execute(
@@ -1066,7 +1076,7 @@ def register_surveys(app):
         return redirect(url_for("survey_results", survey_id=survey_id))
 
     @app.post("/surveys/<int:survey_id>/archive")
-    @permission_required("surveys")
+    @permission_required("surveys_create")
     def survey_archive(survey_id):
         require_csrf()
         updated = db().execute(
@@ -1080,7 +1090,7 @@ def register_surveys(app):
         return redirect(url_for("surveys_index"))
 
     @app.get("/surveys/<int:survey_id>/invites")
-    @permission_required("surveys")
+    @permission_required("surveys_create")
     def survey_invites(survey_id):
         survey = _survey_row(survey_id)
         if survey["status"] == "DRAFT":
@@ -1113,7 +1123,7 @@ def register_surveys(app):
         )
 
     @app.get("/surveys/<int:survey_id>/results")
-    @permission_required("surveys")
+    @permission_required("surveys_view")
     def survey_results(survey_id):
         survey = _survey_row(survey_id)
         if survey["status"] not in {"CLOSED", "ARCHIVED"}:
@@ -1127,7 +1137,7 @@ def register_surveys(app):
         )
 
     @app.get("/surveys/<int:survey_id>/export.json")
-    @permission_required("surveys")
+    @permission_required("surveys_view")
     def survey_export_json(survey_id):
         survey = _survey_row(survey_id)
         if survey["status"] not in {"CLOSED", "ARCHIVED"}:
@@ -1139,7 +1149,7 @@ def register_surveys(app):
         return response
 
     @app.get("/surveys/<int:survey_id>/export.csv")
-    @permission_required("surveys")
+    @permission_required("surveys_view")
     def survey_export_csv(survey_id):
         survey = _survey_row(survey_id)
         if survey["status"] not in {"CLOSED", "ARCHIVED"}:
@@ -1186,7 +1196,7 @@ def register_surveys(app):
         return response
 
     @app.get("/surveys/<int:survey_id>/print")
-    @permission_required("surveys")
+    @permission_required("surveys_view")
     def survey_print(survey_id):
         survey = _survey_row(survey_id)
         if survey["status"] not in {"CLOSED", "ARCHIVED"}:
@@ -1194,7 +1204,7 @@ def register_surveys(app):
         return render_template("survey_print.html", results=_results_payload(survey))
 
     @app.post("/surveys/<int:survey_id>/clone")
-    @permission_required("surveys")
+    @permission_required("surveys_create")
     def survey_clone(survey_id):
         require_csrf()
         survey = _survey_row(survey_id)
