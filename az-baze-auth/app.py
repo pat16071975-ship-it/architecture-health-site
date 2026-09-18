@@ -15,11 +15,13 @@ SITE_ROOT = Path(os.environ.get("AZBAZE_SITE_ROOT", "/var/www/az-baze.ru"))
 SECTIONS = [
     ("reports", "Отчёты"),
     ("knowledge", "База знаний"),
+    ("surveys", "Опросы"),
     ("section3", "Раздел 3"),
     ("section4", "Раздел 4"),
     ("section5", "Раздел 5"),
 ]
 SECTION_KEYS = {key for key, _ in SECTIONS}
+EXPLICIT_PERMISSION_KEYS = {"surveys"}
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
@@ -99,7 +101,7 @@ def create_app():
                 session.clear()
 
         if g.user and g.user["must_change_password"]:
-            allowed = {"change_password", "logout", "static", "health"}
+            allowed = {"change_password", "logout", "static", "health", "survey_public"}
             if request.endpoint not in allowed:
                 return redirect(url_for("change_password"))
 
@@ -465,10 +467,12 @@ def permission_required(section):
 
 
 def user_permissions(user):
-    if bool(user["is_admin"]):
-        return set(SECTION_KEYS)
     rows = db().execute("SELECT section FROM permissions WHERE user_id=?", (user["id"],)).fetchall()
-    return {row["section"] for row in rows if row["section"] in SECTION_KEYS}
+    explicit = {row["section"] for row in rows if row["section"] in SECTION_KEYS}
+    if bool(user["is_admin"]):
+        # Sensitive sections such as «Опросы» are never granted merely by is_admin.
+        return (set(SECTION_KEYS) - EXPLICIT_PERMISSION_KEYS) | (explicit & EXPLICIT_PERMISSION_KEYS)
+    return explicit
 
 
 def set_permissions(user_id, permissions):
@@ -517,6 +521,11 @@ def render_home_for_user():
         "section4": r'<div class="menu-btn placeholder" aria-disabled="true">Раздел в разработке</div>',
         "section5": r'<div class="menu-btn placeholder" aria-disabled="true">Раздел в разработке</div>',
     }
+
+    survey_link = r'<a class="menu-btn active" href="/surveys/" id="surveys">Опросы</a>'
+    knowledge_link = mapping["knowledge"]
+    if "surveys" in perms and survey_link not in html:
+        html = html.replace(knowledge_link, knowledge_link + "\n" + survey_link, 1)
 
     for key, fragment in mapping.items():
         if key not in perms:
