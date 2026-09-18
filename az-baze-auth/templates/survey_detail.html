@@ -14,7 +14,7 @@
 
   <div class="meta">
     <div class="meta-card"><span>Категория</span><strong>{{ survey['category'] }}</strong></div>
-    <div class="meta-card"><span>Период</span><strong>{{ survey['period_label'] or 'не указан' }}</strong></div>
+    <div class="meta-card"><span>Период</span><strong>{{ period_display or 'не указан' }}</strong></div>
     <div class="meta-card"><span>Статус</span><strong>{{ status_labels[survey['status']] }}</strong></div>
     <div class="meta-card"><span>Ответы</span><strong>{{ response_count }} / {{ survey['expected_responses'] }}</strong></div>
   </div>
