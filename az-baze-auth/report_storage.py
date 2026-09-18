@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS report_blobs (
 """
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+MONTH_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
 def _ensure_schema():
