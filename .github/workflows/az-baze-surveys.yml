@@ -29,7 +29,7 @@ jobs:
         run: pip install -r az-baze-auth/requirements.txt
 
       - name: Python syntax
-        run: python -m py_compile az-baze-auth/app.py az-baze-auth/server.py az-baze-auth/surveys.py az-baze-auth/test_surveys.py
+        run: python -m py_compile az-baze-auth/app.py az-baze-auth/server.py az-baze-auth/surveys.py az-baze-auth/test_surveys.py az-baze-auth/tools/survey_controlled_live_test.py
 
       - name: Survey template syntax
         run: |
