@@ -11,6 +11,7 @@ import economics_control
 import finrez
 import ident_import
 import report_storage
+import surveys
 import terminology
 import upload_integrity
 
@@ -52,6 +53,7 @@ daily_upload.user_permissions = _user_permissions_with_upload_section
 upload_integrity.install(daily_upload.core)
 
 report_storage.register_report_storage(app)
+surveys.register_surveys(app)
 terminology.install(app, report_storage)
 ident_import.register_ident_import(app)
 finrez.register_finrez(app)
