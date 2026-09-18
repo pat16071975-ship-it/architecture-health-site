@@ -29,7 +29,7 @@ body{margin:0;padding:24px;color:#222;font-family:Arial,sans-serif;background:#f
   <ul>{% for item in results.conclusions.insufficient %}<li>{{ item.question }} — Н/О {{ (item.no_observation_ratio*100)|round(0)|int }} %</li>{% else %}<li>Нет.</li>{% endfor %}</ul>
 
   <h2>Блоки</h2>
-  {% for block in results.blocks %}<div class="question"><div class="q">{{ block.title }}</div><div class="small">Среднее {{ block.mean }} · оценок {{ block.count }} · {{ block.zone }}</div></div>{% else %}<div class="meta">Нет оценённых блоков.</div>{% endfor %}
+  {% for block in results.blocks %}<div class="question"><div class="q">{{ block.title }}</div><div class="small">Среднее {{ block.mean }} · оценок {{ block.count }} · Н/О {{ block.no_observation }} · {{ block.zone }}</div></div>{% else %}<div class="meta">Нет оценённых блоков.</div>{% endfor %}
 
   <h2>Вопросы</h2>
   {% for item in results.questions %}
