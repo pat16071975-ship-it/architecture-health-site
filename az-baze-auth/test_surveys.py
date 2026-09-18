@@ -77,24 +77,34 @@ class SurveyPermissionTests(unittest.TestCase):
             )
             conn.commit()
 
-    def test_admin_does_not_get_surveys_implicitly(self):
+    def test_admin_does_not_get_survey_capabilities_implicitly(self):
         with app_core.app.app_context():
             admin = app_core.db().execute("SELECT * FROM users WHERE id=1").fetchone()
             self.assertTrue(admin["is_admin"])
-            self.assertNotIn("surveys", app_core.user_permissions(admin))
-            self.assertIn("reports", app_core.user_permissions(admin))
+            permissions = app_core.user_permissions(admin)
+            self.assertNotIn("surveys", permissions)
+            self.assertNotIn("surveys_create", permissions)
+            self.assertNotIn("surveys_view", permissions)
+            self.assertIn("reports", permissions)
 
-    def test_surveys_permission_is_explicit_for_admin_and_regular_user(self):
+    def test_create_and_view_capabilities_are_independent_and_open_section(self):
         with app_core.app.app_context():
             conn = app_core.db()
-            conn.execute("INSERT INTO permissions(user_id,section) VALUES(1,'surveys')")
-            conn.execute("INSERT INTO permissions(user_id,section) VALUES(2,'surveys')")
+            conn.execute("INSERT INTO permissions(user_id,section) VALUES(1,'surveys_create')")
+            conn.execute("INSERT INTO permissions(user_id,section) VALUES(2,'surveys_view')")
             conn.commit()
             admin = conn.execute("SELECT * FROM users WHERE id=1").fetchone()
             user = conn.execute("SELECT * FROM users WHERE id=2").fetchone()
-            self.assertIn("surveys", app_core.user_permissions(admin))
-            self.assertIn("surveys", app_core.user_permissions(user))
 
+            admin_permissions = app_core.user_permissions(admin)
+            self.assertIn("surveys", admin_permissions)
+            self.assertIn("surveys_create", admin_permissions)
+            self.assertNotIn("surveys_view", admin_permissions)
+
+            user_permissions = app_core.user_permissions(user)
+            self.assertIn("surveys", user_permissions)
+            self.assertIn("surveys_view", user_permissions)
+            self.assertNotIn("surveys_create", user_permissions)
 
     def test_direct_surveys_url_is_403_without_explicit_permission(self):
         client = app_core.app.test_client()
@@ -112,18 +122,49 @@ class SurveyPermissionTests(unittest.TestCase):
         response = client.get("/surveys/")
         self.assertEqual(response.status_code, 403)
 
-    def test_explicit_surveys_permission_opens_section(self):
+    def test_create_only_can_create_but_cannot_view_results(self):
         with app_core.app.app_context():
             conn = app_core.db()
-            conn.execute("INSERT INTO permissions(user_id,section) VALUES(2,'surveys')")
+            conn.execute("INSERT INTO permissions(user_id,section) VALUES(2,'surveys_create')")
+            cur = conn.execute(
+                """
+                INSERT INTO surveys(
+                    title,category,description,period_label,starts_at,ends_at,
+                    expected_responses,status,created_by_user_id,created_at,closed_at
+                ) VALUES('Closed','Административные','','',NULL,NULL,1,'CLOSED',2,'now','now')
+                """
+            )
+            survey_id = cur.lastrowid
             conn.commit()
         client = app_core.app.test_client()
         with client.session_transaction() as session:
             session["user_id"] = 2
             session["csrf"] = "test"
-        response = client.get("/surveys/")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Опросы".encode("utf-8"), response.data)
+        self.assertEqual(client.get("/surveys/").status_code, 200)
+        self.assertEqual(client.get("/surveys/new").status_code, 200)
+        self.assertEqual(client.get(f"/surveys/{survey_id}/results").status_code, 403)
+
+    def test_view_only_can_view_closed_results_but_cannot_create(self):
+        with app_core.app.app_context():
+            conn = app_core.db()
+            conn.execute("INSERT INTO permissions(user_id,section) VALUES(2,'surveys_view')")
+            cur = conn.execute(
+                """
+                INSERT INTO surveys(
+                    title,category,description,period_label,starts_at,ends_at,
+                    expected_responses,status,created_by_user_id,created_at,closed_at
+                ) VALUES('Closed','Административные','','',NULL,NULL,1,'CLOSED',2,'now','now')
+                """
+            )
+            survey_id = cur.lastrowid
+            conn.commit()
+        client = app_core.app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = 2
+            session["csrf"] = "test"
+        self.assertEqual(client.get("/surveys/").status_code, 200)
+        self.assertEqual(client.get("/surveys/new").status_code, 403)
+        self.assertEqual(client.get(f"/surveys/{survey_id}/results").status_code, 200)
 
 
 class SurveyPublicRouteTests(unittest.TestCase):
@@ -240,7 +281,8 @@ class SurveyLifecycleIntegrationTests(unittest.TestCase):
                 ) VALUES(1,'lead@example.test','Lead','x',0,1,0,0,NULL,'now','now')
                 """
             )
-            conn.execute("INSERT INTO permissions(user_id,section) VALUES(1,'surveys')")
+            conn.execute("INSERT INTO permissions(user_id,section) VALUES(1,'surveys_create')")
+            conn.execute("INSERT INTO permissions(user_id,section) VALUES(1,'surveys_view')")
             conn.commit()
         self.client = app_core.app.test_client()
         with self.client.session_transaction() as session:
