@@ -50,6 +50,17 @@ class SurveyPermissionTests(unittest.TestCase):
         surveys.init_surveys_schema()
 
     def setUp(self):
+        site_root = Path(os.environ["AZBAZE_SITE_ROOT"])
+        site_root.mkdir(parents=True, exist_ok=True)
+        (site_root / "index.html").write_text(
+            """<!doctype html><html><body>
+<a class="menu-btn active" href="../reports/">Отчёты</a>
+<a class="menu-btn active" href="#knowledge" id="knowledge">База знаний</a>
+<div class="menu-btn placeholder" data-section="section4" aria-disabled="true" hidden>Дни рождения сотрудников</div>
+<div class="menu-btn placeholder" data-section="section5" aria-disabled="true" hidden>Раздел в разработке</div>
+</body></html>""",
+            encoding="utf-8",
+        )
         with app_core.app.app_context():
             conn = app_core.db()
             for table in (
@@ -121,6 +132,35 @@ class SurveyPermissionTests(unittest.TestCase):
             session["csrf"] = "test"
         response = client.get("/surveys/")
         self.assertEqual(response.status_code, 403)
+
+    def test_home_injects_surveys_after_normalizing_static_links(self):
+        with app_core.app.app_context():
+            conn = app_core.db()
+            conn.execute("INSERT INTO permissions(user_id,section) VALUES(2,'surveys_view')")
+            conn.commit()
+        client = app_core.app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = 2
+            session["csrf"] = "test"
+        response = client.get("/")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('href="/surveys/"', html)
+        self.assertIn("Опросы", html)
+        self.assertNotIn('href="/reports/"', html)
+        self.assertNotIn('href="/knowledge/"', html)
+
+    def test_home_does_not_show_surveys_to_admin_without_explicit_survey_rights(self):
+        client = app_core.app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = 1
+            session["csrf"] = "test"
+        response = client.get("/")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertNotIn('href="/surveys/"', html)
+        self.assertIn('href="/reports/"', html)
+        self.assertIn('href="/knowledge/"', html)
 
     def test_create_only_can_create_but_cannot_view_results(self):
         with app_core.app.app_context():
