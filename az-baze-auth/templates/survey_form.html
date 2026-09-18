@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.form-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:16px}.form-head h2{margin:0;font-size:25px;font-weight:500}.meta-grid{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr;gap:10px}.meta-grid .field{margin:8px 0}.field textarea,.field select{width:100%;padding:10px 11px;border:1px solid #cfc5b5;border-radius:9px;background:#fff;font:500 12px Montserrat,Arial,sans-serif}.field textarea{min-height:90px;resize:vertical}.question-toolbar{display:flex;justify-content:space-between;gap:10px;align-items:center;margin:20px 0 10px}.question-toolbar h3{margin:0;font-size:18px;font-weight:500}.questions{display:grid;gap:10px}.question-card{border:1px solid #ded5c8;border-radius:11px;background:#fff;padding:12px}.question-top{display:grid;grid-template-columns:1.2fr 1.4fr auto;gap:9px;align-items:end}.question-card textarea{width:100%;min-height:70px;padding:9px;border:1px solid #d7cdbd;border-radius:8px;font:500 12px Montserrat,Arial,sans-serif;resize:vertical}.question-card input,.question-card select{width:100%;padding:9px;border:1px solid #d7cdbd;border-radius:8px;background:#fff;font:500 11px Montserrat,Arial,sans-serif}.q-label{display:grid;gap:5px;font-size:10px;font-weight:600;color:#616a62}.q-text{margin-top:9px}.q-bottom{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;margin-top:9px}.q-options{display:none}.q-options.visible{display:grid}.q-check{display:flex;align-items:center;gap:6px;font-size:11px;white-space:nowrap}.q-check input{width:16px;height:16px}.q-actions{display:flex;gap:5px;flex-wrap:wrap}.q-actions .btn{min-height:34px;padding:6px 9px}.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.helper{padding:10px 12px;border-left:3px solid #b59662;border-radius:8px;background:#fffaf0;color:#6d6558;font-size:11px;line-height:1.5}@media(max-width:850px){.meta-grid{grid-template-columns:1fr 1fr}.question-top{grid-template-columns:1fr 1fr}.question-top .q-actions{grid-column:1/-1}.q-bottom{grid-template-columns:1fr}}@media(max-width:620px){.form-head{flex-direction:column}.meta-grid{grid-template-columns:1fr}.question-top{grid-template-columns:1fr}.question-toolbar{align-items:flex-start;flex-direction:column}}
+</style>
+<div class="card">
+  <div class="form-head">
+    <div><h2>{{ title }}</h2><div class="muted">До открытия вопросы и варианты можно редактировать. После открытия структура фиксируется.</div></div>
+    <a class="btn" href="/surveys/">К опросам</a>
+  </div>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" id="surveyForm">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="questions_json" id="questionsJson">
+    <div class="meta-grid">
+      <div class="field"><label>Название *</label><input name="title" maxlength="240" required value="{{ form_data.title }}"></div>
+      <div class="field"><label>Категория *</label><select name="category" required>{% for item in categories %}<option value="{{ item }}" {% if form_data.category==item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Дата начала</label><input type="date" name="starts_at" value="{{ form_data.starts_at }}"></div>
+      <div class="field"><label>Дата окончания</label><input type="date" name="ends_at" value="{{ form_data.ends_at }}"></div>
+    </div>
+    <div class="meta-grid">
+      <div class="field"><label>Период оценки</label><input name="period_label" maxlength="240" placeholder="Например, Сентябрь 2026" value="{{ form_data.period_label }}"></div>
+      <div class="field"><label>Ожидаемое число участников *</label><input type="number" min="1" max="500" name="expected_responses" required value="{{ form_data.expected_responses }}"></div>
+      <div class="field" style="grid-column:span 2"><label>Краткое описание / инструкция сотруднику</label><textarea name="description" maxlength="4000">{{ form_data.description }}</textarea></div>
+    </div>
+
+    <div class="helper">Категория нужна только для порядка и фильтрации. Она не определяет автора ответа и не передаётся в анкету как вопрос.</div>
+
+    <div class="question-toolbar">
+      <h3>Вопросы</h3>
+      <button class="btn primary" type="button" id="addQuestion">Добавить вопрос</button>
+    </div>
+    <div id="questions" class="questions"></div>
+
+    <div class="form-actions">
+      <a class="btn" href="/surveys/">Отмена</a>
+      <button class="btn primary" type="submit">Сохранить черновик</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(() => {
+  const typeLabels={{ question_types|tojson }};
+  const initial={{ form_data.questions|tojson }};
+  const root=document.getElementById('questions');
+  const form=document.getElementById('surveyForm');
+  const hidden=document.getElementById('questionsJson');
+  const add=document.getElementById('addQuestion');
+  let items=(Array.isArray(initial)?initial:[]).map(item=>({
+    section:item.section||'',
+    text:item.text||'',
+    type:item.type||'scale',
+    required:!!item.required,
+    options:Array.isArray(item.options)?item.options:[]
+  }));
+
+  function esc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+  function optionsText(item){return (item.options||[]).join('\n')}
+  function render(){
+    root.innerHTML='';
+    items.forEach((item,index)=>{
+      const card=document.createElement('div');
+      card.className='question-card';
+      const optionsVisible=item.type==='single'||item.type==='multi';
+      let typeOptions='';
+      Object.entries(typeLabels).forEach(([value,label])=>{
+        typeOptions+='<option value="'+esc(value)+'" '+(item.type===value?'selected':'')+'>'+esc(label)+'</option>';
+      });
+      card.innerHTML=
+        '<div class="question-top">'+
+          '<label class="q-label">Блок / раздел<input data-field="section" value="'+esc(item.section)+'" placeholder="Например, Организация работы"></label>'+
+          '<label class="q-label">Тип<select data-field="type">'+typeOptions+'</select></label>'+
+          '<div class="q-actions">'+
+            '<button class="btn" type="button" data-action="up" title="Выше">↑</button>'+
+            '<button class="btn" type="button" data-action="down" title="Ниже">↓</button>'+
+            '<button class="btn warn" type="button" data-action="remove">Удалить</button>'+
+          '</div>'+
+        '</div>'+
+        '<label class="q-label q-text">Текст вопроса<textarea data-field="text" maxlength="1200">'+esc(item.text)+'</textarea></label>'+
+        '<div class="q-bottom">'+
+          '<label class="q-label q-options '+(optionsVisible?'visible':'')+'">Варианты ответа — по одному в строке<textarea data-field="options" maxlength="6000">'+esc(optionsText(item))+'</textarea></label>'+
+          '<label class="q-check"><input type="checkbox" data-field="required" '+(item.required?'checked':'')+'> Обязательный вопрос</label>'+
+        '</div>';
+      card.dataset.index=String(index);
+      root.appendChild(card);
+    });
+    if(!items.length){
+      root.innerHTML='<div class="helper">Добавьте хотя бы один вопрос. Для быстрой подготовки «Оценки управляющей» можно начать с готового шаблона на странице списка опросов.</div>';
+    }
+  }
+  function syncFromDom(){
+    const cards=[...root.querySelectorAll('.question-card')];
+    items=cards.map(card=>{
+      const type=card.querySelector('[data-field="type"]').value;
+      const rawOptions=card.querySelector('[data-field="options"]')?.value||'';
+      return {
+        section:card.querySelector('[data-field="section"]').value.trim(),
+        text:card.querySelector('[data-field="text"]').value.trim(),
+        type:type,
+        required:card.querySelector('[data-field="required"]').checked,
+        options:(type==='single'||type==='multi')?rawOptions.split(/\r?\n/).map(v=>v.trim()).filter(Boolean):[]
+      };
+    });
+  }
+  root.addEventListener('change',event=>{
+    const card=event.target.closest('.question-card');
+    if(!card)return;
+    syncFromDom();
+    if(event.target.dataset.field==='type')render();
+  });
+  root.addEventListener('click',event=>{
+    const button=event.target.closest('button[data-action]');
+    if(!button)return;
+    syncFromDom();
+    const card=button.closest('.question-card');
+    const index=Number(card.dataset.index);
+    if(button.dataset.action==='remove')items.splice(index,1);
+    if(button.dataset.action==='up'&&index>0)[items[index-1],items[index]]=[items[index],items[index-1]];
+    if(button.dataset.action==='down'&&index<items.length-1)[items[index+1],items[index]]=[items[index],items[index+1]];
+    render();
+  });
+  add.addEventListener('click',()=>{
+    syncFromDom();
+    items.push({section:'',text:'',type:'scale',required:true,options:[]});
+    render();
+    root.lastElementChild?.scrollIntoView({behavior:'smooth',block:'nearest'});
+  });
+  form.addEventListener('submit',event=>{
+    syncFromDom();
+    if(!items.length){event.preventDefault();alert('Добавьте хотя бы один вопрос.');return}
+    hidden.value=JSON.stringify(items);
+  });
+  render();
+})();
+</script>
+{% endblock %}
