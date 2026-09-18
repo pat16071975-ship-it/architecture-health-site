@@ -1220,7 +1220,7 @@ def register_surveys(app):
 
         invite = db().execute(
             """
-            SELECT i.id AS invite_id,i.used,s.*
+            SELECT i.id AS invite_id,i.used,s.id AS survey_id,s.*
             FROM survey_invites i
             JOIN surveys s ON s.id=i.survey_id
             WHERE i.token_hash=?
