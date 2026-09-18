@@ -1,4 +1,5 @@
 import json
+import math
 import re
 import secrets
 import sqlite3
@@ -13,6 +14,7 @@ REPORT_BLOB_KEYS = {
     "az-clinic-primary-cost-v1",
     "az-service-extra-payments-v1",
     "az-service-salary-v1",
+    "az-management-monthly-plan-v1",
 }
 WRITABLE_BLOB_KEYS = set(REPORT_BLOB_KEYS)
 
@@ -83,6 +85,37 @@ def _storage_map():
     return {row["key"]: row["payload"] for row in rows}
 
 
+def management_monthly_plans():
+    row = db().execute(
+        "SELECT payload FROM report_blobs WHERE key=?",
+        ("az-management-monthly-plan-v1",),
+    ).fetchone()
+    if not row:
+        return {}
+    try:
+        parsed = json.loads(row["payload"])
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(parsed, dict) or parsed.get("version") != 1:
+        return {}
+    months = parsed.get("months")
+    if not isinstance(months, dict):
+        return {}
+    result = {}
+    for month, raw in months.items():
+        month = str(month)
+        if not MONTH_RE.fullmatch(month) or isinstance(raw, bool):
+            continue
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(value) or value < 0:
+            continue
+        result[month] = int(value) if value.is_integer() else value
+    return result
+
+
 def _validate_blob_payload(key, payload):
     if key not in REPORT_BLOB_KEYS or not isinstance(payload, str):
         abort(400)
@@ -104,6 +137,22 @@ def _validate_blob_payload(key, payload):
     elif key == "az-clinic-primary-cost-v1":
         if not isinstance(parsed.get("months"), list) or not isinstance(parsed.get("primaryPatients"), list):
             abort(400)
+    elif key == "az-management-monthly-plan-v1":
+        if parsed.get("version") != 1 or not isinstance(parsed.get("months"), dict):
+            abort(400)
+        months = {}
+        for month, raw in parsed["months"].items():
+            month = str(month)
+            if not MONTH_RE.fullmatch(month) or isinstance(raw, bool):
+                abort(400)
+            try:
+                value = float(raw)
+            except (TypeError, ValueError):
+                abort(400)
+            if not math.isfinite(value) or value < 0 or value > 1_000_000_000_000:
+                abort(400)
+            months[month] = int(value) if value.is_integer() else value
+        parsed = {"version": 1, "months": months}
     elif key in {"az-service-extra-payments-v1", "az-service-salary-v1"}:
         if not any(name in parsed for name in ("Стоматология", "Клиника", "Лаборатория")):
             abort(400)
@@ -339,12 +388,19 @@ def register_report_storage(app):
     @permission_required("reports")
     def report_data_all():
         rows = db().execute("SELECT date, payload FROM report_data ORDER BY date").fetchall()
+        monthly_plans = management_monthly_plans()
         data = {}
         for row in rows:
             try:
-                data[row["date"]] = json.loads(row["payload"])
+                record = json.loads(row["payload"])
             except (TypeError, ValueError):
                 continue
+            if not isinstance(record, dict):
+                continue
+            month = str(row["date"] or "")[:7]
+            if month in monthly_plans:
+                record["plan"] = monthly_plans[month]
+            data[row["date"]] = record
         return jsonify(data=data, csrf=csrf_token())
 
     @app.put("/api/reports/data/<date>")
