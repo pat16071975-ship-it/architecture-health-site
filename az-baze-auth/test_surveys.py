@@ -13,6 +13,8 @@ os.environ["AZBAZE_SITE_ROOT"] = str(Path(TEST_TMP.name) / "site")
 import app as app_core
 import surveys
 
+surveys.register_surveys(app_core.app)
+
 
 class SurveyCalculationTests(unittest.TestCase):
     def test_scale_stats_ignore_no_observation(self):
@@ -48,6 +50,11 @@ class SurveyPermissionTests(unittest.TestCase):
     def setUp(self):
         with app_core.app.app_context():
             conn = app_core.db()
+            for table in (
+                "survey_answers", "survey_responses", "survey_invites",
+                "survey_options", "survey_questions", "survey_sections", "surveys"
+            ):
+                conn.execute(f"DELETE FROM {table}")
             conn.execute("DELETE FROM permissions")
             conn.execute("DELETE FROM users")
             conn.execute(
@@ -85,6 +92,117 @@ class SurveyPermissionTests(unittest.TestCase):
             user = conn.execute("SELECT * FROM users WHERE id=2").fetchone()
             self.assertIn("surveys", app_core.user_permissions(admin))
             self.assertIn("surveys", app_core.user_permissions(user))
+
+
+    def test_direct_surveys_url_is_403_without_explicit_permission(self):
+        client = app_core.app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = 2
+            session["csrf"] = "test"
+        response = client.get("/surveys/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_direct_surveys_url_is_also_403_without_explicit_permission(self):
+        client = app_core.app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = 1
+            session["csrf"] = "test"
+        response = client.get("/surveys/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_explicit_surveys_permission_opens_section(self):
+        with app_core.app.app_context():
+            conn = app_core.db()
+            conn.execute("INSERT INTO permissions(user_id,section) VALUES(2,'surveys')")
+            conn.commit()
+        client = app_core.app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = 2
+            session["csrf"] = "test"
+        response = client.get("/surveys/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Опросы".encode("utf-8"), response.data)
+
+
+class SurveyPublicRouteTests(unittest.TestCase):
+    def setUp(self):
+        app_core.init_db_file()
+        surveys.init_surveys_schema()
+        with app_core.app.app_context():
+            conn = app_core.db()
+            for table in (
+                "survey_answers", "survey_responses", "survey_invites",
+                "survey_options", "survey_questions", "survey_sections", "surveys"
+            ):
+                conn.execute(f"DELETE FROM {table}")
+            conn.execute("DELETE FROM permissions")
+            conn.execute("DELETE FROM users")
+            conn.execute(
+                """
+                INSERT INTO users(
+                    id,email,full_name,password_hash,is_admin,active,must_change_password,
+                    failed_attempts,locked_until,created_at,updated_at
+                ) VALUES(1,'owner@example.test','Owner','x',0,1,0,0,NULL,'now','now')
+                """
+            )
+            cur = conn.execute(
+                """
+                INSERT INTO surveys(
+                    title,category,description,period_label,starts_at,ends_at,
+                    expected_responses,status,created_by_user_id,created_at,closed_at
+                ) VALUES('Тест','Административные','','Сентябрь 2026',NULL,NULL,1,'OPEN',1,'now',NULL)
+                """
+            )
+            self.survey_id = cur.lastrowid
+            qcur = conn.execute(
+                """
+                INSERT INTO survey_questions(
+                    survey_id,section_id,question_type,text,required,sort_order
+                ) VALUES(?,NULL,'scale','Тестовый вопрос',1,1)
+                """,
+                (self.survey_id,),
+            )
+            self.question_id = qcur.lastrowid
+            icur = conn.execute(
+                "INSERT INTO survey_invites(survey_id,token_hash,used) VALUES(?,?,0)",
+                (self.survey_id, "placeholder"),
+            )
+            invite_id = icur.lastrowid
+            self.token = surveys.derive_invite_token(app_core.app.config["SECRET_KEY"], invite_id)
+            conn.execute(
+                "UPDATE survey_invites SET token_hash=? WHERE id=?",
+                (surveys.token_hash(self.token), invite_id),
+            )
+            conn.commit()
+
+    def test_anonymous_page_has_privacy_headers_and_no_external_fonts(self):
+        client = app_core.app.test_client()
+        response = client.get(f"/survey/{self.token}")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("default-src 'self'", response.headers.get("Content-Security-Policy", ""))
+        self.assertEqual(response.headers.get("Referrer-Policy"), "no-referrer")
+        self.assertNotIn(b"fonts.googleapis", response.data)
+        self.assertIn("Опрос анонимный".encode("utf-8"), response.data)
+
+    def test_public_submit_is_one_time_and_has_no_login(self):
+        client = app_core.app.test_client()
+        response = client.post(
+            f"/survey/{self.token}",
+            data={f"q_{self.question_id}": "5"},
+            headers={"X-AZ-Survey": "1", "Accept": "application/json"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["ok"])
+        second = client.post(
+            f"/survey/{self.token}",
+            data={f"q_{self.question_id}": "4"},
+            headers={"X-AZ-Survey": "1", "Accept": "application/json"},
+        )
+        self.assertEqual(second.status_code, 410)
+        with app_core.app.app_context():
+            conn = app_core.db()
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM survey_responses").fetchone()[0], 1)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM survey_answers").fetchone()[0], 1)
 
 
 class SurveyAtomicResponseTests(unittest.TestCase):
