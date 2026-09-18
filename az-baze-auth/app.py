@@ -525,6 +525,10 @@ def render_home_for_user():
     if not index_path.exists():
         abort(404)
     html = index_path.read_text(encoding="utf-8")
+    # Normalize the static AZ-BAZE navigation before permission filtering/injection.
+    html = html.replace('href="../reports/"', 'href="/reports/"')
+    html = html.replace('href="#knowledge"', 'href="/knowledge/"')
+    html = html.replace('src="../assets/', 'src="/assets/')
     perms = user_permissions(g.user)
 
     mapping = {
@@ -549,9 +553,6 @@ def render_home_for_user():
         admin_link = '<a href="/admin" style="position:fixed;right:18px;bottom:18px;z-index:50;padding:9px 13px;border:1px solid rgba(181,150,98,.42);border-radius:9px;background:#faf7f1;color:#354039;text-decoration:none;font:600 12px Montserrat,Arial,sans-serif">Управление доступом</a>'
     logout_form = f'<form method="post" action="/logout" style="position:fixed;left:18px;bottom:18px;z-index:50"><input type="hidden" name="csrf" value="{csrf_token()}"><button type="submit" style="padding:9px 13px;border:1px solid rgba(181,150,98,.42);border-radius:9px;background:#faf7f1;color:#354039;font:600 12px Montserrat,Arial,sans-serif;cursor:pointer">Выйти</button></form>'
     html = html.replace("</body>", admin_link + logout_form + "</body>")
-    html = html.replace('href="../reports/"', 'href="/reports/"')
-    html = html.replace('href="#knowledge"', 'href="/knowledge/"')
-    html = html.replace('src="../assets/', 'src="/assets/')
     return html
 
 
