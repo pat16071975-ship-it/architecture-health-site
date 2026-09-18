@@ -12,16 +12,21 @@ from werkzeug.security import check_password_hash, generate_password_hash
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("AZBAZE_DB", "/var/lib/az-baze/auth.db"))
 SITE_ROOT = Path(os.environ.get("AZBAZE_SITE_ROOT", "/var/www/az-baze.ru"))
+SURVEY_PERMISSION_OPTIONS = [
+    ("surveys_create", "Опросы — создание и управление"),
+    ("surveys_view", "Опросы — просмотр опросов и результатов"),
+]
+SURVEY_PERMISSION_KEYS = {key for key, _ in SURVEY_PERMISSION_OPTIONS}
+
 SECTIONS = [
     ("reports", "Отчёты"),
     ("knowledge", "База знаний"),
-    ("surveys", "Опросы"),
     ("section3", "Раздел 3"),
     ("section4", "Раздел 4"),
     ("section5", "Раздел 5"),
 ]
-SECTION_KEYS = {key for key, _ in SECTIONS}
-EXPLICIT_PERMISSION_KEYS = {"surveys"}
+SECTION_KEYS = {key for key, _ in SECTIONS} | SURVEY_PERMISSION_KEYS
+EXPLICIT_PERMISSION_KEYS = set(SURVEY_PERMISSION_KEYS)
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
@@ -281,6 +286,7 @@ def create_app():
             users=users,
             perms=perms,
             sections=SECTIONS,
+            survey_permission_options=SURVEY_PERMISSION_OPTIONS,
             logs=logs,
             csrf=csrf_token(),
         )
@@ -326,6 +332,7 @@ def create_app():
             user=None,
             current_permissions=set(),
             sections=SECTIONS,
+            survey_permission_options=SURVEY_PERMISSION_OPTIONS,
             error=error,
             csrf=csrf_token(),
         )
@@ -370,6 +377,7 @@ def create_app():
             user=user,
             current_permissions=user_permissions(user),
             sections=SECTIONS,
+            survey_permission_options=SURVEY_PERMISSION_OPTIONS,
             error=error,
             csrf=csrf_token(),
         )
@@ -470,9 +478,14 @@ def user_permissions(user):
     rows = db().execute("SELECT section FROM permissions WHERE user_id=?", (user["id"],)).fetchall()
     explicit = {row["section"] for row in rows if row["section"] in SECTION_KEYS}
     if bool(user["is_admin"]):
-        # Sensitive sections such as «Опросы» are never granted merely by is_admin.
-        return (set(SECTION_KEYS) - EXPLICIT_PERMISSION_KEYS) | (explicit & EXPLICIT_PERMISSION_KEYS)
-    return explicit
+        # Sensitive survey capabilities are never granted merely by is_admin.
+        permissions = (set(SECTION_KEYS) - EXPLICIT_PERMISSION_KEYS) | (explicit & EXPLICIT_PERMISSION_KEYS)
+    else:
+        permissions = explicit
+    # «surveys» is a virtual section-access permission derived from either granular capability.
+    if permissions & SURVEY_PERMISSION_KEYS:
+        permissions.add("surveys")
+    return permissions
 
 
 def set_permissions(user_id, permissions):
