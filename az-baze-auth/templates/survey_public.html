@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>{{ survey.title }} — Опрос</title>
+<style>
+:root{--paper:#f7f3ec;--paper2:#efe8db;--ink:#2d342f;--green:#44634f;--line:#d8cdbb;--red:#9a4b48}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fcfaf6,var(--paper));color:var(--ink);font-family:Arial,sans-serif}body{min-height:100vh}.page{width:min(760px,94vw);margin:0 auto;padding:20px 0 44px}.brand{text-align:center;margin-bottom:18px}.brand small{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#657068}.brand h1{margin:7px 0 0;font-size:28px;font-weight:600}.intro{padding:16px;border:1px solid var(--line);border-radius:14px;background:#fffdf8}.intro h2{margin:0 0 8px;font-size:21px}.period{margin:8px 0;padding:8px 10px;border-radius:8px;background:var(--paper2);font-size:13px;font-weight:700}.anonymous{margin-top:12px;padding:11px 12px;border-left:4px solid var(--green);border-radius:8px;background:#edf4ee;font-size:13px;line-height:1.5}.description{margin-top:12px;white-space:pre-line;font-size:13px;line-height:1.55;color:#566158}.section{margin-top:17px}.section-title{margin:0 0 8px;padding:9px 11px;border-radius:9px;background:var(--paper2);font-size:14px}.question{margin:9px 0;padding:15px;border:1px solid var(--line);border-radius:12px;background:#fff}.progress{font-size:10px;color:#777f78;margin-bottom:7px}.question-text{font-size:16px;line-height:1.45;font-weight:600}.required{color:var(--red)}.scale{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:12px}.scale label{position:relative}.scale input{position:absolute;opacity:0;pointer-events:none}.scale span{display:grid;place-items:center;min-height:48px;padding:8px;border:1px solid #bfc9c0;border-radius:9px;background:#fff;font-size:15px;font-weight:700;cursor:pointer}.scale label:last-child{grid-column:span 6}.scale label:last-child span{min-height:42px;font-size:12px}.scale input:checked+span{background:var(--green);border-color:var(--green);color:#fff}.choice-list{display:grid;gap:8px;margin-top:12px}.choice{display:flex;align-items:flex-start;gap:9px;padding:10px;border:1px solid #d8cdbb;border-radius:9px;background:#fff;font-size:14px;line-height:1.35}.choice input{margin-top:2px;width:18px;height:18px;flex:0 0 18px}.text-answer{width:100%;min-height:120px;margin-top:12px;padding:11px;border:1px solid #cfc5b5;border-radius:9px;background:#fff;font:14px/1.45 Arial,sans-serif;resize:vertical}.submit-wrap{position:sticky;bottom:0;margin-top:18px;padding:12px 0;background:linear-gradient(180deg,rgba(247,243,236,0),rgba(247,243,236,.96) 25%)}.submit{width:100%;min-height:50px;border:0;border-radius:10px;background:var(--green);color:#fff;font-size:16px;font-weight:700;cursor:pointer}.submit:disabled{opacity:.6}.error{margin:12px 0;padding:11px 12px;border-left:4px solid var(--red);border-radius:8px;background:#faecea;color:#7d3936;font-size:13px}.thanks{margin-top:60px;padding:28px 18px;border:1px solid var(--line);border-radius:15px;background:#fffdf8;text-align:center}.thanks h2{margin:0;font-size:24px}.thanks p{margin:10px 0 0;color:#5f685f;font-size:14px}@media(max-width:540px){.page{width:100%;padding:14px 12px 36px}.brand h1{font-size:24px}.question{padding:13px}.question-text{font-size:16px}.scale{grid-template-columns:repeat(3,1fr)}.scale label:last-child{grid-column:span 3}.scale span{min-height:52px}}
+</style>
+</head>
+<body>
+<main class="page" id="surveyPage">
+  <div class="brand"><small>Архитектура здоровья</small><h1>{{ survey.title }}</h1></div>
+  <div class="intro">
+    {% if survey.period_label %}<div class="period">Период: {{ survey.period_label }}</div>{% endif %}
+    <div class="anonymous"><strong>Опрос анонимный.</strong><br>Не указывайте в комментариях имена пациентов, медицинские данные, имена сотрудников и подробности, по которым можно определить автора ответа.</div>
+    {% if survey.description %}<div class="description">{{ survey.description }}</div>{% endif %}
+  </div>
+
+  {% if error %}<div class="error" id="surveyError">{{ error }}</div>{% else %}<div class="error" id="surveyError" hidden></div>{% endif %}
+
+  <form method="post" id="anonymousSurvey">
+    {% set total = namespace(value=0) %}
+    {% for section in sections %}{% set total.value = total.value + section.questions|length %}{% endfor %}
+    {% set counter = namespace(value=0) %}
+    {% for section in sections %}
+      <section class="section">
+        <h2 class="section-title">{{ section.title }}</h2>
+        {% for question in section.questions %}
+          {% set counter.value = counter.value + 1 %}
+          {% set field = 'q_' ~ question.id %}
+          {% set selected = submitted.get(field, []) %}
+          <div class="question">
+            <div class="progress">Вопрос {{ counter.value }} из {{ total.value }}</div>
+            <div class="question-text">{{ question.text }}{% if question.required %} <span class="required">*</span>{% endif %}</div>
+
+            {% if question.question_type=='scale' %}
+              <div class="scale">
+                {% for value in ['1','2','3','4','5'] %}
+                  <label><input type="radio" name="{{ field }}" value="{{ value }}" {% if value in selected %}checked{% endif %} {% if question.required %}required{% endif %}><span>{{ value }}</span></label>
+                {% endfor %}
+                <label><input type="radio" name="{{ field }}" value="NA" {% if 'NA' in selected %}checked{% endif %} {% if question.required %}required{% endif %}><span>Не могу оценить</span></label>
+              </div>
+            {% elif question.question_type=='single' %}
+              <div class="choice-list">
+                {% for option in question.options %}
+                  <label class="choice"><input type="radio" name="{{ field }}" value="{{ option.value }}" {% if option.value in selected %}checked{% endif %} {% if question.required %}required{% endif %}><span>{{ option.label }}</span></label>
+                {% endfor %}
+              </div>
+            {% elif question.question_type=='multi' %}
+              <div class="choice-list">
+                {% for option in question.options %}
+                  <label class="choice"><input type="checkbox" name="{{ field }}" value="{{ option.value }}" {% if option.value in selected %}checked{% endif %}><span>{{ option.label }}</span></label>
+                {% endfor %}
+              </div>
+            {% else %}
+              <textarea class="text-answer" name="{{ field }}" maxlength="{{ max_text_length }}" {% if question.required %}required{% endif %} placeholder="До {{ max_text_length }} символов">{{ selected[0] if selected else '' }}</textarea>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </section>
+    {% endfor %}
+    <div class="submit-wrap"><button class="submit" id="submitSurvey" type="submit">Отправить ответы</button></div>
+  </form>
+</main>
+<script>
+(() => {
+  const form=document.getElementById('anonymousSurvey');
+  const button=document.getElementById('submitSurvey');
+  const errorBox=document.getElementById('surveyError');
+  if(!form||!button||!errorBox)return;
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(!form.reportValidity())return;
+    button.disabled=true;
+    button.textContent='Отправляем…';
+    errorBox.hidden=true;
+    try{
+      const response=await fetch(location.href,{
+        method:'POST',
+        body:new FormData(form),
+        credentials:'omit',
+        cache:'no-store',
+        headers:{'X-AZ-Survey':'1','Accept':'application/json'}
+      });
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok||!payload.ok)throw new Error(payload.error||'Не удалось отправить ответы. Попробуйте ещё раз.');
+      document.getElementById('surveyPage').innerHTML='<div class="thanks"><h2>Спасибо. Ваш ответ принят.</h2><p>Результаты опроса участникам не показываются.</p></div>';
+      window.scrollTo({top:0,behavior:'smooth'});
+    }catch(error){
+      errorBox.textContent=error.message||'Не удалось отправить ответы. Попробуйте ещё раз.';
+      errorBox.hidden=false;
+      errorBox.scrollIntoView({behavior:'smooth',block:'center'});
+      button.disabled=false;
+      button.textContent='Отправить ответы';
+    }
+  });
+})();
+</script>
+</body>
+</html>
