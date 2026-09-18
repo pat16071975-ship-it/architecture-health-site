@@ -1,0 +1,36 @@
+name: AZ-BAZE Surveys
+
+on:
+  push:
+    branches:
+      - feature/az-baze-auth
+    paths:
+      - "az-baze-auth/**"
+      - ".github/workflows/az-baze-surveys.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  surveys-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependencies
+        run: pip install -r az-baze-auth/requirements.txt
+
+      - name: Python syntax
+        run: python -m py_compile az-baze-auth/app.py az-baze-auth/server.py az-baze-auth/surveys.py az-baze-auth/test_surveys.py
+
+      - name: Surveys tests
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_surveys.py
