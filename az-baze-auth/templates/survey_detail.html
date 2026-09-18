@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.detail-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.detail-head h2{margin:0;font-size:26px;font-weight:500}.meta{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:9px;margin:16px 0}.meta-card{padding:10px;border:1px solid #ded5c8;border-radius:9px;background:#fff}.meta-card span{display:block;color:#72786f;font-size:9px;text-transform:uppercase;letter-spacing:.08em}.meta-card strong{display:block;margin-top:4px;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.section-block{margin-top:15px;border:1px solid #ded5c8;border-radius:11px;overflow:hidden;background:#fff}.section-block h3{margin:0;padding:10px 12px;background:#efe8db;font-size:14px}.question{padding:10px 12px;border-top:1px solid #ece5da}.question:first-of-type{border-top:0}.question small{color:#777f78}.options{margin-top:5px;color:#687168;font-size:10px}.open-note{margin:14px 0;padding:12px;border-left:3px solid #44634f;background:#f0f5f1;border-radius:8px;font-size:11px}.danger-note{margin:14px 0;padding:12px;border-left:3px solid #9a4b48;background:#fbefed;border-radius:8px;color:#80413d;font-size:11px}@media(max-width:700px){.detail-head{flex-direction:column}.meta{grid-template-columns:1fr 1fr}}@media(max-width:480px){.meta{grid-template-columns:1fr}}
+</style>
+<div class="card">
+  <div class="detail-head">
+    <div>
+      <h2>{{ survey['title'] }}</h2>
+      <div class="muted">{{ survey['description'] or 'Описание не задано.' }}</div>
+    </div>
+    <a class="btn" href="/surveys/">К опросам</a>
+  </div>
+
+  <div class="meta">
+    <div class="meta-card"><span>Категория</span><strong>{{ survey['category'] }}</strong></div>
+    <div class="meta-card"><span>Период</span><strong>{{ survey['period_label'] or 'не указан' }}</strong></div>
+    <div class="meta-card"><span>Статус</span><strong>{{ status_labels[survey['status']] }}</strong></div>
+    <div class="meta-card"><span>Ответы</span><strong>{{ response_count }} / {{ survey['expected_responses'] }}</strong></div>
+  </div>
+
+  {% if survey['status']=='OPEN' %}
+    <div class="open-note">Опрос открыт. Пока он открыт, оценки и комментарии скрыты. Видно только количество полученных ответов.</div>
+  {% endif %}
+  {% if survey['status']=='DRAFT' %}
+    <div class="open-note">Черновик можно редактировать. После открытия вопросы, варианты и шкалы будут зафиксированы.</div>
+  {% endif %}
+
+  <div class="actions">
+    {% if survey['status']=='DRAFT' %}
+      <a class="btn" href="/surveys/{{ survey['id'] }}/edit">Редактировать</a>
+      <form method="post" action="/surveys/{{ survey['id'] }}/open"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary" type="submit" onclick="return confirm('Открыть опрос? После открытия вопросы изменить нельзя.')">Открыть</button></form>
+    {% elif survey['status']=='OPEN' %}
+      <a class="btn" href="/surveys/{{ survey['id'] }}/invites">Ссылки участия</a>
+      <form method="post" action="/surveys/{{ survey['id'] }}/close"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn warn" type="submit" onclick="return confirm('Закрыть опрос? Новые ответы больше приниматься не будут.')">Закрыть</button></form>
+    {% elif survey['status'] in ['CLOSED','ARCHIVED'] %}
+      <a class="btn primary" href="/surveys/{{ survey['id'] }}/results">Результаты</a>
+      {% if survey['status']=='CLOSED' %}
+        <form method="post" action="/surveys/{{ survey['id'] }}/clone"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Клонировать</button></form>
+        <form method="post" action="/surveys/{{ survey['id'] }}/archive"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">В архив</button></form>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<div class="spacer"></div>
+<div class="card">
+  <h2 class="section-title">Вопросы — {{ question_count }}</h2>
+  {% for section in sections %}
+    <div class="section-block">
+      <h3>{{ section['title'] }}</h3>
+      {% for question in section['questions'] %}
+        <div class="question">
+          <div>{{ question['sort_order'] }}. {{ question['text'] }}</div>
+          <small>{{ type_labels[question['question_type']] }}{% if question['required'] %} · обязательный{% endif %}</small>
+          {% if question['options'] %}
+            <div class="options">{{ question['options']|map(attribute='label')|join(' · ') }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
