@@ -27,15 +27,15 @@
   {% endif %}
 
   <div class="actions">
-    {% if survey['status']=='DRAFT' %}
+    {% if survey['status']=='DRAFT' and can_create %}
       <a class="btn" href="/surveys/{{ survey['id'] }}/edit">Редактировать</a>
       <form method="post" action="/surveys/{{ survey['id'] }}/open"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn primary" type="submit" onclick="return confirm('Открыть опрос? После открытия вопросы изменить нельзя.')">Открыть</button></form>
-    {% elif survey['status']=='OPEN' %}
+    {% elif survey['status']=='OPEN' and can_create %}
       <a class="btn" href="/surveys/{{ survey['id'] }}/invites">Ссылки участия</a>
       <form method="post" action="/surveys/{{ survey['id'] }}/close"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn warn" type="submit" onclick="return confirm('Закрыть опрос? Новые ответы больше приниматься не будут.')">Закрыть</button></form>
     {% elif survey['status'] in ['CLOSED','ARCHIVED'] %}
-      <a class="btn primary" href="/surveys/{{ survey['id'] }}/results">Результаты</a>
-      {% if survey['status']=='CLOSED' %}
+      {% if can_view %}<a class="btn primary" href="/surveys/{{ survey['id'] }}/results">Результаты</a>{% endif %}
+      {% if survey['status']=='CLOSED' and can_create %}
         <form method="post" action="/surveys/{{ survey['id'] }}/clone"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">Клонировать</button></form>
         <form method="post" action="/surveys/{{ survey['id'] }}/archive"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn" type="submit">В архив</button></form>
       {% endif %}
