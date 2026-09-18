@@ -57,7 +57,7 @@
 <div class="card">
   <h2 class="section-title">Средние по блокам</h2>
   <div class="table-wrap"><table class="block-table"><thead><tr><th>Блок</th><th>Среднее</th><th>Оценок</th><th>Зона</th></tr></thead><tbody>
-  {% for block in results.blocks %}<tr><td>{{ block.title }}</td><td>{{ block.mean }}</td><td>{{ block.count }}</td><td>{{ block.zone }}</td></tr>{% endfor %}
+  {% for block in results.blocks %}<tr><td>{{ block.title }}</td><td>{{ block.mean }}</td><td>{{ block.count }} (Н/О: {{ block.no_observation }})</td><td>{{ block.zone }}</td></tr>{% endfor %}
   </tbody></table></div>
 </div>
 {% endif %}
