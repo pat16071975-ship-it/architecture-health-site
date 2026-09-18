@@ -17,7 +17,7 @@ declare -A BASE=(
   [transitions.html]="61878c44cc7de49f50e36e76ec15d7b7fc2ee53c"
   [import-20260831.html]="1044db19cdb853ed7e0b029f6b183a22d880d026"
   [services.html]="206545a727bd2d7e8738f2cc2dd260e5e9a15f5a"
-  [economics-import.html]="6b0bf2f4d832969386f89ddc935c62eb971eb1e6"
+  [economics-import.html]="ae8f9d9ceaccdfb6b3c03a880c77280949550e85"
 )
 
 declare -A TARGET=(
@@ -30,7 +30,7 @@ declare -A TARGET=(
   [transitions.html]="654697860a2e13071882336148fdf98d26d4229a"
   [import-20260831.html]="07b5f6da1521393639b045bf2080aa92d877c742"
   [services.html]="4dd01dd2b2680a3f4e76beb7c4021951b2a532cd"
-  [economics-import.html]="c6500819c3699a3bab4b0747c44e0ecb590e9384"
+  [economics-import.html]="02ed97ac332ccd5f4447355b4ae5c54d0b5d42de"
 )
 
 FILES=(
@@ -96,6 +96,24 @@ s = s.replace(old, new, 1)
 link = '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">'
 if link not in s:
     s = s.replace("</title>", "</title>\n" + link, 1)
+p.write_text(s, encoding="utf-8")
+PY
+  elif [ "$file" = "economics-import.html" ]; then
+    cp -a "$ROOT/$file" "$TMP/$file"
+    python3 - "$TMP/$file" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+s = p.read_text(encoding="utf-8")
+if "font-family:Montserrat,Arial,sans-serif" not in s:
+    raise SystemExit("economics-import.html Montserrat anchor missing")
+if 'href="/reports/dashboard.html">К дашборду</a>' not in s:
+    raise SystemExit("economics-import.html live dashboard link missing")
+if "location.replace('/reports/dashboard.html?import=ok')" not in s:
+    raise SystemExit("economics-import.html live redirect missing")
+link = '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">'
+if link not in s:
+    s = s.replace("</title>", "</title>" + link, 1)
 p.write_text(s, encoding="utf-8")
 PY
   else
