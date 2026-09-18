@@ -31,6 +31,17 @@ jobs:
       - name: Python syntax
         run: python -m py_compile az-baze-auth/app.py az-baze-auth/server.py az-baze-auth/surveys.py az-baze-auth/test_surveys.py
 
+      - name: Survey template syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from jinja2 import Environment
+          env = Environment()
+          for path in sorted(Path("az-baze-auth/templates").glob("survey*.html")):
+              env.parse(path.read_text(encoding="utf-8"))
+              print("OK", path)
+          PY
+
       - name: Surveys tests
         working-directory: az-baze-auth
         run: python -m unittest -v test_surveys.py
