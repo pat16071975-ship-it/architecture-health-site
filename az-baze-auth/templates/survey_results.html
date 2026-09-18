@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.results-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.results-head h2{margin:0;font-size:26px;font-weight:500}.metrics{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:9px;margin:16px 0}.metric{padding:11px;border:1px solid #ded5c8;border-radius:10px;background:#fff}.metric span{display:block;color:#747b74;font-size:9px;text-transform:uppercase;letter-spacing:.07em}.metric strong{display:block;margin-top:5px;font-size:17px}.notice{margin:14px 0;padding:11px 13px;border-left:3px solid #b59662;background:#fffaf0;border-radius:8px;font-size:11px}.conclusions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.conclusion{padding:13px;border:1px solid #ded5c8;border-radius:10px;background:#fff}.conclusion h3{margin:0 0 8px;font-size:14px}.conclusion ul{margin:0;padding-left:18px;font-size:11px;line-height:1.5}.block-table{width:100%;border-collapse:collapse}.block-table td,.block-table th{padding:9px;border-bottom:1px solid #e7dfd4;text-align:left;font-size:11px}.question-card{margin-top:10px;padding:13px;border:1px solid #ded5c8;border-radius:10px;background:#fff}.question-title{font-weight:600;font-size:12px;line-height:1.45}.question-meta{margin-top:5px;color:#737b74;font-size:10px}.scale-grid{display:grid;grid-template-columns:repeat(7,minmax(60px,1fr));gap:6px;margin-top:9px}.scale-cell{padding:7px;border-radius:7px;background:#f7f3ec;text-align:center;font-size:10px}.scale-cell strong{display:block;font-size:13px}.option-list{display:grid;gap:5px;margin-top:9px}.option-row{display:flex;justify-content:space-between;gap:10px;padding:7px 9px;border-radius:7px;background:#f7f3ec;font-size:10px}.comments{display:grid;gap:9px}.comment{padding:11px;border:1px solid #ded5c8;border-radius:9px;background:#fff}.comment .q{margin-bottom:5px;color:#6d756e;font-size:9px}.comment .text{white-space:pre-wrap;font-size:11px;line-height:1.5}.exports{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:760px){.results-head{flex-direction:column}.metrics{grid-template-columns:1fr 1fr}.conclusions{grid-template-columns:1fr}.scale-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:460px){.metrics{grid-template-columns:1fr}}
+</style>
+<div class="card">
+  <div class="results-head">
+    <div><h2>{{ results.survey.title }}</h2><div class="muted">{{ results.survey.category }}{% if results.survey.period %} · {{ results.survey.period }}{% endif %}</div></div>
+    <div class="row"><a class="btn" href="/surveys/{{ survey['id'] }}/">К опросу</a><a class="btn" href="/surveys/">Все опросы</a></div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><span>Ожидалось</span><strong>{{ results.survey.expected_responses }}</strong></div>
+    <div class="metric"><span>Получено</span><strong>{{ results.survey.received_responses }}</strong></div>
+    <div class="metric"><span>Доля участия</span><strong>{% if results.survey.participation is not none %}{{ (results.survey.participation*100)|round(1) }} %{% else %}—{% endif %}</strong></div>
+    <div class="metric"><span>Итоговый балл</span><strong>{% if results.overall_score is not none %}{{ results.overall_score }} / 5{% else %}—{% endif %}</strong>{% if results.overall_zone %}<div class="muted">{{ results.overall_zone }}</div>{% endif %}</div>
+  </div>
+
+  {% if not results.enough_for_overall %}
+    <div class="notice"><strong>Недостаточно данных для сводной оценки.</strong> Получено меньше 3 ответов, поэтому итоговый балл опроса не показывается.</div>
+  {% endif %}
+
+  <div class="exports">
+    <a class="btn" href="/surveys/{{ survey['id'] }}/export.csv">CSV</a>
+    <a class="btn" href="/surveys/{{ survey['id'] }}/export.json">JSON</a>
+    <a class="btn" href="/surveys/{{ survey['id'] }}/print" target="_blank" rel="noopener">Печать / PDF</a>
+  </div>
+</div>
+
+<div class="spacer"></div>
+<div class="card">
+  <h2 class="section-title">Выводы</h2>
+  <div class="conclusions">
+    <div class="conclusion">
+      <h3>Сильные стороны</h3>
+      {% if results.conclusions.strongest %}<ul>{% for item in results.conclusions.strongest %}<li>{{ item.question }} — {{ item.mean }} ({{ item.zone }})</li>{% endfor %}</ul>{% else %}<div class="muted">Нет оценённых вопросов.</div>{% endif %}
+    </div>
+    <div class="conclusion">
+      <h3>Зоны внимания</h3>
+      {% if results.conclusions.attention %}<ul>{% for item in results.conclusions.attention %}<li>{{ item.question }} — {{ item.mean }} ({{ item.zone }})</li>{% endfor %}</ul>{% else %}<div class="muted">Нет оценённых вопросов.</div>{% endif %}
+    </div>
+    <div class="conclusion">
+      <h3>Недостаточно наблюдений</h3>
+      {% if results.conclusions.insufficient %}<ul>{% for item in results.conclusions.insufficient %}<li>{{ item.question }} — «Не могу оценить» {{ (item.no_observation_ratio*100)|round(0)|int }} %</li>{% endfor %}</ul>{% else %}<div class="muted">Нет вопросов с долей «Не могу оценить» 50 % и выше.</div>{% endif %}
+    </div>
+    <div class="conclusion">
+      <h3>Блоки</h3>
+      {% if results.conclusions.best_block %}<div class="muted">Максимальный средний балл</div><div>{{ results.conclusions.best_block.title }} — <strong>{{ results.conclusions.best_block.mean }}</strong></div>{% endif %}
+      {% if results.conclusions.weakest_block %}<div class="muted" style="margin-top:8px">Минимальный средний балл</div><div>{{ results.conclusions.weakest_block.title }} — <strong>{{ results.conclusions.weakest_block.mean }}</strong></div>{% endif %}
+      {% if not results.conclusions.best_block %}<div class="muted">Нет оценённых блоков.</div>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if results.blocks %}
+<div class="spacer"></div>
+<div class="card">
+  <h2 class="section-title">Средние по блокам</h2>
+  <div class="table-wrap"><table class="block-table"><thead><tr><th>Блок</th><th>Среднее</th><th>Оценок</th><th>Зона</th></tr></thead><tbody>
+  {% for block in results.blocks %}<tr><td>{{ block.title }}</td><td>{{ block.mean }}</td><td>{{ block.count }}</td><td>{{ block.zone }}</td></tr>{% endfor %}
+  </tbody></table></div>
+</div>
+{% endif %}
+
+<div class="spacer"></div>
+<div class="card">
+  <h2 class="section-title">Сводные результаты по вопросам</h2>
+  {% for item in results.questions %}
+    <div class="question-card">
+      <div class="question-title">{% if item.section %}<span class="muted">{{ item.section }} · </span>{% endif %}{{ item.question }}</div>
+      <div class="question-meta">{{ item.type_label }}</div>
+      {% if item.type=='scale' %}
+        <div class="question-meta">Оценок: {{ item.count }} · Среднее: {{ item.mean if item.mean is not none else '—' }} · Медиана: {{ item.median if item.median is not none else '—' }} · Н/О: {{ item.no_observation }}</div>
+        <div class="scale-grid">
+          {% for n in ['1','2','3','4','5'] %}<div class="scale-cell"><span>{{ n }}</span><strong>{{ item.distribution[n] }}</strong></div>{% endfor %}
+          <div class="scale-cell"><span>Н/О</span><strong>{{ item.no_observation }}</strong></div>
+          <div class="scale-cell"><span>Зона</span><strong style="font-size:10px">{{ item.zone or '—' }}</strong></div>
+        </div>
+      {% elif item.type in ['single','multi'] %}
+        <div class="option-list">{% for option in item.options %}<div class="option-row"><span>{{ option.label }}</span><strong>{{ option.count }}</strong></div>{% endfor %}</div>
+      {% else %}
+        <div class="question-meta">Комментариев: {{ item.count }}</div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+<div class="spacer"></div>
+<div class="card">
+  <h2 class="section-title">Комментарии сотрудников</h2>
+  <div class="notice">Комментарии показаны без ФИО, номера анкеты, номера ссылки и времени отправки. Не пытайтесь определять автора по формулировкам.</div>
+  {% if results.comments %}
+    <div class="comments">{% for item in results.comments %}<div class="comment"><div class="q">{{ item.question }}</div><div class="text">{{ item.text }}</div></div>{% endfor %}</div>
+  {% else %}<div class="muted">Свободных комментариев нет.</div>{% endif %}
+</div>
+{% endblock %}
