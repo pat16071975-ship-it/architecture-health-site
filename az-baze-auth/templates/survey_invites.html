@@ -5,7 +5,7 @@
 </style>
 <div class="card">
   <div class="invite-head">
-    <div><h2>Ссылки участия</h2><div class="muted">{{ survey['title'] }}{% if survey['period_label'] %} · {{ survey['period_label'] }}{% endif %}</div></div>
+    <div><h2>Ссылки участия</h2><div class="muted">{{ survey['title'] }}{% if period_display %} · {{ period_display }}{% endif %}</div></div>
     <div class="row"><a class="btn" href="/surveys/{{ survey['id'] }}/">К опросу</a><a class="btn" href="/surveys/">Все опросы</a></div>
   </div>
   <div class="invite-note">Создано {{ links|length }} одноразовых ссылок. Ссылка расходуется только после успешной отправки анкеты. Не подписывайте ссылки именами сотрудников и не храните рядом с ними персональные данные.</div>
