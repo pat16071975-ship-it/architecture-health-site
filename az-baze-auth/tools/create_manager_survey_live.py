@@ -99,9 +99,9 @@ def main():
             not survey
             or survey["title"] != TITLE
             or survey["status"] != "OPEN"
-            or survey["period_label"] not in ("", None)
-            or survey["starts_at"] is not None
-            or survey["ends_at"] is not None
+            or (survey["period_label"] or "") != ""
+            or (survey["starts_at"] or "") != ""
+            or (survey["ends_at"] or "") != ""
             or int(survey["expected_responses"]) != 5
             or int(question_count) != 25
             or int(invite_count) != 5
