@@ -677,6 +677,7 @@ def _results_payload(survey):
     section_title_by_id = {section["id"]: section["title"] for section in sections if section["id"] is not None}
     question_results = []
     block_values = defaultdict(list)
+    block_no_observation = defaultdict(int)
     comments = []
 
     for question in questions:
@@ -693,8 +694,10 @@ def _results_payload(survey):
             numeric = [row["numeric_value"] for row in rows if row["numeric_value"] is not None]
             no_observation = sum(1 for row in rows if row["option_value"] == "NA")
             item.update(calculate_scale_stats(numeric, no_observation))
-            if numeric and item["section"]:
-                block_values[item["section"]].extend(float(value) for value in numeric)
+            if item["section"]:
+                if numeric:
+                    block_values[item["section"]].extend(float(value) for value in numeric)
+                block_no_observation[item["section"]] += no_observation
         elif question["question_type"] in {"single", "multi"}:
             option_counts = {option["value"]: 0 for option in question["options"]}
             for row in rows:
@@ -724,6 +727,7 @@ def _results_payload(survey):
                 "title": title,
                 "mean": round(mean_value, 2),
                 "count": len(values),
+                "no_observation": block_no_observation.get(title, 0),
                 "zone": _score_label(mean_value),
             }
         )
