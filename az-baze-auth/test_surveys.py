@@ -268,6 +268,15 @@ class SurveyPublicRouteTests(unittest.TestCase):
         self.assertNotIn(self.token.encode("ascii"), response.data)
         self.assertFalse(any("<token>" in rule.rule for rule in app_core.app.url_map.iter_rules()))
 
+    def test_public_submit_button_does_not_overlay_questions(self):
+        client = app_core.app.test_client()
+        response = client.get("/survey/")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn(".submit-wrap{margin-top:18px;padding:12px 0}", html)
+        self.assertNotIn(".submit-wrap{position:sticky", html)
+        self.assertNotIn(".submit-wrap{position:fixed", html)
+
     def test_public_load_and_submit_are_one_time_without_login(self):
         client = app_core.app.test_client()
         loaded = client.post(
