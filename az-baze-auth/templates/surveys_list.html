@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.survey-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}.survey-head h2{margin:0;font-size:26px;font-weight:500}.survey-actions{display:flex;gap:8px;flex-wrap:wrap}.filters{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr)) auto;gap:10px;align-items:end;margin:16px 0}.filters .field{margin:0}.filters select{width:100%;padding:10px 11px;border:1px solid #cfc5b5;border-radius:9px;background:#fff;font:500 12px Montserrat,Arial,sans-serif}.category{margin-top:18px}.category h3{margin:0 0 10px;padding:10px 12px;border-radius:9px;background:#efe8db;font-size:15px;font-weight:600}.status-block{margin:10px 0}.status-title{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#687168}.survey-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}.survey-card{padding:13px;border:1px solid #ded5c8;border-radius:11px;background:#fff}.survey-card h4{margin:0 0 7px;font-size:14px}.survey-meta{display:grid;gap:4px;color:#6b736c;font-size:10.5px}.survey-card .row{margin-top:10px}.empty{padding:12px;border:1px dashed #d8cdbb;border-radius:9px;color:#81877f;font-size:11px}@media(max-width:700px){.survey-head{flex-direction:column}.filters{grid-template-columns:1fr}.survey-grid{grid-template-columns:1fr}}
+</style>
+<div class="card">
+  <div class="survey-head">
+    <div>
+      <h2>Опросы</h2>
+      <div class="muted">Анонимные опросы сотрудников. Результаты доступны только пользователям с отдельным правом «Опросы».</div>
+    </div>
+    <div class="survey-actions">
+      <a class="btn" href="/">На главную</a>
+      <a class="btn" href="/surveys/new?template=manager">Шаблон «Оценка управляющей»</a>
+      <a class="btn primary" href="/surveys/new">Создать опрос</a>
+    </div>
+  </div>
+
+  <form class="filters" method="get">
+    <div class="field"><label>Категория</label><select name="category"><option value="">Все</option>{% for item in categories %}<option value="{{ item }}" {% if filters.category==item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Статус</label><select name="status"><option value="">Все</option>{% for key,label in status_labels.items() %}<option value="{{ key }}" {% if filters.status==key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Период</label><input name="period" value="{{ filters.period }}" placeholder="Например, Сентябрь 2026"></div>
+    <button class="btn" type="submit">Фильтр</button>
+  </form>
+</div>
+
+{% set visible_statuses = [('DRAFT','Черновики'),('OPEN','Открытые'),('CLOSED','Завершённые'),('ARCHIVED','Архив')] %}
+{% for category in categories %}
+  {% set bucket = groups[category] %}
+  {% set ns = namespace(has_any=false) %}
+  {% for key,label in visible_statuses %}{% if bucket[key] %}{% set ns.has_any=true %}{% endif %}{% endfor %}
+  {% if ns.has_any %}
+  <div class="category">
+    <h3>{{ category }}</h3>
+    {% for key,label in visible_statuses %}
+      {% if bucket[key] %}
+      <div class="status-block">
+        <div class="status-title">{{ label }}</div>
+        <div class="survey-grid">
+          {% for survey in bucket[key] %}
+          <div class="survey-card">
+            <h4>{{ survey['title'] }}</h4>
+            <div class="survey-meta">
+              <span>Период: {{ survey['period_label'] or 'не указан' }}</span>
+              <span>Получено {{ survey['response_count'] }} / ожидается {{ survey['expected_responses'] }}</span>
+              <span>Статус: {{ status_labels[survey['status']] }}</span>
+            </div>
+            <div class="row">
+              <a class="btn" href="/surveys/{{ survey['id'] }}/">Открыть</a>
+              {% if survey['status']=='DRAFT' %}<a class="btn" href="/surveys/{{ survey['id'] }}/edit">Редактировать</a>{% endif %}
+              {% if survey['status']=='OPEN' %}<a class="btn" href="/surveys/{{ survey['id'] }}/invites">Ссылки участия</a>{% endif %}
+              {% if survey['status'] in ['CLOSED','ARCHIVED'] %}<a class="btn primary" href="/surveys/{{ survey['id'] }}/results">Результаты</a>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endfor %}
+{% set total = namespace(value=0) %}
+{% for category in categories %}{% for key,label in visible_statuses %}{% set total.value = total.value + groups[category][key]|length %}{% endfor %}{% endfor %}
+{% if total.value == 0 %}<div class="spacer"></div><div class="card empty">По выбранным фильтрам опросов нет.</div>{% endif %}
+{% endblock %}
