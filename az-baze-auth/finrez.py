@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import json
+import math
 import os
 import zlib
 from pathlib import Path
@@ -9,7 +10,6 @@ from pathlib import Path
 from flask import Response, jsonify
 
 from app import SITE_ROOT, csrf_token, db, permission_required
-from report_storage import management_monthly_plans
 
 FINREZ_DATA_PATH = Path(os.environ.get("AZ_FINREZ_DATA_PATH", "/var/lib/az-baze/finrez-data.enc"))
 FINREZ_KEY_PATH = Path(os.environ.get("AZ_FINREZ_KEY_PATH", "/var/lib/az-baze/finrez.key"))
@@ -50,6 +50,36 @@ def _load_private_data():
         raise ValueError("invalid finrez payload")
     payload["available"] = True
     return payload
+
+
+def _monthly_plans():
+    row = db().execute(
+        "SELECT payload FROM report_blobs WHERE key=?",
+        ("az-management-monthly-plan-v1",),
+    ).fetchone()
+    if not row:
+        return {}
+    try:
+        parsed = json.loads(row["payload"])
+    except (TypeError, ValueError):
+        return {}
+    months = parsed.get("months") if isinstance(parsed, dict) and parsed.get("version") == 1 else None
+    if not isinstance(months, dict):
+        return {}
+    result = {}
+    for month, raw in months.items():
+        if not isinstance(month, str) or len(month) != 7 or month[4] != "-":
+            continue
+        try:
+            year = int(month[:4])
+            number = int(month[5:7])
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if year < 2020 or year > 2100 or number < 1 or number > 12 or not math.isfinite(value) or value < 0:
+            continue
+        result[month] = int(value) if value.is_integer() else value
+    return result
 
 
 def _management_months():
@@ -129,4 +159,4 @@ def register_finrez(app):
         except Exception as error:
             expenses = {"version": 1, "source": "", "period": {}, "meta": {}, "months": {}, "available": False}
             private_error = str(error)
-        return jsonify(expenses=expenses, management=_management_months(), plans=management_monthly_plans(), privateError=private_error, csrf=csrf_token())
+        return jsonify(expenses=expenses, management=_management_months(), plans=_monthly_plans(), privateError=private_error, csrf=csrf_token())
