@@ -10,7 +10,7 @@ ROLLBACK=0
 BASE_EXT="006b73d1fac64b22e938b8bcca3e79c5816967a0"
 BASE_CONTACTS="4392a2acdec7109927ee59b0255148c51ecdd71a"
 
-TARGET_MODULE="654aa42748905ce0694ca4383ce08243cb987d63"
+TARGET_MODULE="51982fc1d108925d91137b59aec3c8cac22b72e6"
 TARGET_EXT="9975ebed3330fc686273452b3906f8f52007ecc2"
 TARGET_CONTACTS="9fcbf279eb94dba25d84b80239682ef0eb9dc134"
 TARGET_TEMPLATE="432a6393e510f779ff3c0d2a28f27c9768c5c545"
@@ -84,6 +84,11 @@ cp -a "$ROOT/templates/contacts.html" "$BACKUP/contacts.html"
 [ "$(git hash-object "$BACKUP/access_contacts_ext.py")" = "$BASE_EXT" ]
 [ "$(git hash-object "$BACKUP/contacts.html")" = "$BASE_CONTACTS" ]
 echo "BACKUP VERIFIED: $BACKUP"
+
+install -d -o azadmin -g www-data -m 0750 /var/lib/az-baze/contact-import-backups
+[ -d /var/lib/az-baze/contact-import-backups ]
+[ "$(stat -c %U /var/lib/az-baze/contact-import-backups)" = "azadmin" ]
+echo "CONTACT IMPORT BACKUP DIR: OK"
 
 uid_ext="$(stat -c %u "$ROOT/access_contacts_ext.py")"
 gid_ext="$(stat -c %g "$ROOT/access_contacts_ext.py")"
