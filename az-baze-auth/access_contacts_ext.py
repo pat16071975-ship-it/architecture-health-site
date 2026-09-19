@@ -4,6 +4,7 @@ from flask import abort, g, redirect, render_template, request, url_for
 
 import app as app_core
 import credentials_store
+import contact_excel_import
 
 PERMISSION_OPTIONS = [
     ("credentials_view", "Просматривать «Доступы и контакты»"),
@@ -226,7 +227,51 @@ def register(app):
             ORDER BY CASE WHEN TRIM(full_name)='' THEN 1 ELSE 0 END,full_name COLLATE NOCASE,organization COLLATE NOCASE,id
         """).fetchall()
         perms = app_core.user_permissions(g.user)
-        return render_template("contacts.html", rows=rows, can_edit="credentials_edit" in perms, can_delete="credentials_delete" in perms)
+        return render_template(
+            "contacts.html",
+            rows=rows,
+            can_edit="credentials_edit" in perms,
+            can_delete="credentials_delete" in perms,
+            can_import="credentials_edit" in perms,
+        )
+
+    @app.route("/contacts/import", methods=["GET","POST"])
+    @app_core.permission_required("credentials_view")
+    @app_core.permission_required("credentials_edit")
+    def work_contacts_import():
+        error = None
+        result = None
+        if request.method == "POST":
+            app_core.require_csrf()
+            uploaded = request.files.get("file")
+            if not uploaded or not uploaded.filename:
+                error = "Выберите Excel-файл."
+            elif not uploaded.filename.lower().endswith(".xlsx"):
+                error = "Нужен файл Excel в формате .xlsx."
+            else:
+                try:
+                    data = uploaded.stream.read(contact_excel_import.MAX_XLSX_BYTES + 1)
+                    contacts, skipped = contact_excel_import.extract_contacts(data)
+                    backup = contact_excel_import.backup_database(app_core.DB_PATH)
+                    result = contact_excel_import.import_contacts(
+                        app_core.db(),
+                        contacts,
+                        g.user["id"],
+                        uploaded.filename,
+                    )
+                    result["skipped"] = skipped
+                    result["backup"] = backup
+                except contact_excel_import.ContactImportError as exc:
+                    error = str(exc)
+                except Exception:
+                    app.logger.exception("Contact Excel import failed")
+                    error = "Не удалось импортировать контакты. База не изменена."
+        return render_template(
+            "contact_import.html",
+            error=error,
+            result=result,
+            csrf=app_core.csrf_token(),
+        )
 
     @app.route("/contacts/new", methods=["GET","POST"])
     @app_core.permission_required("credentials_view")
