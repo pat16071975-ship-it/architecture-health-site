@@ -1,0 +1,38 @@
+name: AZ-BAZE Navigation
+
+on:
+  push:
+    branches:
+      - feature/az-baze-auth
+    paths:
+      - 'az-baze-auth/section_navigation.py'
+      - 'az-baze-auth/server.py'
+      - 'az-baze-auth/test_section_navigation.py'
+      - 'az-baze-auth/deploy/deploy-section-navigation.sh'
+      - '.github/workflows/az-baze-navigation.yml'
+  pull_request:
+    paths:
+      - 'az-baze-auth/section_navigation.py'
+      - 'az-baze-auth/server.py'
+      - 'az-baze-auth/test_section_navigation.py'
+      - 'az-baze-auth/deploy/deploy-section-navigation.sh'
+      - '.github/workflows/az-baze-navigation.yml'
+
+jobs:
+  navigation-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Python syntax
+        run: python -m py_compile az-baze-auth/section_navigation.py az-baze-auth/server.py az-baze-auth/test_section_navigation.py
+      - name: Navigation tests
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_section_navigation.py
+      - name: Deploy script syntax
+        run: |
+          if [ -f az-baze-auth/deploy/deploy-section-navigation.sh ]; then
+            bash -n az-baze-auth/deploy/deploy-section-navigation.sh
+          fi
