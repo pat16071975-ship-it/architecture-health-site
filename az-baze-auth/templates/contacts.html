@@ -15,6 +15,7 @@
 .organization-value{font-weight:700}
 .name-value{font-weight:600}
 .phone-value{font-weight:700;white-space:nowrap;overflow:visible;text-overflow:clip;flex:0 0 auto}
+.responsibility-value{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.45}
 .truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .inline-cell{display:flex;gap:5px;align-items:center;min-width:0;white-space:nowrap}
 .inline-cell .contact-value{flex:1 1 auto}
@@ -82,7 +83,7 @@
 
       <div class="contact-cell">
         <span class="mobile-label">Курирует</span>
-        {% if row['responsibility'] %}<div class="contact-value truncate" title="{{ row['responsibility'] }}">{{ row['responsibility'] }}</div>{% endif %}
+        {% if row['responsibility'] %}<div class="contact-value responsibility-value" title="{{ row['responsibility'] }}">{{ row['responsibility'] }}</div>{% endif %}
       </div>
 
       <div class="actions-cell">
