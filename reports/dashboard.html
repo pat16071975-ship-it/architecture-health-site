@@ -98,7 +98,7 @@ function derive(r){
   const due=hasPlan?plan*day/daysInMonth(date):0, factTotal=factMedicine+factLab;
   const leadsDent=num(r?.leadsDent), leadsStructure=num(r?.leadsClinic), leadsReserve=num(r?.leadsReserve), totalLeads=leadsDent+leadsStructure+leadsReserve;
   const hasLeads=[r?.leadsDent,r?.leadsClinic,r?.leadsReserve].some(v=>Number.isFinite(+v)&&+v>0);
-  return {date,hasPlan,plan,due,factMedicine,factLab,factTotal,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&due?factTotal/due:null};
+  return {date,hasPlan,plan,due,factMedicine,factLab,factTotal,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&plan?factTotal/plan:null};
 }
 function latestByMonth(data){
   const map={}; Object.entries(data||{}).forEach(([date,r])=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;const ym=date.slice(0,7);if(!map[ym]||date>map[ym].date)map[ym]={...r,date}}); return map;
@@ -125,7 +125,7 @@ function renderMetrics(r){
   $('#metrics').innerHTML=[
     metric('Выручка',money(d.factTotal),'Медицина + лаборатория','',p?trendPercent(d.factTotal,p.factTotal,label):''),
     metric('Должно быть к дате',d.hasPlan?money(d.due):'План не задан',d.hasPlan?`План месяца: ${money(d.plan)}`:'В Финрезе нет плана на месяц',d.hasPlan?'':'missing',d.hasPlan&&p?.hasPlan?trendPercent(d.due,p.due,label):''),
-    metric('Выполнение плана',d.hasPlan?pct(d.execution):'План не задан',d.hasPlan?'Факт / должно быть':'Расчёт появится после задания плана',d.hasPlan?cls:'missing',d.hasPlan&&p?.hasPlan&&d.execution!==null&&p.execution!==null?trendPoints(d.execution,p.execution,label):''),
+    metric('Выполнение плана',d.hasPlan?pct(d.execution):'План не задан',d.hasPlan?'Факт / план месяца':'Расчёт появится после задания плана',d.hasPlan?cls:'missing',d.hasPlan&&p?.hasPlan&&d.execution!==null&&p.execution!==null?trendPoints(d.execution,p.execution,label):''),
     metric('Первичные',count(d.primary),'Стоматология + отделение структуры','',p?trendCount(d.primary,p.primary,label):''),
     metric('Повторные',count(d.repeat),'За выбранный период','',p?trendCount(d.repeat,p.repeat,label):''),
     metric('Средний чек',money(d.avgCheck),'Выручка медицины / первичные','',p?trendPercent(d.avgCheck,p.avgCheck,label):'')
