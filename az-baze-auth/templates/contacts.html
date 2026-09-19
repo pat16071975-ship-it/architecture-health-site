@@ -42,6 +42,7 @@
     </div>
     <div class="contacts-actions">
       {% if can_edit %}<a class="btn primary" href="/contacts/new">Добавить контакт</a>{% endif %}
+      {% if can_import %}<a class="btn" href="/contacts/import">Импорт из Excel</a>{% endif %}
       <a class="btn" href="/access-contacts/">К разделу</a>
       <a class="btn" href="/">На главную</a>
     </div>
