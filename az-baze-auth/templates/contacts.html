@@ -5,17 +5,20 @@
 .contacts-head{display:flex;gap:14px;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
 .contacts-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .contacts-list{border:1px solid #ded5c8;border-radius:12px;background:#fff;overflow:hidden}
-.contacts-columns,.contact-card{display:grid;grid-template-columns:minmax(140px,1.15fr) minmax(120px,.85fr) minmax(150px,1fr) minmax(170px,1fr) minmax(190px,1.35fr) auto;gap:10px;align-items:center}
+.contacts-columns,.contact-card{display:grid;grid-template-columns:minmax(150px,1.05fr) minmax(125px,.85fr) minmax(150px,1fr) minmax(220px,1.25fr) minmax(180px,1.2fr) auto;gap:10px;align-items:center}
 .contacts-columns{padding:7px 10px;background:#faf7f1;border-bottom:1px solid #e8e0d4;color:#6c746d;font-size:9px;text-transform:uppercase;letter-spacing:.06em}
 .contact-card{padding:7px 10px;border-bottom:1px solid #eee7dc;min-width:0}
 .contact-card:last-child{border-bottom:0}
 .contact-cell{min-width:0}
 .mobile-label{display:none}
 .contact-value{font-size:11px;line-height:1.3;min-width:0}
+.organization-value{font-weight:700}
 .name-value{font-weight:600}
+.phone-value{font-weight:700;white-space:nowrap;overflow:visible;text-overflow:clip;flex:0 0 auto}
 .truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.inline-cell{display:flex;gap:5px;align-items:center;min-width:0}
+.inline-cell{display:flex;gap:5px;align-items:center;min-width:0;white-space:nowrap}
 .inline-cell .contact-value{flex:1 1 auto}
+.inline-cell .phone-value{flex:0 0 auto}
 .actions-cell{display:flex;gap:5px;justify-content:flex-end;align-items:center;white-space:nowrap}
 .mini-btn{min-height:28px;padding:4px 7px;font-size:9px;white-space:nowrap}
 .empty-state{text-align:center;padding:28px 16px}
@@ -57,7 +60,7 @@
     <article class="contact-card">
       <div class="contact-cell">
         <span class="mobile-label">Организация</span>
-        {% if row['organization'] %}<div class="contact-value truncate" title="{{ row['organization'] }}">{{ row['organization'] }}</div>{% endif %}
+        {% if row['organization'] %}<div class="contact-value organization-value truncate" title="{{ row['organization'] }}">{{ row['organization'] }}</div>{% endif %}
       </div>
 
       <div class="contact-cell">
