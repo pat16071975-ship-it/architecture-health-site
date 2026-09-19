@@ -11,6 +11,7 @@ import economics_control
 import finrez
 import ident_import
 import report_storage
+import section_navigation
 import surveys
 import terminology
 import upload_integrity
@@ -251,6 +252,8 @@ def tune_report_response(response):
                 '<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260908-1">\n</head>',
                 1,
             )
-            response.set_data(html)
+        if getattr(g, "user", None):
+            html = section_navigation.inject_navigation(html, request.path)
+        response.set_data(html)
 
     return response
