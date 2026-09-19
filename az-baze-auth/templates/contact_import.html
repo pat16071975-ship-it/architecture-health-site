@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% set title = "Импорт контактов из Excel — AZ-BAZE" %}
+{% block content %}
+<style>
+.import-card{max-width:760px;margin:0 auto}
+.import-note{margin:14px 0;padding:12px 14px;border-left:3px solid #44634f;border-radius:9px;background:#f0f5f1;font-size:12px;line-height:1.55}
+.import-note.warn{border-left-color:#b59662;background:#fffaf0}
+.import-result{margin:14px 0;padding:14px;border:1px solid #cfdccc;border-radius:11px;background:#f7fbf7}
+.import-result h3{margin:0 0 10px;font-size:16px}
+.import-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.import-stat{padding:10px;border:1px solid #dbe5dc;border-radius:9px;background:#fff}
+.import-stat span{display:block;color:#6d746c;font-size:10px}
+.import-stat strong{display:block;margin-top:4px;font-size:20px}
+.filebox{padding:18px;border:1px dashed #b9c6bb;border-radius:11px;background:#fff}
+.filebox input{width:100%;font:500 14px Montserrat,Arial,sans-serif}
+@media(max-width:620px){.import-grid{grid-template-columns:1fr}.import-card{max-width:none}}
+</style>
+
+<div class="card import-card">
+  <div class="row between">
+    <div>
+      <h2 class="section-title">Импорт контактов из Excel</h2>
+      <div class="muted">Выберите файл на компьютере — контакты разнесутся автоматически.</div>
+    </div>
+    <a class="btn" href="/contacts/">Назад</a>
+  </div>
+
+  <div class="import-note">
+    Система читает только лист <strong>«Все контакты»</strong>.
+    Остальные листы книги не импортируются. Сам Excel-файл после обработки на сервере не сохраняется.
+  </div>
+
+  <div class="import-note warn">
+    Перед записью система делает резервную копию базы и проверяет дубли.
+    Если найдётся похожий контакт с отличающимися данными, импорт остановится без изменений.
+  </div>
+
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+  {% if result %}
+    <div class="import-result">
+      <h3>Импорт завершён</h3>
+      <div class="import-grid">
+        <div class="import-stat"><span>Найдено в Excel</span><strong>{{ result.source_count }}</strong></div>
+        <div class="import-stat"><span>Добавлено</span><strong>{{ result.inserted }}</strong></div>
+        <div class="import-stat"><span>Уже было в базе</span><strong>{{ result.already_present }}</strong></div>
+      </div>
+      {% if result.skipped %}
+        <p class="muted">Пропущено строк без контактных данных: {{ result.skipped }}.</p>
+      {% endif %}
+      <div class="row actions">
+        <a class="btn primary" href="/contacts/">Открыть контакты</a>
+      </div>
+    </div>
+  {% else %}
+    <form method="post" enctype="multipart/form-data" autocomplete="off">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="filebox">
+        <input type="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+      </div>
+      <div class="row actions" style="margin-top:14px">
+        <button class="btn primary" type="submit">Импортировать контакты</button>
+        <a class="btn" href="/contacts/">Отмена</a>
+      </div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}
