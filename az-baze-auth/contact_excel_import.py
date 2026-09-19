@@ -258,7 +258,7 @@ def _candidate_match(a, b):
 
 def backup_database(db_path):
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    directory = Path("/var/lib/az-baze/backups") / f"contacts-excel-{stamp}"
+    directory = Path("/var/lib/az-baze/contact-import-backups") / f"contacts-excel-{stamp}"
     directory.mkdir(parents=True, exist_ok=False)
     destination = directory / "auth-before-import.db"
 
