@@ -9,6 +9,7 @@ on:
       - 'az-baze-auth/templates/contact_import.html'
       - 'az-baze-auth/templates/contacts.html'
       - 'az-baze-auth/test_contact_excel_import.py'
+      - 'az-baze-auth/deploy/deploy-contact-excel-upload.sh'
       - '.github/workflows/az-baze-contacts.yml'
   workflow_dispatch:
 
@@ -26,3 +27,5 @@ jobs:
         run: python -m py_compile az-baze-auth/contact_excel_import.py az-baze-auth/access_contacts_ext.py az-baze-auth/test_contact_excel_import.py
       - name: Contacts import tests
         run: cd az-baze-auth && python -m unittest -v test_contact_excel_import.py
+      - name: Deploy script syntax
+        run: bash -n az-baze-auth/deploy/deploy-contact-excel-upload.sh
