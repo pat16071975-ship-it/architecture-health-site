@@ -29,30 +29,62 @@ def _checksum(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _existing_db_path(db_path):
+    path = Path(db_path).expanduser()
+    if not path.exists():
+        raise MigrationError(f"Database does not exist: {path}")
+    if not path.is_file():
+        raise MigrationError(f"Database path is not a file: {path}")
+    return path.resolve()
+
+
+def _connect_existing(db_path, mode):
+    path = _existing_db_path(db_path)
+    uri = path.as_uri() + f"?mode={mode}"
+    try:
+        return sqlite3.connect(uri, uri=True)
+    except sqlite3.Error as exc:
+        raise MigrationError(f"Cannot open database in mode={mode}: {path}") from exc
+
+
 def discover_migrations(migrations_dir=None):
     root = Path(migrations_dir or DEFAULT_MIGRATIONS_DIR)
+    if not root.exists() or not root.is_dir():
+        raise MigrationError(f"Migrations directory does not exist: {root}")
+
     migrations = []
     for path in sorted(root.glob("v*.py")):
         match = MIGRATION_FILE_RE.fullmatch(path.name)
         if not match:
-            continue
+            raise MigrationError(f"Malformed migration filename: {path.name}")
+
         module_name = f"az_baze_migration_{match.group('version')}"
         spec = importlib.util.spec_from_file_location(module_name, path)
         if not spec or not spec.loader:
             raise MigrationError(f"Cannot load migration: {path.name}")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+
         version = str(getattr(module, "VERSION", ""))
         name = str(getattr(module, "NAME", ""))
         upgrade = getattr(module, "upgrade", None)
         if version != match.group("version") or name != match.group("name") or not callable(upgrade):
             raise MigrationError(f"Migration metadata mismatch: {path.name}")
+
         migrations.append(Migration(version, name, path, _checksum(path), upgrade))
 
     versions = [item.version for item in migrations]
     if len(versions) != len(set(versions)):
         raise MigrationError("Duplicate migration version")
     return migrations
+
+
+def _history_table_exists(conn):
+    return bool(
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations'"
+        ).fetchone()
+    )
 
 
 def _ensure_history_table(conn):
@@ -68,33 +100,72 @@ def _ensure_history_table(conn):
     )
 
 
+def _validate_history(conn, migrations):
+    if not _history_table_exists(conn):
+        return {}
+
+    catalogue = {migration.version: migration for migration in migrations}
+    recorded = {
+        row["version"]: row
+        for row in conn.execute(
+            "SELECT version,name,checksum,applied_at FROM schema_migrations ORDER BY version"
+        )
+    }
+
+    missing = sorted(set(recorded) - set(catalogue))
+    if missing:
+        raise MigrationError(
+            "Applied migration missing from repository: " + ", ".join(missing)
+        )
+
+    for version, row in recorded.items():
+        migration = catalogue[version]
+        if row["name"] != migration.name:
+            raise MigrationError(
+                f"Applied migration name changed: {version}; "
+                f"database={row['name']} repository={migration.name}"
+            )
+        if row["checksum"] != migration.checksum:
+            raise MigrationError(
+                f"Applied migration checksum changed: {version}_{migration.name}"
+            )
+
+    return recorded
+
+
 def apply_migrations(db_path, migrations_dir=None):
     migrations = discover_migrations(migrations_dir)
-    path = Path(db_path)
-    conn = sqlite3.connect(path)
+    conn = _connect_existing(db_path, "rw")
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
+
     try:
-        _ensure_history_table(conn)
-        conn.commit()
+        # Validate the existing history before opening any write transaction.
+        recorded = _validate_history(conn, migrations)
         applied = []
         skipped = []
 
         for migration in migrations:
-            row = conn.execute(
-                "SELECT name,checksum FROM schema_migrations WHERE version=?",
-                (migration.version,),
-            ).fetchone()
-            if row:
-                if row["name"] != migration.name or row["checksum"] != migration.checksum:
-                    raise MigrationError(
-                        f"Applied migration changed: {migration.version}_{migration.name}"
-                    )
+            if migration.version in recorded:
                 skipped.append(migration.version)
                 continue
 
             conn.execute("BEGIN IMMEDIATE")
             try:
+                # The history table is created inside the same transaction as the
+                # first migration. A failed first migration therefore rolls back
+                # both its schema changes and the history table creation.
+                _ensure_history_table(conn)
+
+                # Revalidate while holding the write lock so a concurrent runner
+                # cannot make catalogue/history drift invisible.
+                current = _validate_history(conn, migrations)
+                if migration.version in current:
+                    conn.rollback()
+                    recorded = current
+                    skipped.append(migration.version)
+                    continue
+
                 migration.upgrade(conn)
                 conn.execute(
                     """
@@ -112,7 +183,13 @@ def apply_migrations(db_path, migrations_dir=None):
             except Exception:
                 conn.rollback()
                 raise
+
             applied.append(migration.version)
+            recorded[migration.version] = {
+                "version": migration.version,
+                "name": migration.name,
+                "checksum": migration.checksum,
+            }
 
         return {"applied": applied, "already_applied": skipped}
     finally:
@@ -121,35 +198,20 @@ def apply_migrations(db_path, migrations_dir=None):
 
 def migration_status(db_path, migrations_dir=None):
     migrations = discover_migrations(migrations_dir)
-    path = Path(db_path)
-    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    conn = _connect_existing(db_path, "ro")
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA query_only=ON")
-    try:
-        has_history = conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations'"
-        ).fetchone()
-        recorded = {}
-        if has_history:
-            recorded = {
-                row["version"]: row
-                for row in conn.execute(
-                    "SELECT version,name,checksum,applied_at FROM schema_migrations ORDER BY version"
-                )
-            }
 
+    try:
+        recorded = _validate_history(conn, migrations)
         result = []
         for migration in migrations:
-            row = recorded.get(migration.version)
-            state = "pending"
-            if row:
-                state = (
-                    "applied"
-                    if row["name"] == migration.name and row["checksum"] == migration.checksum
-                    else "checksum_mismatch"
-                )
             result.append(
-                {"version": migration.version, "name": migration.name, "state": state}
+                {
+                    "version": migration.version,
+                    "name": migration.name,
+                    "state": "applied" if migration.version in recorded else "pending",
+                }
             )
         return result
     finally:
@@ -163,7 +225,10 @@ def main(argv=None):
     status_parser = subparsers.add_parser("status", help="Read-only migration status")
     status_parser.add_argument("--db", required=True)
 
-    apply_parser = subparsers.add_parser("apply", help="Apply pending migrations")
+    apply_parser = subparsers.add_parser(
+        "apply",
+        help="Apply pending migrations to an existing SQLite database",
+    )
     apply_parser.add_argument("--db", required=True)
 
     args = parser.parse_args(argv)
