@@ -106,6 +106,8 @@ class ControlledStructureFoundationTests(unittest.TestCase):
 
         self.assertTrue(backup.exists())
         self.assertEqual(meta["sha256"], controlled.sha256_file(backup))
+        self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(backup.parent.stat().st_mode & 0o777, 0o700)
         controlled.verify_exact_baseline(backup, baseline)
 
     def test_postapply_verifies_foundation_and_preserves_legacy(self):
@@ -139,6 +141,33 @@ class ControlledStructureFoundationTests(unittest.TestCase):
 
         conn = sqlite3.connect(self.db_path)
         conn.execute("INSERT INTO report_data(id) VALUES(2)")
+        conn.commit()
+        conn.close()
+
+        with self.assertRaises(controlled.ControlledApplyError):
+            controlled.verify_postapply(self.db_path, baseline)
+
+    def test_configured_database_path_uses_explicit_or_default_value(self):
+        env = self.root / "auth.env"
+        env.write_text("AZBAZE_DB=/tmp/custom-auth.db\n", encoding="utf-8")
+        self.assertEqual(
+            controlled.configured_database_path(env),
+            Path("/tmp/custom-auth.db"),
+        )
+
+        env.write_text("# no override\nAZBAZE_SECRET_KEY=hidden\n", encoding="utf-8")
+        self.assertEqual(
+            controlled.configured_database_path(env),
+            controlled.DB_PATH.resolve(),
+        )
+
+    def test_postapply_rejects_unexpected_extra_schema_object(self):
+        baseline = controlled.capture_quiescent_baseline(self.db_path)
+        migrations_dir = Path(__file__).resolve().parent / "migrations"
+        db_migrations.apply_migrations(self.db_path, migrations_dir)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("CREATE INDEX unexpected_idx ON report_data(id)")
         conn.commit()
         conn.close()
 
