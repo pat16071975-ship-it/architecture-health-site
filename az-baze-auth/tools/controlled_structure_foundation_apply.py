@@ -20,6 +20,7 @@ SERVICE = "az-baze-auth"
 EXPECTED_HOSTNAME = "az-server"
 DB_PATH = Path("/var/lib/az-baze/auth.db")
 BACKUP_ROOT = Path("/var/lib/az-baze/backups")
+ENV_FILE = Path("/etc/az-baze/auth.env")
 
 FOUNDATION_COMMIT = "f8d549df145cd21f54cf17d4e3fa58776aecedf9"
 FOUNDATION_VERSION = "20260920_001"
@@ -94,6 +95,41 @@ def sha256_file(path):
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def configured_database_path(env_file=ENV_FILE):
+    source = Path(env_file)
+    check(source.exists() and source.is_file(), f"environment file missing: {source}")
+    configured = None
+    for raw_line in source.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].strip()
+        if not line.startswith("AZBAZE_DB="):
+            continue
+        value = line.split("=", 1)[1].strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        configured = value
+    target = Path(configured) if configured else DB_PATH
+    check(target.is_absolute(), f"AZBAZE_DB must be absolute: {target}")
+    return target.resolve()
+
+
+def precheck_backup_capacity(db_path=DB_PATH, backup_root=BACKUP_ROOT):
+    root = Path(backup_root)
+    check(root.exists() and root.is_dir(), f"backup root missing: {root}")
+    check(os.access(root, os.W_OK | os.X_OK), f"backup root is not writable: {root}")
+    db_size = Path(db_path).stat().st_size
+    free = shutil.disk_usage(root).free
+    required = max(db_size * 3, 64 * 1024 * 1024)
+    check(
+        free >= required,
+        f"insufficient backup free space: free={free} required={required}",
+    )
+    return {"db_bytes": db_size, "free_bytes": free, "required_bytes": required}
 
 
 def _connect_ro(path):
@@ -244,6 +280,17 @@ def verify_postapply(db_path, baseline):
         )
 
         current_schema = _schema_objects(conn)
+        expected_schema_keys = (
+            set(baseline["schema_objects"])
+            | {f"table:{table}" for table in NEW_TABLES}
+            | {f"index:{index}" for index in FOUNDATION_INDEXES}
+        )
+        check(
+            set(current_schema) == expected_schema_keys,
+            "postapply schema-object set mismatch: "
+            f"missing={sorted(expected_schema_keys - set(current_schema))} "
+            f"extra={sorted(set(current_schema) - expected_schema_keys)}",
+        )
         for key, before in baseline["schema_objects"].items():
             check(current_schema.get(key) == before, f"legacy schema changed: {key}")
 
@@ -455,6 +502,11 @@ def restore_backup(db_path, backup_path, baseline, original_stat):
 
 def controlled_preflight(db_path=DB_PATH):
     check(socket.gethostname() == EXPECTED_HOSTNAME, f"hostname must be {EXPECTED_HOSTNAME}")
+    configured = configured_database_path()
+    check(
+        configured == Path(db_path).resolve(),
+        f"service database path mismatch: configured={configured} controlled={Path(db_path).resolve()}",
+    )
     check(service_is_active(), f"{SERVICE} is not active")
     check(local_health_ok(), "local health check failed")
     summary = preflight_current_database(db_path)
@@ -470,6 +522,7 @@ def controlled_preflight(db_path=DB_PATH):
 def controlled_apply(db_path=DB_PATH):
     check(os.geteuid() == 0, "apply must run as root")
     controlled_preflight(db_path)
+    precheck_backup_capacity(db_path, BACKUP_ROOT)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     backup_dir = BACKUP_ROOT / f"structure-foundation-{timestamp}"
