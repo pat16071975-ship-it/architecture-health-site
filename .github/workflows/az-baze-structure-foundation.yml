@@ -4,11 +4,14 @@ on:
   push:
     branches:
       - feature/az-structure-foundation
+      - feature/az-structure-controlled-apply
     paths:
       - "az-baze-auth/db_migrations.py"
       - "az-baze-auth/migrations/**"
       - "az-baze-auth/structure_seed.py"
       - "az-baze-auth/test_structure_foundation.py"
+      - "az-baze-auth/tools/controlled_structure_foundation_apply.py"
+      - "az-baze-auth/test_controlled_structure_foundation_apply.py"
       - ".github/workflows/az-baze-structure-foundation.yml"
   pull_request:
     paths:
@@ -16,6 +19,8 @@ on:
       - "az-baze-auth/migrations/**"
       - "az-baze-auth/structure_seed.py"
       - "az-baze-auth/test_structure_foundation.py"
+      - "az-baze-auth/tools/controlled_structure_foundation_apply.py"
+      - "az-baze-auth/test_controlled_structure_foundation_apply.py"
       - ".github/workflows/az-baze-structure-foundation.yml"
 
 permissions:
@@ -41,7 +46,13 @@ jobs:
           az-baze-auth/migrations/v20260920_001_structure_foundation.py
           az-baze-auth/structure_seed.py
           az-baze-auth/test_structure_foundation.py
+          az-baze-auth/tools/controlled_structure_foundation_apply.py
+          az-baze-auth/test_controlled_structure_foundation_apply.py
 
       - name: Structure foundation tests
         working-directory: az-baze-auth
         run: python -m unittest -v test_structure_foundation.py
+
+      - name: Controlled apply tests
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_controlled_structure_foundation_apply.py
