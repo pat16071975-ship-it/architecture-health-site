@@ -210,7 +210,8 @@ def backup_database(db_path, backup_path, baseline):
     source = Path(db_path)
     destination = Path(backup_path)
     check(not destination.exists(), f"backup target already exists: {destination}")
-    destination.parent.mkdir(parents=True, exist_ok=False)
+    destination.parent.mkdir(parents=True, exist_ok=False, mode=0o700)
+    os.chmod(destination.parent, 0o700)
 
     src = _connect_ro(source)
     dst = sqlite3.connect(destination)
@@ -221,6 +222,7 @@ def backup_database(db_path, backup_path, baseline):
         dst.close()
         src.close()
 
+    os.chmod(destination, 0o600)
     verify_exact_baseline(destination, baseline)
     return {
         "path": str(destination),
@@ -290,6 +292,35 @@ def verify_postapply(db_path, baseline):
                 "name": migration_rows[0]["name"],
             },
         }
+    finally:
+        conn.close()
+
+
+def verify_runtime_postapply(db_path):
+    conn = _connect_ro(db_path)
+    try:
+        _integrity_checks(conn)
+        tables = _user_tables(conn)
+        expected_tables = LEGACY_TABLES | NEW_TABLES
+        check(
+            tables == expected_tables,
+            f"runtime table set mismatch: missing={sorted(expected_tables - tables)} "
+            f"extra={sorted(tables - expected_tables)}",
+        )
+
+        for table in sorted(FOUNDATION_TABLES):
+            count = conn.execute(f'SELECT COUNT(*) AS n FROM "{table}"').fetchone()["n"]
+            check(count == 0, f"foundation table unexpectedly seeded: {table}={count}")
+
+        migration_rows = conn.execute(
+            "SELECT version,name FROM schema_migrations ORDER BY version"
+        ).fetchall()
+        check(
+            len(migration_rows) == 1
+            and migration_rows[0]["version"] == FOUNDATION_VERSION
+            and migration_rows[0]["name"] == FOUNDATION_NAME,
+            "runtime migration history mismatch",
+        )
     finally:
         conn.close()
 
@@ -494,7 +525,11 @@ def controlled_apply(db_path=DB_PATH):
 
             step("FINAL READ-ONLY VERIFICATION")
             verify_applied_status(runner, db_path, migration_dir)
-            verify_postapply(db_path, baseline)
+            # After restart, ordinary application traffic may legitimately change
+            # legacy row counts. Recheck integrity/schema state without comparing
+            # those counts to the quiescent baseline, avoiding a rollback that
+            # could discard legitimate post-restart writes.
+            verify_runtime_postapply(db_path)
 
         except Exception:
             if backup_ready and baseline is not None:
