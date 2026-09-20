@@ -45,7 +45,8 @@ CREATE TABLE daily_uploads (
 class StructureFoundationTests(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory()
-        self.db_path = Path(self.tempdir.name) / "app.db"
+        self.root = Path(self.tempdir.name)
+        self.db_path = self.root / "app.db"
         conn = sqlite3.connect(self.db_path)
         conn.executescript(LEGACY_SUBSET)
         conn.execute("INSERT INTO users(id,email) VALUES(1,'owner@example.test')")
@@ -86,6 +87,16 @@ class StructureFoundationTests(unittest.TestCase):
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys=ON")
         return conn
+
+    def _migration_dir(self, name="custom-migrations"):
+        path = self.root / name
+        path.mkdir()
+        return path
+
+    def _write_migration(self, root, filename, body):
+        path = root / filename
+        path.write_text(body, encoding="utf-8")
+        return path
 
     def _seed_two_organizations(self, conn):
         holding = conn.execute(
@@ -157,6 +168,99 @@ class StructureFoundationTests(unittest.TestCase):
                 conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0],
                 1,
             )
+        finally:
+            conn.close()
+
+    def test_apply_fails_closed_when_database_path_does_not_exist(self):
+        missing = self.root / "missing.db"
+        self.assertFalse(missing.exists())
+        with self.assertRaises(db_migrations.MigrationError):
+            db_migrations.apply_migrations(missing)
+        self.assertFalse(missing.exists())
+
+    def test_malformed_v_migration_filename_is_hard_failure(self):
+        root = self._migration_dir()
+        self._write_migration(root, "vbroken.py", "VERSION = 'x'\n")
+        with self.assertRaises(db_migrations.MigrationError):
+            db_migrations.discover_migrations(root)
+
+    def test_applied_history_version_missing_from_repository_is_hard_failure(self):
+        self._apply()
+        conn = self._conn()
+        try:
+            conn.execute(
+                """
+                INSERT INTO schema_migrations(version,name,checksum,applied_at)
+                VALUES('19990101_999','missing','deadbeef','now')
+                """
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        with self.assertRaises(db_migrations.MigrationError):
+            db_migrations.apply_migrations(self.db_path)
+        with self.assertRaises(db_migrations.MigrationError):
+            db_migrations.migration_status(self.db_path)
+
+    def test_checksum_tamper_is_detected(self):
+        root = self._migration_dir()
+        path = self._write_migration(
+            root,
+            "v20260920_001_test.py",
+            """
+VERSION = "20260920_001"
+NAME = "test"
+
+def upgrade(conn):
+    conn.execute("CREATE TABLE checksum_probe(id INTEGER PRIMARY KEY)")
+""".lstrip(),
+        )
+        result = db_migrations.apply_migrations(self.db_path, root)
+        self.assertEqual(result["applied"], ["20260920_001"])
+
+        path.write_text(
+            path.read_text(encoding="utf-8") + "\n# tampered after apply\n",
+            encoding="utf-8",
+        )
+        with self.assertRaises(db_migrations.MigrationError):
+            db_migrations.apply_migrations(self.db_path, root)
+        with self.assertRaises(db_migrations.MigrationError):
+            db_migrations.migration_status(self.db_path, root)
+
+    def test_failed_first_migration_rolls_back_schema_and_history_table(self):
+        root = self._migration_dir()
+        self._write_migration(
+            root,
+            "v20260920_001_broken.py",
+            """
+VERSION = "20260920_001"
+NAME = "broken"
+
+def upgrade(conn):
+    conn.execute("CREATE TABLE should_rollback(id INTEGER PRIMARY KEY)")
+    raise RuntimeError("boom")
+""".lstrip(),
+        )
+
+        with self.assertRaises(RuntimeError):
+            db_migrations.apply_migrations(self.db_path, root)
+
+        conn = self._conn()
+        try:
+            self.assertIsNone(
+                conn.execute(
+                    "SELECT 1 FROM sqlite_master "
+                    "WHERE type='table' AND name='should_rollback'"
+                ).fetchone()
+            )
+            self.assertIsNone(
+                conn.execute(
+                    "SELECT 1 FROM sqlite_master "
+                    "WHERE type='table' AND name='schema_migrations'"
+                ).fetchone()
+            )
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM report_data").fetchone()[0], 1)
         finally:
             conn.close()
 
