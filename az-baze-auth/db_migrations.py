@@ -47,6 +47,48 @@ def _connect_existing(db_path, mode):
         raise MigrationError(f"Cannot open database in mode={mode}: {path}") from exc
 
 
+def _validate_az_baze_database(conn):
+    try:
+        tables = {
+            row["name"]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        missing_tables = sorted(set(AZBAZE_DB_ANCHORS) - tables)
+        if missing_tables:
+            raise MigrationError(
+                "Database is not recognized as AZ-BAZE; missing anchor tables: "
+                + ", ".join(missing_tables)
+            )
+
+        for table, required_columns in AZBAZE_DB_ANCHORS.items():
+            columns = {
+                row["name"]
+                for row in conn.execute(f'PRAGMA table_info("{table}")')
+            }
+            missing_columns = sorted(required_columns - columns)
+            if missing_columns:
+                raise MigrationError(
+                    f"Database is not recognized as AZ-BAZE; {table} is missing columns: "
+                    + ", ".join(missing_columns)
+                )
+    except sqlite3.DatabaseError as exc:
+        raise MigrationError("Database is not a readable AZ-BAZE SQLite database") from exc
+
+
+def _preflight_existing_database(db_path):
+    path = _existing_db_path(db_path)
+    conn = _connect_existing(path, "ro")
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA query_only=ON")
+    try:
+        _validate_az_baze_database(conn)
+    finally:
+        conn.close()
+    return path
+
+
 def discover_migrations(migrations_dir=None):
     root = Path(migrations_dir or DEFAULT_MIGRATIONS_DIR)
     if not root.exists() or not root.is_dir():
@@ -105,17 +147,26 @@ def _validate_history(conn, migrations):
         return {}
 
     catalogue = {migration.version: migration for migration in migrations}
-    recorded = {
-        row["version"]: row
-        for row in conn.execute(
+    catalogue_versions = [migration.version for migration in migrations]
+    rows = list(
+        conn.execute(
             "SELECT version,name,checksum,applied_at FROM schema_migrations ORDER BY version"
         )
-    }
+    )
+    recorded = {row["version"]: row for row in rows}
+    recorded_versions = [row["version"] for row in rows]
 
     missing = sorted(set(recorded) - set(catalogue))
     if missing:
         raise MigrationError(
             "Applied migration missing from repository: " + ", ".join(missing)
+        )
+
+    expected_prefix = catalogue_versions[: len(recorded_versions)]
+    if recorded_versions != expected_prefix:
+        raise MigrationError(
+            "Migration history is not a contiguous catalogue prefix; "
+            f"database={recorded_versions} expected={expected_prefix}"
         )
 
     for version, row in recorded.items():
@@ -135,11 +186,14 @@ def _validate_history(conn, migrations):
 
 def apply_migrations(db_path, migrations_dir=None):
     migrations = discover_migrations(migrations_dir)
-    conn = _connect_existing(db_path, "rw")
+    path = _preflight_existing_database(db_path)
+    conn = _connect_existing(path, "rw")
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
 
     try:
+        # Recheck identity on the writable connection before any write transaction.
+        _validate_az_baze_database(conn)
         # Validate the existing history before opening any write transaction.
         recorded = _validate_history(conn, migrations)
         applied = []
@@ -203,6 +257,7 @@ def migration_status(db_path, migrations_dir=None):
     conn.execute("PRAGMA query_only=ON")
 
     try:
+        _validate_az_baze_database(conn)
         recorded = _validate_history(conn, migrations)
         result = []
         for migration in migrations:
