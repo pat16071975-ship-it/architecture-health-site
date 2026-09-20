@@ -12,6 +12,12 @@ DEFAULT_MIGRATIONS_DIR = BASE_DIR / "migrations"
 MIGRATION_FILE_RE = re.compile(r"^v(?P<version>\d{8}_\d{3})_(?P<name>[a-z0-9_]+)\.py$")
 
 
+AZBAZE_DB_ANCHORS = {
+    "users": {"id", "email", "password_hash", "active", "created_at", "updated_at"},
+    "permissions": {"user_id", "section"},
+    "audit_log": {"id", "action", "created_at"},
+}
+
 class MigrationError(RuntimeError):
     pass
 
