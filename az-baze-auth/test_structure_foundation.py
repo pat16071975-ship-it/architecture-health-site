@@ -11,7 +11,32 @@ LEGACY_SUBSET = """
 PRAGMA foreign_keys = ON;
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL UNIQUE COLLATE NOCASE
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    full_name TEXT NOT NULL DEFAULT '',
+    password_hash TEXT NOT NULL DEFAULT '',
+    is_admin INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    must_change_password INTEGER NOT NULL DEFAULT 1,
+    failed_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TEXT,
+    created_at TEXT NOT NULL DEFAULT 'now',
+    updated_at TEXT NOT NULL DEFAULT 'now'
+);
+CREATE TABLE permissions (
+    user_id INTEGER NOT NULL,
+    section TEXT NOT NULL,
+    PRIMARY KEY (user_id, section),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor_user_id INTEGER,
+    action TEXT NOT NULL,
+    target_user_id INTEGER,
+    details TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 CREATE TABLE report_data (
     date TEXT PRIMARY KEY,
@@ -49,7 +74,14 @@ class StructureFoundationTests(unittest.TestCase):
         self.db_path = self.root / "app.db"
         conn = sqlite3.connect(self.db_path)
         conn.executescript(LEGACY_SUBSET)
-        conn.execute("INSERT INTO users(id,email) VALUES(1,'owner@example.test')")
+        conn.execute(
+            """
+            INSERT INTO users(
+                id,email,full_name,password_hash,is_admin,active,must_change_password,
+                failed_attempts,locked_until,created_at,updated_at
+            ) VALUES(1,'owner@example.test','Owner','x',1,1,0,0,NULL,'now','now')
+            """
+        )
         conn.execute(
             "INSERT INTO report_data(date,payload,updated_by,updated_at) "
             "VALUES('2026-09-20','{}',1,'now')"
@@ -261,6 +293,107 @@ def upgrade(conn):
                 ).fetchone()
             )
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM report_data").fetchone()[0], 1)
+        finally:
+            conn.close()
+
+    def test_existing_wrong_sqlite_is_rejected_by_apply_and_status(self):
+        wrong = self.root / "wrong.db"
+        conn = sqlite3.connect(wrong)
+        conn.execute("CREATE TABLE unrelated(id INTEGER PRIMARY KEY, note TEXT)")
+        conn.execute("INSERT INTO unrelated(note) VALUES('keep')")
+        conn.commit()
+        conn.close()
+
+        with self.assertRaises(db_migrations.MigrationError):
+            db_migrations.apply_migrations(wrong)
+        with self.assertRaises(db_migrations.MigrationError):
+            db_migrations.migration_status(wrong)
+
+        conn = sqlite3.connect(wrong)
+        try:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM unrelated").fetchone()[0], 1)
+            self.assertIsNone(
+                conn.execute(
+                    "SELECT 1 FROM sqlite_master "
+                    "WHERE type='table' AND name='schema_migrations'"
+                ).fetchone()
+            )
+            self.assertIsNone(
+                conn.execute(
+                    "SELECT 1 FROM sqlite_master "
+                    "WHERE type='table' AND name='holdings'"
+                ).fetchone()
+            )
+        finally:
+            conn.close()
+
+    def test_history_must_be_contiguous_catalogue_prefix(self):
+        root = self._migration_dir()
+        self._write_migration(
+            root,
+            "v20260920_001_first.py",
+            """
+VERSION = "20260920_001"
+NAME = "first"
+
+def upgrade(conn):
+    conn.execute("CREATE TABLE first_step(id INTEGER PRIMARY KEY)")
+""".lstrip(),
+        )
+        self._write_migration(
+            root,
+            "v20260920_002_second.py",
+            """
+VERSION = "20260920_002"
+NAME = "second"
+
+def upgrade(conn):
+    conn.execute("CREATE TABLE second_step(id INTEGER PRIMARY KEY)")
+""".lstrip(),
+        )
+        migrations = db_migrations.discover_migrations(root)
+        second = migrations[1]
+
+        conn = self._conn()
+        try:
+            conn.execute(
+                """
+                CREATE TABLE schema_migrations (
+                    version TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    checksum TEXT NOT NULL,
+                    applied_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO schema_migrations(version,name,checksum,applied_at)
+                VALUES(?,?,?,'now')
+                """,
+                (second.version, second.name, second.checksum),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        with self.assertRaises(db_migrations.MigrationError):
+            db_migrations.apply_migrations(self.db_path, root)
+        with self.assertRaises(db_migrations.MigrationError):
+            db_migrations.migration_status(self.db_path, root)
+
+        conn = self._conn()
+        try:
+            self.assertIsNone(
+                conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='first_step'"
+                ).fetchone()
+            )
+            self.assertIsNone(
+                conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='second_step'"
+                ).fetchone()
+            )
         finally:
             conn.close()
 
