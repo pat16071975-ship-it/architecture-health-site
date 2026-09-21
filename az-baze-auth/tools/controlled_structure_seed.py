@@ -67,6 +67,13 @@ FOUNDATION_TABLES = {
 
 ALL_TABLES = LEGACY_TABLES | FOUNDATION_TABLES | {"schema_migrations"}
 SEED_WRITTEN_TABLES = {"holdings", "organizations", "clusters", "clinics"}
+FOUNDATION_AUTOINCREMENT_TABLES = {
+    "holdings",
+    "organizations",
+    "clusters",
+    "clinics",
+    "directions",
+}
 UNCHANGED_TABLES = ALL_TABLES - SEED_WRITTEN_TABLES
 
 
@@ -301,6 +308,84 @@ def _sqlite_sequences(conn):
     }
 
 
+def _foundation_schema_snapshot(conn):
+    objects = {
+        f"{row['type']}:{row['name']}": {
+            "type": row["type"],
+            "name": row["name"],
+            "tbl_name": row["tbl_name"],
+            "sql": row["sql"],
+        }
+        for row in conn.execute(
+            """
+            SELECT type,name,tbl_name,sql
+            FROM sqlite_master
+            WHERE name NOT LIKE 'sqlite_%'
+              AND (
+                    (type='table' AND name IN (
+                        'holdings','organizations','clusters',
+                        'clinics','directions','clinic_directions'
+                    ))
+                    OR
+                    (type='index' AND tbl_name IN (
+                        'holdings','organizations','clusters',
+                        'clinics','directions','clinic_directions'
+                    ))
+                  )
+            ORDER BY type,name
+            """
+        )
+    }
+    foreign_keys = {}
+    for table in sorted(FOUNDATION_TABLES):
+        foreign_keys[table] = [
+            tuple(row)
+            for row in conn.execute(f'PRAGMA foreign_key_list("{table}")')
+        ]
+    return {
+        "objects": objects,
+        "foreign_keys": foreign_keys,
+    }
+
+
+def expected_foundation_schema(migration_path):
+    module = load_module(migration_path, "az_seed_expected_foundation_migration")
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+    try:
+        module.upgrade(conn)
+        return _foundation_schema_snapshot(conn)
+    finally:
+        conn.close()
+
+
+def verify_exact_foundation_schema(conn, expected_schema):
+    actual = _foundation_schema_snapshot(conn)
+    check(
+        actual == expected_schema,
+        "live foundation schema does not match exact pinned migration",
+    )
+
+
+def migration_file_checksum(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def verify_exact_migration_history(conn, migration_path):
+    rows = conn.execute(
+        "SELECT version,name,checksum FROM schema_migrations ORDER BY version"
+    ).fetchall()
+    check(len(rows) == 1, f"schema_migrations row count={len(rows)}")
+    expected_checksum = migration_file_checksum(migration_path)
+    check(
+        rows[0]["version"] == FOUNDATION_VERSION
+        and rows[0]["name"] == FOUNDATION_NAME
+        and rows[0]["checksum"] == expected_checksum,
+        "foundation migration history/checksum mismatch",
+    )
+
+
 def _integrity_checks(conn):
     integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
     check(integrity == "ok", f"integrity_check failed: {integrity}")
@@ -317,7 +402,7 @@ def _foundation_tables_empty(conn):
     sequences = _sqlite_sequences(conn)
     touched = {
         table: sequences[table]
-        for table in SEED_WRITTEN_TABLES
+        for table in FOUNDATION_AUTOINCREMENT_TABLES
         if table in sequences and int(sequences[table]) > 0
     }
     check(not touched, f"foundation AUTOINCREMENT sequence already used: {touched}")
@@ -335,7 +420,12 @@ def verify_foundation_migration_row(conn):
     )
 
 
-def capture_baseline(db_path=DB_PATH):
+def capture_baseline(
+    db_path=DB_PATH,
+    *,
+    expected_schema=None,
+    migration_path=None,
+):
     conn = _connect_ro(db_path)
     try:
         _integrity_checks(conn)
@@ -346,6 +436,10 @@ def capture_baseline(db_path=DB_PATH):
             f"extra={sorted(tables - ALL_TABLES)}",
         )
         verify_foundation_migration_row(conn)
+        if migration_path is not None:
+            verify_exact_migration_history(conn, migration_path)
+        if expected_schema is not None:
+            verify_exact_foundation_schema(conn, expected_schema)
         _foundation_tables_empty(conn)
         return {
             "captured_at": datetime.now(timezone.utc).isoformat(),
@@ -354,6 +448,12 @@ def capture_baseline(db_path=DB_PATH):
             "row_counts": _row_counts(conn, ALL_TABLES),
             "content_hashes": _table_content_hashes(conn, ALL_TABLES),
             "sqlite_sequences": _sqlite_sequences(conn),
+            "expected_foundation_schema": expected_schema,
+            "migration_checksum": (
+                migration_file_checksum(migration_path)
+                if migration_path is not None
+                else None
+            ),
         }
     finally:
         conn.close()
@@ -727,10 +827,16 @@ def controlled_preflight(timezone_name, db_path=DB_PATH):
 
     with tempfile.TemporaryDirectory(prefix="az-structure-seed-preflight-") as temp:
         runner_path, migration_dir, _seed_path = download_sources(temp)
+        migration_path = migration_dir / "v20260920_001_structure_foundation.py"
         runner = load_module(runner_path, "az_seed_preflight_db_migrations")
         verify_migration_applied(runner, db_path, migration_dir)
+        expected_schema = expected_foundation_schema(migration_path)
+        baseline = capture_baseline(
+            db_path,
+            expected_schema=expected_schema,
+            migration_path=migration_path,
+        )
 
-    baseline = capture_baseline(db_path)
     return spec, baseline
 
 
@@ -753,6 +859,21 @@ def apply_seed_transaction(db_path, spec, baseline, seed_helper):
                 city="",
                 address="",
             )
+            verify_exact_foundation_schema(
+                conn,
+                baseline["expected_foundation_schema"],
+            )
+            if baseline.get("migration_checksum") is not None:
+                rows = conn.execute(
+                    "SELECT version,name,checksum FROM schema_migrations ORDER BY version"
+                ).fetchall()
+                check(
+                    len(rows) == 1
+                    and rows[0]["version"] == FOUNDATION_VERSION
+                    and rows[0]["name"] == FOUNDATION_NAME
+                    and rows[0]["checksum"] == baseline["migration_checksum"],
+                    "foundation migration history/checksum changed during seed",
+                )
             verified = verify_seeded_state(
                 conn,
                 spec,
@@ -794,9 +915,11 @@ def controlled_seed(timezone_name, db_path=DB_PATH):
 
     with tempfile.TemporaryDirectory(prefix="az-structure-seed-") as temp:
         runner_path, migration_dir, seed_path = download_sources(temp)
+        migration_path = migration_dir / "v20260920_001_structure_foundation.py"
         runner = load_module(runner_path, "az_seed_db_migrations")
         seed_helper = load_module(seed_path, "az_seed_helper")
         verify_migration_applied(runner, db_path, migration_dir)
+        expected_schema = expected_foundation_schema(migration_path)
 
         try:
             step("QUIESCE SERVICE")
@@ -805,7 +928,12 @@ def controlled_seed(timezone_name, db_path=DB_PATH):
             assert_database_quiescent(db_path)
 
             step("CAPTURE QUIESCENT BASELINE")
-            baseline = capture_baseline(db_path)
+            verify_migration_applied(runner, db_path, migration_dir)
+            baseline = capture_baseline(
+                db_path,
+                expected_schema=expected_schema,
+                migration_path=migration_path,
+            )
             assert_database_quiescent(db_path)
 
             step("BACKUP + VERIFY")
@@ -837,6 +965,20 @@ def controlled_seed(timezone_name, db_path=DB_PATH):
             step("POSTSEED DATABASE VERIFICATION")
             conn = _connect_ro(db_path)
             try:
+                verify_exact_foundation_schema(
+                    conn,
+                    baseline["expected_foundation_schema"],
+                )
+                rows = conn.execute(
+                    "SELECT version,name,checksum FROM schema_migrations ORDER BY version"
+                ).fetchall()
+                check(
+                    len(rows) == 1
+                    and rows[0]["version"] == FOUNDATION_VERSION
+                    and rows[0]["name"] == FOUNDATION_NAME
+                    and rows[0]["checksum"] == baseline["migration_checksum"],
+                    "foundation migration history/checksum changed after seed",
+                )
                 verify_seeded_state(
                     conn,
                     spec,
