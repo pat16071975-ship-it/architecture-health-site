@@ -149,5 +149,13 @@ def register(app):
         anchor = admin_link if admin_link in html else knowledge_link
         if anchor in html:
             html = html.replace(anchor, anchor + "\n" + link, 1)
-            response.set_data(html)
+        elif "</body>" in html:
+            html = html.replace(
+                "</body>",
+                '<div style="width:min(520px,92vw);margin:18px auto;text-align:center">'
+                + link
+                + "</div></body>",
+                1,
+            )
+        response.set_data(html)
         return response
