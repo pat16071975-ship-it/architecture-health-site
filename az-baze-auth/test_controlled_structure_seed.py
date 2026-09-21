@@ -101,6 +101,23 @@ class ControlledStructureSeedTests(unittest.TestCase):
     def tearDown(self):
         self.tempdir.cleanup()
 
+    def _migration_path(self):
+        return (
+            Path(__file__).resolve().parent
+            / "migrations"
+            / "v20260920_001_structure_foundation.py"
+        )
+
+    def _exact_schema(self):
+        return controlled.expected_foundation_schema(self._migration_path())
+
+    def _baseline(self):
+        return controlled.capture_baseline(
+            self.db_path,
+            expected_schema=self._exact_schema(),
+            migration_path=self._migration_path(),
+        )
+
     def test_seed_spec_requires_valid_timezone_and_binds_confirmation(self):
         with self.assertRaises(controlled.ControlledSeedError):
             controlled.seed_spec("")
@@ -120,7 +137,7 @@ class ControlledStructureSeedTests(unittest.TestCase):
         )
 
     def test_capture_baseline_requires_applied_empty_foundation(self):
-        baseline = controlled.capture_baseline(self.db_path)
+        baseline = self._baseline()
         self.assertEqual(set(baseline["tables"]), controlled.ALL_TABLES)
         self.assertEqual(
             {table: baseline["row_counts"][table] for table in controlled.FOUNDATION_TABLES},
@@ -133,10 +150,87 @@ class ControlledStructureSeedTests(unittest.TestCase):
         conn.close()
 
         with self.assertRaises(controlled.ControlledSeedError):
-            controlled.capture_baseline(self.db_path)
+            self._baseline()
+
+    def test_exact_foundation_schema_rejects_weakened_compatible_ddl(self):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.execute("PRAGMA foreign_keys=OFF")
+            conn.execute("DROP TABLE directions")
+            conn.execute(
+                """
+                CREATE TABLE directions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    organization_id INTEGER NOT NULL,
+                    name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+                    short_name TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'active',
+                    display_order INTEGER,
+                    UNIQUE (id, organization_id),
+                    FOREIGN KEY (organization_id)
+                        REFERENCES organizations(id) ON DELETE RESTRICT
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX idx_directions_organization "
+                "ON directions(organization_id)"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        with self.assertRaises(controlled.ControlledSeedError):
+            self._baseline()
+
+    def test_exact_migration_history_rejects_checksum_change(self):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.execute(
+                "UPDATE schema_migrations SET checksum='tampered' "
+                "WHERE version=?",
+                (controlled.FOUNDATION_VERSION,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        with self.assertRaises(controlled.ControlledSeedError):
+            self._baseline()
+
+    def test_pristine_foundation_rejects_prior_directions_sequence_use(self):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            # Foreign keys are OFF by default on this direct test connection.
+            # This isolates directions AUTOINCREMENT history without touching
+            # holdings/organizations sequences.
+            conn.execute(
+                """
+                INSERT INTO directions(
+                    organization_id,name,short_name,status,display_order
+                ) VALUES(999,'Temporary','','active',NULL)
+                """
+            )
+            conn.execute("DELETE FROM directions")
+            conn.commit()
+            self.assertEqual(
+                conn.execute(
+                    "SELECT seq FROM sqlite_sequence WHERE name='directions'"
+                ).fetchone()[0],
+                1,
+            )
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM directions").fetchone()[0],
+                0,
+            )
+        finally:
+            conn.close()
+
+        with self.assertRaises(controlled.ControlledSeedError):
+            self._baseline()
 
     def test_seed_transaction_creates_only_current_az_structure(self):
-        baseline = controlled.capture_baseline(self.db_path)
+        baseline = self._baseline()
         spec = controlled.seed_spec("Europe/Moscow")
 
         result = controlled.apply_seed_transaction(
@@ -163,7 +257,7 @@ class ControlledStructureSeedTests(unittest.TestCase):
         self.assertGreater(verified["clinic_id"], 0)
 
     def test_seed_verification_detects_change_outside_target_tables(self):
-        baseline = controlled.capture_baseline(self.db_path)
+        baseline = self._baseline()
         spec = controlled.seed_spec("Europe/Moscow")
         controlled.apply_seed_transaction(self.db_path, spec, baseline, structure_seed)
 
@@ -185,7 +279,7 @@ class ControlledStructureSeedTests(unittest.TestCase):
             conn.close()
 
     def test_backup_preserves_exact_baseline_sequences_and_modes(self):
-        baseline = controlled.capture_baseline(self.db_path)
+        baseline = self._baseline()
         backup = self.root / "backup-dir" / "auth-before-seed.db"
         meta = controlled.backup_database(self.db_path, backup, baseline)
 
@@ -214,7 +308,7 @@ class ControlledStructureSeedTests(unittest.TestCase):
         controlled.assert_database_quiescent(self.db_path, proc_root=proc_root)
 
     def test_restore_refuses_tampered_backup_digest(self):
-        baseline = controlled.capture_baseline(self.db_path)
+        baseline = self._baseline()
         backup = self.root / "backup-dir" / "auth-before-seed.db"
         meta = controlled.backup_database(self.db_path, backup, baseline)
         original_stat = self.db_path.stat()
@@ -309,7 +403,7 @@ class ControlledStructureSeedTests(unittest.TestCase):
         ]
 
     def test_controlled_seed_failure_before_restart_rolls_back_exact_baseline(self):
-        baseline = controlled.capture_baseline(self.db_path)
+        baseline = self._baseline()
         os.chmod(self.db_path, 0o640)
         original_stat = self.db_path.stat()
         original_mode = original_stat.st_mode & 0o777
@@ -319,28 +413,53 @@ class ControlledStructureSeedTests(unittest.TestCase):
         service = {"active": True, "starts": 0, "stops": 0}
 
         original_verify = controlled.verify_seeded_state
+        post_commit_seen = {"value": False}
 
-        def fail_after_verified_seed(conn, spec, baseline=None, strict_unchanged=False):
+        def fail_after_committed_seed(conn, spec, baseline=None, strict_unchanged=False):
             result = original_verify(
                 conn,
                 spec,
                 baseline=baseline,
                 strict_unchanged=strict_unchanged,
             )
-            if baseline is not None and strict_unchanged:
+            # Inside apply_seed_transaction() the connection is still in the
+            # explicit BEGIN IMMEDIATE transaction. The second verification
+            # uses a fresh read-only connection after commit.
+            if (
+                baseline is not None
+                and strict_unchanged
+                and not conn.in_transaction
+            ):
+                self.assertEqual(
+                    conn.execute("SELECT COUNT(*) FROM holdings").fetchone()[0],
+                    1,
+                )
+                self.assertEqual(
+                    conn.execute("SELECT COUNT(*) FROM clinics").fetchone()[0],
+                    1,
+                )
+                post_commit_seen["value"] = True
                 for suffix in ("-wal", "-shm", "-journal"):
                     Path(str(self.db_path) + suffix).write_bytes(b"sidecar")
-                raise controlled.ControlledSeedError("deliberate pre-restart failure")
+                raise controlled.ControlledSeedError(
+                    "deliberate post-commit/pre-restart failure"
+                )
             return result
 
         chown_mock = Mock()
         patches = self._controlled_seed_patches(service, backup_root)
         with patches[0], patches[1], patches[2], patches[3], patches[4], \
              patches[5], patches[6], patches[7], patches[8], patches[9], \
-             patch.object(controlled, "verify_seeded_state", side_effect=fail_after_verified_seed), \
+             patch.object(
+                 controlled,
+                 "verify_seeded_state",
+                 side_effect=fail_after_committed_seed,
+             ), \
              patch.object(controlled.os, "chown", chown_mock):
             with self.assertRaises(controlled.ControlledSeedError):
                 controlled.controlled_seed("Europe/Moscow", self.db_path)
+
+        self.assertTrue(post_commit_seen["value"])
 
         controlled.verify_exact_baseline(self.db_path, baseline)
         self.assertEqual(self.db_path.stat().st_mode & 0o777, original_mode)
