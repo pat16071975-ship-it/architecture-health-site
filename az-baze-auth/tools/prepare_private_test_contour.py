@@ -102,6 +102,7 @@ def test_paths():
         TEST_SITE_ROOT,
         TEST_ENV_DIR,
         TEST_UNIT,
+        TEST_ACCESS_FILE,
     )
 
 
@@ -209,6 +210,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
+IPAddressDeny=any
+IPAddressAllow=localhost
 ReadOnlyPaths={TEST_REPO} {TEST_SITE_ROOT}
 ReadWritePaths={TEST_STATE_ROOT}
 
