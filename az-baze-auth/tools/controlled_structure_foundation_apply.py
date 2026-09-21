@@ -97,6 +97,60 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
+def _db_sidecar_targets(db_path):
+    target = Path(db_path).resolve()
+    return {
+        str(target),
+        str(Path(str(target) + "-wal")),
+        str(Path(str(target) + "-shm")),
+        str(Path(str(target) + "-journal")),
+    }
+
+
+def find_open_db_handles(db_path, proc_root=Path("/proc")):
+    targets = _db_sidecar_targets(db_path)
+    own_pid = os.getpid()
+    found = []
+    unknown = []
+
+    for proc_dir in Path(proc_root).iterdir():
+        if not proc_dir.name.isdigit():
+            continue
+        pid = int(proc_dir.name)
+        if pid == own_pid:
+            continue
+        fd_dir = proc_dir / "fd"
+        try:
+            entries = list(fd_dir.iterdir())
+        except FileNotFoundError:
+            continue
+        except PermissionError:
+            unknown.append(pid)
+            continue
+
+        for fd in entries:
+            try:
+                link = os.readlink(fd)
+            except (FileNotFoundError, PermissionError, OSError):
+                continue
+            if link.endswith(" (deleted)"):
+                link = link[:-10]
+            try:
+                normalized = str(Path(link).resolve(strict=False))
+            except (OSError, RuntimeError):
+                normalized = link
+            if normalized in targets:
+                found.append({"pid": pid, "fd": fd.name, "path": normalized})
+
+    return found, sorted(set(unknown))
+
+
+def assert_database_quiescent(db_path, proc_root=Path("/proc")):
+    handles, unknown = find_open_db_handles(db_path, proc_root=proc_root)
+    check(not unknown, f"cannot prove DB quiescence; unreadable /proc fd dirs: {unknown}")
+    check(not handles, f"database/sidecar still open by other processes: {handles}")
+
+
 def configured_database_path(env_file=ENV_FILE):
     source = Path(env_file)
     check(source.exists() and source.is_file(), f"environment file missing: {source}")
@@ -479,16 +533,24 @@ def start_service():
     raise ControlledApplyError(f"{SERVICE} failed health check after start")
 
 
-def restore_backup(db_path, backup_path, baseline, original_stat):
+def restore_backup(db_path, backup_path, baseline, original_stat, expected_sha256):
     target = Path(db_path)
     backup = Path(backup_path)
     check(backup.exists(), f"rollback backup missing: {backup}")
+    check(
+        sha256_file(backup) == expected_sha256,
+        "rollback backup SHA-256 mismatch; restore refused",
+    )
     verify_exact_baseline(backup, baseline)
 
-    stop_service() if service_is_active() else None
+    if service_is_active():
+        stop_service()
+    assert_database_quiescent(target)
 
     for suffix in ("-wal", "-shm", "-journal"):
         Path(str(target) + suffix).unlink(missing_ok=True)
+
+    assert_database_quiescent(target)
 
     restore_tmp = target.with_name(target.name + ".rollback.tmp")
     shutil.copy2(backup, restore_tmp)
@@ -533,6 +595,7 @@ def controlled_apply(db_path=DB_PATH):
     original_stat = Path(db_path).stat()
     service_stopped = False
     backup_ready = False
+    backup_sha256 = None
     baseline = None
 
     with tempfile.TemporaryDirectory(prefix="az-structure-apply-") as temp:
@@ -540,17 +603,23 @@ def controlled_apply(db_path=DB_PATH):
         runner = load_migration_runner(runner_path)
         verify_pending_status(runner, db_path, migration_dir)
 
+        # Automatic restore is permitted only inside this pre-restart window.
+        # Once start_service() is attempted, the old backup is never restored
+        # automatically because normal traffic may have resumed.
         try:
             step("QUIESCE SERVICE")
             stop_service()
             service_stopped = True
+            assert_database_quiescent(db_path)
 
             step("CAPTURE QUIESCENT BASELINE")
             baseline = capture_quiescent_baseline(db_path)
+            assert_database_quiescent(db_path)
 
             step("BACKUP + VERIFY")
             backup_meta = backup_database(db_path, backup_path, baseline)
             backup_ready = True
+            backup_sha256 = backup_meta["sha256"]
             baseline_path.write_text(
                 json.dumps(baseline, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
@@ -559,7 +628,8 @@ def controlled_apply(db_path=DB_PATH):
                 json.dumps(backup_meta, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
-            check(sha256_file(backup_path) == backup_meta["sha256"], "backup sha256 changed")
+            check(sha256_file(backup_path) == backup_sha256, "backup sha256 changed")
+            assert_database_quiescent(db_path)
 
             step("APPLY FOUNDATION MIGRATION")
             result = runner.apply_migrations(db_path, migration_dir)
@@ -571,24 +641,19 @@ def controlled_apply(db_path=DB_PATH):
             step("POSTAPPLY DATABASE VERIFICATION")
             verify_applied_status(runner, db_path, migration_dir)
             verify_postapply(db_path, baseline)
-
-            step("RESTART + HEALTH")
-            start_service()
-            service_stopped = False
-
-            step("FINAL READ-ONLY VERIFICATION")
-            verify_applied_status(runner, db_path, migration_dir)
-            # After restart, ordinary application traffic may legitimately change
-            # legacy row counts. Recheck integrity/schema state without comparing
-            # those counts to the quiescent baseline, avoiding a rollback that
-            # could discard legitimate post-restart writes.
-            verify_runtime_postapply(db_path)
+            assert_database_quiescent(db_path)
 
         except Exception:
-            if backup_ready and baseline is not None:
+            if backup_ready and baseline is not None and backup_sha256 is not None:
                 print("\nCONTROLLED APPLY FAILED: automatic rollback starting", file=sys.stderr)
                 try:
-                    restore_backup(db_path, backup_path, baseline, original_stat)
+                    restore_backup(
+                        db_path,
+                        backup_path,
+                        baseline,
+                        original_stat,
+                        backup_sha256,
+                    )
                     service_stopped = False
                     print("AUTOMATIC ROLLBACK: PASS", file=sys.stderr)
                 except Exception as rollback_exc:
@@ -599,8 +664,39 @@ def controlled_apply(db_path=DB_PATH):
                     start_service()
                     service_stopped = False
                 except Exception as restart_exc:
-                    print(f"SERVICE RESTART AFTER PRE-MIGRATION FAILURE FAILED: {restart_exc}", file=sys.stderr)
+                    print(
+                        f"SERVICE RESTART AFTER PRE-MIGRATION FAILURE FAILED: {restart_exc}",
+                        file=sys.stderr,
+                    )
             raise
+
+        # From this point onward automatic DB restore is prohibited.
+        step("RESTART + HEALTH")
+        try:
+            start_service()
+            service_stopped = False
+        except Exception as start_exc:
+            try:
+                if service_is_active():
+                    stop_service()
+                    service_stopped = True
+            finally:
+                raise ControlledApplyError(
+                    "post-migration service start/health failed; automatic DB restore is "
+                    "prohibited after a start attempt. Service was stopped when possible; "
+                    f"verified backup retained at {backup_path}"
+                ) from start_exc
+
+        step("FINAL READ-ONLY VERIFICATION")
+        try:
+            verify_applied_status(runner, db_path, migration_dir)
+            verify_runtime_postapply(db_path)
+        except Exception as runtime_exc:
+            raise ControlledApplyError(
+                "post-restart diagnostics failed after traffic may have resumed; "
+                "automatic restore is prohibited. Preserve current DB and backup for "
+                "manual incident decision."
+            ) from runtime_exc
 
     print("\nCONTROLLED STRUCTURE FOUNDATION APPLY: PASS")
     print(f"BACKUP={backup_path}")
