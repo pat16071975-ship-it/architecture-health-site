@@ -235,6 +235,50 @@ def _row_counts(conn, tables):
     }
 
 
+def _stable_cell(value):
+    if value is None:
+        return ["null", None]
+    if isinstance(value, bytes):
+        return ["blob", value.hex()]
+    if isinstance(value, bool):
+        return ["int", int(value)]
+    if isinstance(value, int):
+        return ["int", value]
+    if isinstance(value, float):
+        return ["float", repr(value)]
+    return ["text", str(value)]
+
+
+def _table_content_hash(conn, table):
+    info = list(conn.execute(f'PRAGMA table_info("{table}")'))
+    columns = [row["name"] for row in info]
+    pk_columns = [
+        row["name"]
+        for row in sorted((row for row in info if int(row["pk"]) > 0), key=lambda row: int(row["pk"]))
+    ]
+    order_columns = pk_columns or columns
+    quoted_columns = ", ".join(f'"{name}"' for name in columns)
+    quoted_order = ", ".join(f'"{name}"' for name in order_columns)
+    query = f'SELECT {quoted_columns} FROM "{table}"'
+    if quoted_order:
+        query += f" ORDER BY {quoted_order}"
+
+    digest = hashlib.sha256()
+    for row in conn.execute(query):
+        encoded = json.dumps(
+            [_stable_cell(row[name]) for name in columns],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        digest.update(len(encoded).to_bytes(8, "big"))
+        digest.update(encoded)
+    return digest.hexdigest()
+
+
+def _table_content_hashes(conn, tables):
+    return {table: _table_content_hash(conn, table) for table in sorted(tables)}
+
+
 def _integrity_checks(conn):
     integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
     check(integrity == "ok", f"integrity_check failed: {integrity}")
@@ -273,6 +317,7 @@ def capture_quiescent_baseline(db_path=DB_PATH):
             "captured_at": datetime.now(timezone.utc).isoformat(),
             "tables": sorted(tables),
             "row_counts": _row_counts(conn, LEGACY_TABLES),
+            "content_hashes": _table_content_hashes(conn, LEGACY_TABLES),
             "schema_objects": _schema_objects(conn),
         }
     finally:
@@ -287,6 +332,10 @@ def verify_exact_baseline(db_path, baseline):
         check(
             _row_counts(conn, baseline["tables"]) == baseline["row_counts"],
             "backup/rollback row-count mismatch",
+        )
+        check(
+            _table_content_hashes(conn, baseline["tables"]) == baseline["content_hashes"],
+            "backup/rollback content hash mismatch",
         )
         check(
             _schema_objects(conn) == baseline["schema_objects"],
@@ -350,6 +399,8 @@ def verify_postapply(db_path, baseline):
 
         current_counts = _row_counts(conn, LEGACY_TABLES)
         check(current_counts == baseline["row_counts"], "legacy row counts changed")
+        current_hashes = _table_content_hashes(conn, LEGACY_TABLES)
+        check(current_hashes == baseline["content_hashes"], "legacy content changed")
 
         for table in sorted(FOUNDATION_TABLES):
             count = conn.execute(f'SELECT COUNT(*) AS n FROM "{table}"').fetchone()["n"]
