@@ -5,6 +5,7 @@ on:
     branches:
       - feature/az-private-test-contour
     paths:
+      - "az-baze-auth/requirements.txt"
       - "az-baze-auth/test_server.py"
       - "az-baze-auth/tools/prepare_private_test_contour.py"
       - "az-baze-auth/test_private_test_contour.py"
@@ -12,6 +13,7 @@ on:
       - ".github/workflows/az-baze-private-test-contour.yml"
   pull_request:
     paths:
+      - "az-baze-auth/requirements.txt"
       - "az-baze-auth/test_server.py"
       - "az-baze-auth/tools/prepare_private_test_contour.py"
       - "az-baze-auth/test_private_test_contour.py"
@@ -32,10 +34,26 @@ jobs:
       - name: Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Dependencies
         run: pip install -r az-baze-auth/requirements.txt
+
+      - name: Runtime import smoke
+        working-directory: az-baze-auth
+        env:
+          AZBAZE_SECRET_KEY: ci-private-test-secret
+          AZBAZE_DB: /tmp/az-baze-private-test-import.db
+          AZBAZE_SITE_ROOT: /tmp/az-baze-private-test-site
+          AZBAZE_CREDENTIALS_KEY: /tmp/az-baze-private-test-credentials.key
+          AZ_FINREZ_DATA_PATH: /tmp/az-baze-private-test-finrez.enc
+          AZ_FINREZ_KEY_PATH: /tmp/az-baze-private-test-finrez.key
+        run: |
+          mkdir -p /tmp/az-baze-private-test-site
+          python - <<'PY'
+          import server
+          print("SERVER IMPORT: OK")
+          PY
 
       - name: Python syntax
         run: >
