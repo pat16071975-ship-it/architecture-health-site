@@ -232,7 +232,7 @@ def environment_from_file():
 
 
 def render_bootstrap_database_script(password):
-    return f"""
+    return f'''
 import os
 import sqlite3
 import sys
@@ -303,7 +303,7 @@ try:
         raise RuntimeError(f"unexpected private test clinic: {{clinic}}")
 finally:
     conn.close()
-"""
+'''
 
 
 def initialize_test_database(password):
