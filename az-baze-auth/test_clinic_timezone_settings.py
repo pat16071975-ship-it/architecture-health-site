@@ -77,10 +77,8 @@ class ClinicTimezoneSettingsIntegrationTests(unittest.TestCase):
         app_core.init_db_file()
         migrations_dir = Path(__file__).resolve().parent / "migrations"
         result = db_migrations.apply_migrations(app_core.DB_PATH, migrations_dir)
-        cls.assertEqual(
-            result,
-            {"applied": ["20260920_001"], "already_applied": []},
-        )
+        if result != {"applied": ["20260920_001"], "already_applied": []}:
+            raise AssertionError(f"unexpected migration result: {result}")
 
     def setUp(self):
         site_root = Path(os.environ["AZBAZE_SITE_ROOT"])
