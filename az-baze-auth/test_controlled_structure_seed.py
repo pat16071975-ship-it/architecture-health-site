@@ -340,29 +340,23 @@ class ControlledStructureSeedTests(unittest.TestCase):
             on_start=write_after_restart,
         )
         restore_mock = Mock(side_effect=AssertionError("restore must not run after restart"))
+        original_verify = controlled.verify_seeded_state
+
+        def runtime_fail(conn, spec, baseline=None, strict_unchanged=False):
+            result = original_verify(
+                conn,
+                spec,
+                baseline=baseline,
+                strict_unchanged=strict_unchanged,
+            )
+            if baseline is None:
+                raise controlled.ControlledSeedError("deliberate runtime failure")
+            return result
 
         with patches[0], patches[1], patches[2], patches[3], patches[4], \
              patches[5], patches[6], patches[7], patches[8], patches[9], \
              patch.object(controlled, "restore_backup", restore_mock), \
-             patch.object(
-                 controlled,
-                 "verify_seeded_state",
-                 wraps=controlled.verify_seeded_state,
-             ) as verify_mock:
-            original = controlled.verify_seeded_state
-
-            def runtime_fail(conn, spec, baseline=None, strict_unchanged=False):
-                result = original(
-                    conn,
-                    spec,
-                    baseline=baseline,
-                    strict_unchanged=strict_unchanged,
-                )
-                if baseline is None:
-                    raise controlled.ControlledSeedError("deliberate runtime failure")
-                return result
-
-            verify_mock.side_effect = runtime_fail
+             patch.object(controlled, "verify_seeded_state", side_effect=runtime_fail):
             with self.assertRaises(controlled.ControlledSeedError):
                 controlled.controlled_seed("Europe/Moscow", self.db_path)
 
