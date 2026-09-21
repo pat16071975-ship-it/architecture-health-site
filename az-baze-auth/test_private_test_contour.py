@@ -1,4 +1,8 @@
 import importlib.util
+import os
+import sqlite3
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -57,6 +61,70 @@ class PrivateTestContourContractTests(unittest.TestCase):
         self.assertIn('timezone_name=\'UTC\'', script)
         self.assertNotIn("Зубачев", script)
         self.assertNotIn("INSERT INTO users", script.split("INSERT INTO users", 1)[1])
+
+    def test_generated_bootstrap_executes_against_fresh_temp_database(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "auth.db"
+            site_root = root / "site"
+            site_root.mkdir()
+
+            original_repo = private_test.TEST_REPO
+            try:
+                private_test.TEST_REPO = Path(__file__).resolve().parent.parent
+                script = private_test.render_bootstrap_database_script(
+                    "secret-password"
+                )
+            finally:
+                private_test.TEST_REPO = original_repo
+
+            env = dict(os.environ)
+            env["AZBAZE_DB"] = str(db_path)
+            env["AZBAZE_SECRET_KEY"] = "test-secret"
+            env["AZBAZE_SITE_ROOT"] = str(site_root)
+
+            completed = subprocess.run(
+                [sys.executable, "-c", script],
+                text=True,
+                capture_output=True,
+                env=env,
+                check=False,
+            )
+            self.assertEqual(
+                completed.returncode,
+                0,
+                msg=f"stdout={completed.stdout}\nstderr={completed.stderr}",
+            )
+
+            conn = sqlite3.connect(db_path)
+            try:
+                users = conn.execute(
+                    "SELECT email,is_admin,active FROM users ORDER BY id"
+                ).fetchall()
+                self.assertEqual(
+                    users,
+                    [(private_test.TEST_EMAIL, 0, 1)],
+                )
+                permissions = conn.execute(
+                    """
+                    SELECT p.section
+                    FROM permissions p
+                    JOIN users u ON u.id=p.user_id
+                    WHERE u.email=?
+                    ORDER BY p.section
+                    """,
+                    (private_test.TEST_EMAIL,),
+                ).fetchall()
+                self.assertEqual(permissions, [("structure_manage",)])
+                clinics = conn.execute(
+                    "SELECT name,timezone FROM clinics"
+                ).fetchall()
+                self.assertEqual(
+                    clinics,
+                    [("Архитектура здоровья — TEST", "UTC")],
+                )
+            finally:
+                conn.close()
 
     def test_preflight_is_read_only_and_reports_no_live_mutations(self):
         with tempfile.TemporaryDirectory() as tmp:
