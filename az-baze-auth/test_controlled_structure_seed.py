@@ -15,6 +15,14 @@ SPEC = importlib.util.spec_from_file_location("controlled_structure_seed", MODUL
 controlled = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(controlled)
 
+HANDOFF_PATH = Path(__file__).resolve().parent / "tools" / "controlled_structure_seed_handoff.py"
+HANDOFF_SPEC = importlib.util.spec_from_file_location(
+    "controlled_structure_seed_handoff",
+    HANDOFF_PATH,
+)
+handoff = importlib.util.module_from_spec(HANDOFF_SPEC)
+HANDOFF_SPEC.loader.exec_module(handoff)
+
 
 LEGACY_SQL = """
 PRAGMA foreign_keys=ON;
@@ -224,6 +232,28 @@ class ControlledStructureSeedTests(unittest.TestCase):
                 original_stat,
                 meta["sha256"],
             )
+
+    def test_handoff_pins_current_seed_controller_blob(self):
+        root = Path(__file__).resolve().parent
+        controller_data = (
+            root / "tools" / "controlled_structure_seed.py"
+        ).read_bytes()
+        self.assertEqual(
+            handoff.git_blob_sha(controller_data),
+            handoff.AUDITED_CONTROLLER_BLOB,
+        )
+        self.assertEqual(
+            handoff.verify_controller_bytes(controller_data),
+            handoff.AUDITED_CONTROLLER_BLOB,
+        )
+        self.assertIn(
+            handoff.AUDITED_CONTROLLER_COMMIT,
+            handoff.controller_url(),
+        )
+
+    def test_handoff_rejects_modified_seed_controller(self):
+        with self.assertRaises(handoff.HandoffError):
+            handoff.verify_controller_bytes(b"print('modified seed controller')\n")
 
     def test_pinned_source_blobs_match_repository_files(self):
         root = Path(__file__).resolve().parent
