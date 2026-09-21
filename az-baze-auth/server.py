@@ -6,6 +6,7 @@ import app as app_core
 from app import SITE_ROOT, app
 import access_contacts_ext
 import credentials_store
+import clinic_structure_settings
 import daily_upload
 import economics_control
 import finrez
@@ -62,6 +63,7 @@ economics_control.register_economics_control(app)
 daily_upload.register_daily_upload(app)
 credentials_store.register_credentials(app)
 access_contacts_ext.register(app)
+clinic_structure_settings.register(app)
 
 
 @app.context_processor
