@@ -231,8 +231,8 @@ def environment_from_file():
     return env
 
 
-def initialize_test_database(password):
-    bootstrap = f"""
+def render_bootstrap_database_script(password):
+    return f"""
 import os
 import sqlite3
 import sys
@@ -304,6 +304,10 @@ try:
 finally:
     conn.close()
 """
+
+
+def initialize_test_database(password):
+    bootstrap = render_bootstrap_database_script(password)
     env = environment_from_file()
     run([str(TEST_VENV / "bin/python"), "-c", bootstrap], env=env)
 
