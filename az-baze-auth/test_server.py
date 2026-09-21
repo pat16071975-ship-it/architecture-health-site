@@ -64,10 +64,13 @@ def _test_contact_backup_database(db_path):
         src.close()
 
     os.chmod(destination, 0o600)
-    return {
-        "path": str(destination),
-        "bytes": destination.stat().st_size,
-    }
+    check_conn = sqlite3.connect(destination)
+    try:
+        if check_conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise RuntimeError("private test contact backup failed integrity check")
+    finally:
+        check_conn.close()
+    return str(directory)
 
 
 contact_excel_import.backup_database = _test_contact_backup_database
