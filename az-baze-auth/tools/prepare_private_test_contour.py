@@ -298,7 +298,12 @@ try:
     perms = conn.execute("SELECT section FROM permissions WHERE user_id=?", (user_id,)).fetchall()
     if [row[0] for row in perms] != ["structure_manage"]:
         raise RuntimeError(f"unexpected private test permissions: {{perms}}")
-    clinic = conn.execute("SELECT name,timezone FROM clinics").fetchall()
+    clinic = [
+        tuple(row)
+        for row in conn.execute(
+            "SELECT name,timezone FROM clinics"
+        ).fetchall()
+    ]
     if clinic != [("Архитектура здоровья — TEST", {TEST_CLINIC_TIMEZONE!r})]:
         raise RuntimeError(f"unexpected private test clinic: {{clinic}}")
 finally:
