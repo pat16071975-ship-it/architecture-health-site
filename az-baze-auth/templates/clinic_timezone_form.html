@@ -13,6 +13,7 @@
 
   <form method="post">
     <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="expected_timezone" value="{{ clinic['timezone'] }}">
     <div class="field">
       <label for="timezone">Timezone клиники</label>
       <select id="timezone" name="timezone" required style="width:100%;padding:11px 12px;border:1px solid #cfc5b5;border-radius:9px;background:#fff;font:500 14px Montserrat,Arial,sans-serif">
