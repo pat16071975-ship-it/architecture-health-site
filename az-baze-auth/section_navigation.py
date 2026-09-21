@@ -9,6 +9,7 @@ SECTION_RULES = (
     ("/credentials/", "Доступы и контакты", "/access-contacts/"),
     ("/surveys/", "Опросы", "/surveys/"),
     ("/uploads/", "Загрузка данных", "/uploads/"),
+    ("/structure/clinics/", "Настройка клиник", "/structure/clinics/"),
     ("/admin", "Управление доступом", "/admin"),
     ("/knowledge/", "База знаний", "/knowledge/"),
 )
