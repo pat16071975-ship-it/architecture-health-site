@@ -38,9 +38,9 @@ sequences must show no previous inserts into the four seed-written tables.
 
 Future live execution must begin from this exact handoff:
 
-- commit: `1ea305581904705388bdec8126332a7216e1817a`
+- commit: `ab32fb2eb8359a3bd402bf40b199bd9b789e7fb3`
 - path: `az-baze-auth/tools/controlled_structure_seed_handoff.py`
-- Git blob: `a0eab0dabae4cd83b3e28291df0aec781db141fb`
+- Git blob: `7cba94ec668fa448ae553d20b6863fa3d13b7e4b`
 
 The operator must verify the handoff blob before execution.
 
@@ -48,9 +48,9 @@ The operator must verify the handoff blob before execution.
 
 The handoff downloads and verifies:
 
-- commit: `23ece9e78ca2cc9571da1599481d2c246edf0a63`
+- commit: `81591726f252b23191e557c5a94b3725125d9863`
 - path: `az-baze-auth/tools/controlled_structure_seed.py`
-- Git blob: `be38797d72517d00b23f48058a4914bf620e5048`
+- Git blob: `7d3f5e2fff2e51f46c0a720ac7f6ce915d1623e0`
 
 Modified controller bytes are refused.
 
@@ -80,9 +80,12 @@ It verifies:
 - DB integrity and foreign keys;
 - exact expected table set:
   17 legacy tables + 6 foundation tables + `schema_migrations`;
-- foundation migration status = applied;
+- foundation migration status = applied with the exact pinned migration checksum;
+- exact foundation table/index/FK/CHECK/UNIQUE schema must match the exact pinned
+  migration-derived schema;
 - all foundation data tables are empty;
-- seed-written foundation AUTOINCREMENT sequences have never been used;
+- no AUTOINCREMENT foundation table has any prior sequence use, including
+  `directions`;
 - timezone is a valid IANA zone;
 - exact runner / migration / seed-helper blobs match.
 
@@ -106,7 +109,9 @@ Sequence:
 3. Download and verify exact pinned helper sources.
 4. Stop `az-baze-auth`.
 5. Prove DB/WAL/SHM/journal quiescence fail-closed through `/proc/*/fd`.
-6. Capture exact quiescent baseline:
+6. Revalidate the exact applied migration checksum and exact pinned
+   foundation schema after quiescence.
+7. Capture exact quiescent baseline:
    - schema objects;
    - row counts of all expected tables;
    - deterministic content hashes of all expected tables;
@@ -114,11 +119,13 @@ Sequence:
    - integrity / foreign-key checks.
 7. Prove quiescence again.
 8. Create verified SQLite backup in a unique root-only directory.
-9. Record backup SHA-256 and save baseline / backup metadata / exact seed spec.
-10. Prove quiescence again.
-11. Open one SQLite `BEGIN IMMEDIATE` transaction.
-12. Call exact pinned `structure_seed.seed_initial_structure()`.
-13. Before commit, verify:
+10. Record backup SHA-256 and save baseline / backup metadata / exact seed spec.
+11. Prove quiescence again.
+12. Revalidate exact migration checksum, exact foundation schema, and pristine
+    foundation state immediately before seed.
+13. Open one SQLite `BEGIN IMMEDIATE` transaction.
+14. Call exact pinned `structure_seed.seed_initial_structure()`.
+15. Before commit, verify:
     - exactly 1 Holding;
     - exactly 1 Organization linked to that Holding;
     - exactly 1 default Cluster linked to that Organization;
@@ -131,14 +138,16 @@ Sequence:
     - all tables outside the four intended seed tables have unchanged row counts
       and content hashes;
     - unrelated `sqlite_sequence` state unchanged.
-14. Commit only after all in-transaction checks pass.
-15. While service is still stopped, repeat full post-seed verification.
-16. Prove quiescence again.
+16. Commit only after all in-transaction checks pass.
+17. While service is still stopped, repeat full post-seed verification,
+    including exact foundation schema and migration checksum.
+18. Prove quiescence again.
 
 All rollback-triggering checks finish before restart.
 
-17. Start service and verify health.
-18. Run final read-only seeded-state diagnostics.
+19. Start service and verify health.
+20. Run final read-only seeded-state diagnostics, including exact foundation
+    schema and migration checksum.
 
 ## Rollback boundary
 
@@ -191,11 +200,16 @@ Before Ready/merge/live decisions, CI must keep passing:
 - invalid-timezone rejection;
 - seed-spec confirmation binding;
 - exact empty-foundation precondition;
+- rejection of prior AUTOINCREMENT use in any foundation AUTOINCREMENT table,
+  including insert+delete history in `directions`;
+- exact pinned foundation DDL/constraints/index/FK validation;
+- exact applied migration checksum validation after quiescence;
 - exact seed-row/relationship verification;
 - legacy content isolation;
 - backup/sequences/mode verification;
 - quiescence DB/sidecar guard;
 - backup SHA mismatch refusal;
-- deliberate pre-restart failure → exact-baseline rollback;
+- deliberate **post-commit / pre-restart** failure → exact-baseline rollback
+  of an already committed seed;
 - no automatic restore after restart + simulated traffic;
 - exact controller handoff provenance and modified-controller rejection.
