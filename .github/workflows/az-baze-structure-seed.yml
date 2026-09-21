@@ -6,6 +6,7 @@ on:
       - feature/az-structure-controlled-seed
     paths:
       - "az-baze-auth/tools/controlled_structure_seed.py"
+      - "az-baze-auth/tools/controlled_structure_seed_handoff.py"
       - "az-baze-auth/test_controlled_structure_seed.py"
       - "az-baze-auth/structure_seed.py"
       - "az-baze-auth/db_migrations.py"
@@ -15,6 +16,7 @@ on:
   pull_request:
     paths:
       - "az-baze-auth/tools/controlled_structure_seed.py"
+      - "az-baze-auth/tools/controlled_structure_seed_handoff.py"
       - "az-baze-auth/test_controlled_structure_seed.py"
       - "az-baze-auth/structure_seed.py"
       - "az-baze-auth/db_migrations.py"
@@ -45,6 +47,7 @@ jobs:
           az-baze-auth/migrations/v20260920_001_structure_foundation.py
           az-baze-auth/structure_seed.py
           az-baze-auth/tools/controlled_structure_seed.py
+          az-baze-auth/tools/controlled_structure_seed_handoff.py
           az-baze-auth/test_controlled_structure_seed.py
 
       - name: Foundation regression
