@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <div class="row between" style="margin-bottom:18px">
+    <div>
+      <h2 class="section-title" style="margin-bottom:4px">Настройка клиник</h2>
+      <div class="muted">Часовой пояс задаётся для каждой клиники отдельно и не зависит от местоположения сотрудника.</div>
+    </div>
+    <a class="btn" href="/">На главную</a>
+  </div>
+
+  {% if not foundation_ready %}
+    <div class="error">Фундамент структуры ещё не применён. Настройки клиник недоступны.</div>
+  {% elif not rows %}
+    <div class="muted">Клиники ещё не созданы. Часовой пояс должен быть указан при создании клиники.</div>
+  {% else %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Организация</th>
+            <th>Кластер</th>
+            <th>Клиника</th>
+            <th>Часовой пояс</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row['organization_name'] }}</td>
+            <td>{{ row['cluster_name'] }}</td>
+            <td><strong>{{ row['name'] }}</strong></td>
+            <td><span class="badge">{{ row['timezone'] }}</span></td>
+            <td>{% if row['status'] == 'active' %}Активна{% else %}Архив{% endif %}</td>
+            <td><a class="btn" href="/structure/clinics/{{ row['id'] }}/timezone">Изменить timezone</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
