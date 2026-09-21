@@ -50,6 +50,10 @@ It provides:
 Non-standard namespaces such as `localtime`, `Factory`, `posix/*`,
 `right/*`, and `SystemV/*` are rejected.
 
+Malformed/path-like values and oversized inputs are normalized into a
+`ClinicTimezoneError` validation failure. The maximum accepted timezone key
+length is 255 characters; invalid input fails closed without DB/audit writes.
+
 ## UI
 
 The prepared routes are:
@@ -90,16 +94,24 @@ On a valid timezone POST:
 
 1. CSRF is required.
 2. The clinic must exist.
-3. The IANA timezone is validated server-side.
-4. Only `clinics.timezone` is updated.
-5. The existing audit log records:
+3. The form carries the timezone value that was current when the form was rendered.
+4. The requested and expected values are both validated server-side as IANA values.
+5. The write uses optimistic compare-and-swap:
+   `UPDATE clinics SET timezone=? WHERE id=? AND timezone=?`.
+6. If another session changed the clinic after the form was opened, the stale write
+   affects zero rows and returns HTTP 409 instead of silently overwriting.
+7. Therefore the audit `old_timezone` is the exact value that was actually replaced.
+8. Only `clinics.timezone` is updated.
+9. The existing audit log records:
    - clinic id;
    - previous timezone;
    - new timezone.
-6. The timezone update and audit record are committed together through the
-   existing audit transaction.
+10. The timezone update and audit row use the same SQLite connection/transaction.
+11. If audit insert/commit fails, the route explicitly rolls the connection back
+    before propagating the failure.
 
-Invalid timezone or CSRF failure makes no clinic write.
+Invalid timezone, stale compare-and-swap conflict, CSRF failure, or audit failure
+must not leave a partial timezone write.
 
 ## Initial seed
 
@@ -138,6 +150,12 @@ Dedicated CI validates:
 - home link appears only with explicit permission;
 - valid timezone update changes only `clinics.timezone`;
 - update is audited;
+- two stale sessions cannot silently overwrite one another;
+- conflict response is HTTP 409 and exposes the newly current timezone for retry;
+- audit old/new timezone history remains correct after a stale-write conflict;
+- path-like and oversized timezone inputs fail closed;
+- injected audit failure after timezone UPDATE rolls back both the timezone change
+  and the uncommitted audit row;
 - invalid timezone writes nothing;
 - CSRF is required;
 - survey permission regression remains green.
@@ -157,3 +175,24 @@ This preparation does NOT:
 
 Those integrations remain later work and must consume the clinic timezone through
 the shared domain rule rather than reimplementing timezone detection.
+
+
+## Independent-audit hardening — PR4-001…003
+
+The first independent audit found three blockers. The preparation package now
+contains fixes for all three:
+
+- **AUDIT-PR4-001** — optimistic compare-and-swap plus an expected-timezone form
+  token prevents lost updates and stale audit history. A two-session stale-edit
+  integration test verifies that only the first update commits.
+- **AUDIT-PR4-002** — malformed/path-like `ZoneInfo` keys and oversized inputs are
+  converted to safe validation failures; route tests prove no DB/audit write.
+- **AUDIT-PR4-003** — the route explicitly rolls back if the audit step fails after
+  the timezone UPDATE. Failure injection inserts an uncommitted audit row and then
+  raises; the test proves both the timezone and partial audit row are rolled back.
+
+The admin access page wording was also updated to state that clinic-structure
+permissions, like survey permissions, are explicitly granted.
+
+Status after implementation: fixes prepared; repeat independent audit required
+before Ready/merge/deploy.
