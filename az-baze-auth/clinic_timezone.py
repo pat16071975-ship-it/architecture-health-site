@@ -6,19 +6,26 @@ class ClinicTimezoneError(ValueError):
     pass
 
 
+class ClinicTimezoneConflict(ClinicTimezoneError):
+    pass
+
+
 EXCLUDED_TIMEZONE_PREFIXES = ("posix/", "right/", "SystemV/")
 EXCLUDED_TIMEZONE_NAMES = {"Factory", "localtime"}
+MAX_TIMEZONE_NAME_LENGTH = 255
 
 
 def normalize_timezone_name(value):
     name = str(value or "").strip()
     if not name:
         raise ClinicTimezoneError("Укажите часовой пояс клиники.")
+    if len(name) > MAX_TIMEZONE_NAME_LENGTH:
+        raise ClinicTimezoneError("Название часового пояса слишком длинное.")
     if name in EXCLUDED_TIMEZONE_NAMES or name.startswith(EXCLUDED_TIMEZONE_PREFIXES):
         raise ClinicTimezoneError("Выберите стандартный часовой пояс IANA.")
     try:
         ZoneInfo(name)
-    except ZoneInfoNotFoundError as exc:
+    except (ZoneInfoNotFoundError, ValueError, OSError) as exc:
         raise ClinicTimezoneError("Неизвестный часовой пояс IANA.") from exc
     return name
 
@@ -82,25 +89,37 @@ def get_clinic_timezone(conn, clinic_id):
     }
 
 
-def set_clinic_timezone(conn, clinic_id, timezone_name):
+def set_clinic_timezone(
+    conn,
+    clinic_id,
+    timezone_name,
+    *,
+    expected_timezone,
+):
     timezone_name = normalize_timezone_name(timezone_name)
-    current = get_clinic_timezone(conn, clinic_id)
-    if current["timezone"] == timezone_name:
-        return {
-            **current,
-            "old_timezone": current["timezone"],
-            "changed": False,
-        }
+    expected_timezone = normalize_timezone_name(expected_timezone)
 
-    conn.execute(
-        "UPDATE clinics SET timezone=? WHERE id=?",
-        (timezone_name, int(clinic_id)),
+    cursor = conn.execute(
+        """
+        UPDATE clinics
+        SET timezone=?
+        WHERE id=? AND timezone=?
+        """,
+        (timezone_name, int(clinic_id), expected_timezone),
     )
+
+    if cursor.rowcount != 1:
+        current = get_clinic_timezone(conn, clinic_id)
+        raise ClinicTimezoneConflict(
+            "Настройка клиники уже изменилась другим пользователем. "
+            f"Текущее значение: {current['timezone']}."
+        )
+
     updated = get_clinic_timezone(conn, clinic_id)
     return {
         **updated,
-        "old_timezone": current["timezone"],
-        "changed": True,
+        "old_timezone": expected_timezone,
+        "changed": expected_timezone != timezone_name,
     }
 
 
