@@ -481,7 +481,38 @@ def verify_seeded_state(conn, spec, baseline=None, strict_unchanged=False):
 
     verify_foundation_migration_row(conn)
 
+    sequences = _sqlite_sequences(conn)
+    expected_seed_sequences = {
+        "holdings": holding["id"],
+        "organizations": organization["id"],
+        "clusters": cluster["id"],
+        "clinics": clinic["id"],
+    }
+    for table, expected_seq in expected_seed_sequences.items():
+        check(
+            sequences.get(table) == expected_seq,
+            f"unexpected AUTOINCREMENT sequence for {table}: "
+            f"{sequences.get(table)} != {expected_seq}",
+        )
+
     if baseline is not None and strict_unchanged:
+        baseline_sequences = baseline["sqlite_sequences"]
+        for name, seq in baseline_sequences.items():
+            if name not in SEED_WRITTEN_TABLES:
+                check(
+                    sequences.get(name) == seq,
+                    f"seed changed unrelated sqlite_sequence: {name}",
+                )
+        unexpected_sequences = (
+            set(sequences)
+            - set(baseline_sequences)
+            - set(expected_seed_sequences)
+        )
+        check(
+            not unexpected_sequences,
+            f"seed created unexpected sqlite_sequence entries: "
+            f"{sorted(unexpected_sequences)}",
+        )
         check(
             _row_counts(conn, UNCHANGED_TABLES)
             == {table: baseline["row_counts"][table] for table in sorted(UNCHANGED_TABLES)},
