@@ -1,0 +1,56 @@
+name: AZ-BAZE Controlled Structure Seed
+
+on:
+  push:
+    branches:
+      - feature/az-structure-controlled-seed
+    paths:
+      - "az-baze-auth/tools/controlled_structure_seed.py"
+      - "az-baze-auth/test_controlled_structure_seed.py"
+      - "az-baze-auth/structure_seed.py"
+      - "az-baze-auth/db_migrations.py"
+      - "az-baze-auth/migrations/**"
+      - "az-baze-auth/deploy/CONTROLLED-STRUCTURE-SEED.md"
+      - ".github/workflows/az-baze-structure-seed.yml"
+  pull_request:
+    paths:
+      - "az-baze-auth/tools/controlled_structure_seed.py"
+      - "az-baze-auth/test_controlled_structure_seed.py"
+      - "az-baze-auth/structure_seed.py"
+      - "az-baze-auth/db_migrations.py"
+      - "az-baze-auth/migrations/**"
+      - "az-baze-auth/deploy/CONTROLLED-STRUCTURE-SEED.md"
+      - ".github/workflows/az-baze-structure-seed.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  controlled-structure-seed-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python syntax
+        run: >
+          python -m py_compile
+          az-baze-auth/db_migrations.py
+          az-baze-auth/migrations/v20260920_001_structure_foundation.py
+          az-baze-auth/structure_seed.py
+          az-baze-auth/tools/controlled_structure_seed.py
+          az-baze-auth/test_controlled_structure_seed.py
+
+      - name: Foundation regression
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_structure_foundation.py
+
+      - name: Controlled seed tests
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_controlled_structure_seed.py
