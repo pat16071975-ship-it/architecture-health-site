@@ -11,6 +11,8 @@ on:
       - "az-baze-auth/structure_seed.py"
       - "az-baze-auth/test_structure_foundation.py"
       - "az-baze-auth/tools/controlled_structure_foundation_apply.py"
+      - "az-baze-auth/tools/controlled_structure_foundation_handoff.py"
+      - "az-baze-auth/tools/controlled_structure_foundation_handoff.py"
       - "az-baze-auth/test_controlled_structure_foundation_apply.py"
       - "az-baze-auth/deploy/CONTROLLED-STRUCTURE-FOUNDATION.md"
       - ".github/workflows/az-baze-structure-foundation.yml"
@@ -48,6 +50,7 @@ jobs:
           az-baze-auth/structure_seed.py
           az-baze-auth/test_structure_foundation.py
           az-baze-auth/tools/controlled_structure_foundation_apply.py
+          az-baze-auth/tools/controlled_structure_foundation_handoff.py
           az-baze-auth/test_controlled_structure_foundation_apply.py
 
       - name: Structure foundation tests
