@@ -6,8 +6,8 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-AUDITED_CONTROLLER_COMMIT = "23ece9e78ca2cc9571da1599481d2c246edf0a63"
-AUDITED_CONTROLLER_BLOB = "be38797d72517d00b23f48058a4914bf620e5048"
+AUDITED_CONTROLLER_COMMIT = "81591726f252b23191e557c5a94b3725125d9863"
+AUDITED_CONTROLLER_BLOB = "7d3f5e2fff2e51f46c0a720ac7f6ce915d1623e0"
 CONTROLLER_PATH = "az-baze-auth/tools/controlled_structure_seed.py"
 
 
