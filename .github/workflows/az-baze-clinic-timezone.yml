@@ -1,0 +1,89 @@
+name: AZ-BAZE Clinic Timezone Settings
+
+on:
+  push:
+    branches:
+      - feature/az-clinic-timezone-settings
+    paths:
+      - "az-baze-auth/clinic_timezone.py"
+      - "az-baze-auth/clinic_structure_settings.py"
+      - "az-baze-auth/server.py"
+      - "az-baze-auth/section_navigation.py"
+      - "az-baze-auth/templates/clinic_structure.html"
+      - "az-baze-auth/templates/clinic_timezone_form.html"
+      - "az-baze-auth/templates/user_form.html"
+      - "az-baze-auth/templates/admin.html"
+      - "az-baze-auth/test_clinic_timezone_settings.py"
+      - "az-baze-auth/deploy/CLINIC-TIMEZONE-SETTINGS.md"
+      - ".github/workflows/az-baze-clinic-timezone.yml"
+  pull_request:
+    paths:
+      - "az-baze-auth/clinic_timezone.py"
+      - "az-baze-auth/clinic_structure_settings.py"
+      - "az-baze-auth/server.py"
+      - "az-baze-auth/section_navigation.py"
+      - "az-baze-auth/templates/clinic_structure.html"
+      - "az-baze-auth/templates/clinic_timezone_form.html"
+      - "az-baze-auth/templates/user_form.html"
+      - "az-baze-auth/templates/admin.html"
+      - "az-baze-auth/test_clinic_timezone_settings.py"
+      - "az-baze-auth/deploy/CLINIC-TIMEZONE-SETTINGS.md"
+      - ".github/workflows/az-baze-clinic-timezone.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  clinic-timezone-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependencies
+        run: pip install -r az-baze-auth/requirements.txt
+
+      - name: Python syntax
+        run: >
+          python -m py_compile
+          az-baze-auth/app.py
+          az-baze-auth/server.py
+          az-baze-auth/clinic_timezone.py
+          az-baze-auth/clinic_structure_settings.py
+          az-baze-auth/section_navigation.py
+          az-baze-auth/test_clinic_timezone_settings.py
+
+      - name: Template syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from jinja2 import Environment
+          env = Environment()
+          for name in (
+              "clinic_structure.html",
+              "clinic_timezone_form.html",
+              "user_form.html",
+              "admin.html",
+          ):
+              path = Path("az-baze-auth/templates") / name
+              env.parse(path.read_text(encoding="utf-8"))
+              print("OK", path)
+          PY
+
+      - name: Foundation regression
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_structure_foundation.py
+
+      - name: Clinic timezone tests
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_clinic_timezone_settings.py
+
+      - name: Survey permission regression
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_surveys.SurveyPermissionTests
