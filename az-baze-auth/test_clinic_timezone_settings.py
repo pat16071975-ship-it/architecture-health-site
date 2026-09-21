@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 TEST_TMP = tempfile.TemporaryDirectory()
 os.environ["AZBAZE_DB"] = str(Path(TEST_TMP.name) / "app.db")
@@ -32,6 +33,14 @@ class ClinicTimezoneDomainTests(unittest.TestCase):
             clinic_timezone.normalize_timezone_name("Not/A_Zone")
         with self.assertRaises(clinic_timezone.ClinicTimezoneError):
             clinic_timezone.normalize_timezone_name("localtime")
+        with self.assertRaises(clinic_timezone.ClinicTimezoneError):
+            clinic_timezone.normalize_timezone_name("../UTC")
+        with self.assertRaises(clinic_timezone.ClinicTimezoneError):
+            clinic_timezone.normalize_timezone_name("/etc/passwd")
+        with self.assertRaises(clinic_timezone.ClinicTimezoneError):
+            clinic_timezone.normalize_timezone_name(
+                "X" * (clinic_timezone.MAX_TIMEZONE_NAME_LENGTH + 1)
+            )
 
     def test_timezone_options_are_server_side_iana_choices(self):
         options = clinic_timezone.timezone_options(
@@ -195,6 +204,7 @@ class ClinicTimezoneSettingsIntegrationTests(unittest.TestCase):
             data={
                 "csrf": "timezone-test-csrf",
                 "timezone": "Asia/Tokyo",
+                "expected_timezone": "Europe/Moscow",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -225,6 +235,181 @@ class ClinicTimezoneSettingsIntegrationTests(unittest.TestCase):
             self.assertIn("old_timezone=Europe/Moscow", audit["details"])
             self.assertIn("new_timezone=Asia/Tokyo", audit["details"])
 
+    def test_two_sessions_reject_stale_timezone_update_without_lost_update(self):
+        self._grant_structure(2)
+        client_a = self._client(2, csrf="timezone-a")
+        client_b = self._client(2, csrf="timezone-b")
+
+        page_a = client_a.get(
+            f"/structure/clinics/{self.clinic_id}/timezone"
+        )
+        page_b = client_b.get(
+            f"/structure/clinics/{self.clinic_id}/timezone"
+        )
+        self.assertEqual(page_a.status_code, 200)
+        self.assertEqual(page_b.status_code, 200)
+        self.assertIn(
+            'name="expected_timezone" value="Europe/Moscow"',
+            page_a.get_data(as_text=True),
+        )
+        self.assertIn(
+            'name="expected_timezone" value="Europe/Moscow"',
+            page_b.get_data(as_text=True),
+        )
+
+        first = client_a.post(
+            f"/structure/clinics/{self.clinic_id}/timezone",
+            data={
+                "csrf": "timezone-a",
+                "timezone": "Asia/Tokyo",
+                "expected_timezone": "Europe/Moscow",
+            },
+        )
+        self.assertEqual(first.status_code, 302)
+
+        stale = client_b.post(
+            f"/structure/clinics/{self.clinic_id}/timezone",
+            data={
+                "csrf": "timezone-b",
+                "timezone": "Europe/London",
+                "expected_timezone": "Europe/Moscow",
+            },
+        )
+        self.assertEqual(stale.status_code, 409)
+        stale_html = stale.get_data(as_text=True)
+        self.assertIn(
+            "Настройка клиники уже изменилась другим пользователем",
+            stale_html,
+        )
+        self.assertIn(
+            'name="expected_timezone" value="Asia/Tokyo"',
+            stale_html,
+        )
+
+        with app_core.app.app_context():
+            conn = app_core.db()
+            current = conn.execute(
+                "SELECT timezone FROM clinics WHERE id=?",
+                (self.clinic_id,),
+            ).fetchone()["timezone"]
+            self.assertEqual(current, "Asia/Tokyo")
+
+            audits = conn.execute(
+                """
+                SELECT action,details
+                FROM audit_log
+                WHERE action='clinic_timezone_updated'
+                ORDER BY id
+                """
+            ).fetchall()
+            self.assertEqual(len(audits), 1)
+            self.assertIn("old_timezone=Europe/Moscow", audits[0]["details"])
+            self.assertIn("new_timezone=Asia/Tokyo", audits[0]["details"])
+            self.assertNotIn("Europe/London", audits[0]["details"])
+
+    def test_path_like_and_oversized_timezone_values_fail_closed(self):
+        self._grant_structure(2)
+        client = self._client(2)
+
+        for value in (
+            "../UTC",
+            "/etc/passwd",
+            "X" * (clinic_timezone.MAX_TIMEZONE_NAME_LENGTH + 1),
+        ):
+            with self.subTest(value=value[:40]):
+                response = client.post(
+                    f"/structure/clinics/{self.clinic_id}/timezone",
+                    data={
+                        "csrf": "timezone-test-csrf",
+                        "timezone": value,
+                        "expected_timezone": "Europe/Moscow",
+                    },
+                )
+                self.assertEqual(response.status_code, 200)
+                html = response.get_data(as_text=True)
+                self.assertTrue(
+                    "Неизвестный часовой пояс IANA" in html
+                    or "Название часового пояса слишком длинное" in html
+                )
+
+                with app_core.app.app_context():
+                    conn = app_core.db()
+                    current = conn.execute(
+                        "SELECT timezone FROM clinics WHERE id=?",
+                        (self.clinic_id,),
+                    ).fetchone()["timezone"]
+                    self.assertEqual(current, "Europe/Moscow")
+                    count = conn.execute(
+                        """
+                        SELECT COUNT(*) AS n
+                        FROM audit_log
+                        WHERE action='clinic_timezone_updated'
+                        """
+                    ).fetchone()["n"]
+                    self.assertEqual(count, 0)
+
+    def test_audit_failure_rolls_back_timezone_and_partial_audit_row(self):
+        self._grant_structure(2)
+        client = self._client(2)
+
+        def failing_audit(action, target_user_id=None, details=None):
+            conn = app_core.db()
+            actor = g_user_id = 2
+            conn.execute(
+                """
+                INSERT INTO audit_log(
+                    actor_user_id,action,target_user_id,details,created_at
+                ) VALUES(?,?,?,?,?)
+                """,
+                (
+                    actor,
+                    action,
+                    target_user_id,
+                    details,
+                    app_core.iso_now(),
+                ),
+            )
+            raise RuntimeError("forced audit failure after insert")
+
+        original_testing = app_core.app.config.get("TESTING")
+        original_propagate = app_core.app.config.get("PROPAGATE_EXCEPTIONS")
+        app_core.app.config["TESTING"] = False
+        app_core.app.config["PROPAGATE_EXCEPTIONS"] = False
+        try:
+            with patch.object(
+                clinic_structure_settings.app_core,
+                "audit",
+                side_effect=failing_audit,
+            ):
+                response = client.post(
+                    f"/structure/clinics/{self.clinic_id}/timezone",
+                    data={
+                        "csrf": "timezone-test-csrf",
+                        "timezone": "Asia/Tokyo",
+                        "expected_timezone": "Europe/Moscow",
+                    },
+                )
+            self.assertEqual(response.status_code, 500)
+        finally:
+            app_core.app.config["TESTING"] = original_testing
+            app_core.app.config["PROPAGATE_EXCEPTIONS"] = original_propagate
+
+        with app_core.app.app_context():
+            conn = app_core.db()
+            current = conn.execute(
+                "SELECT timezone FROM clinics WHERE id=?",
+                (self.clinic_id,),
+            ).fetchone()["timezone"]
+            self.assertEqual(current, "Europe/Moscow")
+            count = conn.execute(
+                """
+                SELECT COUNT(*) AS n
+                FROM audit_log
+                WHERE action='clinic_timezone_updated'
+                """
+            ).fetchone()["n"]
+            self.assertEqual(count, 0)
+
     def test_invalid_timezone_is_rejected_without_write(self):
         self._grant_structure(2)
         response = self._client(2).post(
@@ -232,6 +417,7 @@ class ClinicTimezoneSettingsIntegrationTests(unittest.TestCase):
             data={
                 "csrf": "timezone-test-csrf",
                 "timezone": "Browser/Automatic",
+                "expected_timezone": "Europe/Moscow",
             },
         )
         self.assertEqual(response.status_code, 200)
@@ -252,7 +438,10 @@ class ClinicTimezoneSettingsIntegrationTests(unittest.TestCase):
         self._grant_structure(2)
         response = self._client(2).post(
             f"/structure/clinics/{self.clinic_id}/timezone",
-            data={"timezone": "Asia/Tokyo"},
+            data={
+                "timezone": "Asia/Tokyo",
+                "expected_timezone": "Europe/Moscow",
+            },
         )
         self.assertEqual(response.status_code, 400)
 
