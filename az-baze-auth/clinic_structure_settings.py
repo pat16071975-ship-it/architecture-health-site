@@ -2,6 +2,7 @@ from flask import abort, g, redirect, render_template, request, url_for
 
 import app as app_core
 from clinic_timezone import (
+    ClinicTimezoneConflict,
     ClinicTimezoneError,
     get_clinic_timezone,
     set_clinic_timezone,
@@ -94,34 +95,54 @@ def register(app):
         error = None
         selected_timezone = clinic["timezone"]
 
+        status_code = 200
         if request.method == "POST":
             app_core.require_csrf()
             selected_timezone = request.form.get("timezone", "").strip()
+            expected_timezone = request.form.get("expected_timezone", "").strip()
             try:
-                result = set_clinic_timezone(conn, clinic_id, selected_timezone)
+                result = set_clinic_timezone(
+                    conn,
+                    clinic_id,
+                    selected_timezone,
+                    expected_timezone=expected_timezone,
+                )
                 if result["changed"]:
-                    app_core.audit(
-                        "clinic_timezone_updated",
-                        details=(
-                            f"clinic_id={clinic_id}; "
-                            f"old_timezone={result['old_timezone']}; "
-                            f"new_timezone={result['timezone']}"
-                        ),
-                    )
+                    try:
+                        app_core.audit(
+                            "clinic_timezone_updated",
+                            details=(
+                                f"clinic_id={clinic_id}; "
+                                f"old_timezone={result['old_timezone']}; "
+                                f"new_timezone={result['timezone']}"
+                            ),
+                        )
+                    except Exception:
+                        conn.rollback()
+                        raise
                 else:
                     conn.rollback()
                 return redirect(url_for("clinic_structure_index"))
+            except ClinicTimezoneConflict as exc:
+                conn.rollback()
+                clinic = get_clinic_timezone(conn, clinic_id)
+                selected_timezone = clinic["timezone"]
+                error = str(exc)
+                status_code = 409
             except ClinicTimezoneError as exc:
                 conn.rollback()
                 error = str(exc)
 
-        return render_template(
-            "clinic_timezone_form.html",
-            clinic=clinic,
-            selected_timezone=selected_timezone,
-            timezone_options=timezone_options(),
-            error=error,
-            csrf=app_core.csrf_token(),
+        return (
+            render_template(
+                "clinic_timezone_form.html",
+                clinic=clinic,
+                selected_timezone=selected_timezone,
+                timezone_options=timezone_options(),
+                error=error,
+                csrf=app_core.csrf_token(),
+            ),
+            status_code,
         )
 
     @app.after_request
