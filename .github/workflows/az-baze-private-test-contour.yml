@@ -1,0 +1,57 @@
+name: AZ-BAZE Private Test Contour
+
+on:
+  push:
+    branches:
+      - feature/az-private-test-contour
+    paths:
+      - "az-baze-auth/test_server.py"
+      - "az-baze-auth/tools/prepare_private_test_contour.py"
+      - "az-baze-auth/test_private_test_contour.py"
+      - "az-baze-auth/deploy/PRIVATE-TEST-CONTOUR.md"
+      - ".github/workflows/az-baze-private-test-contour.yml"
+  pull_request:
+    paths:
+      - "az-baze-auth/test_server.py"
+      - "az-baze-auth/tools/prepare_private_test_contour.py"
+      - "az-baze-auth/test_private_test_contour.py"
+      - "az-baze-auth/deploy/PRIVATE-TEST-CONTOUR.md"
+      - ".github/workflows/az-baze-private-test-contour.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  private-test-contour:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependencies
+        run: pip install -r az-baze-auth/requirements.txt
+
+      - name: Python syntax
+        run: >
+          python -m py_compile
+          az-baze-auth/test_server.py
+          az-baze-auth/tools/prepare_private_test_contour.py
+          az-baze-auth/test_private_test_contour.py
+
+      - name: Private contour isolation tests
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_private_test_contour.py
+
+      - name: Foundation regression
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_structure_foundation.py
+
+      - name: Clinic timezone regression
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_clinic_timezone_settings.py
