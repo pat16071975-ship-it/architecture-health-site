@@ -959,6 +959,17 @@ def controlled_seed(timezone_name, db_path=DB_PATH):
             check(sha256_file(backup_path) == backup_sha256, "backup sha256 changed")
             assert_database_quiescent(db_path)
 
+            step("PRESEED EXACT FOUNDATION REVALIDATION")
+            verify_migration_applied(runner, db_path, migration_dir)
+            conn = _connect_ro(db_path)
+            try:
+                verify_exact_foundation_schema(conn, expected_schema)
+                verify_exact_migration_history(conn, migration_path)
+                _foundation_tables_empty(conn)
+            finally:
+                conn.close()
+            assert_database_quiescent(db_path)
+
             step("APPLY CURRENT AZ STRUCTURE SEED")
             seeded = apply_seed_transaction(db_path, spec, baseline, seed_helper)
 
@@ -1037,6 +1048,8 @@ def controlled_seed(timezone_name, db_path=DB_PATH):
             verify_migration_applied(runner, db_path, migration_dir)
             conn = _connect_ro(db_path)
             try:
+                verify_exact_foundation_schema(conn, expected_schema)
+                verify_exact_migration_history(conn, migration_path)
                 verify_seeded_state(conn, spec)
             finally:
                 conn.close()
