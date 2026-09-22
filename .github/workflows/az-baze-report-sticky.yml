@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - feature/az-baze-auth
-      - fix/report-sticky-months
+      - fix/report-sticky-months-runtime
     paths:
       - 'reports/index.html'
       - 'reports/period-view.js'
@@ -30,7 +30,29 @@ jobs:
       - name: JavaScript syntax
         run: node --check reports/period-view.js
 
-      - name: Management report month-header contract
+      - name: Runtime pin geometry unit
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const src=fs.readFileSync('reports/period-view.js','utf8');
+          const match=src.match(/function pinnedHeaderShift\([^)]*\)\{[\s\S]*?\n  \}/);
+          if(!match) throw new Error('pinnedHeaderShift function not found');
+          eval(match[0]);
+
+          const cases=[
+            {name:'table below nav',args:[120,1000,50,52],want:0},
+            {name:'pin under nav',args:[-100,1000,50,52],want:152},
+            {name:'stop at table end',args:[-1200,1000,50,52],want:950},
+            {name:'short table safe',args:[0,40,50,52],want:0},
+          ];
+          for(const t of cases){
+            const got=pinnedHeaderShift(...t.args);
+            if(got!==t.want) throw new Error(`${t.name}: got ${got}, want ${t.want}`);
+          }
+          console.log('RUNTIME PIN GEOMETRY: OK');
+          NODE
+
+      - name: Management report runtime-pin contract
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -40,24 +62,40 @@ jobs:
           nav = Path("az-baze-auth/section_navigation.py").read_text(encoding="utf-8")
 
           required = [
-              "body.az-date-compare-viewport-sticky .toolbar{position:static!important;top:auto!important}",
+              "body.az-date-compare-runtime-pin .toolbar{position:static!important;top:auto!important}",
               "box-shadow:0 0 0 100vmax #f7f3ec,0 1px 0 rgba(181,150,98,.22)",
               "clip-path:inset(0 -100vmax)",
-              "body.az-date-compare-viewport-sticky .date-compare-table{overflow:visible}",
-              "body.az-date-compare-viewport-sticky .date-compare-table thead th{top:52px;z-index:30}",
-              "function syncDateStickyMode()",
-              "window.innerWidth>900",
-              "table.scrollWidth<=shell.clientWidth+2",
-              "document.body.classList.toggle('az-date-compare-viewport-sticky',fitsDesktop)",
-              "window.addEventListener('resize',()=>requestAnimationFrame(syncDateStickyMode)",
+              "body.az-date-compare-runtime-pin .date-compare-table thead th{",
+              "position:relative!important;",
+              "transform:translateY(var(--az-month-pin-shift,0px))",
+              "will-change:transform;",
+              "function pinnedHeaderShift(",
+              "function syncDatePinnedHeader()",
+              "function queueDatePinnedHeader()",
+              "document.body.classList.toggle('az-date-compare-runtime-pin',enabled)",
+              "nav.getBoundingClientRect().bottom",
+              "table.getBoundingClientRect()",
+              "table.offsetHeight",
+              "head.offsetHeight",
+              "table.style.setProperty('--az-month-pin-shift',shift+'px')",
+              "table.style.removeProperty('--az-month-pin-shift')",
+              "window.addEventListener('scroll',queueDatePinnedHeader",
+              "window.addEventListener('resize',queueDatePinnedHeader",
           ]
           for needle in required:
               assert needle in js, needle
+
+          forbidden = [
+              "az-date-compare-viewport-sticky",
+              "syncDateStickyMode",
+          ]
+          for needle in forbidden:
+              assert needle not in js, needle
 
           assert '<script src="./period-view.js' in index
           assert ".toolbar{display:flex" in index
           assert "position:sticky;top:0;z-index:10" in index
           assert "body .toolbar{top:52px!important}" in nav
 
-          print("MANAGEMENT REPORT STICKY MONTH HEADER CONTRACT: OK")
+          print("MANAGEMENT REPORT RUNTIME PIN CONTRACT: OK")
           PY
