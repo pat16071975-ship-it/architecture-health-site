@@ -23,7 +23,11 @@
     .date-view-field{min-width:190px!important}.compare-range-field{min-width:180px!important}.today-btn{align-self:end}.entry-btn{white-space:nowrap}
     #dateCompareView{margin-top:16px}.date-compare-shell{padding:0}.date-compare-title{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}.date-compare-title h2{margin:0;font:700 24px/1.1 'Cormorant Garamond',serif}.date-compare-title .muted{max-width:720px;text-align:right}
     body.az-date-compare-viewport-sticky .toolbar{position:static!important;top:auto!important}
-    body.az-date-compare-viewport-sticky .az-section-nav{background:#f7f3ec!important;box-shadow:0 1px 0 rgba(181,150,98,.22)}
+    body.az-date-compare-viewport-sticky .az-section-nav{
+      background:#f7f3ec!important;
+      box-shadow:0 0 0 100vmax #f7f3ec,0 1px 0 rgba(181,150,98,.22);
+      clip-path:inset(0 -100vmax);
+    }
     body.az-date-compare-viewport-sticky .date-compare-table{overflow:visible}
     body.az-date-compare-viewport-sticky .date-compare-table thead th{top:52px;z-index:30}
     body.az-date-compare-viewport-sticky .date-compare-table thead th:first-child{z-index:31}
