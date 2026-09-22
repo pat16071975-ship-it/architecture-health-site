@@ -6,19 +6,15 @@ on:
       - feature/az-baze-auth
       - fix/report-sticky-months
     paths:
-      - 'reports/sticky-report-headers.js'
-      - 'reports/services.html'
-      - 'reports/services-base.html'
-      - 'reports/transitions.html'
-      - 'reports/transitions.css'
+      - 'reports/index.html'
+      - 'reports/period-view.js'
+      - 'az-baze-auth/section_navigation.py'
       - '.github/workflows/az-baze-report-sticky.yml'
   pull_request:
     paths:
-      - 'reports/sticky-report-headers.js'
-      - 'reports/services.html'
-      - 'reports/services-base.html'
-      - 'reports/transitions.html'
-      - 'reports/transitions.css'
+      - 'reports/index.html'
+      - 'reports/period-view.js'
+      - 'az-baze-auth/section_navigation.py'
       - '.github/workflows/az-baze-report-sticky.yml'
 
 permissions:
@@ -32,33 +28,34 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: JavaScript syntax
-        run: node --check reports/sticky-report-headers.js
+        run: node --check reports/period-view.js
 
-      - name: Services viewport-sticky contract
+      - name: Management report month-header contract
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          js = Path("reports/sticky-report-headers.js").read_text(encoding="utf-8")
-          services = Path("reports/services.html").read_text(encoding="utf-8")
-          transitions = Path("reports/transitions.html").read_text(encoding="utf-8")
+          js = Path("reports/period-view.js").read_text(encoding="utf-8")
+          index = Path("reports/index.html").read_text(encoding="utf-8")
+          nav = Path("az-baze-auth/section_navigation.py").read_text(encoding="utf-8")
 
           required = [
-              "install(frame.contentDocument, { viewportSticky: true });",
-              "az-sticky-report-viewport-scroll",
-              "az-sticky-report-viewport-panel",
-              "canUseViewportSticky(doc, table, scroll)",
-              "scroll.classList.toggle('az-sticky-report-scroll', !viewportMode)",
-              "scroll.classList.toggle('az-sticky-report-viewport-scroll', viewportMode)",
-              "const horizontalOverflow = table.scrollWidth > scroll.clientWidth + 2;",
+              "body.az-date-compare-viewport-sticky .toolbar{position:static!important;top:auto!important}",
+              "body.az-date-compare-viewport-sticky .date-compare-table{overflow:visible}",
+              "body.az-date-compare-viewport-sticky .date-compare-table thead th{top:0;z-index:30}",
+              "function syncDateStickyMode()",
+              "window.innerWidth>900",
+              "table.scrollWidth<=shell.clientWidth+2",
+              "document.body.classList.toggle('az-date-compare-viewport-sticky',fitsDesktop)",
+              "window.addEventListener('resize',()=>requestAnimationFrame(syncDateStickyMode)",
           ]
           for needle in required:
               assert needle in js, needle
 
-          assert '<iframe id="serviceFrame"' in services
-          assert './sticky-report-headers.js' in services
-          assert './sticky-report-headers.js' in transitions
-          assert "install(document);" in js
+          assert '<script src="./period-view.js' in index
+          assert ".toolbar{display:flex" in index
+          assert "position:sticky;top:0;z-index:10" in index
+          assert "body .toolbar{top:52px!important}" in nav
 
-          print("REPORT STICKY HEADER CONTRACT: OK")
+          print("MANAGEMENT REPORT STICKY MONTH HEADER CONTRACT: OK")
           PY
