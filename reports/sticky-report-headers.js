@@ -13,10 +13,11 @@
   ].join(',');
   const SCROLL_SELECTOR = '.table-wrap,.matrix-wrap';
 
-  function install(doc) {
+  function install(doc, options = {}) {
     if (!doc?.documentElement || doc[INSTALL_FLAG]) return;
     doc[INSTALL_FLAG] = true;
 
+    const viewportSticky = !!options.viewportSticky;
     injectStyle(doc);
 
     const win = doc.defaultView;
@@ -27,7 +28,7 @@
       const requestFrame = win?.requestAnimationFrame?.bind(win) || (fn => setTimeout(fn, 16));
       frameId = requestFrame(() => {
         frameId = 0;
-        refresh(doc);
+        refresh(doc, { viewportSticky });
       });
     };
 
@@ -60,6 +61,16 @@
         overscroll-behavior: contain;
         scrollbar-gutter: stable;
       }
+      .az-sticky-report-viewport-scroll {
+        position: static !important;
+        overflow: visible !important;
+        max-height: none !important;
+        overscroll-behavior: auto !important;
+        scrollbar-gutter: auto !important;
+      }
+      .az-sticky-report-viewport-panel {
+        overflow: visible !important;
+      }
       .az-sticky-report-table {
         border-collapse: separate !important;
         border-spacing: 0 !important;
@@ -81,16 +92,31 @@
     (doc.head || doc.documentElement).appendChild(style);
   }
 
-  function refresh(doc) {
-    doc.querySelectorAll(TABLE_SELECTOR).forEach(table => pinTable(doc, table));
+  function refresh(doc, options = {}) {
+    doc.querySelectorAll(TABLE_SELECTOR).forEach(table => pinTable(doc, table, options));
   }
 
-  function pinTable(doc, table) {
+  function pinTable(doc, table, options = {}) {
     const head = table.tHead;
     if (!head?.rows?.length) return;
 
     table.classList.add('az-sticky-report-table');
-    table.closest(SCROLL_SELECTOR)?.classList.add('az-sticky-report-scroll');
+
+    const scroll = table.closest(SCROLL_SELECTOR);
+    const panel = scroll?.closest('.panel');
+    const viewportMode = !!(
+      options.viewportSticky
+      && scroll
+      && canUseViewportSticky(doc, table, scroll)
+    );
+
+    if (scroll) {
+      scroll.classList.toggle('az-sticky-report-scroll', !viewportMode);
+      scroll.classList.toggle('az-sticky-report-viewport-scroll', viewportMode);
+    }
+    if (panel) {
+      panel.classList.toggle('az-sticky-report-viewport-panel', viewportMode);
+    }
 
     const rows = Array.from(head.rows);
     let top = 0;
@@ -106,6 +132,14 @@
 
       top += rowHeight(doc, row);
     });
+  }
+
+  function canUseViewportSticky(doc, table, scroll) {
+    const win = doc.defaultView;
+    if (!win || win.innerWidth <= 900) return false;
+
+    const horizontalOverflow = table.scrollWidth > scroll.clientWidth + 2;
+    return !horizontalOverflow;
   }
 
   function rowHeight(doc, row) {
@@ -135,7 +169,7 @@
   if (frame) {
     const installFrame = () => {
       try {
-        install(frame.contentDocument);
+        install(frame.contentDocument, { viewportSticky: true });
       } catch (error) {
         console.warn('Sticky report headers: iframe is unavailable', error);
       }
