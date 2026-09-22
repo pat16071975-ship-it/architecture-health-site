@@ -1,0 +1,64 @@
+name: AZ-BAZE Report Sticky Headers
+
+on:
+  push:
+    branches:
+      - feature/az-baze-auth
+      - fix/report-sticky-months
+    paths:
+      - 'reports/sticky-report-headers.js'
+      - 'reports/services.html'
+      - 'reports/services-base.html'
+      - 'reports/transitions.html'
+      - 'reports/transitions.css'
+      - '.github/workflows/az-baze-report-sticky.yml'
+  pull_request:
+    paths:
+      - 'reports/sticky-report-headers.js'
+      - 'reports/services.html'
+      - 'reports/services-base.html'
+      - 'reports/transitions.html'
+      - 'reports/transitions.css'
+      - '.github/workflows/az-baze-report-sticky.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  sticky-header-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JavaScript syntax
+        run: node --check reports/sticky-report-headers.js
+
+      - name: Services viewport-sticky contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          js = Path("reports/sticky-report-headers.js").read_text(encoding="utf-8")
+          services = Path("reports/services.html").read_text(encoding="utf-8")
+          transitions = Path("reports/transitions.html").read_text(encoding="utf-8")
+
+          required = [
+              "install(frame.contentDocument, { viewportSticky: true });",
+              "az-sticky-report-viewport-scroll",
+              "az-sticky-report-viewport-panel",
+              "canUseViewportSticky(doc, table, scroll)",
+              "scroll.classList.toggle('az-sticky-report-scroll', !viewportMode)",
+              "scroll.classList.toggle('az-sticky-report-viewport-scroll', viewportMode)",
+              "const horizontalOverflow = table.scrollWidth > scroll.clientWidth + 2;",
+          ]
+          for needle in required:
+              assert needle in js, needle
+
+          assert '<iframe id="serviceFrame"' in services
+          assert './sticky-report-headers.js' in services
+          assert './sticky-report-headers.js' in transitions
+          assert "install(document);" in js
+
+          print("REPORT STICKY HEADER CONTRACT: OK")
+          PY
