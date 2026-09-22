@@ -1,0 +1,63 @@
+name: AZ-BAZE Report Sticky Headers
+
+on:
+  push:
+    branches:
+      - feature/az-baze-auth
+      - fix/report-sticky-months
+    paths:
+      - 'reports/index.html'
+      - 'reports/period-view.js'
+      - 'az-baze-auth/section_navigation.py'
+      - '.github/workflows/az-baze-report-sticky.yml'
+  pull_request:
+    paths:
+      - 'reports/index.html'
+      - 'reports/period-view.js'
+      - 'az-baze-auth/section_navigation.py'
+      - '.github/workflows/az-baze-report-sticky.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  sticky-header-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JavaScript syntax
+        run: node --check reports/period-view.js
+
+      - name: Management report month-header contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          js = Path("reports/period-view.js").read_text(encoding="utf-8")
+          index = Path("reports/index.html").read_text(encoding="utf-8")
+          nav = Path("az-baze-auth/section_navigation.py").read_text(encoding="utf-8")
+
+          required = [
+              "body.az-date-compare-viewport-sticky .toolbar{position:static!important;top:auto!important}",
+              "box-shadow:0 0 0 100vmax #f7f3ec,0 1px 0 rgba(181,150,98,.22)",
+              "clip-path:inset(0 -100vmax)",
+              "body.az-date-compare-viewport-sticky .date-compare-table{overflow:visible}",
+              "body.az-date-compare-viewport-sticky .date-compare-table thead th{top:52px;z-index:30}",
+              "function syncDateStickyMode()",
+              "window.innerWidth>900",
+              "table.scrollWidth<=shell.clientWidth+2",
+              "document.body.classList.toggle('az-date-compare-viewport-sticky',fitsDesktop)",
+              "window.addEventListener('resize',()=>requestAnimationFrame(syncDateStickyMode)",
+          ]
+          for needle in required:
+              assert needle in js, needle
+
+          assert '<script src="./period-view.js' in index
+          assert ".toolbar{display:flex" in index
+          assert "position:sticky;top:0;z-index:10" in index
+          assert "body .toolbar{top:52px!important}" in nav
+
+          print("MANAGEMENT REPORT STICKY MONTH HEADER CONTRACT: OK")
+          PY
