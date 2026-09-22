@@ -41,6 +41,7 @@ jobs:
 
           required = [
               "body.az-date-compare-viewport-sticky .toolbar{position:static!important;top:auto!important}",
+              "body.az-date-compare-viewport-sticky .az-section-nav{background:#f7f3ec!important",
               "body.az-date-compare-viewport-sticky .date-compare-table{overflow:visible}",
               "body.az-date-compare-viewport-sticky .date-compare-table thead th{top:52px;z-index:30}",
               "function syncDateStickyMode()",
