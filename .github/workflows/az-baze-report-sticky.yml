@@ -1,101 +1,201 @@
-name: AZ-BAZE Report Sticky Headers
+name: AZ-BAZE Report Header UI
 
 on:
   push:
     branches:
       - feature/az-baze-auth
-      - fix/report-sticky-months-runtime
+      - fix/report-header-final
     paths:
       - 'reports/index.html'
       - 'reports/period-view.js'
       - 'az-baze-auth/section_navigation.py'
+      - '.github/scripts/az-report-header-browser-check.cjs'
       - '.github/workflows/az-baze-report-sticky.yml'
   pull_request:
     paths:
       - 'reports/index.html'
       - 'reports/period-view.js'
       - 'az-baze-auth/section_navigation.py'
+      - '.github/scripts/az-report-header-browser-check.cjs'
       - '.github/workflows/az-baze-report-sticky.yml'
 
 permissions:
   contents: read
 
 jobs:
-  sticky-header-contract:
+  report-header-ui:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: JavaScript syntax
-        run: node --check reports/period-view.js
-
-      - name: Runtime pin geometry unit
         run: |
-          node - <<'NODE'
-          const fs=require('fs');
-          const src=fs.readFileSync('reports/period-view.js','utf8');
-          const match=src.match(/function pinnedHeaderShift\([^)]*\)\{[\s\S]*?\n  \}/);
-          if(!match) throw new Error('pinnedHeaderShift function not found');
-          eval(match[0]);
+          node --check reports/period-view.js
+          node --check .github/scripts/az-report-header-browser-check.cjs
 
-          const cases=[
-            {name:'table below nav',args:[120,1000,50,52],want:0},
-            {name:'pin under nav',args:[-100,1000,50,52],want:152},
-            {name:'stop at table end',args:[-1200,1000,50,52],want:950},
-            {name:'short table safe',args:[0,40,50,52],want:0},
-          ];
-          for(const t of cases){
-            const got=pinnedHeaderShift(...t.args);
-            if(got!==t.want) throw new Error(`${t.name}: got ${got}, want ${t.want}`);
-          }
-          console.log('RUNTIME PIN GEOMETRY: OK');
-          NODE
-
-      - name: Management report runtime-pin contract
+      - name: Final report header source contract
         run: |
           python - <<'PY'
           from pathlib import Path
 
           js = Path("reports/period-view.js").read_text(encoding="utf-8")
-          index = Path("reports/index.html").read_text(encoding="utf-8")
           nav = Path("az-baze-auth/section_navigation.py").read_text(encoding="utf-8")
 
           required = [
-              "body.az-date-compare-runtime-pin .toolbar{position:static!important;top:auto!important}",
-              "box-shadow:0 0 0 100vmax #f7f3ec,0 1px 0 rgba(181,150,98,.22)",
-              "clip-path:inset(0 -100vmax)",
-              "body.az-date-compare-runtime-pin .date-compare-table thead th{",
-              "position:relative!important;",
-              "transform:translateY(var(--az-month-pin-shift,0px))",
-              "will-change:transform;",
-              "function pinnedHeaderShift(",
-              "function syncDatePinnedHeader()",
-              "function queueDatePinnedHeader()",
-              "document.body.classList.toggle('az-date-compare-runtime-pin',enabled)",
-              "nav.getBoundingClientRect().bottom",
-              "table.getBoundingClientRect()",
-              "table.offsetHeight",
-              "head.offsetHeight",
-              "table.style.setProperty('--az-month-pin-shift',shift+'px')",
-              "table.style.removeProperty('--az-month-pin-shift')",
-              "window.addEventListener('scroll',queueDatePinnedHeader",
-              "window.addEventListener('resize',queueDatePinnedHeader",
+              "body .toolbar{position:static!important;top:auto!important}",
+              ".date-compare-table thead th{position:static!important;top:auto!important;left:auto!important}",
+              ".date-compare-sticky-head{",
+              "position:fixed;",
+              "dateCompareStickyHead",
+              "dateStickyThead.innerHTML=head.innerHTML",
+              "dateStickyCols.innerHTML=widths.map",
+              "dateStickyInner.style.left=(-shell.scrollLeft)+'px'",
+              "dateStickyHead.style.top=navBottom+'px'",
+              "dateStickyHead.style.left=Math.round(shellRect.left)+'px'",
+              "dateStickyHead.style.width=Math.round(shellRect.width)+'px'",
+              "window.addEventListener('scroll',queueDateStickyClone",
+              "window.addEventListener('resize',queueDateStickyClone",
+              "dateCompareShell?.addEventListener('scroll',queueDateStickyClone",
           ]
           for needle in required:
               assert needle in js, needle
 
           forbidden = [
+              "az-date-compare-runtime-pin",
               "az-date-compare-viewport-sticky",
+              "--az-month-pin-shift",
+              "pinnedHeaderShift",
+              "syncDatePinnedHeader",
               "syncDateStickyMode",
+              "transform:translateY",
           ]
           for needle in forbidden:
               assert needle not in js, needle
 
-          assert '<script src="./period-view.js' in index
-          assert ".toolbar{display:flex" in index
-          assert "position:sticky;top:0;z-index:10" in index
           assert "body .toolbar{top:52px!important}" in nav
-
-          print("MANAGEMENT REPORT RUNTIME PIN CONTRACT: OK")
+          print("FINAL REPORT HEADER SOURCE CONTRACT: OK")
           PY
+
+      - name: Calculation algorithms unchanged
+        run: |
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          BASE = "1835d9fc5864f5af9171481b2ebc56da937844fc"
+
+          def git_show(path):
+              return subprocess.check_output(
+                  ["git", "show", f"{BASE}:{path}"],
+                  text=True,
+                  encoding="utf-8",
+              )
+
+          def extract_function(src, name):
+              marker = f"function {name}("
+              start = src.find(marker)
+              if start < 0:
+                  raise AssertionError(f"missing function {name}")
+              brace = src.find("{", start)
+              if brace < 0:
+                  raise AssertionError(f"missing body for {name}")
+              depth = 0
+              quote = None
+              escaped = False
+              i = brace
+              while i < len(src):
+                  ch = src[i]
+                  if quote is not None:
+                      if escaped:
+                          escaped = False
+                      elif ch == "\\":
+                          escaped = True
+                      elif ch == quote:
+                          quote = None
+                  else:
+                      if ch in ("'", '"', "`"):
+                          quote = ch
+                      elif ch == "{":
+                          depth += 1
+                      elif ch == "}":
+                          depth -= 1
+                          if depth == 0:
+                              return src[start:i + 1]
+                  i += 1
+              raise AssertionError(f"unterminated function {name}")
+
+          def exact_line(src, prefix):
+              for line in src.splitlines():
+                  if line.startswith(prefix):
+                      return line
+              raise AssertionError(f"missing line {prefix}")
+
+          current_index = Path("reports/index.html").read_text(encoding="utf-8")
+          base_index = git_show("reports/index.html")
+          current_period = Path("reports/period-view.js").read_text(encoding="utf-8")
+          base_period = git_show("reports/period-view.js")
+
+          for name in ("daysInMonth", "derive", "aggregate"):
+              assert extract_function(current_index, name) == extract_function(base_index, name), name
+
+          for prefix in ("const money=", "const num=", "const pct=", "const count="):
+              assert exact_line(current_index, prefix) == exact_line(base_index, prefix), prefix
+
+          period_functions = (
+              "mix",
+              "heatColor",
+              "heatEnabled",
+              "heatStyles",
+              "getPeriodDefs",
+              "periodData",
+              "doctorReconciliation",
+              "clampDate",
+              "compareMonths",
+              "rawOrNull",
+              "addDateMetric",
+          )
+          for name in period_functions:
+              assert extract_function(current_period, name) == extract_function(base_period, name), name
+
+          print("CALCULATION ALGORITHM CONTRACT: UNCHANGED")
+          PY
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start local report server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/az-report-http.log 2>&1 &
+          echo $! >/tmp/az-report-http.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/reports/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/az-report-http.log
+          exit 1
+
+      - name: Chromium checks — one date and monthly compare
+        run: node .github/scripts/az-report-header-browser-check.cjs
+
+      - name: Stop local report server
+        if: always()
+        run: |
+          if [ -f /tmp/az-report-http.pid ]; then
+            kill "$(cat /tmp/az-report-http.pid)" || true
+          fi
+
+      - name: Upload browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: az-report-header-browser-screenshots
+          path: artifacts/*.png
+          if-no-files-found: warn
+          retention-days: 7
