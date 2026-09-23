@@ -8,6 +8,13 @@ function fail(message) {
 (async () => {
   fs.mkdirSync('artifacts', { recursive: true });
 
+  const sourceHtml = fs.readFileSync('reports/index.html', 'utf8');
+  const browserFixture = sourceHtml
+    .replace(/<link\s+rel="preconnect"\s+href="https:\/\/fonts\.googleapis\.com">\s*/g, '')
+    .replace(/<link\s+rel="preconnect"\s+href="https:\/\/fonts\.gstatic\.com"\s+crossorigin>\s*/g, '')
+    .replace(/<link\s+href="https:\/\/fonts\.googleapis\.com\/[^"]+"\s+rel="stylesheet">\s*/g, '');
+  fs.writeFileSync('reports/__browser-test.html', browserFixture);
+
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1600, height: 900 },
@@ -32,8 +39,8 @@ function fail(message) {
     if (msg.type() === 'error') console.error('PAGE_CONSOLE_ERROR:', msg.text());
   });
 
-  await page.goto('http://127.0.0.1:4173/reports/', {
-    waitUntil: 'commit',
+  await page.goto('http://127.0.0.1:4173/reports/__browser-test.html', {
+    waitUntil: 'domcontentloaded',
     timeout: 10000,
   });
 
@@ -209,7 +216,9 @@ function fail(message) {
   console.log('BROWSER SCREENSHOTS: artifacts/report-one-date.png, artifacts/report-monthly-compare.png');
 
   await browser.close();
+  fs.rmSync('reports/__browser-test.html', { force: true });
 })().catch(async err => {
+  fs.rmSync('reports/__browser-test.html', { force: true });
   console.error(err.stack || err);
   process.exit(1);
 });
