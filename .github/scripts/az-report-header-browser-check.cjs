@@ -19,7 +19,11 @@ function fail(message) {
   });
 
   const page = await context.newPage();
-  await page.goto('http://127.0.0.1:4173/reports/', { waitUntil: 'networkidle' });
+  await page.goto('http://127.0.0.1:4173/reports/', {
+    waitUntil: 'domcontentloaded',
+    timeout: 10000,
+  });
+  await page.waitForFunction(() => !!document.getElementById('dateViewMode'), null, { timeout: 10000 });
 
   await page.evaluate(() => {
     const style = document.createElement('style');
