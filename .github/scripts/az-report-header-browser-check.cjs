@@ -19,6 +19,11 @@ function fail(message) {
   });
 
   const page = await context.newPage();
+  await page.route('https://fonts.googleapis.com/**', route =>
+    route.fulfill({ status: 200, contentType: 'text/css', body: '' })
+  );
+  await page.route('https://fonts.gstatic.com/**', route => route.abort());
+
   await page.goto('http://127.0.0.1:4173/reports/', {
     waitUntil: 'domcontentloaded',
     timeout: 10000,
