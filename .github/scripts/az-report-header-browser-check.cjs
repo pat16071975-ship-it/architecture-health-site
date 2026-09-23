@@ -23,6 +23,7 @@ function fail(message) {
 
   await context.addInitScript(() => {
     sessionStorage.setItem('az-management-auth-v1', '1');
+    localStorage.setItem('az-management-seed-2026-07', '2026-07');
   });
 
   await context.route('**/*', route => {
