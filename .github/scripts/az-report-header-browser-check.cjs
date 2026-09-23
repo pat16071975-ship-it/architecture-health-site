@@ -27,11 +27,31 @@ function fail(message) {
   });
 
   const page = await context.newPage();
+  page.on('pageerror', error => console.error('PAGE_ERROR:', error.stack || error.message));
+  page.on('console', msg => {
+    if (msg.type() === 'error') console.error('PAGE_CONSOLE_ERROR:', msg.text());
+  });
+
   await page.goto('http://127.0.0.1:4173/reports/', {
     waitUntil: 'commit',
     timeout: 10000,
   });
-  await page.waitForFunction(() => !!document.getElementById('dateViewMode'), null, { timeout: 10000 });
+
+  await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(error => {
+    console.error('DOMCONTENTLOADED_WAIT:', error.message);
+  });
+  await page.waitForTimeout(500);
+
+  const bootstrap = await page.evaluate(() => ({
+    mode: !!document.getElementById('mode'),
+    appView: !!document.getElementById('appView'),
+    dateViewMode: !!document.getElementById('dateViewMode'),
+    scripts: [...document.scripts].map(script => script.getAttribute('src')).filter(Boolean),
+    readyState: document.readyState,
+  }));
+  console.log('BROWSER_BOOTSTRAP=' + JSON.stringify(bootstrap));
+  if (!bootstrap.mode || !bootstrap.appView) fail('Base report page did not initialize');
+  if (!bootstrap.dateViewMode) fail('period-view.js did not initialize dateViewMode');
 
   await page.evaluate(() => {
     const style = document.createElement('style');
