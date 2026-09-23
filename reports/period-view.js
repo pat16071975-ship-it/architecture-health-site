@@ -22,19 +22,30 @@
     .period-summary-note,.date-summary-note{margin:0 0 10px;padding:10px 13px;border-left:3px solid var(--gold);border-radius:8px;background:#fffaf0;color:#665b49;font-size:12px}
     .date-view-field{min-width:190px!important}.compare-range-field{min-width:180px!important}.today-btn{align-self:end}.entry-btn{white-space:nowrap}
     #dateCompareView{margin-top:16px}.date-compare-shell{padding:0}.date-compare-title{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}.date-compare-title h2{margin:0;font:700 24px/1.1 'Cormorant Garamond',serif}.date-compare-title .muted{max-width:720px;text-align:right}
-    body.az-date-compare-runtime-pin .toolbar{position:static!important;top:auto!important}
-    body.az-date-compare-runtime-pin .az-section-nav{
-      background:#f7f3ec!important;
-      box-shadow:0 0 0 100vmax #f7f3ec,0 1px 0 rgba(181,150,98,.22);
-      clip-path:inset(0 -100vmax);
+    body .toolbar{position:static!important;top:auto!important}
+    .date-compare-table thead th{position:static!important;top:auto!important;left:auto!important}
+    .date-compare-sticky-head{
+      position:fixed;
+      z-index:9000;
+      overflow:hidden;
+      pointer-events:none;
+      background:#f8f4ec;
+      border:1px solid var(--line);
+      border-top:0;
+      box-shadow:0 4px 12px rgba(71,58,38,.08);
     }
-    body.az-date-compare-runtime-pin .date-compare-table thead th{
-      position:relative!important;
-      top:auto!important;
-      left:auto!important;
-      z-index:30;
-      transform:translateY(var(--az-month-pin-shift,0px));
-      will-change:transform;
+    .date-compare-sticky-head-inner{position:relative;left:0;top:0}
+    .date-compare-sticky-head table{border-collapse:separate;border-spacing:0;table-layout:fixed;background:#f8f4ec}
+    .date-compare-sticky-head th{padding:10px 12px;border-bottom:1px solid #e7dfd3;font-size:12px;vertical-align:middle;background:#f8f4ec;text-align:center;font-weight:750;color:#354039}
+    .date-compare-sticky-head th:first-child{text-align:left}
+    .date-compare-sticky-head .period-name{font:700 17px/1.05 'Cormorant Garamond',serif;color:#2f3a33}
+    .date-compare-sticky-head .period-months{display:block;margin-top:4px;font:500 10px/1.15 Inter,sans-serif;color:#777d76}
+    @media(min-width:901px){
+      body .az-section-nav{
+        background:#f7f3ec!important;
+        box-shadow:0 0 0 100vmax #f7f3ec,0 1px 0 rgba(181,150,98,.22);
+        clip-path:inset(0 -100vmax);
+      }
     }
     .entry-overlay{position:fixed;inset:0;z-index:1000;background:rgba(38,45,40,.38);backdrop-filter:blur(3px);display:grid;place-items:center;padding:18px}.entry-dialog{width:min(1180px,98vw);max-height:94vh;display:flex;flex-direction:column;background:#fffdf8;border:1px solid #d8cdbb;border-radius:18px;box-shadow:0 24px 80px rgba(37,42,39,.26);overflow:hidden}.entry-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid #e3dacd;background:#faf6ef}.entry-head h2{margin:0;font:700 26px/1 'Cormorant Garamond',serif}.entry-close{border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#687067;padding:4px 8px}.entry-body{overflow:auto;padding:14px 18px 10px}.entry-top{display:grid;grid-template-columns:minmax(180px,240px) 1fr;gap:12px;align-items:end;margin-bottom:12px}.entry-columns{display:grid;grid-template-columns:.9fr 1.08fr 1.08fr;gap:12px;align-items:start}.entry-card{border:1px solid #e2d9ca;border-radius:14px;overflow:hidden;background:#fff}.entry-card h3{margin:0;padding:10px 12px;font:700 18px/1.1 'Cormorant Garamond',serif}.entry-card.general h3{background:#efe5d2}.entry-card.dent h3{background:#dfe9f2}.entry-card.clinic h3{background:#dfe9e2}.entry-card.lab h3{background:#f1dfc9}.entry-card.marketing h3{background:#eee5f1}.entry-card-body{padding:10px 12px}.entry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.entry-field{display:grid;gap:4px}.entry-field label{font-size:10px;font-weight:700;color:#626a62}.entry-field input{width:100%;padding:8px 9px;border:1px solid #d7cdbd;border-radius:8px;background:#fff;font:600 13px Inter;color:#2f3732}.entry-field input:focus{outline:2px solid rgba(68,99,79,.18);border-color:#78917f}.entry-list{display:grid;gap:7px}.entry-doctor{display:grid;grid-template-columns:minmax(0,1fr) 130px;gap:8px;align-items:center}.entry-doctor span{font-size:11px;line-height:1.2}.entry-doctor input{width:100%;padding:8px;border:1px solid #d7cdbd;border-radius:8px;text-align:right;font:600 12px Inter}.entry-reconcile{margin-top:12px;padding:10px 12px;border-radius:10px;background:#f3f7f3;border:1px solid #d5e2d8;font-size:12px;color:#42564a}.entry-reconcile.bad{background:#fff1ef;border-color:#e3aaa3;color:#8d403b}.entry-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid #e3dacd;background:#faf7f1}.entry-foot-note{font-size:11px;color:#737970}.entry-foot-actions{display:flex;gap:8px}.reconcile-note{margin:10px 14px 0;padding:9px 11px;border:1px solid #e0aaa3;border-radius:9px;background:#fff1ef;color:#8d403b;font-size:12px;font-weight:700}.view-only{cursor:default!important;background:transparent!important}
     .heat-cell{transition:background-color .2s ease}
@@ -124,6 +135,17 @@
   const editView=document.getElementById('editView');
   const dateCompareView=document.createElement('div');dateCompareView.id='dateCompareView';dateCompareView.className='hidden';dateCompareView.innerHTML='<div class="date-compare-title"><h2 id="dateCompareTitle">Сравнение на эту дату</h2><div class="muted" id="dateCompareHint"></div></div><div id="dateSummaryNote" class="date-summary-note"></div><div class="date-compare-table"><table><thead id="dateCompareHead"></thead><tbody id="dateCompareBody"></tbody></table></div>';
   if(editView?.parentNode)editView.parentNode.insertBefore(dateCompareView,editView);
+  const dateStickyHead=document.createElement('div');
+  dateStickyHead.id='dateCompareStickyHead';
+  dateStickyHead.className='date-compare-sticky-head hidden';
+  dateStickyHead.setAttribute('aria-hidden','true');
+  dateStickyHead.innerHTML='<div class="date-compare-sticky-head-inner"><table><colgroup></colgroup><thead></thead></table></div>';
+  document.body.appendChild(dateStickyHead);
+  const dateStickyInner=dateStickyHead.querySelector('.date-compare-sticky-head-inner');
+  const dateStickyTable=dateStickyHead.querySelector('table');
+  const dateStickyCols=dateStickyHead.querySelector('colgroup');
+  const dateStickyThead=dateStickyHead.querySelector('thead');
+  const dateCompareShell=dateCompareView.querySelector('.date-compare-table');
 
   function makeViewOnly(){
     document.querySelectorAll('#editView [data-key]:not([readonly])').forEach(inp=>{inp.readOnly=true;inp.classList.add('view-only')});
@@ -229,31 +251,45 @@
     addGroup(tbody,'Клиника','group-clinic',cols);addSub(tbody,'Приёмы','sub-visits-clinic',cols);addDateMetric(tbody,'Первичные','row-visits-clinic',months,(d,r)=>rawOrNull(r.clinicPrimary),fmtCount,'clinicPrimary');addDateMetric(tbody,'Повторные','row-visits-clinic',months,(d,r)=>rawOrNull(r.clinicRepeat),fmtCount,'clinicRepeat');addDateMetric(tbody,'ПП в день','row-visits-clinic',months,d=>rawOrNull(d.clinicPPDay),fmtCount,'clinicPPDay');addSub(tbody,'Выручка и экономика','sub-money-clinic',cols);addDateMetric(tbody,'Выручка клиники','row-money-clinic',months,d=>rawOrNull(d.clinicRev),fmtMoney,'clinicRev',true);addDateMetric(tbody,'Средний чек клиники','row-money-clinic',months,d=>rawOrNull(d.clinicAvg),fmtMoney,'clinicAvg');addSub(tbody,'Выручка по специалистам','sub-team-clinic',cols);clinicDocs.forEach(name=>addDateMetric(tbody,name,'row-team-clinic',months,(d,r)=>rawOrNull((r.clinicDocs||{})[name]),fmtMoney,'clinicDoctor'));
     addGroup(tbody,'Лаборатория','group-lab',cols);addSub(tbody,'Объём','sub-lab-volume',cols);addDateMetric(tbody,'Количество заказов','row-lab-volume',months,(d,r)=>rawOrNull(r.labOrders),fmtCount,'labOrders');addSub(tbody,'Выручка и экономика','sub-lab-money',cols);addDateMetric(tbody,'Выручка лаборатории','row-lab-money',months,(d,r)=>rawOrNull(r.labRevenue||r.factLab),fmtMoney,'labRevenue',true);addDateMetric(tbody,'Средний чек лаборатории','row-lab-money',months,d=>rawOrNull(d.labAvg),fmtMoney,'labAvg');
     addGroup(tbody,'Маркетинг','group-marketing',cols);addSub(tbody,'Лиды','sub-marketing-input',cols);addDateMetric(tbody,'Целевые лиды — стоматология','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsDent),fmtCount,'leadsDent');addDateMetric(tbody,'Отказ / мониторинг — стоматология','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsDentLost),fmtCount,'leadsDentLost');addDateMetric(tbody,'Целевые лиды — клиника','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsClinic),fmtCount,'leadsClinic');addDateMetric(tbody,'Резерв','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsReserve),fmtCount,'leadsReserve');addDateMetric(tbody,'Всего лидов','row-marketing-input',months,d=>rawOrNull(d.totalLeads),fmtCount,'totalLeads',true);addSub(tbody,'Конверсия','sub-marketing-conv',cols);addDateMetric(tbody,'Конверсия стоматология','row-marketing-conv',months,d=>rawOrNull(d.convDent),fmtPct,'convDent');addDateMetric(tbody,'Конверсия клиника','row-marketing-conv',months,d=>rawOrNull(d.convClinic),fmtPct,'convClinic');addDateMetric(tbody,'Общая конверсия','row-marketing-conv',months,d=>rawOrNull(d.totalConv),fmtPct,'totalConv',true);
-    queueDatePinnedHeader();
+    queueDateStickyClone();
   }
 
-  let datePinRaf=0;
-  function pinnedHeaderShift(tableTop,tableHeight,headHeight,navBottom){
-    const maxShift=Math.max(0,tableHeight-headHeight);
-    return Math.max(0,Math.min(navBottom-tableTop,maxShift));
+  let dateStickyRaf=0;
+  function hideDateStickyClone(){
+    dateStickyHead.classList.add('hidden');
   }
-  function syncDatePinnedHeader(){
-    datePinRaf=0;
+  function syncDateStickyClone(){
+    dateStickyRaf=0;
     const compare=document.getElementById('mode').value==='date'&&document.getElementById('dateViewMode').value==='compare';
-    const shell=document.querySelector('.date-compare-table'),table=shell?.querySelector('table'),head=table?.querySelector('thead');
+    const shell=dateCompareShell,table=shell?.querySelector('table'),head=table?.querySelector('thead');
     const enabled=!!(compare&&window.innerWidth>900&&shell&&table&&head);
-    document.body.classList.toggle('az-date-compare-runtime-pin',enabled);
-    if(!table)return;
-    if(!enabled){table.style.removeProperty('--az-month-pin-shift');return;}
+    if(!enabled){hideDateStickyClone();return;}
     const nav=document.querySelector('.az-section-nav');
     const navBottom=nav?Math.ceil(nav.getBoundingClientRect().bottom):0;
-    const rect=table.getBoundingClientRect();
-    const shift=pinnedHeaderShift(rect.top,table.offsetHeight,head.offsetHeight,navBottom);
-    table.style.setProperty('--az-month-pin-shift',shift+'px');
+    const shellRect=shell.getBoundingClientRect(),tableRect=table.getBoundingClientRect(),headRect=head.getBoundingClientRect();
+    const shouldShow=tableRect.top<navBottom&&tableRect.bottom>navBottom+Math.max(1,headRect.height);
+    if(!shouldShow){hideDateStickyClone();return;}
+
+    const sourceCells=[...head.querySelectorAll('th')];
+    const widths=sourceCells.map(cell=>cell.getBoundingClientRect().width);
+    const signature=head.innerHTML+'|'+widths.map(width=>width.toFixed(2)).join(',');
+    if(dateStickyHead.dataset.signature!==signature){
+      dateStickyThead.innerHTML=head.innerHTML;
+      dateStickyCols.innerHTML=widths.map(width=>'<col style="width:'+width.toFixed(2)+'px">').join('');
+      dateStickyHead.dataset.signature=signature;
+    }
+
+    dateStickyTable.style.width=Math.round(table.getBoundingClientRect().width)+'px';
+    dateStickyInner.style.left=(-shell.scrollLeft)+'px';
+    dateStickyHead.style.top=navBottom+'px';
+    dateStickyHead.style.left=Math.round(shellRect.left)+'px';
+    dateStickyHead.style.width=Math.round(shellRect.width)+'px';
+    dateStickyHead.style.height=Math.ceil(headRect.height)+'px';
+    dateStickyHead.classList.remove('hidden');
   }
-  function queueDatePinnedHeader(){
-    if(datePinRaf)return;
-    datePinRaf=requestAnimationFrame(syncDatePinnedHeader);
+  function queueDateStickyClone(){
+    if(dateStickyRaf)return;
+    dateStickyRaf=requestAnimationFrame(syncDateStickyClone);
   }
 
   function syncDateUx(){
@@ -261,10 +297,11 @@
     dateViewField.classList.toggle('hidden',!isDate);compareRangeField.classList.toggle('hidden',!isDate||!compare);entryBtn.classList.toggle('hidden',!isDate);todayBtn.classList.toggle('hidden',!isDate);
     if(isDate){periodView?.classList.add('hidden');dateCompareView.classList.toggle('hidden',!compare);editView?.classList.toggle('hidden',compare);if(compare)renderDateComparison();else{editView?.classList.remove('hidden');renderMismatchNote(currentRecord())}}
     else{dateCompareView.classList.add('hidden');editView?.classList.add('hidden')}
-    queueDatePinnedHeader();
+    queueDateStickyClone();
   }
-  window.addEventListener('scroll',queueDatePinnedHeader,{passive:true});
-  window.addEventListener('resize',queueDatePinnedHeader,{passive:true});
+  window.addEventListener('scroll',queueDateStickyClone,{passive:true});
+  window.addEventListener('resize',queueDateStickyClone,{passive:true});
+  dateCompareShell?.addEventListener('scroll',queueDateStickyClone,{passive:true});
   document.getElementById('dateViewMode').addEventListener('change',syncDateUx);document.getElementById('compareRange').addEventListener('change',renderDateComparison);
   document.getElementById('reportDate').addEventListener('change',()=>{setTimeout(()=>{renderMismatchNote(currentRecord());if(document.getElementById('dateViewMode').value==='compare')renderDateComparison()},0)});
   document.getElementById('mode').addEventListener('change',()=>setTimeout(syncDateUx,0));document.getElementById('deleteBtn')?.addEventListener('click',()=>setTimeout(()=>renderMismatchNote(currentRecord()),0));document.getElementById('loginForm')?.addEventListener('submit',()=>setTimeout(()=>renderMismatchNote(currentRecord()),450));
