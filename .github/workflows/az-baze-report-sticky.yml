@@ -85,7 +85,8 @@ jobs:
           import subprocess
           from pathlib import Path
 
-          BASE = "1835d9fc5864f5af9171481b2ebc56da937844fc"
+          # Compare calculations against the exact source before PR #6/#7/#8 sticky work.
+          BASE = "605818547b24d5fac2453eaa3f40d870193b53ba"
 
           def git_show(path):
               return subprocess.check_output(
@@ -137,6 +138,8 @@ jobs:
           base_index = git_show("reports/index.html")
           current_period = Path("reports/period-view.js").read_text(encoding="utf-8")
           base_period = git_show("reports/period-view.js")
+
+          assert current_index == base_index, "reports/index.html changed since pre-sticky baseline"
 
           for name in ("daysInMonth", "derive", "aggregate"):
               assert extract_function(current_index, name) == extract_function(base_index, name), name
