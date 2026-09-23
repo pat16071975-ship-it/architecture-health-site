@@ -198,8 +198,13 @@ function fail(message) {
     fullPage: false,
   });
 
-  // Header must release after the table ends.
+  // Header must release after the table ends. Add test-only scroll room
+  // so Chromium can physically move the table bottom above the navigation.
   const afterTableY = await page.evaluate(() => {
+    const spacer = document.createElement('div');
+    spacer.id = 'az-browser-test-release-spacer';
+    spacer.style.height = '1200px';
+    document.body.appendChild(spacer);
     const table = document.querySelector('.date-compare-table table');
     return table.getBoundingClientRect().bottom + window.scrollY + 120;
   });
