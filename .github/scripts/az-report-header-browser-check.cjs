@@ -18,14 +18,17 @@ function fail(message) {
     sessionStorage.setItem('az-management-auth-v1', '1');
   });
 
-  const page = await context.newPage();
-  await page.route('https://fonts.googleapis.com/**', route =>
-    route.fulfill({ status: 200, contentType: 'text/css', body: '' })
-  );
-  await page.route('https://fonts.gstatic.com/**', route => route.abort());
+  await context.route('**/*', route => {
+    const url = new URL(route.request().url());
+    if (url.hostname === '127.0.0.1') {
+      return route.continue();
+    }
+    return route.abort();
+  });
 
+  const page = await context.newPage();
   await page.goto('http://127.0.0.1:4173/reports/', {
-    waitUntil: 'domcontentloaded',
+    waitUntil: 'commit',
     timeout: 10000,
   });
   await page.waitForFunction(() => !!document.getElementById('dateViewMode'), null, { timeout: 10000 });
