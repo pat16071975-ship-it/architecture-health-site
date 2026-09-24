@@ -494,6 +494,17 @@ def register_report_storage(app):
         _require_api_csrf()
         if not DATE_RE.fullmatch(date or ""):
             abort(400)
+        existing_row = db().execute(
+            "SELECT payload FROM report_data WHERE date=?",
+            (date,),
+        ).fetchone()
+        if existing_row:
+            try:
+                existing = json.loads(existing_row["payload"])
+            except (TypeError, ValueError):
+                existing = {}
+            if _has_cash_state(existing):
+                abort(409)
         db().execute("DELETE FROM report_data WHERE date=?", (date,))
         db().commit()
         audit("report_deleted", target_user_id=g.user["id"], details=f"date={date}")
