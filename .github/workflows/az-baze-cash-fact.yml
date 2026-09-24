@@ -14,6 +14,7 @@ on:
       - "az-baze-auth/daily_upload.py"
       - "az-baze-auth/daily_upload_core.py"
       - "az-baze-auth/finrez.py"
+      - "az-baze-auth/economics_control.py"
       - "az-baze-auth/server.py"
       - "az-baze-auth/templates/uploads.html"
       - "az-baze-auth/test_cash_payments.py"
@@ -35,6 +36,7 @@ on:
       - "az-baze-auth/daily_upload.py"
       - "az-baze-auth/daily_upload_core.py"
       - "az-baze-auth/finrez.py"
+      - "az-baze-auth/economics_control.py"
       - "az-baze-auth/server.py"
       - "az-baze-auth/templates/uploads.html"
       - "az-baze-auth/test_cash_payments.py"
@@ -64,7 +66,7 @@ jobs:
         run: python -m unittest -v test_cash_payments.py test_upload_integrity.py
 
       - name: Python syntax
-        run: python -m py_compile az-baze-auth/cash_payments.py az-baze-auth/cash_upload.py az-baze-auth/daily_upload.py az-baze-auth/daily_upload_core.py az-baze-auth/report_storage.py az-baze-auth/ident_import.py az-baze-auth/finrez.py az-baze-auth/server.py
+        run: python -m py_compile az-baze-auth/cash_payments.py az-baze-auth/cash_upload.py az-baze-auth/daily_upload.py az-baze-auth/daily_upload_core.py az-baze-auth/report_storage.py az-baze-auth/ident_import.py az-baze-auth/finrez.py az-baze-auth/economics_control.py az-baze-auth/server.py
 
       - name: JavaScript syntax
         run: |
@@ -146,6 +148,7 @@ jobs:
           forecast = Path("reports/forecast.html").read_text(encoding="utf-8")
           finrez = Path("reports/finrez.html").read_text(encoding="utf-8")
           cash = Path("az-baze-auth/cash_payments.py").read_text(encoding="utf-8")
+          economics = Path("az-baze-auth/economics_control.py").read_text(encoding="utf-8")
 
           storage = Path("az-baze-auth/report_storage.py").read_text(encoding="utf-8")
           ident = Path("az-baze-auth/ident_import.py").read_text(encoding="utf-8")
@@ -159,6 +162,7 @@ jobs:
           assert "r?.cashTotal" in dashboard
           assert "r.cashTotal" in forecast
           assert "r.cashTotal" in finrez
+          assert 'record.get("cashTotal")' in economics
           assert "_preserve_cash_state" in storage
           assert "_reapply_cash_after_restore" in storage
           assert "cash_payments.overlay_record_map" in ident
