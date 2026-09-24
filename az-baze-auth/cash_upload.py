@@ -1,10 +1,16 @@
 from flask import abort, g, redirect, request, url_for
 
 import cash_payments
+import ident_import
 from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
 
 
 def register_cash_upload(app):
+    cash_payments.configure_providers(
+        ident_import.DENTISTS,
+        ident_import.STRUCTURE_DOCTORS,
+        ident_import.LAB_DOCTORS,
+    )
     @app.post("/uploads/cash")
     @permission_required("section5")
     def cash_upload():
