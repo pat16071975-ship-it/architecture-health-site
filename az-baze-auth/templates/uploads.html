@@ -3,6 +3,8 @@
 <style>
 .upload-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.upload-title{margin:0;font-size:24px;font-weight:500}.upload-head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.upload-home{white-space:nowrap;min-width:124px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.next-upload{margin:12px 0 16px;padding:16px 18px;border:2px solid #b59662;background:#fff8e8;border-radius:11px;font-size:22px;line-height:1.3;font-weight:700;color:#5d4930}.next-upload strong{font-size:28px}.status-line{margin:10px 0 18px;padding:10px 12px;border-left:3px solid #b59662;background:#fffaf0;border-radius:8px;font-size:12px}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload-box{border:1px solid #ded5c8;border-radius:11px;background:#fff;padding:14px}.upload-box h3{margin:0 0 5px;font-size:14px}.upload-box p{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}.upload-box input[type=file]{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}.lock{padding:10px;border-radius:8px;background:#f2eee7;color:#7c756d;font-size:11px}.result{margin:14px 0 0;padding:11px 13px;border-radius:9px;font-size:12px;line-height:1.5}.result.ok{background:#e5eee7;color:#315a40}.result.error{background:#f7e8e6;color:#8a403b}.hint{margin-top:10px;color:#72786f;font-size:10.5px;line-height:1.5}.journal-title{margin:0 0 10px;font-size:18px;font-weight:500}.state-imported,.state-replaced{color:#315a40}.state-duplicate{color:#7a684c}.state-denied_replace{color:#9a4b48}
 .plan-overlay{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:18px;background:rgba(38,45,40,.38);backdrop-filter:blur(3px)}.plan-dialog{width:min(720px,96vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid #d8cdbb;border-radius:16px;background:#fffdf8;box-shadow:0 24px 80px rgba(37,42,39,.26)}.plan-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:15px 17px;border-bottom:1px solid #e3dacd;background:#faf6ef}.plan-head h2{margin:0;font-size:21px;font-weight:500}.plan-head .muted{margin-top:4px}.plan-close{border:0;background:transparent;color:#687067;font-size:24px;line-height:1;cursor:pointer;padding:2px 6px}.plan-body{overflow:auto;padding:15px 17px}.plan-year{display:grid;grid-template-columns:140px 1fr;gap:12px;align-items:end;margin-bottom:14px}.plan-field{display:grid;gap:5px}.plan-field label{font-size:10.5px;font-weight:700;color:#5f675f}.plan-field input,.plan-field select{width:100%;min-width:0;padding:9px 10px;border:1px solid #d8cdbb;border-radius:8px;background:#fff;color:#2d342f;font:600 12px Montserrat,Arial,sans-serif}.plan-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:9px}.plan-note{padding:10px 12px;border-left:3px solid #44634f;border-radius:8px;background:#f1f6f2;color:#4b5b50;font-size:11px;line-height:1.45}.plan-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 17px;border-top:1px solid #e3dacd;background:#faf7f1}.plan-status{min-height:16px;font-size:10.5px}.plan-status.ok{color:#315a40}.plan-status.error{color:#9a4b48}.plan-actions{display:flex;gap:8px}.hidden{display:none!important}
+@media(min-width:901px){.upload-grid-three{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.upload-grid-three{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.upload-grid{grid-template-columns:1fr}.upload-head{flex-direction:column}.upload-head-actions{width:100%}.next-upload{font-size:18px}.next-upload strong{font-size:22px}.plan-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.plan-dialog{width:100vw;max-height:100vh;height:100vh;border-radius:0}.plan-overlay{padding:0}.plan-foot{align-items:stretch;flex-direction:column}.plan-actions .btn{flex:1}}
 </style>
 <div class="card">
@@ -24,20 +26,27 @@
 
   <form method="post" enctype="multipart/form-data" data-az-upload-form>
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div class="upload-grid">
+    <div class="upload-grid upload-grid-three">
       <div class="upload-box">
         <h3>1. Завершённые приёмы</h3>
         <p>Выгрузка из МИС за нужный период.</p>
         {% if 'upload_completed' in perms %}
-          <input type="file" name="completed" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
+          <input type="file" name="completed" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain">
         {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
       </div>
       <div class="upload-box">
         <h3>2. Выполненные услуги</h3>
         <p>Выгрузка из МИС ровно за тот же период.</p>
         {% if 'upload_services' in perms %}
-          <input type="file" name="services" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
+          <input type="file" name="services" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain">
         {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
+      </div>
+      <div class="upload-box">
+        <h3>3. Счета и оплаты</h3>
+        <p>Фактически принятые ДС. Факт = только положительные приходы по ККМ ООО и ИП; «Изъятие ДС» не уменьшает Факт.</p>
+        {% if can_daily %}
+          <input type="file" name="payments" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        {% else %}<div class="lock">Нет права на загрузку денежного файла.</div>{% endif %}
       </div>
     </div>
     {% if can_daily %}
@@ -45,6 +54,7 @@
     {% else %}
       <div class="hint">Для загрузки комплекта нужны права на оба обязательных файла.</div>
     {% endif %}
+    <div class="hint">Обычная загрузка: выберите все три файла. Для первичного пересчёта фактических ДС за прошлые месяцы можно выбрать только «Счета и оплаты». Система обновит денежные показатели уже существующих отчётов, не меняя приёмы и услуги.</div>
     <div class="hint">Защита от задвоения действует по каждой дате отдельно. День, уже входящий в ранее загруженную сводную базу, будет пропущен без повторного начисления. Полностью совпадающий ежедневный день тоже будет пропущен. Если за уже сохранённую ежедневную дату пришли другие данные, замена разрешается только отдельным правом.</div>
     {% if result %}<div class="result ok">{{ result['message'] }}</div>{% endif %}
     {% if error %}<div class="result error">{{ error }}</div>{% endif %}
