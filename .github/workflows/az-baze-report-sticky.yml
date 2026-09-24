@@ -5,6 +5,7 @@ on:
     branches:
       - feature/az-baze-auth
       - fix/report-header-final
+      - feature/az-cash-receipts-fact
     paths:
       - 'reports/index.html'
       - 'reports/period-view.js'
@@ -139,13 +140,21 @@ jobs:
           current_period = Path("reports/period-view.js").read_text(encoding="utf-8")
           base_period = git_show("reports/period-view.js")
 
-          assert current_index == base_index, "reports/index.html changed since pre-sticky baseline"
-
-          for name in ("daysInMonth", "derive", "aggregate"):
-              assert extract_function(current_index, name) == extract_function(base_index, name), name
+          # Header work must not silently alter unrelated formatting primitives.
+          # reports/index.html may now change intentionally for the approved
+          # real-cash Fact model, so the former whole-file equality guard is
+          # replaced by targeted invariants plus the dedicated cash-fact CI.
+          assert extract_function(current_index, "daysInMonth") == extract_function(base_index, "daysInMonth"), "daysInMonth"
 
           for prefix in ("const money=", "const num=", "const pct=", "const count="):
               assert exact_line(current_index, prefix) == exact_line(base_index, prefix), prefix
+
+          # Approved cash-fact contract. This prevents a later header-only edit
+          # from reverting the intended accounting semantics.
+          assert "cashTotal" in current_index
+          assert "Выставлено счетов" in current_index
+          assert "ДС ООО" in current_index and "ДС ИП" in current_index
+          assert "factTotal:cashTotal" in current_index
 
           period_functions = (
               "mix",
@@ -163,7 +172,7 @@ jobs:
           for name in period_functions:
               assert extract_function(current_period, name) == extract_function(base_period, name), name
 
-          print("CALCULATION ALGORITHM CONTRACT: UNCHANGED")
+          print("REPORT HEADER + CASH ACCOUNTING GUARD: OK")
           PY
 
       - name: Install Playwright Chromium
