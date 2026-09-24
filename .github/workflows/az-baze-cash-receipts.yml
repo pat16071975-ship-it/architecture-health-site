@@ -1,0 +1,38 @@
+name: AZ-BAZE Cash Receipts
+
+on:
+  push:
+    branches:
+      - feature/az-cash-receipts
+  pull_request:
+
+jobs:
+  cash-receipts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install dependencies
+        run: pip install -r az-baze-auth/requirements.txt
+      - name: Cash parser tests
+        working-directory: az-baze-auth
+        run: python test_cash_receipts.py
+      - name: Existing upload integrity tests
+        working-directory: az-baze-auth
+        run: python test_upload_integrity.py
+      - name: Python syntax
+        run: python -m py_compile az-baze-auth/cash_receipts.py az-baze-auth/daily_upload.py az-baze-auth/daily_upload_core.py az-baze-auth/finrez.py az-baze-auth/economics_control.py
+      - name: JavaScript syntax
+        run: |
+          node --check reports/period-view.js
+          node --check reports/management-mobile-layout.js
+      - name: Cash source contract
+        run: |
+          grep -q '0531380019042729' az-baze-auth/cash_receipts.py
+          grep -q '0463880019042725' az-baze-auth/cash_receipts.py
+          grep -q 'cashFact' reports/index.html
+          grep -q 'Выставлено счетов' reports/index.html
+          grep -q 'ДС ООО' reports/index.html
+          grep -q 'ДС ИП' reports/index.html
