@@ -6,8 +6,10 @@ import sqlite3
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
+from io import BytesIO
 
 from flask import abort, g
+from openpyxl import load_workbook
 
 import daily_upload_core as core
 
@@ -145,6 +147,95 @@ def _staff_match(operation):
     return unique[0] if len(unique) == 1 else None
 
 
+def _parse_sheet_rows(values):
+    values = list(values)
+    if not values:
+        raise ValueError("Файл «Счета и оплаты» пуст.")
+
+    headers = [str(value or "").strip() for value in values[0]]
+    headers += [""] * max(0, len(REQUIRED_HEADERS) - len(headers))
+    if headers[: len(REQUIRED_HEADERS)] != REQUIRED_HEADERS:
+        raise ValueError("Файл «Счета и оплаты» имеет неожиданную структуру колонок.")
+
+    rows = []
+    billed_rows = []
+    unknown_kkm = set()
+    source_rows = 0
+
+    for raw_row in values[1:]:
+        cols = list(raw_row)
+        cols += [None] * max(0, 8 - len(cols))
+        if str(cols[0] or "").strip() == "Итого":
+            continue
+
+        operation = str(cols[2] or "").strip()
+        billed = _money(cols[3])
+        movement = _money(cols[4])
+        kkm = str(cols[7] or "").strip()
+
+        if billed is None and movement is None:
+            continue
+        source_rows += 1
+
+        row_date = _date_only(cols[0])
+        cash_only_operation = (
+            operation in {"Внесение ДС", "Изъятие ДС"}
+            or operation.startswith("Перевод ДС внутри семьи")
+        )
+
+        if billed is not None and billed > 0 and not cash_only_operation:
+            if not row_date:
+                raise ValueError("В строке выставленного счёта не удалось определить дату.")
+            billed_rows.append({"date": row_date, "amount": round(float(billed), 2)})
+
+        if movement is None:
+            continue
+
+        # Internal family transfers are never new clinic income.
+        if operation.startswith("Перевод ДС внутри семьи"):
+            continue
+
+        # Current business rule: only positive receipts are Fact.
+        # «Изъятие ДС» is an internal cash-to-bank movement and is negative,
+        # therefore it is intentionally ignored here rather than subtracted.
+        if movement <= 0:
+            continue
+
+        if kkm and kkm not in KKM_ENTITY:
+            unknown_kkm.add(kkm)
+            continue
+        if kkm not in KKM_ENTITY:
+            continue
+
+        data_date = _date_only(cols[6]) or row_date
+        if not data_date:
+            raise ValueError("В строке положительного прихода не удалось определить дату чека.")
+
+        entity = KKM_ENTITY[kkm]
+        staff = _staff_match(operation)
+        rows.append(
+            {
+                "date": data_date,
+                "amount": round(float(movement), 2),
+                "entity": entity,
+                "department": staff[0] if staff else None,
+                "staff": staff[1] if staff else None,
+                "staff_full": staff[2] if staff else None,
+            }
+        )
+
+    if unknown_kkm:
+        raise ValueError(
+            "В файле найдены положительные приходы по неизвестной ККМ: "
+            + ", ".join(sorted(unknown_kkm))
+            + ". Импорт остановлен, чтобы не потерять деньги."
+        )
+    if not rows:
+        raise ValueError("В файле «Счета и оплаты» нет положительных приходов по утверждённым ККМ.")
+
+    return rows, billed_rows, source_rows
+
+
 def parse_upload(file_storage):
     raw = file_storage.read()
     if not raw:
@@ -152,95 +243,31 @@ def parse_upload(file_storage):
     if len(raw) > 25 * 1024 * 1024:
         raise ValueError("Размер файла «Счета и оплаты» превышает 25 МБ.")
 
-    candidates = core._table_candidates(raw, file_storage.filename or "")
+    lower = (file_storage.filename or "").lower()
+    if not raw.startswith(b"PK") and not lower.endswith(".xlsx"):
+        raise ValueError("Файл «Счета и оплаты» должен быть в формате XLSX.")
+
+    try:
+        workbook = load_workbook(BytesIO(raw), read_only=True, data_only=True)
+    except Exception as exc:
+        raise ValueError("Excel-файл «Счета и оплаты» повреждён или имеет неподдерживаемую структуру.") from exc
+
     last_error = None
-    for sheet_name, text in candidates:
-        try:
-            lines = text.splitlines()
-            if not lines:
-                raise ValueError("Файл «Счета и оплаты» пуст.")
-            headers = lines[0].split("\t")
-            headers += [""] * max(0, len(REQUIRED_HEADERS) - len(headers))
-            if headers[: len(REQUIRED_HEADERS)] != REQUIRED_HEADERS:
-                raise ValueError("Файл «Счета и оплаты» имеет неожиданную структуру колонок.")
-
-            rows = []
-            billed_rows = []
-            unknown_kkm = set()
-            source_rows = 0
-            for raw_line in lines[1:]:
-                cols = raw_line.split("\t")
-                cols += [""] * max(0, 8 - len(cols))
-                if str(cols[0]).strip() == "Итого":
-                    continue
-                operation = str(cols[2] or "").strip()
-                billed = _money(cols[3])
-                movement = _money(cols[4])
-                kkm = str(cols[7] or "").strip()
-                if billed is None and movement is None:
-                    continue
-                source_rows += 1
-
-                row_date = _date_only(cols[0])
-                cash_only_operation = (
-                    operation in {"Внесение ДС", "Изъятие ДС"}
-                    or operation.startswith("Перевод ДС внутри семьи")
+    try:
+        for worksheet in workbook.worksheets:
+            try:
+                rows, billed_rows, source_rows = _parse_sheet_rows(
+                    worksheet.iter_rows(values_only=True)
                 )
-                if billed is not None and billed > 0 and not cash_only_operation:
-                    if not row_date:
-                        raise ValueError("В строке выставленного счёта не удалось определить дату.")
-                    billed_rows.append({"date": row_date, "amount": round(float(billed), 2)})
+                return raw, rows, billed_rows, worksheet.title, source_rows
+            except ValueError as exc:
+                last_error = exc
+    finally:
+        workbook.close()
 
-                if movement is None:
-                    continue
-
-                # Internal family transfers are never new clinic income.
-                if operation.startswith("Перевод ДС внутри семьи"):
-                    continue
-
-                # Current business rule: only positive receipts are fact.
-                if movement <= 0:
-                    continue
-
-                if kkm and kkm not in KKM_ENTITY:
-                    unknown_kkm.add(kkm)
-                    continue
-                if kkm not in KKM_ENTITY:
-                    continue
-
-                data_date = _date_only(cols[6]) or _date_only(cols[0])
-                if not data_date:
-                    raise ValueError("В строке положительного прихода не удалось определить дату чека.")
-
-                entity = KKM_ENTITY[kkm]
-                staff = _staff_match(operation)
-                rows.append(
-                    {
-                        "date": data_date,
-                        "amount": round(float(movement), 2),
-                        "entity": entity,
-                        "department": staff[0] if staff else None,
-                        "staff": staff[1] if staff else None,
-                        "staff_full": staff[2] if staff else None,
-                    }
-                )
-
-            if unknown_kkm:
-                raise ValueError(
-                    "В файле найдены положительные приходы по неизвестной ККМ: "
-                    + ", ".join(sorted(unknown_kkm))
-                    + ". Импорт остановлен, чтобы не потерять деньги."
-                )
-            if not rows:
-                raise ValueError("В файле «Счета и оплаты» нет положительных приходов по утверждённым ККМ.")
-
-            return raw, rows, billed_rows, sheet_name, source_rows
-        except Exception as exc:
-            last_error = exc
-
-    if isinstance(last_error, ValueError):
+    if last_error:
         raise last_error
-    raise ValueError("Не удалось распознать файл «Счета и оплаты».") from last_error
+    raise ValueError("Excel-файл «Счета и оплаты» не содержит данных.")
 
 
 def _empty_snapshot():
