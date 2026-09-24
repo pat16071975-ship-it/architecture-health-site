@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS cash_imports (
     cash_ooo REAL NOT NULL,
     cash_ip REAL NOT NULL,
     cash_fact REAL NOT NULL,
+    billed_total REAL NOT NULL,
     uploaded_by INTEGER,
     uploaded_at TEXT NOT NULL,
     FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
@@ -62,6 +63,7 @@ CASH_FIELDS = {
     "cashLabOOO",
     "cashLabIP",
     "cashDataComplete",
+    "billedInvoices",
 }
 
 
@@ -163,6 +165,7 @@ def parse_upload(file_storage):
                 raise ValueError("Файл «Счета и оплаты» имеет неожиданную структуру колонок.")
 
             rows = []
+            billed_rows = []
             unknown_kkm = set()
             source_rows = 0
             for raw_line in lines[1:]:
@@ -171,11 +174,25 @@ def parse_upload(file_storage):
                 if str(cols[0]).strip() == "Итого":
                     continue
                 operation = str(cols[2] or "").strip()
+                billed = _money(cols[3])
                 movement = _money(cols[4])
                 kkm = str(cols[7] or "").strip()
-                if movement is None:
+                if billed is None and movement is None:
                     continue
                 source_rows += 1
+
+                row_date = _date_only(cols[0])
+                cash_only_operation = (
+                    operation in {"Внесение ДС", "Изъятие ДС"}
+                    or operation.startswith("Перевод ДС внутри семьи")
+                )
+                if billed is not None and billed > 0 and not cash_only_operation:
+                    if not row_date:
+                        raise ValueError("В строке выставленного счёта не удалось определить дату.")
+                    billed_rows.append({"date": row_date, "amount": round(float(billed), 2)})
+
+                if movement is None:
+                    continue
 
                 # Internal family transfers are never new clinic income.
                 if operation.startswith("Перевод ДС внутри семьи"):
@@ -217,7 +234,7 @@ def parse_upload(file_storage):
             if not rows:
                 raise ValueError("В файле «Счета и оплаты» нет положительных приходов по утверждённым ККМ.")
 
-            return raw, rows, sheet_name, source_rows
+            return raw, rows, billed_rows, sheet_name, source_rows
         except Exception as exc:
             last_error = exc
 
@@ -243,6 +260,7 @@ def _empty_snapshot():
         "cashLabOOO": 0.0,
         "cashLabIP": 0.0,
         "cashDataComplete": True,
+        "billedInvoices": 0.0,
     }
 
 
@@ -281,7 +299,7 @@ def _rounded_snapshot(value):
     result = deepcopy(value)
     for key in (
         "cashFact", "cashOOO", "cashIP", "cashAllocated", "cashUnallocated",
-        "cashLabRevenue", "cashLabOOO", "cashLabIP",
+        "cashLabRevenue", "cashLabOOO", "cashLabIP", "billedInvoices",
     ):
         result[key] = round(float(result.get(key, 0.0)), 2)
     for key in (
@@ -292,12 +310,16 @@ def _rounded_snapshot(value):
     return result
 
 
-def build_daily_snapshots(rows):
+def build_daily_snapshots(rows, billed_rows=None):
+    billed_rows = list(billed_rows or [])
     by_date = defaultdict(list)
+    billed_by_date = defaultdict(float)
     for row in rows:
         by_date[str(row["date"])].append(row)
+    for row in billed_rows:
+        billed_by_date[str(row["date"])] += float(row.get("amount") or 0)
 
-    dates = sorted(by_date)
+    dates = sorted(set(by_date) | set(billed_by_date))
     start = datetime.strptime(dates[0], "%Y-%m-%d").date()
     end = datetime.strptime(dates[-1], "%Y-%m-%d").date()
     snapshots = {}
@@ -312,6 +334,7 @@ def build_daily_snapshots(rows):
             cumulative = _empty_snapshot()
         for row in by_date.get(data_date, []):
             _apply_row(cumulative, row)
+        cumulative["billedInvoices"] += billed_by_date.get(data_date, 0.0)
         snapshots[data_date] = _rounded_snapshot(cumulative)
         cursor += timedelta(days=1)
     return snapshots, dates[0], dates[-1]
@@ -348,8 +371,8 @@ def _cash_equal(existing, incoming):
 
 
 def import_cash_file(file_storage, can_replace=False):
-    raw, rows, sheet_name, source_rows = parse_upload(file_storage)
-    snapshots, period_start, period_end = build_daily_snapshots(rows)
+    raw, rows, billed_rows, sheet_name, source_rows = parse_upload(file_storage)
+    snapshots, period_start, period_end = build_daily_snapshots(rows, billed_rows)
     filename = file_storage.filename or "Счета и оплаты"
     digest = _sha(raw)
     conn = core.db()
@@ -369,7 +392,8 @@ def import_cash_file(file_storage, can_replace=False):
     existing_map = {str(row["date"]): _load_record(row) for row in existing_rows}
 
     cash_dates = {str(row["date"]) for row in rows}
-    target_dates = sorted(set(existing_map) | cash_dates)
+    billed_dates = {str(row["date"]) for row in billed_rows}
+    target_dates = sorted(set(existing_map) | cash_dates | billed_dates)
     prepared = []
     last_record_by_month = {}
 
@@ -410,6 +434,7 @@ def import_cash_file(file_storage, can_replace=False):
     ooo = round(sum(row["amount"] for row in rows if row["entity"] == "ooo"), 2)
     ip = round(sum(row["amount"] for row in rows if row["entity"] == "ip"), 2)
     fact = round(ooo + ip, 2)
+    billed_total = round(sum(row["amount"] for row in billed_rows), 2)
     now = core.iso_now()
 
     conn.execute("BEGIN")
@@ -435,8 +460,8 @@ def import_cash_file(file_storage, can_replace=False):
             """
             INSERT INTO cash_imports(
                 filename,sha256,period_start,period_end,source_rows,accepted_rows,
-                cash_ooo,cash_ip,cash_fact,uploaded_by,uploaded_at
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                cash_ooo,cash_ip,cash_fact,billed_total,uploaded_by,uploaded_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 filename,
@@ -448,6 +473,7 @@ def import_cash_file(file_storage, can_replace=False):
                 ooo,
                 ip,
                 fact,
+                billed_total,
                 g.user["id"],
                 now,
             ),
@@ -462,7 +488,7 @@ def import_cash_file(file_storage, can_replace=False):
         target_user_id=g.user["id"],
         details=(
             f"period={period_start}..{period_end}; file={filename}; "
-            f"accepted={len(rows)}; ooo={ooo:.2f}; ip={ip:.2f}; fact={fact:.2f}"
+            f"accepted={len(rows)}; billed={billed_total:.2f}; ooo={ooo:.2f}; ip={ip:.2f}; fact={fact:.2f}"
         ),
     )
     return {
@@ -475,13 +501,14 @@ def import_cash_file(file_storage, can_replace=False):
         "cash_fact": fact,
         "cash_ooo": ooo,
         "cash_ip": ip,
+        "billed_total": billed_total,
     }
 
 
 def latest_import():
     return core.db().execute(
         """
-        SELECT filename,period_start,period_end,cash_ooo,cash_ip,cash_fact,uploaded_at
+        SELECT filename,period_start,period_end,cash_ooo,cash_ip,cash_fact,billed_total,uploaded_at
         FROM cash_imports ORDER BY id DESC LIMIT 1
         """
     ).fetchone()
