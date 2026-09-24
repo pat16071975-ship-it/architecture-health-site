@@ -611,9 +611,12 @@ def _ident_revenue():
             continue
         try:
             record = json.loads(row["payload"])
-            result[month] = _num(record.get("factMedicine")) + _num(
-                record.get("factLab", record.get("labRevenue"))
-            )
+            if record.get("cashDataComplete") is True and record.get("cashFact") is not None:
+                result[month] = _num(record.get("cashFact"))
+            else:
+                result[month] = _num(record.get("factMedicine")) + _num(
+                    record.get("factLab", record.get("labRevenue"))
+                )
         except Exception:
             result[month] = None
     return result
