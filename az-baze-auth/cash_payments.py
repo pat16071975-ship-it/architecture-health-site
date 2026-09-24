@@ -368,7 +368,8 @@ def import_cash_file(file_storage, can_replace=False):
     ).fetchall()
     existing_map = {str(row["date"]): _load_record(row) for row in existing_rows}
 
-    target_dates = sorted(set(existing_map) | set(snapshots))
+    cash_dates = {str(row["date"]) for row in rows}
+    target_dates = sorted(set(existing_map) | cash_dates)
     prepared = []
     last_record_by_month = {}
 
