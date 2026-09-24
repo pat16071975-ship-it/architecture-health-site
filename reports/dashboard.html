@@ -92,13 +92,13 @@ function repeatOf(r){const direct=num(r?.repeat);return direct||num(r?.dentRepea
 function derive(r){
   const date=r?.date||''; const d=new Date(date+'T12:00:00'); const day=d.getDate()||1;
   const rawPlan=r?.plan, hasPlan=rawPlan!==null&&rawPlan!==undefined&&rawPlan!==''&&Number.isFinite(+rawPlan)&&+rawPlan>0, plan=hasPlan?+rawPlan:0;
-  const factMedicine=num(r?.factMedicine), factLab=num(r?.factLab);
+  const factMedicine=num(r?.factMedicine), factLab=num(r?.factLab), hasCashFact=r?.cashFact!==null&&r?.cashFact!==undefined&&r?.cashFact!==''&&Number.isFinite(+r.cashFact), cashFact=hasCashFact?num(r.cashFact):factMedicine+factLab;
   const primary=primaryOf(r), repeat=repeatOf(r), dentPrimary=num(r?.dentPrimary), dentRepeat=num(r?.dentRepeat), clinicPrimary=num(r?.clinicPrimary), clinicRepeat=num(r?.clinicRepeat);
   const dentRev=sumObject(r?.dentists), structureRev=sumObject(r?.clinicDocs), labRevenue=num(r?.labRevenue||r?.factLab), labOrders=num(r?.labOrders);
-  const due=hasPlan?plan*day/daysInMonth(date):0, factTotal=factMedicine+factLab;
+  const due=hasPlan?plan*day/daysInMonth(date):0, factTotal=cashFact;
   const leadsDent=num(r?.leadsDent), leadsStructure=num(r?.leadsClinic), leadsReserve=num(r?.leadsReserve), totalLeads=leadsDent+leadsStructure+leadsReserve;
   const hasLeads=[r?.leadsDent,r?.leadsClinic,r?.leadsReserve].some(v=>Number.isFinite(+v)&&+v>0);
-  return {date,hasPlan,plan,due,factMedicine,factLab,factTotal,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&plan?factTotal/plan:null};
+  return {date,hasPlan,plan,due,cashFact,factMedicine,factLab,factTotal,primary,repeat,avgCheck:primary?cashFact/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&plan?factTotal/plan:null};
 }
 function latestByMonth(data){
   const map={}; Object.entries(data||{}).forEach(([date,r])=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;const ym=date.slice(0,7);if(!map[ym]||date>map[ym].date)map[ym]={...r,date}}); return map;
