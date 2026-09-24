@@ -1,0 +1,88 @@
+name: AZ-BAZE cash receipts fact
+
+on:
+  push:
+    branches:
+      - feature/az-cash-receipts-fact
+    paths:
+      - "az-baze-auth/cash_payments.py"
+      - "az-baze-auth/cash_upload.py"
+      - "az-baze-auth/daily_upload.py"
+      - "az-baze-auth/daily_upload_core.py"
+      - "az-baze-auth/finrez.py"
+      - "az-baze-auth/server.py"
+      - "az-baze-auth/templates/uploads.html"
+      - "az-baze-auth/test_cash_payments.py"
+      - "reports/index.html"
+      - "reports/period-view.js"
+      - "reports/management-mobile-layout.js"
+      - "reports/dashboard.html"
+      - "reports/forecast.html"
+      - "reports/finrez.html"
+      - ".github/workflows/az-baze-cash-fact.yml"
+  pull_request:
+    paths:
+      - "az-baze-auth/cash_payments.py"
+      - "az-baze-auth/cash_upload.py"
+      - "az-baze-auth/daily_upload.py"
+      - "az-baze-auth/daily_upload_core.py"
+      - "az-baze-auth/finrez.py"
+      - "az-baze-auth/server.py"
+      - "az-baze-auth/templates/uploads.html"
+      - "az-baze-auth/test_cash_payments.py"
+      - "reports/index.html"
+      - "reports/period-view.js"
+      - "reports/management-mobile-layout.js"
+      - "reports/dashboard.html"
+      - "reports/forecast.html"
+      - "reports/finrez.html"
+      - ".github/workflows/az-baze-cash-fact.yml"
+
+jobs:
+  cash-fact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r az-baze-auth/requirements.txt
+
+      - name: Cash accounting tests
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_cash_payments.py test_upload_integrity.py
+
+      - name: Python syntax
+        run: python -m py_compile az-baze-auth/cash_payments.py az-baze-auth/cash_upload.py az-baze-auth/daily_upload.py az-baze-auth/daily_upload_core.py az-baze-auth/finrez.py az-baze-auth/server.py
+
+      - name: JavaScript syntax
+        run: |
+          node --check reports/period-view.js
+          node --check reports/management-mobile-layout.js
+
+      - name: Source contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          uploads = Path("az-baze-auth/templates/uploads.html").read_text(encoding="utf-8")
+          management = Path("reports/index.html").read_text(encoding="utf-8")
+          period = Path("reports/period-view.js").read_text(encoding="utf-8")
+          dashboard = Path("reports/dashboard.html").read_text(encoding="utf-8")
+          forecast = Path("reports/forecast.html").read_text(encoding="utf-8")
+          finrez = Path("reports/finrez.html").read_text(encoding="utf-8")
+          cash = Path("az-baze-auth/cash_payments.py").read_text(encoding="utf-8")
+
+          assert 'action="/uploads/cash"' in uploads
+          assert "0531380019042729" in uploads and "0463880019042725" in uploads
+          assert "movement <= 0" in cash
+          assert '"cashTotal"' in management and "Выставлено счетов" in management
+          assert "ДС ООО" in period and "ДС ИП" in period
+          assert "r?.cashTotal" in dashboard
+          assert "r.cashTotal" in forecast
+          assert "r.cashTotal" in finrez
+          print("CASH FACT SOURCE CONTRACT: OK")
+          PY
