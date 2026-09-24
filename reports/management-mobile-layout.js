@@ -219,9 +219,10 @@
 
   // УТВЕРЖДЁННЫЕ ФОРМУЛЫ НЕ ПЕРЕОПРЕДЕЛЯЕМ.
   // Основной derive() остаётся источником правил:
-  // средний чек медицины = factMedicine / primary;
-  // стоматология = dentRev / dentPrimary;
-  // клиника = clinicRev / clinicPrimary.
+  // Факт = положительные приходы по утверждённым ККМ ООО + ИП;
+  // средний чек медицины = распределённые ДС медицины / первичные;
+  // стоматология = распределённые ДС стоматологии / dentPrimary;
+  // отделение структуры = распределённые ДС отделения / clinicPrimary.
 
   const nativeLoadStore = window.loadStore;
   if (typeof nativeLoadStore === 'function' && !window.__azManagementCompareStoreFix) {
@@ -254,7 +255,7 @@
     const hint = document.getElementById('dateCompareHint');
     const note = document.getElementById('dateSummaryNote');
     if (hint) hint.textContent = 'Каждый месяц: накопительный итог с 1-го числа по выбранный день включительно.';
-    if (note) note.textContent = 'Абсолютные показатели берутся накопительно с начала месяца. Средний чек: выручка / первичные приёмы соответствующего направления. ПП в день, выполнение и конверсии пересчитываются из накопительных итогов.';
+    if (note) note.textContent = 'Абсолютные показатели берутся накопительно с начала месяца. Факт — положительные поступления по двум утверждённым ККМ; средний чек направления считается по распределённым ДС и первичным приёмам.';
   }
 
   function refreshComparison() {
