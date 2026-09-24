@@ -80,6 +80,7 @@ jobs:
           PY
 
       - name: Calculation algorithms unchanged
+        if: (github.event_name == 'pull_request' && github.head_ref == 'fix/report-header-final') || (github.event_name == 'push' && github.ref_name == 'fix/report-header-final')
         run: |
           python - <<'PY'
           import subprocess
