@@ -24,6 +24,24 @@ function fail(message) {
   await context.addInitScript(() => {
     sessionStorage.setItem('az-management-auth-v1', '1');
     localStorage.setItem('az-management-seed-2026-07', '2026-07');
+    localStorage.setItem('az-management-report-v1', JSON.stringify({
+      '2026-09-21': {
+        date:'2026-09-21', plan:1500, factMedicine:1000, factLab:100,
+        billedInvoices:1200, cashDataComplete:true, cashFact:900, cashOOO:400, cashIP:500,
+        cashUnallocated:300,
+        primary:9, repeat:20, dentPrimary:3, dentRepeat:8, clinicPrimary:2, clinicRepeat:5,
+        dentists:{'Чирков Максим Сергеевич':700},
+        clinicDocs:{'Старостенко Вадим Анатольевич':300},
+        labOrders:2, labRevenue:100,
+        cashDentists:{'Чирков Максим Сергеевич':300},
+        cashDentistsOOO:{'Чирков Максим Сергеевич':100},
+        cashDentistsIP:{'Чирков Максим Сергеевич':200},
+        cashClinicDocs:{'Старостенко Вадим Анатольевич':200},
+        cashClinicDocsOOO:{'Старостенко Вадим Анатольевич':100},
+        cashClinicDocsIP:{'Старостенко Вадим Анатольевич':100},
+        cashLabRevenue:100, cashLabOOO:50, cashLabIP:50
+      }
+    }));
   });
 
   await context.route('**/*', route => {
@@ -97,6 +115,19 @@ function fail(message) {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await page.waitForTimeout(100);
+
+  const cashUi = await page.evaluate(() => ({
+    fact: document.querySelector('[data-key="cashFact"]')?.value || '',
+    breakdown: document.querySelector('[data-fact-breakdown]')?.innerText.replace(/\s+/g,' ').trim() || '',
+    doctorSplit: document.querySelector('[data-doctor-split="dentists"][data-doctor-name="Чирков Максим Сергеевич"]')?.innerText.replace(/\s+/g,' ').trim() || '',
+  }));
+  if (!cashUi.fact.includes('900')) fail('Cash UI: main Fact does not use cashFact');
+  if (!cashUi.breakdown.includes('1 200') || !cashUi.breakdown.includes('400') || !cashUi.breakdown.includes('500')) {
+    fail('Cash UI: billed/ООО/ИП breakdown missing');
+  }
+  if (!cashUi.doctorSplit.includes('100') || !cashUi.doctorSplit.includes('200')) {
+    fail('Cash UI: doctor ООО/ИП split missing');
+  }
 
   // Mode 1: one date. Toolbar must scroll away; only section navigation remains.
   await page.selectOption('#dateViewMode', 'single');
@@ -219,6 +250,7 @@ function fail(message) {
   console.log('BROWSER CHECK ONE DATE: PASS');
   console.log('BROWSER CHECK MONTHLY COMPARE: PASS');
   console.log('BROWSER CHECK NO TEXT TRANSFORMS: PASS');
+  console.log('BROWSER CHECK CASH FACT UI: PASS');
   console.log('BROWSER SCREENSHOTS: artifacts/report-one-date.png, artifacts/report-monthly-compare.png');
 
   await browser.close();
