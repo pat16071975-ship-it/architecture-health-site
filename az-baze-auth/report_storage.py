@@ -6,6 +6,7 @@ import sqlite3
 from flask import Response, abort, g, jsonify, request, session
 
 from app import DB_PATH, SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, user_permissions
+import cash_payments
 
 MANAGEMENT_KEY = "az-management-report-v1"
 REPORT_BLOB_KEYS = {
@@ -63,6 +64,59 @@ def _normalize_record(date, record):
     normalized = dict(record)
     normalized["date"] = date
     return normalized
+
+
+CASH_PRESERVED_KEYS = (
+    "billedMedicine", "billedLab", "billedDentists", "billedClinicDocs",
+    "billedLabRevenue", "billedTotal", "cashOOO", "cashIP", "cashTotal",
+    "cashUnallocated", "factMedicine", "factLab", "labRevenue", "dentists",
+    "clinicDocs", "dentistsLegal", "clinicDocsLegal", "labLegal",
+    "dentCashOOO", "dentCashIP", "clinicCashOOO", "clinicCashIP",
+    "labCashOOO", "labCashIP", "_cash_source", "_cash_rule",
+)
+
+
+def _has_cash_state(record):
+    return isinstance(record, dict) and (
+        record.get("_cash_rule") == "positive-receipts-only-v1"
+        or record.get("cashTotal") not in (None, "")
+    )
+
+
+def _preserve_cash_state(existing, incoming):
+    if not _has_cash_state(existing):
+        return incoming
+    result = dict(incoming)
+    for key in CASH_PRESERVED_KEYS:
+        if key in existing:
+            result[key] = existing[key]
+    return result
+
+
+def _cash_months(conn):
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT substr(data_date,1,7) AS month "
+            "FROM cash_receipts_daily ORDER BY month"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    result = []
+    for row in rows:
+        try:
+            value = row["month"]
+        except (TypeError, IndexError):
+            value = row[0]
+        if value:
+            result.append(str(value))
+    return result
+
+
+def _reapply_cash_after_restore(conn, updated_by, updated_at):
+    changed = 0
+    for month in _cash_months(conn):
+        changed += cash_payments.overlay_stored_month(conn, month, updated_by, updated_at)
+    return changed
 
 
 def _read_report_file(name):
@@ -296,7 +350,7 @@ async function loadServerStore(){
     html = html.replace(old_store, new_store)
 
     old_save = """function saveDate(){const r=collectRecord();if(!r.date)return;const store=loadStore();store[r.date]=r;saveStore(store);fillRecord(r);$('#status').textContent='Сохранено в этом браузере: '+new Date(r.date+'T12:00:00').toLocaleString('ru-RU');}"""
-    new_save = """async function saveDate(){const r=collectRecord();if(!r.date)return;try{await reportApi('/api/reports/data/'+encodeURIComponent(r.date),{method:'PUT',body:JSON.stringify(r)});SERVER_STORE[r.date]=r;fillRecord(r);$('#status').textContent='Сохранено на сервере: '+new Date(r.date+'T12:00:00').toLocaleString('ru-RU')}catch(error){console.error(error);$('#status').textContent='Не удалось сохранить данные на сервере';alert('Не удалось сохранить данные.')}}"""
+    new_save = """async function saveDate(){const r=collectRecord();if(!r.date)return;try{const result=await reportApi('/api/reports/data/'+encodeURIComponent(r.date),{method:'PUT',body:JSON.stringify(r)});const saved=result?.record||r;SERVER_STORE[r.date]=saved;fillRecord(saved);$('#status').textContent='Сохранено на сервере: '+new Date(r.date+'T12:00:00').toLocaleString('ru-RU')}catch(error){console.error(error);$('#status').textContent='Не удалось сохранить данные на сервере';alert('Не удалось сохранить данные.')}}"""
     html = html.replace(old_save, new_save)
 
     old_delete = """function deleteDate(){const date=getSelectedDate();if(!date||!confirm('Удалить сохранённую запись за выбранную дату?'))return;const s=loadStore();delete s[date];saveStore(s);loadDate();}"""
@@ -304,7 +358,7 @@ async function loadServerStore(){
     html = html.replace(old_delete, new_delete)
 
     old_import = """function importBackup(file){const fr=new FileReader();fr.onload=()=>{try{const j=JSON.parse(fr.result);if(!j.data||typeof j.data!=='object')throw 0;if(!confirm('Заменить локальные данные данными из резервной копии?'))return;saveStore(j.data);loadDate();alert('Резервная копия восстановлена')}catch{alert('Не удалось прочитать резервную копию')}};fr.readAsText(file)}"""
-    new_import = """async function importBackup(file){try{const j=JSON.parse(await file.text());if(!j.data||typeof j.data!=='object'||Array.isArray(j.data))throw new Error('invalid backup');const entries=Object.entries(j.data).filter(([date,record])=>/^\\d{4}-\\d{2}-\\d{2}$/.test(date)&&record&&typeof record==='object'&&!Array.isArray(record));if(!entries.length)throw new Error('empty backup');if(!confirm(`Заменить серверные данные резервной копией? Будет загружено записей: ${entries.length}.`))return;const result=await reportApi('/api/reports/import',{method:'POST',body:JSON.stringify(j)});SERVER_STORE=j.data;const dates=entries.map(([date])=>date).sort();const latest=dates[dates.length-1];$('#reportDate').value=latest;loadDate();$('#status').textContent=`На сервер импортировано записей: ${result.imported}. Открыта дата ${new Date(latest+'T12:00:00').toLocaleDateString('ru-RU')}.`;alert(`Резервная копия перенесена на сервер. Записей: ${result.imported}.`)}catch(error){console.error(error);alert('Не удалось перенести резервную копию на сервер.')}}"""
+    new_import = """async function importBackup(file){try{const j=JSON.parse(await file.text());if(!j.data||typeof j.data!=='object'||Array.isArray(j.data))throw new Error('invalid backup');const entries=Object.entries(j.data).filter(([date,record])=>/^\\d{4}-\\d{2}-\\d{2}$/.test(date)&&record&&typeof record==='object'&&!Array.isArray(record));if(!entries.length)throw new Error('empty backup');if(!confirm(`Заменить серверные данные резервной копией? Будет загружено записей: ${entries.length}.`))return;const result=await reportApi('/api/reports/import',{method:'POST',body:JSON.stringify(j)});await loadServerStore();const dates=Object.keys(SERVER_STORE).sort();const latest=dates[dates.length-1];$('#reportDate').value=latest;loadDate();$('#status').textContent=`На сервер импортировано записей: ${result.imported}. Открыта дата ${new Date(latest+'T12:00:00').toLocaleDateString('ru-RU')}.`;alert(`Резервная копия перенесена на сервер. Записей: ${result.imported}.`)}catch(error){console.error(error);alert('Не удалось перенести резервную копию на сервер.')}}"""
     html = html.replace(old_import, new_import)
 
     html = re.sub(r'<script src="\./seed-data\.js[^"]*"></script>', "", html)
@@ -409,6 +463,16 @@ def register_report_storage(app):
     def report_data_put(date):
         _require_api_csrf()
         record = _normalize_record(date, request.get_json(silent=True))
+        existing_row = db().execute(
+            "SELECT payload FROM report_data WHERE date=?",
+            (date,),
+        ).fetchone()
+        if existing_row:
+            try:
+                existing = json.loads(existing_row["payload"])
+            except (TypeError, ValueError):
+                existing = {}
+            record = _preserve_cash_state(existing, record)
         db().execute(
             """
             INSERT INTO report_data(date, payload, updated_by, updated_at)
@@ -421,8 +485,8 @@ def register_report_storage(app):
             (date, json.dumps(record, ensure_ascii=False, separators=(",", ":")), g.user["id"], iso_now()),
         )
         db().commit()
-        audit("report_saved", target_user_id=g.user["id"], details=f"date={date}")
-        return jsonify(ok=True)
+        audit("report_saved", target_user_id=g.user["id"], details=f"date={date}; cash_preserved={_has_cash_state(record)}")
+        return jsonify(ok=True, record=record)
 
     @app.delete("/api/reports/data/<date>")
     @permission_required("reports")
@@ -500,6 +564,7 @@ def register_report_storage(app):
         if not rows or len(rows) > 4000:
             abort(400)
         conn = db()
+        cash_payments.init_schema(conn)
         conn.execute("BEGIN")
         try:
             conn.execute("DELETE FROM report_data")
@@ -507,6 +572,7 @@ def register_report_storage(app):
                 "INSERT INTO report_data(date, payload, updated_by, updated_at) VALUES(?,?,?,?)",
                 rows,
             )
+            _reapply_cash_after_restore(conn, g.user["id"], iso_now())
             conn.commit()
         except Exception:
             conn.rollback()
@@ -538,6 +604,7 @@ def register_report_storage(app):
             abort(400)
 
         conn = db()
+        cash_payments.init_schema(conn)
         conn.execute("BEGIN")
         try:
             conn.execute("DELETE FROM report_data")
@@ -557,6 +624,7 @@ def register_report_storage(app):
                     """,
                     (key, value, uid, updated_at),
                 )
+            _reapply_cash_after_restore(conn, g.user["id"], now)
             conn.commit()
         except Exception:
             conn.rollback()
