@@ -30,6 +30,9 @@ REQUIRED_HEADERS = {
     "movement": "Движение ДС (₽)",
     "kkm": "ККМ",
 }
+INVOICE_OPERATION_RE = re.compile(r"^№\d+")
+DEBT_OPERATION_RE = re.compile(r"^Задолженность по счету №\d+", re.IGNORECASE)
+
 
 CASH_SCHEMA = """
 CREATE TABLE IF NOT EXISTS cash_receipts_daily (
@@ -153,8 +156,13 @@ def _parse_rows(rows):
         day = result[data_date]
         recognized += 1
 
-        if operation.startswith("№") and due is not None and due > 0:
+        if due is not None and due > 0 and (
+            INVOICE_OPERATION_RE.match(operation) or DEBT_OPERATION_RE.match(operation)
+        ):
             day["billedTotal"] += due
+
+        if movement is not None and movement > 0 and kkm and kkm not in LEGAL_BY_KKM:
+            raise ValueError(f"В файле «Счета и оплаты» обнаружена неизвестная ККМ: {kkm}.")
 
         legal = LEGAL_BY_KKM.get(kkm)
         if legal is None or movement is None or movement <= 0:
@@ -237,11 +245,13 @@ def replace_range(conn, daily, source_filename, source_sha256, imported_by, impo
     if not daily:
         raise ValueError("Файл «Счета и оплаты» не содержит данных для сохранения.")
     dates = sorted(daily)
-    conn.execute(
-        "DELETE FROM cash_receipts_daily WHERE data_date BETWEEN ? AND ?",
-        (dates[0], dates[-1]),
-    )
+    # Replace only dates present in the uploaded file. This keeps prior daily
+    # receipts when administrators upload the next day or a partial period.
     for data_date in dates:
+        conn.execute(
+            "DELETE FROM cash_receipts_daily WHERE data_date=?",
+            (data_date,),
+        )
         conn.execute(
             "INSERT INTO cash_receipts_daily(data_date,payload_json,source_filename,source_sha256,imported_by,imported_at) VALUES(?,?,?,?,?,?)",
             (
