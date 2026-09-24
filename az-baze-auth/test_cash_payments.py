@@ -2,6 +2,7 @@ import io
 import json
 import sqlite3
 import unittest
+from pathlib import Path
 
 from openpyxl import Workbook
 
@@ -105,6 +106,24 @@ class CashPaymentsTests(unittest.TestCase):
         ])
         with self.assertRaisesRegex(ValueError, "неизвестная ККМ"):
             cash_payments.parse_file(raw, "cash.xlsx")
+
+    def test_anonymized_reference_totals_match_verified_controls(self):
+        raw = (Path(__file__).parent / "fixtures" / "cash_reference_2026_anonymized.tsv").read_bytes()
+        daily, sheet = cash_payments.parse_file(raw, "cash_reference_2026_anonymized.tsv")
+        self.assertEqual(sheet, "текст")
+        billed = sum(day["billedTotal"] for day in daily.values())
+        cash_ooo = sum(day["cashOOO"] for day in daily.values())
+        cash_ip = sum(day["cashIP"] for day in daily.values())
+        cash_total = sum(day["cashTotal"] for day in daily.values())
+        self.assertEqual(billed, 65878370)
+        self.assertEqual(cash_ooo, 29149782)
+        self.assertEqual(cash_ip, 30742013)
+        self.assertEqual(cash_total, 59891795)
+        august = [day for date, day in daily.items() if date.startswith("2026-08")]
+        self.assertEqual(sum(day["billedTotal"] for day in august), 7782970)
+        self.assertEqual(sum(day["cashOOO"] for day in august), 3617945)
+        self.assertEqual(sum(day["cashIP"] for day in august), 4178520)
+        self.assertEqual(sum(day["cashTotal"] for day in august), 7796465)
 
     def test_multiline_russian_date_is_one_operation(self):
         raw = self.workbook_bytes([
