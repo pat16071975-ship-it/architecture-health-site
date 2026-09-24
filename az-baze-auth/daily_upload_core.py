@@ -224,19 +224,21 @@ def _rebuild_management(month, source):
     if not rows:
         return {}
     baseline = _latest_prior_report(rows[0][0])
+    baseline_dentists = baseline.get("billedDentists") if isinstance(baseline.get("billedDentists"), dict) else baseline.get("dentists")
+    baseline_clinic_docs = baseline.get("billedClinicDocs") if isinstance(baseline.get("billedClinicDocs"), dict) else baseline.get("clinicDocs")
     current = {
-        "factMedicine": float(baseline.get("factMedicine") or 0),
-        "factLab": float(baseline.get("factLab") or 0),
+        "factMedicine": float(baseline.get("billedMedicine", baseline.get("factMedicine", 0)) or 0),
+        "factLab": float(baseline.get("billedLab", baseline.get("factLab", 0)) or 0),
         "primary": int(baseline.get("primary") or 0),
         "repeat": int(baseline.get("repeat") or 0),
         "dentPrimary": int(baseline.get("dentPrimary") or 0),
         "dentRepeat": int(baseline.get("dentRepeat") or 0),
         "clinicPrimary": int(baseline.get("clinicPrimary") or 0),
         "clinicRepeat": int(baseline.get("clinicRepeat") or 0),
-        "dentists": {name: float((baseline.get("dentists") or {}).get(name) or 0) for name in ident_import.DENTISTS.values()},
-        "clinicDocs": {name: float((baseline.get("clinicDocs") or {}).get(name) or 0) for name in ident_import.STRUCTURE_DOCTORS.values()},
+        "dentists": {name: float((baseline_dentists or {}).get(name) or 0) for name in ident_import.DENTISTS.values()},
+        "clinicDocs": {name: float((baseline_clinic_docs or {}).get(name) or 0) for name in ident_import.STRUCTURE_DOCTORS.values()},
         "labOrders": int(baseline.get("labOrders") or 0),
-        "labRevenue": float(baseline.get("labRevenue") or baseline.get("factLab") or 0),
+        "labRevenue": float(baseline.get("billedLabRevenue", baseline.get("labRevenue", baseline.get("factLab", 0))) or 0),
     }
     rebuilt = {}
     for data_date, normalized in rows:
@@ -248,23 +250,30 @@ def _rebuild_management(month, source):
         for name, value in delta["clinicDocs"].items():
             current["clinicDocs"][name] = current["clinicDocs"].get(name, 0) + value
         existing = _load_report(data_date)
+        billed_dentists = {k: round(v, 2) for k, v in current["dentists"].items()}
+        billed_clinic_docs = {k: round(v, 2) for k, v in current["clinicDocs"].items()}
         rebuilt[data_date] = {
             "date": data_date,
             "plan": existing.get("plan", ""),
             "factMedicine": round(current["factMedicine"], 2),
             "factLab": round(current["factLab"], 2),
+            "billedMedicine": round(current["factMedicine"], 2),
+            "billedLab": round(current["factLab"], 2),
             "pp25": existing.get("pp25", ""),
             "avg25": existing.get("avg25", ""),
             "primary": current["primary"],
             "repeat": current["repeat"],
             "dentPrimary": current["dentPrimary"],
             "dentRepeat": current["dentRepeat"],
-            "dentists": {k: round(v, 2) for k, v in current["dentists"].items()},
+            "dentists": billed_dentists,
+            "billedDentists": billed_dentists,
             "clinicPrimary": current["clinicPrimary"],
             "clinicRepeat": current["clinicRepeat"],
-            "clinicDocs": {k: round(v, 2) for k, v in current["clinicDocs"].items()},
+            "clinicDocs": billed_clinic_docs,
+            "billedClinicDocs": billed_clinic_docs,
             "labOrders": current["labOrders"],
             "labRevenue": round(current["labRevenue"], 2),
+            "billedLabRevenue": round(current["labRevenue"], 2),
             "leadsDent": existing.get("leadsDent", ""),
             "leadsDentLost": existing.get("leadsDentLost", ""),
             "leadsClinic": existing.get("leadsClinic", ""),

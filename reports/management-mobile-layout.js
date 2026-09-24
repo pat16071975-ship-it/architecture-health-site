@@ -571,3 +571,73 @@
   setTimeout(refreshAll, 250);
   setTimeout(refreshAll, 800);
 })();
+
+
+(() => {
+  'use strict';
+
+  const legalMoney = value => {
+    const number = Number(value || 0);
+    return new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 0}).format(number) + ' ₽';
+  };
+  const splitText = split => {
+    const ooo = Number(split?.ooo || 0), ip = Number(split?.ip || 0);
+    if (!ooo && !ip) return '';
+    return 'ООО ' + legalMoney(ooo) + ' · ИП ' + legalMoney(ip);
+  };
+  const currentRecord = () => {
+    const date = document.getElementById('reportDate')?.value;
+    if (!date || typeof loadStore !== 'function') return null;
+    const store = loadStore();
+    return store?.[date] || null;
+  };
+  const putSplit = (container, text) => {
+    if (!container) return;
+    let note = container.querySelector(':scope > .az-legal-split');
+    if (!text) {
+      note?.remove();
+      return;
+    }
+    if (!note) {
+      note = document.createElement('div');
+      note.className = 'az-legal-split';
+      container.appendChild(note);
+    }
+    note.textContent = text;
+  };
+  const decorate = () => {
+    const record = currentRecord();
+    if (!record) return;
+
+    document.querySelectorAll('#editView [data-doctor]').forEach(input => {
+      const type = input.dataset.doctorType;
+      const name = input.dataset.doctor;
+      const source = type === 'dentists' ? record.dentistsLegal : record.clinicDocsLegal;
+      putSplit(input.closest('td'), splitText(source?.[name]));
+    });
+
+    const directions = [
+      ['dentRev', {ooo: record.dentCashOOO, ip: record.dentCashIP}],
+      ['clinicRev', {ooo: record.clinicCashOOO, ip: record.clinicCashIP}],
+      ['labRevenue', record.labLegal || {ooo: record.labCashOOO, ip: record.labCashIP}],
+    ];
+    directions.forEach(([key, split]) => {
+      const input = document.querySelector('#editView [data-key="' + key + '"]');
+      putSplit(input?.closest('.metric'), splitText(split));
+    });
+  };
+
+  let style = document.getElementById('azCashLegalSplitStyle');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'azCashLegalSplitStyle';
+    style.textContent = '.az-legal-split{margin-top:2px;font:500 8.5px/1.15 Inter,Arial,sans-serif;color:#838981;text-align:right;white-space:nowrap}.metric .az-legal-split{text-align:left;font-size:8px}.data-table td .az-legal-split{padding-right:2px}';
+    document.head.appendChild(style);
+  }
+
+  document.addEventListener('change', () => setTimeout(decorate, 30), true);
+  document.addEventListener('input', () => setTimeout(decorate, 30), true);
+  setTimeout(decorate, 0);
+  setTimeout(decorate, 250);
+  setTimeout(decorate, 900);
+})();

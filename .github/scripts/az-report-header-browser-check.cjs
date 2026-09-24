@@ -24,6 +24,14 @@ function fail(message) {
   await context.addInitScript(() => {
     sessionStorage.setItem('az-management-auth-v1', '1');
     localStorage.setItem('az-management-seed-2026-07', '2026-07');
+    localStorage.setItem('az-management-report-v1', JSON.stringify({
+      '2026-09-21': {
+        date:'2026-09-21', plan:5000, cashTotal:1000, cashOOO:600, cashIP:400,
+        billedTotal:1200, factMedicine:500, factLab:100, primary:2, repeat:3,
+        dentPrimary:1, dentRepeat:1, dentists:{}, clinicPrimary:1, clinicRepeat:2,
+        clinicDocs:{}, labOrders:1, labRevenue:100, leadsDent:2, leadsClinic:2, leadsReserve:0
+      }
+    }));
   });
 
   await context.route('**/*', route => {
@@ -97,6 +105,33 @@ function fail(message) {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await page.waitForTimeout(100);
+
+  // Editing a manual field must not wipe imported readonly cash values in the browser.
+  const manualEditCash = await page.evaluate(() => {
+    const plan = document.querySelector('[data-key="plan"]');
+    if (!plan) return { ok:false, reason:'plan input missing' };
+    plan.readOnly = false;
+    plan.removeAttribute('readonly');
+    plan.value = '6000';
+    plan.dispatchEvent(new Event('input', { bubbles:true }));
+    const record = collectRecord();
+    const derived = derive(record);
+    return {
+      ok:true,
+      cashTotal:derived.cashTotal,
+      cashOOO:derived.cashOOO,
+      cashIP:derived.cashIP,
+      billedTotal:derived.billedTotal,
+      plan:record.plan,
+    };
+  });
+  if (!manualEditCash.ok) fail('Manual edit guard: '+manualEditCash.reason);
+  if (manualEditCash.cashTotal !== 1000 || manualEditCash.cashOOO !== 600 || manualEditCash.cashIP !== 400) {
+    fail('Manual edit guard: cash values disappeared while editing a manual field');
+  }
+  if (manualEditCash.billedTotal !== 1200 || String(manualEditCash.plan) !== '6000') {
+    fail('Manual edit guard: billed/manual values are inconsistent');
+  }
 
   // Mode 1: one date. Toolbar must scroll away; only section navigation remains.
   await page.selectOption('#dateViewMode', 'single');
@@ -220,6 +255,81 @@ function fail(message) {
   console.log('BROWSER CHECK MONTHLY COMPARE: PASS');
   console.log('BROWSER CHECK NO TEXT TRANSFORMS: PASS');
   console.log('BROWSER SCREENSHOTS: artifacts/report-one-date.png, artifacts/report-monthly-compare.png');
+
+  // Mobile regression: cash fields must stay readable and tables must scroll
+  // inside their own containers without widening the page.
+  const mobileContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 1,
+  });
+  await mobileContext.addInitScript(() => {
+    sessionStorage.setItem('az-management-auth-v1', '1');
+    localStorage.setItem('az-management-seed-2026-07', '2026-07');
+    localStorage.setItem('az-management-report-v1', JSON.stringify({
+      '2026-09-21': {
+        date:'2026-09-21', plan:5000, cashTotal:1000, cashOOO:600, cashIP:400,
+        billedTotal:1200, factMedicine:500, factLab:100, primary:2, repeat:3,
+        dentPrimary:1, dentRepeat:1, dentists:{}, clinicPrimary:1, clinicRepeat:2,
+        clinicDocs:{}, labOrders:1, labRevenue:100
+      }
+    }));
+  });
+  await mobileContext.route('**/*', route => {
+    const url = new URL(route.request().url());
+    if (url.hostname === '127.0.0.1') return route.continue();
+    return route.abort();
+  });
+  const mobile = await mobileContext.newPage();
+  await mobile.goto('http://127.0.0.1:4173/reports/__browser-test.html', {
+    waitUntil: 'domcontentloaded',
+    timeout: 10000,
+  });
+  await mobile.waitForSelector('#dateViewMode', { timeout: 5000 });
+  await mobile.waitForTimeout(250);
+
+  const mobileSingle = await mobile.evaluate(() => {
+    const grid = document.getElementById('generalGrid');
+    const firstMetric = grid?.querySelector('.metric');
+    const labels = [...(grid?.querySelectorAll('label') || [])].map(x => x.textContent.trim());
+    return {
+      bodyOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      gridWidth: grid?.getBoundingClientRect().width || 0,
+      metricWidth: firstMetric?.getBoundingClientRect().width || 0,
+      labels,
+      toolbarPosition: getComputedStyle(document.querySelector('.toolbar')).position,
+    };
+  });
+  if (mobileSingle.bodyOverflow > 2) fail('Mobile single-date: page has horizontal body overflow');
+  if (mobileSingle.gridWidth && mobileSingle.metricWidth < mobileSingle.gridWidth * 0.75) {
+    fail('Mobile single-date: main metrics are not stacked/readable');
+  }
+  for (const label of ['Факт', 'Выставлено счетов', 'ДС ООО', 'ДС ИП']) {
+    if (!mobileSingle.labels.includes(label)) fail('Mobile single-date: missing cash label ' + label);
+  }
+  if (mobileSingle.toolbarPosition !== 'static') fail('Mobile single-date: toolbar is unexpectedly sticky');
+  await mobile.screenshot({ path: 'artifacts/report-mobile-one-date.png', fullPage: false });
+
+  await mobile.selectOption('#dateViewMode', 'compare');
+  await mobile.selectOption('#compareRange', 'ytd');
+  await mobile.waitForTimeout(200);
+  const mobileCompare = await mobile.evaluate(() => {
+    const shell = document.querySelector('.date-compare-table');
+    return {
+      bodyOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      shellWidth: shell?.getBoundingClientRect().width || 0,
+      viewport: window.innerWidth,
+      shellScrollable: !!shell && shell.scrollWidth > shell.clientWidth,
+      stickyCloneHidden: document.getElementById('dateCompareStickyHead')?.classList.contains('hidden'),
+    };
+  });
+  if (mobileCompare.bodyOverflow > 2) fail('Mobile compare: page has horizontal body overflow');
+  if (mobileCompare.shellWidth > mobileCompare.viewport + 2) fail('Mobile compare: table shell exceeds viewport');
+  if (!mobileCompare.shellScrollable) fail('Mobile compare: wide comparison table is not horizontally scrollable');
+  if (mobileCompare.stickyCloneHidden !== true) fail('Mobile compare: desktop sticky clone must remain disabled');
+  await mobile.screenshot({ path: 'artifacts/report-mobile-compare.png', fullPage: false });
+  console.log('BROWSER CHECK MOBILE ONE DATE: PASS');
+  console.log('BROWSER CHECK MOBILE COMPARE: PASS');
+  await mobileContext.close();
 
   await browser.close();
   fs.rmSync('reports/__browser-test.html', { force: true });

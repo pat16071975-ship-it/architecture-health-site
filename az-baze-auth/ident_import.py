@@ -7,6 +7,7 @@ from flask import Response, abort, g, jsonify, request
 
 from app import SITE_ROOT, admin_required, audit, csrf_token, db, iso_now
 import report_storage
+import cash_payments
 
 
 DENTISTS = {
@@ -493,8 +494,11 @@ def _pad_financial_months(month_index):
 def _save_import(management, service_data, finance_blobs, source):
     conn = db()
     now = iso_now()
+    cash_payments.init_schema(conn)
     conn.execute("BEGIN")
     try:
+        for month in sorted({str(date)[:7] for date in management}):
+            cash_payments.overlay_record_map(conn, month, management)
         for date, record in management.items():
             payload = json.dumps(record, ensure_ascii=False, separators=(",", ":"))
             conn.execute(
