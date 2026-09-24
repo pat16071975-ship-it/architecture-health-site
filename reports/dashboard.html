@@ -95,7 +95,8 @@ function derive(r){
   const factMedicine=num(r?.factMedicine), factLab=num(r?.factLab);
   const primary=primaryOf(r), repeat=repeatOf(r), dentPrimary=num(r?.dentPrimary), dentRepeat=num(r?.dentRepeat), clinicPrimary=num(r?.clinicPrimary), clinicRepeat=num(r?.clinicRepeat);
   const dentRev=sumObject(r?.dentists), structureRev=sumObject(r?.clinicDocs), labRevenue=num(r?.labRevenue||r?.factLab), labOrders=num(r?.labOrders);
-  const due=hasPlan?plan*day/daysInMonth(date):0, factTotal=factMedicine+factLab;
+  const due=hasPlan?plan*day/daysInMonth(date):0, legacyFact=factMedicine+factLab;
+  const factTotal=(r?.cashTotal!==undefined&&r?.cashTotal!==null&&r?.cashTotal!=='')?num(r.cashTotal):legacyFact;
   const leadsDent=num(r?.leadsDent), leadsStructure=num(r?.leadsClinic), leadsReserve=num(r?.leadsReserve), totalLeads=leadsDent+leadsStructure+leadsReserve;
   const hasLeads=[r?.leadsDent,r?.leadsClinic,r?.leadsReserve].some(v=>Number.isFinite(+v)&&+v>0);
   return {date,hasPlan,plan,due,factMedicine,factLab,factTotal,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&plan?factTotal/plan:null};
