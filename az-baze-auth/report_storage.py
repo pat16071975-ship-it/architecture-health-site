@@ -536,6 +536,18 @@ def register_report_storage(app):
                     iso_now(),
                 )
             )
+        incoming_dates = {str(item[0]) for item in rows}
+        for cash_date, cash_record in current_cash.items():
+            if cash_date in incoming_dates:
+                continue
+            rows.append(
+                (
+                    cash_date,
+                    json.dumps(cash_record, ensure_ascii=False, separators=(",", ":")),
+                    g.user["id"],
+                    iso_now(),
+                )
+            )
         if not rows or len(rows) > 4000:
             abort(400)
         conn = db()
@@ -579,6 +591,18 @@ def register_report_storage(app):
             merged_record = _preserve_cash_fields(current_cash.get(str(date), {}), incoming_record)
             protected_rows.append(
                 (date, json.dumps(merged_record, ensure_ascii=False, separators=(",", ":")), uid, updated_at)
+            )
+        protected_dates = {str(item[0]) for item in protected_rows}
+        for cash_date, cash_record in current_cash.items():
+            if cash_date in protected_dates:
+                continue
+            protected_rows.append(
+                (
+                    cash_date,
+                    json.dumps(cash_record, ensure_ascii=False, separators=(",", ":")),
+                    g.user["id"],
+                    iso_now(),
+                )
             )
         management_rows = protected_rows
         blob_rows = []
