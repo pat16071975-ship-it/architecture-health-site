@@ -24,6 +24,14 @@ function fail(message) {
   await context.addInitScript(() => {
     sessionStorage.setItem('az-management-auth-v1', '1');
     localStorage.setItem('az-management-seed-2026-07', '2026-07');
+    localStorage.setItem('az-management-report-v1', JSON.stringify({
+      '2026-09-21': {
+        date:'2026-09-21', plan:5000, cashTotal:1000, cashOOO:600, cashIP:400,
+        billedTotal:1200, factMedicine:500, factLab:100, primary:2, repeat:3,
+        dentPrimary:1, dentRepeat:1, dentists:{}, clinicPrimary:1, clinicRepeat:2,
+        clinicDocs:{}, labOrders:1, labRevenue:100, leadsDent:2, leadsClinic:2, leadsReserve:0
+      }
+    }));
   });
 
   await context.route('**/*', route => {
@@ -97,6 +105,31 @@ function fail(message) {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await page.waitForTimeout(100);
+
+  // Editing a manual field must not wipe imported readonly cash values in the browser.
+  const manualEditCash = await page.evaluate(() => {
+    const plan = document.querySelector('[data-key="plan"]');
+    if (!plan) return { ok:false, reason:'plan input missing' };
+    plan.value = '6000';
+    plan.dispatchEvent(new Event('input', { bubbles:true }));
+    const record = collectRecord();
+    const derived = derive(record);
+    return {
+      ok:true,
+      cashTotal:derived.cashTotal,
+      cashOOO:derived.cashOOO,
+      cashIP:derived.cashIP,
+      billedTotal:derived.billedTotal,
+      plan:record.plan,
+    };
+  });
+  if (!manualEditCash.ok) fail('Manual edit guard: '+manualEditCash.reason);
+  if (manualEditCash.cashTotal !== 1000 || manualEditCash.cashOOO !== 600 || manualEditCash.cashIP !== 400) {
+    fail('Manual edit guard: cash values disappeared while editing a manual field');
+  }
+  if (manualEditCash.billedTotal !== 1200 || String(manualEditCash.plan) !== '6000') {
+    fail('Manual edit guard: billed/manual values are inconsistent');
+  }
 
   // Mode 1: one date. Toolbar must scroll away; only section navigation remains.
   await page.selectOption('#dateViewMode', 'single');
@@ -230,6 +263,14 @@ function fail(message) {
   await mobileContext.addInitScript(() => {
     sessionStorage.setItem('az-management-auth-v1', '1');
     localStorage.setItem('az-management-seed-2026-07', '2026-07');
+    localStorage.setItem('az-management-report-v1', JSON.stringify({
+      '2026-09-21': {
+        date:'2026-09-21', plan:5000, cashTotal:1000, cashOOO:600, cashIP:400,
+        billedTotal:1200, factMedicine:500, factLab:100, primary:2, repeat:3,
+        dentPrimary:1, dentRepeat:1, dentists:{}, clinicPrimary:1, clinicRepeat:2,
+        clinicDocs:{}, labOrders:1, labRevenue:100
+      }
+    }));
   });
   await mobileContext.route('**/*', route => {
     const url = new URL(route.request().url());
