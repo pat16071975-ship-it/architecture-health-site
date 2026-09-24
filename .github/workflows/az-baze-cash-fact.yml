@@ -5,6 +5,7 @@ on:
     branches:
       - feature/az-cash-receipts-fact
     paths:
+      - "az-baze-auth/requirements.txt"
       - "az-baze-auth/cash_payments.py"
       - "az-baze-auth/cash_upload.py"
       - "az-baze-auth/daily_upload.py"
@@ -22,6 +23,7 @@ on:
       - ".github/workflows/az-baze-cash-fact.yml"
   pull_request:
     paths:
+      - "az-baze-auth/requirements.txt"
       - "az-baze-auth/cash_payments.py"
       - "az-baze-auth/cash_upload.py"
       - "az-baze-auth/daily_upload.py"
