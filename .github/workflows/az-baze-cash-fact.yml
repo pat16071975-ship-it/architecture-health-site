@@ -1,0 +1,117 @@
+name: AZ-BAZE Cash Fact
+
+on:
+  push:
+    branches:
+      - feature/az-cash-fact
+      - feature/az-baze-auth
+    paths:
+      - 'az-baze-auth/cash_payments.py'
+      - 'az-baze-auth/daily_upload.py'
+      - 'az-baze-auth/report_storage.py'
+      - 'az-baze-auth/ident_import.py'
+      - 'az-baze-auth/finrez.py'
+      - 'az-baze-auth/economics_control.py'
+      - 'az-baze-auth/server.py'
+      - 'az-baze-auth/templates/uploads.html'
+      - 'az-baze-auth/test_cash_payments.py'
+      - 'reports/index.html'
+      - 'reports/period-view.js'
+      - 'reports/management-mobile-layout.js'
+      - 'reports/dashboard.html'
+      - 'reports/finrez.html'
+      - 'reports/forecast.html'
+      - '.github/scripts/az-report-header-browser-check.cjs'
+      - '.github/workflows/az-baze-cash-fact.yml'
+  pull_request:
+    paths:
+      - 'az-baze-auth/cash_payments.py'
+      - 'az-baze-auth/daily_upload.py'
+      - 'az-baze-auth/report_storage.py'
+      - 'az-baze-auth/ident_import.py'
+      - 'az-baze-auth/finrez.py'
+      - 'az-baze-auth/economics_control.py'
+      - 'az-baze-auth/server.py'
+      - 'az-baze-auth/templates/uploads.html'
+      - 'az-baze-auth/test_cash_payments.py'
+      - 'reports/index.html'
+      - 'reports/period-view.js'
+      - 'reports/management-mobile-layout.js'
+      - 'reports/dashboard.html'
+      - 'reports/finrez.html'
+      - 'reports/forecast.html'
+      - '.github/workflows/az-baze-cash-fact.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  cash-fact-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install runtime test dependencies
+        run: python -m pip install --disable-pip-version-check Flask openpyxl
+
+      - name: Python syntax
+        run: |
+          python -m py_compile             az-baze-auth/cash_payments.py             az-baze-auth/daily_upload.py             az-baze-auth/report_storage.py             az-baze-auth/ident_import.py             az-baze-auth/finrez.py             az-baze-auth/economics_control.py             az-baze-auth/server.py             az-baze-auth/test_cash_payments.py
+
+      - name: Cash parser tests
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_cash_payments.py
+
+      - name: Existing upload integrity regression
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_upload_integrity.py
+
+      - name: Cash source contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          cash = Path("az-baze-auth/cash_payments.py").read_text(encoding="utf-8")
+          management = Path("reports/index.html").read_text(encoding="utf-8")
+          dashboard = Path("reports/dashboard.html").read_text(encoding="utf-8")
+          finrez = Path("reports/finrez.html").read_text(encoding="utf-8")
+          forecast = Path("reports/forecast.html").read_text(encoding="utf-8")
+          economics = Path("az-baze-auth/economics_control.py").read_text(encoding="utf-8")
+
+          for needle in (
+              'OOO_KKM = "0531380019042729"',
+              'IP_KKM = "0463880019042725"',
+              'if movement <= 0:',
+              'operation.startswith("Перевод ДС внутри семьи")',
+              '"billedInvoices"',
+              '"cashUnallocated"',
+              '"cashDentistsOOO"',
+              '"cashClinicDocsIP"',
+          ):
+              assert needle in cash, needle
+
+          for path, source in (
+              ("management", management),
+              ("dashboard", dashboard),
+              ("finrez", finrez),
+              ("forecast", forecast),
+              ("economics", economics),
+          ):
+              assert "cashFact" in source, path
+
+          assert "Выставлено счетов" in management
+          assert "ДС ООО" in management
+          assert "ДС ИП" in management
+          assert "Выставлено счетов" in finrez
+          print("CASH SOURCE CONTRACT: OK")
+          PY
+
+      - name: JavaScript syntax
+        run: |
+          node --check reports/period-view.js
+          node --check reports/management-mobile-layout.js
