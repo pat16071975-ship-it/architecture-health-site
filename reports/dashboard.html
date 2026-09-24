@@ -93,7 +93,7 @@ function cashMap(r,key,fallback={}){const v=r?.[key];return v&&typeof v==='objec
 function derive(r){
   const date=r?.date||''; const d=new Date(date+'T12:00:00'); const day=d.getDate()||1;
   const rawPlan=r?.plan, hasPlan=rawPlan!==null&&rawPlan!==undefined&&rawPlan!==''&&Number.isFinite(+rawPlan)&&+rawPlan>0, plan=hasPlan?+rawPlan:0;
-  const billedTotal=num(r?.factMedicine)+num(r?.factLab), cashComplete=r?.cashDataComplete===true&&Number.isFinite(+r?.cashFact);
+  const cashComplete=r?.cashDataComplete===true&&Number.isFinite(+r?.cashFact), billedTotal=cashComplete&&Number.isFinite(+r?.billedInvoices)?num(r?.billedInvoices):num(r?.factMedicine)+num(r?.factLab);
   const factTotal=cashComplete?num(r?.cashFact):billedTotal, cashOOO=cashComplete?num(r?.cashOOO):0, cashIP=cashComplete?num(r?.cashIP):0;
   const primary=primaryOf(r), repeat=repeatOf(r), dentPrimary=num(r?.dentPrimary), dentRepeat=num(r?.dentRepeat), clinicPrimary=num(r?.clinicPrimary), clinicRepeat=num(r?.clinicRepeat);
   const dentRev=sumObject(cashComplete?cashMap(r,'cashDentists'):r?.dentists), structureRev=sumObject(cashComplete?cashMap(r,'cashClinicDocs'):r?.clinicDocs), labRevenue=cashComplete?num(r?.cashLabRevenue):num(r?.labRevenue||r?.factLab), labOrders=num(r?.labOrders);
