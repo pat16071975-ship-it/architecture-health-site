@@ -539,6 +539,22 @@ def _process_cash_only(payments_file):
     name = payments_file.filename or "Счета и оплаты"
     sha = hashlib.sha256(raw).hexdigest()
     conn = core.db()
+    previous_cash = core.ident_import._load_blob("az-cash-receipts-v1") or {}
+    if previous_cash.get("sourceSha256") == sha:
+        core._log(
+            conn,
+            "duplicate",
+            parsed.get("sourceEnd"),
+            "Повторная загрузка идентичного файла «Счета и оплаты»; данные не изменены.",
+            "",
+            name,
+        )
+        conn.commit()
+        return {
+            "status": "duplicate",
+            "message": "Этот файл «Счета и оплаты» уже загружен. Повторно ничего не изменено.",
+            "data_date": parsed.get("sourceEnd"),
+        }
     now = core.iso_now()
     conn.execute("BEGIN")
     try:
@@ -709,6 +725,8 @@ def _process_period_upload(completed_file, services_file, payments_file):
     candidates = [row["data_date"] for row in changed]
     if old_through:
         candidates.append(old_through)
+    if not candidates:
+        candidates.extend(row["data_date"] for row in actions)
     last_known = max(candidates)
     service_data["id"] = f"az-services-{year}-through-{last_known}-v1"
     service_data["source"] = f"Ежедневные загрузки AZ-BAZE through {last_known}"
