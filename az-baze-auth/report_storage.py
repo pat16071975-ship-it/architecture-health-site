@@ -39,6 +39,34 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 MONTH_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 
+CASH_RECORD_FIELDS = {
+    "cashFact", "cashOOO", "cashIP", "cashAllocated", "cashUnallocated",
+    "cashDentists", "cashDentistsOOO", "cashDentistsIP",
+    "cashClinicDocs", "cashClinicDocsOOO", "cashClinicDocsIP",
+    "cashLabRevenue", "cashLabOOO", "cashLabIP", "cashDataComplete",
+    "billedInvoices", "cashCoverageStart", "cashCoverageEnd",
+    "cashSourceFilename", "cashSourceSheet",
+}
+
+
+def _record_payload(row):
+    if not row:
+        return {}
+    try:
+        value = json.loads(row["payload"])
+    except (KeyError, TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _preserve_cash_fields(existing, incoming):
+    result = dict(incoming or {})
+    for key in CASH_RECORD_FIELDS:
+        if key in existing:
+            result[key] = existing[key]
+    return result
+
+
 def _ensure_schema():
     conn = sqlite3.connect(DB_PATH)
     try:
@@ -409,6 +437,8 @@ def register_report_storage(app):
     def report_data_put(date):
         _require_api_csrf()
         record = _normalize_record(date, request.get_json(silent=True))
+        existing = db().execute("SELECT payload FROM report_data WHERE date=?", (date,)).fetchone()
+        record = _preserve_cash_fields(_record_payload(existing), record)
         db().execute(
             """
             INSERT INTO report_data(date, payload, updated_by, updated_at)
@@ -430,6 +460,9 @@ def register_report_storage(app):
         _require_api_csrf()
         if not DATE_RE.fullmatch(date or ""):
             abort(400)
+        existing = db().execute("SELECT payload FROM report_data WHERE date=?", (date,)).fetchone()
+        if _record_payload(existing).get("cashDataComplete") is True:
+            abort(409, description="Запись содержит денежные данные из «Счета и оплаты» и не удаляется вручную.")
         db().execute("DELETE FROM report_data WHERE date=?", (date,))
         db().commit()
         audit("report_deleted", target_user_id=g.user["id"], details=f"date={date}")
@@ -484,11 +517,17 @@ def register_report_storage(app):
         if not isinstance(payload, dict) or not isinstance(payload.get("data"), dict):
             abort(400)
         incoming = payload["data"]
+        current_cash = {}
+        for row in db().execute("SELECT date,payload FROM report_data ORDER BY date").fetchall():
+            existing = _record_payload(row)
+            if existing.get("cashDataComplete") is True:
+                current_cash[str(row["date"])] = existing
         rows = []
         for date, record in incoming.items():
             if not DATE_RE.fullmatch(str(date)) or not isinstance(record, dict):
                 abort(400)
             normalized = _normalize_record(date, record)
+            normalized = _preserve_cash_fields(current_cash.get(str(date), {}), normalized)
             rows.append(
                 (
                     date,
@@ -526,6 +565,22 @@ def register_report_storage(app):
             abort(400)
 
         management_rows = _management_rows_from_backup(storage[MANAGEMENT_KEY])
+        current_cash = {}
+        for row in db().execute("SELECT date,payload FROM report_data ORDER BY date").fetchall():
+            existing = _record_payload(row)
+            if existing.get("cashDataComplete") is True:
+                current_cash[str(row["date"])] = existing
+        protected_rows = []
+        for date, raw_payload, uid, updated_at in management_rows:
+            try:
+                incoming_record = json.loads(raw_payload)
+            except (TypeError, ValueError):
+                incoming_record = {}
+            merged_record = _preserve_cash_fields(current_cash.get(str(date), {}), incoming_record)
+            protected_rows.append(
+                (date, json.dumps(merged_record, ensure_ascii=False, separators=(",", ":")), uid, updated_at)
+            )
+        management_rows = protected_rows
         blob_rows = []
         now = iso_now()
         for key in sorted(REPORT_BLOB_KEYS):
