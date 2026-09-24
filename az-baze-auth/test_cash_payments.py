@@ -56,6 +56,56 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(day["clinicDocsLegal"]["Старостенко Вадим Анатольевич"]["ip"], 1500)
         self.assertEqual(day["labLegal"]["ooo"], 2500)
 
+    def test_debt_line_is_included_in_billed_total(self):
+        raw = self.workbook_bytes([
+            ["31 авг 2026\n19:00", "А", "№100 Счет", 1000, 0, "Основная", "", "", "", "", "", ""],
+            ["31 авг 2026\n18:00", "А", "Задолженность по счету №100", 250, 250, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        self.assertEqual(daily["2026-08-31"]["billedTotal"], 1250)
+
+    def test_sequential_daily_uploads_accumulate_without_erasing_previous_days(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cash_payments.init_schema(conn)
+        first = {**cash_payments._blank_day(), "cashOOO": 100000, "cashTotal": 100000}
+        second = {**cash_payments._blank_day(), "cashIP": 120000, "cashTotal": 120000}
+        cash_payments.replace_range(conn, {"2026-08-01": first}, "day1.xlsx", "sha1", 1, "t1")
+        cash_payments.replace_range(conn, {"2026-08-02": second}, "day2.xlsx", "sha2", 1, "t2")
+        snapshots = cash_payments.month_snapshots(conn, "2026-08")
+        self.assertEqual(snapshots["2026-08-01"]["cashTotal"], 100000)
+        self.assertEqual(snapshots["2026-08-02"]["cashTotal"], 220000)
+        self.assertEqual(snapshots["2026-08-02"]["cashOOO"], 100000)
+        self.assertEqual(snapshots["2026-08-02"]["cashIP"], 120000)
+
+    def test_partial_period_replace_does_not_delete_unmentioned_day(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cash_payments.init_schema(conn)
+        base = {**cash_payments._blank_day(), "cashOOO": 100, "cashTotal": 100}
+        cash_payments.replace_range(
+            conn,
+            {"2026-08-01": base, "2026-08-02": base, "2026-08-03": base},
+            "base.xlsx", "base", 1, "t0",
+        )
+        replacement = {**cash_payments._blank_day(), "cashIP": 300, "cashTotal": 300}
+        cash_payments.replace_range(
+            conn,
+            {"2026-08-01": replacement, "2026-08-03": replacement},
+            "partial.xlsx", "partial", 1, "t1",
+        )
+        dates = [row[0] for row in conn.execute(
+            "SELECT data_date FROM cash_receipts_daily ORDER BY data_date"
+        ).fetchall()]
+        self.assertEqual(dates, ["2026-08-01", "2026-08-02", "2026-08-03"])
+
+    def test_unknown_positive_kkm_fails_closed(self):
+        raw = self.workbook_bytes([
+            ["31 авг 2026\n19:00", "А", "Внесение ДС", 0, 1000, "Основная", "", "9999999999999999", "", "", "", ""],
+        ])
+        with self.assertRaisesRegex(ValueError, "неизвестная ККМ"):
+            cash_payments.parse_file(raw, "cash.xlsx")
+
     def test_multiline_russian_date_is_one_operation(self):
         raw = self.workbook_bytes([
             ["05 янв 2026\n09:15", "Пациент", "Внесение ДС", 0, 1234, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
