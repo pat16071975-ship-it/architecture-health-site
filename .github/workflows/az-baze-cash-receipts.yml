@@ -28,6 +28,29 @@ jobs:
         run: |
           node --check reports/period-view.js
           node --check reports/management-mobile-layout.js
+          node --check .github/scripts/az-report-header-browser-check.cjs
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start local report server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/az-cash-report-http.log 2>&1 &
+          echo $! >/tmp/az-cash-report-http.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/reports/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/az-cash-report-http.log
+          exit 1
+      - name: Browser regression — management report
+        run: node .github/scripts/az-report-header-browser-check.cjs
+      - name: Stop local report server
+        if: always()
+        run: |
+          if [ -f /tmp/az-cash-report-http.pid ]; then
+            kill "$(cat /tmp/az-cash-report-http.pid)" || true
+          fi
       - name: Cash source contract
         run: |
           grep -q '0531380019042729' az-baze-auth/cash_receipts.py
