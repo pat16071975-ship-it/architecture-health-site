@@ -110,6 +110,8 @@ function fail(message) {
   const manualEditCash = await page.evaluate(() => {
     const plan = document.querySelector('[data-key="plan"]');
     if (!plan) return { ok:false, reason:'plan input missing' };
+    plan.readOnly = false;
+    plan.removeAttribute('readonly');
     plan.value = '6000';
     plan.dispatchEvent(new Event('input', { bubbles:true }));
     const record = collectRecord();
