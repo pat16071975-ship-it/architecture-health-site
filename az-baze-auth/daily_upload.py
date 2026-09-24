@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from flask import abort, g, render_template, request
 
 import daily_upload_core as core
+import cash_payments
 from app import csrf_token, permission_required, require_csrf
 
 # server.py replaces this module variable with the upload-aware permission wrapper
@@ -615,6 +616,7 @@ def _process_period_upload(completed_file, services_file):
             )
 
         management = core._rebuild_management(month_key, source)
+        cash_payments.overlay_record_map(conn, month_key, management)
         for day, record in management.items():
             conn.execute(
                 "INSERT INTO report_data(date,payload,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(date) DO UPDATE SET payload=excluded.payload,updated_by=excluded.updated_by,updated_at=excluded.updated_at",
