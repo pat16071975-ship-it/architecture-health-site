@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from flask import abort, g, render_template, request
 
 import daily_upload_core as core
+import cash_receipts
 from app import csrf_token, permission_required, require_csrf
 
 # server.py replaces this module variable with the upload-aware permission wrapper
@@ -408,13 +409,177 @@ def _next_required_date(latest):
     return next_day.strftime("%d.%m.%Y")
 
 
-def _process_period_upload(completed_file, services_file):
+
+def _cash_staff_names():
+    names = set(core.ident_import.KNOWN_STAFF)
+    names.update(core.ident_import.DENTISTS)
+    names.update(core.ident_import.STRUCTURE_DOCTORS)
+    names.update(core.ident_import.LAB_DOCTORS)
+    return sorted(str(value) for value in names if value)
+
+
+def _parse_cash_file(file_storage):
+    raw = file_storage.read()
+    if not raw:
+        raise ValueError("Выбран пустой файл «Счета и оплаты».")
+    if len(raw) > 25 * 1024 * 1024:
+        raise ValueError("Размер файла «Счета и оплаты» превышает 25 МБ.")
+    candidates = core._table_candidates(raw, file_storage.filename or "")
+    last_error = None
+    for sheet_name, text in candidates:
+        try:
+            parsed = cash_receipts.parse_payments_text(text, _cash_staff_names())
+            return raw, parsed, sheet_name
+        except Exception as exc:
+            last_error = exc
+    if isinstance(last_error, ValueError):
+        raise last_error
+    raise ValueError("Не удалось распознать структуру файла «Счета и оплаты».") from last_error
+
+
+def _overlay_cash_record(record, snapshot, source_name):
+    dentists = {full: 0.0 for full in core.ident_import.DENTISTS.values()}
+    clinic_docs = {full: 0.0 for full in core.ident_import.STRUCTURE_DOCTORS.values()}
+    dentist_legal = {full: {"ooo": 0.0, "ip": 0.0} for full in dentists}
+    clinic_legal = {full: {"ooo": 0.0, "ip": 0.0} for full in clinic_docs}
+    dent_ooo = dent_ip = clinic_ooo = clinic_ip = lab_ooo = lab_ip = 0.0
+
+    for short_name, parts in (snapshot.get("staff") or {}).items():
+        ooo = float(parts.get("ooo") or 0)
+        ip = float(parts.get("ip") or 0)
+        total = ooo + ip
+        if short_name in core.ident_import.DENTISTS:
+            full = core.ident_import.DENTISTS[short_name]
+            dentists[full] = round(total, 2)
+            dentist_legal[full] = {"ooo": round(ooo, 2), "ip": round(ip, 2)}
+            dent_ooo += ooo
+            dent_ip += ip
+        elif short_name in core.ident_import.STRUCTURE_DOCTORS:
+            full = core.ident_import.STRUCTURE_DOCTORS[short_name]
+            clinic_docs[full] = round(total, 2)
+            clinic_legal[full] = {"ooo": round(ooo, 2), "ip": round(ip, 2)}
+            clinic_ooo += ooo
+            clinic_ip += ip
+        elif short_name in core.ident_import.LAB_DOCTORS:
+            lab_ooo += ooo
+            lab_ip += ip
+
+    cash_fact = round(float(snapshot.get("cashFact") or 0), 2)
+    cash_ooo = round(float(snapshot.get("cashOoo") or 0), 2)
+    cash_ip = round(float(snapshot.get("cashIp") or 0), 2)
+    lab_total = round(lab_ooo + lab_ip, 2)
+    allocated = round(dent_ooo + dent_ip + clinic_ooo + clinic_ip + lab_total, 2)
+
+    updated = dict(record)
+    updated.update({
+        "cashFact": cash_fact,
+        "cashOoo": cash_ooo,
+        "cashIp": cash_ip,
+        "billed": round(float(snapshot.get("billed") or 0), 2),
+        "cashUnallocated": round(max(0.0, cash_fact - allocated), 2),
+        "factMedicine": round(max(0.0, cash_fact - lab_total), 2),
+        "factLab": lab_total,
+        "labRevenue": lab_total,
+        "dentists": dentists,
+        "clinicDocs": clinic_docs,
+        "dentCashOoo": round(dent_ooo, 2),
+        "dentCashIp": round(dent_ip, 2),
+        "clinicCashOoo": round(clinic_ooo, 2),
+        "clinicCashIp": round(clinic_ip, 2),
+        "labCashOoo": round(lab_ooo, 2),
+        "labCashIp": round(lab_ip, 2),
+        "dentistCashLegal": dentist_legal,
+        "clinicDocCashLegal": clinic_legal,
+        "cashDataComplete": True,
+        "_cash_source": source_name,
+    })
+    return updated
+
+
+def _apply_cash_to_reports(conn, parsed, source_name, source_sha, now):
+    start = parsed.get("sourceStart")
+    end = parsed.get("sourceEnd")
+    rows = conn.execute(
+        "SELECT date,payload FROM report_data WHERE date>=? AND date<=? ORDER BY date",
+        (start, end),
+    ).fetchall()
+    updated_count = 0
+    for row in rows:
+        try:
+            record = json.loads(row["payload"])
+        except (TypeError, ValueError):
+            continue
+        snapshot = cash_receipts.cumulative_for_date(parsed, row["date"])
+        record = _overlay_cash_record(record, snapshot, source_name)
+        conn.execute(
+            "UPDATE report_data SET payload=?,updated_by=?,updated_at=? WHERE date=?",
+            (
+                json.dumps(record, ensure_ascii=False, separators=(",", ":")),
+                g.user["id"],
+                now,
+                row["date"],
+            ),
+        )
+        updated_count += 1
+
+    cash_blob = {
+        **parsed,
+        "sourceFilename": source_name,
+        "sourceSha256": source_sha,
+    }
+    core._save_blob(conn, "az-cash-receipts-v1", cash_blob, now)
+    return updated_count
+
+
+def _process_cash_only(payments_file):
+    perms = user_permissions(g.user)
+    if "upload_completed" not in perms or "upload_services" not in perms:
+        abort(403)
+    raw, parsed, sheet_name = _parse_cash_file(payments_file)
+    name = payments_file.filename or "Счета и оплаты"
+    sha = hashlib.sha256(raw).hexdigest()
+    conn = core.db()
+    now = core.iso_now()
+    conn.execute("BEGIN")
+    try:
+        updated = _apply_cash_to_reports(conn, parsed, name, sha, now)
+        core._log(
+            conn,
+            "cash_imported",
+            parsed.get("sourceEnd"),
+            f"Счета и оплаты: лист {sheet_name}; период {parsed.get('sourceStart')}..{parsed.get('sourceEnd')}; обновлено записей управленческого отчёта: {updated}",
+            "",
+            name,
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    core.audit(
+        "cash_reports_imported",
+        target_user_id=g.user["id"],
+        details=f"period={parsed.get('sourceStart')}..{parsed.get('sourceEnd')}; file={name}; updated={updated}",
+    )
+    return {
+        "status": "cash_imported",
+        "message": (
+            f"Готово. Фактически принятые ДС из «{name}» применены к существующим отчётам "
+            f"за {parsed.get('sourceStart')}–{parsed.get('sourceEnd')}; обновлено записей: {updated}."
+        ),
+        "data_date": parsed.get("sourceEnd"),
+    }
+
+
+def _process_period_upload(completed_file, services_file, payments_file):
     perms = user_permissions(g.user)
     if "upload_completed" not in perms or "upload_services" not in perms:
         abort(403)
 
     _completed_raw, completed_parsed, completed_sheet = _parse_fixed_file(completed_file, "completed")
     _services_raw, services_parsed, services_sheet = _parse_fixed_file(services_file, "services")
+    payments_raw, payments_parsed, payments_sheet = _parse_cash_file(payments_file)
+    payments_name = payments_file.filename or "Счета и оплаты"
+    payments_sha = hashlib.sha256(payments_raw).hexdigest()
     overall, visits = completed_parsed
     items, lab_invoices, (year, month) = services_parsed
 
@@ -487,7 +652,9 @@ def _process_period_upload(completed_file, services_file):
         )
 
     changed = [row for row in actions if row["action"] != "duplicate"]
-    if not changed:
+    previous_cash = core.ident_import._load_blob("az-cash-receipts-v1") or {}
+    cash_changed = previous_cash.get("sourceSha256") != payments_sha
+    if not changed and not cash_changed:
         for row in actions:
             detail = (
                 "Дата уже входит в ранее загруженную сводную базу; пропущена без изменений."
@@ -629,6 +796,21 @@ def _process_period_upload(completed_file, services_file):
         core._save_blob(conn, "az-service-analytics-v1", service_data, now)
         for key, value in finance_blobs.items():
             core._save_blob(conn, key, value, now)
+        cash_updated = _apply_cash_to_reports(
+            conn,
+            payments_parsed,
+            payments_name,
+            payments_sha,
+            now,
+        )
+        core._log(
+            conn,
+            "cash_imported",
+            payments_parsed.get("sourceEnd"),
+            f"Счета и оплаты: лист {payments_sheet}; период {payments_parsed.get('sourceStart')}..{payments_parsed.get('sourceEnd')}; обновлено записей управленческого отчёта: {cash_updated}",
+            "",
+            payments_name,
+        )
         conn.commit()
     except Exception:
         conn.rollback()
@@ -664,7 +846,7 @@ def _process_period_upload(completed_file, services_file):
         "message": (
             f"Готово. Период {_format_date(dates[0])}–{_format_date(dates[-1])} разнесён по дням; "
             + ", ".join(parts)
-            + ". Управленческий отчёт и «Аналитика услуг» пересчитаны."
+            + f". Управленческий отчёт, «Аналитика услуг» и фактически принятые ДС пересчитаны; денежных записей обновлено: {cash_updated}."
         ),
         "data_date": dates[-1],
     }
@@ -683,15 +865,24 @@ def register_daily_upload(app):
             require_csrf()
             completed = request.files.get("completed")
             services = request.files.get("services")
-            if not completed or not completed.filename:
-                error = "Выберите файл «Завершённые приёмы»."
-            elif not services or not services.filename:
-                error = "Выберите файл «Выполненные услуги»."
-            else:
-                try:
-                    result = _process_period_upload(completed, services)
-                except ValueError as exc:
-                    error = str(exc)
+            payments = request.files.get("payments")
+            has_completed = bool(completed and completed.filename)
+            has_services = bool(services and services.filename)
+            has_payments = bool(payments and payments.filename)
+            try:
+                if has_payments and not has_completed and not has_services:
+                    result = _process_cash_only(payments)
+                elif has_completed and has_services and has_payments:
+                    result = _process_period_upload(completed, services, payments)
+                elif has_completed or has_services or has_payments:
+                    error = (
+                        "Для обычной загрузки выберите все три файла. "
+                        "Для исторического пересчёта фактических ДС можно выбрать только «Счета и оплаты»."
+                    )
+                else:
+                    error = "Выберите файлы для загрузки."
+            except ValueError as exc:
+                error = str(exc)
 
         latest = core.db().execute(
             "SELECT data_date,revision,uploaded_at FROM daily_uploads ORDER BY data_date DESC LIMIT 1"
