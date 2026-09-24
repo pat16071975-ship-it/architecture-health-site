@@ -16,7 +16,6 @@ class DummyFile:
 
 class CashPaymentsTests(unittest.TestCase):
     def setUp(self):
-        self.original_table_candidates = cash_payments.core._table_candidates
         self.original_ident = cash_payments.core.ident_import
         cash_payments.core.ident_import = SimpleNamespace(
             DENTISTS={"Dent D.": "Dent Doctor"},
@@ -25,24 +24,28 @@ class CashPaymentsTests(unittest.TestCase):
         )
 
     def tearDown(self):
-        cash_payments.core._table_candidates = self.original_table_candidates
         cash_payments.core.ident_import = self.original_ident
 
-    def _install_text(self, text):
-        cash_payments.core._table_candidates = lambda _raw, _name: [("Sheet1", text)]
+    def _rows(self, *rows):
+        return [
+            [
+                "Дата и время", "Пациент/Компания", "Операция",
+                "Сумма к оплате (₽)", "Движение ДС (₽)", "Касса",
+                "Дата и время чека", "ККМ",
+            ],
+            *rows,
+        ]
 
     def test_positive_receipts_only_and_entities(self):
-        text = (
-            "Дата и время\tПациент/Компания\tОперация\tСумма к оплате (₽)\tДвижение ДС (₽)\tКасса\tДата и время чека\tККМ\n"
-            "01 янв 2026\n10:00\tA\t№1 Dent D.\t100\t100\tОсновная\t01.01.2026 10:00\t0531380019042729\n"
-            "01 янв 2026\n11:00\tB\tВнесение ДС\t13\t200\tБезналичный расчет\t01.01.2026 11:00\t0463880019042725\n"
-            "01 янв 2026\n12:00\tC\tИзъятие ДС\t13\t-50\tОсновная\t01.01.2026 12:00\t0531380019042729\n"
-            "01 янв 2026\n13:00\tD\tПеревод ДС внутри семьи на счет (E)\t13\t500\tОсновная\t01.01.2026 13:00\t0531380019042729\n"
+        values = self._rows(
+            ["01 янв 2026\n10:00", "A", "№1 Dent D.", 100, 100, "Основная", "01.01.2026 10:00", cash_payments.OOO_KKM],
+            ["01 янв 2026\n11:00", "B", "Внесение ДС", 13, 200, "Безналичный расчет", "01.01.2026 11:00", cash_payments.IP_KKM],
+            ["01 янв 2026\n12:00", "C", "Изъятие ДС", 13, -50, "Основная", "01.01.2026 12:00", cash_payments.OOO_KKM],
+            ["01 янв 2026\n13:00", "D", "Перевод ДС внутри семьи на счет (E)", 13, 500, "Основная", "01.01.2026 13:00", cash_payments.OOO_KKM],
         )
-        self._install_text(text)
-        _raw, rows, billed_rows, _sheet, _source_rows = cash_payments.parse_upload(DummyFile(b"x"))
+        rows, billed_rows, _source_rows = cash_payments._parse_sheet_rows(values)
         self.assertEqual(len(rows), 2)
-        self.assertEqual(sum(row["amount"] for row in billed_rows), 113)
+        self.assertEqual(sum(row["amount"] for row in billed_rows), 100)
         snapshots, start, end = cash_payments.build_daily_snapshots(rows, billed_rows)
         self.assertEqual((start, end), ("2026-01-01", "2026-01-01"))
         snap = snapshots["2026-01-01"]
@@ -52,6 +55,7 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(snap["cashAllocated"], 100)
         self.assertEqual(snap["cashUnallocated"], 200)
         self.assertEqual(snap["cashDentists"]["Dent Doctor"], 100)
+        self.assertEqual(snap["billedInvoices"], 100)
 
     def test_month_to_date_resets_each_month_and_keeps_ooo_ip_split(self):
         rows = [
@@ -68,27 +72,26 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(snapshots["2026-02-02"]["cashLabRevenue"], 50)
 
     def test_billed_invoices_include_debt_rows_but_not_cash_movements(self):
-        text = (
-            "Дата и время\tПациент/Компания\tОперация\tСумма к оплате (₽)\tДвижение ДС (₽)\tКасса\tДата и время чека\tККМ\n"
-            "01 янв 2026\n10:00\tA\t№1 Dent D.\t100\t100\tОсновная\t01.01.2026 10:00\t0531380019042729\n"
-            "01 янв 2026\n11:00\tCompany\tЗадолженность по счету №1 за пациента: A\t250\t13\t13\t\t\n"
-            "01 янв 2026\n12:00\tA\tВнесение ДС\t13\t200\tОсновная\t01.01.2026 12:00\t0463880019042725\n"
+        values = self._rows(
+            ["01 янв 2026\n10:00", "A", "№1 Dent D.", 100, 100, "Основная", "01.01.2026 10:00", cash_payments.OOO_KKM],
+            ["01 янв 2026\n11:00", "Company", "Задолженность по счету №1 за пациента: A", 250, 13, "13", None, None],
+            ["01 янв 2026\n12:00", "A", "Внесение ДС", 13, 200, "Основная", "01.01.2026 12:00", cash_payments.IP_KKM],
         )
-        self._install_text(text)
-        _raw, rows, billed_rows, _sheet, _source_rows = cash_payments.parse_upload(DummyFile(b"x"))
+        rows, billed_rows, _source_rows = cash_payments._parse_sheet_rows(values)
         self.assertEqual(sum(row["amount"] for row in billed_rows), 350)
         snapshots, _start, _end = cash_payments.build_daily_snapshots(rows, billed_rows)
         self.assertEqual(snapshots["2026-01-01"]["billedInvoices"], 350)
         self.assertEqual(snapshots["2026-01-01"]["cashFact"], 300)
 
     def test_unknown_positive_kkm_fails_closed(self):
-        text = (
-            "Дата и время\tПациент/Компания\tОперация\tСумма к оплате (₽)\tДвижение ДС (₽)\tКасса\tДата и время чека\tККМ\n"
-            "01 янв 2026\n10:00\tA\t№1 Dent D.\t100\t100\tОсновная\t01.01.2026 10:00\t999\n"
+        values = self._rows(
+            ["01 янв 2026\n10:00", "A", "№1 Dent D.", 100, 100, "Основная", "01.01.2026 10:00", "999"],
         )
-        self._install_text(text)
         with self.assertRaisesRegex(ValueError, "неизвестной ККМ"):
-            cash_payments.parse_upload(DummyFile(b"x"))
+            cash_payments._parse_sheet_rows(values)
+
+    def test_source_date_with_newline_is_supported(self):
+        self.assertEqual(cash_payments._date_only("31 авг 2026\n20:40"), "2026-08-31")
 
     def test_non_invoice_receipt_stays_unallocated_but_in_fact(self):
         rows = [
