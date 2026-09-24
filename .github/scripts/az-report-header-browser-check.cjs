@@ -221,6 +221,73 @@ function fail(message) {
   console.log('BROWSER CHECK NO TEXT TRANSFORMS: PASS');
   console.log('BROWSER SCREENSHOTS: artifacts/report-one-date.png, artifacts/report-monthly-compare.png');
 
+  // Mobile regression: cash fields must stay readable and tables must scroll
+  // inside their own containers without widening the page.
+  const mobileContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 1,
+  });
+  await mobileContext.addInitScript(() => {
+    sessionStorage.setItem('az-management-auth-v1', '1');
+    localStorage.setItem('az-management-seed-2026-07', '2026-07');
+  });
+  await mobileContext.route('**/*', route => {
+    const url = new URL(route.request().url());
+    if (url.hostname === '127.0.0.1') return route.continue();
+    return route.abort();
+  });
+  const mobile = await mobileContext.newPage();
+  await mobile.goto('http://127.0.0.1:4173/reports/__browser-test.html', {
+    waitUntil: 'domcontentloaded',
+    timeout: 10000,
+  });
+  await mobile.waitForSelector('#dateViewMode', { timeout: 5000 });
+  await mobile.waitForTimeout(250);
+
+  const mobileSingle = await mobile.evaluate(() => {
+    const grid = document.getElementById('generalGrid');
+    const firstMetric = grid?.querySelector('.metric');
+    const labels = [...(grid?.querySelectorAll('label') || [])].map(x => x.textContent.trim());
+    return {
+      bodyOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      gridWidth: grid?.getBoundingClientRect().width || 0,
+      metricWidth: firstMetric?.getBoundingClientRect().width || 0,
+      labels,
+      toolbarPosition: getComputedStyle(document.querySelector('.toolbar')).position,
+    };
+  });
+  if (mobileSingle.bodyOverflow > 2) fail('Mobile single-date: page has horizontal body overflow');
+  if (mobileSingle.gridWidth && mobileSingle.metricWidth < mobileSingle.gridWidth * 0.75) {
+    fail('Mobile single-date: main metrics are not stacked/readable');
+  }
+  for (const label of ['Факт', 'Выставлено счетов', 'ДС ООО', 'ДС ИП']) {
+    if (!mobileSingle.labels.includes(label)) fail('Mobile single-date: missing cash label ' + label);
+  }
+  if (mobileSingle.toolbarPosition !== 'static') fail('Mobile single-date: toolbar is unexpectedly sticky');
+  await mobile.screenshot({ path: 'artifacts/report-mobile-one-date.png', fullPage: false });
+
+  await mobile.selectOption('#dateViewMode', 'compare');
+  await mobile.selectOption('#compareRange', 'ytd');
+  await mobile.waitForTimeout(200);
+  const mobileCompare = await mobile.evaluate(() => {
+    const shell = document.querySelector('.date-compare-table');
+    return {
+      bodyOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      shellWidth: shell?.getBoundingClientRect().width || 0,
+      viewport: window.innerWidth,
+      shellScrollable: !!shell && shell.scrollWidth > shell.clientWidth,
+      stickyCloneHidden: document.getElementById('dateCompareStickyHead')?.classList.contains('hidden'),
+    };
+  });
+  if (mobileCompare.bodyOverflow > 2) fail('Mobile compare: page has horizontal body overflow');
+  if (mobileCompare.shellWidth > mobileCompare.viewport + 2) fail('Mobile compare: table shell exceeds viewport');
+  if (!mobileCompare.shellScrollable) fail('Mobile compare: wide comparison table is not horizontally scrollable');
+  if (mobileCompare.stickyCloneHidden !== true) fail('Mobile compare: desktop sticky clone must remain disabled');
+  await mobile.screenshot({ path: 'artifacts/report-mobile-compare.png', fullPage: false });
+  console.log('BROWSER CHECK MOBILE ONE DATE: PASS');
+  console.log('BROWSER CHECK MOBILE COMPARE: PASS');
+  await mobileContext.close();
+
   await browser.close();
   fs.rmSync('reports/__browser-test.html', { force: true });
 })().catch(async err => {
