@@ -496,6 +496,11 @@ def _save_import(management, service_data, finance_blobs, source):
     conn.execute("BEGIN")
     try:
         for date, record in management.items():
+            existing = conn.execute("SELECT payload FROM report_data WHERE date=?", (date,)).fetchone()
+            record = report_storage._preserve_cash_fields(
+                report_storage._record_payload(existing),
+                record,
+            )
             payload = json.dumps(record, ensure_ascii=False, separators=(",", ":"))
             conn.execute(
                 """
