@@ -49,6 +49,8 @@ jobs:
   cash-fact-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      AZBAZE_SECRET_KEY: ci-only-not-a-production-secret
     steps:
       - uses: actions/checkout@v4
 
