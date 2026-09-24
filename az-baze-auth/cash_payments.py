@@ -354,7 +354,17 @@ def overlay_stored_month(conn, month, updated_by, updated_at):
         (month,),
     ).fetchall()
     if not rows:
-        return 0
+        # Cash is authoritative even if an old backup contains no management
+        # row for this month. Recreate a minimal cash-only month-end record so
+        # Fact cannot disappear while cash_receipts_daily still exists.
+        last_cash_date = max(snapshots)
+        updated = apply_to_record({"date": last_cash_date}, snapshots[last_cash_date])
+        updated["date"] = last_cash_date
+        conn.execute(
+            "INSERT INTO report_data(date,payload,updated_by,updated_at) VALUES(?,?,?,?)",
+            (last_cash_date, json.dumps(updated, ensure_ascii=False, separators=(",", ":")), updated_by, updated_at),
+        )
+        return 1
 
     parsed = []
     for row in rows:
