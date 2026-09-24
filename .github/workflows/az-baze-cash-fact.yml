@@ -165,6 +165,7 @@ jobs:
           assert 'record.get("cashTotal")' in economics
           assert "_preserve_cash_state" in storage
           assert "_reapply_cash_after_restore" in storage
+          assert "if _has_cash_state(existing):" in storage
           assert "cash_payments.overlay_record_map" in ident
           assert "59891795" not in fixture  # totals are produced by parsing, not hard-coded as a total
           print("CASH FACT SOURCE CONTRACT: OK")
