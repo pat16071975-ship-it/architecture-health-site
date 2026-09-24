@@ -42,7 +42,8 @@ class CashPaymentsTests(unittest.TestCase):
         self._install_text(text)
         _raw, rows, billed_rows, _sheet, _source_rows = cash_payments.parse_upload(DummyFile(b"x"))
         self.assertEqual(len(rows), 2)
-        self.assertEqual(sum(row["amount"] for row in billed_rows), 113)\n        snapshots, start, end = cash_payments.build_daily_snapshots(rows, billed_rows)
+        self.assertEqual(sum(row["amount"] for row in billed_rows), 113)
+        snapshots, start, end = cash_payments.build_daily_snapshots(rows, billed_rows)
         self.assertEqual((start, end), ("2026-01-01", "2026-01-01"))
         snap = snapshots["2026-01-01"]
         self.assertEqual(snap["cashOOO"], 100)
