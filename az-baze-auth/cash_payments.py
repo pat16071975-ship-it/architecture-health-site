@@ -378,12 +378,7 @@ def import_cash_file(file_storage, can_replace=False):
     conn = core.db()
 
     duplicate = conn.execute("SELECT id FROM cash_imports WHERE sha256=?", (digest,)).fetchone()
-    if duplicate:
-        return {
-            "status": "duplicate",
-            "message": f"Файл «{filename}» уже загружен. Повторно деньги не изменялись.",
-            "data_date": period_end,
-        }
+    is_duplicate = bool(duplicate)
 
     existing_rows = conn.execute(
         "SELECT date,payload FROM report_data WHERE date BETWEEN ? AND ? ORDER BY date",
@@ -456,28 +451,29 @@ def import_cash_file(file_storage, can_replace=False):
                     now,
                 ),
             )
-        conn.execute(
-            """
-            INSERT INTO cash_imports(
-                filename,sha256,period_start,period_end,source_rows,accepted_rows,
-                cash_ooo,cash_ip,cash_fact,billed_total,uploaded_by,uploaded_at
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                filename,
-                digest,
-                period_start,
-                period_end,
-                int(source_rows),
-                len(rows),
-                ooo,
-                ip,
-                fact,
-                billed_total,
-                g.user["id"],
-                now,
-            ),
-        )
+        if not is_duplicate:
+            conn.execute(
+                """
+                INSERT INTO cash_imports(
+                    filename,sha256,period_start,period_end,source_rows,accepted_rows,
+                    cash_ooo,cash_ip,cash_fact,billed_total,uploaded_by,uploaded_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    filename,
+                    digest,
+                    period_start,
+                    period_end,
+                    int(source_rows),
+                    len(rows),
+                    ooo,
+                    ip,
+                    fact,
+                    billed_total,
+                    g.user["id"],
+                    now,
+                ),
+            )
         conn.commit()
     except Exception:
         conn.rollback()
@@ -492,10 +488,10 @@ def import_cash_file(file_storage, can_replace=False):
         ),
     )
     return {
-        "status": "imported",
+        "status": "duplicate" if is_duplicate else "imported",
         "message": (
-            f"Готово. «Счета и оплаты» загружены за {period_start}–{period_end}. "
-            f"Факт пересчитан только по положительным приходам двух утверждённых ККМ."
+            f"Готово. «Счета и оплаты» {'повторно проверены и восстановлены' if is_duplicate else 'загружены'} "
+            f"за {period_start}–{period_end}. Факт рассчитан только по положительным приходам двух утверждённых ККМ."
         ),
         "data_date": period_end,
         "cash_fact": fact,
