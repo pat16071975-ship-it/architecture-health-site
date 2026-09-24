@@ -65,7 +65,12 @@ function ym(year,i){return `${year}-${String(i+1).padStart(2,'0')}`}
 function managementRecord(year,i){return DATA?.management?.[ym(year,i)]||null}
 function expenseMonth(year,i){return DATA?.expenses?.months?.[ym(year,i)]||{operating:{},debt:{}}}
 function num(v){const n=+v;return Number.isFinite(n)?n:0}
-function factFor(year,i){const r=managementRecord(year,i);return r?num(r.factMedicine)+num(r.factLab):null}
+function cashReady(r){return r?.cashDataComplete===true&&Number.isFinite(+r?.cashFact)}
+function cashMap(r,cashKey,oldKey){const value=cashReady(r)?r?.[cashKey]:r?.[oldKey];return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
+function factFor(year,i){const r=managementRecord(year,i);return r?(cashReady(r)?num(r.cashFact):num(r.factMedicine)+num(r.factLab)):null}
+function billedFor(year,i){const r=managementRecord(year,i);if(!r)return null;return cashReady(r)&&Number.isFinite(+r.billedInvoices)?num(r.billedInvoices):num(r.factMedicine)+num(r.factLab)}
+function cashOOOFor(year,i){const r=managementRecord(year,i);return cashReady(r)?num(r.cashOOO):null}
+function cashIPFor(year,i){const r=managementRecord(year,i);return cashReady(r)?num(r.cashIP):null}
 function planFor(year,i){const key=ym(year,i),saved=DATA?.plans?.[key];if(saved!==null&&saved!==undefined&&saved!==''){const n=+saved;if(Number.isFinite(n)&&n!==0)return n}const r=managementRecord(year,i);if(!r)return null;const n=+r.plan;return Number.isFinite(n)&&n!==0?n:null}
 function discountFor(year,i){const r=managementRecord(year,i);if(!r||r.discountDataComplete!==true)return null;const n=+r.discountAmount;return Number.isFinite(n)?n:null}
 function grossRevenueFor(year,i){const r=managementRecord(year,i);if(!r||r.discountDataComplete!==true)return null;const n=+r.grossRevenue;return Number.isFinite(n)?n:null}
@@ -78,18 +83,18 @@ function hasAny(vals){return vals.some(v=>v!==null&&v!==undefined&&Math.abs(num(
 function node(id,label,level,values,children=[],cls='',fmt='money',shareMode='',categoryValues=null){return{id,label,level,values,children,cls,fmt,shareMode,categoryValues}}
 function revenueTree(year){
   const total=values12(i=>factFor(year,i));
-  const dent=values12(i=>{const r=managementRecord(year,i);return r?Object.values(r.dentists||{}).reduce((a,v)=>a+num(v),0):null});
-  const structure=values12(i=>{const r=managementRecord(year,i);return r?Object.values(r.structureDoctors||{}).reduce((a,v)=>a+num(v),0):null});
-  const lab=values12(i=>{const r=managementRecord(year,i);return r?num(r.factLab):null});
+  const dent=values12(i=>{const r=managementRecord(year,i);return r?Object.values(cashMap(r,'cashDentists','dentists')).reduce((a,v)=>a+num(v),0):null});
+  const structure=values12(i=>{const r=managementRecord(year,i);return r?Object.values(cashMap(r,'cashStructureDoctors','structureDoctors')).reduce((a,v)=>a+num(v),0):null});
+  const lab=values12(i=>{const r=managementRecord(year,i);return r?(cashReady(r)?num(r.cashLabRevenue):num(r.factLab)):null});
   const doctorNames=new Set();
   const structureNames=new Set();
   for(let i=0;i<12;i++){
     const r=managementRecord(year,i);
-    Object.keys(r?.dentists||{}).forEach(x=>doctorNames.add(x));
-    Object.keys(r?.structureDoctors||{}).forEach(x=>structureNames.add(x));
+    Object.keys(cashMap(r,'cashDentists','dentists')).forEach(x=>doctorNames.add(x));
+    Object.keys(cashMap(r,'cashStructureDoctors','structureDoctors')).forEach(x=>structureNames.add(x));
   }
-  const dentChildren=[...doctorNames].sort().map((name,idx)=>node(`rev-dent-doc-${idx}`,name,2,values12(i=>managementRecord(year,i)?num(managementRecord(year,i).dentists?.[name]):null),[],'detail'));
-  const structureChildren=[...structureNames].sort().map((name,idx)=>node(`rev-struct-doc-${idx}`,name,2,values12(i=>managementRecord(year,i)?num(managementRecord(year,i).structureDoctors?.[name]):null),[],'detail'));
+  const dentChildren=[...doctorNames].sort().map((name,idx)=>node(`rev-dent-doc-${idx}`,name,2,values12(i=>{const r=managementRecord(year,i);return r?num(cashMap(r,'cashDentists','dentists')[name]):null}),[],'detail'));
+  const structureChildren=[...structureNames].sort().map((name,idx)=>node(`rev-struct-doc-${idx}`,name,2,values12(i=>{const r=managementRecord(year,i);return r?num(cashMap(r,'cashStructureDoctors','structureDoctors')[name]):null}),[],'detail'));
   const assigned=values12(i=>{if(total[i]===null)return null;return num(dent[i])+num(structure[i])+num(lab[i])});
   const other=values12(i=>total[i]===null?null:Math.max(0,num(total[i])-num(assigned[i])));
   const dirs=[node('rev-dent','Стоматология',1,dent,dentChildren,'category'),node('rev-structure','Отделение структуры',1,structure,structureChildren,'category'),node('rev-lab','Лаборатория',1,lab,[],'category')];
@@ -137,8 +142,11 @@ function debtTree(year){
 function buildRows(year){
   const plan=node('plan','План',0,values12(i=>planFor(year,i)),[],'plan');
   const fact=node('fact','Факт',0,values12(i=>factFor(year,i)),[],'fact');
+  const billed=node('billed','Выставлено счетов',1,values12(i=>billedFor(year,i)),[],'fact-detail');
+  const cashOOO=node('cash-ooo','ДС ООО',1,values12(i=>cashOOOFor(year,i)),[],'fact-detail');
+  const cashIP=node('cash-ip','ДС ИП',1,values12(i=>cashIPFor(year,i)),[],'fact-detail');
   const discount=node('discount','Скидки',1,values12(i=>discountFor(year,i)),[],'fact-detail');
-  const grossBeforeDiscount=node('gross-before-discount','Выручка без скидок',1,values12(i=>grossRevenueFor(year,i)),[],'fact-detail');
+  const grossBeforeDiscount=node('gross-before-discount','Выручка без скидок по прейскуранту',1,values12(i=>grossRevenueFor(year,i)),[],'fact-detail');
   const execution=node('execution','Выполнение плана',0,values12(i=>{const p=planFor(year,i),f=factFor(year,i);return p&&f!==null?f/p:null}),[],'execution','percent');
   const revenue=revenueTree(year);
   const variable=expenseGroupTree(year,'variable','Переменные расходы',GROUPS.variable,'variable');
@@ -157,7 +165,7 @@ function buildRows(year){
   const net=node('net','Чистая прибыль — после добавления амортизации, процентов и налога',0,Array(12).fill(null),[],'unavailable');
   const capex=expenseGroupTree(year,'capex','Оборудование, мебель и обновление — вне EBITDA',GROUPS.capex,'capex');
   const debt=debtTree(year);
-  return [plan,fact,discount,grossBeforeDiscount,execution,revenue,variable,margin,fixed,production,gross,commercial,administrative,ebitda,amortization,ebit,interest,ebt,incomeTax,net,capex,debt];
+  return [plan,fact,billed,cashOOO,cashIP,discount,grossBeforeDiscount,execution,revenue,variable,margin,fixed,production,gross,commercial,administrative,ebitda,amortization,ebit,interest,ebt,incomeTax,net,capex,debt];
 }
 function flatten(nodes,out=[]){nodes.forEach(n=>{out.push(n);if(n.children?.length&&expanded.has(n.id))flatten(n.children,out)});return out}
 function shareHtml(row,year,monthIndex,value){
