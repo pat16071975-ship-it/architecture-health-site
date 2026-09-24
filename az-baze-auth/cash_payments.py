@@ -1,6 +1,7 @@
 import hashlib
 import json
 import re
+import sqlite3
 from collections import defaultdict
 from datetime import datetime
 from io import BytesIO
@@ -285,10 +286,15 @@ def _merge_numbers(target, source):
 
 
 def month_snapshots(conn, month):
-    rows = conn.execute(
-        "SELECT data_date,payload_json FROM cash_receipts_daily WHERE substr(data_date,1,7)=? ORDER BY data_date",
-        (month,),
-    ).fetchall()
+    try:
+        rows = conn.execute(
+            "SELECT data_date,payload_json FROM cash_receipts_daily WHERE substr(data_date,1,7)=? ORDER BY data_date",
+            (month,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        # Before the first cash upload the table may not exist yet. Clinical
+        # uploads must keep their legacy behavior until cash data is introduced.
+        return {}
     current = _blank_day()
     snapshots = {}
     for row in rows:
