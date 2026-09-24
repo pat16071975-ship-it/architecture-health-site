@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from flask import abort, g, render_template, request
 
 import daily_upload_core as core
+import cash_payments
 from app import csrf_token, permission_required, require_csrf
 
 # server.py replaces this module variable with the upload-aware permission wrapper
@@ -672,6 +673,7 @@ def _process_period_upload(completed_file, services_file):
 
 def register_daily_upload(app):
     core._init_schema()
+    cash_payments.init_schema()
 
     @app.route("/uploads/", methods=["GET", "POST"])
     @permission_required("section5")
@@ -681,17 +683,28 @@ def register_daily_upload(app):
         error = None
         if request.method == "POST":
             require_csrf()
-            completed = request.files.get("completed")
-            services = request.files.get("services")
-            if not completed or not completed.filename:
-                error = "Выберите файл «Завершённые приёмы»."
-            elif not services or not services.filename:
-                error = "Выберите файл «Выполненные услуги»."
-            else:
-                try:
+            upload_kind = str(request.form.get("upload_kind") or "clinical")
+            try:
+                if upload_kind == "cash":
+                    if "upload_services" not in perms:
+                        abort(403)
+                    payments = request.files.get("payments")
+                    if not payments or not payments.filename:
+                        raise ValueError("Выберите файл «Счета и оплаты».")
+                    result = cash_payments.import_cash_file(
+                        payments,
+                        can_replace=("upload_replace" in perms),
+                    )
+                else:
+                    completed = request.files.get("completed")
+                    services = request.files.get("services")
+                    if not completed or not completed.filename:
+                        raise ValueError("Выберите файл «Завершённые приёмы».")
+                    if not services or not services.filename:
+                        raise ValueError("Выберите файл «Выполненные услуги».")
                     result = _process_period_upload(completed, services)
-                except ValueError as exc:
-                    error = str(exc)
+            except ValueError as exc:
+                error = str(exc)
 
         latest = core.db().execute(
             "SELECT data_date,revision,uploaded_at FROM daily_uploads ORDER BY data_date DESC LIMIT 1"
@@ -705,6 +718,8 @@ def register_daily_upload(app):
             latest=latest,
             next_required_date=_next_required_date(latest),
             history=core._history() if "upload_history" in perms else [],
+            latest_cash=cash_payments.latest_import(),
             can_daily=("upload_completed" in perms and "upload_services" in perms),
+            can_cash=("upload_services" in perms),
             can_replace=("upload_replace" in perms),
         )
