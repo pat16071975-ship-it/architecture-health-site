@@ -133,6 +133,38 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(list(daily), ["2026-01-05"])
         self.assertEqual(daily["2026-01-05"]["cashTotal"], 1234)
 
+    def test_overlay_recreates_cash_month_when_backup_has_no_report_rows(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute(
+            "CREATE TABLE report_data(date TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+        )
+        cash_payments.init_schema(conn)
+        cash_payments.replace_range(
+            conn,
+            {
+                "2026-08-31": {
+                    **cash_payments._blank_day(),
+                    "cashOOO": 3000,
+                    "cashIP": 2000,
+                    "cashTotal": 5000,
+                    "cashUnallocated": 5000,
+                }
+            },
+            "cash.xlsx", "sha", 1, "now",
+        )
+        changed = cash_payments.overlay_stored_month(conn, "2026-08", 1, "now")
+        self.assertEqual(changed, 1)
+        row = conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-08-31'"
+        ).fetchone()
+        self.assertIsNotNone(row)
+        payload = json.loads(row[0])
+        self.assertEqual(payload["cashTotal"], 5000)
+        self.assertEqual(payload["cashOOO"], 3000)
+        self.assertEqual(payload["cashIP"], 2000)
+        self.assertEqual(payload["cashUnallocated"], 5000)
+
     def test_overlay_preserves_billed_baseline_and_adds_latest_cash_date(self):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
