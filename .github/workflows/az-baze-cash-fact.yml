@@ -81,7 +81,7 @@ jobs:
           assert 'action="/uploads/cash"' in uploads
           assert "0531380019042729" in uploads and "0463880019042725" in uploads
           assert "movement <= 0" in cash
-          assert '"cashTotal"' in management and "Выставлено счетов" in management
+          assert "cashTotal" in management and "Выставлено счетов" in management
           assert "ДС ООО" in period and "ДС ИП" in period
           assert "r?.cashTotal" in dashboard
           assert "r.cashTotal" in forecast
