@@ -7,11 +7,18 @@ from io import BytesIO
 
 from openpyxl import load_workbook
 
-import ident_import
 
 OOO_KKM = "0531380019042729"
 IP_KKM = "0463880019042725"
 LEGAL_BY_KKM = {OOO_KKM: "ooo", IP_KKM: "ip"}
+_PROVIDER_MAPS = {"dent": {}, "structure": {}, "lab": {}}
+
+
+def configure_providers(dentists, structure_doctors, lab_doctors):
+    _PROVIDER_MAPS["dent"] = dict(dentists or {})
+    _PROVIDER_MAPS["structure"] = dict(structure_doctors or {})
+    _PROVIDER_MAPS["lab"] = dict(lab_doctors or {})
+
 MONTHS_RU = {
     "янв": 1, "фев": 2, "мар": 3, "апр": 4, "май": 5, "июн": 6,
     "июл": 7, "авг": 8, "сен": 9, "сент": 9, "окт": 10, "ноя": 11, "дек": 12,
@@ -106,12 +113,9 @@ def _add_legal(container, name, legal, value):
 
 def _find_provider(operation):
     candidates = []
-    for short, full in ident_import.DENTISTS.items():
-        candidates.append((short, "dent", full))
-    for short, full in ident_import.STRUCTURE_DOCTORS.items():
-        candidates.append((short, "structure", full))
-    for short, full in ident_import.LAB_DOCTORS.items():
-        candidates.append((short, "lab", full))
+    for direction, mapping in _PROVIDER_MAPS.items():
+        for short, full in mapping.items():
+            candidates.append((short, direction, full))
     for short, direction, full in sorted(candidates, key=lambda item: len(item[0]), reverse=True):
         if short and short in operation:
             return direction, full
