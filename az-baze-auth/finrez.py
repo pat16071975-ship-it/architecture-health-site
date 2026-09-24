@@ -107,6 +107,15 @@ def _management_months():
             "plan": record.get("plan", ""),
             "factMedicine": record.get("factMedicine", 0),
             "factLab": record.get("factLab", record.get("labRevenue", 0)),
+            "cashDataComplete": record.get("cashDataComplete") is True,
+            "cashFact": record.get("cashFact"),
+            "cashOOO": record.get("cashOOO"),
+            "cashIP": record.get("cashIP"),
+            "cashUnallocated": record.get("cashUnallocated"),
+            "billedInvoices": record.get("billedInvoices"),
+            "cashLabRevenue": record.get("cashLabRevenue"),
+            "cashLabOOO": record.get("cashLabOOO"),
+            "cashLabIP": record.get("cashLabIP"),
             "grossRevenue": record.get("grossRevenue"),
             "discountAmount": record.get("discountAmount"),
             "discountDataComplete": record.get("discountDataComplete") is True,
@@ -116,6 +125,12 @@ def _management_months():
             "clinicRepeat": record.get("clinicRepeat", 0),
             "dentists": record.get("dentists") if isinstance(record.get("dentists"), dict) else {},
             "structureDoctors": record.get("clinicDocs") if isinstance(record.get("clinicDocs"), dict) else {},
+            "cashDentists": record.get("cashDentists") if isinstance(record.get("cashDentists"), dict) else {},
+            "cashDentistsOOO": record.get("cashDentistsOOO") if isinstance(record.get("cashDentistsOOO"), dict) else {},
+            "cashDentistsIP": record.get("cashDentistsIP") if isinstance(record.get("cashDentistsIP"), dict) else {},
+            "cashStructureDoctors": record.get("cashClinicDocs") if isinstance(record.get("cashClinicDocs"), dict) else {},
+            "cashStructureDoctorsOOO": record.get("cashClinicDocsOOO") if isinstance(record.get("cashClinicDocsOOO"), dict) else {},
+            "cashStructureDoctorsIP": record.get("cashClinicDocsIP") if isinstance(record.get("cashClinicDocsIP"), dict) else {},
         }
     return result
 
