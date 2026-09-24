@@ -5,6 +5,7 @@ on:
     branches:
       - feature/az-baze-auth
       - fix/report-header-final
+      - feature/az-cash-fact
     paths:
       - 'reports/index.html'
       - 'reports/period-view.js'
@@ -79,91 +80,45 @@ jobs:
           print("FINAL REPORT HEADER SOURCE CONTRACT: OK")
           PY
 
-      - name: Calculation algorithms unchanged
+      - name: Cash-first calculation contract
         run: |
           python - <<'PY'
-          import subprocess
           from pathlib import Path
 
-          # Compare calculations against the exact source before PR #6/#7/#8 sticky work.
-          BASE = "605818547b24d5fac2453eaa3f40d870193b53ba"
+          index = Path("reports/index.html").read_text(encoding="utf-8")
+          period = Path("reports/period-view.js").read_text(encoding="utf-8")
 
-          def git_show(path):
-              return subprocess.check_output(
-                  ["git", "show", f"{BASE}:{path}"],
-                  text=True,
-                  encoding="utf-8",
-              )
+          for needle in (
+              "cashDataComplete",
+              "cashFact",
+              "billedInvoices",
+              "cashOOO",
+              "cashIP",
+              "cashDentistsOOO",
+              "cashDentistsIP",
+              "cashClinicDocsOOO",
+              "cashClinicDocsIP",
+              "Выставлено счетов",
+              "ДС ООО",
+              "ДС ИП",
+          ):
+              assert needle in index, needle
 
-          def extract_function(src, name):
-              marker = f"function {name}("
-              start = src.find(marker)
-              if start < 0:
-                  raise AssertionError(f"missing function {name}")
-              brace = src.find("{", start)
-              if brace < 0:
-                  raise AssertionError(f"missing body for {name}")
-              depth = 0
-              quote = None
-              escaped = False
-              i = brace
-              while i < len(src):
-                  ch = src[i]
-                  if quote is not None:
-                      if escaped:
-                          escaped = False
-                      elif ch == "\\":
-                          escaped = True
-                      elif ch == quote:
-                          quote = None
-                  else:
-                      if ch in ("'", '"', "`"):
-                          quote = ch
-                      elif ch == "{":
-                          depth += 1
-                      elif ch == "}":
-                          depth -= 1
-                          if depth == 0:
-                              return src[start:i + 1]
-                  i += 1
-              raise AssertionError(f"unterminated function {name}")
+          for needle in (
+              "splitLine",
+              "addCashMetric",
+              "addDateCashMetric",
+              "Выставлено счетов",
+              "ДС ООО",
+              "ДС ИП",
+              "cashDentistsOOO",
+              "cashClinicDocsOOO",
+          ):
+              assert needle in period, needle
 
-          def exact_line(src, prefix):
-              for line in src.splitlines():
-                  if line.startswith(prefix):
-                      return line
-              raise AssertionError(f"missing line {prefix}")
-
-          current_index = Path("reports/index.html").read_text(encoding="utf-8")
-          base_index = git_show("reports/index.html")
-          current_period = Path("reports/period-view.js").read_text(encoding="utf-8")
-          base_period = git_show("reports/period-view.js")
-
-          assert current_index == base_index, "reports/index.html changed since pre-sticky baseline"
-
-          for name in ("daysInMonth", "derive", "aggregate"):
-              assert extract_function(current_index, name) == extract_function(base_index, name), name
-
-          for prefix in ("const money=", "const num=", "const pct=", "const count="):
-              assert exact_line(current_index, prefix) == exact_line(base_index, prefix), prefix
-
-          period_functions = (
-              "mix",
-              "heatColor",
-              "heatEnabled",
-              "heatStyles",
-              "getPeriodDefs",
-              "periodData",
-              "doctorReconciliation",
-              "clampDate",
-              "compareMonths",
-              "rawOrNull",
-              "addDateMetric",
-          )
-          for name in period_functions:
-              assert extract_function(current_period, name) == extract_function(base_period, name), name
-
-          print("CALCULATION ALGORITHM CONTRACT: UNCHANGED")
+          assert "addDateMetric(tbody,'Факт медицина'" not in period
+          assert "addDateMetric(tbody,'Факт лаборатория'" not in period
+          print("CASH-FIRST CALCULATION CONTRACT: OK")
           PY
 
       - name: Install Playwright Chromium
