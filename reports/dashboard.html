@@ -89,16 +89,18 @@ function daysInMonth(date){const d=new Date(date+'T12:00:00');return new Date(d.
 function sumObject(obj){return Object.values(obj||{}).reduce((a,v)=>a+num(v),0)}
 function primaryOf(r){const direct=num(r?.primary);return direct||num(r?.dentPrimary)+num(r?.clinicPrimary)}
 function repeatOf(r){const direct=num(r?.repeat);return direct||num(r?.dentRepeat)+num(r?.clinicRepeat)}
+function cashMap(r,key,fallback={}){const v=r?.[key];return v&&typeof v==='object'&&!Array.isArray(v)?v:fallback}
 function derive(r){
   const date=r?.date||''; const d=new Date(date+'T12:00:00'); const day=d.getDate()||1;
   const rawPlan=r?.plan, hasPlan=rawPlan!==null&&rawPlan!==undefined&&rawPlan!==''&&Number.isFinite(+rawPlan)&&+rawPlan>0, plan=hasPlan?+rawPlan:0;
-  const factMedicine=num(r?.factMedicine), factLab=num(r?.factLab);
+  const billedTotal=num(r?.factMedicine)+num(r?.factLab), cashComplete=r?.cashDataComplete===true&&Number.isFinite(+r?.cashFact);
+  const factTotal=cashComplete?num(r?.cashFact):billedTotal, cashOOO=cashComplete?num(r?.cashOOO):0, cashIP=cashComplete?num(r?.cashIP):0;
   const primary=primaryOf(r), repeat=repeatOf(r), dentPrimary=num(r?.dentPrimary), dentRepeat=num(r?.dentRepeat), clinicPrimary=num(r?.clinicPrimary), clinicRepeat=num(r?.clinicRepeat);
-  const dentRev=sumObject(r?.dentists), structureRev=sumObject(r?.clinicDocs), labRevenue=num(r?.labRevenue||r?.factLab), labOrders=num(r?.labOrders);
-  const due=hasPlan?plan*day/daysInMonth(date):0, factTotal=factMedicine+factLab;
+  const dentRev=sumObject(cashComplete?cashMap(r,'cashDentists'):r?.dentists), structureRev=sumObject(cashComplete?cashMap(r,'cashClinicDocs'):r?.clinicDocs), labRevenue=cashComplete?num(r?.cashLabRevenue):num(r?.labRevenue||r?.factLab), labOrders=num(r?.labOrders);
+  const medicineCash=dentRev+structureRev, due=hasPlan?plan*day/daysInMonth(date):0;
   const leadsDent=num(r?.leadsDent), leadsStructure=num(r?.leadsClinic), leadsReserve=num(r?.leadsReserve), totalLeads=leadsDent+leadsStructure+leadsReserve;
   const hasLeads=[r?.leadsDent,r?.leadsClinic,r?.leadsReserve].some(v=>Number.isFinite(+v)&&+v>0);
-  return {date,hasPlan,plan,due,factMedicine,factLab,factTotal,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&plan?factTotal/plan:null};
+  return {date,hasPlan,plan,due,billedTotal,cashComplete,cashOOO,cashIP,factTotal,primary,repeat,avgCheck:primary?medicineCash/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&plan?factTotal/plan:null};
 }
 function latestByMonth(data){
   const map={}; Object.entries(data||{}).forEach(([date,r])=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;const ym=date.slice(0,7);if(!map[ym]||date>map[ym].date)map[ym]={...r,date}}); return map;
@@ -123,7 +125,7 @@ function sourceEntries(r){return Object.entries(r?.marketingSources||{}).map(([k
 function renderMetrics(r){
   const d=derive(r),comp=previousComparable(r),p=comp?derive(comp.record):null,label=comp?.label||''; const cls=d.execution===null?'':d.execution>=1?'positive':'negative';
   $('#metrics').innerHTML=[
-    metric('Выручка',money(d.factTotal),'Медицина + лаборатория','',p?trendPercent(d.factTotal,p.factTotal,label):''),
+    metric('Выручка',money(d.factTotal),d.cashComplete?`Факт по кассам · ООО ${money(d.cashOOO)} · ИП ${money(d.cashIP)} · выставлено ${money(d.billedTotal)}`:'Выставлено по услугам · ДС ещё не загружены','',p?trendPercent(d.factTotal,p.factTotal,label):''),
     metric('Должно быть к дате',d.hasPlan?money(d.due):'План не задан',d.hasPlan?`План месяца: ${money(d.plan)}`:'В Финрезе нет плана на месяц',d.hasPlan?'':'missing',d.hasPlan&&p?.hasPlan?trendPercent(d.due,p.due,label):''),
     metric('Выполнение плана',d.hasPlan?pct(d.execution):'План не задан',d.hasPlan?'Факт / план месяца':'Расчёт появится после задания плана',d.hasPlan?cls:'missing',d.hasPlan&&p?.hasPlan&&d.execution!==null&&p.execution!==null?trendPoints(d.execution,p.execution,label):''),
     metric('Первичные',count(d.primary),'Стоматология + отделение структуры','',p?trendCount(d.primary,p.primary,label):''),
