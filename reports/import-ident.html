@@ -80,7 +80,7 @@ send.addEventListener('click',async()=>{
     });
     if(!r.ok)throw new Error((await r.text())||'Сервер отклонил импорт.');
     const j=await r.json();
-    state(`Готово по ${j.through}. Управленческих записей: ${j.managementRecords}. Факт медицина: ${new Intl.NumberFormat('ru-RU').format(j.factMedicine)} ₽. Лаборатория: ${new Intl.NumberFormat('ru-RU').format(j.factLab)} ₽. Первичных: ${j.primary}. Повторных: ${j.repeat}. Аналитика услуг обновлена за ${j.serviceMonth.toLowerCase()}.`,'ok');
+    state(`Готово по ${j.through}. Управленческих записей: ${j.managementRecords}. Выставлено медицина: ${new Intl.NumberFormat('ru-RU').format(j.factMedicine)} ₽. Выставлено лаборатория: ${new Intl.NumberFormat('ru-RU').format(j.factLab)} ₽. Первичных: ${j.primary}. Повторных: ${j.repeat}. Аналитика услуг обновлена за ${j.serviceMonth.toLowerCase()}.`,'ok');
   }catch(e){console.error(e);state(e.message||'Не удалось внести данные.','error');send.disabled=false}
 });
 loadCsrf().catch(e=>state(e.message||'Не удалось подготовить импорт.','error'));
