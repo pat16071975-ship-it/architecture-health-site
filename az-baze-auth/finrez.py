@@ -105,6 +105,12 @@ def _management_months():
         result[month] = {
             "date": entry["date"],
             "plan": record.get("plan", ""),
+            "cashFact": record.get("cashFact"),
+            "cashOoo": record.get("cashOoo"),
+            "cashIp": record.get("cashIp"),
+            "billed": record.get("billed"),
+            "cashUnallocated": record.get("cashUnallocated"),
+            "cashDataComplete": record.get("cashDataComplete") is True,
             "factMedicine": record.get("factMedicine", 0),
             "factLab": record.get("factLab", record.get("labRevenue", 0)),
             "grossRevenue": record.get("grossRevenue"),
