@@ -2,6 +2,7 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 
 function fail(message){ throw new Error(message); }
+function norm(value){ return String(value||'').replace(/\s+/g,' ').trim(); }
 
 const DATA = {
   '2026-08-15': {
@@ -65,7 +66,7 @@ async function stub(context){
   if(initial.month!=='2026-09') fail('Initial month is not latest month');
   if(initial.date!=='') fail('Date filter must be optional/blank initially');
   if(initial.min!=='2026-09-15'||initial.max!=='2026-09-23') fail('Date bounds do not match available September data');
-  if(!initial.revenue.includes('2 300')) fail('Latest month record not rendered initially');
+  if(!norm(initial.revenue).includes('2 300')) fail('Latest month record not rendered initially');
   if(!initial.direction.includes('23.09.2026')) fail('Latest September date not rendered');
 
   await page.fill('#dateFilter','2026-09-15');
@@ -77,7 +78,7 @@ async function stub(context){
     chartHint:document.querySelector('#chartHint')?.textContent.trim(),
     bars:document.querySelectorAll('#chart .barcol').length
   }));
-  if(!dated.revenue.includes('1 500')) fail('Specific date did not change dashboard metrics');
+  if(!norm(dated.revenue).includes('1 500')) fail('Specific date did not change dashboard metrics');
   if(!dated.direction.includes('15.09.2026')) fail('Specific date did not change direction slice');
   if(!dated.chartHint.includes('15-е число')) fail('Chart did not switch to same-day monthly comparison');
   if(dated.bars!==4) fail('Same-day chart should contain two months x two bars');
@@ -89,7 +90,7 @@ async function stub(context){
     revenue:document.querySelector('#metrics .metric strong')?.textContent.trim()
   }));
   if(cleared.date!=='') fail('Whole-month reset did not clear date');
-  if(!cleared.revenue.includes('2 300')) fail('Whole-month reset did not restore latest month slice');
+  if(!norm(cleared.revenue).includes('2 300')) fail('Whole-month reset did not restore latest month slice');
 
   await page.selectOption('#period','2026-08');
   await page.waitForTimeout(50);
@@ -102,14 +103,14 @@ async function stub(context){
   }));
   if(august.date!=='') fail('Changing month must reset specific date');
   if(august.min!=='2026-08-15'||august.max!=='2026-08-31') fail('August date bounds are wrong');
-  if(!august.revenue.includes('3 100')) fail('August latest slice not rendered');
+  if(!norm(august.revenue).includes('3 100')) fail('August latest slice not rendered');
   if(!august.direction.includes('31.08.2026')) fail('August latest date not rendered');
 
   await page.fill('#dateFilter','2026-08-15');
   await page.dispatchEvent('#dateFilter','change');
   await page.waitForTimeout(50);
   const augDate=await page.textContent('#metrics .metric strong');
-  if(!String(augDate).includes('1 150')) fail('August specific date not rendered');
+  if(!norm(augDate).includes('1 150')) fail('August specific date not rendered');
 
   await page.screenshot({path:'artifacts/dashboard-date-filter-desktop.png',fullPage:false});
   console.log('DASHBOARD DATE FILTER DESKTOP: PASS');
