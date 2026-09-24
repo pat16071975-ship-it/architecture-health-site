@@ -40,9 +40,9 @@ class CashPaymentsTests(unittest.TestCase):
             "01 янв 2026\n13:00\tD\tПеревод ДС внутри семьи на счет (E)\t13\t500\tОсновная\t01.01.2026 13:00\t0531380019042729\n"
         )
         self._install_text(text)
-        _raw, rows, _sheet, _source_rows = cash_payments.parse_upload(DummyFile(b"x"))
+        _raw, rows, billed_rows, _sheet, _source_rows = cash_payments.parse_upload(DummyFile(b"x"))
         self.assertEqual(len(rows), 2)
-        snapshots, start, end = cash_payments.build_daily_snapshots(rows)
+        self.assertEqual(sum(row["amount"] for row in billed_rows), 113)\n        snapshots, start, end = cash_payments.build_daily_snapshots(rows, billed_rows)
         self.assertEqual((start, end), ("2026-01-01", "2026-01-01"))
         snap = snapshots["2026-01-01"]
         self.assertEqual(snap["cashOOO"], 100)
@@ -65,6 +65,20 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(snapshots["2026-02-02"]["cashIP"], 300)
         self.assertEqual(snapshots["2026-02-02"]["cashOOO"], 50)
         self.assertEqual(snapshots["2026-02-02"]["cashLabRevenue"], 50)
+
+    def test_billed_invoices_include_debt_rows_but_not_cash_movements(self):
+        text = (
+            "Дата и время\tПациент/Компания\tОперация\tСумма к оплате (₽)\tДвижение ДС (₽)\tКасса\tДата и время чека\tККМ\n"
+            "01 янв 2026\n10:00\tA\t№1 Dent D.\t100\t100\tОсновная\t01.01.2026 10:00\t0531380019042729\n"
+            "01 янв 2026\n11:00\tCompany\tЗадолженность по счету №1 за пациента: A\t250\t13\t13\t\t\n"
+            "01 янв 2026\n12:00\tA\tВнесение ДС\t13\t200\tОсновная\t01.01.2026 12:00\t0463880019042725\n"
+        )
+        self._install_text(text)
+        _raw, rows, billed_rows, _sheet, _source_rows = cash_payments.parse_upload(DummyFile(b"x"))
+        self.assertEqual(sum(row["amount"] for row in billed_rows), 350)
+        snapshots, _start, _end = cash_payments.build_daily_snapshots(rows, billed_rows)
+        self.assertEqual(snapshots["2026-01-01"]["billedInvoices"], 350)
+        self.assertEqual(snapshots["2026-01-01"]["cashFact"], 300)
 
     def test_unknown_positive_kkm_fails_closed(self):
         text = (
