@@ -168,15 +168,15 @@
           <section class="entry-card clinic"><h3>Клиника</h3><div class="entry-card-body"><div class="entry-grid" id="entryClinicSummary"></div><div class="entry-list" id="entryClinicDoctors" style="margin-top:10px"></div></div></section>
         </div>
       </div>
-      <div class="entry-foot"><div class="entry-foot-note">Если общая выручка медицины не совпадает с суммой врачей, сохранение возможно только после отдельного подтверждения.</div><div class="entry-foot-actions"><button type="button" class="btn" id="entryCancel">Отмена</button><button type="button" class="btn primary" id="entrySave">Сохранить</button></div></div>
+      <div class="entry-foot"><div class="entry-foot-note">Денежный Факт и суммы по врачам загружаются из «Счета и оплаты». Здесь вручную меняются только неденежные показатели.</div><div class="entry-foot-actions"><button type="button" class="btn" id="entryCancel">Отмена</button><button type="button" class="btn primary" id="entrySave">Сохранить</button></div></div>
     </div>`;
   document.body.appendChild(overlay);
 
   const manualDefs={
-    general:[['План','plan'],['Факт медицина — общая сумма','factMedicine'],['Факт лаборатория','factLab'],['ПП 2025 на этот день','pp25'],['Средний чек 2025','avg25'],['Первичный приём — всего','primary'],['Повторный приём — всего','repeat']],
+    general:[['План','plan'],['ПП 2025 на этот день','pp25'],['Средний чек 2025','avg25'],['Первичный приём — всего','primary'],['Повторный приём — всего','repeat']],
     dent:[['Первичные — стоматология','dentPrimary'],['Повторные — стоматология','dentRepeat']],
     clinic:[['Первичные — клиника','clinicPrimary'],['Повторные — клиника','clinicRepeat']],
-    lab:[['Количество заказов','labOrders'],['Выручка лаборатории','labRevenue']],
+    lab:[['Количество заказов','labOrders']],
     marketing:[['Стоматология — целевые лиды','leadsDent'],['Отказ / мониторинг','leadsDentLost'],['Клиника — целевые лиды','leadsClinic'],['Резерв','leadsReserve']]
   };
   function inputHtml(label,key){return `<div class="entry-field"><label>${escapeHtml(label)}</label><input inputmode="decimal" data-entry-key="${key}"></div>`}
@@ -185,8 +185,8 @@
   document.getElementById('entryClinicSummary').innerHTML=manualDefs.clinic.map(x=>inputHtml(...x)).join('');
   document.getElementById('entryLab').innerHTML=manualDefs.lab.map(x=>inputHtml(...x)).join('');
   document.getElementById('entryMarketing').innerHTML=manualDefs.marketing.map(x=>inputHtml(...x)).join('');
-  document.getElementById('entryDentDoctors').innerHTML=dentists.map(name=>`<div class="entry-doctor"><span>${escapeHtml(name)}</span><input inputmode="decimal" data-entry-doctor-type="dentists" data-entry-doctor="${escapeHtml(name)}" aria-label="Выручка ${escapeHtml(name)}"></div>`).join('');
-  document.getElementById('entryClinicDoctors').innerHTML=clinicDocs.map(name=>`<div class="entry-doctor"><span>${escapeHtml(name)}</span><input inputmode="decimal" data-entry-doctor-type="clinicDocs" data-entry-doctor="${escapeHtml(name)}" aria-label="Выручка ${escapeHtml(name)}"></div>`).join('');
+  document.getElementById('entryDentDoctors').innerHTML=dentists.map(name=>`<div class="entry-doctor"><span>${escapeHtml(name)}</span><input readonly class="view-only" inputmode="decimal" data-entry-doctor-type="dentists" data-entry-doctor="${escapeHtml(name)}" aria-label="ДС ${escapeHtml(name)}"></div>`).join('');
+  document.getElementById('entryClinicDoctors').innerHTML=clinicDocs.map(name=>`<div class="entry-doctor"><span>${escapeHtml(name)}</span><input readonly class="view-only" inputmode="decimal" data-entry-doctor-type="clinicDocs" data-entry-doctor="${escapeHtml(name)}" aria-label="ДС ${escapeHtml(name)}"></div>`).join('');
 
   function doctorReconciliation(r){
     const doctorValues=[...Object.values(r.dentists||{}),...Object.values(r.clinicDocs||{})],hasDoctors=doctorValues.some(v=>!isBlankValue(v)),hasTotal=!isBlankValue(r.factMedicine);
@@ -194,10 +194,15 @@
     return {hasData:hasDoctors||hasTotal,doctors,total,delta,mismatch:(hasDoctors||hasTotal)&&Math.abs(delta)>.01};
   }
   function updateEntryReconcile(){
+    const box=document.getElementById('entryReconcileTop');if(!box)return;
+    const sourceRecord=typeof currentRecord==='function'?currentRecord():null;
+    if(sourceRecord&&sourceRecord.cashTotal!==undefined&&sourceRecord.cashTotal!==null&&sourceRecord.cashTotal!==''){
+      box.className='entry-reconcile';box.textContent='Денежные показатели загружаются из файла «Счета и оплаты» и вручную здесь не изменяются.';return;
+    }
     const total=document.querySelector('[data-entry-key="factMedicine"]')?.value||'';
     const r={factMedicine:total,dentists:{},clinicDocs:{}};document.querySelectorAll('[data-entry-doctor]').forEach(i=>r[i.dataset.entryDoctorType][i.dataset.entryDoctor]=i.value);
-    const c=doctorReconciliation(r),box=document.getElementById('entryReconcileTop');if(!box)return;
-    if(!c.hasData){box.className='entry-reconcile';box.textContent='Проверка оборота врачей появится после ввода данных.';return}
+    const c=doctorReconciliation(r);
+    if(!c.hasData){box.className='entry-reconcile';box.textContent='Денежные показатели загружаются из файла «Счета и оплаты».';return}
     if(c.mismatch){box.className='entry-reconcile bad';box.textContent=`Сумма врачей ${money(c.doctors)} не совпадает с общей выручкой ${money(c.total)}. Расхождение: ${money(Math.abs(c.delta))} (${c.delta>0?'общая сумма выше':'оборот врачей выше'}).`;}
     else{box.className='entry-reconcile';box.textContent=`Проверка пройдена: общая выручка совпадает с суммой врачей — ${money(c.total)}.`}
   }
