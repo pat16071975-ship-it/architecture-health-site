@@ -248,7 +248,7 @@ def _rebuild_management(month, source):
         for name, value in delta["clinicDocs"].items():
             current["clinicDocs"][name] = current["clinicDocs"].get(name, 0) + value
         existing = _load_report(data_date)
-        rebuilt[data_date] = {
+        record = {
             "date": data_date,
             "plan": existing.get("plan", ""),
             "factMedicine": round(current["factMedicine"], 2),
@@ -272,6 +272,21 @@ def _rebuild_management(month, source):
             "_source": source,
             "_aggregation": "month_to_date",
         }
+        if existing.get("cashDataComplete") is True:
+            for key in (
+                "cashFact", "cashOoo", "cashIp", "billed", "cashUnallocated",
+                "dentCashOoo", "dentCashIp", "clinicCashOoo", "clinicCashIp",
+                "labCashOoo", "labCashIp", "dentistCashLegal",
+                "clinicDocCashLegal", "cashDataComplete", "_cash_source",
+            ):
+                if key in existing:
+                    record[key] = existing.get(key)
+            record["factMedicine"] = existing.get("factMedicine", record["factMedicine"])
+            record["factLab"] = existing.get("factLab", record["factLab"])
+            record["labRevenue"] = existing.get("labRevenue", record["labRevenue"])
+            record["dentists"] = existing.get("dentists", record["dentists"])
+            record["clinicDocs"] = existing.get("clinicDocs", record["clinicDocs"])
+        rebuilt[data_date] = record
     return rebuilt
 
 
