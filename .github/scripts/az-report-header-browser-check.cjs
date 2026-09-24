@@ -331,6 +331,11 @@ function fail(message) {
     timeout: 10000,
   });
   await mobile.waitForSelector('#dateViewMode', { timeout: 5000 });
+  await mobile.evaluate(() => {
+    const input = document.getElementById('reportDate');
+    input.value = '2026-09-21';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
   await mobile.waitForTimeout(250);
 
   const mobileSingle = await mobile.evaluate(() => {
