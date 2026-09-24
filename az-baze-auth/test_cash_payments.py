@@ -125,6 +125,11 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(sum(day["cashIP"] for day in august), 4178520)
         self.assertEqual(sum(day["cashTotal"] for day in august), 7796465)
 
+    def test_month_snapshots_is_empty_before_first_cash_table_exists(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        self.assertEqual(cash_payments.month_snapshots(conn, "2026-08"), {})
+
     def test_multiline_russian_date_is_one_operation(self):
         raw = self.workbook_bytes([
             ["05 янв 2026\n09:15", "Пациент", "Внесение ДС", 0, 1234, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
