@@ -7,6 +7,12 @@ from openpyxl import Workbook
 
 import cash_payments
 
+cash_payments.configure_providers(
+    {"Чирков М. С.": "Чирков Максим Сергеевич"},
+    {"Старостенко В. А.": "Старостенко Вадим Анатольевич"},
+    {"Казанцев Л. Е.": "Казанцев Л. Е."},
+)
+
 
 class CashPaymentsTests(unittest.TestCase):
     def workbook_bytes(self, rows):
