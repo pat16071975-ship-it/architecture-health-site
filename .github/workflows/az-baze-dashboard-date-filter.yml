@@ -1,0 +1,96 @@
+name: AZ-BAZE Dashboard Date Filter
+
+on:
+  push:
+    branches:
+      - feature/az-dashboard-date-filter
+      - feature/az-baze-auth
+    paths:
+      - 'reports/dashboard.html'
+      - '.github/scripts/az-dashboard-date-filter-check.cjs'
+      - '.github/workflows/az-baze-dashboard-date-filter.yml'
+  pull_request:
+    paths:
+      - 'reports/dashboard.html'
+      - '.github/scripts/az-dashboard-date-filter-check.cjs'
+      - '.github/workflows/az-baze-dashboard-date-filter.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard-date-filter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dashboard source contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          html = Path("reports/dashboard.html").read_text(encoding="utf-8")
+          required = [
+              'id="period"',
+              'id="dateFilter"',
+              'id="dateClear"',
+              'function datesForMonth(',
+              'function recordAtOrBefore(',
+              'function syncDateFilter(',
+              'function selected()',
+              'Сравнение на',
+          ]
+          for needle in required:
+              assert needle in html, needle
+          print("DASHBOARD DATE FILTER SOURCE CONTRACT: OK")
+          PY
+
+      - name: Extract inline JavaScript syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("reports/dashboard.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>([\s\S]*?)</script>", html)
+          assert scripts, "inline dashboard script not found"
+          Path("/tmp/dashboard-inline.js").write_text("\n".join(scripts), encoding="utf-8")
+          PY
+          node --check /tmp/dashboard-inline.js
+          node --check .github/scripts/az-dashboard-date-filter-check.cjs
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start local report server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/az-dashboard-http.log 2>&1 &
+          echo $! >/tmp/az-dashboard-http.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/reports/dashboard.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/az-dashboard-http.log
+          exit 1
+
+      - name: Chromium dashboard month/date checks
+        run: node .github/scripts/az-dashboard-date-filter-check.cjs
+
+      - name: Stop local report server
+        if: always()
+        run: |
+          if [ -f /tmp/az-dashboard-http.pid ]; then
+            kill "$(cat /tmp/az-dashboard-http.pid)" || true
+          fi
+
+      - name: Upload dashboard screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: az-dashboard-date-filter-screenshots
+          path: artifacts/dashboard-date-filter-*.png
+          if-no-files-found: warn
+          retention-days: 7
