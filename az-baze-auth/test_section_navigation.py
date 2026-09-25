@@ -1,3 +1,4 @@
+import pathlib
 import unittest
 
 import section_navigation as nav
@@ -85,6 +86,17 @@ class SectionNavigationTests(unittest.TestCase):
         self.assertEqual(rendered.count("Отчёты"), 1)
         self.assertNotIn("К отчётам", rendered)
         self.assertNotIn('<div class="actions">', rendered)
+
+    def test_management_page_does_not_render_page_specific_reports_button(self):
+        source = pathlib.Path("report_storage.py").read_text(encoding="utf-8")
+        self.assertNotIn(
+            "\'<button id=\"logoutBtn\" class=\"btn\">К отчётам</button>\'",
+            source,
+        )
+        self.assertIn(
+            "\'<button id=\"logoutBtn\" class=\"btn hidden\" style=\"display:none\">Выйти</button>\'",
+            source,
+        )
 
     def test_mobile_and_print_rules_exist(self):
         self.assertIn("@media(max-width:760px)", nav.NAV_CSS)
