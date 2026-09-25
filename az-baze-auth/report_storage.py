@@ -321,6 +321,14 @@ def _render_server_reports():
         '<button id="logoutBtn" class="btn hidden" style="display:none">Выйти</button>',
     )
     html = html.replace(
+        '<button id="deleteBtn" class="btn warn">Удалить запись</button>',
+        '<button id="deleteBtn" class="btn warn hidden" style="display:none">Удалить запись</button>',
+    )
+    html = html.replace(
+        '<button class="btn" disabled title="Добавим на следующем этапе">Импорт из МИС</button>',
+        '',
+    )
+    html = html.replace(
         '<div class="notice">Временный режим: данные сохраняются только в этом браузере на этом устройстве. Для реальной многопользовательской работы следующим этапом нужен закрытый серверный контур.</div>',
         '<div class="notice">Данные отчёта хранятся централизованно на сервере AZ-BAZE и доступны после авторизации.</div>'
     )
