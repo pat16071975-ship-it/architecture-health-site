@@ -52,6 +52,25 @@ class SectionNavigationTests(unittest.TestCase):
         self.assertNotIn("background:#faf7f1;", nav.NAV_CSS)
         self.assertNotIn("background:rgba(250,247,241,.96);", nav.NAV_CSS)
 
+    def test_navigation_has_full_width_solid_band(self):
+        self.assertIn("background:#f7f3ec;", nav.NAV_CSS)
+        self.assertIn("box-shadow:0 0 0 100vmax #f7f3ec", nav.NAV_CSS)
+        self.assertIn("clip-path:inset(0 -100vmax)", nav.NAV_CSS)
+        self.assertNotIn("background:rgba(247,243,236,.96)", nav.NAV_CSS)
+
+    def test_nested_duplicate_buttons_are_removed(self):
+        source = """<!doctype html><html><head></head><body>
+        <div class="actions">
+          <a class="btn" href="/reports/"><span>К отчётам</span></a>
+          <a class="btn" href="/"><strong>На главную</strong></a>
+        </div>
+        <main>OK</main></body></html>"""
+        rendered = nav.inject_navigation(source, "/reports/forecast/")
+        self.assertEqual(rendered.count("На главную"), 1)
+        self.assertEqual(rendered.count("Отчёты"), 1)
+        self.assertNotIn("К отчётам", rendered)
+        self.assertNotIn('<div class="actions">', rendered)
+
     def test_mobile_and_print_rules_exist(self):
         self.assertIn("@media(max-width:760px)", nav.NAV_CSS)
         self.assertIn("position:fixed", nav.NAV_CSS)
