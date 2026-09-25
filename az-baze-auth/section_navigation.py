@@ -32,6 +32,9 @@ NAV_CSS = r"""
   display:flex;
   justify-content:flex-end;
   gap:8px;
+  background:#f7f3ec;
+  box-shadow:0 0 0 100vmax #f7f3ec,0 1px 0 rgba(181,150,98,.22);
+  clip-path:inset(0 -100vmax);
   pointer-events:none;
 }
 .az-section-nav__btn{
@@ -80,10 +83,9 @@ NAV_CSS = r"""
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:8px;
-    background:rgba(247,243,236,.96);
+    background:#f7f3ec;
     border-top:1px solid rgba(181,150,98,.30);
     box-shadow:0 -8px 24px rgba(71,58,38,.08);
-    backdrop-filter:blur(10px);
   }
   .az-section-nav__btn{
     width:100%;
@@ -136,12 +138,22 @@ def render_navigation(path):
 
 
 def _remove_exact_anchor(text, href, labels):
-    labels_pattern = "|".join(re.escape(label) for label in labels)
+    labels = {label.strip() for label in labels}
     pattern = re.compile(
-        r'<a\b[^>]*\bhref="' + re.escape(href) + r'"[^>]*>\s*(?:' + labels_pattern + r')\s*</a>',
+        r'<a\\b(?P<attrs>[^>]*)>(?P<body>[\\s\\S]*?)</a>',
         re.IGNORECASE,
     )
-    return pattern.sub("", text)
+
+    def replace(match):
+        attrs = match.group("attrs")
+        href_match = re.search(r'\\bhref\\s*=\\s*["\\\']([^"\\\']+)["\\\']', attrs, re.IGNORECASE)
+        if not href_match or href_match.group(1) != href:
+            return match.group(0)
+        body = re.sub(r'<[^>]+>', '', match.group("body"))
+        label = html.unescape(body).strip()
+        return "" if label in labels else match.group(0)
+
+    return pattern.sub(replace, text)
 
 
 def strip_duplicate_navigation(text, path):
@@ -155,6 +167,12 @@ def strip_duplicate_navigation(text, path):
         text = _remove_exact_anchor(text, "/access-contacts/", ("К разделу", "Доступы и контакты"))
     elif section["root"] == "/surveys/":
         text = _remove_exact_anchor(text, "/surveys/", ("К опросам", "Все опросы", "Опросы"))
+    text = re.sub(
+        r'<div\\b[^>]*class=["\\\'][^"\\\']*\\bactions\\b[^"\\\']*["\\\'][^>]*>\\s*</div>',
+        '',
+        text,
+        flags=re.IGNORECASE,
+    )
     return text
 
 
