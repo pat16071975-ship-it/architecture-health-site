@@ -140,13 +140,13 @@ def render_navigation(path):
 def _remove_exact_anchor(text, href, labels):
     labels = {label.strip() for label in labels}
     pattern = re.compile(
-        r'<a\\b(?P<attrs>[^>]*)>(?P<body>[\\s\\S]*?)</a>',
+        r'<a\b(?P<attrs>[^>]*)>(?P<body>[\s\S]*?)</a>',
         re.IGNORECASE,
     )
 
     def replace(match):
         attrs = match.group("attrs")
-        href_match = re.search(r'\\bhref\\s*=\\s*["\\\']([^"\\\']+)["\\\']', attrs, re.IGNORECASE)
+        href_match = re.search(r'\bhref\s*=\s*["\']([^"\']+)["\']', attrs, re.IGNORECASE)
         if not href_match or href_match.group(1) != href:
             return match.group(0)
         body = re.sub(r'<[^>]+>', '', match.group("body"))
@@ -168,7 +168,7 @@ def strip_duplicate_navigation(text, path):
     elif section["root"] == "/surveys/":
         text = _remove_exact_anchor(text, "/surveys/", ("К опросам", "Все опросы", "Опросы"))
     text = re.sub(
-        r'<div\\b[^>]*class=["\\\'][^"\\\']*\\bactions\\b[^"\\\']*["\\\'][^>]*>\\s*</div>',
+        r'<div\b[^>]*class=["\'][^"\']*\bactions\b[^"\']*["\'][^>]*>\s*</div>',
         '',
         text,
         flags=re.IGNORECASE,
