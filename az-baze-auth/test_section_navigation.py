@@ -98,6 +98,21 @@ class SectionNavigationTests(unittest.TestCase):
             source,
         )
 
+    def test_management_unused_actions_are_not_visible(self):
+        source = pathlib.Path("report_storage.py").read_text(encoding="utf-8")
+        self.assertIn(
+            "\'<button id=\"deleteBtn\" class=\"btn warn hidden\" style=\"display:none\">Удалить запись</button>\'",
+            source,
+        )
+        self.assertIn(
+            "\'<button class=\"btn\" disabled title=\"Добавим на следующем этапе\">Импорт из МИС</button>\'",
+            source,
+        )
+        self.assertIn(
+            "html = html.replace(\n        \'<button class=\"btn\" disabled title=\"Добавим на следующем этапе\">Импорт из МИС</button>\',\n        \'\',",
+            source,
+        )
+
     def test_mobile_and_print_rules_exist(self):
         self.assertIn("@media(max-width:760px)", nav.NAV_CSS)
         self.assertIn("position:fixed", nav.NAV_CSS)
