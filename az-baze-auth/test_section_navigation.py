@@ -48,7 +48,8 @@ class SectionNavigationTests(unittest.TestCase):
         self.assertIn('href="/reports/finrez/">Финрез</a>', rendered)
 
     def test_navigation_buttons_have_opaque_background(self):
-        self.assertIn("background:#faf7f1;", nav.NAV_CSS)
+        self.assertIn("background:#efe8db;", nav.NAV_CSS)
+        self.assertNotIn("background:#faf7f1;", nav.NAV_CSS)
         self.assertNotIn("background:rgba(250,247,241,.96);", nav.NAV_CSS)
 
     def test_mobile_and_print_rules_exist(self):

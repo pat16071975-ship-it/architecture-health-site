@@ -42,7 +42,7 @@ NAV_CSS = r"""
   justify-content:center;
   border:1px solid rgba(181,150,98,.46);
   border-radius:9px;
-  background:#faf7f1;
+  background:#efe8db;
   box-shadow:0 5px 18px rgba(71,58,38,.08);
   color:#354039;
   text-decoration:none;
