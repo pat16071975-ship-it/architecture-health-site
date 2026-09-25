@@ -18,7 +18,7 @@ EXCLUDED_PATHS = {
     "/login",
     "/logout",
     "/change-password",
-    "/reports/services-base.html",
+    "/reports/services.html",
 }
 
 NAV_CSS = r"""
