@@ -42,13 +42,12 @@ NAV_CSS = r"""
   justify-content:center;
   border:1px solid rgba(181,150,98,.46);
   border-radius:9px;
-  background:rgba(250,247,241,.96);
+  background:#faf7f1;
   box-shadow:0 5px 18px rgba(71,58,38,.08);
   color:#354039;
   text-decoration:none;
   font:600 11px/1.15 Montserrat,Arial,sans-serif;
   white-space:nowrap;
-  backdrop-filter:blur(8px);
   pointer-events:auto;
 }
 .az-section-nav__btn:hover,
