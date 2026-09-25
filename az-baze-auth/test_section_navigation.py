@@ -21,9 +21,26 @@ class SectionNavigationTests(unittest.TestCase):
                 self.assertEqual((item["label"], item["root"]), expected)
 
     def test_auth_and_public_survey_are_excluded(self):
-        for path in ("/login", "/change-password", "/survey/", "/survey/?token=x"):
+        for path in ("/login", "/change-password", "/survey/", "/survey/?token=x", "/reports/services-base.html"):
             with self.subTest(path=path):
                 self.assertIsNone(nav.section_for_path(path))
+
+    def test_services_wrapper_has_one_navigation_and_iframe_has_none(self):
+        source = """<!doctype html><html><head></head><body>
+        <div class="shell">
+          <div class="nav">
+            <div class="nav-title">Аналитика услуг</div>
+            <div class="nav-actions"><a class="primary" href="/reports/">К отчётам</a><a href="/">На главную</a></div>
+          </div>
+          <iframe id="serviceFrame"></iframe>
+        </div>
+        </body></html>"""
+        rendered = nav.inject_navigation(source, "/reports/services.html")
+        self.assertEqual(rendered.count("az-section-nav-style"), 1)
+        self.assertEqual(rendered.count("На главную"), 1)
+        self.assertEqual(rendered.count("Отчёты"), 1)
+        self.assertNotIn("К отчётам", rendered)
+        self.assertEqual(nav.inject_navigation(source, "/reports/services-base.html"), source)
 
     def test_root_section_is_current_and_nested_is_link(self):
         root = nav.render_navigation("/reports/")
