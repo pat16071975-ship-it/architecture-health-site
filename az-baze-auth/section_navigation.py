@@ -124,16 +124,17 @@ def render_navigation(path):
         return ""
     label = html.escape(section["label"])
     root = html.escape(section["root"], quote=True)
+    target = ' target="_top"' if path == "/reports/services-base.html" else ""
     if _is_root(path, section["root"]):
         section_button = (
             f'<span class="az-section-nav__btn current" aria-current="page">{label}</span>'
         )
     else:
-        section_button = f'<a class="az-section-nav__btn" href="{root}">{label}</a>'
+        section_button = f'<a class="az-section-nav__btn" href="{root}"{target}>{label}</a>'
     return (
         '<nav class="az-section-nav" aria-label="Навигация по разделу">'
         + section_button
-        + '<a class="az-section-nav__btn" href="/">На главную</a>'
+        + f'<a class="az-section-nav__btn" href="/"{target}>На главную</a>'
         + "</nav>"
     )
 

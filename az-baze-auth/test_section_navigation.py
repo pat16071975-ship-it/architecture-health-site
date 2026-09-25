@@ -35,6 +35,11 @@ class SectionNavigationTests(unittest.TestCase):
         self.assertEqual(rendered.count("На главную"), 1)
         self.assertEqual(rendered.count("Отчёты"), 1)
 
+    def test_services_shared_navigation_targets_top_window(self):
+        rendered = nav.render_navigation("/reports/services-base.html")
+        self.assertIn('href="/reports/" target="_top">Отчёты</a>', rendered)
+        self.assertIn('href="/" target="_top">На главную</a>', rendered)
+
     def test_root_section_is_current_and_nested_is_link(self):
         root = nav.render_navigation("/reports/")
         self.assertIn('aria-current="page">Отчёты</span>', root)
