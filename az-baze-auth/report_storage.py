@@ -316,7 +316,10 @@ def _render_server_reports():
         '<div><div class="title">Управленческий отчёт</div><div class="muted">Ручной режим ввода данных</div></div>',
         '<div><div class="title">Управленческий отчёт</div><div class="muted">Данные хранятся на сервере AZ-BAZE</div></div>'
     )
-    html = html.replace('<button id="logoutBtn" class="btn">Выйти</button>', '<button id="logoutBtn" class="btn">К отчётам</button>')
+    html = html.replace(
+        '<button id="logoutBtn" class="btn">Выйти</button>',
+        '<button id="logoutBtn" class="btn hidden" style="display:none">Выйти</button>',
+    )
     html = html.replace(
         '<div class="notice">Временный режим: данные сохраняются только в этом браузере на этом устройстве. Для реальной многопользовательской работы следующим этапом нужен закрытый серверный контур.</div>',
         '<div class="notice">Данные отчёта хранятся централизованно на сервере AZ-BAZE и доступны после авторизации.</div>'
