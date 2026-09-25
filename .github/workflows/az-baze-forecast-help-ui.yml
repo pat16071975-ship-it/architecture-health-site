@@ -1,0 +1,148 @@
+name: AZ-BAZE Forecast Help UI
+
+on:
+  push:
+    branches:
+      - feature/az-forecast-help-opaque
+      - feature/az-baze-auth
+    paths:
+      - 'reports/forecast.html'
+      - '.github/scripts/az-forecast-help-opaque-check.cjs'
+      - '.github/workflows/az-baze-forecast-help-ui.yml'
+  pull_request:
+    paths:
+      - 'reports/forecast.html'
+      - '.github/scripts/az-forecast-help-opaque-check.cjs'
+      - '.github/workflows/az-baze-forecast-help-ui.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  forecast-help-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Forecast algorithm unchanged
+        run: |
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          BASE = "aa27c4df301a6697c2e0fd9ffe15c09b2db982fd"
+
+          def git_show(path):
+              return subprocess.check_output(
+                  ["git","show",f"{BASE}:{path}"],
+                  text=True,
+                  encoding="utf-8",
+              )
+
+          def extract_function(src,name):
+              marker=f"function {name}("
+              start=src.find(marker)
+              if start<0:
+                  raise AssertionError("missing "+name)
+              brace=src.find("{",start)
+              depth=0
+              quote=None
+              escaped=False
+              i=brace
+              while i<len(src):
+                  ch=src[i]
+                  if quote is not None:
+                      if escaped:
+                          escaped=False
+                      elif ch=="\\":
+                          escaped=True
+                      elif ch==quote:
+                          quote=None
+                  else:
+                      if ch in ("'",'"',"`"):
+                          quote=ch
+                      elif ch=="{":
+                          depth+=1
+                      elif ch=="}":
+                          depth-=1
+                          if depth==0:
+                              return src[start:i+1]
+                  i+=1
+              raise AssertionError("unterminated "+name)
+
+          current=Path("reports/forecast.html").read_text(encoding="utf-8")
+          base=git_show("reports/forecast.html")
+          for name in ("baseline","curve","scenario","clinicBase","calculate","renderInsight"):
+              assert extract_function(current,name)==extract_function(base,name), name
+          print("FORECAST ALGORITHM UNCHANGED: OK")
+          PY
+
+      - name: Forecast source contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          html=Path("reports/forecast.html").read_text(encoding="utf-8")
+          required=[
+              'id="forecastMethod"',
+              'Как считается прогноз',
+              'Доп. визиты = новые первичные + новые повторные',
+              'не обрезает расчётную выручку автоматически',
+              'Факт и исходные коэффициенты берутся из этого месяца.',
+              'Порог мощности для загрузки',
+              '.scenario-body{padding:11px;background:#fff}',
+              '.panel{margin-top:12px;border:1px solid var(--line);border-radius:14px;background:#fff',
+              '.acc-body{display:none;padding:0 12px 12px;background:#fff}',
+          ]
+          for needle in required:
+              assert needle in html, needle
+          print("FORECAST HELP SOURCE CONTRACT: OK")
+          PY
+
+      - name: Inline JavaScript syntax
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          html=Path("reports/forecast.html").read_text(encoding="utf-8")
+          scripts=re.findall(r"<script>([\s\S]*?)</script>",html)
+          assert scripts
+          Path("/tmp/forecast-inline.js").write_text("\n".join(scripts),encoding="utf-8")
+          PY
+          node --check /tmp/forecast-inline.js
+          node --check .github/scripts/az-forecast-help-opaque-check.cjs
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start local server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/az-forecast-http.log 2>&1 &
+          echo $! >/tmp/az-forecast-http.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/reports/forecast.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/az-forecast-http.log
+          exit 1
+
+      - name: Chromium forecast help checks
+        run: node .github/scripts/az-forecast-help-opaque-check.cjs
+
+      - name: Stop local server
+        if: always()
+        run: |
+          if [ -f /tmp/az-forecast-http.pid ]; then kill "$(cat /tmp/az-forecast-http.pid)" || true; fi
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: az-forecast-help-ui-screenshots
+          path: artifacts/forecast-help-opaque-*.png
+          if-no-files-found: warn
+          retention-days: 7
