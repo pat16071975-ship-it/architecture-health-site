@@ -267,6 +267,47 @@ function fail(message) {
   }
   console.log('BROWSER CHECK CASH LEGAL SPLIT: PASS');
 
+  const emphasis = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#dateCompareBody tr')];
+    const byLabel = label => rows.find(row => row.cells?.[0]?.textContent.trim() === label);
+    const fact = byLabel('Факт');
+    const due = byLabel('Должно быть');
+    const billed = byLabel('Выставлено счетов');
+    const ooo = byLabel('ДС ООО');
+    const ip = byLabel('ДС ИП');
+    const styleOf = row => {
+      const cell = row?.cells?.[1];
+      if (!cell) return null;
+      const cs = getComputedStyle(cell);
+      return { fontSize: cs.fontSize, backgroundColor: cs.backgroundColor };
+    };
+    return {
+      fact: styleOf(fact),
+      due: styleOf(due),
+      billed: styleOf(billed),
+      ooo: styleOf(ooo),
+      ip: styleOf(ip),
+      billedClass: billed?.className || '',
+      dueClass: due?.className || '',
+      oooClass: ooo?.className || '',
+      ipClass: ip?.className || '',
+    };
+  });
+  if (!emphasis.billedClass.includes('row-billed')) fail('Billed row is missing row-billed class');
+  if (emphasis.billed?.backgroundColor !== 'rgb(255, 255, 255)') {
+    fail('Billed row is not white: ' + emphasis.billed?.backgroundColor);
+  }
+  for (const [name, row] of [['due', emphasis.due], ['ooo', emphasis.ooo], ['ip', emphasis.ip]]) {
+    if (!row) fail('Missing secondary row style: ' + name);
+    if (parseFloat(row.fontSize) >= parseFloat(emphasis.fact?.fontSize || '0')) {
+      fail('Secondary row is not smaller than Fact: ' + name);
+    }
+  }
+  for (const cls of [emphasis.dueClass, emphasis.oooClass, emphasis.ipClass]) {
+    if (!cls.includes('row-secondary')) fail('Secondary row is missing row-secondary class');
+  }
+  console.log('BROWSER CHECK FINANCIAL EMPHASIS: PASS');
+
   await page.screenshot({
     path: 'artifacts/report-monthly-compare.png',
     fullPage: false,
