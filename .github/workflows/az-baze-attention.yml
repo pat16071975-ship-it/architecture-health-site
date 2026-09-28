@@ -23,6 +23,9 @@ on:
 jobs:
   attention-tests:
     runs-on: ubuntu-latest
+    env:
+      AZBAZE_SECRET_KEY: attention-ci-secret
+      AZBAZE_DB: /tmp/az-baze-attention-ci.db
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
