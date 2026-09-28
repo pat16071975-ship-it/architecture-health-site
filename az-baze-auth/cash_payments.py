@@ -3,7 +3,7 @@ import json
 import re
 import sqlite3
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 
 from openpyxl import load_workbook
@@ -50,6 +50,27 @@ CREATE INDEX IF NOT EXISTS idx_cash_receipts_daily_date ON cash_receipts_daily(d
 
 def init_schema(conn):
     conn.executescript(CASH_SCHEMA)
+
+
+def latest_loaded_date(conn):
+    init_schema(conn)
+    row = conn.execute(
+        "SELECT MAX(data_date) AS data_date FROM cash_receipts_daily"
+    ).fetchone()
+    if not row:
+        return None
+    try:
+        value = row["data_date"]
+    except (TypeError, KeyError, IndexError):
+        value = row[0]
+    return str(value) if value else None
+
+
+def next_required_date(conn):
+    latest = latest_loaded_date(conn)
+    if not latest:
+        return None
+    return (datetime.strptime(latest, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
 
 
 def sha256(raw):
