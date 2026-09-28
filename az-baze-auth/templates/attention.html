@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Требует внимания — AZ-BAZE{% endblock %}
+{% block content %}
+<style>
+.attention-page{width:min(980px,94vw);margin:0 auto;padding:22px 0 40px}
+.attention-head{margin-bottom:16px}
+.attention-title{margin:0;font-size:30px;font-weight:600}
+.attention-date{margin-top:6px;color:#687067;font-size:12px}
+.attention-warning{margin:10px 0;padding:11px 13px;border-left:4px solid #a14b45;border-radius:8px;background:#f7e8e6;color:#7d3b36;font-size:12px;font-weight:600;line-height:1.45}
+.attention-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.attention-card{background:#fffdf8;border:1px solid #ded5c8;border-radius:13px;padding:16px}
+.attention-card.plan{grid-column:1/-1}
+.attention-kicker{font-size:11px;font-weight:600;color:#687067;text-transform:uppercase;letter-spacing:.04em}
+.attention-main{margin-top:8px;font-size:32px;font-weight:600;line-height:1}
+.attention-sub{margin-top:6px;color:#5f685f;font-size:12px;line-height:1.45}
+.attention-row{display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:8px;padding:10px 0;border-top:1px solid #e7dfd3}
+.attention-row:first-of-type{margin-top:8px}
+.attention-row strong{font-size:14px}
+.attention-row span{grid-column:1/-1;color:#687067;font-size:11px;line-height:1.4}
+.positive{color:#315a40!important}.negative{color:#9a4b48!important}
+@media(max-width:700px){
+ .attention-page{width:100%;padding:12px 12px 28px}
+ .attention-title{font-size:24px}
+ .attention-grid{grid-template-columns:1fr}
+ .attention-card.plan{grid-column:auto}
+ .attention-main{font-size:28px}
+ .attention-row{grid-template-columns:1fr}
+ .attention-row strong{font-size:15px}
+}
+</style>
+<main class="attention-page">
+  <header class="attention-head">
+    <h1 class="attention-title">Требует внимания</h1>
+    <div class="attention-date">
+      {% if summary.snapshot_date_label %}Данные по состоянию на {{ summary.snapshot_date_label }}{% else %}Актуальные данные ещё не загружены{% endif %}
+    </div>
+  </header>
+
+  {% if summary.clinical_stale %}
+    <div class="attention-warning">Нет актуальных клинических данных. Последние данные — {{ summary.latest_clinical_label or 'не определены' }}.</div>
+  {% endif %}
+  {% if summary.cash_stale %}
+    <div class="attention-warning">Денежные данные неактуальны. Последние «Счета и оплаты» — {{ summary.latest_cash_label or 'не определены' }}.</div>
+  {% endif %}
+
+  <section class="attention-grid">
+    <article class="attention-card plan">
+      <div class="attention-kicker">Текущее выполнение плана</div>
+      <div class="attention-main">{% if summary.plan.execution is not none %}{{ summary.plan.execution }}%{% else %}—{% endif %}</div>
+      <div class="attention-sub">Факт месяца — {{ "{:,.0f}".format(summary.plan.fact).replace(",", " ") }} ₽ · Должно быть — {{ "{:,.0f}".format(summary.plan.due).replace(",", " ") }} ₽</div>
+      <div class="attention-sub {% if plan_state == 'positive' %}positive{% elif plan_state == 'negative' %}negative{% endif %}">{{ plan_comment }}</div>
+    </article>
+
+    <article class="attention-card">
+      <div class="attention-kicker">Выручка по направлениям — с начала месяца</div>
+      {% for row in summary.revenue %}
+        <div class="attention-row">
+          <strong>{{ row.label }} — {{ "{:,.0f}".format(row.amount).replace(",", " ") }} ₽</strong>
+          <span class="{% if row.deviation is not none and row.deviation > 5 %}positive{% elif row.deviation is not none and row.deviation < -5 %}negative{% endif %}">{{ row.comment }}</span>
+        </div>
+      {% endfor %}
+    </article>
+
+    <article class="attention-card">
+      <div class="attention-kicker">Первичные пациенты — с начала месяца</div>
+      <div class="attention-main">{{ summary.primary.total }}</div>
+      <div class="attention-sub">
+        Стоматология — {{ summary.primary.dentistry }}<br>
+        Отделение структуры — {{ summary.primary.structure }}<br>
+        Заказы лаборатории — {{ summary.primary.lab_orders }}
+        {% if summary.primary.forecast_total is not none %}
+          <br><strong>Прогноз на конец месяца — {{ summary.primary.forecast_total }} первичных</strong>
+        {% endif %}
+      </div>
+    </article>
+  </section>
+</main>
+{% endblock %}
