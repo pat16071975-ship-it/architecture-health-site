@@ -295,6 +295,7 @@ def home_modal_fragment(user_id):
 .az-attention-kicker{{font:600 11px/1.2 Montserrat,Arial,sans-serif;color:#687067;text-transform:uppercase;letter-spacing:.04em}}
 .az-attention-main{{margin-top:7px;font:600 30px/1 Montserrat,Arial,sans-serif;color:#2d342f}}
 .az-attention-sub{{margin-top:5px;font:500 12px/1.4 Montserrat,Arial,sans-serif;color:#5f685f}}
+.az-attention-value-strong{{font-weight:700;color:#2d342f}}
 .az-attention-row{{display:grid;grid-template-columns:minmax(130px,1fr) auto;gap:10px;padding:9px 0;border-top:1px solid #e7dfd3}}
 .az-attention-row:first-of-type{{margin-top:7px}}
 .az-attention-row strong{{font:600 14px/1.2 Montserrat,Arial,sans-serif}}
@@ -349,7 +350,7 @@ def home_modal_fragment(user_id):
     if(p.delta!=null) planComment=p.delta<-5?'Отставание от текущего плана на '+Math.round(Math.abs(p.delta))+'%':p.delta>5?'Опережение текущего плана на '+Math.round(p.delta)+'%':'В пределах ±5% от текущего плана';
     const rev=(d.revenue||[]).map(x=>'<div class="az-attention-row"><strong>'+esc(x.label)+' — '+money(x.amount)+'</strong><span class="'+state(x.deviation)+'">'+esc(x.comment)+'</span></div>').join('');
     body.innerHTML=
-      '<div class="az-attention-card plan"><div class="az-attention-kicker">Текущее выполнение плана</div><div class="az-attention-main">'+(p.execution==null?'—':esc(p.execution)+'%')+'</div><div class="az-attention-sub">Факт месяца — '+money(p.fact)+' · Должно быть — '+money(p.due)+'</div><div class="az-attention-sub '+state(p.delta)+'">'+esc(planComment)+'</div></div>'+
+      '<div class="az-attention-card plan"><div class="az-attention-kicker">Текущее выполнение плана</div><div class="az-attention-main">'+(p.execution==null?'—':esc(p.execution)+'%')+'</div><div class="az-attention-sub">Факт месяца — <span class="az-attention-value-strong">'+money(p.fact)+'</span> · Должно быть — <span class="az-attention-value-strong">'+money(p.due)+'</span></div><div class="az-attention-sub '+state(p.delta)+'">'+esc(planComment)+'</div></div>'+
       '<div class="az-attention-card"><div class="az-attention-kicker">Выручка по направлениям</div>'+rev+'</div>'+
       '<div class="az-attention-card"><div class="az-attention-kicker">Первичные пациенты — с начала месяца</div><div class="az-attention-main">'+n(pr.total)+'</div><div class="az-attention-sub">Стоматология — '+n(pr.dentistry)+'<br>Отделение структуры — '+n(pr.structure)+'<br>Заказы лаборатории — '+n(pr.lab_orders)+(pr.forecast_total==null?'':'<br><strong>Прогноз на конец месяца — '+n(pr.forecast_total)+' первичных</strong>')+'</div></div>';
     overlay.hidden=false;

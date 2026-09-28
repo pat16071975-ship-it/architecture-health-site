@@ -111,6 +111,12 @@ class AttentionTests(unittest.TestCase):
         self.assertEqual(summary["latest_clinical_label"], "25.09.2026")
         self.assertEqual(summary["latest_cash_label"], "24.09.2026")
 
+    def test_plan_fact_and_due_values_use_bold_spans(self):
+        html = attention.home_modal_fragment(7)
+        self.assertIn('az-attention-value-strong', html)
+        self.assertIn('Факт месяца — <span class="az-attention-value-strong">', html)
+        self.assertIn('Должно быть — <span class="az-attention-value-strong">', html)
+
     def test_home_modal_has_no_navigation_actions_and_is_mobile_adaptive(self):
         html = attention.home_modal_fragment(7)
         self.assertNotIn('href="/reports/', html)
