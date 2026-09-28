@@ -85,6 +85,28 @@ def _report_for_date(conn, data_date):
     return _safe_json(row["payload"]) if row else {}
 
 
+def _management_monthly_plan(conn, month):
+    if not _table_exists(conn, "report_blobs"):
+        return None
+    row = conn.execute(
+        "SELECT payload FROM report_blobs WHERE key=?",
+        ("az-management-monthly-plan-v1",),
+    ).fetchone()
+    if not row:
+        return None
+    parsed = _safe_json(row["payload"])
+    if parsed.get("version") != 1 or not isinstance(parsed.get("months"), dict):
+        return None
+    raw = parsed["months"].get(month)
+    if isinstance(raw, bool):
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value >= 0 else None
+
+
 def _direction_values(record):
     dentists = record.get("dentists") if isinstance(record.get("dentists"), dict) else {}
     clinic_docs = record.get("clinicDocs") if isinstance(record.get("clinicDocs"), dict) else {}
@@ -160,7 +182,8 @@ def build_summary(conn=None):
     snapshot_date = current_dates[-1] if current_dates else None
     record = _report_for_date(conn, snapshot_date) if snapshot_date else {}
 
-    plan = _num(record.get("plan"))
+    stored_plan = _management_monthly_plan(conn, current_month)
+    plan = stored_plan if stored_plan is not None else _num(record.get("plan"))
     fact = _num(record.get("cashTotal"))
     snapshot_day = int(snapshot_date[-2:]) if snapshot_date and len(snapshot_date) >= 10 else today.day
     days_in_month = calendar.monthrange(today.year, today.month)[1]
