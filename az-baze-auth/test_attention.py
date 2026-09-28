@@ -14,6 +14,7 @@ class AttentionTests(unittest.TestCase):
         self.conn.execute("CREATE TABLE report_data(date TEXT PRIMARY KEY,payload TEXT)")
         self.conn.execute("CREATE TABLE daily_uploads(data_date TEXT PRIMARY KEY)")
         self.conn.execute("CREATE TABLE cash_receipts_daily(data_date TEXT PRIMARY KEY)")
+        self.conn.execute("CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT)")
         self.today = date(2026, 9, 28)
 
     def add_day(self, data_date, payload, cash=False):
@@ -69,6 +70,33 @@ class AttentionTests(unittest.TestCase):
         self.assertAlmostEqual(summary["plan"]["execution"], 96.8, places=1)
         self.assertFalse(summary["clinical_stale"])
         self.assertFalse(summary["cash_stale"])
+
+    def test_management_plan_blob_overrides_raw_record_plan(self):
+        self.conn.execute(
+            "INSERT INTO report_blobs(key,payload) VALUES(?,?)",
+            (
+                "az-management-monthly-plan-v1",
+                json.dumps({"version": 1, "months": {"2026-09": 9000000}}, ensure_ascii=False),
+            ),
+        )
+        self.add_day(
+            "2026-09-27",
+            {
+                "plan": 0,
+                "cashTotal": 8377290,
+                "primary": 52,
+                "dentPrimary": 22,
+                "clinicPrimary": 30,
+                "labOrders": 11,
+            },
+            cash=True,
+        )
+        with patch.object(attention, "_clinic_today", return_value=self.today):
+            summary = attention.build_summary(self.conn)
+
+        self.assertEqual(summary["plan"]["due"], 8100000)
+        self.assertEqual(summary["plan"]["fact"], 8377290)
+        self.assertAlmostEqual(summary["plan"]["execution"], 103.4, places=1)
 
     def test_stale_sources_are_reported_independently(self):
         self.add_day("2026-09-25", {"plan": 1000, "cashTotal": 500})
