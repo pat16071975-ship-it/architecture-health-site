@@ -14,6 +14,7 @@
 .attention-main{margin-top:8px;font-size:32px;font-weight:600;line-height:1}
 .attention-sub{margin-top:6px;color:#5f685f;font-size:12px;line-height:1.45}
 .attention-value-strong{font-weight:700;color:#2d342f}
+.attention-plan-line{display:inline}
 .attention-row{display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:8px;padding:10px 0;border-top:1px solid #e7dfd3}
 .attention-row:first-of-type{margin-top:8px}
 .attention-row strong{font-size:14px}
@@ -27,6 +28,8 @@
  .attention-main{font-size:28px}
  .attention-row{grid-template-columns:1fr}
  .attention-row strong{font-size:15px}
+ .attention-plan-line{display:block}
+ .attention-plan-line + .attention-plan-line{margin-top:4px}
 }
 </style>
 <main class="attention-page">
@@ -48,7 +51,7 @@
     <article class="attention-card plan">
       <div class="attention-kicker">Текущее выполнение плана</div>
       <div class="attention-main">{% if summary.plan.execution is not none %}{{ summary.plan.execution }}%{% else %}—{% endif %}</div>
-      <div class="attention-sub">Факт месяца — <span class="attention-value-strong">{{ "{:,.0f}".format(summary.plan.fact).replace(",", " ") }} ₽</span> · Должно быть — <span class="attention-value-strong">{{ "{:,.0f}".format(summary.plan.due).replace(",", " ") }} ₽</span></div>
+      <div class="attention-sub"><span class="attention-plan-line">Факт месяца — <span class="attention-value-strong">{{ "{:,.0f}".format(summary.plan.fact).replace(",", " ") }} ₽</span></span><span class="attention-plan-line"> · Должно быть — <span class="attention-value-strong">{{ "{:,.0f}".format(summary.plan.due).replace(",", " ") }} ₽</span></span></div>
       <div class="attention-sub {% if plan_state == 'positive' %}positive{% elif plan_state == 'negative' %}negative{% endif %}">{{ plan_comment }}</div>
     </article>
 
