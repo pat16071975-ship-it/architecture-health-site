@@ -156,8 +156,8 @@ def build_summary(conn=None):
 
     current_month = f"{today.year:04d}-{today.month:02d}"
     current_dates = _daily_dates(conn, today.year, today.month)
-    current_dates = [value for value in current_dates if value <= yesterday.isoformat()]
-    snapshot_date = current_dates[-1] if current_dates else latest_clinical
+    current_dates = [value for value in current_dates if value <= today.isoformat()]
+    snapshot_date = current_dates[-1] if current_dates else None
     record = _report_for_date(conn, snapshot_date) if snapshot_date else {}
 
     plan = _num(record.get("plan"))
