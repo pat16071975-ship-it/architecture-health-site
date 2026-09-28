@@ -188,8 +188,8 @@ def build_summary(conn=None):
     snapshot_day = int(snapshot_date[-2:]) if snapshot_date and len(snapshot_date) >= 10 else today.day
     days_in_month = calendar.monthrange(today.year, today.month)[1]
     due = plan * snapshot_day / days_in_month if plan else 0
-    plan_execution = fact / due * 100 if due > 0 else None
-    plan_delta = plan_execution - 100 if plan_execution is not None else None
+    plan_execution = fact / plan * 100 if plan > 0 else None
+    due_delta = (fact - due) / due * 100 if due > 0 else None
 
     directions = _direction_values(record)
     comparable = _comparison_average(conn, today, len(current_dates))
@@ -237,7 +237,7 @@ def build_summary(conn=None):
             "fact": round(fact),
             "due": round(due),
             "execution": round(plan_execution, 1) if plan_execution is not None else None,
-            "delta": round(plan_delta, 1) if plan_delta is not None else None,
+            "delta": round(due_delta, 1) if due_delta is not None else None,
         },
         "revenue": revenue_rows,
         "primary": primary,
