@@ -117,6 +117,12 @@ class AttentionTests(unittest.TestCase):
         self.assertIn('Факт месяца — <span class="az-attention-value-strong">', html)
         self.assertIn('Должно быть — <span class="az-attention-value-strong">', html)
 
+    def test_mobile_plan_values_are_split_into_two_lines(self):
+        html = attention.home_modal_fragment(7)
+        self.assertIn('az-attention-plan-line', html)
+        self.assertIn('.az-attention-plan-line{display:block}', html)
+        self.assertIn('Должно быть — <span class="az-attention-value-strong">', html)
+
     def test_home_modal_has_no_navigation_actions_and_is_mobile_adaptive(self):
         html = attention.home_modal_fragment(7)
         self.assertNotIn('href="/reports/', html)
