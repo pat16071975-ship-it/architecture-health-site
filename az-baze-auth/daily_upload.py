@@ -695,9 +695,12 @@ def register_daily_upload(app):
                 except ValueError as exc:
                     error = str(exc)
 
-        latest = core.db().execute(
+        conn = core.db()
+        latest = conn.execute(
             "SELECT data_date,revision,uploaded_at FROM daily_uploads ORDER BY data_date DESC LIMIT 1"
         ).fetchone()
+        cash_latest = cash_payments.latest_loaded_date(conn)
+        cash_next_required = cash_payments.next_required_date(conn)
         return render_template(
             "uploads.html",
             csrf=csrf_token(),
@@ -706,6 +709,8 @@ def register_daily_upload(app):
             error=error,
             latest=latest,
             next_required_date=_next_required_date(latest),
+            cash_latest_date=_format_date(cash_latest) if cash_latest else None,
+            cash_next_required_date=_format_date(cash_next_required) if cash_next_required else None,
             history=core._history() if "upload_history" in perms else [],
             can_daily=("upload_completed" in perms and "upload_services" in perms),
             can_replace=("upload_replace" in perms),
