@@ -66,8 +66,10 @@ class AttentionTests(unittest.TestCase):
         self.assertEqual(rows["lab"]["deviation"], 20.0)
         self.assertIn("выше среднего темпа текущего года", rows["dentistry"]["comment"])
 
-        # 2700 / (3100 * 27 / 30) ~= 96.77%
-        self.assertAlmostEqual(summary["plan"]["execution"], 96.8, places=1)
+        # Выполнение плана месяца считается от полного месячного плана.
+        self.assertAlmostEqual(summary["plan"]["execution"], 87.1, places=1)
+        # Отклонение для комментария сравнивает факт с строкой «Должно быть».
+        self.assertAlmostEqual(summary["plan"]["delta"], -3.2, places=1)
         self.assertFalse(summary["clinical_stale"])
         self.assertFalse(summary["cash_stale"])
 
@@ -96,7 +98,8 @@ class AttentionTests(unittest.TestCase):
 
         self.assertEqual(summary["plan"]["due"], 8100000)
         self.assertEqual(summary["plan"]["fact"], 8377290)
-        self.assertAlmostEqual(summary["plan"]["execution"], 103.4, places=1)
+        self.assertAlmostEqual(summary["plan"]["execution"], 93.1, places=1)
+        self.assertAlmostEqual(summary["plan"]["delta"], 3.4, places=1)
 
     def test_stale_sources_are_reported_independently(self):
         self.add_day("2026-09-25", {"plan": 1000, "cashTotal": 500})
