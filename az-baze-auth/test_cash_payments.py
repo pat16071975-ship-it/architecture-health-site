@@ -130,6 +130,25 @@ class CashPaymentsTests(unittest.TestCase):
         conn.row_factory = sqlite3.Row
         self.assertEqual(cash_payments.month_snapshots(conn, "2026-08"), {})
 
+    def test_latest_and_next_required_cash_dates(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cash_payments.init_schema(conn)
+        self.assertIsNone(cash_payments.latest_loaded_date(conn))
+        self.assertIsNone(cash_payments.next_required_date(conn))
+
+        base = {**cash_payments._blank_day(), "cashTotal": 100}
+        cash_payments.replace_range(
+            conn,
+            {"2026-09-23": base},
+            "cash.xlsx",
+            "sha",
+            1,
+            "now",
+        )
+        self.assertEqual(cash_payments.latest_loaded_date(conn), "2026-09-23")
+        self.assertEqual(cash_payments.next_required_date(conn), "2026-09-24")
+
     def test_multiline_russian_date_is_one_operation(self):
         raw = self.workbook_bytes([
             ["05 янв 2026\n09:15", "Пациент", "Внесение ДС", 0, 1234, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
