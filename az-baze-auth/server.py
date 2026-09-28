@@ -5,6 +5,7 @@ from flask import abort, g, request, send_from_directory
 import app as app_core
 from app import SITE_ROOT, app
 import access_contacts_ext
+import attention
 import credentials_store
 import clinic_structure_settings
 import daily_upload
@@ -56,6 +57,7 @@ daily_upload.user_permissions = _user_permissions_with_upload_section
 upload_integrity.install(daily_upload.core)
 
 report_storage.register_report_storage(app)
+attention.register_attention(app)
 surveys.register_surveys(app)
 terminology.install(app, report_storage)
 ident_import.register_ident_import(app)
@@ -233,6 +235,9 @@ def tune_report_response(response):
 
     if request.path == "/" and response.mimetype == "text/html":
         html = response.get_data(as_text=True)
+        if g.user:
+            html = attention.inject_home_modal(html, g.user)
+            response.set_data(html)
         knowledge_link = '<a class="menu-btn active" href="/knowledge/" id="knowledge">База знаний</a>'
         credentials_link = '<a class="menu-btn active" href="/credentials/">Доступы и пароли</a>'
         if g.user and "credentials_view" in app_core.user_permissions(g.user) and credentials_link not in html and knowledge_link in html:

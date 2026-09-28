@@ -1,0 +1,46 @@
+name: AZ-BAZE Attention Overview
+
+on:
+  push:
+    branches:
+      - feature/az-baze-auth
+    paths:
+      - 'az-baze-auth/attention.py'
+      - 'az-baze-auth/templates/attention.html'
+      - 'az-baze-auth/test_attention.py'
+      - 'az-baze-auth/server.py'
+      - 'reports/menu.html'
+      - '.github/workflows/az-baze-attention.yml'
+  pull_request:
+    paths:
+      - 'az-baze-auth/attention.py'
+      - 'az-baze-auth/templates/attention.html'
+      - 'az-baze-auth/test_attention.py'
+      - 'az-baze-auth/server.py'
+      - 'reports/menu.html'
+      - '.github/workflows/az-baze-attention.yml'
+
+jobs:
+  attention-tests:
+    runs-on: ubuntu-latest
+    env:
+      AZBAZE_SECRET_KEY: attention-ci-secret
+      AZBAZE_DB: /tmp/az-baze-attention-ci.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install runtime test dependencies
+        run: pip install flask werkzeug
+      - name: Python syntax
+        run: python -m py_compile az-baze-auth/attention.py az-baze-auth/server.py az-baze-auth/test_attention.py
+      - name: Attention tests
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_attention.py
+      - name: UI contract
+        run: |
+          grep -Fq 'Требует внимания' reports/menu.html
+          grep -Fq '@media(max-width:700px)' az-baze-auth/templates/attention.html
+          grep -Fq 'Выручка по направлениям' az-baze-auth/templates/attention.html
+          grep -Fq 'Первичные пациенты' az-baze-auth/templates/attention.html
