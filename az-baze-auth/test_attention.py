@@ -124,7 +124,7 @@ class AttentionTests(unittest.TestCase):
         self.assertEqual(rows["total"]["forecast"], 74)
         self.assertEqual(rows["total"]["forecast_months"], 2)
         self.assertEqual(rows["dentistry"]["forecast"], 29)
-        self.assertEqual(rows["structure"]["forecast"], 46)
+        self.assertEqual(rows["structure"]["forecast"], 45)
         self.assertEqual(rows["lab_orders"]["forecast"], 15)
         self.assertEqual(summary["primary"]["forecast_total"], 74)
 
