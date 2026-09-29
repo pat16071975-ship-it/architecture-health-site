@@ -168,6 +168,89 @@ def _forecast_primary(conn, today, elapsed_loaded_days, current_primary):
     return round(current_primary / elapsed_loaded_days * expected_days)
 
 
+def _primary_values(record):
+    return {
+        "total": _num(record.get("primary")),
+        "dentistry": _num(record.get("dentPrimary")),
+        "structure": _num(record.get("clinicPrimary")),
+        "lab_orders": _num(record.get("labOrders")),
+    }
+
+
+def _primary_comparable_averages(conn, today, elapsed_loaded_days):
+    keys = ("total", "dentistry", "structure", "lab_orders")
+    values = {key: [] for key in keys}
+    if elapsed_loaded_days <= 0:
+        return {key: {"average": None, "months": 0} for key in keys}
+
+    for month in range(1, today.month):
+        dates = _daily_dates(conn, today.year, month)
+        if len(dates) < elapsed_loaded_days:
+            continue
+        record = _report_for_date(conn, dates[elapsed_loaded_days - 1])
+        if not record:
+            continue
+        month_values = _primary_values(record)
+        for key in keys:
+            values[key].append(month_values[key])
+
+    result = {}
+    for key in keys:
+        items = values[key]
+        result[key] = {
+            "average": (sum(items) / len(items)) if len(items) >= 2 else None,
+            "months": len(items),
+        }
+    return result
+
+
+def _expected_completed_month_days(conn, today):
+    counts = []
+    for month in range(1, today.month):
+        count = len(_daily_dates(conn, today.year, month))
+        if count:
+            counts.append(count)
+    if len(counts) < 2:
+        return None
+    return sum(counts) / len(counts)
+
+
+def _detailed_forecast(current_value, elapsed_loaded_days, expected_days):
+    if elapsed_loaded_days <= 0 or expected_days is None:
+        return None
+    return round(current_value / elapsed_loaded_days * expected_days)
+
+
+def _primary_detail_rows(conn, today, elapsed_loaded_days, current_values):
+    comparable = _primary_comparable_averages(conn, today, elapsed_loaded_days)
+    expected_days = _expected_completed_month_days(conn, today)
+
+    rows = []
+    for key, label, forecast_label in (
+        ("total", "Первичные всего", "первичных"),
+        ("dentistry", "Стоматология", "первичных"),
+        ("structure", "Отделение структуры", "первичных"),
+        ("lab_orders", "Заказы лаборатории", "заказов"),
+    ):
+        current = current_values[key]
+        average = comparable[key]["average"]
+        deviation = _deviation(current, average)
+        rows.append(
+            {
+                "key": key,
+                "label": label,
+                "current": round(current),
+                "average": round(average, 1) if average is not None else None,
+                "comparison_months": comparable[key]["months"],
+                "deviation": round(deviation, 1) if deviation is not None else None,
+                "comment": _deviation_text(deviation),
+                "forecast": _detailed_forecast(current, elapsed_loaded_days, expected_days),
+                "forecast_label": forecast_label,
+            }
+        )
+    return rows
+
+
 def build_summary(conn=None):
     conn = conn or db()
     today = _clinic_today(conn)
@@ -210,14 +293,21 @@ def build_summary(conn=None):
             }
         )
 
-    primary_total = round(_num(record.get("primary")))
+    primary_values = _primary_values(record)
+    primary_total = round(primary_values["total"])
     primary = {
         "total": primary_total,
-        "dentistry": round(_num(record.get("dentPrimary"))),
-        "structure": round(_num(record.get("clinicPrimary"))),
-        "lab_orders": round(_num(record.get("labOrders"))),
+        "dentistry": round(primary_values["dentistry"]),
+        "structure": round(primary_values["structure"]),
+        "lab_orders": round(primary_values["lab_orders"]),
         "forecast_total": _forecast_primary(conn, today, len(current_dates), primary_total),
     }
+    primary_details = _primary_detail_rows(
+        conn,
+        today,
+        len(current_dates),
+        primary_values,
+    )
 
     clinical_stale = not latest_clinical or latest_clinical < yesterday.isoformat()
     cash_stale = not latest_cash or latest_cash < yesterday.isoformat()
@@ -241,6 +331,7 @@ def build_summary(conn=None):
         },
         "revenue": revenue_rows,
         "primary": primary,
+        "primary_details": primary_details,
     }
 
 
