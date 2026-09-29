@@ -95,8 +95,15 @@ def _active_clinic(conn, clinic_id):
 
 
 def _clean_original_name(value):
-    name = Path(str(value or "")).name.strip().replace("\x00", "")
+    normalized = str(value or "").replace("\\", "/")
+    name = Path(normalized).name.strip().replace("\x00", "")
     return name[:255]
+
+
+def _private_dir(path):
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(path, 0o700)
+    return path
 
 
 def _read_slot(file_storage, label, extension):
@@ -186,8 +193,11 @@ def _store_bundle(conn, clinic_id, user_id, items):
             (clinic_id, bundle_sha256, user_id, now),
         )
         batch_id = cur.lastrowid
-        batch_dir = UPLOAD_ROOT / str(clinic_id) / str(batch_id)
-        batch_dir.mkdir(parents=True, exist_ok=False, mode=0o700)
+        _private_dir(UPLOAD_ROOT)
+        clinic_dir = _private_dir(UPLOAD_ROOT / str(clinic_id))
+        batch_dir = clinic_dir / str(batch_id)
+        batch_dir.mkdir(exist_ok=False, mode=0o700)
+        os.chmod(batch_dir, 0o700)
 
         for source_key, _label, _ext, stored_filename in SOURCE_SLOTS:
             item = items[source_key]
