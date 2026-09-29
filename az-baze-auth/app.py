@@ -244,12 +244,13 @@ def create_app():
             abort(403)
         return render_template("nn_placeholder.html", title="Отчёты для НН", message="Раздел отчётов готовится.", csrf=csrf_token())
 
-    @app.get("/nn/uploads/")
+    @app.route("/nn/uploads/", methods=["GET", "POST"])
     @login_required
     def nn_uploads():
         if not has_nn_permission(g.user, "nn_upload"):
             abort(403)
-        return render_template("nn_placeholder.html", title="Загрузка данных", message="Загрузка пяти исходных отчётов будет добавлена следующим этапом.", csrf=csrf_token())
+        import nn_upload
+        return nn_upload.handle_uploads_page()
 
     @app.get("/api/me")
     @login_required
