@@ -18,6 +18,13 @@ SURVEY_PERMISSION_OPTIONS = [
 ]
 SURVEY_PERMISSION_KEYS = {key for key, _ in SURVEY_PERMISSION_OPTIONS}
 
+NN_PERMISSION_OPTIONS = [
+    ("nn_reports", "Варикоза нет - KZ — отчёты"),
+    ("nn_upload", "Варикоза нет - KZ — загрузка данных"),
+]
+NN_PERMISSION_KEYS = {key for key, _ in NN_PERMISSION_OPTIONS}
+OWNER_EMAIL = os.environ.get("AZBAZE_OWNER_EMAIL", "").strip().lower()
+
 SECTIONS = [
     ("reports", "Отчёты"),
     ("knowledge", "База знаний"),
@@ -25,8 +32,8 @@ SECTIONS = [
     ("section4", "Раздел 4"),
     ("section5", "Раздел 5"),
 ]
-SECTION_KEYS = {key for key, _ in SECTIONS} | SURVEY_PERMISSION_KEYS
-EXPLICIT_PERMISSION_KEYS = set(SURVEY_PERMISSION_KEYS)
+SECTION_KEYS = {key for key, _ in SECTIONS} | SURVEY_PERMISSION_KEYS | NN_PERMISSION_KEYS
+EXPLICIT_PERMISSION_KEYS = set(SURVEY_PERMISSION_KEYS) | set(NN_PERMISSION_KEYS)
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
@@ -209,7 +216,30 @@ def create_app():
     @app.get("/")
     @login_required
     def home():
+        if is_nn_only_user(g.user):
+            return render_template("nn_home.html")
         return render_home_for_user()
+
+    @app.get("/nn/")
+    @login_required
+    def nn_home():
+        if not has_any_nn_access(g.user):
+            abort(403)
+        return render_template("nn_home.html")
+
+    @app.get("/nn/reports/")
+    @login_required
+    def nn_reports():
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        return render_template("nn_placeholder.html", title="Отчёты для НН", message="Раздел отчётов готовится.")
+
+    @app.get("/nn/uploads/")
+    @login_required
+    def nn_uploads():
+        if not has_nn_permission(g.user, "nn_upload"):
+            abort(403)
+        return render_template("nn_placeholder.html", title="Загрузка данных", message="Загрузка пяти исходных отчётов будет добавлена следующим этапом.")
 
     @app.get("/api/me")
     @login_required
@@ -287,6 +317,8 @@ def create_app():
             perms=perms,
             sections=SECTIONS,
             survey_permission_options=SURVEY_PERMISSION_OPTIONS,
+            nn_permission_options=NN_PERMISSION_OPTIONS if is_owner(g.user) else [],
+            can_manage_nn=is_owner(g.user),
             logs=logs,
             csrf=csrf_token(),
         )
@@ -300,7 +332,7 @@ def create_app():
             full_name = request.form.get("full_name", "").strip()
             email = request.form.get("email", "").strip().lower()
             is_admin = 1 if request.form.get("is_admin") == "1" else 0
-            permissions = selected_permissions()
+            permissions = selected_permissions(include_nn=is_owner(g.user))
             if not full_name or not valid_email(email):
                 error = "Укажите ФИО и корректный e-mail."
             elif db().execute("SELECT 1 FROM users WHERE email=? COLLATE NOCASE", (email,)).fetchone():
@@ -333,6 +365,8 @@ def create_app():
             current_permissions=set(),
             sections=SECTIONS,
             survey_permission_options=SURVEY_PERMISSION_OPTIONS,
+            nn_permission_options=NN_PERMISSION_OPTIONS if is_owner(g.user) else [],
+            can_manage_nn=is_owner(g.user),
             error=error,
             csrf=csrf_token(),
         )
@@ -343,6 +377,8 @@ def create_app():
         user = db().execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             abort(404)
+        if is_owner(user) and not is_owner(g.user):
+            abort(403)
         error = None
         if request.method == "POST":
             require_csrf()
@@ -350,7 +386,9 @@ def create_app():
             email = request.form.get("email", "").strip().lower()
             is_admin = 1 if request.form.get("is_admin") == "1" else 0
             active = 1 if request.form.get("active") == "1" else 0
-            permissions = selected_permissions()
+            permissions = selected_permissions(include_nn=is_owner(g.user))
+            if not is_owner(g.user):
+                permissions |= explicit_permissions(user_id) & NN_PERMISSION_KEYS
 
             if user_id == g.user["id"] and (not is_admin or not active):
                 error = "Нельзя снять права администратора или отключить собственную учётную запись."
@@ -378,6 +416,8 @@ def create_app():
             current_permissions=user_permissions(user),
             sections=SECTIONS,
             survey_permission_options=SURVEY_PERMISSION_OPTIONS,
+            nn_permission_options=NN_PERMISSION_OPTIONS if is_owner(g.user) else [],
+            can_manage_nn=is_owner(g.user),
             error=error,
             csrf=csrf_token(),
         )
@@ -389,6 +429,8 @@ def create_app():
         user = db().execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             abort(404)
+        if is_owner(user) and not is_owner(g.user):
+            abort(403)
         temp_password = secrets.token_urlsafe(10)
         db().execute(
             "UPDATE users SET password_hash=?, must_change_password=1, failed_attempts=0, locked_until=NULL, updated_at=? WHERE id=?",
@@ -474,9 +516,17 @@ def permission_required(section):
     return decorator
 
 
+def explicit_permissions(user_id):
+    rows = db().execute("SELECT section FROM permissions WHERE user_id=?", (user_id,)).fetchall()
+    return {row["section"] for row in rows if row["section"] in SECTION_KEYS}
+
+
+def is_owner(user):
+    return bool(user and OWNER_EMAIL and str(user["email"]).strip().lower() == OWNER_EMAIL)
+
+
 def user_permissions(user):
-    rows = db().execute("SELECT section FROM permissions WHERE user_id=?", (user["id"],)).fetchall()
-    explicit = {row["section"] for row in rows if row["section"] in SECTION_KEYS}
+    explicit = explicit_permissions(user["id"])
     if bool(user["is_admin"]):
         # Sensitive survey capabilities are never granted merely by is_admin.
         permissions = (set(SECTION_KEYS) - EXPLICIT_PERMISSION_KEYS) | (explicit & EXPLICIT_PERMISSION_KEYS)
@@ -488,6 +538,21 @@ def user_permissions(user):
     return permissions
 
 
+def has_nn_permission(user, permission):
+    return permission in NN_PERMISSION_KEYS and (is_owner(user) or permission in user_permissions(user))
+
+
+def has_any_nn_access(user):
+    return is_owner(user) or bool(user_permissions(user) & NN_PERMISSION_KEYS)
+
+
+def is_nn_only_user(user):
+    if not user or is_owner(user):
+        return False
+    permissions = user_permissions(user)
+    return bool(permissions & NN_PERMISSION_KEYS) and not bool(permissions - NN_PERMISSION_KEYS)
+
+
 def set_permissions(user_id, permissions):
     clean = set(permissions) & SECTION_KEYS
     db().execute("DELETE FROM permissions WHERE user_id=?", (user_id,))
@@ -497,8 +562,11 @@ def set_permissions(user_id, permissions):
     )
 
 
-def selected_permissions():
-    return {key for key in SECTION_KEYS if request.form.get(f"perm_{key}") == "1"}
+def selected_permissions(include_nn=False):
+    allowed = set(SECTION_KEYS)
+    if not include_nn:
+        allowed -= NN_PERMISSION_KEYS
+    return {key for key in allowed if request.form.get(f"perm_{key}") == "1"}
 
 
 def audit(action, target_user_id=None, details=None):
@@ -547,6 +615,11 @@ def render_home_for_user():
     for key, fragment in mapping.items():
         if key not in perms:
             html = html.replace(fragment, "")
+
+    if has_any_nn_access(g.user):
+        nn_link = '<a class="menu-btn active" href="/nn/" id="nn-private">Варикоза нет - KZ</a>'
+        if nn_link not in html:
+            html = html.replace("</nav>", nn_link + "\n</nav>", 1)
 
     admin_link = ""
     if g.user["is_admin"]:
