@@ -34,7 +34,7 @@ jobs:
         run: pip install -r az-baze-auth/requirements.txt
 
       - name: Python syntax
-        run: python -m py_compile az-baze-auth/app.py az-baze-auth/test_nn_foundation.py
+        run: python -m py_compile az-baze-auth/app.py az-baze-auth/nn_upload.py az-baze-auth/test_nn_foundation.py az-baze-auth/test_nn_upload.py
 
       - name: NN template syntax
         run: |
@@ -42,15 +42,15 @@ jobs:
           from pathlib import Path
           from jinja2 import Environment
           env = Environment()
-          for name in ("nn_base.html", "nn_home.html", "nn_placeholder.html", "user_form.html", "admin.html"):
+          for name in ("nn_base.html", "nn_home.html", "nn_placeholder.html", "nn_uploads.html", "user_form.html", "admin.html"):
               path = Path("az-baze-auth/templates") / name
               env.parse(path.read_text(encoding="utf-8"))
               print("OK", path)
           PY
 
-      - name: NN foundation tests
+      - name: NN foundation and upload tests
         working-directory: az-baze-auth
         env:
           AZBAZE_SECRET_KEY: test-secret
           AZBAZE_OWNER_EMAIL: owner@example.com
-        run: python -m unittest -v test_nn_foundation.py
+        run: python -m unittest -v test_nn_foundation.py test_nn_upload.py
