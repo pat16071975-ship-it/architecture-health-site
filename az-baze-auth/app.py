@@ -308,27 +308,46 @@ def create_app():
     @admin_required
     def admin():
         users = db().execute("SELECT * FROM users ORDER BY full_name COLLATE NOCASE").fetchall()
+        can_manage_nn = is_owner(g.user)
         perms = {
-            row["id"]: sorted(user_permissions(row))
+            row["id"]: sorted(
+                user_permissions(row)
+                if can_manage_nn
+                else (user_permissions(row) - NN_PERMISSION_KEYS)
+            )
             for row in users
         }
-        logs = db().execute(
-            """
-            SELECT a.*, au.full_name AS actor_name, tu.full_name AS target_name
-            FROM audit_log a
-            LEFT JOIN users au ON au.id=a.actor_user_id
-            LEFT JOIN users tu ON tu.id=a.target_user_id
-            ORDER BY a.id DESC LIMIT 30
-            """
-        ).fetchall()
+        if can_manage_nn:
+            logs = db().execute(
+                """
+                SELECT a.*, au.full_name AS actor_name, tu.full_name AS target_name
+                FROM audit_log a
+                LEFT JOIN users au ON au.id=a.actor_user_id
+                LEFT JOIN users tu ON tu.id=a.target_user_id
+                ORDER BY a.id DESC LIMIT 30
+                """
+            ).fetchall()
+        else:
+            logs = db().execute(
+                """
+                SELECT a.*, au.full_name AS actor_name, tu.full_name AS target_name
+                FROM audit_log a
+                LEFT JOIN users au ON au.id=a.actor_user_id
+                LEFT JOIN users tu ON tu.id=a.target_user_id
+                WHERE COALESCE(a.details,'') NOT LIKE '%nn_reports%'
+                  AND COALESCE(a.details,'') NOT LIKE '%nn_upload%'
+                  AND COALESCE(a.details,'') NOT LIKE '%Варикоза нет - KZ%'
+                ORDER BY a.id DESC LIMIT 30
+                """
+            ).fetchall()
         return render_template(
             "admin.html",
             users=users,
             perms=perms,
             sections=SECTIONS,
             survey_permission_options=SURVEY_PERMISSION_OPTIONS,
-            nn_permission_options=NN_PERMISSION_OPTIONS if is_owner(g.user) else [],
-            can_manage_nn=is_owner(g.user),
+            nn_permission_options=NN_PERMISSION_OPTIONS if can_manage_nn else [],
+            can_manage_nn=can_manage_nn,
             logs=logs,
             csrf=csrf_token(),
         )
