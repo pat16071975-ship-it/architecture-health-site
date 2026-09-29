@@ -1,0 +1,115 @@
+{% extends "nn_base.html" %}
+{% block title %}Загрузка данных — Варикоза нет - KZ{% endblock %}
+{% block content %}
+<style>
+.nn-upload-head{display:grid;gap:14px;margin-bottom:18px}
+.nn-clinic-form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.nn-field{display:grid;gap:6px;min-width:min(360px,100%)}
+.nn-field label{font-size:12px;font-weight:600;color:#5f685f}
+.nn-field select{width:100%;padding:11px 12px;border:1px solid #cfc5b5;border-radius:9px;background:#fff;font:500 14px Montserrat,Arial,sans-serif}
+.nn-upload-grid{display:grid;gap:12px;margin-top:16px}
+.nn-upload-slot{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px;border:1px solid #e1d7c8;border-radius:12px;background:#fff}
+.nn-upload-name{font-size:14px;font-weight:600}
+.nn-upload-meta{margin-top:5px;color:#6a726b;font-size:11.5px;line-height:1.45;word-break:break-word}
+.nn-file-input{max-width:330px;width:100%;font:500 12px Montserrat,Arial,sans-serif}
+.nn-submit{display:flex;justify-content:center;margin-top:18px}
+.nn-submit button,.nn-clinic-form button{border:1px solid #44634f;border-radius:9px;background:#44634f;color:#fff;padding:10px 16px;font:600 13px Montserrat,Arial,sans-serif;cursor:pointer}
+.nn-state{margin:14px 0;padding:11px 13px;border-radius:9px;font-size:12px;line-height:1.5}
+.nn-state.ok{background:#edf4ee;border:1px solid #cddfce;color:#315a40}
+.nn-state.warn{background:#fff7e8;border:1px solid #e6d6b8;color:#725d35}
+.nn-state.err{background:#f8e8e6;border:1px solid #e4c3bf;color:#8a4542}
+.nn-latest{margin-top:18px;padding-top:16px;border-top:1px solid #e4dacb}
+.nn-latest h3{margin:0 0 10px;font-size:15px}
+.nn-latest-row{display:grid;grid-template-columns:minmax(160px,220px) 1fr;gap:10px;padding:8px 0;border-top:1px solid #eee6da;font-size:12px}
+.nn-latest-row:first-of-type{border-top:0}
+.nn-status-badge{display:inline-block;padding:3px 7px;border-radius:999px;background:#edf2ed;border:1px solid #d5e0d5;font-size:10px;font-weight:600}
+@media(max-width:650px){
+  .nn-clinic-form{display:grid;grid-template-columns:1fr}
+  .nn-field{min-width:0}
+  .nn-clinic-form button{width:100%}
+  .nn-upload-slot{grid-template-columns:1fr;gap:9px}
+  .nn-file-input{max-width:none}
+  .nn-latest-row{grid-template-columns:1fr;gap:3px}
+}
+</style>
+
+<section class="nn-card">
+  <div class="nn-upload-head">
+    <div>
+      <h2 class="nn-title">Загрузка данных</h2>
+      <div class="nn-muted">Каждый набор файлов сохраняется отдельно для выбранной клиники. Сводного режима по всем клиникам сейчас нет.</div>
+    </div>
+
+    {% if clinics %}
+    <form class="nn-clinic-form" method="get" action="/nn/uploads/">
+      <div class="nn-field">
+        <label for="clinic_id">Клиника</label>
+        <select id="clinic_id" name="clinic_id">
+          {% for clinic in clinics %}
+            <option value="{{ clinic['id'] }}" {% if selected_clinic and clinic['id'] == selected_clinic['id'] %}selected{% endif %}>
+              {{ clinic['name'] }}{% if clinic['address'] %} — {{ clinic['address'] }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit">Выбрать клинику</button>
+    </form>
+    {% else %}
+      <div class="nn-state err">В справочнике нет активных клиник. Загрузка недоступна, пока клиники не заведены в структуре AZ-BAZE.</div>
+    {% endif %}
+  </div>
+
+  {% if error %}<div class="nn-state err">{{ error }}</div>{% endif %}
+  {% if result %}
+    <div class="nn-state {% if result.status == 'duplicate' %}warn{% else %}ok{% endif %}">{{ result.message }}</div>
+  {% endif %}
+
+  {% if selected_clinic %}
+  <form method="post" enctype="multipart/form-data" action="/nn/uploads/">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="clinic_id" value="{{ selected_clinic['id'] }}">
+    <div class="nn-muted">
+      Выбрано: <strong>{{ selected_clinic['name'] }}</strong>{% if selected_clinic['address'] %}, {{ selected_clinic['address'] }}{% endif %}.
+      Для сохранения набора нужны все пять файлов.
+    </div>
+
+    <div class="nn-upload-grid">
+      {% for source_key,label,extension,stored_filename in source_slots %}
+      <div class="nn-upload-slot">
+        <div>
+          <div class="nn-upload-name">{{ loop.index }}. {{ label }}</div>
+          <div class="nn-upload-meta">Формат: {{ extension }}</div>
+          {% if latest_files.get(source_key) %}
+            <div class="nn-upload-meta">Последний файл: {{ latest_files[source_key]['original_filename'] }}</div>
+          {% else %}
+            <div class="nn-upload-meta">Файл ещё не загружался.</div>
+          {% endif %}
+        </div>
+        <input class="nn-file-input" type="file" name="{{ source_key }}" accept="{{ extension }}" required>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="nn-submit"><button type="submit">Сохранить набор из 5 файлов</button></div>
+  </form>
+
+  <div class="nn-latest">
+    <h3>Последняя загрузка этой клиники</h3>
+    {% if latest %}
+      <div class="nn-latest-row"><strong>Набор</strong><span>№{{ latest['id'] }}</span></div>
+      <div class="nn-latest-row"><strong>Дата загрузки</strong><span>{{ latest['uploaded_at'][:19].replace('T',' ') }}</span></div>
+      <div class="nn-latest-row"><strong>Статус</strong><span><span class="nn-status-badge">{{ latest['status'] }}</span></span></div>
+      {% for source_key,label,extension,stored_filename in source_slots %}
+        {% if latest_files.get(source_key) %}
+          <div class="nn-latest-row"><strong>{{ label }}</strong><span>{{ latest_files[source_key]['original_filename'] }}</span></div>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      <div class="nn-muted">Для выбранной клиники ещё нет загрузок.</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <a class="nn-back" href="/nn/">← Назад</a>
+</section>
+{% endblock %}
