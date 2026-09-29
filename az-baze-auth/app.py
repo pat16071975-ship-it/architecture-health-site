@@ -217,7 +217,12 @@ def create_app():
     @login_required
     def home():
         if is_nn_only_user(g.user):
-            return render_template("nn_home.html")
+            return render_template(
+                "nn_home.html",
+                can_reports=has_nn_permission(g.user, "nn_reports"),
+                can_upload=has_nn_permission(g.user, "nn_upload"),
+                csrf=csrf_token(),
+            )
         return render_home_for_user()
 
     @app.get("/nn/")
@@ -225,7 +230,12 @@ def create_app():
     def nn_home():
         if not has_any_nn_access(g.user):
             abort(403)
-        return render_template("nn_home.html")
+        return render_template(
+            "nn_home.html",
+            can_reports=has_nn_permission(g.user, "nn_reports"),
+            can_upload=has_nn_permission(g.user, "nn_upload"),
+            csrf=csrf_token(),
+        )
 
     @app.get("/nn/reports/")
     @login_required
