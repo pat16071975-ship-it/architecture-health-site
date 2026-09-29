@@ -128,6 +128,9 @@ class NNUploadTests(unittest.TestCase):
         self.assertEqual(batch["uploaded_by"], 2)
         self.assertEqual(len(files), 5)
         self.assertTrue((nn_upload.UPLOAD_ROOT / "11" / str(batch["id"])).is_dir())
+        self.assertEqual(nn_upload.UPLOAD_ROOT.stat().st_mode & 0o777, 0o700)
+        self.assertEqual((nn_upload.UPLOAD_ROOT / "11").stat().st_mode & 0o777, 0o700)
+        self.assertEqual((nn_upload.UPLOAD_ROOT / "11" / str(batch["id"])).stat().st_mode & 0o777, 0o700)
         self.assertFalse((nn_upload.UPLOAD_ROOT / "22").exists())
         for row in files:
             target = nn_upload.UPLOAD_ROOT / "11" / str(batch["id"]) / row["stored_filename"]
