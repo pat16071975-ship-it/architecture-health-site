@@ -219,6 +219,15 @@ class AttentionTests(unittest.TestCase):
         self.assertIn('.az-attention-plan-line{display:block}', html)
         self.assertIn('Должно быть — <span class="az-attention-value-strong">', html)
 
+    def test_attention_page_typography_has_desktop_and_mobile_scales(self):
+        from pathlib import Path
+        template = (Path(__file__).resolve().parent / "templates" / "attention.html").read_text(encoding="utf-8")
+        self.assertIn(".attention-row strong{font-size:17px", template)
+        self.assertIn(".attention-primary-forecast{margin-top:9px;font-size:18px", template)
+        self.assertIn("@media(max-width:700px)", template)
+        self.assertIn(".attention-row strong{font-size:16.5px", template)
+        self.assertIn(".attention-primary-grid{grid-template-columns:1fr", template)
+
     def test_home_modal_has_no_navigation_actions_and_is_mobile_adaptive(self):
         html = attention.home_modal_fragment(7)
         self.assertNotIn('href="/reports/', html)
