@@ -4,7 +4,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from flask import render_template, request
+from flask import g, render_template, request
 
 from app import DB_PATH, csrf_token, db, iso_now, require_csrf
 
@@ -258,7 +258,7 @@ def handle_uploads_page():
                 result = _store_bundle(
                     conn,
                     int(selected_clinic["id"]),
-                    int(request.environ.get("az_user_id") or 0) or None,
+                    int(g.user["id"]),
                     items,
                 )
             except ValueError as exc:
