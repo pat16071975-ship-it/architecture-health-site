@@ -81,6 +81,8 @@
           <div class="nn-upload-meta">Формат: {{ extension }}</div>
           {% if latest_files.get(source_key) %}
             <div class="nn-upload-meta">Последний файл: {{ latest_files[source_key]['original_filename'] }}</div>
+            <div class="nn-upload-meta">Дата загрузки: {{ latest['uploaded_at'][:19].replace('T',' ') }}</div>
+            <div class="nn-upload-meta">Статус: {% if latest['status'] == 'uploaded' %}загружено{% elif latest['status'] == 'processing' %}обработка{% elif latest['status'] == 'ready' %}готово{% else %}ошибка{% endif %}</div>
           {% else %}
             <div class="nn-upload-meta">Файл ещё не загружался.</div>
           {% endif %}
@@ -98,7 +100,7 @@
     {% if latest %}
       <div class="nn-latest-row"><strong>Набор</strong><span>№{{ latest['id'] }}</span></div>
       <div class="nn-latest-row"><strong>Дата загрузки</strong><span>{{ latest['uploaded_at'][:19].replace('T',' ') }}</span></div>
-      <div class="nn-latest-row"><strong>Статус</strong><span><span class="nn-status-badge">{{ latest['status'] }}</span></span></div>
+      <div class="nn-latest-row"><strong>Статус</strong><span><span class="nn-status-badge">{% if latest['status'] == 'uploaded' %}Загружено{% elif latest['status'] == 'processing' %}Обработка{% elif latest['status'] == 'ready' %}Готово{% else %}Ошибка{% endif %}</span></span></div>
       {% for source_key,label,extension,stored_filename in source_slots %}
         {% if latest_files.get(source_key) %}
           <div class="nn-latest-row"><strong>{{ label }}</strong><span>{{ latest_files[source_key]['original_filename'] }}</span></div>
