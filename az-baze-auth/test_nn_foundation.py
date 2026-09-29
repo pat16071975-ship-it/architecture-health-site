@@ -54,6 +54,16 @@ class NNFoundationTests(unittest.TestCase):
                 (4, "knowledge"),
             ],
         )
+        conn.execute(
+            """INSERT INTO audit_log(actor_user_id,action,target_user_id,details,created_at)
+               VALUES(?,?,?,?,?)""",
+            (1, "nn_secret_change", 3, "permissions=nn_reports,nn_upload; Варикоза нет - KZ", now),
+        )
+        conn.execute(
+            """INSERT INTO audit_log(actor_user_id,action,target_user_id,details,created_at)
+               VALUES(?,?,?,?,?)""",
+            (2, "ordinary_change", 4, "permissions=knowledge", now),
+        )
         conn.commit()
         conn.close()
 
@@ -112,6 +122,25 @@ class NNFoundationTests(unittest.TestCase):
         self.assertIn("Варикоза нет - KZ — закрытые права", html)
         self.assertIn('name="perm_nn_reports"', html)
         self.assertIn('name="perm_nn_upload"', html)
+
+    def test_other_admin_admin_page_hides_nn_assignments_and_audit(self):
+        response = self.client_for(2).get("/admin")
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("nn_reports", html)
+        self.assertNotIn("nn_upload", html)
+        self.assertNotIn("nn_secret_change", html)
+        self.assertNotIn("Варикоза нет - KZ — отчёты", html)
+        self.assertNotIn("Варикоза нет - KZ — загрузка данных", html)
+        self.assertIn("ordinary_change", html)
+
+    def test_owner_admin_page_can_see_nn_assignments_and_audit(self):
+        response = self.client_for(1).get("/admin")
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("nn_secret_change", html)
+        self.assertIn("Варикоза нет - KZ — отчёты", html)
+        self.assertIn("Варикоза нет - KZ — загрузка данных", html)
 
     def test_other_admin_cannot_edit_owner(self):
         response = self.client_for(2).get("/admin/users/1/edit")
