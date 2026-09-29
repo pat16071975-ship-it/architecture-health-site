@@ -20,6 +20,12 @@
 .attention-row:first-of-type{margin-top:8px}
 .attention-row strong{font-size:14px}
 .attention-row span{grid-column:1/-1;color:#687067;font-size:11px;line-height:1.4}
+.attention-primary-details{grid-column:1/-1}
+.attention-primary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:8px}
+.attention-primary-item{border:1px solid #e5ddd1;border-radius:10px;background:#fff;padding:12px}
+.attention-primary-item strong{display:block;font-size:15px;line-height:1.25}
+.attention-primary-meta{margin-top:5px;color:#687067;font-size:11px;line-height:1.45}
+.attention-primary-forecast{margin-top:6px;font-weight:600;color:#2d342f}
 .positive{color:#315a40!important}.negative{color:#9a4b48!important}
 @media(max-width:700px){
  .attention-page{width:100%;padding:12px 12px 28px}
@@ -29,6 +35,8 @@
  .attention-main{font-size:28px}
  .attention-row{grid-template-columns:1fr}
  .attention-row strong{font-size:15px}
+ .attention-primary-details{grid-column:auto}
+ .attention-primary-grid{grid-template-columns:1fr}
  .attention-plan-line{display:block}
  .attention-plan-line + .attention-plan-line{margin-top:4px}
  .attention-plan-line + .attention-plan-line::before{content:""}
@@ -67,16 +75,30 @@
       {% endfor %}
     </article>
 
-    <article class="attention-card">
-      <div class="attention-kicker">Первичные пациенты — с начала месяца</div>
-      <div class="attention-main">{{ summary.primary.total }}</div>
-      <div class="attention-sub">
-        Стоматология — {{ summary.primary.dentistry }}<br>
-        Отделение структуры — {{ summary.primary.structure }}<br>
-        Заказы лаборатории — {{ summary.primary.lab_orders }}
-        {% if summary.primary.forecast_total is not none %}
-          <br><strong>Прогноз на конец месяца — {{ summary.primary.forecast_total }} первичных</strong>
-        {% endif %}
+    <article class="attention-card attention-primary-details">
+      <div class="attention-kicker">Первичные пациенты / заказы лаборатории — подробная динамика</div>
+      <div class="attention-sub">Сравнение выполняется с предыдущими месяцами текущего года за такое же количество фактически загруженных приёмных дней.</div>
+      <div class="attention-primary-grid">
+        {% for item in summary.primary_details %}
+          <div class="attention-primary-item">
+            <strong>{{ item.label }} — {{ item.current }}</strong>
+            <div class="attention-primary-meta">
+              {% if item.average is not none %}
+                Среднее за сопоставимый период текущего года — {{ item.average }}<br>
+                <span class="{% if item.deviation is not none and item.deviation > 5 %}positive{% elif item.deviation is not none and item.deviation < -5 %}negative{% endif %}">{{ item.comment }}</span>
+              {% else %}
+                Недостаточно данных для сравнения
+              {% endif %}
+            </div>
+            <div class="attention-primary-forecast">
+              {% if item.forecast is not none %}
+                Прогноз на конец месяца — {{ item.forecast }} {{ item.forecast_label }}
+              {% else %}
+                Недостаточно данных для прогноза
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
       </div>
     </article>
   </section>

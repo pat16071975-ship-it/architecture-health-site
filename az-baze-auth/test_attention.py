@@ -73,6 +73,62 @@ class AttentionTests(unittest.TestCase):
         self.assertFalse(summary["clinical_stale"])
         self.assertFalse(summary["cash_stale"])
 
+    def test_primary_details_use_comparable_days_and_two_month_forecast_baseline(self):
+        # July: 3 loaded reception days; N=2 comparable value is taken on July day 2.
+        self.add_day("2026-07-01", {"primary": 20, "dentPrimary": 8, "clinicPrimary": 12, "labOrders": 4})
+        self.add_day("2026-07-02", {"primary": 40, "dentPrimary": 15, "clinicPrimary": 25, "labOrders": 8})
+        self.add_day("2026-07-03", {"primary": 60, "dentPrimary": 22, "clinicPrimary": 38, "labOrders": 12})
+
+        # August: 4 loaded reception days; N=2 comparable value is taken on August day 2.
+        self.add_day("2026-08-01", {"primary": 25, "dentPrimary": 10, "clinicPrimary": 15, "labOrders": 5})
+        self.add_day("2026-08-02", {"primary": 50, "dentPrimary": 20, "clinicPrimary": 30, "labOrders": 10})
+        self.add_day("2026-08-03", {"primary": 70, "dentPrimary": 28, "clinicPrimary": 42, "labOrders": 14})
+        self.add_day("2026-08-04", {"primary": 90, "dentPrimary": 36, "clinicPrimary": 54, "labOrders": 18})
+
+        # September: 2 elapsed loaded days.
+        self.add_day("2026-09-26", {"primary": 30, "dentPrimary": 12, "clinicPrimary": 18, "labOrders": 6})
+        self.add_day(
+            "2026-09-27",
+            {"primary": 60, "dentPrimary": 24, "clinicPrimary": 36, "labOrders": 12},
+            cash=True,
+        )
+
+        with patch.object(attention, "_clinic_today", return_value=self.today):
+            summary = attention.build_summary(self.conn)
+
+        rows = {row["key"]: row for row in summary["primary_details"]}
+
+        # Comparable averages: July day 2 + August day 2.
+        self.assertEqual(rows["total"]["average"], 45.0)
+        self.assertEqual(rows["dentistry"]["average"], 17.5)
+        self.assertEqual(rows["structure"]["average"], 27.5)
+        self.assertEqual(rows["lab_orders"]["average"], 9.0)
+        self.assertEqual(rows["total"]["comparison_months"], 2)
+        self.assertIn("выше среднего", rows["total"]["comment"].lower())
+
+        # Average completed-month reception days = (3 + 4) / 2 = 3.5.
+        # Current pace total = 60 / 2 = 30; forecast = 30 * 3.5 = 105.
+        self.assertEqual(rows["total"]["forecast"], 105)
+        self.assertEqual(rows["dentistry"]["forecast"], 42)
+        self.assertEqual(rows["structure"]["forecast"], 63)
+        self.assertEqual(rows["lab_orders"]["forecast"], 21)
+
+    def test_primary_details_require_two_comparable_months(self):
+        self.add_day("2026-08-01", {"primary": 20, "dentPrimary": 8, "clinicPrimary": 12, "labOrders": 4})
+        self.add_day("2026-08-02", {"primary": 40, "dentPrimary": 16, "clinicPrimary": 24, "labOrders": 8})
+        self.add_day("2026-09-26", {"primary": 30, "dentPrimary": 12, "clinicPrimary": 18, "labOrders": 6})
+        self.add_day("2026-09-27", {"primary": 60, "dentPrimary": 24, "clinicPrimary": 36, "labOrders": 12})
+
+        with patch.object(attention, "_clinic_today", return_value=self.today):
+            summary = attention.build_summary(self.conn)
+
+        rows = {row["key"]: row for row in summary["primary_details"]}
+        self.assertIsNone(rows["total"]["average"])
+        self.assertIsNone(rows["total"]["deviation"])
+        self.assertEqual(rows["total"]["comment"], "Недостаточно данных для сравнения")
+        self.assertIsNone(rows["total"]["forecast"])
+        self.assertIsNone(summary["primary"]["forecast_total"])
+
     def test_management_plan_blob_overrides_raw_record_plan(self):
         self.conn.execute(
             "INSERT INTO report_blobs(key,payload) VALUES(?,?)",
