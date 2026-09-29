@@ -127,6 +127,7 @@ class AttentionTests(unittest.TestCase):
         self.assertIsNone(rows["total"]["deviation"])
         self.assertEqual(rows["total"]["comment"], "Недостаточно данных для сравнения")
         self.assertIsNone(rows["total"]["forecast"])
+        self.assertIsNone(summary["primary"]["forecast_total"])
 
     def test_management_plan_blob_overrides_raw_record_plan(self):
         self.conn.execute(
