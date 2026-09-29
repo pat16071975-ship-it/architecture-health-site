@@ -79,6 +79,33 @@ class AttentionTests(unittest.TestCase):
         self.assertFalse(summary["clinical_stale"])
         self.assertFalse(summary["cash_stale"])
 
+    def test_revenue_comparison_uses_report_data_history_without_old_daily_uploads(self):
+        self.add_report_snapshot(
+            "2026-07-28",
+            {"dentists": {"D": 400}, "clinicDocs": {"C": 200}, "labRevenue": 100},
+        )
+        self.add_report_snapshot(
+            "2026-08-28",
+            {"dentists": {"D": 500}, "clinicDocs": {"C": 300}, "labRevenue": 150},
+        )
+
+        self.add_day("2026-09-27", {"dentists": {"D": 550}, "clinicDocs": {"C": 250}, "labRevenue": 125})
+        self.add_day(
+            "2026-09-28",
+            {"dentists": {"D": 600}, "clinicDocs": {"C": 350}, "labRevenue": 200},
+            cash=True,
+        )
+
+        with patch.object(attention, "_clinic_today", return_value=self.today):
+            summary = attention.build_summary(self.conn)
+
+        rows = {row["key"]: row for row in summary["revenue"]}
+        self.assertEqual(rows["dentistry"]["amount"], 600)
+        self.assertEqual(rows["dentistry"]["deviation"], 33.3)
+        self.assertEqual(rows["structure"]["deviation"], 40.0)
+        self.assertEqual(rows["lab"]["deviation"], 60.0)
+        self.assertIn("выше среднего", rows["dentistry"]["comment"].lower())
+
     def test_primary_details_use_report_data_history_for_comparison_and_forecast(self):
         # Historical cumulative snapshots exist only in report_data.
         # Each month has a comparable snapshot on day 27 and a later final snapshot.
