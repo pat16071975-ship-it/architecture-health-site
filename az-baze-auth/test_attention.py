@@ -26,6 +26,12 @@ class AttentionTests(unittest.TestCase):
         if cash:
             self.conn.execute("INSERT INTO cash_receipts_daily(data_date) VALUES(?)", (data_date,))
 
+    def add_report_snapshot(self, data_date, payload):
+        self.conn.execute(
+            "INSERT INTO report_data(date,payload) VALUES(?,?)",
+            (data_date, json.dumps(payload, ensure_ascii=False)),
+        )
+
     def test_summary_uses_comparable_loaded_days_and_current_snapshot(self):
         # August: three comparable loaded days.
         self.add_day("2026-08-01", {"dentists": {"D": 100}, "clinicDocs": {"C": 200}, "labRevenue": 50})
@@ -73,19 +79,26 @@ class AttentionTests(unittest.TestCase):
         self.assertFalse(summary["clinical_stale"])
         self.assertFalse(summary["cash_stale"])
 
-    def test_primary_details_use_comparable_days_and_two_month_forecast_baseline(self):
-        # July: 3 loaded reception days; N=2 comparable value is taken on July day 2.
-        self.add_day("2026-07-01", {"primary": 20, "dentPrimary": 8, "clinicPrimary": 12, "labOrders": 4})
-        self.add_day("2026-07-02", {"primary": 40, "dentPrimary": 15, "clinicPrimary": 25, "labOrders": 8})
-        self.add_day("2026-07-03", {"primary": 60, "dentPrimary": 22, "clinicPrimary": 38, "labOrders": 12})
+    def test_primary_details_use_report_data_history_for_comparison_and_forecast(self):
+        # Historical cumulative snapshots exist only in report_data.
+        # Each month has a comparable snapshot on day 27 and a later final snapshot.
+        self.add_report_snapshot(
+            "2026-07-27",
+            {"primary": 40, "dentPrimary": 15, "clinicPrimary": 25, "labOrders": 8},
+        )
+        self.add_report_snapshot(
+            "2026-07-31",
+            {"primary": 50, "dentPrimary": 18, "clinicPrimary": 32, "labOrders": 10},
+        )
+        self.add_report_snapshot(
+            "2026-08-27",
+            {"primary": 50, "dentPrimary": 20, "clinicPrimary": 30, "labOrders": 10},
+        )
+        self.add_report_snapshot(
+            "2026-08-31",
+            {"primary": 60, "dentPrimary": 24, "clinicPrimary": 36, "labOrders": 12},
+        )
 
-        # August: 4 loaded reception days; N=2 comparable value is taken on August day 2.
-        self.add_day("2026-08-01", {"primary": 25, "dentPrimary": 10, "clinicPrimary": 15, "labOrders": 5})
-        self.add_day("2026-08-02", {"primary": 50, "dentPrimary": 20, "clinicPrimary": 30, "labOrders": 10})
-        self.add_day("2026-08-03", {"primary": 70, "dentPrimary": 28, "clinicPrimary": 42, "labOrders": 14})
-        self.add_day("2026-08-04", {"primary": 90, "dentPrimary": 36, "clinicPrimary": 54, "labOrders": 18})
-
-        # September: 2 elapsed loaded days.
         self.add_day("2026-09-26", {"primary": 30, "dentPrimary": 12, "clinicPrimary": 18, "labOrders": 6})
         self.add_day(
             "2026-09-27",
@@ -98,7 +111,6 @@ class AttentionTests(unittest.TestCase):
 
         rows = {row["key"]: row for row in summary["primary_details"]}
 
-        # Comparable averages: July day 2 + August day 2.
         self.assertEqual(rows["total"]["average"], 45.0)
         self.assertEqual(rows["dentistry"]["average"], 17.5)
         self.assertEqual(rows["structure"]["average"], 27.5)
@@ -106,12 +118,15 @@ class AttentionTests(unittest.TestCase):
         self.assertEqual(rows["total"]["comparison_months"], 2)
         self.assertIn("выше среднего", rows["total"]["comment"].lower())
 
-        # Average completed-month reception days = (3 + 4) / 2 = 3.5.
-        # Current pace total = 60 / 2 = 30; forecast = 30 * 3.5 = 105.
-        self.assertEqual(rows["total"]["forecast"], 105)
-        self.assertEqual(rows["dentistry"]["forecast"], 42)
-        self.assertEqual(rows["structure"]["forecast"], 63)
-        self.assertEqual(rows["lab_orders"]["forecast"], 21)
+        # Forecast uses average historical growth from comparable snapshot to final snapshot:
+        # July 50/40=1.25; August 60/50=1.2; average multiplier=1.225.
+        # Current 60 * 1.225 = 73.5 -> round() = 74.
+        self.assertEqual(rows["total"]["forecast"], 74)
+        self.assertEqual(rows["total"]["forecast_months"], 2)
+        self.assertEqual(rows["dentistry"]["forecast"], 29)
+        self.assertEqual(rows["structure"]["forecast"], 45)
+        self.assertEqual(rows["lab_orders"]["forecast"], 15)
+        self.assertEqual(summary["primary"]["forecast_total"], 74)
 
     def test_primary_details_require_two_comparable_months(self):
         self.add_day("2026-08-01", {"primary": 20, "dentPrimary": 8, "clinicPrimary": 12, "labOrders": 4})

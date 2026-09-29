@@ -71,6 +71,17 @@ def _daily_dates(conn, year, month):
     return [str(row["data_date"]) for row in rows]
 
 
+def _report_dates(conn, year, month):
+    if not _table_exists(conn, "report_data"):
+        return []
+    prefix = f"{year:04d}-{month:02d}"
+    rows = conn.execute(
+        "SELECT date FROM report_data WHERE substr(date,1,7)=? ORDER BY date",
+        (prefix,),
+    ).fetchall()
+    return [str(row["date"]) for row in rows]
+
+
 def _report_for_date(conn, data_date):
     row = conn.execute(
         "SELECT payload FROM report_data WHERE date=?",
@@ -154,18 +165,66 @@ def _deviation_text(value):
     return "На уровне среднего темпа текущего года"
 
 
-def _forecast_primary(conn, today, elapsed_loaded_days, current_primary):
-    if elapsed_loaded_days <= 0:
-        return None
-    prior_counts = []
+def _primary_values(record):
+    return {
+        "total": _num(record.get("primary")),
+        "dentistry": _num(record.get("dentPrimary")),
+        "structure": _num(record.get("clinicPrimary")),
+        "lab_orders": _num(record.get("labOrders")),
+    }
+
+
+def _primary_forecast_multipliers(conn, today, snapshot_date):
+    keys = ("total", "dentistry", "structure", "lab_orders")
+    factors = {key: [] for key in keys}
+    if not snapshot_date:
+        return {key: {"multiplier": None, "months": 0} for key in keys}
+
+    try:
+        target_day = int(str(snapshot_date)[8:10])
+    except (TypeError, ValueError):
+        return {key: {"multiplier": None, "months": 0} for key in keys}
+
     for month in range(1, today.month):
-        count = len(_daily_dates(conn, today.year, month))
-        if count:
-            prior_counts.append(count)
-    if len(prior_counts) < 2:
+        dates = _report_dates(conn, today.year, month)
+        if not dates:
+            continue
+
+        comparable_dates = [
+            value for value in dates
+            if int(str(value)[8:10]) <= target_day
+        ]
+        if not comparable_dates:
+            continue
+
+        comparable_record = _report_for_date(conn, comparable_dates[-1])
+        final_record = _report_for_date(conn, dates[-1])
+        if not comparable_record or not final_record:
+            continue
+
+        comparable_values = _primary_values(comparable_record)
+        final_values = _primary_values(final_record)
+
+        for key in keys:
+            base_value = comparable_values[key]
+            final_value = final_values[key]
+            if base_value > 0 and final_value >= base_value:
+                factors[key].append(final_value / base_value)
+
+    result = {}
+    for key in keys:
+        items = factors[key]
+        result[key] = {
+            "multiplier": (sum(items) / len(items)) if len(items) >= 2 else None,
+            "months": len(items),
+        }
+    return result
+
+
+def _forecast_from_history(current_value, multiplier):
+    if multiplier is None:
         return None
-    expected_days = sum(prior_counts) / len(prior_counts)
-    return round(current_primary / elapsed_loaded_days * expected_days)
+    return round(current_value * multiplier)
 
 
 def _primary_values(record):
@@ -177,17 +236,26 @@ def _primary_values(record):
     }
 
 
-def _primary_comparable_averages(conn, today, elapsed_loaded_days):
+def _primary_comparable_averages(conn, today, snapshot_date):
     keys = ("total", "dentistry", "structure", "lab_orders")
     values = {key: [] for key in keys}
-    if elapsed_loaded_days <= 0:
+    if not snapshot_date:
+        return {key: {"average": None, "months": 0} for key in keys}
+
+    try:
+        target_day = int(str(snapshot_date)[8:10])
+    except (TypeError, ValueError):
         return {key: {"average": None, "months": 0} for key in keys}
 
     for month in range(1, today.month):
-        dates = _daily_dates(conn, today.year, month)
-        if len(dates) < elapsed_loaded_days:
+        dates = _report_dates(conn, today.year, month)
+        comparable_dates = [
+            value for value in dates
+            if int(str(value)[8:10]) <= target_day
+        ]
+        if not comparable_dates:
             continue
-        record = _report_for_date(conn, dates[elapsed_loaded_days - 1])
+        record = _report_for_date(conn, comparable_dates[-1])
         if not record:
             continue
         month_values = _primary_values(record)
@@ -204,26 +272,9 @@ def _primary_comparable_averages(conn, today, elapsed_loaded_days):
     return result
 
 
-def _expected_completed_month_days(conn, today):
-    counts = []
-    for month in range(1, today.month):
-        count = len(_daily_dates(conn, today.year, month))
-        if count:
-            counts.append(count)
-    if len(counts) < 2:
-        return None
-    return sum(counts) / len(counts)
-
-
-def _detailed_forecast(current_value, elapsed_loaded_days, expected_days):
-    if elapsed_loaded_days <= 0 or expected_days is None:
-        return None
-    return round(current_value / elapsed_loaded_days * expected_days)
-
-
-def _primary_detail_rows(conn, today, elapsed_loaded_days, current_values):
-    comparable = _primary_comparable_averages(conn, today, elapsed_loaded_days)
-    expected_days = _expected_completed_month_days(conn, today)
+def _primary_detail_rows(conn, today, snapshot_date, current_values):
+    comparable = _primary_comparable_averages(conn, today, snapshot_date)
+    forecasts = _primary_forecast_multipliers(conn, today, snapshot_date)
 
     rows = []
     for key, label, forecast_label in (
@@ -244,7 +295,8 @@ def _primary_detail_rows(conn, today, elapsed_loaded_days, current_values):
                 "comparison_months": comparable[key]["months"],
                 "deviation": round(deviation, 1) if deviation is not None else None,
                 "comment": _deviation_text(deviation),
-                "forecast": _detailed_forecast(current, elapsed_loaded_days, expected_days),
+                "forecast": _forecast_from_history(current, forecasts[key]["multiplier"]),
+                "forecast_months": forecasts[key]["months"],
                 "forecast_label": forecast_label,
             }
         )
@@ -300,12 +352,15 @@ def build_summary(conn=None):
         "dentistry": round(primary_values["dentistry"]),
         "structure": round(primary_values["structure"]),
         "lab_orders": round(primary_values["lab_orders"]),
-        "forecast_total": _forecast_primary(conn, today, len(current_dates), primary_total),
+        "forecast_total": _forecast_from_history(
+            primary_total,
+            _primary_forecast_multipliers(conn, today, snapshot_date)["total"]["multiplier"],
+        ),
     }
     primary_details = _primary_detail_rows(
         conn,
         today,
-        len(current_dates),
+        snapshot_date,
         primary_values,
     )
 
