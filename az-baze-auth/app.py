@@ -334,7 +334,9 @@ def create_app():
                 FROM audit_log a
                 LEFT JOIN users au ON au.id=a.actor_user_id
                 LEFT JOIN users tu ON tu.id=a.target_user_id
-                WHERE COALESCE(a.details,'') NOT LIKE '%nn_reports%'
+                WHERE COALESCE(a.action,'') NOT LIKE 'nn_%'
+                  AND COALESCE(a.action,'') NOT LIKE '%Варикоза нет - KZ%'
+                  AND COALESCE(a.details,'') NOT LIKE '%nn_reports%'
                   AND COALESCE(a.details,'') NOT LIKE '%nn_upload%'
                   AND COALESCE(a.details,'') NOT LIKE '%Варикоза нет - KZ%'
                 ORDER BY a.id DESC LIMIT 30
