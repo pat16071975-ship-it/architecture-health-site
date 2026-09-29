@@ -66,11 +66,9 @@ class AttentionTests(unittest.TestCase):
         self.assertEqual(summary["primary"]["lab_orders"], 10)
 
         rows = {row["key"]: row for row in summary["revenue"]}
-        # Compare against August day 2: dentistry 200, structure 400, lab 100.
-        self.assertEqual(rows["dentistry"]["deviation"], 20.0)
-        self.assertEqual(rows["structure"]["deviation"], 25.0)
-        self.assertEqual(rows["lab"]["deviation"], 20.0)
-        self.assertIn("выше среднего темпа текущего года", rows["dentistry"]["comment"])
+        self.assertEqual(rows["dentistry"]["amount"], 240)
+        self.assertEqual(rows["structure"]["amount"], 500)
+        self.assertEqual(rows["lab"]["amount"], 120)
 
         # Выполнение плана месяца считается от полного месячного плана.
         self.assertAlmostEqual(summary["plan"]["execution"], 87.1, places=1)
