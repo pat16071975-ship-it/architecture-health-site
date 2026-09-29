@@ -1,0 +1,10 @@
+{% extends "nn_base.html" %}
+{% block title %}Варикоза нет - KZ{% endblock %}
+{% block content %}
+<section class="nn-card">
+  <nav class="nn-menu" aria-label="Разделы Варикоза нет - KZ">
+    {% if can_reports %}<a class="nn-btn" href="/nn/reports/">Отчёты для НН</a>{% endif %}
+    {% if can_upload %}<a class="nn-btn" href="/nn/uploads/">Загрузка данных</a>{% endif %}
+  </nav>
+</section>
+{% endblock %}
