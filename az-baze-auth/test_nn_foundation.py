@@ -62,6 +62,11 @@ class NNFoundationTests(unittest.TestCase):
         conn.execute(
             """INSERT INTO audit_log(actor_user_id,action,target_user_id,details,created_at)
                VALUES(?,?,?,?,?)""",
+            (1, "nn_action_only", 3, "", now),
+        )
+        conn.execute(
+            """INSERT INTO audit_log(actor_user_id,action,target_user_id,details,created_at)
+               VALUES(?,?,?,?,?)""",
             (2, "ordinary_change", 4, "permissions=knowledge", now),
         )
         conn.commit()
@@ -130,6 +135,7 @@ class NNFoundationTests(unittest.TestCase):
         self.assertNotIn("nn_reports", html)
         self.assertNotIn("nn_upload", html)
         self.assertNotIn("nn_secret_change", html)
+        self.assertNotIn("nn_action_only", html)
         self.assertNotIn("Варикоза нет - KZ — отчёты", html)
         self.assertNotIn("Варикоза нет - KZ — загрузка данных", html)
         self.assertIn("ordinary_change", html)
@@ -139,6 +145,7 @@ class NNFoundationTests(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("nn_secret_change", html)
+        self.assertIn("nn_action_only", html)
         self.assertIn("Варикоза нет - KZ — отчёты", html)
         self.assertIn("Варикоза нет - KZ — загрузка данных", html)
 
