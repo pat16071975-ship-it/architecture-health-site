@@ -66,11 +66,9 @@ class AttentionTests(unittest.TestCase):
         self.assertEqual(summary["primary"]["lab_orders"], 10)
 
         rows = {row["key"]: row for row in summary["revenue"]}
-        # Compare against August day 2: dentistry 200, structure 400, lab 100.
-        self.assertEqual(rows["dentistry"]["deviation"], 20.0)
-        self.assertEqual(rows["structure"]["deviation"], 25.0)
-        self.assertEqual(rows["lab"]["deviation"], 20.0)
-        self.assertIn("выше среднего темпа текущего года", rows["dentistry"]["comment"])
+        self.assertEqual(rows["dentistry"]["amount"], 240)
+        self.assertEqual(rows["structure"]["amount"], 500)
+        self.assertEqual(rows["lab"]["amount"], 120)
 
         # Выполнение плана месяца считается от полного месячного плана.
         self.assertAlmostEqual(summary["plan"]["execution"], 87.1, places=1)
@@ -78,6 +76,33 @@ class AttentionTests(unittest.TestCase):
         self.assertAlmostEqual(summary["plan"]["delta"], -3.2, places=1)
         self.assertFalse(summary["clinical_stale"])
         self.assertFalse(summary["cash_stale"])
+
+    def test_revenue_comparison_uses_report_data_history_without_old_daily_uploads(self):
+        self.add_report_snapshot(
+            "2026-07-28",
+            {"dentists": {"D": 400}, "clinicDocs": {"C": 200}, "labRevenue": 100},
+        )
+        self.add_report_snapshot(
+            "2026-08-28",
+            {"dentists": {"D": 500}, "clinicDocs": {"C": 300}, "labRevenue": 150},
+        )
+
+        self.add_day("2026-09-27", {"dentists": {"D": 550}, "clinicDocs": {"C": 250}, "labRevenue": 125})
+        self.add_day(
+            "2026-09-28",
+            {"dentists": {"D": 600}, "clinicDocs": {"C": 350}, "labRevenue": 200},
+            cash=True,
+        )
+
+        with patch.object(attention, "_clinic_today", return_value=self.today):
+            summary = attention.build_summary(self.conn)
+
+        rows = {row["key"]: row for row in summary["revenue"]}
+        self.assertEqual(rows["dentistry"]["amount"], 600)
+        self.assertEqual(rows["dentistry"]["deviation"], 33.3)
+        self.assertEqual(rows["structure"]["deviation"], 40.0)
+        self.assertEqual(rows["lab"]["deviation"], 60.0)
+        self.assertIn("выше среднего", rows["dentistry"]["comment"].lower())
 
     def test_primary_details_use_report_data_history_for_comparison_and_forecast(self):
         # Historical cumulative snapshots exist only in report_data.

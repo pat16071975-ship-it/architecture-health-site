@@ -128,22 +128,33 @@ def _direction_values(record):
     }
 
 
-def _comparison_average(conn, today, elapsed_loaded_days):
+def _comparison_average(conn, today, snapshot_date):
     values = {"dentistry": [], "structure": [], "lab": []}
-    if elapsed_loaded_days <= 0:
+    if not snapshot_date:
         return {key: None for key in values}
+
+    try:
+        target_day = int(str(snapshot_date)[8:10])
+    except (TypeError, ValueError):
+        return {key: None for key in values}
+
     for month in range(1, today.month):
-        dates = _daily_dates(conn, today.year, month)
-        if len(dates) < elapsed_loaded_days:
+        dates = _report_dates(conn, today.year, month)
+        comparable_dates = [
+            value for value in dates
+            if int(str(value)[8:10]) <= target_day
+        ]
+        if not comparable_dates:
             continue
-        record = _report_for_date(conn, dates[elapsed_loaded_days - 1])
+        record = _report_for_date(conn, comparable_dates[-1])
         if not record:
             continue
         directions = _direction_values(record)
         for key in values:
             values[key].append(directions[key])
+
     return {
-        key: (sum(items) / len(items) if items else None)
+        key: (sum(items) / len(items) if len(items) >= 2 else None)
         for key, items in values.items()
     }
 
@@ -327,7 +338,7 @@ def build_summary(conn=None):
     due_delta = (fact - due) / due * 100 if due > 0 else None
 
     directions = _direction_values(record)
-    comparable = _comparison_average(conn, today, len(current_dates))
+    comparable = _comparison_average(conn, today, snapshot_date)
     revenue_rows = []
     for key, label in (
         ("dentistry", "Стоматология"),
