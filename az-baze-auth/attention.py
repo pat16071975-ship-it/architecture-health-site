@@ -162,7 +162,7 @@ def _forecast_primary(conn, today, elapsed_loaded_days, current_primary):
         count = len(_daily_dates(conn, today.year, month))
         if count:
             prior_counts.append(count)
-    if not prior_counts:
+    if len(prior_counts) < 2:
         return None
     expected_days = sum(prior_counts) / len(prior_counts)
     return round(current_primary / elapsed_loaded_days * expected_days)
