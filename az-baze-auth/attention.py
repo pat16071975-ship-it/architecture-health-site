@@ -71,6 +71,17 @@ def _daily_dates(conn, year, month):
     return [str(row["data_date"]) for row in rows]
 
 
+def _report_dates(conn, year, month):
+    if not _table_exists(conn, "report_data"):
+        return []
+    prefix = f"{year:04d}-{month:02d}"
+    rows = conn.execute(
+        "SELECT date FROM report_data WHERE substr(date,1,7)=? ORDER BY date",
+        (prefix,),
+    ).fetchall()
+    return [str(row["date"]) for row in rows]
+
+
 def _report_for_date(conn, data_date):
     row = conn.execute(
         "SELECT payload FROM report_data WHERE date=?",
@@ -177,17 +188,26 @@ def _primary_values(record):
     }
 
 
-def _primary_comparable_averages(conn, today, elapsed_loaded_days):
+def _primary_comparable_averages(conn, today, snapshot_date):
     keys = ("total", "dentistry", "structure", "lab_orders")
     values = {key: [] for key in keys}
-    if elapsed_loaded_days <= 0:
+    if not snapshot_date:
+        return {key: {"average": None, "months": 0} for key in keys}
+
+    try:
+        target_day = int(str(snapshot_date)[8:10])
+    except (TypeError, ValueError):
         return {key: {"average": None, "months": 0} for key in keys}
 
     for month in range(1, today.month):
-        dates = _daily_dates(conn, today.year, month)
-        if len(dates) < elapsed_loaded_days:
+        dates = _report_dates(conn, today.year, month)
+        comparable_dates = [
+            value for value in dates
+            if int(str(value)[8:10]) <= target_day
+        ]
+        if not comparable_dates:
             continue
-        record = _report_for_date(conn, dates[elapsed_loaded_days - 1])
+        record = _report_for_date(conn, comparable_dates[-1])
         if not record:
             continue
         month_values = _primary_values(record)
@@ -221,8 +241,8 @@ def _detailed_forecast(current_value, elapsed_loaded_days, expected_days):
     return round(current_value / elapsed_loaded_days * expected_days)
 
 
-def _primary_detail_rows(conn, today, elapsed_loaded_days, current_values):
-    comparable = _primary_comparable_averages(conn, today, elapsed_loaded_days)
+def _primary_detail_rows(conn, today, snapshot_date, elapsed_loaded_days, current_values):
+    comparable = _primary_comparable_averages(conn, today, snapshot_date)
     expected_days = _expected_completed_month_days(conn, today)
 
     rows = []
@@ -305,6 +325,7 @@ def build_summary(conn=None):
     primary_details = _primary_detail_rows(
         conn,
         today,
+        snapshot_date,
         len(current_dates),
         primary_values,
     )
