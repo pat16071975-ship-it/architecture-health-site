@@ -96,6 +96,7 @@ class NNReportsTests(unittest.TestCase):
             ],
             "medical_records": [
                 {"date": "2026-06-05", "doctor": "Врач А", "patient": "Пациент Один", "dob": "1980-01-01", "chart": "1", "complaint": "", "objective": "", "direction": "", "assignment": "", "recommendation": "", "treatment": "Протокол манипуляции: Эндоваскулярная лазерная коагуляция + минифлебэктомия"},
+                {"date": "2026-06-15", "doctor": "Врач Б", "patient": "Пациент Два", "dob": "1981-01-01", "chart": "2", "complaint": "", "objective": "", "direction": "", "assignment": "", "recommendation": "", "treatment": "Протокол манипуляции: Пенная Склеротерапия"},
             ],
             "service_control_rows": [],
             "deleted_appointments": [],
@@ -153,6 +154,26 @@ class NNReportsTests(unittest.TestCase):
         self.assertEqual(data["context"]["years"], [2026])
         self.assertEqual(data["context"]["months_by_year"]["2026"], [6, 7])
 
+    def test_key_metrics_does_not_duplicate_unique_repeat_people_report(self):
+        response = self.client_for(2).get(
+            "/api/nn/reports/key_metrics?clinic_id=11&year=2026&month=6"
+        )
+        data = response.get_json()
+        labels = [item[0] for item in data["items"]]
+        self.assertNotIn("Уникальных повторных пациентов", labels)
+
+    def test_suspicious_is_grouped_month_then_date(self):
+        response = self.client_for(2).get(
+            "/api/nn/reports/suspicious?clinic_id=11&year=2026&month=6"
+        )
+        data = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(data["groups"])
+        self.assertEqual(data["groups"][0]["month"], "2026-06")
+        self.assertTrue(data["groups"][0]["days"])
+        self.assertEqual(data["groups"][0]["days"][0]["date"], "2026-06-15")
+        self.assertTrue(data["groups"][0]["days"][0]["rows"])
+
     def test_primary_repeat_report_counts_people_not_repeat_visits(self):
         response = self.client_for(2).get(
             "/api/nn/reports/primary_repeat?clinic_id=11&date_from=2026-06-01&date_to=2026-06-30"
@@ -189,10 +210,18 @@ class NNReportsTests(unittest.TestCase):
         try:
             ws = wb["Первичные"]
             rows = list(ws.iter_rows(values_only=True))
-            self.assertEqual(rows[0][0], "Дата")
+            self.assertEqual(
+                rows[0],
+                (
+                    "Дата","Месяц","Врач","Пациент","Амбулаторная карта","Телефон",
+                    "Оплата первичного","Оплатил","Показания ЭВЛК","Показания склеро",
+                    "Показания минифлеб","Примечание приёма","Примечание пациента",
+                ),
+            )
             self.assertEqual(len(rows), 2)
-            self.assertEqual(rows[1][2], "Пациент Один")
-            self.assertEqual(rows[1][5], 4900)
+            self.assertEqual(rows[1][1], "Июнь")
+            self.assertEqual(rows[1][3], "Пациент Один")
+            self.assertEqual(rows[1][6], 4900)
         finally:
             wb.close()
 
@@ -205,9 +234,19 @@ class NNReportsTests(unittest.TestCase):
         try:
             ws = wb["Лечение"]
             rows = list(ws.iter_rows(values_only=True))
-            self.assertEqual(rows[0][0], "Пациент")
+            self.assertEqual(
+                rows[0],
+                (
+                    "Пациент","Амбулаторная карта","Первичный приём","Врач первичного",
+                    "Первое лечение","ЭВЛК","Склеро","Минифлеб","Врач ЭВЛК",
+                    "Врач склеро","Врач минифлеб","Оплата лечения найдена",
+                    "Сумма строк с лечением","Последующих клинических визитов","Основание",
+                ),
+            )
             self.assertEqual(rows[1][0], "Пациент Один")
-            self.assertEqual(rows[1][9], "Да")
+            self.assertEqual(rows[1][2], "2026-06-01")
+            self.assertEqual(rows[1][3], "Врач А")
+            self.assertEqual(rows[1][11], "Да")
         finally:
             wb.close()
 
