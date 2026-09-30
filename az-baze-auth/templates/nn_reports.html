@@ -5,27 +5,27 @@
 .nn-shell{width:min(1420px,97vw)}
 .nn-report-shell{display:grid;gap:16px;min-width:0;padding:28px}
 .nn-report-shell>*{min-width:0}
-.nn-report-shell .nn-muted{font-size:14px;line-height:1.55}
+.nn-report-shell .nn-muted{font-size:16px;line-height:1.55}
 .nn-report-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
-.nn-report-menu button,.nn-months button,.nn-tabbar button{border:1px solid #d7c9b5;background:#faf7f1;color:#354039;border-radius:9px;padding:11px 13px;font:600 14px/1.25 Montserrat,Arial,sans-serif;cursor:pointer}
+.nn-report-menu button,.nn-months button,.nn-tabbar button{border:1px solid #d7c9b5;background:#faf7f1;color:#354039;border-radius:9px;padding:11px 13px;font:600 15px/1.25 Montserrat,Arial,sans-serif;cursor:pointer}
 .nn-report-menu button.active,.nn-months button.active,.nn-tabbar button.active{border-color:#44634f;background:#e8efe9;color:#31533e}
 .nn-filters{position:sticky;top:0;z-index:20;background:rgba(247,243,236,.97);backdrop-filter:blur(8px);border:1px solid #ded3c2;border-radius:12px;padding:12px;display:grid;gap:10px;min-width:0}
 .nn-filter-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;min-width:0}
-.nn-filter{display:grid;gap:5px;min-width:150px}.nn-filter label{font-size:11px;font-weight:700;color:#657067}.nn-filter select,.nn-filter input{padding:9px 10px;border:1px solid #cec3b2;border-radius:8px;background:#fff;font:600 13px Montserrat,Arial,sans-serif;max-width:100%}
+.nn-filter{display:grid;gap:5px;min-width:150px}.nn-filter label{font-size:12px;font-weight:700;color:#657067}.nn-filter select,.nn-filter input{padding:9px 10px;border:1px solid #cec3b2;border-radius:8px;background:#fff;font:600 14px Montserrat,Arial,sans-serif;max-width:100%}
 .nn-filter.clinic{min-width:210px}.nn-filter#doctorWrap{min-width:260px;flex:1 1 300px}
 .nn-months{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}.nn-months button{white-space:nowrap;padding:8px 11px}
-.nn-result{min-height:170px;min-width:0}.nn-report-title{margin:0 0 6px;font-size:26px;line-height:1.15}.nn-report-subtitle{margin:0 0 14px;color:#5f685f;font-size:15px;font-weight:600;line-height:1.4}
-.nn-list{display:grid;gap:9px}.nn-metric{display:flex;justify-content:space-between;gap:18px;padding:13px 14px;border:1px solid #e4dacb;border-radius:10px;background:#fff;align-items:center}.nn-metric span{font-size:14px;line-height:1.35}.nn-metric strong{font-size:18px;line-height:1.2}
+.nn-result{min-height:170px;min-width:0}.nn-report-title{margin:0 0 6px;font-size:28px;line-height:1.15}.nn-report-subtitle{margin:0 0 14px;color:#5f685f;font-size:17px;font-weight:600;line-height:1.4}
+.nn-list{display:grid;gap:9px}.nn-metric{display:flex;justify-content:space-between;gap:18px;padding:14px 15px;border:1px solid #e4dacb;border-radius:10px;background:#fff;align-items:center}.nn-metric span{font-size:16px;line-height:1.35}.nn-metric strong{font-size:21px;line-height:1.2}
 .nn-table-wrap{overflow-x:auto;overflow-y:hidden;max-width:100%;min-width:0;border:1px solid #e4dacb;border-radius:10px;background:#fff;overscroll-behavior-inline:contain}
-.nn-table{border-collapse:collapse;width:100%;table-layout:fixed}.nn-table.compare{min-width:1160px}.nn-table.detailed{min-width:1780px}
+.nn-table{border-collapse:collapse;width:100%;table-layout:fixed}.nn-table.compare{min-width:1160px}.nn-table.detailed{min-width:1780px}.nn-table.followup{min-width:1160px;table-layout:auto}
 .nn-col-doctor{width:220px}.nn-table.compare .nn-col-metric{width:104px}.nn-table.detailed .nn-col-metric{width:82px}
-.nn-table th,.nn-table td{padding:10px 7px;border-bottom:1px solid #eee6db;font-size:13px;line-height:1.25;text-align:right;vertical-align:middle}.nn-table th{position:sticky;top:0;background:#f8f3eb;z-index:3;white-space:normal;font-size:12.5px;font-weight:700;overflow-wrap:anywhere}.nn-table td{white-space:nowrap}.nn-table th:first-child,.nn-table td:first-child{position:sticky;left:0;text-align:left;background:#fff;z-index:4;box-shadow:5px 0 8px rgba(70,55,35,.05);white-space:normal;font-size:14px}.nn-table th:first-child{background:#f8f3eb;z-index:5}
-.nn-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.nn-data-card{border:1px solid #e4dacb;border-radius:10px;background:#fff;padding:14px;min-width:0}.nn-data-card h4{margin:0 0 9px;font-size:15px;line-height:1.3}.nn-kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 14px;font-size:13px;line-height:1.35}.nn-kv strong{text-align:right}
-.nn-group{border:1px solid #e4dacb;border-radius:10px;background:#fff;overflow:hidden}.nn-group summary{cursor:pointer;padding:12px 14px;font-size:14px;font-weight:650;background:#faf7f1}.nn-group-body{padding:7px 13px 13px}.nn-day{padding:9px 0;border-top:1px solid #eee6db;font-size:13px;display:flex;justify-content:space-between;gap:10px}.nn-day:first-child{border-top:0}
-.nn-suspicious-level{display:grid;gap:9px;margin-top:12px}.nn-suspicious-level:first-of-type{margin-top:0}.nn-suspicious-level-title{margin:0;padding:10px 12px;border-radius:9px;background:#f5efe5;font-size:15px;line-height:1.3}.nn-suspicious-level.high .nn-suspicious-level-title{background:#f8e8e6;color:#7f423f}.nn-suspicious-level.review .nn-suspicious-level-title{background:#fff4df;color:#6e5a32}.nn-suspicious-level.insufficient .nn-suspicious-level-title{background:#edf0ec;color:#586159}
-.nn-tabbar{display:flex;gap:8px;margin-bottom:11px}.nn-export{display:inline-flex;margin-top:13px;padding:10px 13px;border-radius:9px;border:1px solid #44634f;color:#355640;text-decoration:none;font-size:13px;font-weight:650}
-.nn-empty,.nn-error{padding:18px;border:1px solid #e4dacb;border-radius:10px;background:#fff;font-size:14px;color:#687067}.nn-error{color:#8b4743;border-color:#e5c7c4;background:#faeeec}
-.nn-primary-repeat-grid .nn-data-card{min-height:112px}.nn-primary-repeat-grid .nn-data-card h4{font-size:14px}.nn-primary-repeat-value{font-size:32px;font-weight:650;line-height:1}
+.nn-table th,.nn-table td{padding:10px 7px;border-bottom:1px solid #eee6db;font-size:15px;line-height:1.3;text-align:right;vertical-align:middle}.nn-table th{position:sticky;top:0;background:#f8f3eb;z-index:3;white-space:normal;font-size:11px;font-weight:700;overflow-wrap:normal;word-break:normal;hyphens:none;line-height:1.15}.nn-table td{white-space:nowrap}.nn-table th:first-child,.nn-table td:first-child{position:sticky;left:0;text-align:left;background:#fff;z-index:4;box-shadow:5px 0 8px rgba(70,55,35,.05);white-space:normal}.nn-table td:first-child{font-size:16px}.nn-table th:first-child{background:#f8f3eb;z-index:5;font-size:11px}
+.nn-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.nn-data-card{border:1px solid #e4dacb;border-radius:10px;background:#fff;padding:14px;min-width:0}.nn-data-card h4{margin:0 0 9px;font-size:17px;line-height:1.3}.nn-kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 14px;font-size:15px;line-height:1.4}.nn-kv strong{text-align:right}
+.nn-group{border:1px solid #e4dacb;border-radius:10px;background:#fff;overflow:hidden}.nn-group summary{cursor:pointer;padding:12px 14px;font-size:16px;font-weight:650;background:#faf7f1}.nn-group-body{padding:7px 13px 13px}.nn-day{padding:10px 0;border-top:1px solid #eee6db;font-size:15px;display:flex;justify-content:space-between;gap:10px}.nn-day:first-child{border-top:0}
+.nn-suspicious-level{display:grid;gap:9px;margin-top:12px}.nn-suspicious-level:first-of-type{margin-top:0}.nn-suspicious-level-title{margin:0;padding:10px 12px;border-radius:9px;background:#f5efe5;font-size:17px;line-height:1.3}.nn-suspicious-level.high .nn-suspicious-level-title{background:#f8e8e6;color:#7f423f}.nn-suspicious-level.review .nn-suspicious-level-title{background:#fff4df;color:#6e5a32}.nn-suspicious-level.insufficient .nn-suspicious-level-title{background:#edf0ec;color:#586159}
+.nn-tabbar{display:flex;gap:8px;margin-bottom:11px}.nn-export{display:inline-flex;margin-top:13px;padding:10px 13px;border-radius:9px;border:1px solid #44634f;color:#355640;text-decoration:none;font-size:15px;font-weight:650}
+.nn-empty,.nn-error{padding:18px;border:1px solid #e4dacb;border-radius:10px;background:#fff;font-size:16px;color:#687067}.nn-error{color:#8b4743;border-color:#e5c7c4;background:#faeeec}
+.nn-primary-repeat-grid .nn-data-card{min-height:112px}.nn-primary-repeat-grid .nn-data-card h4{font-size:16px}.nn-primary-repeat-value{font-size:34px;font-weight:650;line-height:1}
 @media(max-width:900px){
  .nn-shell{width:min(100%,100vw)}
  .nn-report-shell{padding:20px}
@@ -34,7 +34,7 @@
  .nn-card-grid{grid-template-columns:1fr}
  .nn-table-wrap{display:none}
  .nn-desktop-only{display:none}
- .nn-metric{align-items:flex-start}.nn-metric span{font-size:14px}.nn-metric strong{font-size:18px;text-align:right}
+ .nn-metric{align-items:flex-start}.nn-metric span{font-size:16px}.nn-metric strong{font-size:21px;text-align:right}
 }
 @media(max-width:600px){
  .nn-shell{width:100%}
@@ -42,7 +42,7 @@
  .nn-report-menu{grid-template-columns:1fr}
  .nn-filter-row{grid-template-columns:1fr}.nn-filter.clinic,.nn-filter#doctorWrap{grid-column:auto}
  .nn-report-menu button{font-size:14px}
- .nn-report-title{font-size:24px}.nn-report-subtitle{font-size:14px}
+ .nn-report-title{font-size:25px}.nn-report-subtitle{font-size:16px}
 }
 @media(min-width:901px){.nn-mobile-only{display:none}}
 </style>
@@ -150,6 +150,12 @@ function doctorsTable(rows,detailed){
  const cards='<div class="nn-card-grid nn-mobile-only">'+rows.map(r=>'<div class="nn-data-card"><h4>'+esc(r.doctor)+'</h4><div class="nn-kv">'+columns.slice(1).map(c=>'<span>'+esc(c[1])+'</span><strong>'+esc(val(c[0],get(r,c[0])))+'</strong>').join('')+'</div></div>').join('')+'</div>';
  return table+cards;
 }
+function primaryRepeatDetail(rows){
+ if(!rows?.length)return '<div class="nn-empty" style="margin-top:12px">Пациентов, продолживших ходить после неоплаченного первичного, не найдено.</div>';
+ const table='<div class="nn-table-wrap" style="margin-top:14px"><table class="nn-table followup"><thead><tr><th>Пациент</th><th>Карта</th><th>Врач первичного</th><th>Дата первичного</th><th>Первый последующий повторный</th><th>Врач повторного</th><th>Всего последующих повторных</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.patient_name)+'</td><td>'+esc(r.chart)+'</td><td>'+esc(r.primary_doctor)+'</td><td>'+esc(r.primary_date)+'</td><td>'+esc(r.first_repeat_date)+'</td><td>'+esc(r.first_repeat_doctor)+'</td><td>'+num(r.repeat_count)+'</td></tr>').join('')+'</tbody></table></div>';
+ const cards='<div class="nn-card-grid nn-mobile-only" style="margin-top:14px">'+rows.map(r=>'<div class="nn-data-card"><h4>'+esc(r.patient_name||'Пациент')+'</h4><div class="nn-kv"><span>Карта</span><strong>'+esc(r.chart)+'</strong><span>Врач первичного</span><strong>'+esc(r.primary_doctor)+'</strong><span>Дата первичного</span><strong>'+esc(r.primary_date)+'</strong><span>Первый повторный</span><strong>'+esc(r.first_repeat_date)+'</strong><span>Врач повторного</span><strong>'+esc(r.first_repeat_doctor)+'</strong><span>Всего последующих повторных</span><strong>'+num(r.repeat_count)+'</strong></div></div>').join('')+'</div>';
+ return table+cards;
+}
 function grouped(groups){
  if(!groups?.length)return '<div class="nn-empty">Нет данных за выбранный период.</div>';
  return groups.map(g=>'<details class="nn-group"><summary>'+esc(g.month)+' — '+g.count+' — '+money(g.sum)+'</summary><div class="nn-group-body">'+g.days.map(d=>'<div class="nn-day"><span>'+esc(d.date)+'</span><strong>'+d.count+' — '+money(d.sum)+'</strong></div>').join('')+'</div></details>').join('');
@@ -179,9 +185,11 @@ function render(data){
    body+='<div class="nn-card-grid nn-primary-repeat-grid">'
      +'<div class="nn-data-card"><h4>Не оплатили первичный</h4><div class="nn-primary-repeat-value">'+num(data.unpaid_primary_people)+'</div></div>'
      +'<div class="nn-data-card"><h4>Из них продолжили ходить</h4><div class="nn-primary-repeat-value">'+num(data.continued_people)+'</div></div>'
-     +'<div class="nn-data-card"><h4>Не было последующего повторного</h4><div class="nn-primary-repeat-value">'+num(data.no_repeat_people)+'</div></div>'
+     +'<div class="nn-data-card"><h4>Не пришли повторно после неоплаченного первичного</h4><div class="nn-primary-repeat-value">'+num(data.no_repeat_people)+'</div></div>'
      +'<div class="nn-data-card"><h4>Доля продолживших ходить</h4><div class="nn-primary-repeat-value">'+share+'</div></div>'
      +'</div>';
+   body+=primaryRepeatDetail(data.rows||[]);
+   body+='<a class="nn-export" href="/nn/reports/export/primary_repeat.xlsx?'+query().toString()+'">Скачать подробный отчёт Excel</a>';
 
  }
  $('reportResult').innerHTML=body;
