@@ -95,6 +95,11 @@ class NNUploadTests(unittest.TestCase):
             session["csrf"] = "test-csrf"
         return client
 
+    def fake_normalize(self, conn, batch_id, _root):
+        conn.execute("UPDATE nn_upload_batches SET status='ready' WHERE id=?", (batch_id,))
+        conn.commit()
+        return {"period": {"start": "2026-06-01", "end": "2026-09-26"}}
+
     def bundle(self):
         return {
             "csrf": "test-csrf",
@@ -119,7 +124,7 @@ class NNUploadTests(unittest.TestCase):
         self.assertNotIn("Все клиники", html)
 
     def test_upload_bundle_is_bound_to_selected_clinic_and_stored_separately(self):
-        with patch("nn_normalize.normalize_batch", return_value={"period":{"start":"2026-06-01","end":"2026-09-26"}}):
+        with patch("nn_normalize.normalize_batch", side_effect=self.fake_normalize):
             response = self.client_for(2).post(
                 "/nn/uploads/",
                 data=self.bundle(),
