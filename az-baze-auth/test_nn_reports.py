@@ -150,6 +150,10 @@ class NNReportsTests(unittest.TestCase):
         self.assertIn(".nn-shell{width:min(1420px,97vw)}", html)
         self.assertIn(".nn-table.compare{min-width:1160px}", html)
         self.assertIn("Оплативших<br>первичный", html)
+        self.assertIn(".nn-metric span{font-size:16px", html)
+        self.assertIn(".nn-table th{position:sticky;top:0;background:#f8f3eb;z-index:3;white-space:normal;font-size:11px", html)
+        self.assertIn("Не пришли повторно после неоплаченного первичного", html)
+        self.assertIn("Скачать подробный отчёт Excel", html)
 
     def test_latest_month_and_available_year_month_context(self):
         response = self.client_for(2).get("/api/nn/reports/key_metrics?clinic_id=1")
@@ -208,6 +212,14 @@ class NNReportsTests(unittest.TestCase):
         self.assertEqual(data["continued_people"], 1)
         self.assertEqual(data["no_repeat_people"], 0)
         self.assertEqual(data["continued_share"], 100.0)
+        self.assertEqual(len(data["rows"]), 1)
+        self.assertEqual(data["rows"][0]["patient_name"], "Пациент Два")
+        self.assertEqual(data["rows"][0]["chart"], "2")
+        self.assertEqual(data["rows"][0]["primary_date"], "2026-06-02")
+        self.assertEqual(data["rows"][0]["primary_doctor"], "Врач Б")
+        self.assertEqual(data["rows"][0]["first_repeat_date"], "2026-07-02")
+        self.assertEqual(data["rows"][0]["first_repeat_doctor"], "Врач Б")
+        self.assertEqual(data["rows"][0]["repeat_count"], 1)
 
     def test_doctor_filter_returns_one_doctor(self):
         response = self.client_for(2).get(
@@ -248,6 +260,41 @@ class NNReportsTests(unittest.TestCase):
             self.assertEqual(rows[1][1], "Июнь")
             self.assertEqual(rows[1][3], "Пациент Один")
             self.assertEqual(rows[1][6], 4900)
+        finally:
+            wb.close()
+
+    def test_primary_repeat_export_contains_only_unpaid_primary_who_returned(self):
+        response = self.client_for(2).get(
+            "/nn/reports/export/primary_repeat.xlsx?clinic_id=1&date_from=2026-06-01&date_to=2026-06-30"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("spreadsheetml", response.mimetype)
+        wb = load_workbook(io.BytesIO(response.data), read_only=True, data_only=True)
+        try:
+            ws = wb["Первичный + повторные"]
+            rows = list(ws.iter_rows(values_only=True))
+            self.assertEqual(
+                rows[0],
+                (
+                    "Пациент",
+                    "Амбулаторная карта",
+                    "Телефон",
+                    "Врач первичного",
+                    "Дата первичного",
+                    "Первый последующий повторный",
+                    "Врач повторного",
+                    "Всего последующих повторных",
+                ),
+            )
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[1][0], "Пациент Два")
+            self.assertEqual(rows[1][1], "2")
+            self.assertEqual(rows[1][2], "7000000002")
+            self.assertEqual(rows[1][3], "Врач Б")
+            self.assertEqual(rows[1][4], "2026-06-02")
+            self.assertEqual(rows[1][5], "2026-07-02")
+            self.assertEqual(rows[1][6], "Врач Б")
+            self.assertEqual(rows[1][7], 1)
         finally:
             wb.close()
 
