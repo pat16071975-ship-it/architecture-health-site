@@ -63,6 +63,19 @@ class NNUploadTests(unittest.TestCase):
             [
                 (11, "Клиника Север", "Адрес 1"),
                 (22, "Клиника Юг", "Адрес 2"),
+                (33, "Посторонняя клиника", "Скрытый адрес"),
+            ],
+        )
+        conn.commit()
+        conn.close()
+
+        nn_upload._init_schema()
+        conn = sqlite3.connect(app_module.DB_PATH)
+        conn.executemany(
+            "INSERT INTO nn_clinics(clinic_id,enabled_at,enabled_by) VALUES(?,?,?)",
+            [
+                (11, now, 1),
+                (22, now, 1),
             ],
         )
         conn.commit()
@@ -100,6 +113,8 @@ class NNUploadTests(unittest.TestCase):
         self.assertIn("Клиника Юг", html)
         self.assertIn("Адрес 1", html)
         self.assertIn("Адрес 2", html)
+        self.assertNotIn("Посторонняя клиника", html)
+        self.assertNotIn("Скрытый адрес", html)
         self.assertNotIn("Все клиники", html)
 
     def test_upload_bundle_is_bound_to_selected_clinic_and_stored_separately(self):
@@ -154,6 +169,62 @@ class NNUploadTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM nn_upload_files").fetchone()[0], 5)
         finally:
             conn.close()
+
+    def test_unmapped_active_clinic_is_rejected_server_side(self):
+        payload = self.bundle()
+        payload["clinic_id"] = "33"
+        response = self.client_for(2).post(
+            "/nn/uploads/",
+            data=payload,
+            content_type="multipart/form-data",
+        )
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("не найдена или отключена", html)
+
+        conn = sqlite3.connect(app_module.DB_PATH)
+        try:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM nn_upload_batches").fetchone()[0], 0)
+        finally:
+            conn.close()
+
+    def test_non_owner_cannot_manage_nn_clinic_mapping(self):
+        response = self.client_for(2).post(
+            "/nn/uploads/",
+            data={
+                "csrf": "test-csrf",
+                "action": "configure_clinics",
+                "nn_clinic_id": ["11", "33"],
+            },
+        )
+        self.assertEqual(response.status_code, 403)
+
+        conn = sqlite3.connect(app_module.DB_PATH)
+        try:
+            ids = [row[0] for row in conn.execute("SELECT clinic_id FROM nn_clinics ORDER BY clinic_id")]
+        finally:
+            conn.close()
+        self.assertEqual(ids, [11, 22])
+
+    def test_owner_can_update_nn_clinic_mapping(self):
+        response = self.client_for(1).post(
+            "/nn/uploads/",
+            data={
+                "csrf": "test-csrf",
+                "action": "configure_clinics",
+                "nn_clinic_id": ["11", "33"],
+            },
+        )
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("список клиник", html.lower())
+
+        conn = sqlite3.connect(app_module.DB_PATH)
+        try:
+            ids = [row[0] for row in conn.execute("SELECT clinic_id FROM nn_clinics ORDER BY clinic_id")]
+        finally:
+            conn.close()
+        self.assertEqual(ids, [11, 33])
 
     def test_reports_only_user_cannot_upload(self):
         response = self.client_for(3).get("/nn/uploads/")
