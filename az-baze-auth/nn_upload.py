@@ -235,6 +235,7 @@ def _store_bundle(conn, clinic_id, user_id, items):
         return {
             "status": "duplicate",
             "batch_id": duplicate["id"],
+            "existing_status": duplicate["status"],
             "message": "Этот набор файлов для выбранной клиники уже загружен. Данные не изменены.",
         }
 
@@ -348,6 +349,33 @@ def handle_uploads_page():
                     int(g.user["id"]),
                     items,
                 )
+                should_normalize = (
+                    result["status"] == "uploaded"
+                    or result.get("existing_status") in {"uploaded", "error"}
+                )
+                if should_normalize:
+                    import nn_normalize
+                    batch_id = int(result["batch_id"])
+                    try:
+                        payload = nn_normalize.normalize_batch(conn, batch_id, UPLOAD_ROOT)
+                        result = {
+                            "status": "ready",
+                            "batch_id": batch_id,
+                            "message": (
+                                "Пять исходных файлов сохранены и обработаны. "
+                                f"Период: {payload['period']['start'] or '—'} — {payload['period']['end'] or '—'}."
+                            ),
+                        }
+                    except Exception:
+                        conn.execute(
+                            "UPDATE nn_upload_batches SET status='error' WHERE id=?",
+                            (batch_id,),
+                        )
+                        conn.commit()
+                        error = (
+                            "Файлы сохранены, но автоматическая обработка не завершена. "
+                            "Набор помечен как ошибка обработки."
+                        )
             except ValueError as exc:
                 error = str(exc)
             except Exception:
