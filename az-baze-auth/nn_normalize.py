@@ -329,6 +329,49 @@ def _header_map(matrix):
 
 
 def _service_rows_from_matrix(matrix):
+    # Current MedElement «Подробный отчет по услугам» is an aggregate table:
+    # Наименование / Количество / Стоимость / Сумма / Скидка / Итого.
+    # In that shape it is source-control only, not patient-level financial data.
+    normalized_headers = [_normalize_header(v) for v in (matrix[0] if matrix else [])]
+    required_aggregate = {
+        "наименование",
+        "количество",
+        "стоимость",
+        "сумма",
+        "скидка",
+        "итого",
+    }
+    if required_aggregate.issubset(set(normalized_headers)):
+        positions = {header: normalized_headers.index(header) for header in required_aggregate}
+        department_col = normalized_headers.index("отделение") if "отделение" in normalized_headers else None
+        item_type_col = normalized_headers.index("тип номенклатуры") if "тип номенклатуры" in normalized_headers else None
+        rows = []
+        for raw in matrix[1:]:
+            values = list(raw)
+            def at(index):
+                return values[index] if index is not None and index < len(values) else ""
+            service = _clean_text(at(positions["наименование"]))
+            if not service:
+                continue
+            rows.append({
+                "patient": "",
+                "chart": "",
+                "phone": "",
+                "date": None,
+                "doctor": "",
+                "group": _clean_text(at(item_type_col)),
+                "department": _clean_text(at(department_col)),
+                "service": service,
+                "qty": _num(at(positions["количество"])),
+                "cost": _num(at(positions["стоимость"])),
+                "gross_amount": _num(at(positions["сумма"])),
+                "discount": _num(at(positions["скидка"])),
+                "amount": _num(at(positions["итого"])),
+                "comment": "",
+                "aggregate_control": True,
+            })
+        return rows
+
     header_row, mapping = _header_map(matrix)
     rows = []
     carry = {key: "" for key in ("patient", "chart", "phone", "date", "doctor", "group", "comment")}
