@@ -136,7 +136,17 @@ function doctorsTable(rows,detailed){
  [['doctor','Врач'],['primary','Первичных'],['primary_paid','Оплативших первичный'],['repeat_visits','Повторных визитов'],['treatments.evlk','ЭВЛК лечено'],['treatments.sclero','Склеро лечено'],['treatments.mini','Минифлеб лечено'],['turnover','Оборот'],['occupied_hours','Часов занято'],['turnover_per_hour','Оборот / час']];
  const get=(r,path)=>path.split('.').reduce((v,k)=>v?.[k],r);
  const val=(path,v)=>['turnover','avg_check_all_primary','avg_check_paid_primary','turnover_per_hour'].includes(path)?money(v):num(v);
- const table='<div class="nn-table-wrap"><table class="nn-table"><thead><tr>'+columns.map(c=>'<th>'+esc(c[1])+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+columns.map(c=>'<td>'+esc(c[0]==='doctor'?get(r,c[0]):val(c[0],get(r,c[0])))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+ const header=v=>esc(v)
+   .replace('Оплативших первичный','Оплативших<br>первичный')
+   .replace('Повторных визитов','Повторных<br>визитов')
+   .replace('Уникальных повторных','Уникальных<br>повторных')
+   .replace('Показания минифлеб','Показания<br>минифлеб')
+   .replace('Лечение минифлеб','Лечение<br>минифлеб')
+   .replace('Ср. чек / всех первичных','Ср. чек /<br>всех первичных')
+   .replace('Ср. чек / оплативших первичных','Ср. чек /<br>оплативших первичных')
+   .replace('На ручную проверку','На ручную<br>проверку');
+ const colgroup='<colgroup><col class="nn-col-doctor">'+columns.slice(1).map(()=>'<col class="nn-col-metric">').join('')+'</colgroup>';
+ const table='<div class="nn-table-wrap"><table class="nn-table '+(detailed?'detailed':'compare')+'">'+colgroup+'<thead><tr>'+columns.map(c=>'<th>'+header(c[1])+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+columns.map(c=>'<td>'+esc(c[0]==='doctor'?get(r,c[0]):val(c[0],get(r,c[0])))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
  const cards='<div class="nn-card-grid nn-mobile-only">'+rows.map(r=>'<div class="nn-data-card"><h4>'+esc(r.doctor)+'</h4><div class="nn-kv">'+columns.slice(1).map(c=>'<span>'+esc(c[1])+'</span><strong>'+esc(val(c[0],get(r,c[0])))+'</strong>').join('')+'</div></div>').join('')+'</div>';
  return table+cards;
 }
@@ -148,12 +158,13 @@ function render(data){
  if(data.empty){$('reportResult').innerHTML='<div class="nn-empty">Для выбранной клиники ещё нет обработанных данных.</div>';return}
  fillContext(data.context);
  let body='<h3 class="nn-report-title">'+esc(REPORT_LABELS[currentReport]||'')+'</h3>';
+ if(currentReport==='primary_repeat')body+='<div class="nn-report-subtitle">Не оплатил первичный, но продолжил ходить дальше</div>';
  if(currentReport==='key_metrics'||currentReport==='monthly')body+=metricList(data.items);
  else if(currentReport==='doctor_compare')body+=doctorsTable(data.doctors||[],false);
  else if(currentReport==='doctors')body+=doctorsTable(data.doctors||[],true);
  else if(currentReport==='suspicious'){
-   const groups=data.groups||[];
-   body+=groups.length?groups.map(m=>'<details class="nn-group"><summary>'+esc(m.month)+' — '+m.count+' случаев</summary><div class="nn-group-body">'+m.days.map(d=>'<details class="nn-group" style="margin-top:8px"><summary>'+esc(d.date)+' — '+d.count+' случаев</summary><div class="nn-group-body">'+d.rows.map(r=>'<div class="nn-data-card" style="margin-top:8px"><h4>'+esc(r.patient_name||'Пациент')+'</h4><div class="nn-kv"><span>Врач</span><strong>'+esc(r.doctor)+'</strong><span>Сигнал</span><strong>'+esc(r.signal)+'</strong><span>Первичный в периоде</span><strong>'+(r.primary_in_period?'Да':'Нет')+'</strong><span>Оплата лечения</span><strong>'+money(r.payment)+'</strong><span>Уверенность</span><strong>'+esc(r.confidence)+'</strong></div><div class="nn-muted" style="margin-top:8px">'+esc(r.comment||r.treatment||r.repeat||'')+'</div></div>').join('')+'</div></details>').join('')+'</div></details>').join(''):'<div class="nn-empty">Подозрительных случаев нет.</div>';
+   const levels=data.levels||[];
+   body+=levels.length?levels.map(level=>'<section class="nn-suspicious-level '+esc(level.key)+'"><h4 class="nn-suspicious-level-title">'+esc(level.label)+' — '+level.count+'</h4>'+level.groups.map(m=>'<details class="nn-group"><summary>'+esc(m.month)+' — '+m.count+' случаев</summary><div class="nn-group-body">'+m.days.map(d=>'<details class="nn-group" style="margin-top:8px"><summary>'+esc(d.date)+' — '+d.count+' случаев</summary><div class="nn-group-body">'+d.rows.map(r=>'<div class="nn-data-card" style="margin-top:8px"><h4>'+esc(r.patient_name||'Пациент')+'</h4><div class="nn-kv"><span>Врач</span><strong>'+esc(r.doctor)+'</strong><span>Категория</span><strong>'+esc(r.review_label||level.label)+'</strong><span>Сигнал</span><strong>'+esc(r.signal)+'</strong><span>Первичный в периоде</span><strong>'+(r.primary_in_period?'Да':'Нет')+'</strong><span>Оплата лечения</span><strong>'+money(r.payment)+'</strong></div><div class="nn-muted" style="margin-top:8px">'+esc(r.comment||r.treatment||r.repeat||'')+'</div></div>').join('')+'</div></details>').join('')+'</div></details>').join('')+'</section>').join(''):'<div class="nn-empty">Подозрительных случаев нет.</div>';
  } else if(currentReport==='primaries'){
    const tab=data.tab||'paid';
    body+='<div class="nn-tabbar"><button type="button" data-tab="paid" class="'+(tab==='paid'?'active':'')+'">С оплатой</button><button type="button" data-tab="unpaid" class="'+(tab==='unpaid'?'active':'')+'">Без оплаты</button></div>';
@@ -164,7 +175,14 @@ function render(data){
    body+='<div class="nn-metric"><span>Итого</span><strong>'+data.total.count+' — '+money(data.total.sum)+'</strong></div>'+grouped(data.groups);
    body+='<a class="nn-export" href="/nn/reports/export/treatment.xlsx?'+query().toString()+'">Скачать подробный отчёт Excel</a>';
  } else if(currentReport==='primary_repeat'){
-   body+='<div class="nn-card-grid"><div class="nn-data-card"><h4>Первичных пациентов</h4><div style="font-size:28px;font-weight:600">'+num(data.primary_people)+'</div></div><div class="nn-data-card"><h4>Повторных пациентов</h4><div style="font-size:28px;font-weight:600">'+num(data.repeat_people)+'</div></div></div>';
+   const share=data.continued_share==null?'—':num(data.continued_share)+' %';
+   body+='<div class="nn-card-grid nn-primary-repeat-grid">'
+     +'<div class="nn-data-card"><h4>Не оплатили первичный</h4><div class="nn-primary-repeat-value">'+num(data.unpaid_primary_people)+'</div></div>'
+     +'<div class="nn-data-card"><h4>Из них продолжили ходить</h4><div class="nn-primary-repeat-value">'+num(data.continued_people)+'</div></div>'
+     +'<div class="nn-data-card"><h4>Не было последующего повторного</h4><div class="nn-primary-repeat-value">'+num(data.no_repeat_people)+'</div></div>'
+     +'<div class="nn-data-card"><h4>Доля продолживших ходить</h4><div class="nn-primary-repeat-value">'+share+'</div></div>'
+     +'</div>';
+
  }
  $('reportResult').innerHTML=body;
 }
