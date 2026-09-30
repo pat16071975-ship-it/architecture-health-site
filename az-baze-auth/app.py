@@ -242,7 +242,24 @@ def create_app():
     def nn_reports():
         if not has_nn_permission(g.user, "nn_reports"):
             abort(403)
-        return render_template("nn_placeholder.html", title="Отчёты для НН", message="Раздел отчётов готовится.", csrf=csrf_token())
+        import nn_reports as nn_reports_module
+        return nn_reports_module.reports_page()
+
+    @app.get("/api/nn/reports/<report_key>")
+    @login_required
+    def nn_reports_api(report_key):
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_reports as nn_reports_module
+        return nn_reports_module.api_report(report_key)
+
+    @app.get("/nn/reports/export/<report_key>.xlsx")
+    @login_required
+    def nn_reports_export(report_key):
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_reports as nn_reports_module
+        return nn_reports_module.export_report(report_key)
 
     @app.route("/nn/uploads/", methods=["GET", "POST"])
     @login_required
