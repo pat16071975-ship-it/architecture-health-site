@@ -49,6 +49,9 @@ class NNNormalizeTests(unittest.TestCase):
         self.assertEqual(payload["key_metrics"]["treatment_people"], 1)
         self.assertEqual(payload["key_metrics"]["treatment_paid"], 1)
         self.assertEqual(payload["monthly"][0]["turnover"], 304900)
+        self.assertEqual(payload["source_control"]["registry_turnover"], 304900)
+        self.assertEqual(payload["source_control"]["service_control_amount"], 304900)
+        self.assertEqual(payload["source_control"]["turnover_delta"], 0)
         self.assertTrue(payload["primaries"][0]["indications"]["evlk"])
         self.assertTrue(payload["primaries"][0]["indications"]["mini"])
 
