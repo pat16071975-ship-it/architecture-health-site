@@ -19,6 +19,7 @@
             {% for key,label in survey_permission_options %}{% if key in perms[user['id']] %}<span class="badge">{{ label }}</span>{% endif %}{% endfor %}
             {% for key,label in structure_permission_options %}{% if key in perms[user['id']] %}<span class="badge">{{ label }}</span>{% endif %}{% endfor %}
             {% if 'credentials_view' in perms[user['id']] %}<span class="badge">Доступы и контакты</span>{% endif %}
+            {% if can_manage_nn %}{% for key,label in nn_permission_options %}{% if key in perms[user['id']] %}<span class="badge">{{ label }}</span>{% endif %}{% endfor %}{% endif %}
           </td>
           <td>{% if user['active'] %}Активен{% else %}<span style="color:#9a4b48">Отключён</span>{% endif %}{% if user['must_change_password'] %}<br><span class="muted">ожидается смена пароля</span>{% endif %}</td>
           <td>

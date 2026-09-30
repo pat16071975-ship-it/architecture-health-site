@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Варикоза нет - KZ{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f7f3ec;--paper2:#efe8db;--ink:#2d342f;--green:#44634f;--gold:#b59662;--line:#d8cdbb}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Montserrat,Arial,sans-serif;background:linear-gradient(180deg,#fcfaf6 0,var(--paper) 65%,var(--paper2) 100%);color:var(--ink)}
+body{min-height:100vh}.nn-shell{width:min(980px,94vw);margin:0 auto;padding:28px 0 54px}.nn-brand{text-align:center;margin-bottom:28px}.nn-brand h1{margin:0;font-size:42px;font-weight:600;letter-spacing:-.03em}.nn-brand .sub{margin-top:7px;color:#687067;font-size:12px}
+.nn-card{background:rgba(255,253,248,.96);border:1px solid var(--line);border-radius:16px;box-shadow:0 16px 46px rgba(69,55,35,.09);padding:24px}
+.nn-menu{display:grid;gap:14px;width:min(520px,100%);margin:0 auto}.nn-btn{display:flex;align-items:center;justify-content:center;min-height:58px;padding:14px 18px;border:1px solid rgba(181,150,98,.42);border-radius:10px;background:#faf7f1;color:#354039;text-decoration:none;font-size:15px;font-weight:600;text-align:center}.nn-btn:hover,.nn-btn:focus-visible{outline:0;border-color:rgba(68,99,79,.55);background:#fff}
+.nn-actions{display:flex;justify-content:center;margin-top:18px}.nn-logout{border:1px solid rgba(181,150,98,.42);border-radius:9px;background:#faf7f1;color:#354039;padding:9px 13px;font:600 12px Montserrat,Arial,sans-serif;cursor:pointer}
+.nn-title{margin:0 0 10px;font-size:28px}.nn-muted{color:#687067;font-size:13px;line-height:1.55}.nn-back{display:inline-flex;margin-top:18px;color:#355640;font-weight:600;text-decoration:none}
+@media(max-width:650px){.nn-shell{padding:20px 12px 36px;width:100%}.nn-brand h1{font-size:30px}.nn-card{padding:18px}.nn-btn{min-height:54px;font-size:14px}.nn-title{font-size:24px}}
+</style>
+</head>
+<body>
+<main class="nn-shell">
+  <header class="nn-brand">
+    <h1>Варикоза нет - KZ</h1>
+  </header>
+  {% block content %}{% endblock %}
+  <div class="nn-actions">
+    <form method="post" action="/logout">
+      <input type="hidden" name="csrf" value="{{ csrf or '' }}">
+      <button class="nn-logout" type="submit">Выйти</button>
+    </form>
+  </div>
+</main>
+</body>
+</html>
