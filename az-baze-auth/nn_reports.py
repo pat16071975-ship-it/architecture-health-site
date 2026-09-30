@@ -289,6 +289,21 @@ def _doctor_rows(payload, start, end, detailed):
     return result
 
 
+SUSPICIOUS_LEVELS = (
+    ("high", "Высокая вероятность несоответствия"),
+    ("review", "Требует проверки"),
+    ("insufficient", "Недостаточно данных"),
+)
+
+
+def _suspicious_level(row):
+    if row.get("treatment"):
+        if row.get("repeat"):
+            return "high", "Высокая вероятность несоответствия"
+        return "review", "Требует проверки"
+    return "insufficient", "Недостаточно данных"
+
+
 def _group_suspicious(rows):
     months = {}
     for row in rows:
@@ -313,6 +328,26 @@ def _group_suspicious(rows):
         item["days"] = [item["days"][day] for day in sorted(item["days"])]
         result.append(item)
     return result
+
+
+def _suspicious_sections(rows):
+    buckets = {key: [] for key, _label in SUSPICIOUS_LEVELS}
+    for row in rows:
+        key, label = _suspicious_level(row)
+        item = dict(row)
+        item["review_level"] = key
+        item["review_label"] = label
+        buckets[key].append(item)
+    return [
+        {
+            "key": key,
+            "label": label,
+            "count": len(buckets[key]),
+            "groups": _group_suspicious(buckets[key]),
+        }
+        for key, label in SUSPICIOUS_LEVELS
+        if buckets[key]
+    ]
 
 
 def _group_count_sum(rows, date_field, amount_field):
@@ -368,11 +403,21 @@ def report_payload(conn, report_key, clinic_id):
         result["doctors"] = _doctor_rows(payload, start, end, True)
     elif report_key == "suspicious":
         patients = _patient_map(payload)
-        rows = [row for row in payload.get("suspicious", []) if _in_range(row.get("date"), start, end)]
+        source_rows = [
+            row for row in payload.get("suspicious", [])
+            if _in_range(row.get("date"), start, end)
+        ]
         if doctor:
-            rows = [row for row in rows if row.get("doctor") == doctor]
-        for row in rows:
+            source_rows = [row for row in source_rows if row.get("doctor") == doctor]
+        rows = []
+        for source in source_rows:
+            row = dict(source)
             row["patient_name"] = patients.get(row.get("patient_key"), {}).get("name", "")
+            level, label = _suspicious_level(row)
+            row["review_level"] = level
+            row["review_label"] = label
+            rows.append(row)
+        result["levels"] = _suspicious_sections(rows)
         result["groups"] = _group_suspicious(rows)
     elif report_key == "primaries":
         tab = request.args.get("tab", "paid")
@@ -386,10 +431,36 @@ def report_payload(conn, report_key, clinic_id):
         result["groups"] = _group_count_sum(rows, "first_date", "payment")
         result["total"] = {"count": len(rows), "sum": round(sum(_money(row.get("payment")) for row in rows), 2)}
     elif report_key == "primary_repeat":
-        primaries = [row for row in payload.get("primaries", []) if _in_range(row.get("date"), start, end)]
-        repeats = [row for row in payload.get("repeats", []) if _in_range(row.get("date"), start, end)]
-        result["primary_people"] = len({row.get("patient_key") for row in primaries})
-        result["repeat_people"] = len({row.get("patient_key") for row in repeats})
+        unpaid_primaries = [
+            row for row in payload.get("primaries", [])
+            if _in_range(row.get("date"), start, end) and not row.get("paid")
+        ]
+        primary_by_patient = {
+            row.get("patient_key"): row
+            for row in unpaid_primaries
+            if row.get("patient_key")
+        }
+        repeat_rows = payload.get("repeats", [])
+        continued_people = {
+            patient_key
+            for patient_key, primary in primary_by_patient.items()
+            if any(
+                repeat.get("patient_key") == patient_key
+                and repeat.get("date")
+                and primary.get("date")
+                and repeat["date"] > primary["date"]
+                for repeat in repeat_rows
+            )
+        }
+        unpaid_people = len(primary_by_patient)
+        continued_count = len(continued_people)
+        result["unpaid_primary_people"] = unpaid_people
+        result["continued_people"] = continued_count
+        result["no_repeat_people"] = max(0, unpaid_people - continued_count)
+        result["continued_share"] = (
+            round(continued_count / unpaid_people * 100, 1)
+            if unpaid_people else None
+        )
     return result
 
 
