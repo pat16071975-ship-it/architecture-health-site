@@ -914,6 +914,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
             strict = bool(primary and treatment["subsequent_repeat_visits"] > 0)
             suspicious.append({
                 "patient_key": patient_key,
+                "date": treatment["first_date"],
                 "doctor": (primary or {}).get("doctor") or (repeat_rows[0].get("doctor") if repeat_rows else ""),
                 "signal": "Лечение/коррекция без оплаты лечения в периоде" if not repeat_rows else "Манипуляция/коррекция + повтор без оплаты лечения в периоде",
                 "primary_in_period": bool(primary),
@@ -928,6 +929,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
             first = postop[0]
             suspicious.append({
                 "patient_key": patient_key,
+                "date": first["date"],
                 "doctor": first.get("doctor"),
                 "signal": "Повтор/контроль после лечения без оплаты лечения в периоде",
                 "primary_in_period": False,
@@ -1040,6 +1042,9 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         },
         "patients": list(resolver.patients.values()),
         "visits": kept_visits,
+        "medical_records": medical,
+        "service_control_rows": services,
+        "deleted_appointments": deleted_rows,
         "primaries": primaries,
         "repeats": repeats,
         "treatments": treatments,
