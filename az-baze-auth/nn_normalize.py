@@ -416,8 +416,13 @@ def _service_rows_from_matrix(matrix):
     return rows
 
 
-_PDF_NUMBER_RE = re.compile(
-    r"(?<!\S)-?(?:\d{1,3}(?:[ \u00a0]\d{3})+|\d+)(?:[.,]\d+)?(?!\S)"
+_PDF_MONEY = r"-?(?:\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d+)(?:[.,]\\d+)?"
+_PDF_SERVICE_ROW_RE = re.compile(
+    rf"(?P<qty>-?\\d+(?:[.,]\\d+)?)\\s+"
+    rf"(?P<cost>{_PDF_MONEY})\\s+"
+    rf"(?P<gross>{_PDF_MONEY})\\s+"
+    rf"(?P<discount>{_PDF_MONEY})\\s+"
+    rf"(?P<total>{_PDF_MONEY})\\s*$"
 )
 
 
@@ -425,7 +430,7 @@ def _service_rows_from_pdf_text(text):
     # The real «Отчет по услугам подробно» source is a PDF aggregate table.
     # We use it only for source-control reconciliation, never as patient-level data.
     lines = [
-        re.sub(r"[ \t]+", " ", line.replace("\u00a0", " ")).strip()
+        re.sub(r"[ \\t]+", " ", line.replace("\u00a0", " ")).strip()
         for line in str(text or "").replace("\r", "\n").split("\n")
     ]
     rows = []
@@ -445,17 +450,14 @@ def _service_rows_from_pdf_text(text):
             pending = []
             continue
 
-        matches = list(_PDF_NUMBER_RE.finditer(line))
-        if len(matches) < 5:
-            # pypdf layout extraction can wrap a long service name onto a line
-            # preceding the numeric columns. Preserve that text for the next row.
+        match = _PDF_SERVICE_ROW_RE.search(line)
+        if not match:
             if not re.fullmatch(r"(итого|всего)[: ]*", low):
                 pending.append(line)
                 pending = pending[-3:]
             continue
 
-        numeric = matches[-5:]
-        prefix = line[:numeric[0].start()].strip()
+        prefix = line[:match.start()].strip()
         service = _clean_text(" ".join(pending + ([prefix] if prefix else [])))
         pending = []
 
@@ -466,11 +468,11 @@ def _service_rows_from_pdf_text(text):
         if service_low in {"итого", "всего", "итого по отчету", "всего по отчету"}:
             continue
 
-        qty = _num(numeric[0].group())
-        cost = _num(numeric[1].group())
-        gross = _num(numeric[2].group())
-        discount = _num(numeric[3].group())
-        total = _num(numeric[4].group())
+        qty = _num(match.group("qty"))
+        cost = _num(match.group("cost"))
+        gross = _num(match.group("gross"))
+        discount = _num(match.group("discount"))
+        total = _num(match.group("total"))
 
         if qty == 0 and gross == 0 and total == 0:
             continue
