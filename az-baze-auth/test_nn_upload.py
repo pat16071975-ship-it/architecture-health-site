@@ -164,7 +164,7 @@ class NNUploadTests(unittest.TestCase):
 
     def test_duplicate_bundle_does_not_create_second_batch(self):
         client = self.client_for(2)
-        with patch("nn_normalize.normalize_batch", return_value={"period":{"start":"2026-06-01","end":"2026-09-26"}}):
+        with patch("nn_normalize.normalize_batch", side_effect=self.fake_normalize):
             first = client.post("/nn/uploads/", data=self.bundle(), content_type="multipart/form-data")
             self.assertEqual(first.status_code, 200)
             second = client.post("/nn/uploads/", data=self.bundle(), content_type="multipart/form-data")
