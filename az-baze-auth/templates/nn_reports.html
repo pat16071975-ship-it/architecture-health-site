@@ -58,7 +58,7 @@
 </section>
 
 <script>
-const REPORT_LABELS={{ dict(reports)|tojson }};
+const REPORT_LABELS={{ report_labels|tojson }};
 const MONTHS=['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 let currentReport='key_metrics', currentMonth=null, currentContext=null;
 const $=id=>document.getElementById(id);
