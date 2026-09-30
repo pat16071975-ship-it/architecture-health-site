@@ -3,6 +3,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 os.environ.setdefault("AZBAZE_SECRET_KEY", "test-secret")
@@ -118,14 +119,15 @@ class NNUploadTests(unittest.TestCase):
         self.assertNotIn("Все клиники", html)
 
     def test_upload_bundle_is_bound_to_selected_clinic_and_stored_separately(self):
-        response = self.client_for(2).post(
-            "/nn/uploads/",
-            data=self.bundle(),
-            content_type="multipart/form-data",
-        )
+        with patch("nn_normalize.normalize_batch", return_value={"period":{"start":"2026-06-01","end":"2026-09-26"}}):
+            response = self.client_for(2).post(
+                "/nn/uploads/",
+                data=self.bundle(),
+                content_type="multipart/form-data",
+            )
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Пять исходных файлов сохранены", html)
+        self.assertIn("Пять исходных файлов сохранены и обработаны", html)
 
         conn = sqlite3.connect(app_module.DB_PATH)
         conn.row_factory = sqlite3.Row
@@ -139,7 +141,7 @@ class NNUploadTests(unittest.TestCase):
         conn.close()
 
         self.assertEqual(batch["clinic_id"], 11)
-        self.assertEqual(batch["status"], "uploaded")
+        self.assertEqual(batch["status"], "ready")
         self.assertEqual(batch["uploaded_by"], 2)
         self.assertEqual(len(files), 5)
         self.assertTrue((nn_upload.UPLOAD_ROOT / "11" / str(batch["id"])).is_dir())
@@ -157,9 +159,10 @@ class NNUploadTests(unittest.TestCase):
 
     def test_duplicate_bundle_does_not_create_second_batch(self):
         client = self.client_for(2)
-        first = client.post("/nn/uploads/", data=self.bundle(), content_type="multipart/form-data")
-        self.assertEqual(first.status_code, 200)
-        second = client.post("/nn/uploads/", data=self.bundle(), content_type="multipart/form-data")
+        with patch("nn_normalize.normalize_batch", return_value={"period":{"start":"2026-06-01","end":"2026-09-26"}}):
+            first = client.post("/nn/uploads/", data=self.bundle(), content_type="multipart/form-data")
+            self.assertEqual(first.status_code, 200)
+            second = client.post("/nn/uploads/", data=self.bundle(), content_type="multipart/form-data")
         html = second.get_data(as_text=True)
         self.assertIn("уже загружен", html)
 
