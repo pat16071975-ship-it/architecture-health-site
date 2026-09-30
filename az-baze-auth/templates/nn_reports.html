@@ -2,29 +2,49 @@
 {% block title %}Отчёты для НН — Варикоза нет - KZ{% endblock %}
 {% block content %}
 <style>
-.nn-report-shell{display:grid;gap:14px}
-.nn-report-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-.nn-report-menu button,.nn-months button,.nn-tabbar button{border:1px solid #d7c9b5;background:#faf7f1;color:#354039;border-radius:9px;padding:10px 12px;font:600 12px Montserrat,Arial,sans-serif;cursor:pointer}
+.nn-shell{width:min(1420px,97vw)}
+.nn-report-shell{display:grid;gap:16px;min-width:0;padding:28px}
+.nn-report-shell>*{min-width:0}
+.nn-report-shell .nn-muted{font-size:14px;line-height:1.55}
+.nn-report-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
+.nn-report-menu button,.nn-months button,.nn-tabbar button{border:1px solid #d7c9b5;background:#faf7f1;color:#354039;border-radius:9px;padding:11px 13px;font:600 14px/1.25 Montserrat,Arial,sans-serif;cursor:pointer}
 .nn-report-menu button.active,.nn-months button.active,.nn-tabbar button.active{border-color:#44634f;background:#e8efe9;color:#31533e}
-.nn-filters{position:sticky;top:0;z-index:20;background:rgba(247,243,236,.97);backdrop-filter:blur(8px);border:1px solid #ded3c2;border-radius:12px;padding:10px;display:grid;gap:9px}
-.nn-filter-row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
-.nn-filter{display:grid;gap:4px;min-width:140px}.nn-filter label{font-size:10px;font-weight:600;color:#657067}.nn-filter select,.nn-filter input{padding:8px 9px;border:1px solid #cec3b2;border-radius:8px;background:#fff;font:500 12px Montserrat,Arial,sans-serif}
-.nn-months{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}.nn-months button{white-space:nowrap;padding:7px 10px}
-.nn-result{min-height:150px}.nn-report-title{margin:0 0 10px;font-size:22px}.nn-list{display:grid;gap:8px}.nn-metric{display:flex;justify-content:space-between;gap:16px;padding:11px 12px;border:1px solid #e4dacb;border-radius:10px;background:#fff}.nn-metric span{font-size:12px}.nn-metric strong{font-size:15px}
-.nn-table-wrap{overflow:auto;border:1px solid #e4dacb;border-radius:10px;background:#fff}.nn-table{border-collapse:collapse;width:100%;min-width:1000px}.nn-table th,.nn-table td{padding:8px 9px;border-bottom:1px solid #eee6db;font-size:11px;text-align:right;white-space:nowrap}.nn-table th{position:sticky;top:0;background:#f8f3eb;z-index:3}.nn-table th:first-child,.nn-table td:first-child{position:sticky;left:0;text-align:left;background:#fff;z-index:4;box-shadow:5px 0 8px rgba(70,55,35,.05)}.nn-table th:first-child{background:#f8f3eb;z-index:5}
-.nn-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.nn-data-card{border:1px solid #e4dacb;border-radius:10px;background:#fff;padding:12px}.nn-data-card h4{margin:0 0 8px;font-size:14px}.nn-kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:11px}.nn-kv strong{text-align:right}
-.nn-group{border:1px solid #e4dacb;border-radius:10px;background:#fff;overflow:hidden}.nn-group summary{cursor:pointer;padding:11px 12px;font-size:13px;font-weight:600;background:#faf7f1}.nn-group-body{padding:6px 12px 12px}.nn-day{padding:8px 0;border-top:1px solid #eee6db;font-size:12px;display:flex;justify-content:space-between;gap:10px}.nn-day:first-child{border-top:0}
-.nn-tabbar{display:flex;gap:8px;margin-bottom:10px}.nn-export{display:inline-flex;margin-top:12px;padding:9px 12px;border-radius:9px;border:1px solid #44634f;color:#355640;text-decoration:none;font-size:12px;font-weight:600}
-.nn-empty,.nn-error{padding:18px;border:1px solid #e4dacb;border-radius:10px;background:#fff;font-size:12px;color:#687067}.nn-error{color:#8b4743;border-color:#e5c7c4;background:#faeeec}
-@media(max-width:700px){
- .nn-report-menu{grid-template-columns:1fr}
- .nn-filter-row{display:grid;grid-template-columns:1fr 1fr}.nn-filter{min-width:0}.nn-filter.clinic{grid-column:1/-1}
+.nn-filters{position:sticky;top:0;z-index:20;background:rgba(247,243,236,.97);backdrop-filter:blur(8px);border:1px solid #ded3c2;border-radius:12px;padding:12px;display:grid;gap:10px;min-width:0}
+.nn-filter-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;min-width:0}
+.nn-filter{display:grid;gap:5px;min-width:150px}.nn-filter label{font-size:11px;font-weight:700;color:#657067}.nn-filter select,.nn-filter input{padding:9px 10px;border:1px solid #cec3b2;border-radius:8px;background:#fff;font:600 13px Montserrat,Arial,sans-serif;max-width:100%}
+.nn-filter.clinic{min-width:210px}.nn-filter#doctorWrap{min-width:260px;flex:1 1 300px}
+.nn-months{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}.nn-months button{white-space:nowrap;padding:8px 11px}
+.nn-result{min-height:170px;min-width:0}.nn-report-title{margin:0 0 6px;font-size:26px;line-height:1.15}.nn-report-subtitle{margin:0 0 14px;color:#5f685f;font-size:15px;font-weight:600;line-height:1.4}
+.nn-list{display:grid;gap:9px}.nn-metric{display:flex;justify-content:space-between;gap:18px;padding:13px 14px;border:1px solid #e4dacb;border-radius:10px;background:#fff;align-items:center}.nn-metric span{font-size:14px;line-height:1.35}.nn-metric strong{font-size:18px;line-height:1.2}
+.nn-table-wrap{overflow-x:auto;overflow-y:hidden;max-width:100%;min-width:0;border:1px solid #e4dacb;border-radius:10px;background:#fff;overscroll-behavior-inline:contain}
+.nn-table{border-collapse:collapse;width:100%;table-layout:fixed}.nn-table.compare{min-width:1160px}.nn-table.detailed{min-width:1780px}
+.nn-col-doctor{width:220px}.nn-table.compare .nn-col-metric{width:104px}.nn-table.detailed .nn-col-metric{width:82px}
+.nn-table th,.nn-table td{padding:10px 7px;border-bottom:1px solid #eee6db;font-size:13px;line-height:1.25;text-align:right;vertical-align:middle}.nn-table th{position:sticky;top:0;background:#f8f3eb;z-index:3;white-space:normal;font-size:12.5px;font-weight:700;overflow-wrap:anywhere}.nn-table td{white-space:nowrap}.nn-table th:first-child,.nn-table td:first-child{position:sticky;left:0;text-align:left;background:#fff;z-index:4;box-shadow:5px 0 8px rgba(70,55,35,.05);white-space:normal;font-size:14px}.nn-table th:first-child{background:#f8f3eb;z-index:5}
+.nn-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.nn-data-card{border:1px solid #e4dacb;border-radius:10px;background:#fff;padding:14px;min-width:0}.nn-data-card h4{margin:0 0 9px;font-size:15px;line-height:1.3}.nn-kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 14px;font-size:13px;line-height:1.35}.nn-kv strong{text-align:right}
+.nn-group{border:1px solid #e4dacb;border-radius:10px;background:#fff;overflow:hidden}.nn-group summary{cursor:pointer;padding:12px 14px;font-size:14px;font-weight:650;background:#faf7f1}.nn-group-body{padding:7px 13px 13px}.nn-day{padding:9px 0;border-top:1px solid #eee6db;font-size:13px;display:flex;justify-content:space-between;gap:10px}.nn-day:first-child{border-top:0}
+.nn-suspicious-level{display:grid;gap:9px;margin-top:12px}.nn-suspicious-level:first-of-type{margin-top:0}.nn-suspicious-level-title{margin:0;padding:10px 12px;border-radius:9px;background:#f5efe5;font-size:15px;line-height:1.3}.nn-suspicious-level.high .nn-suspicious-level-title{background:#f8e8e6;color:#7f423f}.nn-suspicious-level.review .nn-suspicious-level-title{background:#fff4df;color:#6e5a32}.nn-suspicious-level.insufficient .nn-suspicious-level-title{background:#edf0ec;color:#586159}
+.nn-tabbar{display:flex;gap:8px;margin-bottom:11px}.nn-export{display:inline-flex;margin-top:13px;padding:10px 13px;border-radius:9px;border:1px solid #44634f;color:#355640;text-decoration:none;font-size:13px;font-weight:650}
+.nn-empty,.nn-error{padding:18px;border:1px solid #e4dacb;border-radius:10px;background:#fff;font-size:14px;color:#687067}.nn-error{color:#8b4743;border-color:#e5c7c4;background:#faeeec}
+.nn-primary-repeat-grid .nn-data-card{min-height:112px}.nn-primary-repeat-grid .nn-data-card h4{font-size:14px}.nn-primary-repeat-value{font-size:32px;font-weight:650;line-height:1}
+@media(max-width:900px){
+ .nn-shell{width:min(100%,100vw)}
+ .nn-report-shell{padding:20px}
+ .nn-report-menu{grid-template-columns:1fr 1fr}
+ .nn-filter-row{display:grid;grid-template-columns:1fr 1fr}.nn-filter,.nn-filter#doctorWrap{min-width:0}.nn-filter.clinic,.nn-filter#doctorWrap{grid-column:1/-1}
  .nn-card-grid{grid-template-columns:1fr}
  .nn-table-wrap{display:none}
  .nn-desktop-only{display:none}
- .nn-metric{align-items:flex-start}.nn-metric span{font-size:13px}.nn-metric strong{font-size:16px;text-align:right}
+ .nn-metric{align-items:flex-start}.nn-metric span{font-size:14px}.nn-metric strong{font-size:18px;text-align:right}
 }
-@media(min-width:701px){.nn-mobile-only{display:none}}
+@media(max-width:600px){
+ .nn-shell{width:100%}
+ .nn-report-shell{padding:18px}
+ .nn-report-menu{grid-template-columns:1fr}
+ .nn-filter-row{grid-template-columns:1fr}.nn-filter.clinic,.nn-filter#doctorWrap{grid-column:auto}
+ .nn-report-menu button{font-size:14px}
+ .nn-report-title{font-size:24px}.nn-report-subtitle{font-size:14px}
+}
+@media(min-width:901px){.nn-mobile-only{display:none}}
 </style>
 
 <section class="nn-card nn-report-shell">
@@ -116,7 +136,17 @@ function doctorsTable(rows,detailed){
  [['doctor','Врач'],['primary','Первичных'],['primary_paid','Оплативших первичный'],['repeat_visits','Повторных визитов'],['treatments.evlk','ЭВЛК лечено'],['treatments.sclero','Склеро лечено'],['treatments.mini','Минифлеб лечено'],['turnover','Оборот'],['occupied_hours','Часов занято'],['turnover_per_hour','Оборот / час']];
  const get=(r,path)=>path.split('.').reduce((v,k)=>v?.[k],r);
  const val=(path,v)=>['turnover','avg_check_all_primary','avg_check_paid_primary','turnover_per_hour'].includes(path)?money(v):num(v);
- const table='<div class="nn-table-wrap"><table class="nn-table"><thead><tr>'+columns.map(c=>'<th>'+esc(c[1])+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+columns.map(c=>'<td>'+esc(c[0]==='doctor'?get(r,c[0]):val(c[0],get(r,c[0])))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+ const header=v=>esc(v)
+   .replace('Оплативших первичный','Оплативших<br>первичный')
+   .replace('Повторных визитов','Повторных<br>визитов')
+   .replace('Уникальных повторных','Уникальных<br>повторных')
+   .replace('Показания минифлеб','Показания<br>минифлеб')
+   .replace('Лечение минифлеб','Лечение<br>минифлеб')
+   .replace('Ср. чек / всех первичных','Ср. чек /<br>всех первичных')
+   .replace('Ср. чек / оплативших первичных','Ср. чек /<br>оплативших первичных')
+   .replace('На ручную проверку','На ручную<br>проверку');
+ const colgroup='<colgroup><col class="nn-col-doctor">'+columns.slice(1).map(()=>'<col class="nn-col-metric">').join('')+'</colgroup>';
+ const table='<div class="nn-table-wrap"><table class="nn-table '+(detailed?'detailed':'compare')+'">'+colgroup+'<thead><tr>'+columns.map(c=>'<th>'+header(c[1])+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+columns.map(c=>'<td>'+esc(c[0]==='doctor'?get(r,c[0]):val(c[0],get(r,c[0])))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
  const cards='<div class="nn-card-grid nn-mobile-only">'+rows.map(r=>'<div class="nn-data-card"><h4>'+esc(r.doctor)+'</h4><div class="nn-kv">'+columns.slice(1).map(c=>'<span>'+esc(c[1])+'</span><strong>'+esc(val(c[0],get(r,c[0])))+'</strong>').join('')+'</div></div>').join('')+'</div>';
  return table+cards;
 }
@@ -128,12 +158,13 @@ function render(data){
  if(data.empty){$('reportResult').innerHTML='<div class="nn-empty">Для выбранной клиники ещё нет обработанных данных.</div>';return}
  fillContext(data.context);
  let body='<h3 class="nn-report-title">'+esc(REPORT_LABELS[currentReport]||'')+'</h3>';
+ if(currentReport==='primary_repeat')body+='<div class="nn-report-subtitle">Не оплатил первичный, но продолжил ходить дальше</div>';
  if(currentReport==='key_metrics'||currentReport==='monthly')body+=metricList(data.items);
  else if(currentReport==='doctor_compare')body+=doctorsTable(data.doctors||[],false);
  else if(currentReport==='doctors')body+=doctorsTable(data.doctors||[],true);
  else if(currentReport==='suspicious'){
-   const groups=data.groups||[];
-   body+=groups.length?groups.map(m=>'<details class="nn-group"><summary>'+esc(m.month)+' — '+m.count+' случаев</summary><div class="nn-group-body">'+m.days.map(d=>'<details class="nn-group" style="margin-top:8px"><summary>'+esc(d.date)+' — '+d.count+' случаев</summary><div class="nn-group-body">'+d.rows.map(r=>'<div class="nn-data-card" style="margin-top:8px"><h4>'+esc(r.patient_name||'Пациент')+'</h4><div class="nn-kv"><span>Врач</span><strong>'+esc(r.doctor)+'</strong><span>Сигнал</span><strong>'+esc(r.signal)+'</strong><span>Первичный в периоде</span><strong>'+(r.primary_in_period?'Да':'Нет')+'</strong><span>Оплата лечения</span><strong>'+money(r.payment)+'</strong><span>Уверенность</span><strong>'+esc(r.confidence)+'</strong></div><div class="nn-muted" style="margin-top:8px">'+esc(r.comment||r.treatment||r.repeat||'')+'</div></div>').join('')+'</div></details>').join('')+'</div></details>').join(''):'<div class="nn-empty">Подозрительных случаев нет.</div>';
+   const levels=data.levels||[];
+   body+=levels.length?levels.map(level=>'<section class="nn-suspicious-level '+esc(level.key)+'"><h4 class="nn-suspicious-level-title">'+esc(level.label)+' — '+level.count+'</h4>'+level.groups.map(m=>'<details class="nn-group"><summary>'+esc(m.month)+' — '+m.count+' случаев</summary><div class="nn-group-body">'+m.days.map(d=>'<details class="nn-group" style="margin-top:8px"><summary>'+esc(d.date)+' — '+d.count+' случаев</summary><div class="nn-group-body">'+d.rows.map(r=>'<div class="nn-data-card" style="margin-top:8px"><h4>'+esc(r.patient_name||'Пациент')+'</h4><div class="nn-kv"><span>Врач</span><strong>'+esc(r.doctor)+'</strong><span>Категория</span><strong>'+esc(r.review_label||level.label)+'</strong><span>Сигнал</span><strong>'+esc(r.signal)+'</strong><span>Первичный в периоде</span><strong>'+(r.primary_in_period?'Да':'Нет')+'</strong><span>Оплата лечения</span><strong>'+money(r.payment)+'</strong></div><div class="nn-muted" style="margin-top:8px">'+esc(r.comment||r.treatment||r.repeat||'')+'</div></div>').join('')+'</div></details>').join('')+'</div></details>').join('')+'</section>').join(''):'<div class="nn-empty">Подозрительных случаев нет.</div>';
  } else if(currentReport==='primaries'){
    const tab=data.tab||'paid';
    body+='<div class="nn-tabbar"><button type="button" data-tab="paid" class="'+(tab==='paid'?'active':'')+'">С оплатой</button><button type="button" data-tab="unpaid" class="'+(tab==='unpaid'?'active':'')+'">Без оплаты</button></div>';
@@ -144,7 +175,14 @@ function render(data){
    body+='<div class="nn-metric"><span>Итого</span><strong>'+data.total.count+' — '+money(data.total.sum)+'</strong></div>'+grouped(data.groups);
    body+='<a class="nn-export" href="/nn/reports/export/treatment.xlsx?'+query().toString()+'">Скачать подробный отчёт Excel</a>';
  } else if(currentReport==='primary_repeat'){
-   body+='<div class="nn-card-grid"><div class="nn-data-card"><h4>Первичных пациентов</h4><div style="font-size:28px;font-weight:600">'+num(data.primary_people)+'</div></div><div class="nn-data-card"><h4>Повторных пациентов</h4><div style="font-size:28px;font-weight:600">'+num(data.repeat_people)+'</div></div></div>';
+   const share=data.continued_share==null?'—':num(data.continued_share)+' %';
+   body+='<div class="nn-card-grid nn-primary-repeat-grid">'
+     +'<div class="nn-data-card"><h4>Не оплатили первичный</h4><div class="nn-primary-repeat-value">'+num(data.unpaid_primary_people)+'</div></div>'
+     +'<div class="nn-data-card"><h4>Из них продолжили ходить</h4><div class="nn-primary-repeat-value">'+num(data.continued_people)+'</div></div>'
+     +'<div class="nn-data-card"><h4>Не было последующего повторного</h4><div class="nn-primary-repeat-value">'+num(data.no_repeat_people)+'</div></div>'
+     +'<div class="nn-data-card"><h4>Доля продолживших ходить</h4><div class="nn-primary-repeat-value">'+share+'</div></div>'
+     +'</div>';
+
  }
  $('reportResult').innerHTML=body;
 }
