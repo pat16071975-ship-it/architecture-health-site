@@ -200,6 +200,8 @@ def _patient_master(path):
             "iin": _norm_id(row.get("ИИН")),
             "chart": _norm_id(row.get("Номер амбулаторной карты")),
             "phone": _norm_phone(row.get("Телефоны")),
+            "note": _clean_text(row.get("Примечание")),
+            "source_amount": _num(row.get("Сумма")),
         })
     return [r for r in result if r["name"] or r["chart"] or r["phone"]]
 
@@ -388,31 +390,82 @@ class PatientResolver:
         self.by_name_dob = {}
         self.by_name = defaultdict(list)
 
-        for index, row in enumerate(master_rows, start=1):
-            key = self._master_key(row, index)
-            patient = dict(row)
-            patient["key"] = key
-            self.patients[key] = patient
+        rows = [dict(row) for row in master_rows]
+        parent = list(range(len(rows)))
+
+        def find(index):
+            while parent[index] != index:
+                parent[index] = parent[parent[index]]
+                index = parent[index]
+            return index
+
+        def union(a, b):
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[rb] = ra
+
+        indexes = {"chart": {}, "iin": {}, "phone": {}, "name_dob": {}}
+        for index, row in enumerate(rows):
+            keys = []
             if row.get("chart"):
-                self.by_chart[row["chart"]] = key
+                keys.append(("chart", row["chart"]))
             if row.get("iin"):
-                self.by_iin[row["iin"]] = key
+                keys.append(("iin", row["iin"]))
             if row.get("phone"):
-                self.by_phone[row["phone"]] = key
+                keys.append(("phone", row["phone"]))
             name = _norm_name(row.get("name"))
             if name and row.get("dob"):
-                self.by_name_dob[(name, row["dob"])] = key
-            if name:
-                self.by_name[name].append(key)
+                keys.append(("name_dob", (name, row["dob"])))
+            for bucket, value in keys:
+                if value in indexes[bucket]:
+                    union(index, indexes[bucket][value])
+                else:
+                    indexes[bucket][value] = index
 
-    def _master_key(self, row, index):
-        if row.get("chart"):
-            return "chart:" + row["chart"]
-        if row.get("iin"):
-            return "iin:" + row["iin"]
-        if row.get("phone"):
-            return "phone:" + row["phone"]
-        return f"master:{index}:{_norm_name(row.get('name'))}:{row.get('dob') or ''}"
+        groups = defaultdict(list)
+        for index in range(len(rows)):
+            groups[find(index)].append(index)
+
+        for group_index, members in enumerate(groups.values(), start=1):
+            group_rows = [rows[i] for i in members]
+            charts = sorted({r.get("chart") for r in group_rows if r.get("chart")})
+            iins = sorted({r.get("iin") for r in group_rows if r.get("iin")})
+            phones = sorted({r.get("phone") for r in group_rows if r.get("phone")})
+            names = [r.get("name") for r in group_rows if r.get("name")]
+            dobs = [r.get("dob") for r in group_rows if r.get("dob")]
+            notes = [r.get("note") for r in group_rows if r.get("note")]
+            key = (
+                "chart:" + charts[0] if charts
+                else "iin:" + iins[0] if iins
+                else "phone:" + phones[0] if phones
+                else f"master:{group_index}:{_norm_name(names[0] if names else '')}:{dobs[0] if dobs else ''}"
+            )
+            patient = {
+                "key": key,
+                "name": names[0] if names else "",
+                "dob": dobs[0] if dobs else None,
+                "iin": iins[0] if iins else "",
+                "chart": charts[0] if charts else "",
+                "charts": charts,
+                "phone": phones[0] if phones else "",
+                "phones": phones,
+                "note": " | ".join(dict.fromkeys(notes)),
+                "source_amount": round(sum(float(r.get("source_amount") or 0) for r in group_rows), 2),
+            }
+            self.patients[key] = patient
+
+            for row in group_rows:
+                if row.get("chart"):
+                    self.by_chart[row["chart"]] = key
+                if row.get("iin"):
+                    self.by_iin[row["iin"]] = key
+                if row.get("phone"):
+                    self.by_phone[row["phone"]] = key
+                name = _norm_name(row.get("name"))
+                if name and row.get("dob"):
+                    self.by_name_dob[(name, row["dob"])] = key
+                if name and key not in self.by_name[name]:
+                    self.by_name[name].append(key)
 
     def resolve(self, row):
         chart = _norm_id(row.get("chart"))
@@ -441,30 +494,36 @@ class PatientResolver:
                 "dob": dob,
                 "iin": iin,
                 "chart": chart,
+                "charts": [chart] if chart else [],
                 "phone": phone,
+                "phones": [phone] if phone else [],
+                "note": "",
+                "source_amount": 0.0,
             }
             if name:
                 self.by_name[name].append(key)
         return key
 
 
-def _deleted_fingerprint(row):
-    return (
-        row.get("appointment_date"),
-        row.get("appointment_time"),
-        _norm_name(row.get("doctor")),
-        row.get("phone") or row.get("patient_name"),
-    )
-
-
-def _visit_fingerprint(row):
-    patient_token = row.get("phone") or _norm_name(row.get("patient"))
-    return (
-        row.get("date"),
-        row.get("start"),
-        _norm_name(" ".join(_clean_text(row.get("doctor")).split()[:2])),
-        patient_token,
-    )
+def _is_deleted_visit(visit, deleted_rows):
+    visit_doctor = _norm_name(" ".join(_clean_text(visit.get("doctor")).split()[:2]))
+    visit_name = _norm_name(visit.get("patient"))
+    visit_phone = _norm_phone(visit.get("phone"))
+    for deleted in deleted_rows:
+        if deleted.get("appointment_date") != visit.get("date"):
+            continue
+        if deleted.get("appointment_time") != visit.get("start"):
+            continue
+        deleted_doctor = _norm_name(deleted.get("doctor"))
+        if deleted_doctor and deleted_doctor != visit_doctor:
+            continue
+        deleted_phone = _norm_phone(deleted.get("phone"))
+        deleted_name = deleted.get("patient_name") or ""
+        if deleted_phone and visit_phone and deleted_phone == visit_phone:
+            return True
+        if deleted_name and visit_name and deleted_name == visit_name:
+            return True
+    return False
 
 
 def _is_nonclinical(text):
@@ -545,8 +604,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         for row in rows:
             row["patient_key"] = resolver.resolve(row)
 
-    deleted_set = {_deleted_fingerprint(row) for row in deleted_rows}
-    kept_visits = [row for row in registry if _visit_fingerprint(row) not in deleted_set]
+    kept_visits = [row for row in registry if not _is_deleted_visit(row, deleted_rows)]
 
     services_by_patient_date = defaultdict(list)
     for row in services:
@@ -562,6 +620,11 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
     for row in kept_visits:
         visits_by_patient[row["patient_key"]].append(row)
 
+    prior_nonclinical_dates = defaultdict(list)
+    for row in services:
+        if row.get("date") and row.get("class") in {"evlk", "sclero", "mini", "analysis", "hosiery"}:
+            prior_nonclinical_dates[row["patient_key"]].append(row["date"])
+
     primaries = []
     repeats = []
     primary_by_patient = {}
@@ -572,10 +635,13 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
             text = " ".join((row.get("repeat_field", ""), row.get("note", ""), row.get("visit_type", ""), row.get("help_type", "")))
             explicit_repeat = bool(REPEAT_RE.search(text))
             nonclinical = _is_nonclinical(text)
-            if not has_primary and not explicit_repeat and not nonclinical:
+            has_prior_nonclinical = any(
+                date < row["date"] for date in prior_nonclinical_dates.get(patient_key, [])
+            )
+            if not has_primary and not explicit_repeat and not nonclinical and not has_prior_nonclinical:
                 same_day_services = services_by_patient_date.get((patient_key, row["date"]), [])
                 primary_amount = round(sum(s["amount"] for s in same_day_services if s["class"] == "consultation"), 2)
-                evidence = text
+                evidence = text + " " + resolver.patients.get(patient_key, {}).get("note", "")
                 for med in medical_by_patient.get(patient_key, []):
                     if med["date"] == row["date"]:
                         evidence += " " + " ".join((
@@ -839,7 +905,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         "monthly": monthly,
         "doctor_metrics": doctor_metrics,
         "key_metrics": {
-            "unique_patients": len({r["patient_key"] for r in kept_visits}),
+            "unique_patients": len([p for p in resolver.patients.values() if not p["key"].startswith("unmatched:")]),
             "closed_appointments": len(kept_visits),
             "turnover": round(sum(s.get("amount", 0.0) for s in services), 2),
             "primary_total": len(primaries),
