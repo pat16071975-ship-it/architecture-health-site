@@ -417,7 +417,7 @@ def _service_rows_from_matrix(matrix):
 
 
 _PDF_NUMBER_RE = re.compile(
-    r"(?<!\\S)-?(?:\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d+)(?:[.,]\\d+)?(?!\\S)"
+    r"(?<!\S)-?(?:\d{1,3}(?:[ \u00a0]\d{3})+|\d+)(?:[.,]\d+)?(?!\S)"
 )
 
 
@@ -425,8 +425,8 @@ def _service_rows_from_pdf_text(text):
     # The real «Отчет по услугам подробно» source is a PDF aggregate table.
     # We use it only for source-control reconciliation, never as patient-level data.
     lines = [
-        re.sub(r"[ \\t]+", " ", line.replace("\\u00a0", " ")).strip()
-        for line in str(text or "").replace("\\r", "\\n").split("\\n")
+        re.sub(r"[ \t]+", " ", line.replace("\u00a0", " ")).strip()
+        for line in str(text or "").replace("\r", "\n").split("\n")
     ]
     rows = []
     pending = []
