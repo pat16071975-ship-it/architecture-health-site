@@ -239,6 +239,9 @@ def _registry_rows(path):
             "note": _clean_text(row.get("Примечание")),
             "visit_type": _clean_text(row.get("Тип приема")),
             "help_type": _clean_text(row.get("Вид помощи")),
+            "services_text": _clean_text(row.get("Перечень услуг")),
+            "service_prices_text": _clean_text(row.get("Стоимость услуг")),
+            "amount": _num(row.get("Сумма")),
         })
     return result
 
@@ -635,14 +638,22 @@ def _merge_intervals(visits):
 
 def normalize_rows(master, registry, medical, services, deleted_rows, deleted_total=None):
     resolver = PatientResolver(master)
-    for rows in (registry, medical, services):
+    for rows in (registry, medical):
         for row in rows:
             row["patient_key"] = resolver.resolve(row)
+    patient_services = []
+    for row in services:
+        if row.get("patient") or row.get("chart") or row.get("phone"):
+            row["patient_key"] = resolver.resolve(row)
+            patient_services.append(row)
 
-    kept_visits = [row for row in registry if not _is_deleted_visit(row, deleted_rows)]
+    # «Реестр приемов» is the closed/completed-visit source used by the approved
+    # analysis. The separate deleted-appointments PDF is control evidence only;
+    # subtracting it here would remove valid closed visits that were later edited.
+    kept_visits = list(registry)
 
     services_by_patient_date = defaultdict(list)
-    for row in services:
+    for row in patient_services:
         if row.get("date"):
             row["class"] = _service_class(row)
             services_by_patient_date[(row["patient_key"], row["date"])].append(row)
@@ -656,7 +667,16 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         visits_by_patient[row["patient_key"]].append(row)
 
     prior_nonclinical_dates = defaultdict(list)
-    for row in services:
+    for row in kept_visits:
+        service_class = _service_class({
+            "group": "",
+            "service": row.get("services_text", ""),
+            "comment": row.get("note", ""),
+        })
+        row["service_class"] = service_class
+        if service_class in {"evlk", "sclero", "mini", "analysis", "hosiery"}:
+            prior_nonclinical_dates[row["patient_key"]].append(row["date"])
+    for row in patient_services:
         if row.get("date") and row.get("class") in {"evlk", "sclero", "mini", "analysis", "hosiery"}:
             prior_nonclinical_dates[row["patient_key"]].append(row["date"])
 
@@ -667,15 +687,20 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         rows.sort(key=lambda r: (r["date"], r.get("start") or ""))
         has_primary = False
         for row in rows:
-            text = " ".join((row.get("repeat_field", ""), row.get("note", ""), row.get("visit_type", ""), row.get("help_type", "")))
+            text = " ".join((
+                row.get("repeat_field", ""),
+                row.get("note", ""),
+                row.get("visit_type", ""),
+                row.get("help_type", ""),
+                row.get("services_text", ""),
+            ))
             explicit_repeat = bool(REPEAT_RE.search(text))
             nonclinical = _is_nonclinical(text)
             has_prior_nonclinical = any(
                 date < row["date"] for date in prior_nonclinical_dates.get(patient_key, [])
             )
             if not has_primary and not explicit_repeat and not nonclinical and not has_prior_nonclinical:
-                same_day_services = services_by_patient_date.get((patient_key, row["date"]), [])
-                primary_amount = round(sum(s["amount"] for s in same_day_services if s["class"] == "consultation"), 2)
+                primary_amount = round(float(row.get("amount") or 0), 2)
                 evidence = text + " " + resolver.patients.get(patient_key, {}).get("note", "")
                 for med in medical_by_patient.get(patient_key, []):
                     if med["date"] == row["date"]:
@@ -715,22 +740,50 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         "clinical_evidence": False,
     })
 
-    for row in services:
+    for row in kept_visits:
+        service_text = row.get("services_text", "")
+        if not service_text:
+            continue
+        kinds = []
+        if EVLK_RE.search(service_text):
+            kinds.append("evlk")
+        if SCLERO_RE.search(service_text):
+            kinds.append("sclero")
+        if MINI_RE.search(service_text):
+            kinds.append("mini")
+        if not kinds:
+            continue
+        event = treatment_events[row["patient_key"]]
+        for kind in kinds:
+            event["types"][kind] = True
+            if row.get("doctor"):
+                event["doctors"][kind].add(row["doctor"])
+        event["dates"].append(row["date"])
+        amount = float(row.get("amount") or 0)
+        if amount > 0:
+            event["payment"] += amount
+            event["financial_evidence"] = True
+        basis = " | ".join(value for value in (service_text, row.get("note", "")) if value)
+        event["basis"].append(
+            f"{'/'.join(k.upper() for k in kinds)} {row['date']} [registry_financial_service]: {basis}"
+        )
+
+    # If a future detailed-service export contains patient/date columns, retain it
+    # as supplementary evidence without using aggregate rows for turnover.
+    for row in patient_services:
         kind = row.get("class") or _service_class(row)
-        if kind not in {"evlk", "sclero", "mini"}:
+        if kind not in {"evlk", "sclero", "mini"} or not row.get("date"):
             continue
         patient_key = row["patient_key"]
-        text = " ".join((row.get("service", ""), row.get("comment", "")))
         event = treatment_events[patient_key]
         event["types"][kind] = True
         if row.get("doctor"):
             event["doctors"][kind].add(row["doctor"])
-        if row.get("date"):
-            event["dates"].append(row["date"])
-        if row.get("amount", 0) > 0:
-            event["payment"] += row["amount"]
-            event["financial_evidence"] = True
-        event["basis"].append(f"{kind.upper()} {row.get('date') or ''} [financial_service]: {row.get('service','')} | {row.get('comment','')}".strip())
+        event["dates"].append(row["date"])
+        event["basis"].append(
+            f"{kind.upper()} {row.get('date') or ''} [detailed_service_control]: "
+            f"{row.get('service','')} | {row.get('comment','')}"
+        )
 
     for row in medical:
         text = " ".join((row.get("treatment", ""), row.get("assignment", ""), row.get("recommendation", "")))
@@ -845,13 +898,13 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
 
     interval_minutes, invalid_intervals = _merge_intervals(kept_visits)
     doctor_names = sorted({
-        r.get("doctor") for r in kept_visits + services if r.get("doctor")
+        r.get("doctor") for r in kept_visits if r.get("doctor")
     })
 
     turnover_by_doctor = defaultdict(float)
-    for row in services:
+    for row in kept_visits:
         if row.get("doctor"):
-            turnover_by_doctor[row["doctor"]] += row.get("amount", 0.0)
+            turnover_by_doctor[row["doctor"]] += float(row.get("amount") or 0)
 
     doctor_metrics = []
     for doctor in doctor_names:
@@ -869,8 +922,10 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
             )
         hosiery_people = {
             row["patient_key"]
-            for row in services
-            if row.get("doctor") == doctor and row.get("class") == "hosiery" and row.get("qty", 0) > 0
+            for row in kept_visits
+            if row.get("doctor") == doctor
+            and HOSIERY_RE.search(row.get("services_text", ""))
+            and float(row.get("amount") or 0) > 0
         }
         turnover = round(turnover_by_doctor[doctor], 2)
         hours = interval_minutes.get(doctor, 0) / 60.0
@@ -895,14 +950,14 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         })
 
     months = sorted({
-        row["date"][:7] for row in kept_visits + services if row.get("date")
+        row["date"][:7] for row in kept_visits if row.get("date")
     })
     monthly = []
     for month in months:
-        month_services = [s for s in services if s.get("date", "").startswith(month)]
+        month_visits = [v for v in kept_visits if v.get("date", "").startswith(month)]
         month_primaries = [p for p in primaries if p["date"].startswith(month)]
         month_treatments = [t for t in treatments if t["first_date"].startswith(month)]
-        turnover = round(sum(s.get("amount", 0.0) for s in month_services), 2)
+        turnover = round(sum(float(v.get("amount") or 0) for v in month_visits), 2)
         paid_primary = sum(1 for p in month_primaries if p["paid"])
         treatment_paid = sum(1 for t in month_treatments if t["payment_found"])
         monthly.append({
@@ -918,7 +973,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
             "treatment_unpaid": len(month_treatments) - treatment_paid,
         })
 
-    dates = [r["date"] for r in kept_visits + services if r.get("date")]
+    dates = [r["date"] for r in kept_visits if r.get("date")]
     period_start = min(dates) if dates else None
     period_end = max(dates) if dates else None
     unique_repeat_people = {r["patient_key"] for r in repeats}
@@ -930,6 +985,8 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
             "closed_appointments": len(kept_visits),
             "deleted_report_rows_parsed": len(deleted_rows),
             "deleted_report_total": deleted_total,
+            "service_control_rows": len(services),
+            "service_control_amount": round(sum(float(s.get("amount") or 0) for s in services), 2),
         },
         "patients": list(resolver.patients.values()),
         "visits": kept_visits,
@@ -942,7 +999,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         "key_metrics": {
             "unique_patients": len([p for p in resolver.patients.values() if not p["key"].startswith("unmatched:")]),
             "closed_appointments": len(kept_visits),
-            "turnover": round(sum(s.get("amount", 0.0) for s in services), 2),
+            "turnover": round(sum(float(v.get("amount") or 0) for v in kept_visits), 2),
             "primary_total": len(primaries),
             "primary_paid": sum(1 for p in primaries if p["paid"]),
             "primary_zero": sum(1 for p in primaries if not p["paid"]),
