@@ -94,6 +94,34 @@ class NNNormalizeTests(unittest.TestCase):
         self.assertEqual(rows[1]["amount"], 300000)
 
 
+    def test_services_pdf_text_uses_last_five_numeric_columns(self):
+        text = """
+Отчет по услугам подробно
+Наименование Количество Стоимость Сумма Скидка Итого
+Лазерное лечение варикоза категория B 2 350 000.00 700 000.00 17 000.00 683 000.00
+Прием хирурга флеболога с УЗИ 1 4 900.00 4 900.00 0.00 4 900.00
+"""
+        rows = nn_normalize._service_rows_from_pdf_text(text)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["qty"], 2)
+        self.assertEqual(rows[0]["cost"], 350000)
+        self.assertEqual(rows[0]["gross_amount"], 700000)
+        self.assertEqual(rows[0]["discount"], 17000)
+        self.assertEqual(rows[0]["amount"], 683000)
+        self.assertIn("Лазерное лечение", rows[0]["service"])
+        self.assertTrue(rows[0]["aggregate_control"])
+
+    def test_services_pdf_text_supports_wrapped_service_name(self):
+        text = """
+Наименование Количество Стоимость Сумма Скидка Итого
+Лазерное лечение варикоза
+категория C 1 420 000.00 420 000.00 20 000.00 400 000.00
+"""
+        rows = nn_normalize._service_rows_from_pdf_text(text)
+        self.assertEqual(len(rows), 1)
+        self.assertIn("Лазерное лечение варикоза категория C", rows[0]["service"])
+        self.assertEqual(rows[0]["amount"], 400000)
+
     def test_current_aggregate_service_report_uses_net_total_and_no_patient_identity(self):
         matrix = [
             ["Отделение", "Тип номенклатуры", "Единица измерения", "Наименование", "Количество", "Стоимость", "Сумма", "Скидка", "Итого"],

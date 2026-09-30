@@ -416,8 +416,100 @@ def _service_rows_from_matrix(matrix):
     return rows
 
 
+_PDF_MONEY = r"-?(?:\d{1,3}(?:[ \u00a0]\d{3})+|\d+)(?:[.,]\d+)?"
+_PDF_SERVICE_ROW_RE = re.compile(
+    rf"(?P<qty>-?\d+(?:[.,]\d+)?)\s+"
+    rf"(?P<cost>{_PDF_MONEY})\s+"
+    rf"(?P<gross>{_PDF_MONEY})\s+"
+    rf"(?P<discount>{_PDF_MONEY})\s+"
+    rf"(?P<total>{_PDF_MONEY})\s*$"
+)
+
+def _service_rows_from_pdf_text(text):
+    # The real «Отчет по услугам подробно» source is a PDF aggregate table.
+    # We use it only for source-control reconciliation, never as patient-level data.
+    lines = [
+        re.sub(r"[ \t]+", " ", line.replace("\u00a0", " ")).strip()
+        for line in str(text or "").replace("\r", "\n").split("\n")
+    ]
+    rows = []
+    pending = []
+
+    for line in lines:
+        if not line:
+            continue
+
+        low = line.lower()
+        if (
+            ("наименование" in low and "количество" in low)
+            or ("стоимость" in low and "скидка" in low and "итого" in low)
+            or low.startswith("отчет по услугам")
+            or low.startswith("отчёт по услугам")
+        ):
+            pending = []
+            continue
+
+        match = _PDF_SERVICE_ROW_RE.search(line)
+        if not match:
+            if not re.fullmatch(r"(итого|всего)[: ]*", low):
+                pending.append(line)
+                pending = pending[-3:]
+            continue
+
+        prefix = line[:match.start()].strip()
+        service = _clean_text(" ".join(pending + ([prefix] if prefix else [])))
+        pending = []
+
+        if not service:
+            continue
+
+        service_low = service.lower().strip(" :")
+        if service_low in {"итого", "всего", "итого по отчету", "всего по отчету"}:
+            continue
+
+        qty = _num(match.group("qty"))
+        cost = _num(match.group("cost"))
+        gross = _num(match.group("gross"))
+        discount = _num(match.group("discount"))
+        total = _num(match.group("total"))
+
+        if qty == 0 and gross == 0 and total == 0:
+            continue
+
+        rows.append({
+            "patient": "",
+            "chart": "",
+            "phone": "",
+            "date": None,
+            "doctor": "",
+            "group": "",
+            "department": "",
+            "service": service,
+            "qty": qty,
+            "cost": cost,
+            "gross_amount": gross,
+            "discount": discount,
+            "amount": total,
+            "comment": "",
+            "aggregate_control": True,
+        })
+
+    if not rows:
+        raise ValueError("Не удалось распознать строки PDF «Отчет по услугам подробно».")
+
+    return rows
+
+
 def _service_rows(path):
-    return _service_rows_from_matrix(_xls_rows(path))
+    reader = PdfReader(str(path))
+    pages = []
+    for page in reader.pages:
+        try:
+            value = page.extract_text(extraction_mode="layout") or ""
+        except Exception:
+            value = page.extract_text() or ""
+        pages.append(value)
+    return _service_rows_from_pdf_text("\\n".join(pages))
 
 
 def _deleted_rows(path, doctors):

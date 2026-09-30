@@ -90,7 +90,7 @@ class NNUploadTests(unittest.TestCase):
             "clinic_id": clinic_id,
             "appointments_registry": (io.BytesIO(b"appointments"), "Реестр приемов.xls"),
             "medical_records": (io.BytesIO(b"records"), "Отчет по медицинским записям.xls"),
-            "services_detailed": (io.BytesIO(b"services"), "отчет по услугам.xls"),
+            "services_detailed": (io.BytesIO(b"%PDF-1.4\nmock"), "отчет по услугам подробно.pdf"),
             "patients_general": (io.BytesIO(b"patients"), "Общий отчет по пациентам.xls"),
             "deleted_appointments": (io.BytesIO(b"%PDF-1.4\nmock"), "Отчет по удаленным приемам.pdf"),
         }
@@ -189,6 +189,26 @@ class NNUploadTests(unittest.TestCase):
 
     def test_reports_only_user_cannot_upload(self):
         self.assertEqual(self.client_for(3).get("/nn/uploads/").status_code, 403)
+
+    def test_services_source_requires_pdf(self):
+        payload = self.bundle()
+        payload["services_detailed"] = (
+            io.BytesIO(b"not a pdf"),
+            "отчет по услугам подробно.pdf",
+        )
+        response = self.client_for(2).post(
+            "/nn/uploads/",
+            data=payload,
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("не распознан как PDF", response.get_data(as_text=True))
+
+        conn = sqlite3.connect(app_module.DB_PATH)
+        try:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM nn_upload_batches").fetchone()[0], 0)
+        finally:
+            conn.close()
 
     def test_invalid_pdf_rejects_entire_bundle(self):
         payload = self.bundle()
