@@ -56,8 +56,7 @@ def _batch_rows(conn, clinic_id):
         FROM nn_normalized_batches n
         JOIN nn_upload_batches b ON b.id=n.batch_id
         JOIN nn_clinics c ON c.clinic_id=n.clinic_id
-        JOIN clinics cl ON cl.id=n.clinic_id
-        WHERE n.clinic_id=? AND b.status='ready' AND cl.status='active'
+        WHERE n.clinic_id=? AND b.status='ready' AND c.active=1
         ORDER BY b.uploaded_at,n.batch_id
         """,
         (clinic_id,),
