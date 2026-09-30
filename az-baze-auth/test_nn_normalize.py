@@ -24,18 +24,20 @@ class NNNormalizeTests(unittest.TestCase):
             {"name": "Пациент Два", "dob": "1981-01-01", "iin": "", "chart": "2", "phone": "7000000002", "note": "", "source_amount": 0},
         ]
         registry = [
-            {"date": "2026-06-01", "start": "09:00", "end": "09:30", "doctor": "Врач А", "patient": "Пациент Один", "chart": "1", "iin": "", "phone": "7000000001", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": ""},
-            {"date": "2026-06-10", "start": "09:00", "end": "09:30", "doctor": "Врач А", "patient": "Пациент Один", "chart": "1", "iin": "", "phone": "7000000001", "repeat_field": "", "note": "повторный контроль", "visit_type": "Амбулаторно", "help_type": ""},
-            {"date": "2026-06-20", "start": "09:00", "end": "09:30", "doctor": "Врач А", "patient": "Пациент Один", "chart": "1", "iin": "", "phone": "7000000001", "repeat_field": "", "note": "контроль после операции", "visit_type": "Амбулаторно", "help_type": ""},
-            {"date": "2026-06-02", "start": "10:00", "end": "10:30", "doctor": "Врач Б", "patient": "Пациент Два", "chart": "2", "iin": "", "phone": "7000000002", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": ""},
+            {"date": "2026-06-01", "start": "09:00", "end": "09:30", "doctor": "Врач А", "patient": "Пациент Один", "chart": "1", "iin": "", "phone": "7000000001", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": "", "services_text": "Прием хирурга флеболога с УЗИ", "amount": 4900},
+            {"date": "2026-06-10", "start": "09:00", "end": "09:30", "doctor": "Врач А", "patient": "Пациент Один", "chart": "1", "iin": "", "phone": "7000000001", "repeat_field": "", "note": "повторный контроль", "visit_type": "Амбулаторно", "help_type": "", "services_text": "", "amount": 0},
+            {"date": "2026-06-20", "start": "09:00", "end": "09:30", "doctor": "Врач А", "patient": "Пациент Один", "chart": "1", "iin": "", "phone": "7000000001", "repeat_field": "", "note": "контроль после операции", "visit_type": "Амбулаторно", "help_type": "", "services_text": "", "amount": 0},
+            {"date": "2026-06-02", "start": "10:00", "end": "10:30", "doctor": "Врач Б", "patient": "Пациент Два", "chart": "2", "iin": "", "phone": "7000000002", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": "", "services_text": "Прием хирурга флеболога с УЗИ", "amount": 0},
         ]
+        registry.append(
+            {"date": "2026-06-05", "start": "08:00", "end": "09:00", "doctor": "Врач А", "patient": "Пациент Один", "chart": "1", "iin": "", "phone": "7000000001", "repeat_field": "", "note": "ЭВЛК + МФ", "visit_type": "Амбулаторно", "help_type": "", "services_text": "Лазерное лечение варикоза категория B (пакет)", "amount": 300000}
+        )
         medical = [
             {"date": "2026-06-05", "doctor": "Врач А", "patient": "Пациент Один", "dob": "1980-01-01", "chart": "1", "complaint": "", "objective": "", "direction": "", "assignment": "", "recommendation": "", "treatment": "Протокол манипуляции: Эндоваскулярная лазерная коагуляция + минифлебэктомия"},
         ]
         services = [
-            {"patient": "Пациент Один", "chart": "1", "phone": "7000000001", "date": "2026-06-01", "doctor": "Врач А", "group": "", "service": "Прием хирурга флеболога с УЗИ", "qty": 1, "amount": 4900, "comment": ""},
-            {"patient": "Пациент Один", "chart": "1", "phone": "7000000001", "date": "2026-06-05", "doctor": "Врач А", "group": "", "service": "Лазерное лечение варикоза категория B", "qty": 1, "amount": 300000, "comment": ""},
-            {"patient": "Пациент Два", "chart": "2", "phone": "7000000002", "date": "2026-06-02", "doctor": "Врач Б", "group": "", "service": "Прием хирурга флеболога с УЗИ", "qty": 1, "amount": 0, "comment": ""},
+            {"patient": "", "chart": "", "phone": "", "date": None, "doctor": "", "group": "Услуги", "service": "Прием хирурга флеболога с УЗИ", "qty": 2, "amount": 4900, "comment": "", "aggregate_control": True},
+            {"patient": "", "chart": "", "phone": "", "date": None, "doctor": "", "group": "Услуги", "service": "Лазерное лечение варикоза категория B", "qty": 1, "amount": 300000, "comment": "", "aggregate_control": True},
         ]
         payload = nn_normalize.normalize_rows(master, registry, medical, services, [], 0)
 
@@ -52,23 +54,25 @@ class NNNormalizeTests(unittest.TestCase):
 
     def test_prior_treatment_prevents_later_visit_from_becoming_primary(self):
         master = [{"name": "Пациент", "dob": "1980-01-01", "iin": "", "chart": "1", "phone": "", "note": "", "source_amount": 0}]
-        registry = [{"date": "2026-06-10", "start": "09:00", "end": "09:30", "doctor": "Врач", "patient": "Пациент", "chart": "1", "iin": "", "phone": "", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": ""}]
-        services = [{"patient": "Пациент", "chart": "1", "phone": "", "date": "2026-06-05", "doctor": "Врач", "group": "", "service": "Лазерное лечение варикоза", "qty": 1, "amount": 100000, "comment": ""}]
-        payload = nn_normalize.normalize_rows(master, registry, [], services, [], 0)
+        registry = [
+            {"date": "2026-06-05", "start": "08:00", "end": "09:00", "doctor": "Врач", "patient": "Пациент", "chart": "1", "iin": "", "phone": "", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": "", "services_text": "Лазерное лечение варикоза", "amount": 100000},
+            {"date": "2026-06-10", "start": "09:00", "end": "09:30", "doctor": "Врач", "patient": "Пациент", "chart": "1", "iin": "", "phone": "", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": "", "services_text": "Прием хирурга флеболога с УЗИ", "amount": 4900},
+        ]
+        payload = nn_normalize.normalize_rows(master, registry, [], [], [], 0)
         self.assertEqual(payload["key_metrics"]["primary_total"], 0)
 
-    def test_deleted_visit_matches_by_name_even_when_registry_has_phone(self):
+    def test_deleted_report_is_control_only_and_does_not_remove_closed_registry_visit(self):
         master = [{"name": "Пациент Один", "dob": "1980-01-01", "iin": "", "chart": "1", "phone": "7000000001", "note": "", "source_amount": 0}]
-        registry = [{"date": "2026-06-01", "start": "09:00", "end": "09:30", "doctor": "Врач А Полный", "patient": "Пациент Один", "chart": "1", "iin": "", "phone": "7000000001", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": ""}]
+        registry = [{"date": "2026-06-01", "start": "09:00", "end": "09:30", "doctor": "Врач А Полный", "patient": "Пациент Один", "chart": "1", "iin": "", "phone": "7000000001", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": "", "services_text": "", "amount": 0}]
         deleted = [{"appointment_date": "2026-06-01", "appointment_time": "09:00", "doctor": "Врач А", "patient": "Пациент Один", "patient_name": "пациент один", "phone": ""}]
         payload = nn_normalize.normalize_rows(master, registry, [], [], deleted, 1)
-        self.assertEqual(payload["key_metrics"]["closed_appointments"], 0)
+        self.assertEqual(payload["key_metrics"]["closed_appointments"], 1)
 
     def test_unpaid_clinical_treatment_with_primary_and_repeat_is_strict_suspicious(self):
         master = [{"name": "Пациент", "dob": "1980-01-01", "iin": "", "chart": "1", "phone": "", "note": "", "source_amount": 0}]
         registry = [
-            {"date": "2026-06-01", "start": "09:00", "end": "09:30", "doctor": "Врач", "patient": "Пациент", "chart": "1", "iin": "", "phone": "", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": ""},
-            {"date": "2026-06-10", "start": "09:00", "end": "09:30", "doctor": "Врач", "patient": "Пациент", "chart": "1", "iin": "", "phone": "", "repeat_field": "", "note": "контроль после операции", "visit_type": "Амбулаторно", "help_type": ""},
+            {"date": "2026-06-01", "start": "09:00", "end": "09:30", "doctor": "Врач", "patient": "Пациент", "chart": "1", "iin": "", "phone": "", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": "", "services_text": "", "amount": 0},
+            {"date": "2026-06-10", "start": "09:00", "end": "09:30", "doctor": "Врач", "patient": "Пациент", "chart": "1", "iin": "", "phone": "", "repeat_field": "", "note": "контроль после операции", "visit_type": "Амбулаторно", "help_type": "", "services_text": "", "amount": 0},
         ]
         medical = [{"date": "2026-06-05", "doctor": "Врач", "patient": "Пациент", "dob": "1980-01-01", "chart": "1", "complaint": "", "objective": "", "direction": "", "assignment": "", "recommendation": "", "treatment": "Протокол манипуляции: Пенная Склеротерапия"}]
         payload = nn_normalize.normalize_rows(master, registry, medical, [], [], 0)
@@ -86,6 +90,20 @@ class NNNormalizeTests(unittest.TestCase):
         self.assertEqual(rows[1]["date"], "2026-06-01")
         self.assertEqual(rows[1]["amount"], 300000)
 
+
+    def test_current_aggregate_service_report_uses_net_total_and_no_patient_identity(self):
+        matrix = [
+            ["Отделение", "Тип номенклатуры", "Единица измерения", "Наименование", "Количество", "Стоимость", "Сумма", "Скидка", "Итого"],
+            ["", "Услуги", "услуга", "Лазерное лечение варикоза категория B (пакет)", 2, "350 000.00", "700 000.00", "17 000.00", "683 000.00"],
+        ]
+        rows = nn_normalize._service_rows_from_matrix(matrix)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["patient"], "")
+        self.assertIsNone(rows[0]["date"])
+        self.assertEqual(rows[0]["gross_amount"], 700000)
+        self.assertEqual(rows[0]["discount"], 17000)
+        self.assertEqual(rows[0]["amount"], 683000)
+        self.assertTrue(rows[0]["aggregate_control"])
 
 if __name__ == "__main__":
     unittest.main()
