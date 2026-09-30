@@ -1021,6 +1021,10 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
     period_end = max(dates) if dates else None
     unique_repeat_people = {r["patient_key"] for r in repeats}
 
+    registry_turnover = round(sum(float(v.get("amount") or 0) for v in kept_visits), 2)
+    service_control_amount = round(sum(float(s.get("amount") or 0) for s in services), 2)
+    service_control_quantity = round(sum(float(s.get("qty") or 0) for s in services), 2)
+
     payload = {
         "version": NORMALIZED_VERSION,
         "period": {"start": period_start, "end": period_end},
@@ -1029,7 +1033,10 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
             "deleted_report_rows_parsed": len(deleted_rows),
             "deleted_report_total": deleted_total,
             "service_control_rows": len(services),
-            "service_control_amount": round(sum(float(s.get("amount") or 0) for s in services), 2),
+            "service_control_quantity": service_control_quantity,
+            "service_control_amount": service_control_amount,
+            "registry_turnover": registry_turnover,
+            "turnover_delta": round(registry_turnover - service_control_amount, 2),
         },
         "patients": list(resolver.patients.values()),
         "visits": kept_visits,
@@ -1042,7 +1049,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         "key_metrics": {
             "unique_patients": len([p for p in resolver.patients.values() if not p["key"].startswith("unmatched:")]),
             "closed_appointments": len(kept_visits),
-            "turnover": round(sum(float(v.get("amount") or 0) for v in kept_visits), 2),
+            "turnover": registry_turnover,
             "primary_total": len(primaries),
             "primary_paid": sum(1 for p in primaries if p["paid"]),
             "primary_zero": sum(1 for p in primaries if not p["paid"]),
