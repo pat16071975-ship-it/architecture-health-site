@@ -237,6 +237,12 @@ class NNReportsTests(unittest.TestCase):
     def test_upload_only_user_cannot_access_reports(self):
         self.assertEqual(self.client_for(3).get("/nn/reports/").status_code, 403)
         self.assertEqual(self.client_for(3).get("/api/nn/reports/key_metrics?clinic_id=1").status_code, 403)
+        self.assertEqual(
+            self.client_for(3).get(
+                "/nn/reports/export/primary_repeat.xlsx?clinic_id=1&date_from=2026-06-01&date_to=2026-06-30"
+            ).status_code,
+            403,
+        )
 
     def test_primary_export_is_xlsx_and_respects_paid_tab(self):
         response = self.client_for(2).get(
