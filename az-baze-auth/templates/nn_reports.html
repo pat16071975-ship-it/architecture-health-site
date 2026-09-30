@@ -1,0 +1,172 @@
+{% extends "nn_base.html" %}
+{% block title %}Отчёты для НН — Варикоза нет - KZ{% endblock %}
+{% block content %}
+<style>
+.nn-report-shell{display:grid;gap:14px}
+.nn-report-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.nn-report-menu button,.nn-months button,.nn-tabbar button{border:1px solid #d7c9b5;background:#faf7f1;color:#354039;border-radius:9px;padding:10px 12px;font:600 12px Montserrat,Arial,sans-serif;cursor:pointer}
+.nn-report-menu button.active,.nn-months button.active,.nn-tabbar button.active{border-color:#44634f;background:#e8efe9;color:#31533e}
+.nn-filters{position:sticky;top:0;z-index:20;background:rgba(247,243,236,.97);backdrop-filter:blur(8px);border:1px solid #ded3c2;border-radius:12px;padding:10px;display:grid;gap:9px}
+.nn-filter-row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.nn-filter{display:grid;gap:4px;min-width:140px}.nn-filter label{font-size:10px;font-weight:600;color:#657067}.nn-filter select,.nn-filter input{padding:8px 9px;border:1px solid #cec3b2;border-radius:8px;background:#fff;font:500 12px Montserrat,Arial,sans-serif}
+.nn-months{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}.nn-months button{white-space:nowrap;padding:7px 10px}
+.nn-result{min-height:150px}.nn-report-title{margin:0 0 10px;font-size:22px}.nn-list{display:grid;gap:8px}.nn-metric{display:flex;justify-content:space-between;gap:16px;padding:11px 12px;border:1px solid #e4dacb;border-radius:10px;background:#fff}.nn-metric span{font-size:12px}.nn-metric strong{font-size:15px}
+.nn-table-wrap{overflow:auto;border:1px solid #e4dacb;border-radius:10px;background:#fff}.nn-table{border-collapse:collapse;width:100%;min-width:1000px}.nn-table th,.nn-table td{padding:8px 9px;border-bottom:1px solid #eee6db;font-size:11px;text-align:right;white-space:nowrap}.nn-table th{position:sticky;top:0;background:#f8f3eb;z-index:3}.nn-table th:first-child,.nn-table td:first-child{position:sticky;left:0;text-align:left;background:#fff;z-index:4;box-shadow:5px 0 8px rgba(70,55,35,.05)}.nn-table th:first-child{background:#f8f3eb;z-index:5}
+.nn-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.nn-data-card{border:1px solid #e4dacb;border-radius:10px;background:#fff;padding:12px}.nn-data-card h4{margin:0 0 8px;font-size:14px}.nn-kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:11px}.nn-kv strong{text-align:right}
+.nn-group{border:1px solid #e4dacb;border-radius:10px;background:#fff;overflow:hidden}.nn-group summary{cursor:pointer;padding:11px 12px;font-size:13px;font-weight:600;background:#faf7f1}.nn-group-body{padding:6px 12px 12px}.nn-day{padding:8px 0;border-top:1px solid #eee6db;font-size:12px;display:flex;justify-content:space-between;gap:10px}.nn-day:first-child{border-top:0}
+.nn-tabbar{display:flex;gap:8px;margin-bottom:10px}.nn-export{display:inline-flex;margin-top:12px;padding:9px 12px;border-radius:9px;border:1px solid #44634f;color:#355640;text-decoration:none;font-size:12px;font-weight:600}
+.nn-empty,.nn-error{padding:18px;border:1px solid #e4dacb;border-radius:10px;background:#fff;font-size:12px;color:#687067}.nn-error{color:#8b4743;border-color:#e5c7c4;background:#faeeec}
+@media(max-width:700px){
+ .nn-report-menu{grid-template-columns:1fr}
+ .nn-filter-row{display:grid;grid-template-columns:1fr 1fr}.nn-filter{min-width:0}.nn-filter.clinic{grid-column:1/-1}
+ .nn-card-grid{grid-template-columns:1fr}
+ .nn-table-wrap{display:none}
+ .nn-desktop-only{display:none}
+ .nn-metric{align-items:flex-start}.nn-metric span{font-size:13px}.nn-metric strong{font-size:16px;text-align:right}
+}
+@media(min-width:701px){.nn-mobile-only{display:none}}
+</style>
+
+<section class="nn-card nn-report-shell">
+  <div>
+    <h2 class="nn-title">Отчёты для НН</h2>
+    <div class="nn-muted">Выберите клинику и отчёт. Сводного режима по всем клиникам нет.</div>
+  </div>
+
+  <div class="nn-report-menu" id="reportMenu">
+    {% for key,label in reports %}<button type="button" data-report="{{ key }}">{{ label }}</button>{% endfor %}
+  </div>
+
+  <div class="nn-filters">
+    <div class="nn-filter-row">
+      <div class="nn-filter clinic">
+        <label>Клиника</label>
+        <select id="clinicSelect">
+          {% for clinic in clinics %}<option value="{{ clinic['id'] }}">{{ clinic['name'] }}{% if clinic['address'] %} — {{ clinic['address'] }}{% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="nn-filter"><label>Год</label><select id="yearSelect"></select></div>
+      <div class="nn-filter" id="doctorWrap" hidden><label>Врач</label><select id="doctorSelect"><option value="">Все врачи</option></select></div>
+      <div class="nn-filter" id="fromWrap" hidden><label>От</label><input id="dateFrom" type="date"></div>
+      <div class="nn-filter" id="toWrap" hidden><label>До</label><input id="dateTo" type="date"></div>
+    </div>
+    <div class="nn-months" id="monthBar" aria-label="Месяцы"></div>
+  </div>
+
+  <div class="nn-result" id="reportResult"><div class="nn-empty">Выберите отчёт.</div></div>
+  <a class="nn-back" href="/nn/">← Назад</a>
+</section>
+
+<script>
+const REPORT_LABELS={{ dict(reports)|tojson }};
+const MONTHS=['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+let currentReport='key_metrics', currentMonth=null, currentContext=null;
+const $=id=>document.getElementById(id);
+const money=v=>v==null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Number(v))+' ₸';
+const num=v=>v==null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(Number(v));
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fmt(v,type){return type==='money'?money(v):num(v)}
+function query(extra={}){
+ const q=new URLSearchParams();
+ q.set('clinic_id',$('clinicSelect').value);
+ if($('yearSelect').value)q.set('year',$('yearSelect').value);
+ if(currentMonth)q.set('month',currentMonth);
+ if(!$('doctorWrap').hidden&&$('doctorSelect').value)q.set('doctor',$('doctorSelect').value);
+ if(!$('fromWrap').hidden&&$('dateFrom').value)q.set('date_from',$('dateFrom').value);
+ if(!$('toWrap').hidden&&$('dateTo').value)q.set('date_to',$('dateTo').value);
+ Object.entries(extra).forEach(([k,v])=>q.set(k,v));
+ return q;
+}
+function setActiveReport(){
+ document.querySelectorAll('[data-report]').forEach(b=>b.classList.toggle('active',b.dataset.report===currentReport));
+ const doctors=['doctor_compare','doctors','suspicious'].includes(currentReport);
+ $('doctorWrap').hidden=!doctors;
+ const range=currentReport==='primary_repeat';
+ $('fromWrap').hidden=!range;$('toWrap').hidden=!range;
+}
+function fillContext(ctx){
+ currentContext=ctx||{};
+ const ys=$('yearSelect'), oldYear=ys.value;ys.innerHTML='';
+ (ctx.years||[]).forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;ys.appendChild(o)});
+ if(oldYear&&[...ys.options].some(o=>o.value===oldYear))ys.value=oldYear;
+ const latest=(ctx.latest_date||'').slice(0,7);
+ if(!ys.value&&latest)ys.value=latest.slice(0,4);
+ const ds=$('doctorSelect'), oldDoc=ds.value;ds.innerHTML='<option value="">Все врачи</option>';
+ (ctx.doctors||[]).forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;ds.appendChild(o)});
+ if(oldDoc&&[...ds.options].some(o=>o.value===oldDoc))ds.value=oldDoc;
+ renderMonths();
+}
+function renderMonths(){
+ const bar=$('monthBar');bar.innerHTML='';
+ const year=$('yearSelect').value;
+ const months=(currentContext?.months_by_year||{})[year]||[];
+ if(!months.length)return;
+ if(!currentMonth||!months.includes(Number(currentMonth))){
+   const latest=currentContext?.latest_date||'';
+   currentMonth=latest.startsWith(year+'-')?Number(latest.slice(5,7)):months[months.length-1];
+ }
+ months.forEach(m=>{const b=document.createElement('button');b.type='button';b.textContent=MONTHS[m];b.classList.toggle('active',Number(currentMonth)===m);b.onclick=()=>{currentMonth=m;renderMonths();loadReport()};bar.appendChild(b)});
+}
+function metricList(items){
+ return '<div class="nn-list">'+(items||[]).map(([label,value,type])=>'<div class="nn-metric"><span>'+esc(label)+'</span><strong>'+fmt(value,type)+'</strong></div>').join('')+'</div>';
+}
+function doctorsTable(rows,detailed){
+ const columns=detailed?
+ [['doctor','Врач'],['primary','Первичных'],['primary_paid','Оплативших первичный'],['repeat_visits','Повторных визитов'],['repeat_people','Уникальных повторных'],['indications.evlk','Показания ЭВЛК'],['indications.sclero','Показания склеро'],['indications.mini','Показания минифлеб'],['treatments.evlk','Лечение ЭВЛК'],['treatments.sclero','Лечение склеро'],['treatments.mini','Лечение минифлеб'],['hosiery_people','Трикотаж'],['turnover','Оборот'],['avg_check_all_primary','Ср. чек / всех первичных'],['avg_check_paid_primary','Ср. чек / оплативших первичных'],['occupied_hours','Занято часов'],['turnover_per_hour','Оборот / час'],['invalid_intervals','Некорр. интервалы'],['strict_suspicious','Строгих подозрительных'],['manual_review','На ручную проверку']]:
+ [['doctor','Врач'],['primary','Первичных'],['primary_paid','Оплативших первичный'],['repeat_visits','Повторных визитов'],['treatments.evlk','ЭВЛК лечено'],['treatments.sclero','Склеро лечено'],['treatments.mini','Минифлеб лечено'],['turnover','Оборот'],['occupied_hours','Часов занято'],['turnover_per_hour','Оборот / час']];
+ const get=(r,path)=>path.split('.').reduce((v,k)=>v?.[k],r);
+ const val=(path,v)=>['turnover','avg_check_all_primary','avg_check_paid_primary','turnover_per_hour'].includes(path)?money(v):num(v);
+ const table='<div class="nn-table-wrap"><table class="nn-table"><thead><tr>'+columns.map(c=>'<th>'+esc(c[1])+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+columns.map(c=>'<td>'+esc(c[0]==='doctor'?get(r,c[0]):val(c[0],get(r,c[0])))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+ const cards='<div class="nn-card-grid nn-mobile-only">'+rows.map(r=>'<div class="nn-data-card"><h4>'+esc(r.doctor)+'</h4><div class="nn-kv">'+columns.slice(1).map(c=>'<span>'+esc(c[1])+'</span><strong>'+esc(val(c[0],get(r,c[0])))+'</strong>').join('')+'</div></div>').join('')+'</div>';
+ return table+cards;
+}
+function grouped(groups){
+ if(!groups?.length)return '<div class="nn-empty">Нет данных за выбранный период.</div>';
+ return groups.map(g=>'<details class="nn-group"><summary>'+esc(g.month)+' — '+g.count+' — '+money(g.sum)+'</summary><div class="nn-group-body">'+g.days.map(d=>'<div class="nn-day"><span>'+esc(d.date)+'</span><strong>'+d.count+' — '+money(d.sum)+'</strong></div>').join('')+'</div></details>').join('');
+}
+function render(data){
+ if(data.empty){$('reportResult').innerHTML='<div class="nn-empty">Для выбранной клиники ещё нет обработанных данных.</div>';return}
+ fillContext(data.context);
+ let body='<h3 class="nn-report-title">'+esc(REPORT_LABELS[currentReport]||'')+'</h3>';
+ if(currentReport==='key_metrics'||currentReport==='monthly')body+=metricList(data.items);
+ else if(currentReport==='doctor_compare')body+=doctorsTable(data.doctors||[],false);
+ else if(currentReport==='doctors')body+=doctorsTable(data.doctors||[],true);
+ else if(currentReport==='suspicious'){
+   const rows=data.rows||[];
+   body+=rows.length?'<div class="nn-list">'+rows.map(r=>'<div class="nn-data-card"><h4>'+esc(r.date+' — '+r.patient_name)+'</h4><div class="nn-kv"><span>Врач</span><strong>'+esc(r.doctor)+'</strong><span>Сигнал</span><strong>'+esc(r.signal)+'</strong><span>Первичный в периоде</span><strong>'+(r.primary_in_period?'Да':'Нет')+'</strong><span>Оплата лечения</span><strong>'+money(r.payment)+'</strong><span>Уверенность</span><strong>'+esc(r.confidence)+'</strong></div><div class="nn-muted" style="margin-top:8px">'+esc(r.comment||r.treatment||r.repeat||'')+'</div></div>').join('')+'</div>':'<div class="nn-empty">Подозрительных случаев нет.</div>';
+ } else if(currentReport==='primaries'){
+   const tab=data.tab||'paid';
+   body+='<div class="nn-tabbar"><button type="button" data-tab="paid" class="'+(tab==='paid'?'active':'')+'">С оплатой</button><button type="button" data-tab="unpaid" class="'+(tab==='unpaid'?'active':'')+'">Без оплаты</button></div>';
+   body+='<div class="nn-metric"><span>Итого</span><strong>'+data.total.count+' — '+money(data.total.sum)+'</strong></div>'+grouped(data.groups);
+   body+='<a class="nn-export" href="/nn/reports/export/primaries.xlsx?'+query({tab}).toString()+'">Скачать подробный отчёт Excel</a>';
+   setTimeout(()=>document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>loadReport({tab:b.dataset.tab})),0);
+ } else if(currentReport==='treatment'){
+   body+='<div class="nn-metric"><span>Итого</span><strong>'+data.total.count+' — '+money(data.total.sum)+'</strong></div>'+grouped(data.groups);
+   body+='<a class="nn-export" href="/nn/reports/export/treatment.xlsx?'+query().toString()+'">Скачать подробный отчёт Excel</a>';
+ } else if(currentReport==='primary_repeat'){
+   body+='<div class="nn-card-grid"><div class="nn-data-card"><h4>Первичных пациентов</h4><div style="font-size:28px;font-weight:600">'+num(data.primary_people)+'</div></div><div class="nn-data-card"><h4>Повторных пациентов</h4><div style="font-size:28px;font-weight:600">'+num(data.repeat_people)+'</div></div></div>';
+ }
+ $('reportResult').innerHTML=body;
+}
+async function loadReport(extra={}){
+ if(!$('clinicSelect').value){$('reportResult').innerHTML='<div class="nn-empty">Нет доступных клиник.</div>';return}
+ setActiveReport();
+ const q=query(extra);
+ try{
+   const r=await fetch('/api/nn/reports/'+currentReport+'?'+q.toString(),{credentials:'same-origin'});
+   const data=await r.json();
+   if(!r.ok)throw new Error(data.error||'Ошибка загрузки');
+   render(data);
+ }catch(e){$('reportResult').innerHTML='<div class="nn-error">'+esc(e.message)+'</div>'}
+}
+document.querySelectorAll('[data-report]').forEach(b=>b.onclick=()=>{currentReport=b.dataset.report;currentMonth=null;setActiveReport();loadReport()});
+$('clinicSelect').addEventListener('change',()=>{currentMonth=null;loadReport()});
+$('yearSelect').addEventListener('change',()=>{currentMonth=null;renderMonths();loadReport()});
+$('doctorSelect').addEventListener('change',()=>loadReport());
+$('dateFrom').addEventListener('change',()=>loadReport());
+$('dateTo').addEventListener('change',()=>loadReport());
+setActiveReport();
+document.querySelector('[data-report="key_metrics"]')?.classList.add('active');
+loadReport();
+</script>
+{% endblock %}
