@@ -19,7 +19,7 @@ DEFAULT_NN_CLINICS = (
 SOURCE_SLOTS = (
     ("appointments_registry", "Реестр приемов", ".xls", "01_appointments_registry.xls"),
     ("medical_records", "Отчет по медицинским записям", ".xls", "02_medical_records.xls"),
-    ("services_detailed", "Подробный отчет по услугам", ".xls", "03_services_detailed.xls"),
+    ("services_detailed", "Отчет по услугам подробно", ".pdf", "03_services_detailed.pdf"),
     ("patients_general", "Общий отчет по пациентам", ".xls", "04_patients_general.xls"),
     ("deleted_appointments", "Отчет по удаленным приемам", ".pdf", "05_deleted_appointments.pdf"),
 )
