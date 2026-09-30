@@ -107,6 +107,9 @@ class NNFoundationTests(unittest.TestCase):
         self.assertIn("Загрузка данных", html)
         self.assertNotIn("Архитектура здоровья", html)
         self.assertNotIn("Зубач", html)
+        self.assertIn("На главную", html)
+        self.assertIn('href="/"', html)
+        self.assertNotIn('action="/logout"', html)
 
     def test_user_without_nn_access_is_denied(self):
         response = self.client_for(4).get("/nn/")

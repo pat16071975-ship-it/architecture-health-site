@@ -60,9 +60,8 @@ class NNReportsTests(unittest.TestCase):
             "INSERT INTO permissions(user_id,section) VALUES(?,?)",
             [(2, "nn_reports"), (3, "nn_upload")],
         )
-        conn.executemany(
-            "INSERT INTO clinics(id,name,address,status) VALUES(?,?,?,'active')",
-            [(11, "Клиника Север", "Адрес 1"), (22, "Клиника Юг", "Адрес 2")],
+        conn.execute(
+            "INSERT INTO clinics(id,name,address,status) VALUES(11,'Архитектура здоровья','AZ address','active')"
         )
         conn.commit()
         conn.close()
@@ -70,9 +69,8 @@ class NNReportsTests(unittest.TestCase):
         nn_upload._init_schema()
         conn = sqlite3.connect(app_module.DB_PATH)
         conn.row_factory = sqlite3.Row
-        conn.execute("INSERT INTO nn_clinics(clinic_id,enabled_at,enabled_by) VALUES(11,?,1)", (now,))
         conn.execute(
-            "INSERT INTO nn_upload_batches(id,clinic_id,bundle_sha256,status,uploaded_by,uploaded_at) VALUES(101,11,'hash','ready',1,?)",
+            "INSERT INTO nn_upload_batches(id,clinic_id,bundle_sha256,status,uploaded_by,uploaded_at) VALUES(101,1,'hash','ready',1,?)",
             (now,),
         )
         conn.commit()
@@ -109,7 +107,7 @@ class NNReportsTests(unittest.TestCase):
             "key_metrics": {},
         }
         conn.execute(
-            "INSERT INTO nn_normalized_batches(batch_id,clinic_id,version,period_start,period_end,payload_json,normalized_at) VALUES(101,11,1,'2026-06-01','2026-07-31',?,?)",
+            "INSERT INTO nn_normalized_batches(batch_id,clinic_id,version,period_start,period_end,payload_json,normalized_at) VALUES(101,1,1,'2026-06-01','2026-07-31',?,?)",
             (json.dumps(payload, ensure_ascii=False), now),
         )
         conn.commit()
@@ -145,9 +143,11 @@ class NNReportsTests(unittest.TestCase):
             self.assertIn(label, html)
         self.assertIn("Варикоза нет - KZ", html)
         self.assertNotIn("Архитектура здоровья", html)
+        self.assertIn("Клиника 1 (Толи Бе)", html)
+        self.assertIn("Клиника 2 (другая)", html)
 
     def test_latest_month_and_available_year_month_context(self):
-        response = self.client_for(2).get("/api/nn/reports/key_metrics?clinic_id=11")
+        response = self.client_for(2).get("/api/nn/reports/key_metrics?clinic_id=1")
         data = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(data["period"]["start"], "2026-07-01")
@@ -156,7 +156,7 @@ class NNReportsTests(unittest.TestCase):
 
     def test_key_metrics_does_not_duplicate_unique_repeat_people_report(self):
         response = self.client_for(2).get(
-            "/api/nn/reports/key_metrics?clinic_id=11&year=2026&month=6"
+            "/api/nn/reports/key_metrics?clinic_id=1&year=2026&month=6"
         )
         data = response.get_json()
         labels = [item[0] for item in data["items"]]
@@ -164,7 +164,7 @@ class NNReportsTests(unittest.TestCase):
 
     def test_suspicious_is_grouped_month_then_date(self):
         response = self.client_for(2).get(
-            "/api/nn/reports/suspicious?clinic_id=11&year=2026&month=6"
+            "/api/nn/reports/suspicious?clinic_id=1&year=2026&month=6"
         )
         data = response.get_json()
         self.assertEqual(response.status_code, 200)
@@ -176,7 +176,7 @@ class NNReportsTests(unittest.TestCase):
 
     def test_primary_repeat_report_counts_people_not_repeat_visits(self):
         response = self.client_for(2).get(
-            "/api/nn/reports/primary_repeat?clinic_id=11&date_from=2026-06-01&date_to=2026-06-30"
+            "/api/nn/reports/primary_repeat?clinic_id=1&date_from=2026-06-01&date_to=2026-06-30"
         )
         data = response.get_json()
         self.assertEqual(response.status_code, 200)
@@ -185,7 +185,7 @@ class NNReportsTests(unittest.TestCase):
 
     def test_doctor_filter_returns_one_doctor(self):
         response = self.client_for(2).get(
-            "/api/nn/reports/doctors?clinic_id=11&year=2026&month=6&doctor=Врач%20А"
+            "/api/nn/reports/doctors?clinic_id=1&year=2026&month=6&doctor=Врач%20А"
         )
         data = response.get_json()
         self.assertEqual(response.status_code, 200)
@@ -193,16 +193,16 @@ class NNReportsTests(unittest.TestCase):
         self.assertEqual(data["doctors"][0]["doctor"], "Врач А")
 
     def test_unmapped_clinic_is_rejected(self):
-        response = self.client_for(2).get("/api/nn/reports/key_metrics?clinic_id=22")
+        response = self.client_for(2).get("/api/nn/reports/key_metrics?clinic_id=999")
         self.assertEqual(response.status_code, 403)
 
     def test_upload_only_user_cannot_access_reports(self):
         self.assertEqual(self.client_for(3).get("/nn/reports/").status_code, 403)
-        self.assertEqual(self.client_for(3).get("/api/nn/reports/key_metrics?clinic_id=11").status_code, 403)
+        self.assertEqual(self.client_for(3).get("/api/nn/reports/key_metrics?clinic_id=1").status_code, 403)
 
     def test_primary_export_is_xlsx_and_respects_paid_tab(self):
         response = self.client_for(2).get(
-            "/nn/reports/export/primaries.xlsx?clinic_id=11&year=2026&month=6&tab=paid"
+            "/nn/reports/export/primaries.xlsx?clinic_id=1&year=2026&month=6&tab=paid"
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("spreadsheetml", response.mimetype)
@@ -227,7 +227,7 @@ class NNReportsTests(unittest.TestCase):
 
     def test_treatment_export_contains_patient_detail(self):
         response = self.client_for(2).get(
-            "/nn/reports/export/treatment.xlsx?clinic_id=11&year=2026&month=6"
+            "/nn/reports/export/treatment.xlsx?clinic_id=1&year=2026&month=6"
         )
         self.assertEqual(response.status_code, 200)
         wb = load_workbook(io.BytesIO(response.data), read_only=True, data_only=True)

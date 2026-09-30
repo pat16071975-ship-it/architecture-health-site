@@ -55,29 +55,9 @@
       <button type="submit">Выбрать клинику</button>
     </form>
     {% else %}
-      <div class="nn-state err">В справочнике нет активных клиник. Загрузка недоступна, пока клиники не заведены в структуре AZ-BAZE.</div>
+      <div class="nn-state err">Клиники НН не настроены. Загрузка данных недоступна.</div>
     {% endif %}
   </div>
-
-  {% if can_manage_nn_clinics %}
-  <div class="nn-latest" style="margin-top:0;padding-top:0;border-top:0;margin-bottom:18px">
-    <h3>Клиники «Варикоза нет - KZ»</h3>
-    <div class="nn-muted" style="margin-bottom:10px">Только отмеченные здесь клиники доступны пользователям НН и принимают НН-файлы.</div>
-    <form method="post" action="/nn/uploads/">
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <input type="hidden" name="action" value="configure_clinics">
-      <div style="display:grid;gap:8px">
-        {% for clinic in all_active_clinics %}
-          <label style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border:1px solid #e1d7c8;border-radius:9px;background:#fff;font-size:12px">
-            <input type="checkbox" name="nn_clinic_id" value="{{ clinic['id'] }}" {% if clinic['id'] in mapped_clinic_ids %}checked{% endif %}>
-            <span><strong>{{ clinic['name'] }}</strong>{% if clinic['address'] %}<br><span class="nn-muted">{{ clinic['address'] }}</span>{% endif %}</span>
-          </label>
-        {% endfor %}
-      </div>
-      <div class="nn-submit"><button type="submit">Сохранить список клиник НН</button></div>
-    </form>
-  </div>
-  {% endif %}
 
   {% if error %}<div class="nn-state err">{{ error }}</div>{% endif %}
   {% if result %}

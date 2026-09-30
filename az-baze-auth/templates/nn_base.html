@@ -13,7 +13,7 @@
 body{min-height:100vh}.nn-shell{width:min(980px,94vw);margin:0 auto;padding:28px 0 54px}.nn-brand{text-align:center;margin-bottom:28px}.nn-brand h1{margin:0;font-size:42px;font-weight:600;letter-spacing:-.03em}.nn-brand .sub{margin-top:7px;color:#687067;font-size:12px}
 .nn-card{background:rgba(255,253,248,.96);border:1px solid var(--line);border-radius:16px;box-shadow:0 16px 46px rgba(69,55,35,.09);padding:24px}
 .nn-menu{display:grid;gap:14px;width:min(520px,100%);margin:0 auto}.nn-btn{display:flex;align-items:center;justify-content:center;min-height:58px;padding:14px 18px;border:1px solid rgba(181,150,98,.42);border-radius:10px;background:#faf7f1;color:#354039;text-decoration:none;font-size:15px;font-weight:600;text-align:center}.nn-btn:hover,.nn-btn:focus-visible{outline:0;border-color:rgba(68,99,79,.55);background:#fff}
-.nn-actions{display:flex;justify-content:center;margin-top:18px}.nn-logout{border:1px solid rgba(181,150,98,.42);border-radius:9px;background:#faf7f1;color:#354039;padding:9px 13px;font:600 12px Montserrat,Arial,sans-serif;cursor:pointer}
+.nn-actions{display:flex;justify-content:center;margin-top:18px}.nn-home{border:1px solid rgba(181,150,98,.42);border-radius:9px;background:#faf7f1;color:#354039;padding:9px 13px;font:600 12px Montserrat,Arial,sans-serif;text-decoration:none}
 .nn-title{margin:0 0 10px;font-size:28px}.nn-muted{color:#687067;font-size:13px;line-height:1.55}.nn-back{display:inline-flex;margin-top:18px;color:#355640;font-weight:600;text-decoration:none}
 @media(max-width:650px){.nn-shell{padding:20px 12px 36px;width:100%}.nn-brand h1{font-size:30px}.nn-card{padding:18px}.nn-btn{min-height:54px;font-size:14px}.nn-title{font-size:24px}}
 </style>
@@ -25,10 +25,7 @@ body{min-height:100vh}.nn-shell{width:min(980px,94vw);margin:0 auto;padding:28px
   </header>
   {% block content %}{% endblock %}
   <div class="nn-actions">
-    <form method="post" action="/logout">
-      <input type="hidden" name="csrf" value="{{ csrf or '' }}">
-      <button class="nn-logout" type="submit">Выйти</button>
-    </form>
+    <a class="nn-home" href="/">На главную</a>
   </div>
 </main>
 </body>

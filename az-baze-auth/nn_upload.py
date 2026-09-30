@@ -11,6 +11,11 @@ from app import DB_PATH, csrf_token, db, is_owner, iso_now, require_csrf
 
 UPLOAD_ROOT = Path(os.environ.get("AZBAZE_NN_UPLOAD_ROOT", "/var/lib/az-baze/nn-uploads"))
 
+DEFAULT_NN_CLINICS = (
+    "Клиника 1 (Толи Бе)",
+    "Клиника 2 (другая)",
+)
+
 SOURCE_SLOTS = (
     ("appointments_registry", "Реестр приемов", ".xls", "01_appointments_registry.xls"),
     ("medical_records", "Отчет по медицинским записям", ".xls", "02_medical_records.xls"),
@@ -22,11 +27,11 @@ SOURCE_SLOTS = (
 UPLOAD_SCHEMA = """
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS nn_clinics (
-    clinic_id INTEGER PRIMARY KEY,
-    enabled_at TEXT NOT NULL,
-    enabled_by INTEGER,
-    FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE,
-    FOREIGN KEY (enabled_by) REFERENCES users(id) ON DELETE SET NULL
+    clinic_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS nn_upload_batches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,7 +42,7 @@ CREATE TABLE IF NOT EXISTS nn_upload_batches (
     uploaded_by INTEGER,
     uploaded_at TEXT NOT NULL,
     UNIQUE (clinic_id, bundle_sha256),
-    FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE RESTRICT,
+    FOREIGN KEY (clinic_id) REFERENCES nn_clinics(clinic_id) ON DELETE RESTRICT,
     FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS nn_upload_files (
@@ -68,88 +73,91 @@ def _table_exists(conn, table):
     )
 
 
+def _column_names(conn, table):
+    if not _table_exists(conn, table):
+        return set()
+    return {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def _migrate_legacy_nn_schema_if_empty(conn):
+    columns = _column_names(conn, "nn_clinics")
+    if not columns or "name" in columns:
+        return
+
+    tracked = (
+        "nn_normalized_batches",
+        "nn_upload_files",
+        "nn_upload_batches",
+        "nn_clinics",
+    )
+    nonempty = []
+    for table in tracked:
+        if _table_exists(conn, table):
+            count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            if count:
+                nonempty.append(f"{table}={count}")
+    if nonempty:
+        raise RuntimeError(
+            "Нельзя автоматически отделить НН-клиники от общего справочника: "
+            "в старой НН-схеме уже есть данные (" + ", ".join(nonempty) + ")."
+        )
+
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        for table in tracked:
+            conn.execute(f"DROP TABLE IF EXISTS {table}")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys=ON")
+
+
 def _init_schema():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     try:
         conn.execute("PRAGMA foreign_keys=ON")
+        _migrate_legacy_nn_schema_if_empty(conn)
         conn.executescript(UPLOAD_SCHEMA)
+        if conn.execute("SELECT COUNT(*) FROM nn_clinics").fetchone()[0] == 0:
+            now = iso_now()
+            conn.executemany(
+                "INSERT INTO nn_clinics(name,active,created_at,updated_at) VALUES(?,1,?,?)",
+                [(name, now, now) for name in DEFAULT_NN_CLINICS],
+            )
         conn.commit()
     finally:
         conn.close()
 
 
-def _all_active_clinics(conn):
-    if not _table_exists(conn, "clinics"):
-        return []
-    return conn.execute(
-        """
-        SELECT id,name,address
-        FROM clinics
-        WHERE status='active'
-        ORDER BY name COLLATE NOCASE, address COLLATE NOCASE, id
-        """
-    ).fetchall()
-
-
 def _clinic_rows(conn):
-    if not _table_exists(conn, "clinics") or not _table_exists(conn, "nn_clinics"):
+    if not _table_exists(conn, "nn_clinics"):
         return []
     return conn.execute(
         """
-        SELECT c.id,c.name,c.address
-        FROM clinics c
-        JOIN nn_clinics n ON n.clinic_id=c.id
-        WHERE c.status='active'
-        ORDER BY c.name COLLATE NOCASE, c.address COLLATE NOCASE, c.id
+        SELECT clinic_id AS id,name,'' AS address
+        FROM nn_clinics
+        WHERE active=1
+        ORDER BY clinic_id
         """
     ).fetchall()
 
 
 def _active_clinic(conn, clinic_id):
-    if not _table_exists(conn, "clinics") or not _table_exists(conn, "nn_clinics"):
+    if not _table_exists(conn, "nn_clinics"):
         return None
     return conn.execute(
         """
-        SELECT c.id,c.name,c.address
-        FROM clinics c
-        JOIN nn_clinics n ON n.clinic_id=c.id
-        WHERE c.id=? AND c.status='active'
+        SELECT clinic_id AS id,name,'' AS address
+        FROM nn_clinics
+        WHERE clinic_id=? AND active=1
         """,
         (clinic_id,),
     ).fetchone()
-
-
-def _mapped_clinic_ids(conn):
-    if not _table_exists(conn, "nn_clinics"):
-        return set()
-    return {
-        int(row["clinic_id"])
-        for row in conn.execute("SELECT clinic_id FROM nn_clinics").fetchall()
-    }
-
-
-def _set_nn_clinics(conn, clinic_ids, user_id):
-    active_ids = {int(row["id"]) for row in _all_active_clinics(conn)}
-    selected = {int(value) for value in clinic_ids}
-    if not selected.issubset(active_ids):
-        raise ValueError("Нельзя подключить к НН неизвестную или отключённую клинику.")
-
-    current = _mapped_clinic_ids(conn)
-    now = iso_now()
-    conn.execute("BEGIN IMMEDIATE")
-    try:
-        for clinic_id in sorted(selected - current):
-            conn.execute(
-                "INSERT INTO nn_clinics(clinic_id,enabled_at,enabled_by) VALUES(?,?,?)",
-                (clinic_id, now, user_id),
-            )
-        for clinic_id in sorted(current - selected):
-            conn.execute("DELETE FROM nn_clinics WHERE clinic_id=?", (clinic_id,))
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
 
 
 def _clean_original_name(value):
@@ -297,26 +305,8 @@ def _store_bundle(conn, clinic_id, user_id, items):
 def handle_uploads_page():
     _init_schema()
     conn = db()
-    owner_view = is_owner(g.user)
     result = None
     error = None
-
-    if request.method == "POST" and request.form.get("action") == "configure_clinics":
-        require_csrf()
-        if not owner_view:
-            return ("", 403)
-        try:
-            _set_nn_clinics(
-                conn,
-                request.form.getlist("nn_clinic_id"),
-                int(g.user["id"]),
-            )
-            result = {
-                "status": "configured",
-                "message": "Список клиник «Варикоза нет - KZ» обновлён.",
-            }
-        except ValueError as exc:
-            error = str(exc)
 
     clinics = _clinic_rows(conn)
 
@@ -330,7 +320,7 @@ def handle_uploads_page():
     if selected_clinic_id and not selected_clinic:
         error = "Выбранная клиника не найдена или отключена."
 
-    if request.method == "POST" and request.form.get("action") != "configure_clinics":
+    if request.method == "POST":
         require_csrf()
         if not selected_clinic:
             error = error or "Сначала выберите клинику."
@@ -390,9 +380,6 @@ def handle_uploads_page():
         "nn_uploads.html",
         clinics=clinics,
         selected_clinic=selected_clinic,
-        all_active_clinics=_all_active_clinics(conn) if owner_view else [],
-        mapped_clinic_ids=_mapped_clinic_ids(conn) if owner_view else set(),
-        can_manage_nn_clinics=owner_view,
         source_slots=SOURCE_SLOTS,
         latest=latest,
         latest_files=latest_files,

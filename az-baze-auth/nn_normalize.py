@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS nn_normalized_batches (
     payload_json TEXT NOT NULL,
     normalized_at TEXT NOT NULL,
     FOREIGN KEY (batch_id) REFERENCES nn_upload_batches(id) ON DELETE CASCADE,
-    FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE RESTRICT
+    FOREIGN KEY (clinic_id) REFERENCES nn_clinics(clinic_id) ON DELETE RESTRICT
 );
 CREATE INDEX IF NOT EXISTS idx_nn_normalized_clinic_period
     ON nn_normalized_batches(clinic_id, period_start, period_end);
