@@ -14,6 +14,7 @@ os.environ["AZBAZE_OWNER_EMAIL"] = "owner@example.com"
 import app as app_module
 import nn_normalize
 import nn_upload
+import nn_reports
 
 
 class NNReportsTests(unittest.TestCase):
@@ -145,6 +146,10 @@ class NNReportsTests(unittest.TestCase):
         self.assertNotIn("Архитектура здоровья", html)
         self.assertIn("Клиника 1 (Толи Бе)", html)
         self.assertIn("Клиника 2 (другая)", html)
+        self.assertIn("Не оплатил первичный, но продолжил ходить дальше", html)
+        self.assertIn(".nn-shell{width:min(1420px,97vw)}", html)
+        self.assertIn(".nn-table.compare{min-width:1160px}", html)
+        self.assertIn("Оплативших<br>первичный", html)
 
     def test_latest_month_and_available_year_month_context(self):
         response = self.client_for(2).get("/api/nn/reports/key_metrics?clinic_id=1")
@@ -173,15 +178,36 @@ class NNReportsTests(unittest.TestCase):
         self.assertTrue(data["groups"][0]["days"])
         self.assertEqual(data["groups"][0]["days"][0]["date"], "2026-06-15")
         self.assertTrue(data["groups"][0]["days"][0]["rows"])
+        self.assertTrue(data["levels"])
+        self.assertEqual(data["levels"][0]["key"], "high")
+        self.assertEqual(data["levels"][0]["label"], "Высокая вероятность несоответствия")
 
-    def test_primary_repeat_report_counts_people_not_repeat_visits(self):
+    def test_suspicious_confidence_levels_follow_approved_logic(self):
+        self.assertEqual(
+            nn_reports._suspicious_level({"treatment": "protocol", "repeat": "2026-06-10"}),
+            ("high", "Высокая вероятность несоответствия"),
+        )
+        self.assertEqual(
+            nn_reports._suspicious_level({"treatment": "protocol", "repeat": ""}),
+            ("review", "Требует проверки"),
+        )
+        self.assertEqual(
+            nn_reports._suspicious_level({"treatment": "", "repeat": "2026-06-10"}),
+            ("insufficient", "Недостаточно данных"),
+        )
+
+    def test_primary_repeat_report_finds_unpaid_primary_who_returned_later(self):
         response = self.client_for(2).get(
             "/api/nn/reports/primary_repeat?clinic_id=1&date_from=2026-06-01&date_to=2026-06-30"
         )
         data = response.get_json()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(data["primary_people"], 2)
-        self.assertEqual(data["repeat_people"], 1)
+        # Patient 2 has an unpaid primary on 02.06 and a repeat on 02.07.
+        # Patient 1 paid the primary and must not be part of this report.
+        self.assertEqual(data["unpaid_primary_people"], 1)
+        self.assertEqual(data["continued_people"], 1)
+        self.assertEqual(data["no_repeat_people"], 0)
+        self.assertEqual(data["continued_share"], 100.0)
 
     def test_doctor_filter_returns_one_doctor(self):
         response = self.client_for(2).get(
