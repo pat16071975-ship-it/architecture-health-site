@@ -10,7 +10,7 @@ from openpyxl.styles import Font, Alignment
 
 import nn_normalize
 import nn_upload
-from app import db
+from app import csrf_token, db
 
 
 REPORTS = (
@@ -360,7 +360,9 @@ def reports_page():
     return render_template(
         "nn_reports.html",
         reports=REPORTS,
+        report_labels=dict(REPORTS),
         clinics=clinics,
+        csrf=csrf_token(),
     )
 
 
