@@ -13,6 +13,22 @@ import nn_upload
 from app import csrf_token, db
 
 
+MONTH_NAMES_RU = {
+    1: "Январь",
+    2: "Февраль",
+    3: "Март",
+    4: "Апрель",
+    5: "Май",
+    6: "Июнь",
+    7: "Июль",
+    8: "Август",
+    9: "Сентябрь",
+    10: "Октябрь",
+    11: "Ноябрь",
+    12: "Декабрь",
+}
+
+
 REPORTS = (
     ("key_metrics", "Ключевые показатели"),
     ("monthly", "Помесячная сводка"),
@@ -188,7 +204,6 @@ def _period_rows(payload, start, end):
 def _metric_items(payload, start, end):
     visits, primaries, repeats, treatments, suspicious = _period_rows(payload, start, end)
     people = {row.get("patient_key") for row in visits if row.get("patient_key")}
-    repeat_people = {row.get("patient_key") for row in repeats if row.get("patient_key")}
     turnover = sum(_money(row.get("amount")) for row in visits)
     return [
         ("Уникальных пациентов после нормализации", len(people), "count"),
@@ -201,7 +216,6 @@ def _metric_items(payload, start, end):
         ("Из них найдена оплата лечения", sum(1 for row in treatments if row.get("payment_found")), "count"),
         ("Клиническое лечение/коррекция без оплаты лечения в периоде", sum(1 for row in treatments if not row.get("payment_found")), "count"),
         ("Строгих подозрительных", sum(1 for row in suspicious if row.get("strict")), "count"),
-        ("Уникальных повторных пациентов", len(repeat_people), "count"),
     ]
 
 
@@ -276,6 +290,32 @@ def _doctor_rows(payload, start, end, detailed):
     return result
 
 
+def _group_suspicious(rows):
+    months = {}
+    for row in rows:
+        day = row.get("date")
+        if not day:
+            continue
+        month = day[:7]
+        month_item = months.setdefault(
+            month,
+            {"month": month, "count": 0, "days": {}},
+        )
+        month_item["count"] += 1
+        day_item = month_item["days"].setdefault(
+            day,
+            {"date": day, "count": 0, "rows": []},
+        )
+        day_item["count"] += 1
+        day_item["rows"].append(row)
+    result = []
+    for month in sorted(months):
+        item = months[month]
+        item["days"] = [item["days"][day] for day in sorted(item["days"])]
+        result.append(item)
+    return result
+
+
 def _group_count_sum(rows, date_field, amount_field):
     months = {}
     for row in rows:
@@ -334,7 +374,7 @@ def report_payload(conn, report_key, clinic_id):
             rows = [row for row in rows if row.get("doctor") == doctor]
         for row in rows:
             row["patient_name"] = patients.get(row.get("patient_key"), {}).get("name", "")
-        result["rows"] = rows
+        result["groups"] = _group_suspicious(rows)
     elif report_key == "primaries":
         tab = request.args.get("tab", "paid")
         rows = [row for row in payload.get("primaries", []) if _in_range(row.get("date"), start, end)]
@@ -425,26 +465,35 @@ def export_report(report_key):
         for row in rows:
             patient = patients.get(row.get("patient_key"), {})
             indications = row.get("indications", {})
+            month_number = int(str(row.get("date"))[5:7]) if row.get("date") else 0
             data.append([
-                row.get("date"), row.get("doctor"), patient.get("name"), patient.get("chart"),
+                row.get("date"), MONTH_NAMES_RU.get(month_number, ""), row.get("doctor"), patient.get("name"), patient.get("chart"),
                 patient.get("phone"), _money(row.get("amount")), "Да" if row.get("paid") else "Нет",
                 "Да" if indications.get("evlk") else "Нет",
                 "Да" if indications.get("sclero") else "Нет",
                 "Да" if indications.get("mini") else "Нет",
                 row.get("note", ""), patient.get("note", ""),
             ])
-        headers = ["Дата","Врач","Пациент","Амбулаторная карта","Телефон","Оплата первичного","Оплатил","Показания ЭВЛК","Показания склеро","Показания минифлеб","Примечание приёма","Примечание пациента"]
+        headers = ["Дата","Месяц","Врач","Пациент","Амбулаторная карта","Телефон","Оплата первичного","Оплатил","Показания ЭВЛК","Показания склеро","Показания минифлеб","Примечание приёма","Примечание пациента"]
         filename = f"Первичные_{'с_оплатой' if tab == 'paid' else 'без_оплаты'}_{start}_{end}.xlsx"
         buffer = _wb_bytes("Первичные", headers, data)
     else:
         rows = [row for row in payload.get("treatments", []) if _in_range(row.get("first_date"), start, end)]
+        primary_by_patient = {
+            row.get("patient_key"): row
+            for row in payload.get("primaries", [])
+            if row.get("patient_key")
+        }
         data = []
         for row in rows:
             patient = patients.get(row.get("patient_key"), {})
+            primary = primary_by_patient.get(row.get("patient_key"), {})
             types = row.get("types", {})
             doctors = row.get("doctors", {})
             data.append([
-                patient.get("name"), patient.get("chart"), row.get("first_date"),
+                patient.get("name"), patient.get("chart"),
+                primary.get("date", ""), primary.get("doctor", ""),
+                row.get("first_date"),
                 "Да" if types.get("evlk") else "Нет",
                 "Да" if types.get("sclero") else "Нет",
                 "Да" if types.get("mini") else "Нет",
@@ -456,7 +505,7 @@ def export_report(report_key):
                 row.get("subsequent_repeat_visits", 0),
                 row.get("basis", ""),
             ])
-        headers = ["Пациент","Амбулаторная карта","Первое лечение","ЭВЛК","Склеро","Минифлеб","Врач ЭВЛК","Врач склеро","Врач минифлеб","Оплата лечения найдена","Сумма строк с лечением","Последующих клинических визитов","Основание"]
+        headers = ["Пациент","Амбулаторная карта","Первичный приём","Врач первичного","Первое лечение","ЭВЛК","Склеро","Минифлеб","Врач ЭВЛК","Врач склеро","Врач минифлеб","Оплата лечения найдена","Сумма строк с лечением","Последующих клинических визитов","Основание"]
         filename = f"Лечение_{start}_{end}.xlsx"
         buffer = _wb_bytes("Лечение", headers, data)
 
