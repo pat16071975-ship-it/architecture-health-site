@@ -179,6 +179,18 @@ def _spreadsheetml_rows(path):
     return rows
 
 
+def _xls_rows(path):
+    prefix = Path(path).read_bytes()[:64].lstrip()
+    if prefix.startswith(b"<?xml") or prefix.startswith(b"<Workbook"):
+        return _spreadsheetml_rows(path)
+    book = xlrd.open_workbook(filename=str(path), on_demand=True)
+    try:
+        sheet = book.sheet_by_index(0)
+        return [sheet.row_values(i) for i in range(sheet.nrows)]
+    finally:
+        book.release_resources()
+
+
 def _dict_rows(matrix):
     if not matrix:
         return []
@@ -191,7 +203,7 @@ def _dict_rows(matrix):
 
 
 def _patient_master(path):
-    rows = _dict_rows(_spreadsheetml_rows(path))
+    rows = _dict_rows(_xls_rows(path))
     result = []
     for row in rows:
         result.append({
@@ -263,6 +275,35 @@ def _normalize_header(value):
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _header_key(header, aliases):
+    if not header:
+        return None
+    for key, options in aliases.items():
+        if header in options:
+            return key
+    rules = (
+        ("patient", ("пациент",)),
+        ("chart", ("амбулатор", "карт")),
+        ("phone", ("телефон",)),
+        ("date", ("дата",)),
+        ("doctor", ("врач", "исполнитель", "сотрудник", "специалист")),
+        ("service", ("услуг", "номенклатур")),
+        ("group", ("групп", "раздел", "категори")),
+        ("qty", ("количество", "кол во", "кол.")),
+        ("amount", ("сумм", "стоим", "итого", "оплачен")),
+        ("comment", ("примеч", "коммент")),
+    )
+    for key, tokens in rules:
+        if key == "chart":
+            if all(token in header for token in tokens):
+                return key
+        elif any(token in header for token in tokens):
+            return key
+    if header == "наименование":
+        return "service"
+    return None
+
+
 def _header_map(matrix):
     aliases = {
         key: {_normalize_header(v) for v in values}
@@ -273,13 +314,13 @@ def _header_map(matrix):
         normalized = [_normalize_header(v) for v in row]
         mapping = {}
         for col, header in enumerate(normalized):
-            for key, options in aliases.items():
-                if header in options and key not in mapping:
-                    mapping[key] = col
+            key = _header_key(header, aliases)
+            if key and key not in mapping:
+                mapping[key] = col
         score = len(mapping)
         if best is None or score > best[0]:
             best = (score, row_index, mapping)
-    if not best or best[0] < 3:
+    if not best or best[0] < 3 or "service" not in best[2]:
         raise ValueError("Не удалось определить колонки подробного отчёта по услугам.")
     return best[1], best[2]
 
@@ -330,13 +371,7 @@ def _service_rows_from_matrix(matrix):
 
 
 def _service_rows(path):
-    book = xlrd.open_workbook(filename=str(path), on_demand=True)
-    try:
-        sheet = book.sheet_by_index(0)
-        matrix = [sheet.row_values(i) for i in range(sheet.nrows)]
-        return _service_rows_from_matrix(matrix)
-    finally:
-        book.release_resources()
+    return _service_rows_from_matrix(_xls_rows(path))
 
 
 def _deleted_rows(path, doctors):
