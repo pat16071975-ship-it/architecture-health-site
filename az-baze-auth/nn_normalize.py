@@ -416,21 +416,20 @@ def _service_rows_from_matrix(matrix):
     return rows
 
 
-_PDF_MONEY = r"-?(?:\\d{1,3}(?:[ \\u00a0]\\d{3})+|\\d+)(?:[.,]\\d+)?"
+_PDF_MONEY = r"-?(?:\d{1,3}(?:[ \u00a0]\d{3})+|\d+)(?:[.,]\d+)?"
 _PDF_SERVICE_ROW_RE = re.compile(
-    rf"(?P<qty>-?\\d+(?:[.,]\\d+)?)\\s+"
-    rf"(?P<cost>{_PDF_MONEY})\\s+"
-    rf"(?P<gross>{_PDF_MONEY})\\s+"
-    rf"(?P<discount>{_PDF_MONEY})\\s+"
-    rf"(?P<total>{_PDF_MONEY})\\s*$"
+    rf"(?P<qty>-?\d+(?:[.,]\d+)?)\s+"
+    rf"(?P<cost>{_PDF_MONEY})\s+"
+    rf"(?P<gross>{_PDF_MONEY})\s+"
+    rf"(?P<discount>{_PDF_MONEY})\s+"
+    rf"(?P<total>{_PDF_MONEY})\s*$"
 )
-
 
 def _service_rows_from_pdf_text(text):
     # The real «Отчет по услугам подробно» source is a PDF aggregate table.
     # We use it only for source-control reconciliation, never as patient-level data.
     lines = [
-        re.sub(r"[ \\t]+", " ", line.replace("\u00a0", " ")).strip()
+        re.sub(r"[ \t]+", " ", line.replace("\u00a0", " ")).strip()
         for line in str(text or "").replace("\r", "\n").split("\n")
     ]
     rows = []
