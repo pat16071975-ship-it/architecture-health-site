@@ -34,7 +34,7 @@ jobs:
         run: pip install -r az-baze-auth/requirements.txt
 
       - name: Python syntax
-        run: python -m py_compile az-baze-auth/app.py az-baze-auth/nn_upload.py az-baze-auth/nn_normalize.py az-baze-auth/test_nn_foundation.py az-baze-auth/test_nn_upload.py az-baze-auth/test_nn_normalize.py
+        run: python -m py_compile az-baze-auth/app.py az-baze-auth/nn_upload.py az-baze-auth/nn_normalize.py az-baze-auth/nn_reports.py az-baze-auth/test_nn_foundation.py az-baze-auth/test_nn_upload.py az-baze-auth/test_nn_normalize.py az-baze-auth/test_nn_reports.py
 
       - name: NN template syntax
         run: |
@@ -42,7 +42,7 @@ jobs:
           from pathlib import Path
           from jinja2 import Environment
           env = Environment()
-          for name in ("nn_base.html", "nn_home.html", "nn_placeholder.html", "nn_uploads.html", "user_form.html", "admin.html"):
+          for name in ("nn_base.html", "nn_home.html", "nn_placeholder.html", "nn_uploads.html", "nn_reports.html", "user_form.html", "admin.html"):
               path = Path("az-baze-auth/templates") / name
               env.parse(path.read_text(encoding="utf-8"))
               print("OK", path)
@@ -53,4 +53,4 @@ jobs:
         env:
           AZBAZE_SECRET_KEY: test-secret
           AZBAZE_OWNER_EMAIL: owner@example.com
-        run: python -m unittest -v test_nn_foundation.py test_nn_upload.py test_nn_normalize.py
+        run: python -m unittest -v test_nn_foundation.py test_nn_upload.py test_nn_normalize.py test_nn_reports.py
