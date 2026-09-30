@@ -374,6 +374,69 @@ def _group_count_sum(rows, date_field, amount_field):
     return result
 
 
+def _primary_repeat_detail(payload, start, end):
+    patients = _patient_map(payload)
+    unpaid_primaries = [
+        row for row in payload.get("primaries", [])
+        if _in_range(row.get("date"), start, end)
+        and not row.get("paid")
+        and row.get("patient_key")
+    ]
+    primary_by_patient = {
+        row["patient_key"]: row
+        for row in unpaid_primaries
+    }
+
+    repeat_by_patient = defaultdict(list)
+    for row in payload.get("repeats", []):
+        patient_key = row.get("patient_key")
+        if patient_key in primary_by_patient and row.get("date"):
+            primary_date = primary_by_patient[patient_key].get("date")
+            if primary_date and row["date"] > primary_date:
+                repeat_by_patient[patient_key].append(row)
+
+    detail = []
+    for patient_key, primary in primary_by_patient.items():
+        later = sorted(
+            repeat_by_patient.get(patient_key, []),
+            key=lambda row: (row.get("date") or "", row.get("doctor") or ""),
+        )
+        if not later:
+            continue
+        first_repeat = later[0]
+        patient = patients.get(patient_key, {})
+        detail.append({
+            "patient_key": patient_key,
+            "patient_name": patient.get("name", ""),
+            "chart": patient.get("chart", ""),
+            "phone": patient.get("phone", ""),
+            "primary_date": primary.get("date", ""),
+            "primary_doctor": primary.get("doctor", ""),
+            "first_repeat_date": first_repeat.get("date", ""),
+            "first_repeat_doctor": first_repeat.get("doctor", ""),
+            "repeat_count": len(later),
+        })
+
+    detail.sort(
+        key=lambda row: (
+            row.get("primary_date") or "",
+            row.get("patient_name") or "",
+        )
+    )
+    unpaid_people = len(primary_by_patient)
+    continued_count = len(detail)
+    return {
+        "unpaid_primary_people": unpaid_people,
+        "continued_people": continued_count,
+        "no_repeat_people": max(0, unpaid_people - continued_count),
+        "continued_share": (
+            round(continued_count / unpaid_people * 100, 1)
+            if unpaid_people else None
+        ),
+        "rows": detail,
+    }
+
+
 def report_payload(conn, report_key, clinic_id):
     if report_key not in {key for key, _label in REPORTS}:
         raise KeyError(report_key)
@@ -431,36 +494,7 @@ def report_payload(conn, report_key, clinic_id):
         result["groups"] = _group_count_sum(rows, "first_date", "payment")
         result["total"] = {"count": len(rows), "sum": round(sum(_money(row.get("payment")) for row in rows), 2)}
     elif report_key == "primary_repeat":
-        unpaid_primaries = [
-            row for row in payload.get("primaries", [])
-            if _in_range(row.get("date"), start, end) and not row.get("paid")
-        ]
-        primary_by_patient = {
-            row.get("patient_key"): row
-            for row in unpaid_primaries
-            if row.get("patient_key")
-        }
-        repeat_rows = payload.get("repeats", [])
-        continued_people = {
-            patient_key
-            for patient_key, primary in primary_by_patient.items()
-            if any(
-                repeat.get("patient_key") == patient_key
-                and repeat.get("date")
-                and primary.get("date")
-                and repeat["date"] > primary["date"]
-                for repeat in repeat_rows
-            )
-        }
-        unpaid_people = len(primary_by_patient)
-        continued_count = len(continued_people)
-        result["unpaid_primary_people"] = unpaid_people
-        result["continued_people"] = continued_count
-        result["no_repeat_people"] = max(0, unpaid_people - continued_count)
-        result["continued_share"] = (
-            round(continued_count / unpaid_people * 100, 1)
-            if unpaid_people else None
-        )
+        result.update(_primary_repeat_detail(payload, start, end))
     return result
 
 
@@ -511,7 +545,7 @@ def _wb_bytes(title, headers, rows):
 
 
 def export_report(report_key):
-    if report_key not in {"primaries", "treatment"}:
+    if report_key not in {"primaries", "treatment", "primary_repeat"}:
         return jsonify(error="Выгрузка недоступна."), 404
     raw = request.args.get("clinic_id", "").strip()
     try:
@@ -547,6 +581,33 @@ def export_report(report_key):
         headers = ["Дата","Месяц","Врач","Пациент","Амбулаторная карта","Телефон","Оплата первичного","Оплатил","Показания ЭВЛК","Показания склеро","Показания минифлеб","Примечание приёма","Примечание пациента"]
         filename = f"Первичные_{'с_оплатой' if tab == 'paid' else 'без_оплаты'}_{start}_{end}.xlsx"
         buffer = _wb_bytes("Первичные", headers, data)
+    elif report_key == "primary_repeat":
+        detail = _primary_repeat_detail(payload, start, end)
+        data = [
+            [
+                row.get("patient_name", ""),
+                row.get("chart", ""),
+                row.get("phone", ""),
+                row.get("primary_doctor", ""),
+                row.get("primary_date", ""),
+                row.get("first_repeat_date", ""),
+                row.get("first_repeat_doctor", ""),
+                row.get("repeat_count", 0),
+            ]
+            for row in detail["rows"]
+        ]
+        headers = [
+            "Пациент",
+            "Амбулаторная карта",
+            "Телефон",
+            "Врач первичного",
+            "Дата первичного",
+            "Первый последующий повторный",
+            "Врач повторного",
+            "Всего последующих повторных",
+        ]
+        filename = f"Неоплаченный_первичный_с_повторными_{start}_{end}.xlsx"
+        buffer = _wb_bytes("Первичный + повторные", headers, data)
     else:
         rows = [row for row in payload.get("treatments", []) if _in_range(row.get("first_date"), start, end)]
         primary_by_patient = {
