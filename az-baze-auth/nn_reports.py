@@ -145,25 +145,43 @@ def _context(payload):
             {int(value[5:7]) for value in dates if value.startswith(f"{year:04d}-")}
         )
     doctors = sorted({row.get("doctor") for row in payload.get("visits", []) if row.get("doctor")})
+    earliest = dates[0] if dates else None
     latest = dates[-1] if dates else None
     return {
         "years": years,
         "months_by_year": months_by_year,
         "doctors": doctors,
+        "earliest_date": earliest,
         "latest_date": latest,
     }
 
 
+def _valid_iso_date(value):
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError:
+        return None
+
+
 def _bounds(payload):
     ctx = _context(payload)
+    earliest = ctx["earliest_date"]
     latest = ctx["latest_date"]
-    if not latest:
+    if not earliest or not latest:
         return None, None, ctx
 
-    raw_from = request.args.get("date_from", "").strip()
-    raw_to = request.args.get("date_to", "").strip()
+    raw_from = _valid_iso_date(request.args.get("date_from", "").strip())
+    raw_to = _valid_iso_date(request.args.get("date_to", "").strip())
     if raw_from or raw_to:
-        return raw_from or payload["period"]["start"], raw_to or payload["period"]["end"], ctx
+        start = raw_from or earliest
+        end = raw_to or latest
+        start = max(start, earliest)
+        end = min(end, latest)
+        if start > end:
+            start, end = end, start
+        return start, end, ctx
 
     try:
         year = int(request.args.get("year") or latest[:4])
@@ -174,8 +192,10 @@ def _bounds(payload):
     except ValueError:
         month = int(latest[5:7])
     month = min(12, max(1, month))
-    start = f"{year:04d}-{month:02d}-01"
-    end = f"{year:04d}-{month:02d}-{monthrange(year, month)[1]:02d}"
+    month_start = f"{year:04d}-{month:02d}-01"
+    month_end = f"{year:04d}-{month:02d}-{monthrange(year, month)[1]:02d}"
+    start = max(month_start, earliest)
+    end = min(month_end, latest)
     return start, end, ctx
 
 
