@@ -100,7 +100,7 @@ class NNUploadTests(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("Клиника 1 (Толи Бе)", html)
-        self.assertIn("Клиника 2 (другая)", html)
+        self.assertIn("Клиника 2 (Шевчеко)", html)
         self.assertNotIn("Архитектура здоровья", html)
         self.assertNotIn("Сохранить список клиник НН", html)
         self.assertNotIn("Все клиники", html)
@@ -116,9 +116,31 @@ class NNUploadTests(unittest.TestCase):
             rows,
             [
                 (1, "Клиника 1 (Толи Бе)", 1),
-                (2, "Клиника 2 (другая)", 1),
+                (2, "Клиника 2 (Шевчеко)", 1),
             ],
         )
+
+    def test_existing_default_clinic_2_is_renamed_in_place(self):
+        conn = sqlite3.connect(app_module.DB_PATH)
+        try:
+            conn.execute(
+                "UPDATE nn_clinics SET name='Клиника 2 (другая)' WHERE clinic_id=2"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        nn_upload._init_schema()
+
+        conn = sqlite3.connect(app_module.DB_PATH)
+        try:
+            row = conn.execute(
+                "SELECT clinic_id,name,active FROM nn_clinics WHERE clinic_id=2"
+            ).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(row, (2, "Клиника 2 (Шевчеко)", 1))
 
     def test_upload_bundle_is_bound_to_private_clinic_and_stored_separately(self):
         with patch("nn_normalize.normalize_batch", side_effect=self.fake_normalize):
@@ -291,7 +313,7 @@ class NNUploadTests(unittest.TestCase):
             conn.close()
 
         self.assertIn("name", cols)
-        self.assertEqual(names, ["Клиника 1 (Толи Бе)", "Клиника 2 (другая)"])
+        self.assertEqual(names, ["Клиника 1 (Толи Бе)", "Клиника 2 (Шевчеко)"])
         self.assertTrue(any(row[2] == "nn_clinics" for row in fk_upload))
         self.assertTrue(any(row[2] == "nn_clinics" for row in fk_norm))
 
