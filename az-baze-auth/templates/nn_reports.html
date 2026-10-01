@@ -13,6 +13,8 @@
 .nn-filter-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;min-width:0}
 .nn-filter{display:grid;gap:5px;min-width:150px}.nn-filter label{font-size:12px;font-weight:700;color:#657067}.nn-filter select,.nn-filter input{padding:9px 10px;border:1px solid #cec3b2;border-radius:8px;background:#fff;font:600 14px Montserrat,Arial,sans-serif;max-width:100%}
 .nn-filter.clinic{min-width:210px}.nn-filter#doctorWrap{min-width:260px;flex:1 1 300px}
+.nn-period-apply{display:flex;align-items:end}.nn-period-apply button{min-height:39px;padding:9px 14px;border:1px solid #44634f;border-radius:8px;background:#44634f;color:#fff;font:650 14px Montserrat,Arial,sans-serif;cursor:pointer}.nn-period-apply button:hover,.nn-period-apply button:focus-visible{background:#385442;outline:0}
+.nn-period-status{display:grid;gap:4px;padding:12px 14px;border:1px solid #ded3c2;border-radius:10px;background:#fffdf8;font-size:15px;line-height:1.4}.nn-period-status strong{font-size:16px;color:#354039}.nn-period-status span{color:#687067}
 .nn-months{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}.nn-months button{white-space:nowrap;padding:8px 11px}
 .nn-result{min-height:170px;min-width:0}.nn-report-title{margin:0 0 6px;font-size:28px;line-height:1.15}.nn-report-subtitle{margin:0 0 14px;color:#5f685f;font-size:17px;font-weight:600;line-height:1.4}
 .nn-list{display:grid;gap:9px}.nn-metric{display:flex;justify-content:space-between;gap:18px;padding:14px 15px;border:1px solid #e4dacb;border-radius:10px;background:#fff;align-items:center}.nn-metric span{font-size:16px;line-height:1.35}.nn-metric strong{font-size:21px;line-height:1.2}
@@ -69,10 +71,15 @@
       <div class="nn-filter" id="doctorWrap" hidden><label>Врач</label><select id="doctorSelect"><option value="">Все врачи</option></select></div>
       <div class="nn-filter" id="fromWrap" hidden><label>От</label><input id="dateFrom" type="date"></div>
       <div class="nn-filter" id="toWrap" hidden><label>До</label><input id="dateTo" type="date"></div>
+      <div class="nn-period-apply" id="periodApplyWrap" hidden><button id="periodApply" type="button">Применить</button></div>
     </div>
     <div class="nn-months" id="monthBar" aria-label="Месяцы"></div>
   </div>
 
+  <div class="nn-period-status" id="periodStatus" hidden>
+    <strong id="loadedThrough"></strong>
+    <span id="displayedPeriod"></span>
+  </div>
   <div class="nn-result" id="reportResult"><div class="nn-empty">Выберите отчёт.</div></div>
   <a class="nn-back" href="/nn/">← Назад</a>
 </section>
@@ -81,19 +88,23 @@
 const REPORT_LABELS={{ report_labels|tojson }};
 const MONTHS=['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 let currentReport='key_metrics', currentMonth=null, currentContext=null;
+let manualPeriod=false, appliedDateFrom='', appliedDateTo='';
 const $=id=>document.getElementById(id);
 const money=v=>v==null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Number(v))+' ₸';
 const num=v=>v==null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(Number(v));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ruDate=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?m[3]+'.'+m[2]+'.'+m[1]:'—'};
 function fmt(v,type){return type==='money'?money(v):num(v)}
 function query(extra={}){
  const q=new URLSearchParams();
  q.set('clinic_id',$('clinicSelect').value);
- if($('yearSelect').value)q.set('year',$('yearSelect').value);
- if(currentMonth)q.set('month',currentMonth);
+ if(!manualPeriod&&$('yearSelect').value)q.set('year',$('yearSelect').value);
+ if(!manualPeriod&&currentMonth)q.set('month',currentMonth);
  if(!$('doctorWrap').hidden&&$('doctorSelect').value)q.set('doctor',$('doctorSelect').value);
- if(!$('fromWrap').hidden&&$('dateFrom').value)q.set('date_from',$('dateFrom').value);
- if(!$('toWrap').hidden&&$('dateTo').value)q.set('date_to',$('dateTo').value);
+ if(manualPeriod&&currentReport==='primary_repeat'){
+   if(appliedDateFrom)q.set('date_from',appliedDateFrom);
+   if(appliedDateTo)q.set('date_to',appliedDateTo);
+ }
  Object.entries(extra).forEach(([k,v])=>q.set(k,v));
  return q;
 }
@@ -102,7 +113,7 @@ function setActiveReport(){
  const doctors=['doctor_compare','doctors','suspicious'].includes(currentReport);
  $('doctorWrap').hidden=!doctors;
  const range=currentReport==='primary_repeat';
- $('fromWrap').hidden=!range;$('toWrap').hidden=!range;
+ $('fromWrap').hidden=!range;$('toWrap').hidden=!range;$('periodApplyWrap').hidden=!range;
 }
 function fillContext(ctx){
  currentContext=ctx||{};
@@ -114,6 +125,11 @@ function fillContext(ctx){
  const ds=$('doctorSelect'), oldDoc=ds.value;ds.innerHTML='<option value="">Все врачи</option>';
  (ctx.doctors||[]).forEach(d=>{const o=document.createElement('option');o.value=d;o.textContent=d;ds.appendChild(o)});
  if(oldDoc&&[...ds.options].some(o=>o.value===oldDoc))ds.value=oldDoc;
+ const earliest=ctx.earliest_date||'', latestDate=ctx.latest_date||'';
+ for(const input of [$('dateFrom'),$('dateTo')]){
+   input.min=earliest;
+   input.max=latestDate;
+ }
  renderMonths();
 }
 function renderMonths(){
@@ -121,11 +137,34 @@ function renderMonths(){
  const year=$('yearSelect').value;
  const months=(currentContext?.months_by_year||{})[year]||[];
  if(!months.length)return;
- if(!currentMonth||!months.includes(Number(currentMonth))){
+ if(!manualPeriod&&(!currentMonth||!months.includes(Number(currentMonth)))){
    const latest=currentContext?.latest_date||'';
    currentMonth=latest.startsWith(year+'-')?Number(latest.slice(5,7)):months[months.length-1];
  }
- months.forEach(m=>{const b=document.createElement('button');b.type='button';b.textContent=MONTHS[m];b.classList.toggle('active',Number(currentMonth)===m);b.onclick=()=>{currentMonth=m;renderMonths();loadReport()};bar.appendChild(b)});
+ months.forEach(m=>{
+   const b=document.createElement('button');
+   b.type='button';
+   b.textContent=MONTHS[m];
+   b.classList.toggle('active',!manualPeriod&&Number(currentMonth)===m);
+   b.onclick=()=>{
+     manualPeriod=false;
+     appliedDateFrom='';appliedDateTo='';
+     $('dateFrom').value='';$('dateTo').value='';
+     currentMonth=m;
+     renderMonths();
+     loadReport();
+   };
+   bar.appendChild(b);
+ });
+}
+function renderPeriodStatus(data){
+ const latest=data.context?.latest_date||'';
+ const start=data.period?.start||'';
+ const end=data.period?.end||'';
+ if(!latest||!start||!end){$('periodStatus').hidden=true;return}
+ $('loadedThrough').textContent='Данные загружены по '+ruDate(latest);
+ $('displayedPeriod').textContent='Отображаются данные с '+ruDate(start)+' по '+ruDate(end);
+ $('periodStatus').hidden=false;
 }
 function metricList(items){
  return '<div class="nn-list">'+(items||[]).map(([label,value,type])=>'<div class="nn-metric"><span>'+esc(label)+'</span><strong>'+fmt(value,type)+'</strong></div>').join('')+'</div>';
@@ -163,6 +202,7 @@ function grouped(groups){
 function render(data){
  if(data.empty){$('reportResult').innerHTML='<div class="nn-empty">Для выбранной клиники ещё нет обработанных данных.</div>';return}
  fillContext(data.context);
+ renderPeriodStatus(data);
  let body='<h3 class="nn-report-title">'+esc(REPORT_LABELS[currentReport]||'')+'</h3>';
  if(currentReport==='primary_repeat')body+='<div class="nn-report-subtitle">Не оплатил первичный, но продолжил ходить дальше</div>';
  if(currentReport==='key_metrics'||currentReport==='monthly')body+=metricList(data.items);
@@ -205,12 +245,42 @@ async function loadReport(extra={}){
    render(data);
  }catch(e){$('reportResult').innerHTML='<div class="nn-error">'+esc(e.message)+'</div>'}
 }
-document.querySelectorAll('[data-report]').forEach(b=>b.onclick=()=>{currentReport=b.dataset.report;currentMonth=null;setActiveReport();loadReport()});
-$('clinicSelect').addEventListener('change',()=>{currentMonth=null;loadReport()});
-$('yearSelect').addEventListener('change',()=>{currentMonth=null;renderMonths();loadReport()});
+document.querySelectorAll('[data-report]').forEach(b=>b.onclick=()=>{
+ currentReport=b.dataset.report;
+ currentMonth=null;
+ manualPeriod=false;appliedDateFrom='';appliedDateTo='';
+ $('dateFrom').value='';$('dateTo').value='';
+ setActiveReport();
+ loadReport();
+});
+$('clinicSelect').addEventListener('change',()=>{
+ currentMonth=null;
+ manualPeriod=false;appliedDateFrom='';appliedDateTo='';
+ $('dateFrom').value='';$('dateTo').value='';
+ loadReport();
+});
+$('yearSelect').addEventListener('change',()=>{
+ currentMonth=null;
+ manualPeriod=false;appliedDateFrom='';appliedDateTo='';
+ $('dateFrom').value='';$('dateTo').value='';
+ renderMonths();
+ loadReport();
+});
 $('doctorSelect').addEventListener('change',()=>loadReport());
-$('dateFrom').addEventListener('change',()=>loadReport());
-$('dateTo').addEventListener('change',()=>loadReport());
+$('periodApply').addEventListener('click',()=>{
+ const from=$('dateFrom').value;
+ const to=$('dateTo').value;
+ if(from&&to&&from>to){
+   $('reportResult').innerHTML='<div class="nn-error">Дата «От» не может быть позже даты «До».</div>';
+   return;
+ }
+ manualPeriod=Boolean(from||to);
+ appliedDateFrom=from;
+ appliedDateTo=to;
+ if(manualPeriod)currentMonth=null;
+ renderMonths();
+ loadReport();
+});
 setActiveReport();
 document.querySelector('[data-report="key_metrics"]')?.classList.add('active');
 loadReport();
