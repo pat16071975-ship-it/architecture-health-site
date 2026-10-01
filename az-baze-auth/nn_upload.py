@@ -13,7 +13,7 @@ UPLOAD_ROOT = Path(os.environ.get("AZBAZE_NN_UPLOAD_ROOT", "/var/lib/az-baze/nn-
 
 DEFAULT_NN_CLINICS = (
     "Клиника 1 (Толи Бе)",
-    "Клиника 2 (другая)",
+    "Клиника 2 (Шевчеко)",
 )
 
 SOURCE_SLOTS = (
@@ -123,8 +123,16 @@ def _init_schema():
         conn.execute("PRAGMA foreign_keys=ON")
         _migrate_legacy_nn_schema_if_empty(conn)
         conn.executescript(UPLOAD_SCHEMA)
+        now = iso_now()
+        conn.execute(
+            """
+            UPDATE nn_clinics
+            SET name=?,updated_at=?
+            WHERE clinic_id=2 AND name=?
+            """,
+            ("Клиника 2 (Шевчеко)", now, "Клиника 2 (другая)"),
+        )
         if conn.execute("SELECT COUNT(*) FROM nn_clinics").fetchone()[0] == 0:
-            now = iso_now()
             conn.executemany(
                 "INSERT INTO nn_clinics(name,active,created_at,updated_at) VALUES(?,1,?,?)",
                 [(name, now, now) for name in DEFAULT_NN_CLINICS],
