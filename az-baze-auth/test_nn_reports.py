@@ -154,14 +154,39 @@ class NNReportsTests(unittest.TestCase):
         self.assertIn(".nn-table th{position:sticky;top:0;background:#f8f3eb;z-index:3;white-space:normal;font-size:11px", html)
         self.assertIn("Не пришли повторно после неоплаченного первичного", html)
         self.assertIn("Скачать подробный отчёт Excel", html)
+        self.assertIn('id="periodApply"', html)
+        self.assertIn("Применить", html)
+        self.assertIn("Данные загружены по ", html)
+        self.assertIn("Отображаются данные с ", html)
 
     def test_latest_month_and_available_year_month_context(self):
         response = self.client_for(2).get("/api/nn/reports/key_metrics?clinic_id=1")
         data = response.get_json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(data["period"]["start"], "2026-07-01")
+        self.assertEqual(data["period"]["end"], "2026-07-02")
+        self.assertEqual(data["context"]["earliest_date"], "2026-06-01")
+        self.assertEqual(data["context"]["latest_date"], "2026-07-02")
         self.assertEqual(data["context"]["years"], [2026])
         self.assertEqual(data["context"]["months_by_year"]["2026"], [6, 7])
+
+    def test_manual_period_is_clamped_to_available_data(self):
+        response = self.client_for(2).get(
+            "/api/nn/reports/primary_repeat?clinic_id=1&date_from=2026-01-01&date_to=2026-12-31"
+        )
+        data = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data["period"]["start"], "2026-06-01")
+        self.assertEqual(data["period"]["end"], "2026-07-02")
+
+    def test_manual_period_reversed_bounds_are_normalized(self):
+        response = self.client_for(2).get(
+            "/api/nn/reports/primary_repeat?clinic_id=1&date_from=2026-07-02&date_to=2026-06-01"
+        )
+        data = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data["period"]["start"], "2026-06-01")
+        self.assertEqual(data["period"]["end"], "2026-07-02")
 
     def test_key_metrics_does_not_duplicate_unique_repeat_people_report(self):
         response = self.client_for(2).get(
