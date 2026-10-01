@@ -158,6 +158,11 @@ class NNReportsTests(unittest.TestCase):
         self.assertIn("Применить", html)
         self.assertIn("Данные загружены по ", html)
         self.assertIn("Отображаются данные с ", html)
+        self.assertIn('id="fromWrap"><label>От</label>', html)
+        self.assertIn('id="toWrap"><label>До</label>', html)
+        self.assertIn('id="periodApplyWrap"><button id="periodApply"', html)
+        self.assertIn("if(manualPeriod){", html)
+        self.assertNotIn("manualPeriod&&currentReport==='primary_repeat'", html)
 
     def test_latest_month_and_available_year_month_context(self):
         response = self.client_for(2).get("/api/nn/reports/key_metrics?clinic_id=1")
@@ -187,6 +192,15 @@ class NNReportsTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(data["period"]["start"], "2026-06-01")
         self.assertEqual(data["period"]["end"], "2026-07-02")
+
+    def test_manual_period_applies_to_key_metrics(self):
+        response = self.client_for(2).get(
+            "/api/nn/reports/key_metrics?clinic_id=1&date_from=2026-06-01&date_to=2026-06-30"
+        )
+        data = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data["period"]["start"], "2026-06-01")
+        self.assertEqual(data["period"]["end"], "2026-06-30")
 
     def test_key_metrics_does_not_duplicate_unique_repeat_people_report(self):
         response = self.client_for(2).get(
