@@ -69,9 +69,9 @@
       </div>
       <div class="nn-filter"><label>Год</label><select id="yearSelect"></select></div>
       <div class="nn-filter" id="doctorWrap" hidden><label>Врач</label><select id="doctorSelect"><option value="">Все врачи</option></select></div>
-      <div class="nn-filter" id="fromWrap" hidden><label>От</label><input id="dateFrom" type="date"></div>
-      <div class="nn-filter" id="toWrap" hidden><label>До</label><input id="dateTo" type="date"></div>
-      <div class="nn-period-apply" id="periodApplyWrap" hidden><button id="periodApply" type="button">Применить</button></div>
+      <div class="nn-filter" id="fromWrap"><label>От</label><input id="dateFrom" type="date"></div>
+      <div class="nn-filter" id="toWrap"><label>До</label><input id="dateTo" type="date"></div>
+      <div class="nn-period-apply" id="periodApplyWrap"><button id="periodApply" type="button">Применить</button></div>
     </div>
     <div class="nn-months" id="monthBar" aria-label="Месяцы"></div>
   </div>
@@ -101,7 +101,7 @@ function query(extra={}){
  if(!manualPeriod&&$('yearSelect').value)q.set('year',$('yearSelect').value);
  if(!manualPeriod&&currentMonth)q.set('month',currentMonth);
  if(!$('doctorWrap').hidden&&$('doctorSelect').value)q.set('doctor',$('doctorSelect').value);
- if(manualPeriod&&currentReport==='primary_repeat'){
+ if(manualPeriod){
    if(appliedDateFrom)q.set('date_from',appliedDateFrom);
    if(appliedDateTo)q.set('date_to',appliedDateTo);
  }
@@ -112,8 +112,6 @@ function setActiveReport(){
  document.querySelectorAll('[data-report]').forEach(b=>b.classList.toggle('active',b.dataset.report===currentReport));
  const doctors=['doctor_compare','doctors','suspicious'].includes(currentReport);
  $('doctorWrap').hidden=!doctors;
- const range=currentReport==='primary_repeat';
- $('fromWrap').hidden=!range;$('toWrap').hidden=!range;$('periodApplyWrap').hidden=!range;
 }
 function fillContext(ctx){
  currentContext=ctx||{};
@@ -247,9 +245,7 @@ async function loadReport(extra={}){
 }
 document.querySelectorAll('[data-report]').forEach(b=>b.onclick=()=>{
  currentReport=b.dataset.report;
- currentMonth=null;
- manualPeriod=false;appliedDateFrom='';appliedDateTo='';
- $('dateFrom').value='';$('dateTo').value='';
+ if(!manualPeriod)currentMonth=null;
  setActiveReport();
  loadReport();
 });
