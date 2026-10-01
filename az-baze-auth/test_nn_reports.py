@@ -145,7 +145,7 @@ class NNReportsTests(unittest.TestCase):
         self.assertIn("Варикоза нет - KZ", html)
         self.assertNotIn("Архитектура здоровья", html)
         self.assertIn("Клиника 1 (Толи Бе)", html)
-        self.assertIn("Клиника 2 (другая)", html)
+        self.assertIn("Клиника 2 (Шевчеко)", html)
         self.assertIn("Не оплатил первичный, но продолжил ходить дальше", html)
         self.assertIn(".nn-shell{width:min(1420px,97vw)}", html)
         self.assertIn(".nn-table.compare{min-width:1160px}", html)
