@@ -100,7 +100,7 @@ jobs:
               'id="advancedSettings"',
               'Точные настройки',
               'id="forecastMethod"',
-              'три сценария не имеют скрытых автоматических коэффициентов',
+              'Три сценария не имеют скрытых автоматических коэффициентов',
               'scenarioDirection',
               'scenarioBundle',
               'endRevenue:base.rev+last.rev',
