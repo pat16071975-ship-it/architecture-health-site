@@ -95,6 +95,14 @@ class NNUploadTests(unittest.TestCase):
             "deleted_appointments": (io.BytesIO(b"%PDF-1.4\nmock"), "Отчет по удаленным приемам.pdf"),
         }
 
+    def bundle_with_optional_bi(self, clinic_id="1"):
+        payload = self.bundle(clinic_id)
+        payload["doctor_services_payments"] = (
+            io.BytesIO(b"%PDF-1.4\nmock BI payments"),
+            "Оказанные врачами услуги.pdf",
+        )
+        return payload
+
     def test_private_clinics_are_seeded_and_global_az_clinic_is_not_exposed(self):
         response = self.client_for(2).get("/nn/uploads/")
         html = response.get_data(as_text=True)
@@ -104,6 +112,9 @@ class NNUploadTests(unittest.TestCase):
         self.assertNotIn("Архитектура здоровья", html)
         self.assertNotIn("Сохранить список клиник НН", html)
         self.assertNotIn("Все клиники", html)
+        self.assertIn("Дополнительно для BI — необязательно", html)
+        self.assertIn("Оказанные врачами услуги", html)
+        self.assertNotIn('name="doctor_services_payments" accept=".pdf" required', html)
 
         conn = sqlite3.connect(app_module.DB_PATH)
         try:
@@ -151,7 +162,7 @@ class NNUploadTests(unittest.TestCase):
             )
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Пять исходных файлов сохранены и обработаны", html)
+        self.assertIn("Пять обязательных файлов сохранены и обработаны", html)
 
         conn = sqlite3.connect(app_module.DB_PATH)
         conn.row_factory = sqlite3.Row
@@ -177,6 +188,33 @@ class NNUploadTests(unittest.TestCase):
 
         clinic_two = self.client_for(2).get("/nn/uploads/?clinic_id=2").get_data(as_text=True)
         self.assertIn("Для выбранной клиники ещё нет загрузок.", clinic_two)
+
+    def test_optional_bi_file_is_stored_without_becoming_sixth_required_source(self):
+        with patch("nn_normalize.normalize_batch", side_effect=self.fake_normalize):
+            response = self.client_for(2).post(
+                "/nn/uploads/",
+                data=self.bundle_with_optional_bi(),
+                content_type="multipart/form-data",
+            )
+        html = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Дополнительный BI-файл подключён", html)
+
+        conn = sqlite3.connect(app_module.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            batch = conn.execute("SELECT * FROM nn_upload_batches ORDER BY id").fetchone()
+            rows = conn.execute(
+                "SELECT source_key,stored_filename FROM nn_upload_files WHERE batch_id=? ORDER BY source_key",
+                (batch["id"],),
+            ).fetchall()
+        finally:
+            conn.close()
+        self.assertEqual(len(rows), 6)
+        self.assertIn("doctor_services_payments", {row["source_key"] for row in rows})
+        self.assertTrue(
+            (nn_upload.UPLOAD_ROOT / "1" / str(batch["id"]) / "06_doctor_services_payments.pdf").is_file()
+        )
 
     def test_duplicate_bundle_does_not_create_second_batch(self):
         client = self.client_for(2)

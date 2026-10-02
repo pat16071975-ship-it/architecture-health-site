@@ -93,12 +93,17 @@ def effective_payload(conn, clinic_id):
     medical = []
     deleted = []
     control_services = []
+    service_control_period = {}
+    payment_control = []
 
     for index, payload in enumerate(payloads):
         for patient in payload.get("patients", []):
             master.append({
                 "name": patient.get("name", ""),
                 "dob": patient.get("dob"),
+                "gender": patient.get("gender", ""),
+                "source": patient.get("source", ""),
+                "visits_count": patient.get("visits_count", 0),
                 "iin": patient.get("iin", ""),
                 "chart": patient.get("chart", ""),
                 "phone": patient.get("phone", ""),
@@ -119,6 +124,10 @@ def effective_payload(conn, clinic_id):
         # Keep only the newest batch's control rows when histories overlap.
         if index == len(payloads) - 1:
             control_services = [dict(item) for item in payload.get("service_control_rows", [])]
+            service_control_period = dict(
+                payload.get("service_control_period") or payload.get("period") or {}
+            )
+            payment_control = [dict(item) for item in payload.get("payment_control_rows", [])]
 
     master = _dedupe_rows(master, ("chart", "iin", "phone", "name", "dob"))
     visits = _dedupe_rows(
@@ -133,7 +142,10 @@ def effective_payload(conn, clinic_id):
         deleted,
         ("deleted_date", "deleted_time", "appointment_date", "appointment_time", "doctor", "patient"),
     )
-    return nn_normalize.normalize_rows(master, visits, medical, control_services, deleted, len(deleted))
+    merged = nn_normalize.normalize_rows(master, visits, medical, control_services, deleted, len(deleted))
+    merged["service_control_period"] = service_control_period
+    merged["payment_control_rows"] = payment_control
+    return merged
 
 
 def _context(payload):

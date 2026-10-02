@@ -24,6 +24,10 @@ SOURCE_SLOTS = (
     ("deleted_appointments", "Отчет по удаленным приемам", ".pdf", "05_deleted_appointments.pdf"),
 )
 
+OPTIONAL_SOURCE_SLOTS = (
+    ("doctor_services_payments", "Оказанные врачами услуги", ".pdf", "06_doctor_services_payments.pdf"),
+)
+
 UPLOAD_SCHEMA = """
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS nn_clinics (
@@ -204,7 +208,9 @@ def _read_slot(file_storage, label, extension):
 
 def _bundle_hash(items):
     digest = hashlib.sha256()
-    for source_key, _label, _ext, _stored in SOURCE_SLOTS:
+    for source_key, _label, _ext, _stored in SOURCE_SLOTS + OPTIONAL_SOURCE_SLOTS:
+        if source_key not in items:
+            continue
         digest.update(source_key.encode("utf-8"))
         digest.update(b":")
         digest.update(items[source_key]["sha256"].encode("ascii"))
@@ -274,7 +280,9 @@ def _store_bundle(conn, clinic_id, user_id, items):
         batch_dir.mkdir(exist_ok=False, mode=0o700)
         os.chmod(batch_dir, 0o700)
 
-        for source_key, _label, _ext, stored_filename in SOURCE_SLOTS:
+        for source_key, _label, _ext, stored_filename in SOURCE_SLOTS + OPTIONAL_SOURCE_SLOTS:
+            if source_key not in items:
+                continue
             item = items[source_key]
             target = batch_dir / stored_filename
             with target.open("xb") as handle:
@@ -298,10 +306,14 @@ def _store_bundle(conn, clinic_id, user_id, items):
                 ),
             )
         conn.commit()
+        optional_count = sum(1 for key, *_rest in OPTIONAL_SOURCE_SLOTS if key in items)
         return {
             "status": "uploaded",
             "batch_id": batch_id,
-            "message": "Пять исходных файлов сохранены для выбранной клиники.",
+            "message": (
+                "Пять обязательных файлов сохранены для выбранной клиники."
+                + (" Дополнительный BI-файл также сохранён." if optional_count else "")
+            ),
         }
     except Exception:
         conn.rollback()
@@ -341,6 +353,10 @@ def handle_uploads_page():
                         label,
                         extension,
                     )
+                for source_key, label, extension, _stored in OPTIONAL_SOURCE_SLOTS:
+                    uploaded = request.files.get(source_key)
+                    if uploaded and uploaded.filename:
+                        items[source_key] = _read_slot(uploaded, label, extension)
                 result = _store_bundle(
                     conn,
                     int(selected_clinic["id"]),
@@ -360,8 +376,9 @@ def handle_uploads_page():
                             "status": "ready",
                             "batch_id": batch_id,
                             "message": (
-                                "Пять исходных файлов сохранены и обработаны. "
-                                f"Период: {payload['period']['start'] or '—'} — {payload['period']['end'] or '—'}."
+                                "Пять обязательных файлов сохранены и обработаны. "
+                                + ("Дополнительный BI-файл подключён. " if "doctor_services_payments" in items else "")
+                                + f"Период: {payload['period']['start'] or '—'} — {payload['period']['end'] or '—'}."
                             ),
                         }
                     except Exception:
@@ -389,6 +406,7 @@ def handle_uploads_page():
         clinics=clinics,
         selected_clinic=selected_clinic,
         source_slots=SOURCE_SLOTS,
+        optional_source_slots=OPTIONAL_SOURCE_SLOTS,
         latest=latest,
         latest_files=latest_files,
         result=result,

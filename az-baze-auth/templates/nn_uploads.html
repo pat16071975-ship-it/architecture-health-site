@@ -92,7 +92,24 @@
       {% endfor %}
     </div>
 
-    <div class="nn-submit"><button type="submit">Сохранить набор из 5 файлов</button></div>
+    <div class="nn-latest" style="margin-top:16px">
+      <h3>Дополнительно для BI — необязательно</h3>
+      <div class="nn-muted">Этот файл НЕ входит в пять обязательных источников. Он нужен только для анализа способов оплаты и расширенной сверки скидок.</div>
+      {% for source_key,label,extension,stored_filename in optional_source_slots %}
+      <div class="nn-upload-slot" style="margin-top:10px">
+        <div>
+          <div class="nn-upload-name">{{ label }}</div>
+          <div class="nn-upload-meta">Формат: {{ extension }} · необязательно</div>
+          {% if latest_files.get(source_key) %}
+            <div class="nn-upload-meta">Последний файл: {{ latest_files[source_key]['original_filename'] }}</div>
+          {% endif %}
+        </div>
+        <input class="nn-file-input" type="file" name="{{ source_key }}" accept="{{ extension }}">
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="nn-submit"><button type="submit">Сохранить 5 обязательных файлов</button></div>
   </form>
 
   <div class="nn-latest">
@@ -104,6 +121,11 @@
       {% for source_key,label,extension,stored_filename in source_slots %}
         {% if latest_files.get(source_key) %}
           <div class="nn-latest-row"><strong>{{ label }}</strong><span>{{ latest_files[source_key]['original_filename'] }}</span></div>
+        {% endif %}
+      {% endfor %}
+      {% for source_key,label,extension,stored_filename in optional_source_slots %}
+        {% if latest_files.get(source_key) %}
+          <div class="nn-latest-row"><strong>{{ label }} (BI)</strong><span>{{ latest_files[source_key]['original_filename'] }}</span></div>
         {% endif %}
       {% endfor %}
     {% else %}

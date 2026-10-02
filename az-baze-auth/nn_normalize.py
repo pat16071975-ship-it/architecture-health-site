@@ -136,6 +136,24 @@ def _parse_date(value):
     return None
 
 
+def _parse_datetime(value):
+    if isinstance(value, datetime):
+        return value.isoformat(timespec="minutes")
+    text = _clean_text(value)
+    match = re.search(r"(\d{2}\.\d{2}\.\d{4})\D+(\d{1,2}:\d{2})", text)
+    if match:
+        try:
+            return datetime.strptime(
+                f"{match.group(1)} {match.group(2)}", "%d.%m.%Y %H:%M"
+            ).isoformat(timespec="minutes")
+        except ValueError:
+            return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).isoformat(timespec="minutes")
+    except ValueError:
+        return None
+
+
 def _parse_clock_range(value):
     text = _clean_text(value)
     match = re.search(r"(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})", text)
@@ -209,6 +227,9 @@ def _patient_master(path):
         result.append({
             "name": _clean_text(row.get("Пациент")),
             "dob": _parse_date(row.get("Дата рождения")),
+            "gender": _clean_text(row.get("Пол")),
+            "source": _clean_text(row.get("Источник информации о клинике")),
+            "visits_count": int(_num(row.get("Кол-во визитов")) or 0),
             "iin": _norm_id(row.get("ИИН")),
             "chart": _norm_id(row.get("Номер амбулаторной карты")),
             "phone": _norm_phone(row.get("Телефоны")),
@@ -228,6 +249,7 @@ def _registry_rows(path):
         start, end = _parse_clock_range(row.get("Время приема"))
         result.append({
             "date": date,
+            "created_at": _parse_datetime(row.get("Время создания приема")),
             "start": start,
             "end": end,
             "doctor": _clean_text(row.get("Врач")),
@@ -239,6 +261,8 @@ def _registry_rows(path):
             "note": _clean_text(row.get("Примечание")),
             "visit_type": _clean_text(row.get("Тип приема")),
             "help_type": _clean_text(row.get("Вид помощи")),
+            "appeal_reason": _clean_text(row.get("Повод обращения")),
+            "diagnoses": _clean_text(row.get("Перечень МКБ диагнозов")),
             "services_text": _clean_text(row.get("Перечень услуг")),
             "service_prices_text": _clean_text(row.get("Стоимость услуг")),
             "amount": _num(row.get("Сумма")),
@@ -524,15 +548,23 @@ def _deleted_rows(path, doctors):
         reverse=True,
     )
     rows = []
+    deleted_by = ""
     line_re = re.compile(
-        r"(\d{2}\.\d{2}\.\d{4})\s+(\d{2}:\d{2}).*?"
-        r"(\d{2}\.\d{2}\.\d{4})\s+(\d{2}:\d{2})(.*)$"
+        r"^(?P<prefix>.*?)"
+        r"(?P<deleted_date>\d{2}\.\d{2}\.\d{4})\s+(?P<deleted_time>\d{2}:\d{2})\s+"
+        r"(?P<reason>.*?)\s+"
+        r"(?P<appointment_date>\d{2}\.\d{2}\.\d{4})\s+(?P<appointment_time>\d{2}:\d{2})"
+        r"(?P<tail>.*)$"
     )
-    for line in text.splitlines():
+    for raw_line in text.splitlines():
+        line = _clean_text(raw_line)
         match = line_re.search(line)
         if not match:
             continue
-        tail = _clean_text(match.group(5))
+        prefix_text = _clean_text(match.group("prefix"))
+        if prefix_text and "кем удалено" not in prefix_text.lower():
+            deleted_by = prefix_text
+        tail = _clean_text(match.group("tail"))
         doctor = ""
         patient = tail
         for prefix in doctor_prefixes:
@@ -542,16 +574,91 @@ def _deleted_rows(path, doctors):
                 patient = tail[pos + len(prefix):].strip()
                 break
         rows.append({
-            "deleted_date": _parse_date(match.group(1)),
-            "deleted_time": match.group(2),
-            "appointment_date": _parse_date(match.group(3)),
-            "appointment_time": match.group(4),
+            "deleted_by": deleted_by,
+            "reason": _clean_text(match.group("reason")),
+            "deleted_date": _parse_date(match.group("deleted_date")),
+            "deleted_time": match.group("deleted_time"),
+            "appointment_date": _parse_date(match.group("appointment_date")),
+            "appointment_time": match.group("appointment_time"),
             "doctor": doctor,
             "patient": patient,
             "patient_name": _norm_name(patient),
             "phone": _norm_phone(patient),
         })
     return rows, total
+
+
+def _payment_control_rows_from_text(text, doctors):
+    doctor_names = sorted(
+        {_clean_text(value) for value in doctors if _clean_text(value)},
+        key=len,
+        reverse=True,
+    )
+    doctor_keys = [
+        (doctor, " ".join(_norm_name(doctor).split()[:2]))
+        for doctor in doctor_names
+    ]
+    period_match = re.search(
+        r"Период:\s*(\d{2}\.\d{2}\.\d{4}).*?-\s*(\d{2}\.\d{2}\.\d{4})",
+        str(text or ""),
+        re.I | re.S,
+    )
+    period_start = _parse_date(period_match.group(1)) if period_match else None
+    period_end = _parse_date(period_match.group(2)) if period_match else None
+    subtotal_re = re.compile(
+        rf"всего\s+"
+        rf"(?P<method>Наличные|Безнал\.?|Смешанная|Без оплаты)\s+"
+        rf"(?P<qty>-?\d+(?:[.,]\d+)?)\s+"
+        rf"(?P<gross>{_PDF_MONEY})\s+"
+        rf"(?P<discount>{_PDF_MONEY})\s+"
+        rf"(?P<net>{_PDF_MONEY})",
+        re.I,
+    )
+    current_doctor = ""
+    rows = []
+    for raw_line in str(text or "").splitlines():
+        line = _clean_text(raw_line)
+        if not line:
+            continue
+        # MedElement PDF text extraction may concatenate adjacent money cells,
+        # e.g. "51 000,002 141 300,00". Split exactly after two decimals.
+        line = re.sub(r"([,.]\d{2})(?=\d)", r"\1 ", line)
+        normalized_line = _norm_name(line)
+        for doctor, doctor_key in doctor_keys:
+            if doctor_key and doctor_key in normalized_line:
+                current_doctor = doctor
+                break
+        match = subtotal_re.search(line)
+        if not match:
+            continue
+        method_raw = match.group("method").lower().replace(".", "")
+        if "без оплаты" in method_raw:
+            method = "Без оплаты"
+        elif "безнал" in method_raw:
+            method = "Безналичные"
+        elif "смешан" in method_raw:
+            method = "Смешанная"
+        else:
+            method = "Наличные"
+        rows.append({
+            "doctor": current_doctor,
+            "method": method,
+            "qty": _num(match.group("qty")),
+            "gross_amount": _num(match.group("gross")),
+            "discount": _num(match.group("discount")),
+            "amount": _num(match.group("net")),
+            "period_start": period_start,
+            "period_end": period_end,
+        })
+    if not rows:
+        raise ValueError("Не удалось распознать способы оплаты в PDF «Оказанные врачами услуги».")
+    return rows
+
+
+def _payment_control_rows(path, doctors):
+    reader = PdfReader(str(path))
+    text = "\n".join((page.extract_text() or "") for page in reader.pages)
+    return _payment_control_rows_from_text(text, doctors)
 
 
 class PatientResolver:
@@ -607,6 +714,9 @@ class PatientResolver:
             names = [r.get("name") for r in group_rows if r.get("name")]
             dobs = [r.get("dob") for r in group_rows if r.get("dob")]
             notes = [r.get("note") for r in group_rows if r.get("note")]
+            genders = [r.get("gender") for r in group_rows if r.get("gender")]
+            sources = [r.get("source") for r in group_rows if r.get("source")]
+            visit_counts = [int(r.get("visits_count") or 0) for r in group_rows]
             key = (
                 "chart:" + charts[0] if charts
                 else "iin:" + iins[0] if iins
@@ -617,6 +727,9 @@ class PatientResolver:
                 "key": key,
                 "name": names[0] if names else "",
                 "dob": dobs[0] if dobs else None,
+                "gender": genders[0] if genders else "",
+                "source": sources[0] if sources else "",
+                "visits_count": max(visit_counts) if visit_counts else 0,
                 "iin": iins[0] if iins else "",
                 "chart": charts[0] if charts else "",
                 "charts": charts,
@@ -665,6 +778,9 @@ class PatientResolver:
                 "key": key,
                 "name": _clean_text(row.get("patient") or row.get("name")),
                 "dob": dob,
+                "gender": _clean_text(row.get("gender")),
+                "source": _clean_text(row.get("source")),
+                "visits_count": int(row.get("visits_count") or 0),
                 "iin": iin,
                 "chart": chart,
                 "charts": [chart] if chart else [],
@@ -1122,6 +1238,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
     payload = {
         "version": NORMALIZED_VERSION,
         "period": {"start": period_start, "end": period_end},
+        "service_control_period": {"start": period_start, "end": period_end},
         "source_control": {
             "closed_appointments": len(kept_visits),
             "deleted_report_rows_parsed": len(deleted_rows),
@@ -1136,6 +1253,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         "visits": kept_visits,
         "medical_records": medical,
         "service_control_rows": services,
+        "payment_control_rows": [],
         "deleted_appointments": deleted_rows,
         "primaries": primaries,
         "repeats": repeats,
@@ -1187,8 +1305,9 @@ def normalize_batch(conn, batch_id, upload_root):
     ).fetchall()
     names = {row["source_key"]: row["stored_filename"] for row in file_rows}
     required = {"appointments_registry", "medical_records", "services_detailed", "patients_general", "deleted_appointments"}
-    if set(names) != required:
-        raise ValueError("Набор файлов неполный.")
+    allowed = required | {"doctor_services_payments"}
+    if not required.issubset(set(names)) or not set(names).issubset(allowed):
+        raise ValueError("Набор файлов неполный или содержит неизвестный источник.")
 
     base = Path(upload_root) / str(batch["clinic_id"]) / str(batch_id)
     paths = {key: base / filename for key, filename in names.items()}
@@ -1197,6 +1316,11 @@ def normalize_batch(conn, batch_id, upload_root):
             raise ValueError("Файл набора отсутствует на сервере.")
 
     payload = normalize_source_files(paths)
+    if "doctor_services_payments" in paths:
+        payload["payment_control_rows"] = _payment_control_rows(
+            paths["doctor_services_payments"],
+            [row.get("doctor") for row in payload.get("visits", [])],
+        )
     now = iso_now()
     conn.execute("BEGIN IMMEDIATE")
     try:
