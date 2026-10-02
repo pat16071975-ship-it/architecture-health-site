@@ -190,6 +190,10 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertIn('data-size="half"', body)
         self.assertIn('data-size="full"', body)
         self.assertIn("function renderEmpty(d)", body)
+        self.assertIn("font-size:22px;font-weight:700", body)
+        self.assertIn("font-size:15px;line-height:1.45;font-weight:700", body)
+        self.assertIn("H=420,L=96,R=34,T=28,B=82", body)
+        self.assertIn("W=1040,L=360,R=180,rowH=58", body)
         self.assertIn('<a class="nn-back" href="/nn/">← Назад</a>', body)
 
     def test_summary_covers_business_sides_and_filters(self):

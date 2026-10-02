@@ -16,12 +16,12 @@
 .gr-card{grid-column:span 3;background:rgba(255,253,248,.98);border:1px solid var(--line);border-radius:15px;padding:15px;box-shadow:0 12px 32px rgba(69,55,35,.07);min-width:0}
 .gr-card.size-full{grid-column:span 6}.gr-card.size-half{grid-column:span 3}.gr-card.size-third{grid-column:span 2}
 .gr-card-head{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
-.gr-card h3{margin:0;font-size:15px}.gr-note{margin-top:4px;color:#7a807b;font-size:10px;line-height:1.35}
-.gr-size{display:flex;gap:3px;flex:none}.gr-size button{border:1px solid #d9cfbf;background:#fffaf3;border-radius:6px;padding:4px 6px;font:600 9px Montserrat;cursor:pointer;color:#5d665f}.gr-size button.active{background:#e9e1d3;color:#2d342f}
-.gr-chart{min-height:230px;display:flex;align-items:center;justify-content:center;overflow:auto}.gr-empty{width:100%;padding:28px;text-align:center;border:1px dashed #d8cdbb;border-radius:10px;color:#7b807c;font-size:12px}
-.gr-svg{width:100%;min-width:460px;height:auto;color:#44634f}.gr-svg text{font-family:Montserrat,Arial,sans-serif;fill:#657069;font-size:11px}.gr-svg .grid{stroke:#e7dfd2;stroke-width:1}.gr-svg .line{fill:none;stroke:currentColor;stroke-width:3}.gr-svg .area{fill:currentColor;opacity:.13}.gr-svg .dot{fill:#fff;stroke:currentColor;stroke-width:2}.gr-svg .bar{fill:currentColor;opacity:.82}.gr-svg .bar-bg{fill:#eee7dc}
-.gr-donut-wrap{display:grid;grid-template-columns:minmax(150px,220px) 1fr;gap:18px;align-items:center;width:100%}.gr-donut{width:190px;aspect-ratio:1;border-radius:50%;position:relative;margin:auto}.gr-donut:after{content:"";position:absolute;inset:28%;background:#fffdf8;border-radius:50%;box-shadow:inset 0 0 0 1px #eee4d4}.gr-legend{display:grid;gap:8px}.gr-legend-row{display:grid;grid-template-columns:10px 1fr auto;gap:7px;align-items:center;font-size:11px}.gr-dot{width:9px;height:9px;border-radius:50%}
-.gr-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}.gr-kpi{background:#fffdf8;border:1px solid #e1d7c8;border-radius:11px;padding:10px}.gr-kpi span{display:block;color:#737b75;font-size:10px}.gr-kpi strong{display:block;margin-top:3px;font-size:16px}.gr-kpi small{display:block;margin-top:3px;color:#848a85;font-size:9px}
+.gr-card h3{margin:0;font-size:19px;font-weight:800}.gr-note{margin-top:6px;color:#687067;font-size:15px;line-height:1.45;font-weight:700}
+.gr-size{display:flex;gap:5px;flex:none}.gr-size button{border:1px solid #d9cfbf;background:#fffaf3;border-radius:7px;padding:6px 8px;font:700 12px Montserrat;cursor:pointer;color:#4f5952}.gr-size button.active{background:#e9e1d3;color:#2d342f}
+.gr-chart{min-height:320px;display:flex;align-items:center;justify-content:center;overflow:auto}.gr-empty{width:100%;padding:34px;text-align:center;border:1px dashed #d8cdbb;border-radius:10px;color:#687067;font-size:17px;font-weight:700}
+.gr-svg{width:100%;min-width:560px;height:auto;color:#44634f}.gr-svg text{font-family:Montserrat,Arial,sans-serif;fill:#56625b;font-size:22px;font-weight:700}.gr-svg .grid{stroke:#e7dfd2;stroke-width:1.2}.gr-svg .line{fill:none;stroke:currentColor;stroke-width:3}.gr-svg .area{fill:currentColor;opacity:.13}.gr-svg .dot{fill:#fff;stroke:currentColor;stroke-width:2}.gr-svg .bar{fill:currentColor;opacity:.82}.gr-svg .bar-bg{fill:#eee7dc}
+.gr-donut-wrap{display:grid;grid-template-columns:minmax(220px,280px) 1fr;gap:24px;align-items:center;width:100%}.gr-donut{width:250px;aspect-ratio:1;border-radius:50%;position:relative;margin:auto}.gr-donut:after{content:"";position:absolute;inset:30%;background:#fffdf8;border-radius:50%;box-shadow:inset 0 0 0 1px #eee4d4}.gr-legend{display:grid;gap:11px}.gr-legend-row{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center;font-size:17px;font-weight:700}.gr-dot{width:13px;height:13px;border-radius:50%}
+.gr-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.gr-kpi{background:#fffdf8;border:1px solid #e1d7c8;border-radius:11px;padding:14px}.gr-kpi span{display:block;color:#657069;font-size:14px;font-weight:700}.gr-kpi strong{display:block;margin-top:5px;font-size:24px;font-weight:800}.gr-kpi small{display:block;margin-top:5px;color:#737b75;font-size:13px;font-weight:700;line-height:1.35}
 @media(max-width:1050px){.gr-filters{grid-template-columns:repeat(2,1fr)}.gr-card,.gr-card.size-half,.gr-card.size-third{grid-column:span 3}.gr-kpi-strip{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:680px){.gr-filters{grid-template-columns:1fr}.gr-card,.gr-card.size-half,.gr-card.size-third,.gr-card.size-full{grid-column:span 6}.gr-period{width:100%;margin-left:0}.gr-donut-wrap{grid-template-columns:1fr}.gr-kpi-strip{grid-template-columns:1fr}.gr-size{display:none}.gr-svg{min-width:420px}}
 </style>
@@ -97,22 +97,22 @@ function previousNote(current,previous,fmt){if(current==null||previous==null)ret
 function kpi(label,value,fmt,note){return'<div class="gr-kpi"><span>'+esc(label)+'</span><strong>'+esc(fmt(value))+'</strong>'+(note?'<small>'+esc(note)+'</small>':'')+'</div>'}
 function svgLine(id,rows,key,fmt,area=false){
   if(!rows?.length){empty(id);return}
-  const W=900,H=250,L=56,R=20,T=18,B=42,vals=rows.map(r=>Number(r[key]||0)),max=Math.max(...vals,1),min=Math.min(...vals,0),span=Math.max(max-min,1);
+  const W=900,H=420,L=96,R=34,T=28,B=82,vals=rows.map(r=>Number(r[key]||0)),max=Math.max(...vals,1),min=Math.min(...vals,0),span=Math.max(max-min,1);
   const x=i=>L+(W-L-R)*(rows.length===1?.5:i/(rows.length-1)),y=v=>T+(H-T-B)*(1-(v-min)/span);
   const pts=rows.map((r,i)=>[x(i),y(vals[i])]);
   const line=pts.map(p=>p.join(",")).join(" ");
   const poly=area?'<polygon class="area" points="'+L+','+(H-B)+' '+line+' '+(W-R)+','+(H-B)+'"></polygon>':"";
   const grid=[0,.25,.5,.75,1].map(q=>{const yy=T+(H-T-B)*q;const value=max-span*q;return'<line class="grid" x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'"></line><text x="4" y="'+(yy+4)+'">'+esc(fmt(value))+'</text>'}).join("");
-  const dots=pts.map((p,i)=>'<circle class="dot" cx="'+p[0]+'" cy="'+p[1]+'" r="4"><title>'+esc(rows[i].period)+': '+esc(fmt(vals[i]))+'</title></circle>').join("");
+  const dots=pts.map((p,i)=>'<circle class="dot" cx="'+p[0]+'" cy="'+p[1]+'" r="6"><title>'+esc(rows[i].period)+': '+esc(fmt(vals[i]))+'</title></circle>').join("");
   const idx=[0,Math.floor((rows.length-1)/2),rows.length-1].filter((v,i,a)=>a.indexOf(v)===i);
   const labels=idx.map(i=>'<text text-anchor="'+(i===0?'start':i===rows.length-1?'end':'middle')+'" x="'+x(i)+'" y="'+(H-12)+'">'+esc(rows[i].period)+'</text>').join("");
   document.getElementById("chart-"+id).innerHTML='<svg class="gr-svg" viewBox="0 0 '+W+' '+H+'" role="img">'+grid+poly+'<polyline class="line" points="'+line+'"></polyline>'+dots+labels+'</svg>'
 }
 function svgBars(id,rows,labelKey,valueKey,fmt,limit=null){
   if(!rows?.length){empty(id);return}
-  const data=limit?rows.slice(0,limit):rows,W=900,L=230,R=120,rowH=38,H=Math.max(220,data.length*rowH+20),max=Math.max(...data.map(r=>Number(r[valueKey]||0)),1);
+  const data=limit?rows.slice(0,limit):rows,W=1040,L=360,R=180,rowH=58,H=Math.max(320,data.length*rowH+30),max=Math.max(...data.map(r=>Number(r[valueKey]||0)),1);
   let body="";
-  data.forEach((r,i)=>{const y=12+i*rowH,v=Number(r[valueKey]||0),w=(W-L-R)*v/max;body+='<text x="4" y="'+(y+18)+'">'+esc(r[labelKey]||"—")+'</text><rect class="bar-bg" x="'+L+'" y="'+y+'" width="'+(W-L-R)+'" height="22" rx="5"></rect><rect class="bar" x="'+L+'" y="'+y+'" width="'+Math.max(v?2:0,w)+'" height="22" rx="5"></rect><text x="'+(W-R+8)+'" y="'+(y+17)+'">'+esc(fmt(v))+'</text>'});
+  data.forEach((r,i)=>{const y=16+i*rowH,v=Number(r[valueKey]||0),w=(W-L-R)*v/max;body+='<text x="4" y="'+(y+27)+'">'+esc(r[labelKey]||"—")+'</text><rect class="bar-bg" x="'+L+'" y="'+y+'" width="'+(W-L-R)+'" height="32" rx="7"></rect><rect class="bar" x="'+L+'" y="'+y+'" width="'+Math.max(v?3:0,w)+'" height="32" rx="7"></rect><text x="'+(W-R+12)+'" y="'+(y+26)+'">'+esc(fmt(v))+'</text>'});
   document.getElementById("chart-"+id).innerHTML='<svg class="gr-svg" viewBox="0 0 '+W+' '+H+'" role="img">'+body+'</svg>'
 }
 function donut(id,rows,labelKey,valueKey,fmt){
