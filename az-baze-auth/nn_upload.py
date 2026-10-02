@@ -392,6 +392,93 @@ def _stable_value(value):
     return str(value).strip()
 
 
+def _patient_refs(patient):
+    refs = set()
+    for value in patient.get("charts", []) or []:
+        value = str(value or "").strip()
+        if value:
+            refs.add("chart:" + value)
+    chart = str(patient.get("chart") or "").strip()
+    if chart:
+        refs.add("chart:" + chart)
+
+    iin = str(patient.get("iin") or "").strip()
+    if iin:
+        refs.add("iin:" + iin)
+
+    for value in patient.get("phones", []) or []:
+        value = str(value or "").strip()
+        if value:
+            refs.add("phone:" + value)
+    phone = str(patient.get("phone") or "").strip()
+    if phone:
+        refs.add("phone:" + phone)
+
+    name = " ".join(str(patient.get("name") or "").lower().replace("ё", "е").split())
+    dob = str(patient.get("dob") or "").strip()
+    if name and dob:
+        refs.add(f"name_dob:{name}|{dob}")
+    return refs
+
+
+def _patient_profile(patient):
+    return {
+        key: _stable_value(patient.get(key))
+        for key in ("name", "dob", "gender", "source", "iin", "chart", "phone", "note")
+    }
+
+
+def _patient_index(payload):
+    patients = list(payload.get("patients", []))
+    by_key = {
+        row.get("key"): row for row in patients if row.get("key")
+    }
+    by_ref = {}
+    for row in patients:
+        for ref in _patient_refs(row):
+            by_ref.setdefault(ref, []).append(row)
+    return by_key, by_ref
+
+
+def _find_patient(by_ref, refs):
+    matches = []
+    seen = set()
+    for ref in refs:
+        for row in by_ref.get(ref, []):
+            marker = id(row)
+            if marker not in seen:
+                seen.add(marker)
+                matches.append(row)
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+def _patient_conflicts_for_day(existing, candidate, day):
+    candidate_by_key, _candidate_by_ref = _patient_index(candidate)
+    _existing_by_key, existing_by_ref = _patient_index(existing)
+    keys = {
+        row.get("patient_key")
+        for source, date_field in _OVERLAP_EVENT_SOURCES[:2]
+        for row in _rows_for_day(candidate, source, date_field, day)
+        if row.get("patient_key")
+    }
+    conflicts = set()
+    for key in keys:
+        candidate_patient = candidate_by_key.get(key)
+        if not candidate_patient:
+            continue
+        candidate_refs = _patient_refs(candidate_patient)
+        existing_patient = _find_patient(existing_by_ref, candidate_refs)
+        if existing_patient is None:
+            conflicts.update(candidate_refs)
+            continue
+        if _patient_profile(existing_patient) != _patient_profile(candidate_patient):
+            conflicts.update(candidate_refs)
+            conflicts.update(_patient_refs(existing_patient))
+    return conflicts
+
+
 def _rows_for_day(payload, source, date_field, day):
     return [
         row for row in payload.get(source, [])
@@ -418,11 +505,13 @@ def _rows_equal_for_day(existing, candidate, source, date_field, day):
     return sorted(signature(row) for row in old_rows) == sorted(signature(row) for row in new_rows)
 
 
-def _day_matches(existing, candidate, day):
-    return all(
+def _day_comparison(existing, candidate, day):
+    rows_match = all(
         _rows_equal_for_day(existing, candidate, source, date_field, day)
         for source, date_field in _OVERLAP_EVENT_SOURCES
     )
+    patient_conflicts = _patient_conflicts_for_day(existing, candidate, day)
+    return rows_match and not patient_conflicts, patient_conflicts
 
 
 def _ready_periods(conn, clinic_id, exclude_batch_id=None):
@@ -467,22 +556,27 @@ def _analyze_overlap(conn, clinic_id, payload, batch_id=None):
             "matching_dates": [],
             "conflict_dates": [],
             "new_dates": new_dates,
+            "conflict_patient_refs": [],
         }
 
     import nn_reports
     existing = nn_reports.effective_payload(conn, clinic_id) or {}
     matching_dates = []
     conflict_dates = []
+    conflict_patient_refs = set()
     for day in loaded_dates:
-        if _day_matches(existing, payload, day):
+        matches, patient_conflicts = _day_comparison(existing, payload, day)
+        if matches:
             matching_dates.append(day)
         else:
             conflict_dates.append(day)
+            conflict_patient_refs.update(patient_conflicts)
 
     return {
         "matching_dates": matching_dates,
         "conflict_dates": conflict_dates,
         "new_dates": new_dates,
+        "conflict_patient_refs": sorted(conflict_patient_refs),
     }
 
 
@@ -519,15 +613,20 @@ def _finalize_overlap(conn, batch_id, analysis, decision):
     matching = sorted(set(analysis.get("matching_dates", [])))
     conflicts = sorted(set(analysis.get("conflict_dates", [])))
     new_dates = sorted(set(analysis.get("new_dates", [])))
+    conflict_patient_refs = sorted(set(analysis.get("conflict_patient_refs", [])))
 
     if decision == "keep_old":
         ignore_dates = sorted(set(matching + conflicts))
         replace_dates = []
+        ignore_patient_refs = conflict_patient_refs
+        replace_patient_refs = []
         active = bool(new_dates)
         use_controls = False
     elif decision == "use_new":
         ignore_dates = matching
         replace_dates = conflicts
+        ignore_patient_refs = []
+        replace_patient_refs = conflict_patient_refs
         active = bool(new_dates or conflicts)
         use_controls = active
     elif decision == "automatic":
@@ -535,6 +634,8 @@ def _finalize_overlap(conn, batch_id, analysis, decision):
             raise ValueError("Конфликт нельзя завершить автоматически.")
         ignore_dates = matching
         replace_dates = []
+        ignore_patient_refs = []
+        replace_patient_refs = []
         active = bool(new_dates)
         use_controls = active
     else:
@@ -551,6 +652,8 @@ def _finalize_overlap(conn, batch_id, analysis, decision):
         "new_dates": new_dates,
         "ignore_dates": ignore_dates,
         "replace_dates": replace_dates,
+        "ignore_patient_refs": ignore_patient_refs,
+        "replace_patient_refs": replace_patient_refs,
     }
     _store_merge_control(conn, batch_id, payload, control, "ready")
     return control
@@ -569,6 +672,9 @@ def _mark_overlap_conflict(conn, batch_id, analysis):
         "new_dates": sorted(set(analysis.get("new_dates", []))),
         "ignore_dates": [],
         "replace_dates": [],
+        "conflict_patient_refs": sorted(set(analysis.get("conflict_patient_refs", []))),
+        "ignore_patient_refs": [],
+        "replace_patient_refs": [],
     }
     _store_merge_control(conn, batch_id, payload, control, "processing")
     return control
@@ -660,6 +766,7 @@ def _resolve_overlap(conn, clinic_id, batch_id, choice):
         "matching_dates": control.get("matching_dates", []),
         "conflict_dates": control.get("conflict_dates", []),
         "new_dates": control.get("new_dates", []),
+        "conflict_patient_refs": control.get("conflict_patient_refs", []),
     }
     return _finalize_overlap(conn, batch_id, analysis, decision)
 
