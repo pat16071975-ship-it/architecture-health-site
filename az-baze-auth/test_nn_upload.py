@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import sqlite3
 import tempfile
@@ -79,10 +80,48 @@ class NNUploadTests(unittest.TestCase):
             session["csrf"] = "test-csrf"
         return client
 
-    def fake_normalize(self, conn, batch_id, _root):
-        conn.execute("UPDATE nn_upload_batches SET status='ready' WHERE id=?", (batch_id,))
+    def fake_normalize(self, conn, batch_id, _root, mark_ready=True):
+        nn_normalize._init_schema(conn)
+        row = conn.execute(
+            "SELECT clinic_id FROM nn_upload_batches WHERE id=?",
+            (batch_id,),
+        ).fetchone()
+        payload = {
+            "version": 1,
+            "period": {"start": "2026-06-01", "end": "2026-09-26"},
+            "patients": [],
+            "visits": [],
+            "medical_records": [],
+            "service_control_rows": [],
+            "payment_control_rows": [],
+            "deleted_appointments": [],
+        }
+        conn.execute(
+            """
+            INSERT INTO nn_normalized_batches(
+                batch_id,clinic_id,version,period_start,period_end,payload_json,normalized_at
+            ) VALUES(?,?,?,?,?,?,?)
+            ON CONFLICT(batch_id) DO UPDATE SET
+                payload_json=excluded.payload_json,
+                period_start=excluded.period_start,
+                period_end=excluded.period_end
+            """,
+            (
+                batch_id,
+                row["clinic_id"],
+                1,
+                "2026-06-01",
+                "2026-09-26",
+                json.dumps(payload, ensure_ascii=False),
+                app_module.iso_now(),
+            ),
+        )
+        conn.execute(
+            "UPDATE nn_upload_batches SET status=? WHERE id=?",
+            ("ready" if mark_ready else "processing", batch_id),
+        )
         conn.commit()
-        return {"period": {"start": "2026-06-01", "end": "2026-09-26"}}
+        return payload
 
     def bundle(self, clinic_id="1"):
         return {
@@ -162,7 +201,7 @@ class NNUploadTests(unittest.TestCase):
             )
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Пять обязательных файлов сохранены и обработаны", html)
+        self.assertIn("Добавлены новые данные за", html)
 
         conn = sqlite3.connect(app_module.DB_PATH)
         conn.row_factory = sqlite3.Row
@@ -198,7 +237,7 @@ class NNUploadTests(unittest.TestCase):
             )
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Дополнительный BI-файл подключён", html)
+        self.assertIn("Дополнительный BI-файл сохранён", html)
 
         conn = sqlite3.connect(app_module.DB_PATH)
         conn.row_factory = sqlite3.Row
