@@ -137,14 +137,19 @@ def _parse_date(value):
 
 
 def _parse_datetime(value):
+    if isinstance(value, datetime):
+        return value.isoformat(timespec="minutes")
     text = _clean_text(value)
     match = re.search(r"(\d{2}\.\d{2}\.\d{4})\D+(\d{1,2}:\d{2})", text)
-    if not match:
-        return None
+    if match:
+        try:
+            return datetime.strptime(
+                f"{match.group(1)} {match.group(2)}", "%d.%m.%Y %H:%M"
+            ).isoformat(timespec="minutes")
+        except ValueError:
+            return None
     try:
-        return datetime.strptime(
-            f"{match.group(1)} {match.group(2)}", "%d.%m.%Y %H:%M"
-        ).isoformat(timespec="minutes")
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).isoformat(timespec="minutes")
     except ValueError:
         return None
 
