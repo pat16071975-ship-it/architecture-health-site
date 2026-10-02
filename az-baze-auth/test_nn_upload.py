@@ -12,6 +12,7 @@ os.environ["AZBAZE_OWNER_EMAIL"] = "owner@example.com"
 
 import app as app_module
 import nn_normalize
+import nn_reports
 import nn_upload
 
 
@@ -328,6 +329,210 @@ class NNUploadTests(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM nn_upload_batches").fetchone()[0], 0)
         finally:
             conn.close()
+
+    def _overlap_payload(self, visits):
+        dates = sorted(row["date"] for row in visits)
+        patients = {}
+        rows = []
+        for source in visits:
+            row = {
+                "patient_key": f"card:{source.get('chart', '1')}",
+                "date": source["date"],
+                "start": source.get("start", "09:00"),
+                "end": source.get("end", "09:30"),
+                "doctor": source.get("doctor", "Врач А"),
+                "patient": source.get("patient", "Пациент Один"),
+                "chart": source.get("chart", "1"),
+                "phone": source.get("phone", "7000000001"),
+                "iin": "",
+                "repeat_field": "",
+                "note": source.get("note", ""),
+                "visit_type": "Амбулаторно",
+                "help_type": "",
+                "services_text": source.get("services_text", "Прием хирурга флеболога с УЗИ"),
+                "amount": source.get("amount", 0),
+            }
+            if "created_at" in source:
+                row["created_at"] = source["created_at"]
+            rows.append(row)
+            patients[row["chart"]] = {
+                "key": f"card:{row['chart']}",
+                "name": row["patient"],
+                "dob": "1980-01-01",
+                "iin": "",
+                "chart": row["chart"],
+                "phone": row["phone"],
+                "note": "",
+            }
+        return {
+            "version": 1,
+            "period": {"start": dates[0], "end": dates[-1]},
+            "patients": list(patients.values()),
+            "visits": rows,
+            "medical_records": [],
+            "service_control_rows": [],
+            "payment_control_rows": [],
+            "deleted_appointments": [],
+        }
+
+    def _seed_normalized_payload(self, conn, batch_id, payload, status="ready"):
+        nn_normalize._init_schema(conn)
+        now = app_module.iso_now()
+        conn.execute(
+            """
+            INSERT INTO nn_upload_batches(
+                id,clinic_id,bundle_sha256,status,uploaded_by,uploaded_at
+            ) VALUES(?,1,?,?,NULL,?)
+            """,
+            (batch_id, f"hash-{batch_id}", status, now),
+        )
+        conn.execute(
+            """
+            INSERT INTO nn_normalized_batches(
+                batch_id,clinic_id,version,period_start,period_end,payload_json,normalized_at
+            ) VALUES(?,1,1,?,?,?,?,?)
+            """,
+            (
+                batch_id,
+                payload["period"]["start"],
+                payload["period"]["end"],
+                json.dumps(payload, ensure_ascii=False),
+                now,
+            ),
+        )
+        conn.commit()
+
+    def test_overlap_matching_days_are_skipped_and_only_new_days_contribute(self):
+        conn = sqlite3.connect(app_module.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            old = self._overlap_payload([
+                {"date": "2026-06-01", "amount": 100},
+                {"date": "2026-06-02", "amount": 200},
+            ])
+            self._seed_normalized_payload(conn, 201, old, "ready")
+
+            candidate = self._overlap_payload([
+                {
+                    "date": "2026-06-02",
+                    "amount": 200,
+                    "created_at": "2026-05-30T10:00",
+                },
+                {"date": "2026-06-03", "amount": 300},
+            ])
+            self._seed_normalized_payload(conn, 202, candidate, "processing")
+
+            analysis = nn_upload._analyze_overlap(conn, 1, candidate, batch_id=202)
+            self.assertEqual(analysis["matching_dates"], ["2026-06-02"])
+            self.assertEqual(analysis["conflict_dates"], [])
+            self.assertEqual(analysis["new_dates"], ["2026-06-03"])
+
+            control = nn_upload._finalize_overlap(conn, 202, analysis, "automatic")
+            self.assertEqual(control["ignore_dates"], ["2026-06-02"])
+            self.assertEqual(control["replace_dates"], [])
+
+            effective = nn_reports.effective_payload(conn, 1)
+            by_date = {row["date"]: row["amount"] for row in effective["visits"]}
+            self.assertEqual(
+                by_date,
+                {
+                    "2026-06-01": 100.0,
+                    "2026-06-02": 200.0,
+                    "2026-06-03": 300.0,
+                },
+            )
+        finally:
+            conn.close()
+
+    def test_overlap_conflict_waits_for_choice_and_keep_old_preserves_history(self):
+        conn = sqlite3.connect(app_module.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            old = self._overlap_payload([
+                {"date": "2026-06-01", "amount": 100},
+                {"date": "2026-06-02", "amount": 200},
+            ])
+            self._seed_normalized_payload(conn, 211, old, "ready")
+
+            candidate = self._overlap_payload([
+                {"date": "2026-06-02", "amount": 999},
+                {"date": "2026-06-03", "amount": 300},
+            ])
+            self._seed_normalized_payload(conn, 212, candidate, "processing")
+
+            analysis = nn_upload._analyze_overlap(conn, 1, candidate, batch_id=212)
+            self.assertEqual(analysis["conflict_dates"], ["2026-06-02"])
+            self.assertEqual(analysis["new_dates"], ["2026-06-03"])
+            nn_upload._mark_overlap_conflict(conn, 212, analysis)
+
+            effective_before = nn_reports.effective_payload(conn, 1)
+            self.assertEqual(
+                {row["date"] for row in effective_before["visits"]},
+                {"2026-06-01", "2026-06-02"},
+            )
+
+            pending = nn_upload._pending_conflicts(conn, 1)
+            self.assertEqual(pending[0]["batch_id"], 212)
+            self.assertEqual(pending[0]["conflict_label"], "02.06.2026")
+
+            control = nn_upload._resolve_overlap(conn, 1, 212, "keep_old")
+            self.assertEqual(control["replace_dates"], [])
+            self.assertIn("2026-06-02", control["ignore_dates"])
+
+            effective_after = nn_reports.effective_payload(conn, 1)
+            by_date = {row["date"]: row["amount"] for row in effective_after["visits"]}
+            self.assertEqual(by_date["2026-06-02"], 200.0)
+            self.assertEqual(by_date["2026-06-03"], 300.0)
+        finally:
+            conn.close()
+
+    def test_overlap_conflict_use_new_replaces_only_conflicting_day(self):
+        conn = sqlite3.connect(app_module.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            old = self._overlap_payload([
+                {"date": "2026-06-01", "amount": 100},
+                {"date": "2026-06-02", "amount": 200},
+            ])
+            self._seed_normalized_payload(conn, 221, old, "ready")
+
+            candidate = self._overlap_payload([
+                {"date": "2026-06-02", "amount": 999},
+                {"date": "2026-06-03", "amount": 300},
+            ])
+            self._seed_normalized_payload(conn, 222, candidate, "processing")
+
+            analysis = nn_upload._analyze_overlap(conn, 1, candidate, batch_id=222)
+            nn_upload._mark_overlap_conflict(conn, 222, analysis)
+            control = nn_upload._resolve_overlap(conn, 1, 222, "use_new")
+
+            self.assertEqual(control["replace_dates"], ["2026-06-02"])
+            effective = nn_reports.effective_payload(conn, 1)
+            by_date = {row["date"]: row["amount"] for row in effective["visits"]}
+            self.assertEqual(by_date["2026-06-01"], 100.0)
+            self.assertEqual(by_date["2026-06-02"], 999.0)
+            self.assertEqual(by_date["2026-06-03"], 300.0)
+        finally:
+            conn.close()
+
+    def test_overlap_conflict_ui_requires_explicit_old_or_new_choice(self):
+        conn = sqlite3.connect(app_module.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            old = self._overlap_payload([{"date": "2026-06-02", "amount": 200}])
+            self._seed_normalized_payload(conn, 231, old, "ready")
+            candidate = self._overlap_payload([{"date": "2026-06-02", "amount": 999}])
+            self._seed_normalized_payload(conn, 232, candidate, "processing")
+            analysis = nn_upload._analyze_overlap(conn, 1, candidate, batch_id=232)
+            nn_upload._mark_overlap_conflict(conn, 232, analysis)
+        finally:
+            conn.close()
+
+        html = self.client_for(2).get("/nn/uploads/?clinic_id=1").get_data(as_text=True)
+        self.assertIn("Требуется решение по набору №232", html)
+        self.assertIn("Оставить ранее загруженные данные", html)
+        self.assertIn("Заменить новыми данными", html)
+        self.assertIn("До вашего решения этот набор не участвует в отчётах и BI.", html)
 
     def test_empty_legacy_mapping_schema_migrates_to_private_clinics(self):
         conn = sqlite3.connect(app_module.DB_PATH)
