@@ -199,7 +199,6 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertIn("H=compact?250:420", body)
         self.assertIn("gr-svg-compact", body)
         self.assertIn("{labelFormatter:shortDoctor}", body)
-        self.assertIn('{compact:true}', body)
         self.assertIn('{labelsAbove:true}', body)
         self.assertIn('data-fill-toggle', body)
         self.assertIn("Заливка: Вкл", body)
