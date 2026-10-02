@@ -374,7 +374,7 @@ def _count_groups(values, preferred=None):
     return [{"label": key, "value": counts[key]} for key in order if counts.get(key)]
 
 
-def _patient_section(payload, model, end):
+def _patient_section(payload, model, start, end):
     patients = _patient_map(payload)
     visits = model["visits"]
     pkeys = model["patient_keys"]
@@ -409,12 +409,7 @@ def _patient_section(payload, model, end):
     for key, rows in all_visits.items():
         rows = sorted(rows, key=lambda r: (r.get("date") or "", r.get("start") or ""))
         first = rows[0].get("date")
-        if not first or first < model["visits"][0]["date"] if False else False:
-            pass
-        if not first or not (request.args.get("date_from") or request.args.get("year")):
-            # We still filter below by the active period bounds stored in request model.
-            pass
-        if not first or first < request._nn_bi_start or first > request._nn_bi_end:
+        if not first or first < start or first > end:
             continue
         cohort = cohorts[first[:7]]
         cohort["patients"] += 1
@@ -624,8 +619,6 @@ def _summary_data(conn, clinic_id):
         return {"empty": True, "clinic_id": clinic_id, "clinic_name": clinic["name"]}
 
     start, end, ctx, doctor, service = _filters(payload)
-    request._nn_bi_start = start
-    request._nn_bi_end = end
     model = _period_model(payload, start, end, doctor, service)
     metrics = _basic_metrics(payload, model)
     previous = _previous_period(payload, start, end, doctor, service)
@@ -654,7 +647,7 @@ def _summary_data(conn, clinic_id):
         },
         "funnel": _funnel(payload, model),
         "doctors": _doctor_table(payload, model),
-        "patients": _patient_section(payload, model, end),
+        "patients": _patient_section(payload, model, start, end),
         "services": _service_section(payload, model),
         "bookings": _booking_section(payload, model, start, end, doctor),
         "revenue": {
