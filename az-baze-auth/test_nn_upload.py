@@ -162,7 +162,7 @@ class NNUploadTests(unittest.TestCase):
             )
         html = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Пять исходных файлов сохранены и обработаны", html)
+        self.assertIn("Пять обязательных файлов сохранены и обработаны", html)
 
         conn = sqlite3.connect(app_module.DB_PATH)
         conn.row_factory = sqlite3.Row
