@@ -138,6 +138,15 @@ def _frequency_label(count):
     return "3+ визита"
 
 
+def _gender_label(value):
+    text = str(value or "").strip().lower()
+    if text in {"жен", "ж", "женский", "female", "f"}:
+        return "Женский"
+    if text in {"муж", "м", "мужской", "male", "m"}:
+        return "Мужской"
+    return "Не указан"
+
+
 def _doctor_from_treatment(row):
     for kind in ("evlk", "sclero", "mini"):
         doctors = row.get("doctors", {}).get(kind, [])
@@ -299,18 +308,29 @@ def _funnel(payload, model):
     ]
     treated = []
     controlled = []
+    days_to_treatment = []
     repeats = payload.get("repeats", [])
     for primary in primaries:
         treatment = _treatment_after_primary(payload, primary)
         if not treatment:
             continue
         treated.append(primary)
+        try:
+            days_to_treatment.append(
+                (date.fromisoformat(treatment["first_date"]) - date.fromisoformat(primary["date"])).days
+            )
+        except (KeyError, TypeError, ValueError):
+            pass
         if any(
             row.get("patient_key") == primary.get("patient_key")
             and (row.get("date") or "") >= (treatment.get("first_date") or "")
             for row in repeats
         ):
             controlled.append(primary)
+    ordered_days = sorted(days_to_treatment)
+    median_days = (
+        ordered_days[len(ordered_days) // 2] if ordered_days else None
+    )
     return {
         "steps": [
             {"key": "primary", "label": "Первичный", "value": len(primaries)},
@@ -324,6 +344,11 @@ def _funnel(payload, model):
             sum(1 for row in indicated if _treatment_after_primary(payload, row)),
             len(indicated),
         ),
+        "days_to_treatment": {
+            "average": round(sum(days_to_treatment) / len(days_to_treatment), 1) if days_to_treatment else None,
+            "median": median_days,
+            "count": len(days_to_treatment),
+        },
     }
 
 
@@ -366,6 +391,28 @@ def _doctor_table(payload, model):
     return sorted(result, key=lambda row: (-row["revenue"], row["doctor"]))
 
 
+def _doctor_transitions(payload, model):
+    primary_by_patient = {
+        row.get("patient_key"): row
+        for row in model["primaries"]
+        if row.get("patient_key")
+    }
+    transitions = defaultdict(int)
+    for treatment in model["treatments"]:
+        key = treatment.get("patient_key")
+        primary = primary_by_patient.get(key)
+        if not primary:
+            continue
+        from_doctor = primary.get("doctor") or "Не указан"
+        to_doctor = _doctor_from_treatment(treatment) or "Не указан"
+        transitions[(from_doctor, to_doctor)] += 1
+    rows = [
+        {"primary_doctor": a, "treatment_doctor": b, "patients": count}
+        for (a, b), count in transitions.items()
+    ]
+    return sorted(rows, key=lambda row: (-row["patients"], row["primary_doctor"], row["treatment_doctor"]))
+
+
 def _count_groups(values, preferred=None):
     counts = defaultdict(int)
     for value in values:
@@ -391,7 +438,7 @@ def _patient_section(payload, model, start, end):
             dates[key].append(row["date"])
 
     age_groups = [_age_group(patients.get(key, {}), end) for key in pkeys]
-    gender = [patients.get(key, {}).get("gender") or "Не указан" for key in pkeys]
+    gender = [_gender_label(patients.get(key, {}).get("gender")) for key in pkeys]
     frequency = [_frequency_label(counts[key]) for key in pkeys]
 
     # Cohorts are defined by the first visit in all available history.
@@ -489,8 +536,33 @@ def _service_section(payload, model):
             "net": _money(row.get("amount")),
         })
     control.sort(key=lambda row: -row["net"])
+    chains = defaultdict(lambda: {"patients": 0, "revenue": 0.0})
+    by_patient = defaultdict(list)
+    for row in visits:
+        if row.get("patient_key"):
+            by_patient[row["patient_key"]].append(row)
+    for rows in by_patient.values():
+        rows.sort(key=lambda row: (row.get("date") or "", row.get("start") or ""))
+        sequence = []
+        total = 0.0
+        for row in rows:
+            label = SERVICE_LABELS.get(_service_bucket(row), "Прочее")
+            if not sequence or sequence[-1] != label:
+                sequence.append(label)
+            total += _money(row.get("amount"))
+        if sequence:
+            key = " → ".join(sequence)
+            chains[key]["patients"] += 1
+            chains[key]["revenue"] += total
+    chain_rows = [
+        {"chain": key, "patients": item["patients"], "revenue": round(item["revenue"], 2)}
+        for key, item in chains.items()
+    ]
+    chain_rows.sort(key=lambda row: (-row["patients"], -row["revenue"], row["chain"]))
+
     return {
         "categories": categories,
+        "chains": chain_rows[:20],
         "control_top": control[:25],
         "control_note": "Контрольная детализация услуг относится к актуальному загруженному набору и не применяется как отдельный источник оборота.",
     }
@@ -557,17 +629,56 @@ def _booking_section(payload, model, start, end, doctor):
     }
 
 
+def _trend_rows(model, start, end):
+    visits = model["visits"]
+    try:
+        span = (date.fromisoformat(end) - date.fromisoformat(start)).days + 1
+    except ValueError:
+        span = 0
+    monthly = span > 62
+    grouped = defaultdict(lambda: {"visits": 0, "patients": set(), "revenue": 0.0})
+    for row in visits:
+        day = row.get("date") or ""
+        key = day[:7] if monthly else day
+        if not key:
+            continue
+        item = grouped[key]
+        item["visits"] += 1
+        if row.get("patient_key"):
+            item["patients"].add(row["patient_key"])
+        item["revenue"] += _money(row.get("amount"))
+    return [
+        {
+            "period": key,
+            "visits": item["visits"],
+            "patients": len(item["patients"]),
+            "revenue": round(item["revenue"], 2),
+        }
+        for key, item in sorted(grouped.items())
+    ]
+
+
 def _discount_control(payload):
     rows = payload.get("service_control_rows", [])
     gross = sum(_money(row.get("gross_amount") or row.get("amount")) for row in rows)
     discount = sum(_money(row.get("discount")) for row in rows)
     net = sum(_money(row.get("amount")) for row in rows)
+    negative = [
+        {
+            "service": row.get("service", ""),
+            "qty": row.get("qty", 0),
+            "amount": _money(row.get("amount")),
+        }
+        for row in rows
+        if float(row.get("qty") or 0) < 0 or _money(row.get("amount")) < 0
+    ]
     return {
         "available": bool(rows),
         "gross": round(gross, 2),
         "discount": round(discount, 2),
         "net": round(net, 2),
         "discount_share": _pct(discount, gross),
+        "negative_rows": negative,
         "note": "Скидки рассчитаны по актуальному контрольному отчёту услуг; этот источник не используется для повторного суммирования оборота.",
     }
 
@@ -644,9 +755,11 @@ def _summary_data(conn, clinic_id):
             "metrics": metrics,
             "previous": previous,
             "drivers": _drivers(metrics, previous),
+            "trend": _trend_rows(model, start, end),
         },
         "funnel": _funnel(payload, model),
         "doctors": _doctor_table(payload, model),
+        "doctor_transitions": _doctor_transitions(payload, model),
         "patients": _patient_section(payload, model, start, end),
         "services": _service_section(payload, model),
         "bookings": _booking_section(payload, model, start, end, doctor),
@@ -687,7 +800,7 @@ def _relation_event_rows(payload, start, end, doctor, service, metric):
         return {
             "doctor": doctor_name or "Не указан",
             "age_group": _age_group(patient, end),
-            "gender": patient.get("gender") or "Не указан",
+            "gender": _gender_label(patient.get("gender")),
             "service": SERVICE_LABELS.get(service_key, service_key or "Не указана"),
             "weekday": _weekday(day),
             "time": _time_bucket(start_time),
