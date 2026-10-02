@@ -290,6 +290,16 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertEqual(rows[0]["amount"], 356000.0)
         self.assertEqual(rows[1]["method"], "Наличные")
 
+        kazakh_rows = nn_normalize._payment_control_rows_from_text(
+            """Период: 01.06.2026 00:00 - 20.06.2026 23:59
+ЫСМАЙЫЛ ДІНМҰХАММЕД ƏБДІРАШИДҰЛЫ
+всего Безнал. 36 1 452 000,0017 000,001 435 000,00
+""",
+            ["Ысмайыл Дінмұхаммед Әбдірашидұлы"],
+        )
+        self.assertEqual(kazakh_rows[0]["doctor"], "Ысмайыл Дінмұхаммед Әбдірашидұлы")
+        self.assertEqual(kazakh_rows[0]["amount"], 1435000.0)
+
     def test_new_normalization_helpers_preserve_bi_dimensions(self):
         self.assertEqual(nn_normalize._parse_datetime("27.05.2026, 13:47"), "2026-05-27T13:47")
         self.assertEqual(nn_normalize._parse_datetime("2026-05-27T13:47:00"), "2026-05-27T13:47")
