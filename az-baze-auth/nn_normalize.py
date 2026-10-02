@@ -594,6 +594,10 @@ def _payment_control_rows_from_text(text, doctors):
         key=len,
         reverse=True,
     )
+    doctor_keys = [
+        (doctor, " ".join(_norm_name(doctor).split()[:2]))
+        for doctor in doctor_names
+    ]
     period_match = re.search(
         r"Период:\s*(\d{2}\.\d{2}\.\d{4}).*?-\s*(\d{2}\.\d{2}\.\d{4})",
         str(text or ""),
@@ -620,8 +624,8 @@ def _payment_control_rows_from_text(text, doctors):
         # e.g. "51 000,002 141 300,00". Split exactly after two decimals.
         line = re.sub(r"([,.]\d{2})(?=\d)", r"\1 ", line)
         normalized_line = _norm_name(line)
-        for doctor in doctor_names:
-            if _norm_name(doctor) and _norm_name(doctor) in normalized_line:
+        for doctor, doctor_key in doctor_keys:
+            if doctor_key and doctor_key in normalized_line:
                 current_doctor = doctor
                 break
         match = subtotal_re.search(line)
