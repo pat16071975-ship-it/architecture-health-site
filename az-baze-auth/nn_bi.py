@@ -864,11 +864,11 @@ def _relation_event_rows(payload, start, end, doctor, service, metric):
             freq[row["patient_key"]] += 1
 
     primary_by_patient = {}
-    for row in payload.get("primaries", []):
+    for row in model.get("primaries", []):
         if row.get("patient_key"):
             primary_by_patient[row["patient_key"]] = row
     treatment_by_patient = {}
-    for row in payload.get("treatments", []):
+    for row in model.get("treatments", []):
         if row.get("patient_key"):
             treatment_by_patient[row["patient_key"]] = row
 
@@ -909,10 +909,13 @@ def _relation_event_rows(payload, start, end, doctor, service, metric):
                 matching.get("start"),
                 _service_bucket(matching) if matching else "consultation",
             )
+            followup_treatment = _treatment_after_primary(payload, primary)
+            if followup_treatment:
+                d["treatment_doctor"] = _doctor_from_treatment(followup_treatment) or "Не указан"
             rows.append({
                 **d,
                 "patient_key": pkey,
-                "treated": bool(_treatment_after_primary(payload, primary)),
+                "treated": bool(followup_treatment),
                 "amount": _money(primary.get("amount")),
             })
         return rows
