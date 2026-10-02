@@ -106,9 +106,17 @@ def effective_payload(conn, clinic_id):
         modern = isinstance(control, dict) and control.get("version") == 1
         merge_controls.append({
             "modern": modern,
+            "active": bool(control.get("active", True)) if modern else True,
+            "use_controls": bool(control.get("use_controls", True)) if modern else True,
             "ignore_dates": set(control.get("ignore_dates", [])) if modern else set(),
             "replace_dates": set(control.get("replace_dates", [])) if modern else set(),
         })
+
+    control_indices = [
+        index for index, control in enumerate(merge_controls)
+        if control["active"] and control["use_controls"]
+    ]
+    newest_control_index = control_indices[-1] if control_indices else None
 
     master = []
     visits = []
@@ -119,6 +127,10 @@ def effective_payload(conn, clinic_id):
     payment_control = []
 
     for index, payload in enumerate(payloads):
+        control = merge_controls[index]
+        if control["modern"] and not control["active"]:
+            continue
+
         for patient in payload.get("patients", []):
             master.append({
                 "name": patient.get("name", ""),
@@ -136,7 +148,7 @@ def effective_payload(conn, clinic_id):
             if _date_owned(index, item.get("date"), periods, merge_controls):
                 visits.append(dict(item))
         for item in payload.get("medical_records", []):
-            if _date_owned(index, item.get("date"), periods):
+            if _date_owned(index, item.get("date"), periods, merge_controls):
                 medical.append(dict(item))
         for item in payload.get("deleted_appointments", []):
             if _date_owned(index, item.get("appointment_date"), periods, merge_controls):
@@ -144,7 +156,7 @@ def effective_payload(conn, clinic_id):
 
         # Aggregate service controls are useful for reconciliation only.
         # Keep only the newest batch's control rows when histories overlap.
-        if index == len(payloads) - 1:
+        if index == newest_control_index:
             control_services = [dict(item) for item in payload.get("service_control_rows", [])]
             service_control_period = dict(
                 payload.get("service_control_period") or payload.get("period") or {}
