@@ -146,6 +146,21 @@ class NNBIAnalyticsTests(unittest.TestCase):
             self.assertIn(label, body)
         self.assertIn('<a class="nn-back" href="/nn/">← Назад</a>', body)
 
+    def test_empty_clinic_clears_all_bi_sections(self):
+        response = self.client_for(2).get("/api/nn/bi/summary?clinic_id=2")
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data["empty"])
+        self.assertEqual(data["clinic_name"], "Клиника 2 (Шевчеко)")
+
+        page = self.client_for(2).get("/nn/bi/")
+        body = page.get_data(as_text=True)
+        self.assertIn("function renderEmpty(d)", body)
+        self.assertIn('["overview","funnel","doctors","patients","services","bookings","revenue","marketing","relations"]', body)
+        self.assertIn('if(d.empty){renderEmpty(d);return}', body)
+        self.assertIn('exportLink.removeAttribute("href")', body)
+        self.assertIn('document.getElementById("relApply").disabled=true', body)
+
     def test_summary_covers_business_sides_and_filters(self):
         response = self.client_for(2).get(
             "/api/nn/bi/summary?clinic_id=1&date_from=2026-06-01&date_to=2026-06-30"
