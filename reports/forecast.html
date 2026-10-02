@@ -20,6 +20,19 @@ body{min-height:100vh}
 .btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:1px solid rgba(68,99,79,.3);border-radius:9px;background:#fff;color:#334039;text-decoration:none;font-size:11px;font-weight:700}
 .btn.primary{background:var(--green);border-color:var(--green);color:#fff}
 .controlbar{display:flex;gap:14px;align-items:end;flex-wrap:wrap;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:12px}
+.period-block{display:grid;gap:8px;min-width:min(620px,100%)}
+.period-presets{display:flex;gap:6px;flex-wrap:wrap}
+.period-btn{padding:8px 12px;border:1px solid #cfc5b5;border-radius:9px;background:#fff;color:#465149;font:700 11px Montserrat;cursor:pointer}
+.period-btn.active{background:var(--green);border-color:var(--green);color:#fff}
+.custom-period{display:none;grid-template-columns:repeat(2,minmax(180px,240px));gap:8px}
+.custom-period.open{display:grid}
+.period-summary{font-size:10px;line-height:1.45;color:#636b64}
+.period-summary strong{color:#303a33}
+.partial-strip{margin:0 12px 12px;padding:10px 12px;border:1px solid #e2d7c6;border-left:4px solid var(--gold);border-radius:10px;background:#fffaf1}
+.partial-strip h3{margin:0;font-size:12px}
+.partial-strip p{margin:5px 0 0;font-size:9px;line-height:1.45;color:#666e67}
+.partial-metrics{display:flex;gap:14px;flex-wrap:wrap;margin-top:7px;font-size:9px}
+.partial-metrics strong{font-size:11px;color:#2f3932}
 .field{display:grid;gap:5px;align-content:start;min-width:0}
 .field label{font-size:10px;font-weight:700;color:#667067}
 .field input,.field select{width:100%;padding:9px 10px;border:1px solid #cfc5b5;border-radius:8px;background:#fff;font:600 12px Montserrat}
@@ -155,13 +168,22 @@ th:first-child,td:first-child{text-align:left}
 </header>
 
 <div class="controlbar">
-  <div class="field">
-    <label>Базовый месяц</label>
-    <select id="baseMonth"></select>
-    <small>Фактическая точка, от которой строится прогноз.</small>
+  <div class="period-block">
+    <div class="field"><label>Период для расчёта базы</label></div>
+    <div class="period-presets" id="periodPresets">
+      <button class="period-btn active" type="button" data-months="3">3 полных месяца</button>
+      <button class="period-btn" type="button" data-months="6">6 полных месяцев</button>
+      <button class="period-btn" type="button" data-months="12">12 полных месяцев</button>
+      <button class="period-btn" type="button" data-months="custom">Свой период</button>
+    </div>
+    <div class="custom-period" id="customPeriod">
+      <div class="field"><label>С месяца</label><select id="periodFrom"></select></div>
+      <div class="field"><label>По месяц</label><select id="periodTo"></select></div>
+    </div>
+    <div class="period-summary" id="periodSummary"></div>
   </div>
   <div class="field">
-    <label>Горизонт</label>
+    <label>Горизонт прогноза</label>
     <select id="horizon">
       <option value="3">3 месяца</option>
       <option value="6" selected>6 месяцев</option>
@@ -174,13 +196,14 @@ th:first-child,td:first-child{text-align:left}
 <div id="loading" class="loading">Загрузка текущих данных…</div>
 
 <section id="app" style="display:none">
-  <section class="panel" id="currentPanel">
+  <section class="panel" id="basePanel">
     <div class="panel-title">
-      <h2>1. Текущая точка</h2>
-      <p>Только фактические показатели выбранного базового месяца. Здесь ничего не вводится.</p>
+      <h2>1. База прогноза</h2>
+      <p>Средние показатели одного месяца за выбранный период. Текущий неполный месяц в расчёт базы не входит.</p>
     </div>
-    <div id="currentSummary" class="current-summary"></div>
-    <div id="currentDirections" class="direction-current"></div>
+    <div id="baseSummary" class="current-summary"></div>
+    <div id="baseDirections" class="direction-current"></div>
+    <div id="partialCurrent"></div>
   </section>
 
   <section class="panel" id="plannerPanel">
@@ -247,7 +270,8 @@ th:first-child,td:first-child{text-align:left}
   <details class="method" id="forecastMethod">
     <summary>Как считается прогноз</summary>
     <div class="method-body">
-      <p><strong>1. База.</strong> Берутся фактические показатели выбранного месяца. По умолчанию расчёт идёт по направлению целиком; в точных настройках можно выбрать отдельного врача или раздел.</p>
+      <p><strong>1. База.</strong> Берутся только полные месяцы выбранного периода. Абсолютные показатели переводятся в средний месяц. Текущий неполный месяц показывается отдельно и в базу не входит.</p>
+      <p><strong>Коэффициенты базы.</strong> Повторные на 1 первичного считаются как все повторные периода / все первичные периода; средняя выручка на визит — вся выручка периода / все визиты периода; ФОТ % — суммарный расчётный ФОТ периода / суммарная выручка периода. То есть это не среднее из месячных коэффициентов.</p>
       <p><strong>2. Новый поток.</strong> Указанное дополнительное количество добавляется в каждый месяц горизонта. Повторные рассчитываются из фактического коэффициента и выбранного распределения.</p>
       <div class="method-formulas">
         <div class="formula">Доп. визиты = новый поток + новые повторные</div>
@@ -268,6 +292,7 @@ const $=s=>document.querySelector(s), money=n=>new Intl.NumberFormat('ru-RU',{ma
 const DIRS=[['structure','Отделение структуры'],['dent','Стоматология'],['lab','Лаборатория']];
 const SCENARIOS=[['conservative','Консервативный'],['base','Базовый'],['active','Активный']];
 let FIN=null,STORE={},ANALYTICS=null,SALARY=null,EXTRA=null;
+let ALL_MONTHS=[],FULL_MONTHS=[],BASE_MONTHS=[],PARTIAL_MONTH=null,BASE_PRESET='3';
 
 function parseBlob(k){try{return JSON.parse(STORE[k]||'null')}catch{return null}}
 function rec(m){return FIN?.management?.[m]||{}}
@@ -282,291 +307,263 @@ function baseline(m,d,seg){const s=stat(m,d),rev=segRev(m,d,seg);let visits=s.pr
 function curve(kind){return kind==='same'?[1]:kind==='fast'?[.6,.4]:[.4,.35,.25]}
 function clinicBase(m){const r=rec(m),legacy=num(r.factMedicine)+num(r.factLab),rev=(r.cashTotal!==undefined&&r.cashTotal!==null&&r.cashTotal!=='')?num(r.cashTotal):legacy,exp=Object.values(FIN?.expenses?.months?.[m]?.operating||{}).reduce((a,x)=>a+num(x.total),0);return{rev,exp,profit:rev-exp}}
 
+function monthEndISO(m){const [y,mo]=String(m).split('-').map(Number);if(!y||!mo)return'';const d=new Date(Date.UTC(y,mo,0));return d.toISOString().slice(0,10)}
+function monthStartISO(m){return String(m||'')+'-01'}
+function fullMonth(m){const d=String(rec(m).date||'').slice(0,10);return !!d&&d>=monthEndISO(m)}
+function ruDate(iso){if(!iso)return'—';const [y,m,d]=String(iso).slice(0,10).split('-');return d&&m&&y?d+'.'+m+'.'+y:'—'}
+function monthLabel(m){const [y,mo]=String(m).split('-').map(Number);if(!y||!mo)return m;return new Intl.DateTimeFormat('ru-RU',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(Date.UTC(y,mo-1,1)))}
+function baseEndMonth(){return BASE_MONTHS[BASE_MONTHS.length-1]||FULL_MONTHS[FULL_MONTHS.length-1]||ALL_MONTHS[ALL_MONTHS.length-1]||''}
+function periodLabel(){if(!BASE_MONTHS.length)return'Нет полного периода для расчёта';return ruDate(monthStartISO(BASE_MONTHS[0]))+' — '+ruDate(monthEndISO(BASE_MONTHS[BASE_MONTHS.length-1]))}
 function dirLabel(d){return DIRS.find(x=>x[0]===d)?.[1]||d}
 function scenarioLabel(key){return SCENARIOS.find(x=>x[0]===key)?.[1]||key}
-function monthName(base,index){
-  const p=String(base||'').split('-');
-  if(p.length!==2)return 'Месяц '+(index+1);
-  const dt=new Date(Date.UTC(+p[0],(+p[1]-1)+index+1,1));
-  return new Intl.DateTimeFormat('ru-RU',{month:'short',year:'numeric',timeZone:'UTC'}).format(dt);
-}
+function monthName(base,index){const p=String(base||'').split('-');if(p.length!==2)return'Месяц '+(index+1);const dt=new Date(Date.UTC(+p[0],(+p[1]-1)+index+1,1));return new Intl.DateTimeFormat('ru-RU',{month:'short',year:'numeric',timeZone:'UTC'}).format(dt)}
 function flowLabel(d){return d==='lab'?'Доп. поток / мес.':'Доп. первичных / мес.'}
 
+function segmentOptionsForPeriod(d){
+  const out=new Map([['all','Все направление']]);
+  BASE_MONTHS.forEach(m=>segments(d,m).forEach(x=>out.set(x[0],x[1])));
+  return [...out.entries()];
+}
+
+function periodBaseline(d,seg='all'){
+  const months=BASE_MONTHS;
+  if(!months.length)return{rev:0,visits:0,primary:0,repeat:0,avg:d==='lab'?12000:4500,rr:d==='lab'?1:2,fr:d==='dent'?.30:d==='structure'?.35:.40,med:d==='dent'?.12:d==='lab'?.18:.02,cap:20};
+  let totalRev=0,totalVisits=0,totalPrimary=0,totalRepeat=0,totalFot=0;
+  months.forEach(m=>{
+    const s=stat(m,d),rev=segRev(m,d,seg);
+    let visits=s.primary+s.repeat;
+    if(seg!=='all'&&s.rev>0)visits*=rev/s.rev;
+    const primary=seg==='all'?s.primary:(s.rev>0?s.primary*rev/s.rev:0);
+    const repeat=seg==='all'?s.repeat:(s.rev>0?s.repeat*rev/s.rev:0);
+    totalRev+=rev;totalVisits+=visits;totalPrimary+=primary;totalRepeat+=repeat;totalFot+=fotRate(m,d,rev)*rev;
+  });
+  const n=months.length,rev=totalRev/n,visits=totalVisits/n,primary=totalPrimary/n,repeat=totalRepeat/n;
+  const avg=totalVisits?totalRev/totalVisits:(d==='lab'?12000:4500);
+  const rr=totalPrimary?totalRepeat/totalPrimary:(d==='lab'?1:2);
+  const fr=totalRev?totalFot/totalRev:(d==='dent'?.30:d==='structure'?.35:.40);
+  const med=d==='dent'?.12:d==='lab'?.18:.02;
+  const cap=Math.max(Math.ceil(visits*1.5),Math.ceil(visits+20));
+  return{rev,visits,primary,repeat,avg,rr,fr,med,cap};
+}
+
+function clinicPeriodBase(){
+  if(!BASE_MONTHS.length)return{rev:0,exp:0,profit:0,primary:0,repeat:0};
+  const sum=BASE_MONTHS.reduce((a,m)=>{
+    const b=clinicBase(m),r=rec(m);
+    a.rev+=b.rev;a.exp+=b.exp;a.profit+=b.profit;
+    a.primary+=num(r.dentPrimary)+num(r.clinicPrimary);
+    a.repeat+=num(r.dentRepeat)+num(r.clinicRepeat);
+    return a;
+  },{rev:0,exp:0,profit:0,primary:0,repeat:0});
+  const n=BASE_MONTHS.length;
+  return{rev:sum.rev/n,exp:sum.exp/n,profit:sum.profit/n,primary:sum.primary/n,repeat:sum.repeat/n};
+}
+
+function setPreset(value){
+  BASE_PRESET=String(value);
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.toggle('active',b.dataset.months===BASE_PRESET));
+  $('#customPeriod').classList.toggle('open',BASE_PRESET==='custom');
+  if(BASE_PRESET!=='custom'){
+    const count=+BASE_PRESET;
+    BASE_MONTHS=FULL_MONTHS.slice(-count);
+  }else{
+    applyCustomPeriod();
+  }
+  refreshBaseSelection();
+}
+
+function applyCustomPeriod(){
+  const from=$('#periodFrom').value,to=$('#periodTo').value;
+  const fi=FULL_MONTHS.indexOf(from),ti=FULL_MONTHS.indexOf(to);
+  if(fi<0||ti<0){BASE_MONTHS=[];return}
+  const a=Math.min(fi,ti),b=Math.max(fi,ti);
+  BASE_MONTHS=FULL_MONTHS.slice(a,b+1);
+}
+
+function renderPeriodSummary(){
+  const requested=BASE_PRESET==='custom'?'свой период':BASE_PRESET+' полных мес.';
+  $('#periodSummary').innerHTML=BASE_MONTHS.length
+    ?'<strong>База: '+periodLabel()+'</strong> · '+BASE_MONTHS.length+' полных мес. · средние показатели одного месяца'
+    :'<strong>Нет полных месяцев для расчёта.</strong> Проверьте загруженные данные.';
+  if(BASE_PRESET!=='custom'&&BASE_MONTHS.length<+BASE_PRESET&&FULL_MONTHS.length){
+    $('#periodSummary').innerHTML+=' · доступно только '+BASE_MONTHS.length+' из '+requested;
+  }
+}
+
 function advancedCard(d,label){
-  return '<div class="advanced-direction">'+
-    '<h3>'+label+'</h3>'+
-    '<div class="advanced-fields">'+
-      '<div class="field"><label>Специалист / раздел</label><select id="seg-'+d+'"></select></div>'+
-      '<div class="field"><label>Повторных на 1 первичного</label><input id="rr-'+d+'" type="number" min="0" step="0.1"></div>'+
-      '<div class="field"><label>Средняя выручка / визит</label><input id="avg-'+d+'" type="number" min="0" step="100"></div>'+
-      '<div class="field"><label>ФОТ, %</label><input id="fot-'+d+'" type="number" min="0" max="100" step="1"></div>'+
-      '<div class="field"><label>Переменные мед. затраты, %</label><input id="med-'+d+'" type="number" min="0" max="100" step="1"></div>'+
-      '<div class="field"><label>Текущая мощность, приёмов / мес.</label><input id="cap-'+d+'" type="number" min="0" step="1"></div>'+
-    '</div>'+
-    '<div class="baseline" id="base-'+d+'"></div>'+
-  '</div>';
+  return '<div class="advanced-direction"><h3>'+label+'</h3><div class="advanced-fields">'+
+    '<div class="field"><label>Специалист / раздел</label><select id="seg-'+d+'"></select></div>'+
+    '<div class="field"><label>Повторных на 1 первичного</label><input id="rr-'+d+'" type="number" min="0" step="0.1"></div>'+
+    '<div class="field"><label>Средняя выручка / визит</label><input id="avg-'+d+'" type="number" min="0" step="100"></div>'+
+    '<div class="field"><label>ФОТ, %</label><input id="fot-'+d+'" type="number" min="0" max="100" step="1"></div>'+
+    '<div class="field"><label>Переменные мед. затраты, %</label><input id="med-'+d+'" type="number" min="0" max="100" step="1"></div>'+
+    '<div class="field"><label>Текущая мощность, приёмов / мес.</label><input id="cap-'+d+'" type="number" min="0" step="1"></div>'+
+    '</div><div class="baseline" id="base-'+d+'"></div></div>';
 }
 
 function fillSegments(d){
-  const m=$('#baseMonth').value,s=$('#seg-'+d),cur=s.value;
-  s.innerHTML=segments(d,m).map(x=>'<option value="'+x[0].replaceAll('"','&quot;')+'">'+x[1]+'</option>').join('');
+  const s=$('#seg-'+d),cur=s.value;
+  s.innerHTML=segmentOptionsForPeriod(d).map(x=>'<option value="'+x[0].replaceAll('"','&quot;')+'">'+x[1]+'</option>').join('');
   if([...s.options].some(o=>o.value===cur))s.value=cur;
 }
 
 function applyBase(d,force=false){
-  const m=$('#baseMonth').value,seg=$('#seg-'+d).value||'all',b=baseline(m,d,seg);
+  const seg=$('#seg-'+d).value||'all',b=periodBaseline(d,seg);
   if(force||!$('#rr-'+d).dataset.touched){
-    $('#rr-'+d).value=b.rr.toFixed(1);
-    $('#avg-'+d).value=Math.round(b.avg);
-    $('#fot-'+d).value=Math.round(b.fr*100);
-    $('#med-'+d).value=Math.round(b.med*100);
-    $('#cap-'+d).value=b.cap;
+    $('#rr-'+d).value=b.rr.toFixed(1);$('#avg-'+d).value=Math.round(b.avg);$('#fot-'+d).value=Math.round(b.fr*100);$('#med-'+d).value=Math.round(b.med*100);$('#cap-'+d).value=b.cap;
   }
-  $('#base-'+d).textContent='Факт: выручка '+money(b.rev)+' · первичных '+b.primary.toFixed(1)+' · повторных '+b.repeat.toFixed(1)+' · визитов '+b.visits.toFixed(1)+' · ФОТ ~'+pct(b.fr);
+  $('#base-'+d).textContent='Средний месяц базы: выручка '+money(b.rev)+' · первичных '+b.primary.toFixed(1)+' · повторных '+b.repeat.toFixed(1)+' · визитов '+b.visits.toFixed(1)+' · ФОТ ~'+pct(b.fr);
 }
 
-function renderCurrent(){
-  const m=$('#baseMonth').value,base=clinicBase(m),r=rec(m);
-  const totalPrimary=num(r.dentPrimary)+num(r.clinicPrimary);
-  const totalRepeat=num(r.dentRepeat)+num(r.clinicRepeat);
-  $('#currentSummary').innerHTML=[
-    ['Выручка',money(base.rev),'за базовый месяц'],
-    ['Операционная прибыль',money(base.profit),'выручка минус операционные расходы'],
-    ['Первичные',Math.round(totalPrimary).toLocaleString('ru-RU'),'стоматология + отделение структуры'],
-    ['Повторные',Math.round(totalRepeat).toLocaleString('ru-RU'),'по фактическим данным месяца']
+function renderPartialCurrent(){
+  if(!PARTIAL_MONTH){$('#partialCurrent').innerHTML='';return}
+  const r=rec(PARTIAL_MONTH),b=clinicBase(PARTIAL_MONTH);
+  const primary=num(r.dentPrimary)+num(r.clinicPrimary),repeat=num(r.dentRepeat)+num(r.clinicRepeat);
+  const cut=String(r.date||'').slice(0,10);
+  $('#partialCurrent').innerHTML='<div class="partial-strip"><h3>Текущий неполный месяц — '+monthLabel(PARTIAL_MONTH)+'</h3>'+
+    '<p>Данные по '+ruDate(cut)+'. Этот месяц показан только для информации и <strong>не включён в базу прогноза</strong>.</p>'+
+    '<div class="partial-metrics"><span>Выручка <strong>'+money(b.rev)+'</strong></span><span>Первичные <strong>'+primary.toFixed(0)+'</strong></span><span>Повторные <strong>'+repeat.toFixed(0)+'</strong></span></div></div>';
+}
+
+function renderBase(){
+  const base=clinicPeriodBase();
+  $('#baseSummary').innerHTML=[
+    ['Средняя месячная выручка',money(base.rev),periodLabel()],
+    ['Средняя операционная прибыль',money(base.profit),'среднее за один месяц базы'],
+    ['Первичные / мес.',base.primary.toFixed(1),'среднее за один месяц'],
+    ['Повторные / мес.',base.repeat.toFixed(1),'среднее за один месяц']
   ].map(x=>'<div class="metric"><span>'+x[0]+'</span><strong>'+x[1]+'</strong><em>'+x[2]+'</em></div>').join('');
 
-  $('#currentDirections').innerHTML=DIRS.map(([d,label])=>{
-    const b=baseline(m,d,'all');
-    const flow=d==='lab'?'Заказы/визиты':'Первичные';
+  $('#baseDirections').innerHTML=DIRS.map(([d,label])=>{
+    const b=periodBaseline(d,'all'),flow=d==='lab'?'Заказы/визиты':'Первичные / мес.';
     return '<div class="current-direction '+d+'"><h3>'+label+'</h3><div class="facts">'+
-      '<div class="fact"><span>Выручка</span><strong>'+money(b.rev)+'</strong></div>'+
-      '<div class="fact"><span>'+flow+'</span><strong>'+(d==='lab'?'—':b.primary.toFixed(0))+'</strong></div>'+
-      '<div class="fact"><span>Повторные</span><strong>'+(d==='lab'?'—':b.repeat.toFixed(0))+'</strong></div>'+
-      '<div class="fact"><span>Визиты</span><strong>'+(b.visits?b.visits.toFixed(0):'—')+'</strong></div>'+
-    '</div></div>';
+      '<div class="fact"><span>Средняя выручка / мес.</span><strong>'+money(b.rev)+'</strong></div>'+
+      '<div class="fact"><span>'+flow+'</span><strong>'+(d==='lab'?'—':b.primary.toFixed(1))+'</strong></div>'+
+      '<div class="fact"><span>Повторные / мес.</span><strong>'+(d==='lab'?'—':b.repeat.toFixed(1))+'</strong></div>'+
+      '<div class="fact"><span>Визиты / мес.</span><strong>'+(b.visits?b.visits.toFixed(1):'—')+'</strong></div>'+
+      '</div></div>';
   }).join('');
+  renderPartialCurrent();
 }
 
 function planDirection(skey,d,label){
-  return '<div class="plan-direction">'+
-    '<div class="plan-dir-head"><strong>'+label+'</strong><label class="toggle"><input type="checkbox" id="on-'+skey+'-'+d+'"> менять</label></div>'+
-    '<div class="plan-fields">'+
-      '<div class="field"><label>'+flowLabel(d)+'</label><input id="prim-'+skey+'-'+d+'" type="number" min="0" value="0"></div>'+
-      '<div class="field"><label>Маркетинг / мес.</label><input id="mkt-'+skey+'-'+d+'" type="number" min="0" step="1000" value="0"></div>'+
-      '<div class="field"><label>+ мощность, приёмов / мес.</label><input id="capadd-'+skey+'-'+d+'" type="number" min="0" step="1" value="0"></div>'+
-    '</div>'+
-  '</div>';
+  return '<div class="plan-direction"><div class="plan-dir-head"><strong>'+label+'</strong><label class="toggle"><input type="checkbox" id="on-'+skey+'-'+d+'"> менять</label></div><div class="plan-fields">'+
+    '<div class="field"><label>'+flowLabel(d)+'</label><input id="prim-'+skey+'-'+d+'" type="number" min="0" value="0"></div>'+
+    '<div class="field"><label>Маркетинг / мес.</label><input id="mkt-'+skey+'-'+d+'" type="number" min="0" step="1000" value="0"></div>'+
+    '<div class="field"><label>+ мощность, приёмов / мес.</label><input id="capadd-'+skey+'-'+d+'" type="number" min="0" step="1" value="0"></div></div></div>';
 }
 
 function renderPlanner(){
   $('#scenarioPlanner').innerHTML=SCENARIOS.map(([key,label])=>{
     const hint=key==='conservative'?'Осторожный вариант ваших решений.':key==='active'?'Более активный вариант ваших решений.':'Основной вариант, который хотите проверить.';
-    return '<div class="scenario-plan '+key+'"><div class="scenario-head"><h3>'+label+'</h3><p>'+hint+'</p></div>'+
-      DIRS.map(([d,dl])=>planDirection(key,d,dl)).join('')+
-    '</div>';
+    return '<div class="scenario-plan '+key+'"><div class="scenario-head"><h3>'+label+'</h3><p>'+hint+'</p></div>'+DIRS.map(([d,dl])=>planDirection(key,d,dl)).join('')+'</div>';
   }).join('');
 }
 
 function scenarioDirection(d,skey){
-  const m=$('#baseMonth').value,seg=$('#seg-'+d).value||'all',b=baseline(m,d,seg);
-  const on=$('#on-'+skey+'-'+d).checked;
-  const add=on?num($('#prim-'+skey+'-'+d).value):0;
-  const marketing=on?num($('#mkt-'+skey+'-'+d).value):0;
-  const capacityAdd=on?num($('#capadd-'+skey+'-'+d).value):0;
+  const seg=$('#seg-'+d).value||'all',b=periodBaseline(d,seg),on=$('#on-'+skey+'-'+d).checked;
+  const add=on?num($('#prim-'+skey+'-'+d).value):0,marketing=on?num($('#mkt-'+skey+'-'+d).value):0,capacityAdd=on?num($('#capadd-'+skey+'-'+d).value):0;
   const rr=num($('#rr-'+d).value),avg=num($('#avg-'+d).value),fot=num($('#fot-'+d).value)/100,med=num($('#med-'+d).value)/100;
   const cap=num($('#cap-'+d).value)+capacityAdd,h=+$('#horizon').value,c=curve($('#repeatCurve').value),rows=[];
-  for(let k=0;k<h;k++){
-    let repeat=0;
-    for(let j=0;j<c.length;j++){const source=k-j;if(source>=0)repeat+=add*rr*c[j]}
-    const visits=add+repeat,totalVisits=b.visits+visits,load=cap?totalVisits/cap:0,rev=visits*avg,fotCost=rev*fot,medCost=rev*med,profit=rev-fotCost-medCost-marketing;
-    rows.push({k,add,repeat,visits,load,rev,fotCost,medCost,marketing,profit});
-  }
-  const tot=rows.reduce((a,r)=>{
-    for(const k of ['rev','fotCost','medCost','marketing','profit','visits'])a[k]+=r[k];
-    a.maxLoad=Math.max(a.maxLoad,r.load);
-    return a;
-  },{rev:0,fotCost:0,medCost:0,marketing:0,profit:0,visits:0,maxLoad:0});
+  for(let k=0;k<h;k++){let repeat=0;for(let j=0;j<c.length;j++){const source=k-j;if(source>=0)repeat+=add*rr*c[j]}const visits=add+repeat,totalVisits=b.visits+visits,load=cap?totalVisits/cap:0,rev=visits*avg,fotCost=rev*fot,medCost=rev*med,profit=rev-fotCost-medCost-marketing;rows.push({k,add,repeat,visits,load,rev,fotCost,medCost,marketing,profit})}
+  const tot=rows.reduce((a,r)=>{for(const k of ['rev','fotCost','medCost','marketing','profit','visits'])a[k]+=r[k];a.maxLoad=Math.max(a.maxLoad,r.load);return a},{rev:0,fotCost:0,medCost:0,marketing:0,profit:0,visits:0,maxLoad:0});
   return{d,seg,b,on,capacityAdd,cap,rows,tot,last:rows[rows.length-1]||{rev:0,profit:0,visits:0,load:0,marketing:0}};
 }
 
 function scenarioBundle(skey){
-  const m=$('#baseMonth').value,base=clinicBase(m),dirs=DIRS.map(x=>scenarioDirection(x[0],skey));
-  const cumulative={rev:0,profit:0,marketing:0,visits:0,maxLoad:0};
-  const last={rev:0,profit:0,visits:0,maxLoad:0};
-  dirs.forEach(s=>{
-    cumulative.rev+=s.tot.rev;
-    cumulative.profit+=s.tot.profit;
-    cumulative.marketing+=s.tot.marketing;
-    cumulative.visits+=s.tot.visits;
-    cumulative.maxLoad=Math.max(cumulative.maxLoad,s.tot.maxLoad);
-    last.rev+=s.last.rev;
-    last.profit+=s.last.profit;
-    last.visits+=s.last.visits;
-    last.maxLoad=Math.max(last.maxLoad,s.last.load);
-  });
-  return{
-    key:skey,base,dirs,cumulative,last,
-    endRevenue:base.rev+last.rev,
-    endProfit:base.profit+last.profit,
-    active:dirs.filter(s=>s.on)
-  };
+  const base=clinicPeriodBase(),dirs=DIRS.map(x=>scenarioDirection(x[0],skey));
+  const cumulative={rev:0,profit:0,marketing:0,visits:0,maxLoad:0},last={rev:0,profit:0,visits:0,maxLoad:0};
+  dirs.forEach(s=>{cumulative.rev+=s.tot.rev;cumulative.profit+=s.tot.profit;cumulative.marketing+=s.tot.marketing;cumulative.visits+=s.tot.visits;cumulative.maxLoad=Math.max(cumulative.maxLoad,s.tot.maxLoad);last.rev+=s.last.rev;last.profit+=s.last.profit;last.visits+=s.last.visits;last.maxLoad=Math.max(last.maxLoad,s.last.load)});
+  return{key:skey,base,dirs,cumulative,last,endRevenue:base.rev+last.rev,endProfit:base.profit+last.profit,active:dirs.filter(s=>s.on)};
 }
 
 function resultCard(bundle){
   const cls=bundle.endProfit>=0?'positive':'negative';
-  return '<div class="result-card" data-scenario="'+bundle.key+'">'+
-    '<header><h3>'+scenarioLabel(bundle.key)+'</h3></header>'+
-    '<div class="result-main"><span>Выручка в месяц к концу горизонта</span><strong>'+money(bundle.base.rev)+' → '+money(bundle.endRevenue)+'</strong><small>последний месяц сценария</small></div>'+
-    '<div class="result-main"><span>Операционная прибыль в месяц</span><strong class="'+cls+'">'+money(bundle.base.profit)+' → '+money(bundle.endProfit)+'</strong><small>последний месяц сценария</small></div>'+
-    '<div class="result-rows">'+
-      '<div class="result-row"><span>Доп. прибыль за горизонт</span><strong class="'+(bundle.cumulative.profit>=0?'positive':'negative')+'">'+money(bundle.cumulative.profit)+'</strong></div>'+
-      '<div class="result-row"><span>Доп. выручка за горизонт</span><strong>'+money(bundle.cumulative.rev)+'</strong></div>'+
-      '<div class="result-row"><span>Доп. визиты за горизонт</span><strong>'+bundle.cumulative.visits.toFixed(0)+'</strong></div>'+
-      '<div class="result-row"><span>Доп. маркетинг за горизонт</span><strong>'+money(bundle.cumulative.marketing)+'</strong></div>'+
-      '<div class="result-row"><span>Макс. загрузка</span><strong class="'+(bundle.cumulative.maxLoad>1?'negative':'')+'">'+pct(bundle.cumulative.maxLoad)+'</strong></div>'+
-    '</div>'+
-  '</div>';
+  return '<div class="result-card" data-scenario="'+bundle.key+'"><header><h3>'+scenarioLabel(bundle.key)+'</h3></header>'+
+    '<div class="result-main"><span>Выручка в месяц к концу горизонта</span><strong>'+money(bundle.base.rev)+' → '+money(bundle.endRevenue)+'</strong><small>от среднего месяца базы к последнему месяцу сценария</small></div>'+
+    '<div class="result-main"><span>Операционная прибыль в месяц</span><strong class="'+cls+'">'+money(bundle.base.profit)+' → '+money(bundle.endProfit)+'</strong><small>от среднего месяца базы к последнему месяцу сценария</small></div>'+
+    '<div class="result-rows"><div class="result-row"><span>Доп. прибыль за горизонт</span><strong class="'+(bundle.cumulative.profit>=0?'positive':'negative')+'">'+money(bundle.cumulative.profit)+'</strong></div>'+
+    '<div class="result-row"><span>Доп. выручка за горизонт</span><strong>'+money(bundle.cumulative.rev)+'</strong></div><div class="result-row"><span>Доп. визиты за горизонт</span><strong>'+bundle.cumulative.visits.toFixed(0)+'</strong></div>'+
+    '<div class="result-row"><span>Доп. маркетинг за горизонт</span><strong>'+money(bundle.cumulative.marketing)+'</strong></div><div class="result-row"><span>Макс. загрузка</span><strong class="'+(bundle.cumulative.maxLoad>1?'negative':'')+'">'+pct(bundle.cumulative.maxLoad)+'</strong></div></div></div>';
 }
 
 function decisionFor(bundle){
-  if(!bundle.active.length){
-    return{tone:'neutral',badge:'Без изменений',text:'В этом сценарии пока не включено ни одного направления.'};
-  }
+  if(!bundle.active.length)return{tone:'neutral',badge:'Без изменений',text:'В этом сценарии пока не включено ни одного направления.'};
   const overloaded=bundle.active.filter(s=>s.tot.maxLoad>1);
-  if(overloaded.length){
-    return{tone:'warning',badge:'Упирается в мощность',text:'Перегрузка ожидается в: '+overloaded.map(s=>dirLabel(s.d)).join(', ')+'. Увеличьте доступную мощность или снизьте планируемый поток.'};
-  }
-  if(bundle.cumulative.profit<0){
-    return{tone:'warning',badge:'Рост не окупается',text:'При заданных маркетинге, ФОТ, среднем чеке и медзатратах накопительный дополнительный результат отрицательный.'};
-  }
+  if(overloaded.length)return{tone:'warning',badge:'Упирается в мощность',text:'Перегрузка ожидается в: '+overloaded.map(s=>dirLabel(s.d)).join(', ')+'. Увеличьте доступную мощность или снизьте планируемый поток.'};
+  if(bundle.cumulative.profit<0)return{tone:'warning',badge:'Рост не окупается',text:'При заданных маркетинге, ФОТ, среднем чеке и медзатратах накопительный дополнительный результат отрицательный.'};
   return{tone:'',badge:'Можно развивать',text:'Сценарий даёт '+money(bundle.cumulative.rev)+' дополнительной выручки и '+money(bundle.cumulative.profit)+' дополнительной операционной прибыли за выбранный горизонт.'};
 }
 
 function renderResults(){
   const bundles=SCENARIOS.map(x=>scenarioBundle(x[0]));
   $('#scenarioResults').innerHTML=bundles.map(resultCard).join('');
-  $('#scenarioDecisions').innerHTML=bundles.map(b=>{
-    const d=decisionFor(b);
-    return '<div class="decision '+d.tone+'" data-decision="'+b.key+'"><h3>'+scenarioLabel(b.key)+'</h3><span class="badge">'+d.badge+'</span><p>'+d.text+'</p></div>';
-  }).join('');
+  $('#scenarioDecisions').innerHTML=bundles.map(b=>{const d=decisionFor(b);return '<div class="decision '+d.tone+'" data-decision="'+b.key+'"><h3>'+scenarioLabel(b.key)+'</h3><span class="badge">'+d.badge+'</span><p>'+d.text+'</p></div>'}).join('');
   return bundles;
 }
 
-function directionDetail(s){
-  const t=s.tot;
-  return '<div class="detail-cards">'+
-    '<div class="detail-card"><span>Доп. визиты</span><strong>'+t.visits.toFixed(0)+'</strong></div>'+
-    '<div class="detail-card"><span>Доп. выручка</span><strong>'+money(t.rev)+'</strong></div>'+
-    '<div class="detail-card"><span>Доп. прибыль</span><strong class="'+(t.profit>=0?'positive':'negative')+'">'+money(t.profit)+'</strong></div>'+
-    '<div class="detail-card"><span>Макс. загрузка</span><strong class="'+(t.maxLoad>1?'negative':'')+'">'+pct(t.maxLoad)+'</strong></div>'+
-  '</div>'+monthTable(s);
-}
-
-function monthTable(s){
-  const baseMonth=$('#baseMonth').value;
-  return '<div class="table-wrap"><table><thead><tr><th>Месяц</th><th>Новый поток</th><th>Новые повторные</th><th>Доп. визиты</th><th>Загрузка</th><th>Доп. выручка</th><th>ФОТ</th><th>Мед. затраты</th><th>Маркетинг</th><th>Доп. прибыль</th></tr></thead><tbody>'+
-    s.rows.map((r,i)=>'<tr><td>'+monthName(baseMonth,i)+'</td><td>'+r.add.toFixed(1)+'</td><td>'+r.repeat.toFixed(1)+'</td><td>'+r.visits.toFixed(1)+'</td><td>'+pct(r.load)+'</td><td>'+money(r.rev)+'</td><td>'+money(r.fotCost)+'</td><td>'+money(r.medCost)+'</td><td>'+money(r.marketing)+'</td><td>'+money(r.profit)+'</td></tr>').join('')+
-  '</tbody></table></div>';
-}
+function directionDetail(s){const t=s.tot;return '<div class="detail-cards"><div class="detail-card"><span>Доп. визиты</span><strong>'+t.visits.toFixed(0)+'</strong></div><div class="detail-card"><span>Доп. выручка</span><strong>'+money(t.rev)+'</strong></div><div class="detail-card"><span>Доп. прибыль</span><strong class="'+(t.profit>=0?'positive':'negative')+'">'+money(t.profit)+'</strong></div><div class="detail-card"><span>Макс. загрузка</span><strong class="'+(t.maxLoad>1?'negative':'')+'">'+pct(t.maxLoad)+'</strong></div></div>'+monthTable(s)}
+function monthTable(s){const baseMonth=baseEndMonth();return '<div class="table-wrap"><table><thead><tr><th>Месяц</th><th>Новый поток</th><th>Новые повторные</th><th>Доп. визиты</th><th>Загрузка</th><th>Доп. выручка</th><th>ФОТ</th><th>Мед. затраты</th><th>Маркетинг</th><th>Доп. прибыль</th></tr></thead><tbody>'+s.rows.map((r,i)=>'<tr><td>'+monthName(baseMonth,i)+'</td><td>'+r.add.toFixed(1)+'</td><td>'+r.repeat.toFixed(1)+'</td><td>'+r.visits.toFixed(1)+'</td><td>'+pct(r.load)+'</td><td>'+money(r.rev)+'</td><td>'+money(r.fotCost)+'</td><td>'+money(r.medCost)+'</td><td>'+money(r.marketing)+'</td><td>'+money(r.profit)+'</td></tr>').join('')+'</tbody></table></div>'}
 
 function clinicMonthTable(bundle){
-  const h=+$('#horizon').value,baseMonth=$('#baseMonth').value,rows=[];
-  for(let i=0;i<h;i++){
-    let addRev=0,addProfit=0,addMarketing=0,maxLoad=0,visits=0;
-    bundle.dirs.forEach(s=>{
-      const r=s.rows[i]||{};
-      addRev+=num(r.rev);addProfit+=num(r.profit);addMarketing+=num(r.marketing);visits+=num(r.visits);maxLoad=Math.max(maxLoad,num(r.load));
-    });
-    rows.push({i,addRev,addProfit,addMarketing,maxLoad,visits});
-  }
-  return '<div class="table-wrap"><table><thead><tr><th>Месяц</th><th>Выручка клиники</th><th>Опер. прибыль клиники</th><th>Доп. визиты</th><th>Доп. маркетинг</th><th>Макс. загрузка</th></tr></thead><tbody>'+
-    rows.map(r=>'<tr><td>'+monthName(baseMonth,r.i)+'</td><td>'+money(bundle.base.rev+r.addRev)+'</td><td>'+money(bundle.base.profit+r.addProfit)+'</td><td>'+r.visits.toFixed(1)+'</td><td>'+money(r.addMarketing)+'</td><td>'+pct(r.maxLoad)+'</td></tr>').join('')+
-  '</tbody></table></div>';
+  const h=+$('#horizon').value,baseMonth=baseEndMonth(),rows=[];
+  for(let i=0;i<h;i++){let addRev=0,addProfit=0,addMarketing=0,maxLoad=0,visits=0;bundle.dirs.forEach(s=>{const r=s.rows[i]||{};addRev+=num(r.rev);addProfit+=num(r.profit);addMarketing+=num(r.marketing);visits+=num(r.visits);maxLoad=Math.max(maxLoad,num(r.load))});rows.push({i,addRev,addProfit,addMarketing,maxLoad,visits})}
+  return '<div class="table-wrap"><table><thead><tr><th>Месяц</th><th>Выручка клиники</th><th>Опер. прибыль клиники</th><th>Доп. визиты</th><th>Доп. маркетинг</th><th>Макс. загрузка</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+monthName(baseMonth,r.i)+'</td><td>'+money(bundle.base.rev+r.addRev)+'</td><td>'+money(bundle.base.profit+r.addProfit)+'</td><td>'+r.visits.toFixed(1)+'</td><td>'+money(r.addMarketing)+'</td><td>'+pct(r.maxLoad)+'</td></tr>').join('')+'</tbody></table></div>';
 }
 
 function renderDetails(){
   const key=$('#detailScenario').value,b=scenarioBundle(key);
-  $('#detailAccordion').innerHTML=b.dirs.map((s,i)=>{
-    return '<button class="acc-head" data-i="'+i+'"><span>+ '+dirLabel(s.d)+(s.on?' · изменения включены':' · без изменений')+'</span><strong>'+(s.on?money(s.tot.profit):'текущая база')+'</strong></button>'+
-      '<div class="acc-body" id="acc-'+i+'">'+directionDetail(s)+'</div>';
-  }).join('')+
-  '<button class="acc-head" data-i="clinic"><span>+ Клиника целиком</span><strong>'+money(b.endProfit)+'</strong></button>'+
-  '<div class="acc-body" id="acc-clinic"><div class="detail-cards">'+
-    '<div class="detail-card"><span>Выручка в конце</span><strong>'+money(b.endRevenue)+'</strong></div>'+
-    '<div class="detail-card"><span>Прибыль в конце</span><strong>'+money(b.endProfit)+'</strong></div>'+
-    '<div class="detail-card"><span>Доп. прибыль накопительно</span><strong>'+money(b.cumulative.profit)+'</strong></div>'+
-    '<div class="detail-card"><span>Доп. маркетинг накопительно</span><strong>'+money(b.cumulative.marketing)+'</strong></div>'+
-  '</div>'+clinicMonthTable(b)+'</div>';
-
-  document.querySelectorAll('.acc-head').forEach(btn=>{
-    btn.onclick=()=>$('#acc-'+btn.dataset.i).classList.toggle('open');
-  });
+  $('#detailAccordion').innerHTML=b.dirs.map((s,i)=>'<button class="acc-head" data-i="'+i+'"><span>+ '+dirLabel(s.d)+(s.on?' · изменения включены':' · без изменений')+'</span><strong>'+(s.on?money(s.tot.profit):'средняя база')+'</strong></button><div class="acc-body" id="acc-'+i+'">'+directionDetail(s)+'</div>').join('')+
+    '<button class="acc-head" data-i="clinic"><span>+ Клиника целиком</span><strong>'+money(b.endProfit)+'</strong></button><div class="acc-body" id="acc-clinic"><div class="detail-cards"><div class="detail-card"><span>Выручка в конце</span><strong>'+money(b.endRevenue)+'</strong></div><div class="detail-card"><span>Прибыль в конце</span><strong>'+money(b.endProfit)+'</strong></div><div class="detail-card"><span>Доп. прибыль накопительно</span><strong>'+money(b.cumulative.profit)+'</strong></div><div class="detail-card"><span>Доп. маркетинг накопительно</span><strong>'+money(b.cumulative.marketing)+'</strong></div></div>'+clinicMonthTable(b)+'</div>';
+  document.querySelectorAll('.acc-head').forEach(btn=>{btn.onclick=()=>$('#acc-'+btn.dataset.i).classList.toggle('open')});
 }
 
-function renderAll(){
-  renderCurrent();
-  renderResults();
-  renderDetails();
+function renderAll(){renderPeriodSummary();renderBase();renderResults();renderDetails()}
+function refreshBaseSelection(){
+  DIRS.forEach(([d])=>{fillSegments(d);applyBase(d,true)});
+  renderAll();
 }
 
 function wirePlanner(){
-  SCENARIOS.forEach(([skey])=>{
-    DIRS.forEach(([d])=>{
-      ['on','prim','mkt','capadd'].forEach(id=>{
-        $('#'+id+'-'+skey+'-'+d).oninput=renderAll;
-      });
-    });
-  });
+  SCENARIOS.forEach(([skey])=>DIRS.forEach(([d])=>['on','prim','mkt','capadd'].forEach(id=>{$('#'+id+'-'+skey+'-'+d).oninput=renderAll})));
 }
 
 function wireAdvanced(){
   DIRS.forEach(([d])=>{
     $('#seg-'+d).onchange=()=>{applyBase(d,true);renderAll()};
-    ['rr','avg','fot','med','cap'].forEach(id=>{
-      $('#'+id+'-'+d).oninput=e=>{e.target.dataset.touched='1';renderAll()};
-    });
+    ['rr','avg','fot','med','cap'].forEach(id=>{$('#'+id+'-'+d).oninput=e=>{e.target.dataset.touched='1';renderAll()}});
   });
   $('#repeatCurve').onchange=renderAll;
 }
 
-async function init(){
-  const [fr,sr]=await Promise.all([
-    fetch('/api/reports/finrez',{credentials:'same-origin',cache:'no-store'}),
-    fetch('/api/reports/storage',{credentials:'same-origin',cache:'no-store'})
-  ]);
-  FIN=await fr.json();
-  STORE=(await sr.json()).storage||{};
-  ANALYTICS=parseBlob('az-service-analytics-v1');
-  SALARY=parseBlob('az-service-salary-v1');
-  EXTRA=parseBlob('az-service-extra-payments-v1');
+function initPeriods(){
+  ALL_MONTHS=Object.keys(FIN.management||{}).sort();
+  FULL_MONTHS=ALL_MONTHS.filter(fullMonth);
+  const latest=ALL_MONTHS[ALL_MONTHS.length-1]||null;
+  PARTIAL_MONTH=latest&&!fullMonth(latest)?latest:null;
 
-  const months=Object.keys(FIN.management||{}).sort();
-  $('#baseMonth').innerHTML=months.map(m=>'<option value="'+m+'">'+m+'</option>').join('');
-  $('#baseMonth').value=months[months.length-1]||'';
-
-  $('#advancedGrid').innerHTML=DIRS.map(x=>advancedCard(x[0],x[1])).join('');
-  DIRS.forEach(([d])=>{fillSegments(d);applyBase(d,true)});
-
-  renderPlanner();
-  wirePlanner();
-  wireAdvanced();
-
-  $('#baseMonth').onchange=()=>{
-    DIRS.forEach(([d])=>{fillSegments(d);applyBase(d,true)});
-    renderAll();
-  };
-  $('#horizon').onchange=renderAll;
-  $('#detailScenario').onchange=renderDetails;
-
-  $('#loading').style.display='none';
-  $('#app').style.display='block';
-  renderAll();
+  const opts=FULL_MONTHS.map(m=>'<option value="'+m+'">'+monthLabel(m)+'</option>').join('');
+  $('#periodFrom').innerHTML=opts;$('#periodTo').innerHTML=opts;
+  const initial=FULL_MONTHS.slice(-3);
+  if(initial.length){$('#periodFrom').value=initial[0];$('#periodTo').value=initial[initial.length-1]}
+  document.querySelectorAll('.period-btn').forEach(btn=>btn.onclick=()=>setPreset(btn.dataset.months));
+  $('#periodFrom').onchange=()=>{applyCustomPeriod();refreshBaseSelection()};
+  $('#periodTo').onchange=()=>{applyCustomPeriod();refreshBaseSelection()};
+  BASE_MONTHS=initial;
 }
 
-init().catch(e=>{
-  $('#loading').textContent='Не удалось загрузить данные прогноза: '+e.message;
-});
+async function init(){
+  const [fr,sr]=await Promise.all([fetch('/api/reports/finrez',{credentials:'same-origin',cache:'no-store'}),fetch('/api/reports/storage',{credentials:'same-origin',cache:'no-store'})]);
+  FIN=await fr.json();STORE=(await sr.json()).storage||{};ANALYTICS=parseBlob('az-service-analytics-v1');SALARY=parseBlob('az-service-salary-v1');EXTRA=parseBlob('az-service-extra-payments-v1');
+  initPeriods();
+  $('#advancedGrid').innerHTML=DIRS.map(x=>advancedCard(x[0],x[1])).join('');
+  DIRS.forEach(([d])=>{fillSegments(d);applyBase(d,true)});
+  renderPlanner();wirePlanner();wireAdvanced();
+  $('#horizon').onchange=renderAll;$('#detailScenario').onchange=renderDetails;
+  $('#loading').style.display='none';$('#app').style.display='block';renderAll();
+}
+
+init().catch(e=>{$('#loading').textContent='Не удалось загрузить данные прогноза: '+e.message});
 </script>
 </body>
 </html>
