@@ -144,6 +144,7 @@ class NNBIAnalyticsTests(unittest.TestCase):
             "Запись и потери", "Выручка и скидки", "Маркетинг", "Связи",
         ):
             self.assertIn(label, body)
+        self.assertIn('<a class="nn-back" href="/nn/">← Назад</a>', body)
 
     def test_summary_covers_business_sides_and_filters(self):
         response = self.client_for(2).get(
