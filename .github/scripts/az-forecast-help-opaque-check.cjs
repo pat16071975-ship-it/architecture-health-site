@@ -91,7 +91,8 @@ async function state(page){
   if(s.baseDirections!==3) fail('Expected 3 base direction cards, got '+s.baseDirections);
   if(!s.periodText.includes('01.07.2026 — 30.09.2026')) fail('Default base must be last 3 full months: '+s.periodText);
   if(!s.periodText.includes('3 полных мес.')) fail('Default period month count missing: '+s.periodText);
-  if(s.baseFirst!=='1 100 000 ₽') fail('Monthly average revenue must be 1 100 000 ₽, got '+s.baseFirst);
+  const normalizedBaseFirst=s.baseFirst.replace(/\u00a0/g,' ');
+  if(normalizedBaseFirst!=='1 100 000 ₽') fail('Monthly average revenue must be 1 100 000 ₽, got '+s.baseFirst);
   if(!s.partialText.includes('октябрь 2026')) fail('Current incomplete month is not shown separately: '+s.partialText);
   if(!s.partialText.includes('132 140 ₽')) fail('Current incomplete month revenue missing: '+s.partialText);
   if(!s.partialText.includes('не включён в базу прогноза')) fail('Partial month exclusion warning missing');
