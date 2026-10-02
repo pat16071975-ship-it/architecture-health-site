@@ -359,10 +359,13 @@ class NNUploadTests(unittest.TestCase):
                 "key": f"card:{row['chart']}",
                 "name": row["patient"],
                 "dob": "1980-01-01",
+                "gender": source.get("gender", ""),
+                "source": source.get("source", ""),
+                "visits_count": source.get("visits_count", 0),
                 "iin": "",
                 "chart": row["chart"],
                 "phone": row["phone"],
-                "note": "",
+                "note": source.get("patient_note", ""),
             }
         return {
             "version": 1,
@@ -512,6 +515,43 @@ class NNUploadTests(unittest.TestCase):
             self.assertEqual(by_date["2026-06-01"], 100.0)
             self.assertEqual(by_date["2026-06-02"], 999.0)
             self.assertEqual(by_date["2026-06-03"], 300.0)
+        finally:
+            conn.close()
+
+    def test_overlap_patient_profile_difference_requires_choice_and_respects_it(self):
+        conn = sqlite3.connect(app_module.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            old = self._overlap_payload([
+                {"date": "2026-06-02", "amount": 200, "source": "2GIS"},
+            ])
+            self._seed_normalized_payload(conn, 225, old, "ready")
+
+            candidate = self._overlap_payload([
+                {"date": "2026-06-02", "amount": 200, "source": "Instagram"},
+            ])
+            self._seed_normalized_payload(conn, 226, candidate, "processing")
+
+            analysis = nn_upload._analyze_overlap(conn, 1, candidate, batch_id=226)
+            self.assertEqual(analysis["matching_dates"], [])
+            self.assertEqual(analysis["conflict_dates"], ["2026-06-02"])
+            self.assertIn("chart:1", analysis["conflict_patient_refs"])
+
+            nn_upload._mark_overlap_conflict(conn, 226, analysis)
+            nn_upload._resolve_overlap(conn, 1, 226, "keep_old")
+            kept = nn_reports.effective_payload(conn, 1)
+            self.assertEqual(kept["patients"][0]["source"], "2GIS")
+
+            # Re-create the same candidate as a fresh pending batch and choose the new profile.
+            candidate2 = self._overlap_payload([
+                {"date": "2026-06-02", "amount": 200, "source": "Instagram"},
+            ])
+            self._seed_normalized_payload(conn, 227, candidate2, "processing")
+            analysis2 = nn_upload._analyze_overlap(conn, 1, candidate2, batch_id=227)
+            nn_upload._mark_overlap_conflict(conn, 227, analysis2)
+            nn_upload._resolve_overlap(conn, 1, 227, "use_new")
+            replaced = nn_reports.effective_payload(conn, 1)
+            self.assertEqual(replaced["patients"][0]["source"], "Instagram")
         finally:
             conn.close()
 
