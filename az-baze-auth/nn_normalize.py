@@ -583,14 +583,19 @@ def _deleted_rows(path, doctors):
     return rows, total
 
 
-def _payment_control_rows(path, doctors):
-    reader = PdfReader(str(path))
-    text = "\n".join((page.extract_text() or "") for page in reader.pages)
+def _payment_control_rows_from_text(text, doctors):
     doctor_names = sorted(
         {_clean_text(value) for value in doctors if _clean_text(value)},
         key=len,
         reverse=True,
     )
+    period_match = re.search(
+        r"Период:\s*(\d{2}\.\d{2}\.\d{4}).*?-\s*(\d{2}\.\d{2}\.\d{4})",
+        str(text or ""),
+        re.I | re.S,
+    )
+    period_start = _parse_date(period_match.group(1)) if period_match else None
+    period_end = _parse_date(period_match.group(2)) if period_match else None
     subtotal_re = re.compile(
         rf"всего\s+"
         rf"(?P<method>Наличные|Безнал\.?|Смешанная|Без оплаты)\s+"
@@ -602,7 +607,7 @@ def _payment_control_rows(path, doctors):
     )
     current_doctor = ""
     rows = []
-    for raw_line in text.splitlines():
+    for raw_line in str(text or "").splitlines():
         line = _clean_text(raw_line)
         if not line:
             continue
@@ -630,10 +635,18 @@ def _payment_control_rows(path, doctors):
             "gross_amount": _num(match.group("gross")),
             "discount": _num(match.group("discount")),
             "amount": _num(match.group("net")),
+            "period_start": period_start,
+            "period_end": period_end,
         })
     if not rows:
         raise ValueError("Не удалось распознать способы оплаты в PDF «Оказанные врачами услуги».")
     return rows
+
+
+def _payment_control_rows(path, doctors):
+    reader = PdfReader(str(path))
+    text = "\n".join((page.extract_text() or "") for page in reader.pages)
+    return _payment_control_rows_from_text(text, doctors)
 
 
 class PatientResolver:
