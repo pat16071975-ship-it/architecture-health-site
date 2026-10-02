@@ -595,7 +595,9 @@ def _overlap_message(control):
         )
     if new_dates:
         parts.append(f"Добавлены новые данные за {_display_ranges(new_dates)}.")
-    if not parts:
+    if matching and not conflicts and not new_dates:
+        parts.append("Новые данные не добавлялись.")
+    elif not parts:
         parts.append("Новые данные не добавлялись.")
     return " ".join(parts)
 
@@ -682,61 +684,123 @@ def handle_uploads_page():
         if not selected_clinic:
             error = error or "Сначала выберите клинику."
         else:
+            action = request.form.get("action", "upload")
             try:
-                items = {}
-                for source_key, label, extension, _stored in SOURCE_SLOTS:
-                    items[source_key] = _read_slot(
-                        request.files.get(source_key),
-                        label,
-                        extension,
-                    )
-                for source_key, label, extension, _stored in OPTIONAL_SOURCE_SLOTS:
-                    uploaded = request.files.get(source_key)
-                    if uploaded and uploaded.filename:
-                        items[source_key] = _read_slot(uploaded, label, extension)
-                result = _store_bundle(
-                    conn,
-                    int(selected_clinic["id"]),
-                    int(g.user["id"]),
-                    items,
-                )
-                should_normalize = (
-                    result["status"] == "uploaded"
-                    or result.get("existing_status") in {"uploaded", "error"}
-                )
-                if should_normalize:
-                    import nn_normalize
-                    batch_id = int(result["batch_id"])
+                if action == "resolve_overlap":
                     try:
-                        payload = nn_normalize.normalize_batch(conn, batch_id, UPLOAD_ROOT)
-                        result = {
-                            "status": "ready",
-                            "batch_id": batch_id,
-                            "message": (
-                                "Пять обязательных файлов сохранены и обработаны. "
-                                + ("Дополнительный BI-файл подключён. " if "doctor_services_payments" in items else "")
-                                + f"Период: {payload['period']['start'] or '—'} — {payload['period']['end'] or '—'}."
-                            ),
-                        }
-                    except Exception:
-                        conn.execute(
-                            "UPDATE nn_upload_batches SET status='error' WHERE id=?",
-                            (batch_id,),
+                        batch_id = int(request.form.get("batch_id", ""))
+                    except (TypeError, ValueError):
+                        raise ValueError("Не указан конфликтный набор.")
+                    control = _resolve_overlap(
+                        conn,
+                        int(selected_clinic["id"]),
+                        batch_id,
+                        request.form.get("choice", ""),
+                    )
+                    result = {
+                        "status": "ready",
+                        "batch_id": batch_id,
+                        "message": _overlap_message(control),
+                    }
+                elif action == "upload":
+                    items = {}
+                    for source_key, label, extension, _stored in SOURCE_SLOTS:
+                        items[source_key] = _read_slot(
+                            request.files.get(source_key),
+                            label,
+                            extension,
                         )
-                        conn.commit()
-                        error = (
-                            "Файлы сохранены, но автоматическая обработка не завершена. "
-                            "Набор помечен как ошибка обработки."
-                        )
+                    for source_key, label, extension, _stored in OPTIONAL_SOURCE_SLOTS:
+                        uploaded = request.files.get(source_key)
+                        if uploaded and uploaded.filename:
+                            items[source_key] = _read_slot(uploaded, label, extension)
+
+                    result = _store_bundle(
+                        conn,
+                        int(selected_clinic["id"]),
+                        int(g.user["id"]),
+                        items,
+                    )
+                    should_normalize = (
+                        result["status"] == "uploaded"
+                        or result.get("existing_status") in {"uploaded", "error"}
+                    )
+                    if should_normalize:
+                        import nn_normalize
+                        batch_id = int(result["batch_id"])
+                        try:
+                            payload = nn_normalize.normalize_batch(
+                                conn,
+                                batch_id,
+                                UPLOAD_ROOT,
+                                mark_ready=False,
+                            )
+                            analysis = _analyze_overlap(
+                                conn,
+                                int(selected_clinic["id"]),
+                                payload,
+                                batch_id=batch_id,
+                            )
+                            if analysis["conflict_dates"]:
+                                control = _mark_overlap_conflict(conn, batch_id, analysis)
+                                message = (
+                                    f"Обнаружены отличия в ранее загруженных данных за "
+                                    f"{_display_ranges(control['conflict_dates'])}. "
+                                    "До вашего выбора этот набор не влияет на отчёты и BI."
+                                )
+                                if control["matching_dates"]:
+                                    message += (
+                                        f" Совпадающие данные за "
+                                        f"{_display_ranges(control['matching_dates'])} повторно не загружаются."
+                                    )
+                                if control["new_dates"]:
+                                    message += (
+                                        f" Новые данные за {_display_ranges(control['new_dates'])} "
+                                        "будут добавлены после разрешения конфликта."
+                                    )
+                                result = {
+                                    "status": "conflict",
+                                    "batch_id": batch_id,
+                                    "message": message,
+                                }
+                            else:
+                                control = _finalize_overlap(
+                                    conn,
+                                    batch_id,
+                                    analysis,
+                                    "automatic",
+                                )
+                                result = {
+                                    "status": "ready",
+                                    "batch_id": batch_id,
+                                    "message": _overlap_message(control),
+                                }
+                            if "doctor_services_payments" in items:
+                                result["message"] += " Дополнительный BI-файл сохранён."
+                        except Exception:
+                            conn.execute(
+                                "UPDATE nn_upload_batches SET status='error' WHERE id=?",
+                                (batch_id,),
+                            )
+                            conn.commit()
+                            error = (
+                                "Файлы сохранены, но автоматическая обработка не завершена. "
+                                "Набор помечен как ошибка обработки."
+                            )
+                else:
+                    raise ValueError("Неизвестное действие загрузки.")
             except ValueError as exc:
                 error = str(exc)
             except Exception:
-                error = "Не удалось сохранить набор файлов. Данные не изменены."
+                error = "Не удалось обработать набор файлов. Рабочие данные не изменены."
 
     latest = None
     latest_files = {}
+    pending_conflicts = []
     if selected_clinic:
-        latest, latest_files = _latest_batch(conn, int(selected_clinic["id"]))
+        clinic_id = int(selected_clinic["id"])
+        latest, latest_files = _latest_batch(conn, clinic_id)
+        pending_conflicts = _pending_conflicts(conn, clinic_id)
 
     return render_template(
         "nn_uploads.html",
@@ -746,7 +810,9 @@ def handle_uploads_page():
         optional_source_slots=OPTIONAL_SOURCE_SLOTS,
         latest=latest,
         latest_files=latest_files,
+        pending_conflicts=pending_conflicts,
         result=result,
         error=error,
         csrf=csrf_token(),
     )
+
