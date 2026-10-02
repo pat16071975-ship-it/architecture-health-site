@@ -603,6 +603,8 @@ def _overlap_message(control):
 
 
 def _pending_conflicts(conn, clinic_id):
+    if not _table_exists(conn, "nn_normalized_batches"):
+        return []
     rows = conn.execute(
         """
         SELECT n.batch_id,n.payload_json,b.uploaded_at
