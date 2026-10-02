@@ -71,10 +71,23 @@ def _dedupe_rows(rows, fields):
     return list(found.values())
 
 
-def _date_owned(batch_index, value, periods):
+def _date_owned(batch_index, value, periods, merge_controls):
     if not value:
         return False
+
+    current = merge_controls[batch_index]
+    if current["modern"] and value in current["ignore_dates"]:
+        return False
+
     for later in range(batch_index + 1, len(periods)):
+        control = merge_controls[later]
+        if control["modern"]:
+            if value in control["replace_dates"]:
+                return False
+            continue
+
+        # Preserve the historical rule for already accepted legacy batches:
+        # a later legacy batch owns its whole declared period.
         start, end = periods[later]
         if start and end and start <= value <= end:
             return False
@@ -87,6 +100,15 @@ def effective_payload(conn, clinic_id):
         return None
     payloads = [_safe_json(row["payload_json"]) for row in rows]
     periods = [(row["period_start"], row["period_end"]) for row in rows]
+    merge_controls = []
+    for payload in payloads:
+        control = payload.get("merge_control")
+        modern = isinstance(control, dict) and control.get("version") == 1
+        merge_controls.append({
+            "modern": modern,
+            "ignore_dates": set(control.get("ignore_dates", [])) if modern else set(),
+            "replace_dates": set(control.get("replace_dates", [])) if modern else set(),
+        })
 
     master = []
     visits = []
@@ -111,13 +133,13 @@ def effective_payload(conn, clinic_id):
                 "source_amount": 0,
             })
         for item in payload.get("visits", []):
-            if _date_owned(index, item.get("date"), periods):
+            if _date_owned(index, item.get("date"), periods, merge_controls):
                 visits.append(dict(item))
         for item in payload.get("medical_records", []):
             if _date_owned(index, item.get("date"), periods):
                 medical.append(dict(item))
         for item in payload.get("deleted_appointments", []):
-            if _date_owned(index, item.get("appointment_date"), periods):
+            if _date_owned(index, item.get("appointment_date"), periods, merge_controls):
                 deleted.append(dict(item))
 
         # Aggregate service controls are useful for reconciliation only.
