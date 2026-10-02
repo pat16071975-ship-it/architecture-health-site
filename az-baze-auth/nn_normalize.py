@@ -1290,7 +1290,7 @@ def normalize_source_files(paths):
     return normalize_rows(master, registry, medical, services, deleted_rows, deleted_total)
 
 
-def normalize_batch(conn, batch_id, upload_root):
+def normalize_batch(conn, batch_id, upload_root, mark_ready=True):
     _init_schema(conn)
     batch = conn.execute(
         "SELECT id,clinic_id FROM nn_upload_batches WHERE id=?",
@@ -1347,8 +1347,8 @@ def normalize_batch(conn, batch_id, upload_root):
             ),
         )
         conn.execute(
-            "UPDATE nn_upload_batches SET status='ready' WHERE id=?",
-            (batch_id,),
+            "UPDATE nn_upload_batches SET status=? WHERE id=?",
+            ("ready" if mark_ready else "processing", batch_id),
         )
         conn.commit()
     except Exception:

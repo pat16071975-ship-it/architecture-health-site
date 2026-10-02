@@ -23,6 +23,10 @@
 .nn-latest-row{display:grid;grid-template-columns:minmax(160px,220px) 1fr;gap:10px;padding:8px 0;border-top:1px solid #eee6da;font-size:12px}
 .nn-latest-row:first-of-type{border-top:0}
 .nn-status-badge{display:inline-block;padding:3px 7px;border-radius:999px;background:#edf2ed;border:1px solid #d5e0d5;font-size:10px;font-weight:600}
+.nn-conflict-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.nn-conflict-actions button{border:1px solid #725d35;border-radius:9px;padding:9px 13px;font:600 12px Montserrat,Arial,sans-serif;cursor:pointer}
+.nn-conflict-actions button[value="keep_old"]{background:#fff;color:#725d35}
+.nn-conflict-actions button[value="use_new"]{background:#725d35;color:#fff}
 @media(max-width:650px){
   .nn-clinic-form{display:grid;grid-template-columns:1fr}
   .nn-field{min-width:0}
@@ -61,12 +65,33 @@
 
   {% if error %}<div class="nn-state err">{{ error }}</div>{% endif %}
   {% if result %}
-    <div class="nn-state {% if result.status == 'duplicate' %}warn{% else %}ok{% endif %}">{{ result.message }}</div>
+    <div class="nn-state {% if result.status in ('duplicate','conflict') %}warn{% else %}ok{% endif %}">{{ result.message }}</div>
+  {% endif %}
+
+  {% if selected_clinic and pending_conflicts %}
+    {% for conflict in pending_conflicts %}
+      <div class="nn-state warn">
+        <strong>Требуется решение по набору №{{ conflict['batch_id'] }}</strong><br>
+        Отличаются ранее загруженные данные за: <strong>{{ conflict['conflict_label'] }}</strong>.<br>
+        {% if conflict['matching_label'] != '—' %}Совпадающие данные: {{ conflict['matching_label'] }}.<br>{% endif %}
+        {% if conflict['new_label'] != '—' %}Новые данные после решения будут добавлены за: {{ conflict['new_label'] }}.<br>{% endif %}
+        До вашего решения этот набор не участвует в отчётах и BI.
+        <form class="nn-conflict-actions" method="post" action="/nn/uploads/">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="action" value="resolve_overlap">
+          <input type="hidden" name="clinic_id" value="{{ selected_clinic['id'] }}">
+          <input type="hidden" name="batch_id" value="{{ conflict['batch_id'] }}">
+          <button type="submit" name="choice" value="keep_old">Оставить ранее загруженные данные</button>
+          <button type="submit" name="choice" value="use_new">Заменить новыми данными</button>
+        </form>
+      </div>
+    {% endfor %}
   {% endif %}
 
   {% if selected_clinic %}
   <form method="post" enctype="multipart/form-data" action="/nn/uploads/">
     <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="action" value="upload">
     <input type="hidden" name="clinic_id" value="{{ selected_clinic['id'] }}">
     <div class="nn-muted">
       Выбрано: <strong>{{ selected_clinic['name'] }}</strong>{% if selected_clinic['address'] %}, {{ selected_clinic['address'] }}{% endif %}.
@@ -82,7 +107,7 @@
           {% if latest_files.get(source_key) %}
             <div class="nn-upload-meta">Последний файл: {{ latest_files[source_key]['original_filename'] }}</div>
             <div class="nn-upload-meta">Дата загрузки: {{ latest['uploaded_at'][:19].replace('T',' ') }}</div>
-            <div class="nn-upload-meta">Статус: {% if latest['status'] == 'uploaded' %}загружено{% elif latest['status'] == 'processing' %}обработка{% elif latest['status'] == 'ready' %}готово{% else %}ошибка{% endif %}</div>
+            <div class="nn-upload-meta">Статус: {% if latest['status'] == 'uploaded' %}загружено{% elif latest['status'] == 'processing' %}требует решения{% elif latest['status'] == 'ready' %}готово{% else %}ошибка{% endif %}</div>
           {% else %}
             <div class="nn-upload-meta">Файл ещё не загружался.</div>
           {% endif %}
@@ -117,7 +142,7 @@
     {% if latest %}
       <div class="nn-latest-row"><strong>Набор</strong><span>№{{ latest['id'] }}</span></div>
       <div class="nn-latest-row"><strong>Дата загрузки</strong><span>{{ latest['uploaded_at'][:19].replace('T',' ') }}</span></div>
-      <div class="nn-latest-row"><strong>Статус</strong><span><span class="nn-status-badge">{% if latest['status'] == 'uploaded' %}Загружено{% elif latest['status'] == 'processing' %}Обработка{% elif latest['status'] == 'ready' %}Готово{% else %}Ошибка{% endif %}</span></span></div>
+      <div class="nn-latest-row"><strong>Статус</strong><span><span class="nn-status-badge">{% if latest['status'] == 'uploaded' %}Загружено{% elif latest['status'] == 'processing' %}Требует решения{% elif latest['status'] == 'ready' %}Готово{% else %}Ошибка{% endif %}</span></span></div>
       {% for source_key,label,extension,stored_filename in source_slots %}
         {% if latest_files.get(source_key) %}
           <div class="nn-latest-row"><strong>{{ label }}</strong><span>{{ latest_files[source_key]['original_filename'] }}</span></div>

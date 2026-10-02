@@ -71,12 +71,37 @@ def _dedupe_rows(rows, fields):
     return list(found.values())
 
 
-def _date_owned(batch_index, value, periods):
+def _date_owned(batch_index, value, periods, merge_controls):
     if not value:
         return False
+
+    current = merge_controls[batch_index]
+    if current["modern"] and value in current["ignore_dates"]:
+        return False
+
     for later in range(batch_index + 1, len(periods)):
+        control = merge_controls[later]
+        if control["modern"]:
+            if value in control["replace_dates"]:
+                return False
+            continue
+
+        # Preserve the historical rule for already accepted legacy batches:
+        # a later legacy batch owns its whole declared period.
         start, end = periods[later]
         if start and end and start <= value <= end:
+            return False
+    return True
+
+
+def _patient_owned(batch_index, patient, merge_controls):
+    refs = nn_upload._patient_refs(patient)
+    current = merge_controls[batch_index]
+    if current["modern"] and refs & current["ignore_patient_refs"]:
+        return False
+    for later in range(batch_index + 1, len(merge_controls)):
+        control = merge_controls[later]
+        if control["modern"] and refs & control["replace_patient_refs"]:
             return False
     return True
 
@@ -87,6 +112,25 @@ def effective_payload(conn, clinic_id):
         return None
     payloads = [_safe_json(row["payload_json"]) for row in rows]
     periods = [(row["period_start"], row["period_end"]) for row in rows]
+    merge_controls = []
+    for payload in payloads:
+        control = payload.get("merge_control")
+        modern = isinstance(control, dict) and control.get("version") == 1
+        merge_controls.append({
+            "modern": modern,
+            "active": bool(control.get("active", True)) if modern else True,
+            "use_controls": bool(control.get("use_controls", True)) if modern else True,
+            "ignore_dates": set(control.get("ignore_dates", [])) if modern else set(),
+            "replace_dates": set(control.get("replace_dates", [])) if modern else set(),
+            "ignore_patient_refs": set(control.get("ignore_patient_refs", [])) if modern else set(),
+            "replace_patient_refs": set(control.get("replace_patient_refs", [])) if modern else set(),
+        })
+
+    control_indices = [
+        index for index, control in enumerate(merge_controls)
+        if control["active"] and control["use_controls"]
+    ]
+    newest_control_index = control_indices[-1] if control_indices else None
 
     master = []
     visits = []
@@ -97,7 +141,13 @@ def effective_payload(conn, clinic_id):
     payment_control = []
 
     for index, payload in enumerate(payloads):
+        control = merge_controls[index]
+        if control["modern"] and not control["active"]:
+            continue
+
         for patient in payload.get("patients", []):
+            if not _patient_owned(index, patient, merge_controls):
+                continue
             master.append({
                 "name": patient.get("name", ""),
                 "dob": patient.get("dob"),
@@ -111,18 +161,18 @@ def effective_payload(conn, clinic_id):
                 "source_amount": 0,
             })
         for item in payload.get("visits", []):
-            if _date_owned(index, item.get("date"), periods):
+            if _date_owned(index, item.get("date"), periods, merge_controls):
                 visits.append(dict(item))
         for item in payload.get("medical_records", []):
-            if _date_owned(index, item.get("date"), periods):
+            if _date_owned(index, item.get("date"), periods, merge_controls):
                 medical.append(dict(item))
         for item in payload.get("deleted_appointments", []):
-            if _date_owned(index, item.get("appointment_date"), periods):
+            if _date_owned(index, item.get("appointment_date"), periods, merge_controls):
                 deleted.append(dict(item))
 
         # Aggregate service controls are useful for reconciliation only.
         # Keep only the newest batch's control rows when histories overlap.
-        if index == len(payloads) - 1:
+        if index == newest_control_index:
             control_services = [dict(item) for item in payload.get("service_control_rows", [])]
             service_control_period = dict(
                 payload.get("service_control_period") or payload.get("period") or {}
