@@ -136,6 +136,19 @@ def _parse_date(value):
     return None
 
 
+def _parse_datetime(value):
+    text = _clean_text(value)
+    match = re.search(r"(\d{2}\.\d{2}\.\d{4})\D+(\d{1,2}:\d{2})", text)
+    if not match:
+        return None
+    try:
+        return datetime.strptime(
+            f"{match.group(1)} {match.group(2)}", "%d.%m.%Y %H:%M"
+        ).isoformat(timespec="minutes")
+    except ValueError:
+        return None
+
+
 def _parse_clock_range(value):
     text = _clean_text(value)
     match = re.search(r"(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})", text)
@@ -209,6 +222,9 @@ def _patient_master(path):
         result.append({
             "name": _clean_text(row.get("Пациент")),
             "dob": _parse_date(row.get("Дата рождения")),
+            "gender": _clean_text(row.get("Пол")),
+            "source": _clean_text(row.get("Источник информации о клинике")),
+            "visits_count": int(_num(row.get("Кол-во визитов")) or 0),
             "iin": _norm_id(row.get("ИИН")),
             "chart": _norm_id(row.get("Номер амбулаторной карты")),
             "phone": _norm_phone(row.get("Телефоны")),
@@ -228,6 +244,7 @@ def _registry_rows(path):
         start, end = _parse_clock_range(row.get("Время приема"))
         result.append({
             "date": date,
+            "created_at": _parse_datetime(row.get("Время создания приема")),
             "start": start,
             "end": end,
             "doctor": _clean_text(row.get("Врач")),
@@ -239,6 +256,8 @@ def _registry_rows(path):
             "note": _clean_text(row.get("Примечание")),
             "visit_type": _clean_text(row.get("Тип приема")),
             "help_type": _clean_text(row.get("Вид помощи")),
+            "appeal_reason": _clean_text(row.get("Повод обращения")),
+            "diagnoses": _clean_text(row.get("Перечень МКБ диагнозов")),
             "services_text": _clean_text(row.get("Перечень услуг")),
             "service_prices_text": _clean_text(row.get("Стоимость услуг")),
             "amount": _num(row.get("Сумма")),
@@ -524,15 +543,23 @@ def _deleted_rows(path, doctors):
         reverse=True,
     )
     rows = []
+    deleted_by = ""
     line_re = re.compile(
-        r"(\d{2}\.\d{2}\.\d{4})\s+(\d{2}:\d{2}).*?"
-        r"(\d{2}\.\d{2}\.\d{4})\s+(\d{2}:\d{2})(.*)$"
+        r"^(?P<prefix>.*?)"
+        r"(?P<deleted_date>\d{2}\.\d{2}\.\d{4})\s+(?P<deleted_time>\d{2}:\d{2})\s+"
+        r"(?P<reason>.*?)\s+"
+        r"(?P<appointment_date>\d{2}\.\d{2}\.\d{4})\s+(?P<appointment_time>\d{2}:\d{2})"
+        r"(?P<tail>.*)$"
     )
-    for line in text.splitlines():
+    for raw_line in text.splitlines():
+        line = _clean_text(raw_line)
         match = line_re.search(line)
         if not match:
             continue
-        tail = _clean_text(match.group(5))
+        prefix_text = _clean_text(match.group("prefix"))
+        if prefix_text and "кем удалено" not in prefix_text.lower():
+            deleted_by = prefix_text
+        tail = _clean_text(match.group("tail"))
         doctor = ""
         patient = tail
         for prefix in doctor_prefixes:
@@ -542,10 +569,12 @@ def _deleted_rows(path, doctors):
                 patient = tail[pos + len(prefix):].strip()
                 break
         rows.append({
-            "deleted_date": _parse_date(match.group(1)),
-            "deleted_time": match.group(2),
-            "appointment_date": _parse_date(match.group(3)),
-            "appointment_time": match.group(4),
+            "deleted_by": deleted_by,
+            "reason": _clean_text(match.group("reason")),
+            "deleted_date": _parse_date(match.group("deleted_date")),
+            "deleted_time": match.group("deleted_time"),
+            "appointment_date": _parse_date(match.group("appointment_date")),
+            "appointment_time": match.group("appointment_time"),
             "doctor": doctor,
             "patient": patient,
             "patient_name": _norm_name(patient),
@@ -607,6 +636,9 @@ class PatientResolver:
             names = [r.get("name") for r in group_rows if r.get("name")]
             dobs = [r.get("dob") for r in group_rows if r.get("dob")]
             notes = [r.get("note") for r in group_rows if r.get("note")]
+            genders = [r.get("gender") for r in group_rows if r.get("gender")]
+            sources = [r.get("source") for r in group_rows if r.get("source")]
+            visit_counts = [int(r.get("visits_count") or 0) for r in group_rows]
             key = (
                 "chart:" + charts[0] if charts
                 else "iin:" + iins[0] if iins
@@ -617,6 +649,9 @@ class PatientResolver:
                 "key": key,
                 "name": names[0] if names else "",
                 "dob": dobs[0] if dobs else None,
+                "gender": genders[0] if genders else "",
+                "source": sources[0] if sources else "",
+                "visits_count": max(visit_counts) if visit_counts else 0,
                 "iin": iins[0] if iins else "",
                 "chart": charts[0] if charts else "",
                 "charts": charts,
@@ -665,6 +700,9 @@ class PatientResolver:
                 "key": key,
                 "name": _clean_text(row.get("patient") or row.get("name")),
                 "dob": dob,
+                "gender": _clean_text(row.get("gender")),
+                "source": _clean_text(row.get("source")),
+                "visits_count": int(row.get("visits_count") or 0),
                 "iin": iin,
                 "chart": chart,
                 "charts": [chart] if chart else [],
