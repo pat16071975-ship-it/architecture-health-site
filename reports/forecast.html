@@ -4,33 +4,274 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Прогноз роста — AZ-BAZE</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--paper:#f7f3ec;--soft:#fffdf8;--ink:#2d342f;--muted:#6d746c;--green:#44634f;--green2:#dfe9e2;--gold:#b59662;--gold2:#efe5d2;--blue:#dfe9f2;--rose:#f1dfdc;--line:#d8cdbb;--red:#9a4b48}
-*{box-sizing:border-box}html,body{margin:0;background:linear-gradient(180deg,#fcfaf6,var(--paper));color:var(--ink);font-family:Montserrat,Arial,sans-serif}body{min-height:100vh}.page{width:min(1560px,97vw);margin:auto;padding:18px 0 42px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.title{margin:0;font:700 40px/1 Montserrat,Arial,sans-serif}.sub{margin-top:7px;max-width:900px;color:var(--muted);font-size:11px;line-height:1.5}.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:1px solid rgba(68,99,79,.3);border-radius:9px;background:#fff;color:#334039;text-decoration:none;font-size:11px;font-weight:700}.btn.primary{background:var(--green);border-color:var(--green);color:#fff}.bar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:12px 0;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}.field{display:grid;gap:5px;align-content:start}.field label{font-size:9px;font-weight:700;color:#667067}.field input,.field select{width:100%;padding:8px 9px;border:1px solid #cfc5b5;border-radius:8px;background:#fff;font:600 11px Montserrat}.field small,.field-help{display:block;font-size:8px;line-height:1.35;color:#7b817b}.method{margin:0 0 12px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}.method summary{cursor:pointer;padding:10px 12px;background:#fff;font:700 11px Montserrat;color:#354039}.method[open] summary{border-bottom:1px solid #e7dfd3;background:#faf6ef}.method-body{padding:11px 13px;background:#fff;color:#4f5952;font-size:9px;line-height:1.55}.method-body p{margin:0 0 8px}.method-body p:last-child{margin-bottom:0}.method-formulas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:9px 0}.formula{padding:8px 9px;border:1px solid #e4dccf;border-radius:8px;background:#faf8f3;color:#39433c;font-weight:600}.method-note{padding:9px 10px;border-left:3px solid var(--gold);border-radius:7px;background:#fff8eb;color:#5e5341}.scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.scenario{border:1px solid var(--line);border-radius:13px;background:#fff;overflow:hidden}.scenario h2{margin:0;padding:11px 13px;font:700 21px/1.05 Montserrat,Arial,sans-serif}.scenario.structure h2{background:var(--green2)}.scenario.dent h2{background:var(--blue)}.scenario.lab h2{background:var(--gold2)}.scenario-body{padding:11px;background:#fff}.toggleline{display:flex;align-items:center;gap:7px;margin-bottom:9px;font-size:10px;font-weight:700}.inputs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.baseline{margin-top:9px;padding:8px;border-radius:9px;background:#faf7f1;font-size:9px;line-height:1.5;color:#626a62}.panel{margin-top:12px;border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden}.panel h2{margin:0;padding:11px 14px;background:var(--gold2);font:700 22px/1.1 Montserrat,Arial,sans-serif}.summary{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:8px;padding:12px;background:#fff}.metric{border:1px solid #e2d9ca;border-radius:10px;background:#fff;padding:10px}.metric span{display:block;font-size:8.5px;font-weight:700;color:#727970}.metric strong{display:block;margin-top:5px;font:700 20px/1 Montserrat,Arial,sans-serif}.positive{color:#2f7048}.negative{color:var(--red)}.accordion{border-top:1px solid #e7dfd3;background:#fff}.acc-head{width:100%;display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border:0;border-bottom:1px solid #e7dfd3;background:#fff;font:700 12px Montserrat;color:#334039;cursor:pointer}.acc-body{display:none;padding:0 12px 12px;background:#fff}.acc-body.open{display:block}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:10px}.card{border:1px solid #dfd6c7;border-radius:10px;background:#fff;overflow:hidden}.card h3{margin:0;padding:9px 10px;font:700 16px/1 Montserrat,Arial,sans-serif}.card.manage h3{background:var(--blue)}.card.analytics h3{background:var(--green2)}.card.fin h3{background:var(--gold2)}.rows{padding:5px 10px}.r{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #eee7dc;font-size:9px}.r:last-child{border-bottom:0}.r span{color:#6e756e}.r strong{text-align:right}.table-wrap{overflow:auto;margin-top:10px;border:1px solid #e2d9ca;border-radius:10px;background:#fff}table{width:100%;min-width:900px;border-collapse:collapse;background:#fff}th,td{padding:7px 8px;border-bottom:1px solid #e8e0d4;border-right:1px solid #eee7dc;text-align:right;font-size:9px;white-space:nowrap;background:#fff}th{background:#faf6ef}th:first-child,td:first-child{text-align:left}.insight{margin-top:12px;border:1px solid #cfdccc;border-left:4px solid var(--green);border-radius:12px;background:#f7fbf7;padding:14px}.insight h2{margin:0;font:700 22px/1 Montserrat,Arial,sans-serif}.insight p{margin:8px 0 0;font-size:10.5px;line-height:1.55;color:#435047}.badge{display:inline-block;margin-left:8px;font-size:10px;font-weight:700}.loading{padding:12px;color:#6d746c;font-size:10px}
-@media(max-width:1000px){.scenario-grid,.three{grid-template-columns:1fr}.summary{grid-template-columns:repeat(3,1fr)}}@media(max-width:560px){.page{width:100%;padding:10px 0 28px}.top{padding:0 10px;flex-direction:column}.title{font-size:32px}.bar{border-radius:0;border-left:0;border-right:0}.method{margin:0 8px 10px}.method-formulas{grid-template-columns:1fr}.scenario-grid{padding:0 8px}.summary{grid-template-columns:repeat(2,1fr);padding:9px}.inputs{grid-template-columns:1fr}.panel{border-radius:0;border-left:0;border-right:0}.insight{margin:10px}.actions .btn{font-size:9px;padding:7px 8px}}
+:root{--paper:#f7f3ec;--ink:#2d342f;--muted:#6d746c;--green:#44634f;--green2:#dfe9e2;--gold:#b59662;--gold2:#efe5d2;--blue:#dfe9f2;--rose:#f1dfdc;--line:#d8cdbb;--red:#9a4b48;--white:#fff}
+*{box-sizing:border-box}
+html,body{margin:0;background:linear-gradient(180deg,#fcfaf6,var(--paper));color:var(--ink);font-family:Montserrat,Arial,sans-serif}
+body{min-height:100vh}
+.page{width:min(1560px,97vw);margin:auto;padding:18px 0 44px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:14px}
+.title{margin:0;font:700 40px/1 Montserrat,Arial,sans-serif}
+.sub{margin-top:8px;max-width:960px;color:var(--muted);font-size:13px;line-height:1.5}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border:1px solid rgba(68,99,79,.3);border-radius:9px;background:#fff;color:#334039;text-decoration:none;font-size:11px;font-weight:700}
+.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.controlbar{display:flex;gap:14px;align-items:end;flex-wrap:wrap;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:12px}
+.field{display:grid;gap:5px;align-content:start;min-width:0}
+.field label{font-size:10px;font-weight:700;color:#667067}
+.field input,.field select{width:100%;padding:9px 10px;border:1px solid #cfc5b5;border-radius:8px;background:#fff;font:600 12px Montserrat}
+.field small,.field-help{display:block;font-size:9px;line-height:1.35;color:#7b817b}
+.panel{margin-top:12px;border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden}
+.panel-title{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:13px 15px;background:var(--gold2);border-bottom:1px solid #e5dccd}
+.panel-title h2{margin:0;font:700 23px/1.15 Montserrat}
+.panel-title p{margin:0;color:#6b6f69;font-size:10px;line-height:1.4;text-align:right}
+.current-summary{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:9px;padding:12px}
+.metric{border:1px solid #e2d9ca;border-radius:11px;background:#fff;padding:11px}
+.metric span{display:block;font-size:9px;font-weight:700;color:#727970}
+.metric strong{display:block;margin-top:6px;font:700 22px/1.05 Montserrat}
+.metric em{display:block;margin-top:5px;font-style:normal;font-size:9px;color:#777e77}
+.direction-current{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 12px 12px}
+.current-direction{border:1px solid #ded5c7;border-radius:12px;background:#fff;overflow:hidden}
+.current-direction h3{margin:0;padding:10px 12px;font:700 16px/1.15 Montserrat}
+.current-direction.structure h3{background:var(--green2)}
+.current-direction.dent h3{background:var(--blue)}
+.current-direction.lab h3{background:var(--gold2)}
+.current-direction .facts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;padding:10px}
+.fact{padding:8px;border-radius:8px;background:#faf8f3}
+.fact span{display:block;color:#777e77;font-size:8px;font-weight:700}
+.fact strong{display:block;margin-top:3px;font-size:13px}
+.scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}
+.scenario-plan{border:1px solid #ded5c7;border-radius:12px;background:#fff;overflow:hidden}
+.scenario-head{padding:11px 12px;border-bottom:1px solid #e6ded1}
+.scenario-head h3{margin:0;font:700 18px/1.1 Montserrat}
+.scenario-head p{margin:5px 0 0;color:#757b74;font-size:9px;line-height:1.4}
+.scenario-plan.conservative .scenario-head{background:#edf2ef}
+.scenario-plan.base .scenario-head{background:#efe5d2}
+.scenario-plan.active .scenario-head{background:#f0e0dc}
+.plan-direction{padding:10px 11px;border-bottom:1px solid #eee7dc}
+.plan-direction:last-child{border-bottom:0}
+.plan-dir-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.plan-dir-head strong{font-size:12px}
+.toggle{display:flex;align-items:center;gap:6px;font-size:9px;font-weight:700;color:#5d655f}
+.plan-fields{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.plan-fields .field label{font-size:8px}
+.plan-fields .field input{padding:8px;font-size:11px}
+.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}
+.result-card{border:1px solid #ddd3c4;border-radius:12px;background:#fff;overflow:hidden}
+.result-card header{padding:11px 12px;background:#faf6ef;border-bottom:1px solid #e7dfd3}
+.result-card header h3{margin:0;font:700 18px/1.1 Montserrat}
+.result-main{padding:11px 12px;border-bottom:1px solid #eee7dc}
+.result-main span{display:block;color:#707770;font-size:9px;font-weight:700}
+.result-main strong{display:block;margin-top:5px;font:700 21px/1.05 Montserrat}
+.result-main small{display:block;margin-top:4px;color:#777f77;font-size:9px}
+.result-rows{padding:4px 12px}
+.result-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #eee7dc;font-size:9.5px}
+.result-row:last-child{border-bottom:0}
+.result-row span{color:#707770}
+.result-row strong{text-align:right}
+.positive{color:#2f7048}
+.negative{color:var(--red)}
+.decision-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}
+.decision{border:1px solid #d5ddd4;border-left:4px solid var(--green);border-radius:11px;background:#f8fbf8;padding:12px}
+.decision.warning{border-color:#e4c8c4;border-left-color:var(--red);background:#fff8f7}
+.decision.neutral{border-color:#ddd6c9;border-left-color:#9a927f;background:#fbfaf7}
+.decision h3{margin:0;font:700 15px/1.15 Montserrat}
+.decision .badge{display:inline-block;margin-top:7px;padding:4px 7px;border-radius:999px;background:#edf3ee;font-size:9px;font-weight:700}
+.decision.warning .badge{background:#f8e7e4}
+.decision p{margin:7px 0 0;color:#4d5850;font-size:10px;line-height:1.5}
+.detail-controls{display:flex;gap:10px;align-items:end;flex-wrap:wrap;padding:12px;border-bottom:1px solid #e7dfd3}
+.detail-controls .field{min-width:220px}
+.accordion{background:#fff}
+.acc-head{width:100%;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border:0;border-bottom:1px solid #e7dfd3;background:#fff;font:700 12px Montserrat;color:#334039;cursor:pointer;text-align:left}
+.acc-body{display:none;padding:0 12px 12px;background:#fff}
+.acc-body.open{display:block}
+.detail-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.detail-card{padding:9px;border:1px solid #e2d9ca;border-radius:9px;background:#faf8f3}
+.detail-card span{display:block;color:#747b74;font-size:8px;font-weight:700}
+.detail-card strong{display:block;margin-top:4px;font-size:13px}
+.table-wrap{overflow:auto;margin-top:10px;border:1px solid #e2d9ca;border-radius:10px;background:#fff}
+table{width:100%;min-width:920px;border-collapse:collapse;background:#fff}
+th,td{padding:8px 9px;border-bottom:1px solid #e8e0d4;border-right:1px solid #eee7dc;text-align:right;font-size:9px;white-space:nowrap;background:#fff}
+th{background:#faf6ef}
+th:first-child,td:first-child{text-align:left}
+.advanced,.method{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+.advanced summary,.method summary{cursor:pointer;padding:11px 13px;background:#fff;font:700 12px Montserrat;color:#354039}
+.advanced[open] summary,.method[open] summary{border-bottom:1px solid #e7dfd3;background:#faf6ef}
+.advanced-body,.method-body{padding:12px 13px;background:#fff}
+.advanced-intro,.method-body p{margin:0 0 9px;color:#505a53;font-size:9.5px;line-height:1.55}
+.advanced-global{display:grid;grid-template-columns:minmax(220px,340px);margin-bottom:10px}
+.advanced-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.advanced-direction{border:1px solid #e2d9ca;border-radius:10px;background:#faf8f3;padding:10px}
+.advanced-direction h3{margin:0 0 9px;font-size:13px}
+.advanced-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.baseline{margin-top:9px;padding:8px;border-radius:9px;background:#fff;font-size:9px;line-height:1.5;color:#626a62}
+.method-formulas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:9px 0}
+.formula{padding:8px 9px;border:1px solid #e4dccf;border-radius:8px;background:#faf8f3;color:#39433c;font-size:9px;font-weight:600}
+.method-note{padding:9px 10px;border-left:3px solid var(--gold);border-radius:7px;background:#fff8eb;color:#5e5341;font-size:9px;line-height:1.5}
+.loading{padding:14px;color:#6d746c;font-size:11px}
+.empty-note{padding:9px 12px;color:#727970;font-size:9px}
+@media(max-width:1100px){
+  .current-summary{grid-template-columns:repeat(2,1fr)}
+  .direction-current,.scenario-grid,.result-grid,.decision-grid,.advanced-grid{grid-template-columns:1fr}
+  .plan-fields{grid-template-columns:repeat(3,1fr)}
+  .detail-cards{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:600px){
+  .page{width:100%;padding:10px 0 28px}
+  .top{padding:0 10px;flex-direction:column}
+  .title{font-size:31px}
+  .sub{font-size:11px}
+  .controlbar,.panel{border-radius:0;border-left:0;border-right:0}
+  .controlbar{padding:11px 10px}
+  .controlbar .field{width:100%}
+  .panel-title{align-items:flex-start;flex-direction:column}
+  .panel-title h2{font-size:20px}
+  .panel-title p{text-align:left}
+  .current-summary{grid-template-columns:1fr 1fr;padding:9px}
+  .direction-current,.scenario-grid,.result-grid,.decision-grid{padding:9px}
+  .plan-fields{grid-template-columns:1fr}
+  .result-main strong{font-size:18px}
+  .detail-cards{grid-template-columns:1fr 1fr}
+  .advanced,.method{margin:10px 8px 0}
+  .advanced-grid,.advanced-fields,.method-formulas{grid-template-columns:1fr}
+  .actions .btn{font-size:9px;padding:7px 8px}
+}
 </style>
 </head>
-<body><main class="page">
-<header class="top"><div><h1 class="title">Прогноз роста</h1><div class="sub">Совокупный сценарий по всей клинике. Можно менять только нужные направления, а остальные оставить как есть. Общая картина всегда считается по Отделению структуры, Стоматологии и Лаборатории вместе.</div></div><div class="actions"><a class="btn primary" href="/reports/">К отчётам</a><a class="btn" href="/">На главную</a></div></header>
-<div class="bar"><div class="field"><label>Базовый месяц</label><select id="baseMonth"></select><small>Факт и исходные коэффициенты берутся из этого месяца.</small></div><div class="field"><label>Горизонт</label><select id="horizon"><option value="3">3 месяца</option><option value="6" selected>6 месяцев</option><option value="12">12 месяцев</option></select><small>Сколько месяцев суммируется прирост сценария.</small></div><div class="field"><label>Повторные</label><select id="repeatCurve"><option value="normal">40% / 35% / 25%</option><option value="fast">60% / 40%</option><option value="same">в том же месяце</option></select><small>Как повторные от новых первичных распределяются по месяцам.</small></div></div>
-<details class="method" id="forecastMethod"><summary>Как считается прогноз</summary><div class="method-body">
-<p><strong>1. База.</strong> Берутся фактические показатели выбранного базового месяца. Для отдельного врача или раздела базовые первичные, повторные и визиты оцениваются пропорционально его доле выручки в направлении.</p>
-<p><strong>2. Новый поток.</strong> Указанное «+ первичных / мес.» добавляется в каждый месяц горизонта. Повторные считаются из коэффициента «повторных на 1 первичного» и распределяются по месяцам выбранной схемой: 40/35/25, 60/40 или полностью в том же месяце.</p>
-<div class="method-formulas"><div class="formula">Доп. визиты = новые первичные + новые повторные</div><div class="formula">Загрузка = (текущие визиты + доп. визиты) / макс. приёмов</div><div class="formula">Доп. выручка = доп. визиты × средняя выручка / визит</div><div class="formula">Доп. прибыль = доп. выручка − ФОТ − мед. затраты − доп. маркетинг</div></div>
-<p><strong>3. Затраты.</strong> ФОТ и переменные мед. затраты считаются как проценты только от дополнительной выручки. Дополнительный маркетинг списывается в каждом месяце включённого сценария.</p>
-<p><strong>4. Мощность.</strong> «Макс. приёмов / мес.» используется как индикатор загрузки. Если загрузка выше 100%, система предупреждает о перегрузке, но не обрезает расчётную выручку автоматически.</p>
-<p class="method-note"><strong>Важно про общую карточку.</strong> В текущей модели «Текущая опер. прибыль» = фактическая выручка базового месяца − операционные расходы этого месяца. «Новая выручка» = текущая выручка базового месяца + суммарная дополнительная выручка за весь выбранный горизонт. «Новая опер. прибыль» = текущая опер. прибыль базового месяца + суммарная дополнительная прибыль за горизонт.</p>
-</div></details>
-<div id="loading" class="loading">Загрузка текущих данных…</div><section id="app" style="display:none">
-<div class="scenario-grid" id="scenarioGrid"></div>
-<div class="panel"><h2>Общая картина клиники</h2><div id="summary" class="summary"></div><div id="accordion" class="accordion"></div></div>
-<div class="insight"><h2>Короткий вывод <span id="badge" class="badge"></span></h2><p id="insight"></p></div>
-</section></main>
+<body>
+<main class="page">
+<header class="top">
+  <div>
+    <h1 class="title">Прогноз роста</h1>
+    <div class="sub">Управленческий сценарий: задайте, что хотите изменить, и сравните три варианта роста. Технические коэффициенты система подставляет из фактических данных и прячет в «Точных настройках».</div>
+  </div>
+  <div class="actions">
+    <a class="btn primary" href="/reports/">К отчётам</a>
+    <a class="btn" href="/">На главную</a>
+  </div>
+</header>
+
+<div class="controlbar">
+  <div class="field">
+    <label>Базовый месяц</label>
+    <select id="baseMonth"></select>
+    <small>Фактическая точка, от которой строится прогноз.</small>
+  </div>
+  <div class="field">
+    <label>Горизонт</label>
+    <select id="horizon">
+      <option value="3">3 месяца</option>
+      <option value="6" selected>6 месяцев</option>
+      <option value="12">12 месяцев</option>
+    </select>
+    <small>На сколько месяцев вперёд считаем эффект.</small>
+  </div>
+</div>
+
+<div id="loading" class="loading">Загрузка текущих данных…</div>
+
+<section id="app" style="display:none">
+  <section class="panel" id="currentPanel">
+    <div class="panel-title">
+      <h2>1. Текущая точка</h2>
+      <p>Только фактические показатели выбранного базового месяца. Здесь ничего не вводится.</p>
+    </div>
+    <div id="currentSummary" class="current-summary"></div>
+    <div id="currentDirections" class="direction-current"></div>
+  </section>
+
+  <section class="panel" id="plannerPanel">
+    <div class="panel-title">
+      <h2>2. Что хотим изменить</h2>
+      <p>Три сценария заполняются независимо. По умолчанию все изменения равны нулю.</p>
+    </div>
+    <div id="scenarioPlanner" class="scenario-grid"></div>
+  </section>
+
+  <section class="panel" id="resultsPanel">
+    <div class="panel-title">
+      <h2>3. Что получим</h2>
+      <p>«Станет» — один месяц к концу горизонта. Накопительный эффект — сумма за весь выбранный период.</p>
+    </div>
+    <div id="scenarioResults" class="result-grid"></div>
+  </section>
+
+  <section class="panel" id="decisionPanel">
+    <div class="panel-title">
+      <h2>4. Управленческий вывод</h2>
+      <p>Короткая подсказка по окупаемости и мощности. Это не заменяет подробный расчёт ниже.</p>
+    </div>
+    <div id="scenarioDecisions" class="decision-grid"></div>
+  </section>
+
+  <section class="panel" id="detailsPanel">
+    <div class="panel-title">
+      <h2>Подробности расчёта</h2>
+      <p>По направлениям и по месяцам — только если нужна детализация.</p>
+    </div>
+    <div class="detail-controls">
+      <div class="field">
+        <label>Показать сценарий</label>
+        <select id="detailScenario">
+          <option value="conservative">Консервативный</option>
+          <option value="base" selected>Базовый</option>
+          <option value="active">Активный</option>
+        </select>
+      </div>
+    </div>
+    <div id="detailAccordion" class="accordion"></div>
+  </section>
+
+  <details class="advanced" id="advancedSettings">
+    <summary>Точные настройки</summary>
+    <div class="advanced-body">
+      <p class="advanced-intro">Эти параметры система заполняет из фактических данных. Меняйте их только для нестандартного моделирования. Они общие для трёх сценариев, чтобы сравнение оставалось сопоставимым.</p>
+      <div class="advanced-global">
+        <div class="field">
+          <label>Распределение повторных</label>
+          <select id="repeatCurve">
+            <option value="normal">40% / 35% / 25%</option>
+            <option value="fast">60% / 40%</option>
+            <option value="same">в том же месяце</option>
+          </select>
+          <small>Как повторные от нового потока распределяются по следующим месяцам.</small>
+        </div>
+      </div>
+      <div id="advancedGrid" class="advanced-grid"></div>
+    </div>
+  </details>
+
+  <details class="method" id="forecastMethod">
+    <summary>Как считается прогноз</summary>
+    <div class="method-body">
+      <p><strong>1. База.</strong> Берутся фактические показатели выбранного месяца. По умолчанию расчёт идёт по направлению целиком; в точных настройках можно выбрать отдельного врача или раздел.</p>
+      <p><strong>2. Новый поток.</strong> Указанное дополнительное количество добавляется в каждый месяц горизонта. Повторные рассчитываются из фактического коэффициента и выбранного распределения.</p>
+      <div class="method-formulas">
+        <div class="formula">Доп. визиты = новый поток + новые повторные</div>
+        <div class="formula">Загрузка = (текущие визиты + доп. визиты) / мощность</div>
+        <div class="formula">Доп. выручка = доп. визиты × средняя выручка / визит</div>
+        <div class="formula">Доп. прибыль = доп. выручка − ФОТ − мед. затраты − доп. маркетинг</div>
+      </div>
+      <p><strong>3. Мощность.</strong> В сценарии можно отдельно добавить количество доступных приёмов в месяц. Если расчётная загрузка выше 100%, система показывает предупреждение, но не обрезает выручку автоматически.</p>
+      <p><strong>4. Результат.</strong> «Выручка/прибыль в месяц к концу горизонта» берёт дополнительный эффект последнего месяца. «Дополнительная прибыль за горизонт» суммирует дополнительный эффект всех месяцев.</p>
+      <p class="method-note"><strong>Важно.</strong> Три сценария не имеют скрытых автоматических коэффициентов «хуже/лучше». В каждом сценарии используются только те изменения, которые вы ввели сами.</p>
+    </div>
+  </details>
+</section>
+</main>
+
 <script>
 const $=s=>document.querySelector(s), money=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.round(Number(n)||0))+' ₽', pct=n=>new Intl.NumberFormat('ru-RU',{style:'percent',maximumFractionDigits:1}).format(Number(n)||0), num=n=>Number.isFinite(+n)?+n:0;
-const DIRS=[['structure','Отделение структуры'],['dent','Стоматология'],['lab','Лаборатория']];let FIN=null,STORE={},ANALYTICS=null,SALARY=null,EXTRA=null;
-function parseBlob(k){try{return JSON.parse(STORE[k]||'null')}catch{return null}}function rec(m){return FIN?.management?.[m]||{}}function mi(m){return Math.max(0,(+String(m).slice(5,7)||1)-1)}
+const DIRS=[['structure','Отделение структуры'],['dent','Стоматология'],['lab','Лаборатория']];
+const SCENARIOS=[['conservative','Консервативный'],['base','Базовый'],['active','Активный']];
+let FIN=null,STORE={},ANALYTICS=null,SALARY=null,EXTRA=null;
+
+function parseBlob(k){try{return JSON.parse(STORE[k]||'null')}catch{return null}}
+function rec(m){return FIN?.management?.[m]||{}}
+function mi(m){return Math.max(0,(+String(m).slice(5,7)||1)-1)}
 function stat(m,d){const r=rec(m);if(d==='dent'){const docs=r.dentists||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.dentPrimary),repeat:num(r.dentRepeat),docs}}if(d==='structure'){const docs=r.structureDoctors||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.clinicPrimary),repeat:num(r.clinicRepeat),docs}}return{rev:num(r.factLab),primary:0,repeat:0,docs:{}}}
 function adir(d){const ds=ANALYTICS?.directions||{};for(const n of d==='dent'?['Стоматология']:d==='structure'?['Отделение структуры','Клиника']:['Лаборатория'])if(ds[n])return ds[n];return null}
 function recsum(o,i){if(o==null)return 0;if(Array.isArray(o)){if(typeof o[i]==='number')return num(o[i]);return o.reduce((a,v)=>a+recsum(v,i),0)}if(typeof o==='object')return Object.values(o).reduce((a,v)=>a+recsum(v,i),0);return 0}
@@ -38,16 +279,294 @@ function fotRate(m,d,rev){const i=mi(m),names=d==='dent'?['Стоматолог�
 function segments(d,m){const s=stat(m,d),out=[['all','Все направление']];Object.keys(s.docs||{}).sort().forEach(n=>out.push(['doctor:'+n,'Врач: '+n]));(adir(d)?.categories||[]).forEach(n=>out.push(['cat:'+n,'Раздел: '+n]));return out}
 function segRev(m,d,seg){const s=stat(m,d);if(seg.startsWith('doctor:'))return num(s.docs?.[seg.slice(7)]);if(seg.startsWith('cat:')){const ad=adir(d),cat=seg.slice(4),i=mi(m);let t=0;for(const doc of Object.values(ad?.doctors||{})){const x=doc?.[cat]?.[i]||[0,0];t+=num(x[1])}return t}return s.rev}
 function baseline(m,d,seg){const s=stat(m,d),rev=segRev(m,d,seg);let visits=s.primary+s.repeat;if(seg!=='all'&&s.rev>0)visits*=rev/s.rev;const primary=seg==='all'?s.primary:(s.rev>0?s.primary*rev/s.rev:0),repeat=seg==='all'?s.repeat:(s.rev>0?s.repeat*rev/s.rev:0),avg=visits?rev/visits:(d==='lab'?12000:4500),rr=primary?repeat/primary:(d==='lab'?1:2),fr=fotRate(m,d,rev),med=d==='dent'?.12:d==='lab'?.18:.02,cap=Math.max(Math.ceil(visits*1.5),Math.ceil(visits+20));return{rev,visits,primary,repeat,avg,rr,fr,med,cap}}
-function mkScenario(d,label){return `<div class="scenario ${d}"><h2>${label}</h2><div class="scenario-body"><label class="toggleline"><input type="checkbox" id="on-${d}"> Изменять это направление</label><div class="inputs"><div class="field"><label>Специалист / раздел</label><select id="seg-${d}"></select><small>Всё направление, отдельный врач или раздел. Для врача/раздела база оценивается по доле выручки.</small></div><div class="field"><label>+ первичных / мес.</label><input id="prim-${d}" type="number" min="0" value="0"><small>Одинаковое число новых первичных добавляется в каждый месяц горизонта.</small></div><div class="field"><label>Доп. маркетинг / мес.</label><input id="mkt-${d}" type="number" min="0" step="1000" value="0"><small>Дополнительный расход на привлечение в каждом месяце сценария.</small></div><div class="field"><label>Повторных на 1 первичного</label><input id="rr-${d}" type="number" min="0" step="0.1"><small>Сколько повторных визитов создаёт один новый первичный; распределение задаётся сверху.</small></div><div class="field"><label>Средняя выручка / визит</label><input id="avg-${d}" type="number" min="0" step="100"><small>Используется для расчёта только дополнительной выручки.</small></div><div class="field"><label>ФОТ, %</label><input id="fot-${d}" type="number" min="0" max="100" step="1"><small>Процент от дополнительной выручки сценария.</small></div><div class="field"><label>Переменные мед. затраты, %</label><input id="med-${d}" type="number" min="0" max="100" step="1"><small>Процент от дополнительной выручки сценария.</small></div><div class="field"><label>Макс. приёмов / мес.</label><input id="cap-${d}" type="number" min="0" step="1"><small>Порог мощности для загрузки; при превышении выручка автоматически не обрезается.</small></div></div><div class="baseline" id="base-${d}"></div></div></div>`}
-function fillSegments(d){const m=$('#baseMonth').value,s=$('#seg-'+d),cur=s.value;s.innerHTML=segments(d,m).map(x=>`<option value="${x[0].replaceAll('"','&quot;')}">${x[1]}</option>`).join('');if([...s.options].some(o=>o.value===cur))s.value=cur}
-function applyBase(d,force=false){const m=$('#baseMonth').value,seg=$('#seg-'+d).value||'all',b=baseline(m,d,seg);if(force||!$('#rr-'+d).dataset.touched){$('#rr-'+d).value=b.rr.toFixed(1);$('#avg-'+d).value=Math.round(b.avg);$('#fot-'+d).value=Math.round(b.fr*100);$('#med-'+d).value=Math.round(b.med*100);$('#cap-'+d).value=b.cap}$('#base-'+d).textContent=`Сейчас: выручка ${money(b.rev)} · первичных ${b.primary.toFixed(1)} · повторных ${b.repeat.toFixed(1)} · визитов ${b.visits.toFixed(1)} · ФОТ ~${pct(b.fr)}`}
 function curve(kind){return kind==='same'?[1]:kind==='fast'?[.6,.4]:[.4,.35,.25]}
-function scenario(d){const m=$('#baseMonth').value,seg=$('#seg-'+d).value||'all',b=baseline(m,d,seg),on=$('#on-'+d).checked,add=on?num($('#prim-'+d).value):0,marketing=on?num($('#mkt-'+d).value):0,rr=num($('#rr-'+d).value),avg=num($('#avg-'+d).value),fot=num($('#fot-'+d).value)/100,med=num($('#med-'+d).value)/100,cap=num($('#cap-'+d).value),h=+$('#horizon').value,c=curve($('#repeatCurve').value),rows=[];for(let k=0;k<h;k++){let repeat=0;for(let j=0;j<c.length;j++){const source=k-j;if(source>=0)repeat+=add*rr*c[j]}const visits=add+repeat,totalVisits=b.visits+visits,load=cap?totalVisits/cap:0,rev=visits*avg,fotCost=rev*fot,medCost=rev*med,profit=rev-fotCost-medCost-marketing;rows.push({k,add,repeat,visits,load,rev,fotCost,medCost,marketing,profit})}return{d,seg,b,on,rows,tot:rows.reduce((a,r)=>{for(const k of ['rev','fotCost','medCost','marketing','profit','visits'])a[k]+=r[k];a.maxLoad=Math.max(a.maxLoad,r.load);return a},{rev:0,fotCost:0,medCost:0,marketing:0,profit:0,visits:0,maxLoad:0})}}
 function clinicBase(m){const r=rec(m),legacy=num(r.factMedicine)+num(r.factLab),rev=(r.cashTotal!==undefined&&r.cashTotal!==null&&r.cashTotal!=='')?num(r.cashTotal):legacy,exp=Object.values(FIN?.expenses?.months?.[m]?.operating||{}).reduce((a,x)=>a+num(x.total),0);return{rev,exp,profit:rev-exp}}
-function calculate(){const m=$('#baseMonth').value,ss=DIRS.map(x=>scenario(x[0])),base=clinicBase(m),add=ss.reduce((a,s)=>{for(const k of ['rev','fotCost','medCost','marketing','profit'])a[k]+=s.tot[k];a.maxLoad=Math.max(a.maxLoad,s.tot.maxLoad);return a},{rev:0,fotCost:0,medCost:0,marketing:0,profit:0,maxLoad:0}),newRev=base.rev+add.rev,newExp=base.exp+add.fotCost+add.medCost+add.marketing,newProfit=base.profit+add.profit;$('#summary').innerHTML=[[`Текущая выручка`,money(base.rev),''],['Новая выручка',money(newRev),''],['Текущая опер. прибыль',money(base.profit),base.profit>=0?'positive':'negative'],['Новая опер. прибыль',money(newProfit),newProfit>=0?'positive':'negative'],['Доп. маркетинг',money(add.marketing),''],['Макс. загрузка',pct(add.maxLoad),add.maxLoad>1?'negative':'']].map(x=>`<div class="metric"><span>${x[0]}</span><strong class="${x[2]}">${x[1]}</strong></div>`).join('');renderAcc(ss,base,newRev,newExp,newProfit);renderInsight(ss,add,base,newProfit)}
-function renderAcc(ss,base,newRev,newExp,newProfit){$('#accordion').innerHTML=ss.map((s,i)=>{const lab=DIRS.find(x=>x[0]===s.d)[1],t=s.tot;return `<button class="acc-head" data-i="${i}"><span>+ ${lab}${s.on?' · сценарий включён':' · без изменений'}</span><strong>${s.on?money(t.profit):'текущие показатели'}</strong></button><div class="acc-body" id="acc-${i}"><div class="three"><div class="card manage"><h3>Управленческий учёт</h3><div class="rows"><div class="r"><span>Доп. визиты</span><strong>${t.visits.toFixed(1)}</strong></div><div class="r"><span>Макс. загрузка</span><strong>${pct(t.maxLoad)}</strong></div><div class="r"><span>Доп. выручка</span><strong>${money(t.rev)}</strong></div></div></div><div class="card analytics"><h3>Аналитика услуг</h3><div class="rows"><div class="r"><span>ФОТ</span><strong>${money(t.fotCost)}</strong></div><div class="r"><span>Мед. затраты</span><strong>${money(t.medCost)}</strong></div><div class="r"><span>Маркетинг</span><strong>${money(t.marketing)}</strong></div></div></div><div class="card fin"><h3>Финрез</h3><div class="rows"><div class="r"><span>Доп. прибыль</span><strong class="${t.profit>=0?'positive':'negative'}">${money(t.profit)}</strong></div><div class="r"><span>Рентабельность прироста</span><strong>${t.rev?pct(t.profit/t.rev):'—'}</strong></div></div></div></div>${monthTable(s)}</div>`}).join('')+`<button class="acc-head" data-i="clinic"><span>+ Клиника целиком</span><strong>${money(newProfit)}</strong></button><div class="acc-body" id="acc-clinic"><div class="three"><div class="card manage"><h3>Управленческий учёт</h3><div class="rows"><div class="r"><span>Выручка было</span><strong>${money(base.rev)}</strong></div><div class="r"><span>Выручка станет</span><strong>${money(newRev)}</strong></div></div></div><div class="card analytics"><h3>Аналитика услуг</h3><div class="rows"><div class="r"><span>Изменения</span><strong>по 3 направлениям</strong></div><div class="r"><span>Неизменённые направления</span><strong>учтены в базе</strong></div></div></div><div class="card fin"><h3>Финрез</h3><div class="rows"><div class="r"><span>Расходы было</span><strong>${money(base.exp)}</strong></div><div class="r"><span>Расходы станет</span><strong>${money(newExp)}</strong></div><div class="r"><span>Опер. прибыль</span><strong class="${newProfit>=0?'positive':'negative'}">${money(newProfit)}</strong></div></div></div></div></div>`;document.querySelectorAll('.acc-head').forEach(b=>b.onclick=()=>$('#acc-'+b.dataset.i).classList.toggle('open'))}
-function monthTable(s){return `<div class="table-wrap"><table><thead><tr><th>Месяц</th><th>Новые первичные</th><th>Новые повторные</th><th>Доп. визиты</th><th>Загрузка</th><th>Доп. выручка</th><th>ФОТ</th><th>Мед. затраты</th><th>Маркетинг</th><th>Доп. прибыль</th></tr></thead><tbody>${s.rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r.add.toFixed(1)}</td><td>${r.repeat.toFixed(1)}</td><td>${r.visits.toFixed(1)}</td><td>${pct(r.load)}</td><td>${money(r.rev)}</td><td>${money(r.fotCost)}</td><td>${money(r.medCost)}</td><td>${money(r.marketing)}</td><td>${money(r.profit)}</td></tr>`).join('')}</tbody></table></div>`}
-function renderInsight(ss,add,base,newProfit){const active=ss.filter(s=>s.on),over=active.filter(s=>s.tot.maxLoad>1),loss=active.filter(s=>s.tot.profit<0),good=active.filter(s=>s.tot.profit>0);let badge='Без изменений',text='Выберите хотя бы одно направление и задайте сценарий роста.';if(active.length){if(over.length){badge='Упирается в мощность';text=`Сценарий перегружает ${over.map(s=>DIRS.find(x=>x[0]===s.d)[1]).join(', ')}. До увеличения маркетинга нужно расширить доступное время или мощность.`}else if(loss.length){badge='Осторожно';text=`Рост не окупается в ${loss.map(s=>DIRS.find(x=>x[0]===s.d)[1]).join(', ')} при заданных ФОТ, среднем чеке и маркетинге. Проверьте стоимость привлечения, повторные и загрузку.`}else{badge='Развивать';text=`Совокупный сценарий добавляет ${money(add.rev)} выручки и ${money(add.profit)} операционной прибыли за выбранный горизонт. ${good.length} из ${active.length} изменяемых направлений дают положительный вклад.`}text+=` Операционная прибыль клиники по модели: ${money(base.profit)} → ${money(newProfit)}.`}$('#badge').textContent=badge;$('#insight').textContent=text}
-async function init(){const [fr,sr]=await Promise.all([fetch('/api/reports/finrez',{credentials:'same-origin',cache:'no-store'}),fetch('/api/reports/storage',{credentials:'same-origin',cache:'no-store'})]);FIN=await fr.json();STORE=(await sr.json()).storage||{};ANALYTICS=parseBlob('az-service-analytics-v1');SALARY=parseBlob('az-service-salary-v1');EXTRA=parseBlob('az-service-extra-payments-v1');const months=Object.keys(FIN.management||{}).sort();$('#baseMonth').innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('');$('#baseMonth').value=months[months.length-1]||'';$('#scenarioGrid').innerHTML=DIRS.map(x=>mkScenario(x[0],x[1])).join('');for(const [d] of DIRS){fillSegments(d);applyBase(d,true);$('#seg-'+d).onchange=()=>{applyBase(d,true);calculate()};for(const id of ['rr','avg','fot','med','cap'])$('#'+id+'-'+d).oninput=e=>{e.target.dataset.touched='1';calculate()};for(const id of ['on','prim','mkt'])$('#'+id+'-'+d).oninput=calculate}$('#baseMonth').onchange=()=>{for(const[d]of DIRS){fillSegments(d);applyBase(d,true)}calculate()};$('#horizon').onchange=calculate;$('#repeatCurve').onchange=calculate;$('#loading').style.display='none';$('#app').style.display='block';calculate()}
-init().catch(e=>{$('#loading').textContent='Не удалось загрузить данные прогноза: '+e.message});
-</script></body></html>
+
+function dirLabel(d){return DIRS.find(x=>x[0]===d)?.[1]||d}
+function scenarioLabel(key){return SCENARIOS.find(x=>x[0]===key)?.[1]||key}
+function monthName(base,index){
+  const p=String(base||'').split('-');
+  if(p.length!==2)return 'Месяц '+(index+1);
+  const dt=new Date(Date.UTC(+p[0],(+p[1]-1)+index+1,1));
+  return new Intl.DateTimeFormat('ru-RU',{month:'short',year:'numeric',timeZone:'UTC'}).format(dt);
+}
+function flowLabel(d){return d==='lab'?'Доп. поток / мес.':'Доп. первичных / мес.'}
+
+function advancedCard(d,label){
+  return '<div class="advanced-direction">'+
+    '<h3>'+label+'</h3>'+
+    '<div class="advanced-fields">'+
+      '<div class="field"><label>Специалист / раздел</label><select id="seg-'+d+'"></select></div>'+
+      '<div class="field"><label>Повторных на 1 первичного</label><input id="rr-'+d+'" type="number" min="0" step="0.1"></div>'+
+      '<div class="field"><label>Средняя выручка / визит</label><input id="avg-'+d+'" type="number" min="0" step="100"></div>'+
+      '<div class="field"><label>ФОТ, %</label><input id="fot-'+d+'" type="number" min="0" max="100" step="1"></div>'+
+      '<div class="field"><label>Переменные мед. затраты, %</label><input id="med-'+d+'" type="number" min="0" max="100" step="1"></div>'+
+      '<div class="field"><label>Текущая мощность, приёмов / мес.</label><input id="cap-'+d+'" type="number" min="0" step="1"></div>'+
+    '</div>'+
+    '<div class="baseline" id="base-'+d+'"></div>'+
+  '</div>';
+}
+
+function fillSegments(d){
+  const m=$('#baseMonth').value,s=$('#seg-'+d),cur=s.value;
+  s.innerHTML=segments(d,m).map(x=>'<option value="'+x[0].replaceAll('"','&quot;')+'">'+x[1]+'</option>').join('');
+  if([...s.options].some(o=>o.value===cur))s.value=cur;
+}
+
+function applyBase(d,force=false){
+  const m=$('#baseMonth').value,seg=$('#seg-'+d).value||'all',b=baseline(m,d,seg);
+  if(force||!$('#rr-'+d).dataset.touched){
+    $('#rr-'+d).value=b.rr.toFixed(1);
+    $('#avg-'+d).value=Math.round(b.avg);
+    $('#fot-'+d).value=Math.round(b.fr*100);
+    $('#med-'+d).value=Math.round(b.med*100);
+    $('#cap-'+d).value=b.cap;
+  }
+  $('#base-'+d).textContent='Факт: выручка '+money(b.rev)+' · первичных '+b.primary.toFixed(1)+' · повторных '+b.repeat.toFixed(1)+' · визитов '+b.visits.toFixed(1)+' · ФОТ ~'+pct(b.fr);
+}
+
+function renderCurrent(){
+  const m=$('#baseMonth').value,base=clinicBase(m),r=rec(m);
+  const totalPrimary=num(r.dentPrimary)+num(r.clinicPrimary);
+  const totalRepeat=num(r.dentRepeat)+num(r.clinicRepeat);
+  $('#currentSummary').innerHTML=[
+    ['Выручка',money(base.rev),'за базовый месяц'],
+    ['Операционная прибыль',money(base.profit),'выручка минус операционные расходы'],
+    ['Первичные',Math.round(totalPrimary).toLocaleString('ru-RU'),'стоматология + отделение структуры'],
+    ['Повторные',Math.round(totalRepeat).toLocaleString('ru-RU'),'по фактическим данным месяца']
+  ].map(x=>'<div class="metric"><span>'+x[0]+'</span><strong>'+x[1]+'</strong><em>'+x[2]+'</em></div>').join('');
+
+  $('#currentDirections').innerHTML=DIRS.map(([d,label])=>{
+    const b=baseline(m,d,'all');
+    const flow=d==='lab'?'Заказы/визиты':'Первичные';
+    return '<div class="current-direction '+d+'"><h3>'+label+'</h3><div class="facts">'+
+      '<div class="fact"><span>Выручка</span><strong>'+money(b.rev)+'</strong></div>'+
+      '<div class="fact"><span>'+flow+'</span><strong>'+(d==='lab'?'—':b.primary.toFixed(0))+'</strong></div>'+
+      '<div class="fact"><span>Повторные</span><strong>'+(d==='lab'?'—':b.repeat.toFixed(0))+'</strong></div>'+
+      '<div class="fact"><span>Визиты</span><strong>'+(b.visits?b.visits.toFixed(0):'—')+'</strong></div>'+
+    '</div></div>';
+  }).join('');
+}
+
+function planDirection(skey,d,label){
+  return '<div class="plan-direction">'+
+    '<div class="plan-dir-head"><strong>'+label+'</strong><label class="toggle"><input type="checkbox" id="on-'+skey+'-'+d+'"> менять</label></div>'+
+    '<div class="plan-fields">'+
+      '<div class="field"><label>'+flowLabel(d)+'</label><input id="prim-'+skey+'-'+d+'" type="number" min="0" value="0"></div>'+
+      '<div class="field"><label>Маркетинг / мес.</label><input id="mkt-'+skey+'-'+d+'" type="number" min="0" step="1000" value="0"></div>'+
+      '<div class="field"><label>+ мощность, приёмов / мес.</label><input id="capadd-'+skey+'-'+d+'" type="number" min="0" step="1" value="0"></div>'+
+    '</div>'+
+  '</div>';
+}
+
+function renderPlanner(){
+  $('#scenarioPlanner').innerHTML=SCENARIOS.map(([key,label])=>{
+    const hint=key==='conservative'?'Осторожный вариант ваших решений.':key==='active'?'Более активный вариант ваших решений.':'Основной вариант, который хотите проверить.';
+    return '<div class="scenario-plan '+key+'"><div class="scenario-head"><h3>'+label+'</h3><p>'+hint+'</p></div>'+
+      DIRS.map(([d,dl])=>planDirection(key,d,dl)).join('')+
+    '</div>';
+  }).join('');
+}
+
+function scenarioDirection(d,skey){
+  const m=$('#baseMonth').value,seg=$('#seg-'+d).value||'all',b=baseline(m,d,seg);
+  const on=$('#on-'+skey+'-'+d).checked;
+  const add=on?num($('#prim-'+skey+'-'+d).value):0;
+  const marketing=on?num($('#mkt-'+skey+'-'+d).value):0;
+  const capacityAdd=on?num($('#capadd-'+skey+'-'+d).value):0;
+  const rr=num($('#rr-'+d).value),avg=num($('#avg-'+d).value),fot=num($('#fot-'+d).value)/100,med=num($('#med-'+d).value)/100;
+  const cap=num($('#cap-'+d).value)+capacityAdd,h=+$('#horizon').value,c=curve($('#repeatCurve').value),rows=[];
+  for(let k=0;k<h;k++){
+    let repeat=0;
+    for(let j=0;j<c.length;j++){const source=k-j;if(source>=0)repeat+=add*rr*c[j]}
+    const visits=add+repeat,totalVisits=b.visits+visits,load=cap?totalVisits/cap:0,rev=visits*avg,fotCost=rev*fot,medCost=rev*med,profit=rev-fotCost-medCost-marketing;
+    rows.push({k,add,repeat,visits,load,rev,fotCost,medCost,marketing,profit});
+  }
+  const tot=rows.reduce((a,r)=>{
+    for(const k of ['rev','fotCost','medCost','marketing','profit','visits'])a[k]+=r[k];
+    a.maxLoad=Math.max(a.maxLoad,r.load);
+    return a;
+  },{rev:0,fotCost:0,medCost:0,marketing:0,profit:0,visits:0,maxLoad:0});
+  return{d,seg,b,on,capacityAdd,cap,rows,tot,last:rows[rows.length-1]||{rev:0,profit:0,visits:0,load:0,marketing:0}};
+}
+
+function scenarioBundle(skey){
+  const m=$('#baseMonth').value,base=clinicBase(m),dirs=DIRS.map(x=>scenarioDirection(x[0],skey));
+  const cumulative={rev:0,profit:0,marketing:0,visits:0,maxLoad:0};
+  const last={rev:0,profit:0,visits:0,maxLoad:0};
+  dirs.forEach(s=>{
+    cumulative.rev+=s.tot.rev;
+    cumulative.profit+=s.tot.profit;
+    cumulative.marketing+=s.tot.marketing;
+    cumulative.visits+=s.tot.visits;
+    cumulative.maxLoad=Math.max(cumulative.maxLoad,s.tot.maxLoad);
+    last.rev+=s.last.rev;
+    last.profit+=s.last.profit;
+    last.visits+=s.last.visits;
+    last.maxLoad=Math.max(last.maxLoad,s.last.load);
+  });
+  return{
+    key:skey,base,dirs,cumulative,last,
+    endRevenue:base.rev+last.rev,
+    endProfit:base.profit+last.profit,
+    active:dirs.filter(s=>s.on)
+  };
+}
+
+function resultCard(bundle){
+  const cls=bundle.endProfit>=0?'positive':'negative';
+  return '<div class="result-card" data-scenario="'+bundle.key+'">'+
+    '<header><h3>'+scenarioLabel(bundle.key)+'</h3></header>'+
+    '<div class="result-main"><span>Выручка в месяц к концу горизонта</span><strong>'+money(bundle.base.rev)+' → '+money(bundle.endRevenue)+'</strong><small>последний месяц сценария</small></div>'+
+    '<div class="result-main"><span>Операционная прибыль в месяц</span><strong class="'+cls+'">'+money(bundle.base.profit)+' → '+money(bundle.endProfit)+'</strong><small>последний месяц сценария</small></div>'+
+    '<div class="result-rows">'+
+      '<div class="result-row"><span>Доп. прибыль за горизонт</span><strong class="'+(bundle.cumulative.profit>=0?'positive':'negative')+'">'+money(bundle.cumulative.profit)+'</strong></div>'+
+      '<div class="result-row"><span>Доп. выручка за горизонт</span><strong>'+money(bundle.cumulative.rev)+'</strong></div>'+
+      '<div class="result-row"><span>Доп. визиты за горизонт</span><strong>'+bundle.cumulative.visits.toFixed(0)+'</strong></div>'+
+      '<div class="result-row"><span>Доп. маркетинг за горизонт</span><strong>'+money(bundle.cumulative.marketing)+'</strong></div>'+
+      '<div class="result-row"><span>Макс. загрузка</span><strong class="'+(bundle.cumulative.maxLoad>1?'negative':'')+'">'+pct(bundle.cumulative.maxLoad)+'</strong></div>'+
+    '</div>'+
+  '</div>';
+}
+
+function decisionFor(bundle){
+  if(!bundle.active.length){
+    return{tone:'neutral',badge:'Без изменений',text:'В этом сценарии пока не включено ни одного направления.'};
+  }
+  const overloaded=bundle.active.filter(s=>s.tot.maxLoad>1);
+  if(overloaded.length){
+    return{tone:'warning',badge:'Упирается в мощность',text:'Перегрузка ожидается в: '+overloaded.map(s=>dirLabel(s.d)).join(', ')+'. Увеличьте доступную мощность или снизьте планируемый поток.'};
+  }
+  if(bundle.cumulative.profit<0){
+    return{tone:'warning',badge:'Рост не окупается',text:'При заданных маркетинге, ФОТ, среднем чеке и медзатратах накопительный дополнительный результат отрицательный.'};
+  }
+  return{tone:'',badge:'Можно развивать',text:'Сценарий даёт '+money(bundle.cumulative.rev)+' дополнительной выручки и '+money(bundle.cumulative.profit)+' дополнительной операционной прибыли за выбранный горизонт.'};
+}
+
+function renderResults(){
+  const bundles=SCENARIOS.map(x=>scenarioBundle(x[0]));
+  $('#scenarioResults').innerHTML=bundles.map(resultCard).join('');
+  $('#scenarioDecisions').innerHTML=bundles.map(b=>{
+    const d=decisionFor(b);
+    return '<div class="decision '+d.tone+'" data-decision="'+b.key+'"><h3>'+scenarioLabel(b.key)+'</h3><span class="badge">'+d.badge+'</span><p>'+d.text+'</p></div>';
+  }).join('');
+  return bundles;
+}
+
+function directionDetail(s){
+  const t=s.tot;
+  return '<div class="detail-cards">'+
+    '<div class="detail-card"><span>Доп. визиты</span><strong>'+t.visits.toFixed(0)+'</strong></div>'+
+    '<div class="detail-card"><span>Доп. выручка</span><strong>'+money(t.rev)+'</strong></div>'+
+    '<div class="detail-card"><span>Доп. прибыль</span><strong class="'+(t.profit>=0?'positive':'negative')+'">'+money(t.profit)+'</strong></div>'+
+    '<div class="detail-card"><span>Макс. загрузка</span><strong class="'+(t.maxLoad>1?'negative':'')+'">'+pct(t.maxLoad)+'</strong></div>'+
+  '</div>'+monthTable(s);
+}
+
+function monthTable(s){
+  const baseMonth=$('#baseMonth').value;
+  return '<div class="table-wrap"><table><thead><tr><th>Месяц</th><th>Новый поток</th><th>Новые повторные</th><th>Доп. визиты</th><th>Загрузка</th><th>Доп. выручка</th><th>ФОТ</th><th>Мед. затраты</th><th>Маркетинг</th><th>Доп. прибыль</th></tr></thead><tbody>'+
+    s.rows.map((r,i)=>'<tr><td>'+monthName(baseMonth,i)+'</td><td>'+r.add.toFixed(1)+'</td><td>'+r.repeat.toFixed(1)+'</td><td>'+r.visits.toFixed(1)+'</td><td>'+pct(r.load)+'</td><td>'+money(r.rev)+'</td><td>'+money(r.fotCost)+'</td><td>'+money(r.medCost)+'</td><td>'+money(r.marketing)+'</td><td>'+money(r.profit)+'</td></tr>').join('')+
+  '</tbody></table></div>';
+}
+
+function clinicMonthTable(bundle){
+  const h=+$('#horizon').value,baseMonth=$('#baseMonth').value,rows=[];
+  for(let i=0;i<h;i++){
+    let addRev=0,addProfit=0,addMarketing=0,maxLoad=0,visits=0;
+    bundle.dirs.forEach(s=>{
+      const r=s.rows[i]||{};
+      addRev+=num(r.rev);addProfit+=num(r.profit);addMarketing+=num(r.marketing);visits+=num(r.visits);maxLoad=Math.max(maxLoad,num(r.load));
+    });
+    rows.push({i,addRev,addProfit,addMarketing,maxLoad,visits});
+  }
+  return '<div class="table-wrap"><table><thead><tr><th>Месяц</th><th>Выручка клиники</th><th>Опер. прибыль клиники</th><th>Доп. визиты</th><th>Доп. маркетинг</th><th>Макс. загрузка</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td>'+monthName(baseMonth,r.i)+'</td><td>'+money(bundle.base.rev+r.addRev)+'</td><td>'+money(bundle.base.profit+r.addProfit)+'</td><td>'+r.visits.toFixed(1)+'</td><td>'+money(r.addMarketing)+'</td><td>'+pct(r.maxLoad)+'</td></tr>').join('')+
+  '</tbody></table></div>';
+}
+
+function renderDetails(){
+  const key=$('#detailScenario').value,b=scenarioBundle(key);
+  $('#detailAccordion').innerHTML=b.dirs.map((s,i)=>{
+    return '<button class="acc-head" data-i="'+i+'"><span>+ '+dirLabel(s.d)+(s.on?' · изменения включены':' · без изменений')+'</span><strong>'+(s.on?money(s.tot.profit):'текущая база')+'</strong></button>'+
+      '<div class="acc-body" id="acc-'+i+'">'+directionDetail(s)+'</div>';
+  }).join('')+
+  '<button class="acc-head" data-i="clinic"><span>+ Клиника целиком</span><strong>'+money(b.endProfit)+'</strong></button>'+
+  '<div class="acc-body" id="acc-clinic"><div class="detail-cards">'+
+    '<div class="detail-card"><span>Выручка в конце</span><strong>'+money(b.endRevenue)+'</strong></div>'+
+    '<div class="detail-card"><span>Прибыль в конце</span><strong>'+money(b.endProfit)+'</strong></div>'+
+    '<div class="detail-card"><span>Доп. прибыль накопительно</span><strong>'+money(b.cumulative.profit)+'</strong></div>'+
+    '<div class="detail-card"><span>Доп. маркетинг накопительно</span><strong>'+money(b.cumulative.marketing)+'</strong></div>'+
+  '</div>'+clinicMonthTable(b)+'</div>';
+
+  document.querySelectorAll('.acc-head').forEach(btn=>{
+    btn.onclick=()=>$('#acc-'+btn.dataset.i).classList.toggle('open');
+  });
+}
+
+function renderAll(){
+  renderCurrent();
+  renderResults();
+  renderDetails();
+}
+
+function wirePlanner(){
+  SCENARIOS.forEach(([skey])=>{
+    DIRS.forEach(([d])=>{
+      ['on','prim','mkt','capadd'].forEach(id=>{
+        $('#'+id+'-'+skey+'-'+d).oninput=renderAll;
+      });
+    });
+  });
+}
+
+function wireAdvanced(){
+  DIRS.forEach(([d])=>{
+    $('#seg-'+d).onchange=()=>{applyBase(d,true);renderAll()};
+    ['rr','avg','fot','med','cap'].forEach(id=>{
+      $('#'+id+'-'+d).oninput=e=>{e.target.dataset.touched='1';renderAll()};
+    });
+  });
+  $('#repeatCurve').onchange=renderAll;
+}
+
+async function init(){
+  const [fr,sr]=await Promise.all([
+    fetch('/api/reports/finrez',{credentials:'same-origin',cache:'no-store'}),
+    fetch('/api/reports/storage',{credentials:'same-origin',cache:'no-store'})
+  ]);
+  FIN=await fr.json();
+  STORE=(await sr.json()).storage||{};
+  ANALYTICS=parseBlob('az-service-analytics-v1');
+  SALARY=parseBlob('az-service-salary-v1');
+  EXTRA=parseBlob('az-service-extra-payments-v1');
+
+  const months=Object.keys(FIN.management||{}).sort();
+  $('#baseMonth').innerHTML=months.map(m=>'<option value="'+m+'">'+m+'</option>').join('');
+  $('#baseMonth').value=months[months.length-1]||'';
+
+  $('#advancedGrid').innerHTML=DIRS.map(x=>advancedCard(x[0],x[1])).join('');
+  DIRS.forEach(([d])=>{fillSegments(d);applyBase(d,true)});
+
+  renderPlanner();
+  wirePlanner();
+  wireAdvanced();
+
+  $('#baseMonth').onchange=()=>{
+    DIRS.forEach(([d])=>{fillSegments(d);applyBase(d,true)});
+    renderAll();
+  };
+  $('#horizon').onchange=renderAll;
+  $('#detailScenario').onchange=renderDetails;
+
+  $('#loading').style.display='none';
+  $('#app').style.display='block';
+  renderAll();
+}
+
+init().catch(e=>{
+  $('#loading').textContent='Не удалось загрузить данные прогноза: '+e.message;
+});
+</script>
+</body>
+</html>

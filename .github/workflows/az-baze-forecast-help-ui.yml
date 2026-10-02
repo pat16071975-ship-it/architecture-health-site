@@ -1,9 +1,9 @@
-name: AZ-BAZE Forecast Help UI
+name: AZ-BAZE Forecast Management UI
 
 on:
   push:
     branches:
-      - feature/az-forecast-help-opaque
+      - feature/az-forecast-management-redesign
       - feature/az-baze-auth
     paths:
       - 'reports/forecast.html'
@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 jobs:
-  forecast-help-ui:
+  forecast-management-ui:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -27,13 +27,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Forecast algorithm unchanged
+      - name: Forecast base model preserved
         run: |
           python - <<'PY'
           import subprocess
           from pathlib import Path
 
-          BASE = "aa27c4df301a6697c2e0fd9ffe15c09b2db982fd"
+          BASE = "046126beedd22551e9f7b41ddf2cb149dc654fba"
 
           def git_show(path):
               return subprocess.check_output(
@@ -62,7 +62,7 @@ jobs:
                       elif ch==quote:
                           quote=None
                   else:
-                      if ch in ("'",'"',"`"):
+                      if ch in ("'",'"',chr(96)):
                           quote=ch
                       elif ch=="{":
                           depth+=1
@@ -75,30 +75,46 @@ jobs:
 
           current=Path("reports/forecast.html").read_text(encoding="utf-8")
           base=git_show("reports/forecast.html")
-          for name in ("baseline","curve","scenario","clinicBase","calculate","renderInsight"):
+          for name in ("stat","adir","recsum","fotRate","segments","segRev","baseline","curve","clinicBase"):
               assert extract_function(current,name)==extract_function(base,name), name
-          print("FORECAST ALGORITHM UNCHANGED: OK")
+          print("FORECAST BASE MODEL PRESERVED: OK")
           PY
 
-      - name: Forecast source contract
+      - name: Forecast management source contract
         run: |
           python - <<'PY'
           from pathlib import Path
           html=Path("reports/forecast.html").read_text(encoding="utf-8")
           required=[
+              '1. Текущая точка',
+              '2. Что хотим изменить',
+              '3. Что получим',
+              '4. Управленческий вывод',
+              'Консервативный',
+              'Базовый',
+              'Активный',
+              'Доп. прибыль за горизонт',
+              'Выручка в месяц к концу горизонта',
+              'Упирается в мощность',
+              'Можно развивать',
+              'id="advancedSettings"',
+              'Точные настройки',
               'id="forecastMethod"',
-              'Как считается прогноз',
-              'Доп. визиты = новые первичные + новые повторные',
-              'не обрезает расчётную выручку автоматически',
-              'Факт и исходные коэффициенты берутся из этого месяца.',
-              'Порог мощности для загрузки',
-              '.scenario-body{padding:11px;background:#fff}',
-              '.panel{margin-top:12px;border:1px solid var(--line);border-radius:14px;background:#fff',
-              '.acc-body{display:none;padding:0 12px 12px;background:#fff}',
+              'Три сценария не имеют скрытых автоматических коэффициентов',
+              'scenarioDirection',
+              'scenarioBundle',
+              'endRevenue:base.rev+last.rev',
+              'endProfit:base.profit+last.profit',
           ]
           for needle in required:
               assert needle in html, needle
-          print("FORECAST HELP SOURCE CONTRACT: OK")
+          forbidden=[
+              '<div class="bar">',
+              'Новая выручка = текущая выручка базового месяца + суммарная дополнительная выручка за весь выбранный горизонт'
+          ]
+          for needle in forbidden:
+              assert needle not in html, needle
+          print("FORECAST MANAGEMENT SOURCE CONTRACT: OK")
           PY
 
       - name: Inline JavaScript syntax
@@ -130,7 +146,7 @@ jobs:
           cat /tmp/az-forecast-http.log
           exit 1
 
-      - name: Chromium forecast help checks
+      - name: Chromium forecast management checks
         run: node .github/scripts/az-forecast-help-opaque-check.cjs
 
       - name: Stop local server
@@ -142,7 +158,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: az-forecast-help-ui-screenshots
-          path: artifacts/forecast-help-opaque-*.png
+          name: az-forecast-management-ui-screenshots
+          path: artifacts/forecast-management-*.png
           if-no-files-found: warn
           retention-days: 7
