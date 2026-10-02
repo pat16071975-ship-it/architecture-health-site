@@ -261,6 +261,17 @@ def create_app():
         import nn_reports as nn_reports_module
         return nn_reports_module.export_report(report_key)
 
+    @app.get("/nn/graphics/")
+    @login_required
+    def nn_graphics():
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_upload
+        return render_template(
+            "nn_graphics.html",
+            clinics=nn_upload._clinic_rows(db()),
+        )
+
     @app.get("/nn/bi/")
     @login_required
     def nn_bi():
