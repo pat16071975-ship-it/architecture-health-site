@@ -4111,3 +4111,9 @@
 @media(max-width:959px){#visual-2784030001-1623214447275{width:253px;left:calc(50% - 320px + 10px);height:39px;top:253px;font-size:14px}}
 @media(max-width:639px){#visual-2784030001-1623214447275{width:260px;left:calc(50% - 240px + 46px);height:45px;top:251px;font-size:14px}}
 @media(max-width:479px){#visual-2784030001-1623214447275{width:232px;left:calc(50% - 160px + 10px);height:37px;top:321px;font-size:14px}}
+/* Homepage migration fixes: restore CTA colour and keep the equipment heading on two lines. */
+#visual-2488705671-1784635438553000002 > .visual-inner{background-color:#2080c4}
+#visual-2488705671-1784635438553000002 > .visual-inner:hover{background-color:#2060c4}
+@media screen and (min-width:960px){
+#visual-2488705671-1784641472820000026{width:190px}
+}
