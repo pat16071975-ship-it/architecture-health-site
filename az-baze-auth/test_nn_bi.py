@@ -100,6 +100,10 @@ class NNBIAnalyticsTests(unittest.TestCase):
                 {"service": "Лазерное лечение варикоза категория B", "qty": 1, "gross_amount": 367000, "discount": 17000, "amount": 350000, "aggregate_control": True},
                 {"service": "Пенная склеротерапия", "qty": 1, "gross_amount": 150000, "discount": 0, "amount": 150000, "aggregate_control": True},
             ],
+            "payment_control_rows": [
+                {"doctor": "Врач А", "method": "Безналичные", "qty": 2, "gross_amount": 373000, "discount": 17000, "amount": 356000, "period_start": "2026-06-01", "period_end": "2026-06-20"},
+                {"doctor": "Врач Б", "method": "Наличные", "qty": 2, "gross_amount": 156000, "discount": 0, "amount": 156000, "period_start": "2026-06-01", "period_end": "2026-06-20"},
+            ],
             "deleted_appointments": [
                 {"deleted_by": "Администратор", "reason": "Неявка на прием", "deleted_date": "2026-06-10", "deleted_time": "12:00", "appointment_date": "2026-06-11", "appointment_time": "10:00", "doctor": "Врач А", "patient": "Пациент X", "patient_name": "пациент x", "phone": ""}
             ],
@@ -164,6 +168,11 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertEqual(data["bookings"]["deleted_reasons"][0]["label"], "Неявка на прием")
         self.assertTrue(data["revenue"]["discount_control"]["available"])
         self.assertIn("negative_rows", data["revenue"]["discount_control"])
+        self.assertTrue(data["revenue"]["payment_methods"]["available"])
+        self.assertEqual(
+            {row["method"] for row in data["revenue"]["payment_methods"]["rows"]},
+            {"Безналичные", "Наличные"},
+        )
         self.assertTrue(data["marketing"]["available"])
         self.assertEqual(data["marketing"]["sources"][0]["source"], "Instagram")
 
@@ -206,8 +215,26 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertEqual(client.get("/api/nn/bi/relations?clinic_id=1").status_code, 403)
         self.assertEqual(client.get("/nn/bi/export.xlsx?clinic_id=1").status_code, 403)
 
+    def test_optional_payment_parser_extracts_methods_and_period(self):
+        rows = nn_normalize._payment_control_rows_from_text(
+            """Период: 01.06.2026 00:00 - 20.06.2026 23:59
+ВРАЧ А
+всего Безнал. 2 373 000,00 17 000,00 356 000,00
+ВРАЧ Б
+всего Наличные 2 156 000,00 0,00 156 000,00
+""",
+            ["Врач А", "Врач Б"],
+        )
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["method"], "Безналичные")
+        self.assertEqual(rows[0]["doctor"], "Врач А")
+        self.assertEqual(rows[0]["period_start"], "2026-06-01")
+        self.assertEqual(rows[0]["period_end"], "2026-06-20")
+        self.assertEqual(rows[1]["method"], "Наличные")
+
     def test_new_normalization_helpers_preserve_bi_dimensions(self):
         self.assertEqual(nn_normalize._parse_datetime("27.05.2026, 13:47"), "2026-05-27T13:47")
+        self.assertEqual(nn_normalize._parse_datetime("2026-05-27T13:47:00"), "2026-05-27T13:47")
         payload = nn_normalize.normalize_rows(
             [{"name": "Иванова Анна", "dob": "1990-01-01", "gender": "Женский", "source": "Instagram", "visits_count": 2, "iin": "", "chart": "10", "phone": "7000000010", "note": "", "source_amount": 0}],
             [{"date": "2026-06-01", "created_at": "2026-05-27T13:47", "start": "10:00", "end": "10:30", "doctor": "Врач А", "patient": "Иванова Анна", "iin": "", "chart": "10", "phone": "7000000010", "repeat_field": "", "note": "", "visit_type": "Амбулаторно", "help_type": "", "appeal_reason": "", "diagnoses": "", "services_text": "Прием хирурга флеболога с УЗИ", "amount": 6000}],
