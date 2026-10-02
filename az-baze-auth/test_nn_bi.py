@@ -159,7 +159,7 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertGreaterEqual(data["funnel"]["conversion_primary_to_treatment"], 0)
         self.assertTrue(data["overview"]["trend"])
         self.assertTrue(data["doctors"])
-        self.assertTrue(data["doctor_transitions"])
+        self.assertIn("doctor_transitions", data)
         self.assertIsNotNone(data["funnel"]["days_to_treatment"]["average"])
         self.assertTrue(data["patients"]["age_groups"])
         self.assertTrue(data["services"]["categories"])
@@ -175,6 +175,26 @@ class NNBIAnalyticsTests(unittest.TestCase):
         )
         self.assertTrue(data["marketing"]["available"])
         self.assertEqual(data["marketing"]["sources"][0]["source"], "Instagram")
+
+    def test_doctor_transition_counts_primary_to_treatment_doctor(self):
+        import nn_bi
+        rows = nn_bi._doctor_transitions(
+            {},
+            {
+                "primaries": [
+                    {"patient_key": "p1", "doctor": "Врач первичного"},
+                    {"patient_key": "p2", "doctor": "Врач первичного"},
+                ],
+                "treatments": [
+                    {"patient_key": "p1", "doctors": {"evlk": ["Врач лечения"], "sclero": [], "mini": []}},
+                    {"patient_key": "p2", "doctors": {"evlk": [], "sclero": ["Врач лечения"], "mini": []}},
+                ],
+            },
+        )
+        self.assertEqual(
+            rows,
+            [{"primary_doctor": "Врач первичного", "treatment_doctor": "Врач лечения", "patients": 2}],
+        )
 
     def test_relations_support_bar_and_heatmap(self):
         bar = self.client_for(2).get(
