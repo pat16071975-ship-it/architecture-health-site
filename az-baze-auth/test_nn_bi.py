@@ -254,7 +254,11 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertIn("spreadsheetml", response.mimetype)
         wb = load_workbook(io.BytesIO(response.data), read_only=True, data_only=True)
         try:
-            for name in ("Обзор", "Врачи", "Когорты", "Услуги", "Запись и потери", "Маркетинг"):
+            for name in (
+                "Обзор", "Динамика", "Воронка", "Врачи", "Переходы врачей",
+                "Когорты", "Услуги", "Цепочки услуг", "Запись и потери",
+                "Финансы", "Маркетинг",
+            ):
                 self.assertIn(name, wb.sheetnames)
         finally:
             wb.close()
