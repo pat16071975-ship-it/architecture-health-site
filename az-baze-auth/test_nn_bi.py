@@ -160,7 +160,7 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertTrue(data["overview"]["trend"])
         self.assertTrue(data["doctors"])
         self.assertIn("doctor_transitions", data)
-        self.assertIsNotNone(data["funnel"]["days_to_treatment"]["average"])
+        self.assertIn("days_to_treatment", data["funnel"])
         self.assertTrue(data["patients"]["age_groups"])
         self.assertTrue(data["services"]["categories"])
         self.assertTrue(data["services"]["chains"])
@@ -175,6 +175,37 @@ class NNBIAnalyticsTests(unittest.TestCase):
         )
         self.assertTrue(data["marketing"]["available"])
         self.assertEqual(data["marketing"]["sources"][0]["source"], "Instagram")
+
+    def test_funnel_days_to_treatment_is_calculated_from_dates(self):
+        import nn_bi
+        payload = {
+            "treatments": [
+                {
+                    "patient_key": "p1",
+                    "first_date": "2026-06-05",
+                    "doctors": {"evlk": ["Врач А"], "sclero": [], "mini": []},
+                }
+            ],
+            "repeats": [
+                {"patient_key": "p1", "date": "2026-06-10", "doctor": "Врач А"}
+            ],
+        }
+        result = nn_bi._funnel(
+            payload,
+            {
+                "primaries": [
+                    {
+                        "patient_key": "p1",
+                        "date": "2026-06-01",
+                        "doctor": "Врач А",
+                        "indications": {"evlk": True, "sclero": False, "mini": False},
+                    }
+                ]
+            },
+        )
+        self.assertEqual(result["days_to_treatment"]["average"], 4.0)
+        self.assertEqual(result["days_to_treatment"]["median"], 4)
+        self.assertEqual(result["conversion_primary_to_treatment"], 100.0)
 
     def test_doctor_transition_counts_primary_to_treatment_doctor(self):
         import nn_bi
