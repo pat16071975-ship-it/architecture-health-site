@@ -367,7 +367,7 @@ def _doctor_table(payload, model):
         converted = sum(1 for row in dprim if _treatment_after_primary(payload, row))
         treatment_types = {
             kind: sum(
-                1 for row in payload.get("treatments", [])
+                1 for row in model["treatments"]
                 if doctor in row.get("doctors", {}).get(kind, [])
                 and row.get("patient_key") in pkeys
             )
@@ -658,7 +658,7 @@ def _trend_rows(model, start, end):
     ]
 
 
-def _discount_control(payload):
+def _discount_control(payload, start, end, doctor="", service=""):
     rows = payload.get("service_control_rows", [])
     gross = sum(_money(row.get("gross_amount") or row.get("amount")) for row in rows)
     discount = sum(_money(row.get("discount")) for row in rows)
@@ -672,6 +672,23 @@ def _discount_control(payload):
         for row in rows
         if float(row.get("qty") or 0) < 0 or _money(row.get("amount")) < 0
     ]
+    source_period = payload.get("service_control_period") or {}
+    source_start = source_period.get("start")
+    source_end = source_period.get("end")
+    scope_matches = (
+        not doctor
+        and not service
+        and source_start == start
+        and source_end == end
+    )
+    if scope_matches:
+        note = "Скидки относятся к выбранному периоду. Контрольный источник не используется для повторного суммирования оборота."
+    else:
+        note = (
+            f"Скидки показаны по агрегированному контрольному источнику за "
+            f"{source_start or '—'} — {source_end or '—'}. "
+            "К нему нельзя надёжно применить текущий фильтр периода/врача/услуги, поэтому эти суммы не входят в отфильтрованную выручку BI."
+        )
     return {
         "available": bool(rows),
         "gross": round(gross, 2),
@@ -679,7 +696,9 @@ def _discount_control(payload):
         "net": round(net, 2),
         "discount_share": _pct(discount, gross),
         "negative_rows": negative,
-        "note": "Скидки рассчитаны по актуальному контрольному отчёту услуг; этот источник не используется для повторного суммирования оборота.",
+        "period": {"start": source_start, "end": source_end},
+        "scope_matches": scope_matches,
+        "note": note,
     }
 
 
@@ -753,7 +772,7 @@ def _marketing_section(payload, model):
     for row in visits:
         if row.get("patient_key"):
             revenue_by_patient[row["patient_key"]] += _money(row.get("amount"))
-    treatment_keys = {row.get("patient_key") for row in payload.get("treatments", [])}
+    treatment_keys = {row.get("patient_key") for row in model.get("treatments", [])}
     grouped = defaultdict(lambda: {"patients": set(), "revenue": 0.0, "treated": set()})
     for key in model["patient_keys"]:
         source = (patients.get(key, {}).get("source") or "").strip()
@@ -828,7 +847,7 @@ def _summary_data(conn, clinic_id):
         "bookings": _booking_section(payload, model, start, end, doctor),
         "revenue": {
             "metrics": metrics,
-            "discount_control": _discount_control(payload),
+            "discount_control": _discount_control(payload, start, end, doctor, service),
             "payment_methods": _payment_methods_section(payload, start, end, doctor, service),
         },
         "marketing": _marketing_section(payload, model),
