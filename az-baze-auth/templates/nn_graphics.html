@@ -15,11 +15,11 @@
 .gr-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
 .gr-card{grid-column:span 3;background:rgba(255,253,248,.98);border:1px solid var(--line);border-radius:15px;padding:15px;box-shadow:0 12px 32px rgba(69,55,35,.07);min-width:0}
 .gr-card.size-full{grid-column:span 6}.gr-card.size-half{grid-column:span 3}.gr-card.size-third{grid-column:span 2}
-.gr-card-head{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.gr-card-head{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;margin-bottom:10px}.gr-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.gr-fill-toggle{border:1px solid #d9cfbf;background:#fffaf3;border-radius:7px;padding:6px 8px;font:700 11px Montserrat;cursor:pointer;color:#4f5952;white-space:nowrap}.gr-fill-toggle.active{background:#e5eee8;border-color:#afc1b3;color:#355640}
 .gr-card h3{margin:0;font-size:19px;font-weight:800}.gr-note{margin-top:6px;color:#687067;font-size:15px;line-height:1.45;font-weight:700}
 .gr-size{display:flex;gap:5px;flex:none}.gr-size button{border:1px solid #d9cfbf;background:#fffaf3;border-radius:7px;padding:6px 8px;font:700 12px Montserrat;cursor:pointer;color:#4f5952}.gr-size button.active{background:#e9e1d3;color:#2d342f}
-.gr-chart{min-height:320px;display:flex;align-items:center;justify-content:center;overflow:auto}.gr-empty{width:100%;padding:34px;text-align:center;border:1px dashed #d8cdbb;border-radius:10px;color:#687067;font-size:17px;font-weight:700}
-.gr-svg{width:100%;min-width:560px;height:auto;color:#44634f}.gr-svg text{font-family:Montserrat,Arial,sans-serif;fill:#56625b;font-size:22px;font-weight:700}.gr-svg .grid{stroke:#e7dfd2;stroke-width:1.2}.gr-svg .line{fill:none;stroke:currentColor;stroke-width:3}.gr-svg .area{fill:currentColor;opacity:.13}.gr-svg .dot{fill:#fff;stroke:currentColor;stroke-width:2}.gr-svg .bar{fill:currentColor;opacity:.82}.gr-svg .bar-bg{fill:#eee7dc}
+.gr-chart{min-height:320px;display:flex;align-items:center;justify-content:center;overflow:auto;position:relative}.gr-empty{width:100%;padding:34px;text-align:center;border:1px dashed #d8cdbb;border-radius:10px;color:#687067;font-size:17px;font-weight:700}
+.gr-svg{width:100%;min-width:560px;height:auto;color:#44634f}.gr-svg text{font-family:Montserrat,Arial,sans-serif;fill:#56625b;font-size:22px;font-weight:700}.gr-svg-compact text{font-size:11px;font-weight:500}.gr-svg .grid{stroke:#e7dfd2;stroke-width:1.2}.gr-svg .line{fill:none;stroke:currentColor;stroke-width:3}.gr-svg .area{fill:currentColor;opacity:.13}.gr-svg .dot{fill:#fff;stroke:currentColor;stroke-width:2}.gr-svg .bar{fill:currentColor;opacity:.82}.gr-svg .bar-bg{fill:#eee7dc}.gr-card.fill-off .gr-svg .area{display:none}.gr-card.fill-off .gr-svg .bar{fill:transparent;stroke:currentColor;stroke-width:3;opacity:1}.gr-card.fill-off .gr-svg .bar-bg{fill:#fffdf8;stroke:#ddd3c3;stroke-width:1}.gr-tooltip{position:fixed;z-index:50;max-width:300px;padding:9px 11px;border-radius:9px;background:#2f3f35;color:#fff;font:700 12px/1.35 Montserrat,Arial,sans-serif;box-shadow:0 8px 25px rgba(0,0,0,.18);pointer-events:none;transform:translate(12px,12px)}.gr-tooltip[hidden]{display:none}.gr-card[data-card="revenue"] .gr-chart{min-height:250px}.gr-card[data-card="deleted"] .gr-chart,.gr-card[data-card="discounts"] .gr-chart{min-height:185px}.gr-card[data-card="deleted"],.gr-card[data-card="discounts"]{align-self:start}
 .gr-donut-wrap{display:grid;grid-template-columns:minmax(220px,280px) 1fr;gap:24px;align-items:center;width:100%}.gr-donut{width:250px;aspect-ratio:1;border-radius:50%;position:relative;margin:auto}.gr-donut:after{content:"";position:absolute;inset:30%;background:#fffdf8;border-radius:50%;box-shadow:inset 0 0 0 1px #eee4d4}.gr-legend{display:grid;gap:11px}.gr-legend-row{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center;font-size:17px;font-weight:700}.gr-dot{width:13px;height:13px;border-radius:50%}
 .gr-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.gr-kpi{background:#fffdf8;border:1px solid #e1d7c8;border-radius:11px;padding:14px}.gr-kpi span{display:block;color:#657069;font-size:14px;font-weight:700}.gr-kpi strong{display:block;margin-top:5px;font-size:24px;font-weight:800}.gr-kpi small{display:block;margin-top:5px;color:#737b75;font-size:13px;font-weight:700;line-height:1.35}
 @media(max-width:1050px){.gr-filters{grid-template-columns:repeat(2,1fr)}.gr-card,.gr-card.size-half,.gr-card.size-third{grid-column:span 3}.gr-kpi-strip{grid-template-columns:repeat(2,1fr)}}
@@ -70,16 +70,20 @@
   <article class="gr-card size-{{ size }}" data-card="{{ id }}">
     <header class="gr-card-head">
       <div><h3>{{ title }}</h3><div class="gr-note" id="note-{{ id }}"></div></div>
-      <div class="gr-size" aria-label="Размер графика">
-        <button type="button" data-size="third">1/3</button>
-        <button type="button" data-size="half" class="{% if size == 'half' %}active{% endif %}">1/2</button>
-        <button type="button" data-size="full" class="{% if size == 'full' %}active{% endif %}">1/1</button>
+      <div class="gr-tools">
+        {% if id != "frequency" %}<button type="button" class="gr-fill-toggle active" data-fill-toggle>Заливка: Вкл</button>{% endif %}
+        <div class="gr-size" aria-label="Размер графика">
+          <button type="button" data-size="third">1/3</button>
+          <button type="button" data-size="half" class="{% if size == 'half' %}active{% endif %}">1/2</button>
+          <button type="button" data-size="full" class="{% if size == 'full' %}active{% endif %}">1/1</button>
+        </div>
       </div>
     </header>
     <div class="gr-chart" id="chart-{{ id }}"></div>
   </article>
   {% endfor %}
 </section>
+<div class="gr-tooltip" id="grTooltip" hidden></div>
 
 <a class="nn-back" href="/nn/">← Назад</a>
 
@@ -89,37 +93,74 @@ const fmtNum=v=>v==null?"—":new Intl.NumberFormat("ru-RU",{maximumFractionDigi
 const fmtMoney=v=>v==null?"—":new Intl.NumberFormat("ru-RU",{maximumFractionDigits:0}).format(v)+" ₸";
 const fmtPct=v=>v==null?"—":fmtNum(v)+"%";
 const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));
+const monthFmt=new Intl.DateTimeFormat("ru-RU",{month:"short",year:"numeric",timeZone:"UTC"});
+function periodText(value){
+  const v=String(value||"");
+  if(/^\d{4}-\d{2}$/.test(v)){
+    const [y,m]=v.split("-").map(Number);
+    return monthFmt.format(new Date(Date.UTC(y,m-1,1))).replace(" г.","");
+  }
+  return v;
+}
+function shortDoctor(value){
+  const parts=String(value||"").trim().split(/\s+/).filter(Boolean);
+  if(parts.length<=1)return parts[0]||"—";
+  return parts[0]+" "+parts.slice(1).map(x=>x.charAt(0).toUpperCase()+".").join("");
+}
 function qs(){const p=new URLSearchParams({clinic_id:document.getElementById("clinic").value});const f=document.getElementById("dateFrom").value,t=document.getElementById("dateTo").value,d=document.getElementById("doctor").value,s=document.getElementById("service").value;if(f)p.set("date_from",f);if(t)p.set("date_to",t);if(d)p.set("doctor",d);if(s)p.set("service",s);return p}
 function fillSelect(id,rows,blank){const el=document.getElementById(id),current=el.value;el.innerHTML=blank?'<option value="">'+esc(blank)+'</option>':"";(rows||[]).forEach(r=>{const o=document.createElement("option");o.value=r.key??r;o.textContent=r.label??r;el.appendChild(o)});if([...el.options].some(o=>o.value===current))el.value=current}
 function empty(id,text="Нет данных для выбранного периода."){document.getElementById("chart-"+id).innerHTML='<div class="gr-empty">'+esc(text)+'</div>'}
 function setNote(id,text=""){document.getElementById("note-"+id).textContent=text}
 function previousNote(current,previous,fmt){if(current==null||previous==null)return"";const d=current-previous;const sign=d>0?"+":"";return"Предыдущий аналогичный период: "+fmt(previous)+" · "+sign+fmt(d)}
 function kpi(label,value,fmt,note){return'<div class="gr-kpi"><span>'+esc(label)+'</span><strong>'+esc(fmt(value))+'</strong>'+(note?'<small>'+esc(note)+'</small>':'')+'</div>'}
-function svgLine(id,rows,key,fmt,area=false){
+function xLabelIndices(rows){
+  if(!rows?.length)return[];
+  if(rows.every(r=>/^\d{4}-\d{2}$/.test(String(r.period||""))))return rows.map((_,i)=>i);
+  if(rows.length<=6)return rows.map((_,i)=>i);
+  return [0,Math.floor((rows.length-1)/2),rows.length-1].filter((v,i,a)=>a.indexOf(v)===i);
+}
+function svgLine(id,rows,key,fmt,area=false,compact=false){
   if(!rows?.length){empty(id);return}
-  const W=900,H=420,L=96,R=34,T=28,B=82,vals=rows.map(r=>Number(r[key]||0)),max=Math.max(...vals,1),min=Math.min(...vals,0),span=Math.max(max-min,1);
+  const monthly=rows.every(r=>/^\d{4}-\d{2}$/.test(String(r.period||"")));
+  const W=Math.max(900,monthly?rows.length*(compact?95:115):900);
+  const H=compact?250:420,L=compact?56:96,R=compact?20:34,T=compact?18:28,B=compact?42:82;
+  const vals=rows.map(r=>Number(r[key]||0)),max=Math.max(...vals,1),min=Math.min(...vals,0),span=Math.max(max-min,1);
   const x=i=>L+(W-L-R)*(rows.length===1?.5:i/(rows.length-1)),y=v=>T+(H-T-B)*(1-(v-min)/span);
   const pts=rows.map((r,i)=>[x(i),y(vals[i])]);
   const line=pts.map(p=>p.join(",")).join(" ");
   const poly=area?'<polygon class="area" points="'+L+','+(H-B)+' '+line+' '+(W-R)+','+(H-B)+'"></polygon>':"";
   const grid=[0,.25,.5,.75,1].map(q=>{const yy=T+(H-T-B)*q;const value=max-span*q;return'<line class="grid" x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'"></line><text x="4" y="'+(yy+4)+'">'+esc(fmt(value))+'</text>'}).join("");
-  const dots=pts.map((p,i)=>'<circle class="dot" cx="'+p[0]+'" cy="'+p[1]+'" r="6"><title>'+esc(rows[i].period)+': '+esc(fmt(vals[i]))+'</title></circle>').join("");
-  const idx=[0,Math.floor((rows.length-1)/2),rows.length-1].filter((v,i,a)=>a.indexOf(v)===i);
-  const labels=idx.map(i=>'<text text-anchor="'+(i===0?'start':i===rows.length-1?'end':'middle')+'" x="'+x(i)+'" y="'+(H-12)+'">'+esc(rows[i].period)+'</text>').join("");
-  document.getElementById("chart-"+id).innerHTML='<svg class="gr-svg" viewBox="0 0 '+W+' '+H+'" role="img">'+grid+poly+'<polyline class="line" points="'+line+'"></polyline>'+dots+labels+'</svg>'
+  const dots=pts.map((p,i)=>'<circle class="dot" cx="'+p[0]+'" cy="'+p[1]+'" r="'+(compact?4:6)+'" data-tip="'+esc(periodText(rows[i].period)+" — "+fmt(vals[i]))+'"></circle>').join("");
+  const idx=xLabelIndices(rows);
+  const labels=idx.map(i=>'<text text-anchor="'+(i===0?'start':i===rows.length-1?'end':'middle')+'" x="'+x(i)+'" y="'+(H-(compact?12:18))+'">'+esc(periodText(rows[i].period))+'</text>').join("");
+  document.getElementById("chart-"+id).innerHTML='<svg class="gr-svg'+(compact?' gr-svg-compact':'')+'" viewBox="0 0 '+W+' '+H+'" role="img">'+grid+poly+'<polyline class="line" points="'+line+'"></polyline>'+dots+labels+'</svg>'
 }
-function svgBars(id,rows,labelKey,valueKey,fmt,limit=null){
+function svgBars(id,rows,labelKey,valueKey,fmt,opts={}){
   if(!rows?.length){empty(id);return}
-  const data=limit?rows.slice(0,limit):rows,W=1040,L=360,R=180,rowH=58,H=Math.max(320,data.length*rowH+30),max=Math.max(...data.map(r=>Number(r[valueKey]||0)),1);
+  const data=opts.limit?rows.slice(0,opts.limit):rows;
+  const compact=!!opts.compact,labelsAbove=!!opts.labelsAbove;
+  const W=compact?760:1040,L=labelsAbove?24:(compact?210:360),R=compact?110:180,rowH=labelsAbove?76:(compact?52:58);
+  const H=labelsAbove?Math.max(120,data.length*rowH+12):Math.max(compact?190:320,data.length*rowH+30);
+  const max=Math.max(...data.map(r=>Number(r[valueKey]||0)),1);
+  const labelFor=r=>opts.labelFormatter?opts.labelFormatter(r[labelKey]):(r[labelKey]||"—");
   let body="";
-  data.forEach((r,i)=>{const y=16+i*rowH,v=Number(r[valueKey]||0),w=(W-L-R)*v/max;body+='<text x="4" y="'+(y+27)+'">'+esc(r[labelKey]||"—")+'</text><rect class="bar-bg" x="'+L+'" y="'+y+'" width="'+(W-L-R)+'" height="32" rx="7"></rect><rect class="bar" x="'+L+'" y="'+y+'" width="'+Math.max(v?3:0,w)+'" height="32" rx="7"></rect><text x="'+(W-R+12)+'" y="'+(y+26)+'">'+esc(fmt(v))+'</text>'});
+  data.forEach((r,i)=>{
+    const v=Number(r[valueKey]||0),label=labelFor(r),tip=label+": "+fmt(v);
+    if(labelsAbove){
+      const y=18+i*rowH,barY=y+26,w=(W-L-R)*v/max;
+      body+='<text x="'+L+'" y="'+(y+15)+'">'+esc(label)+'</text><rect class="bar-bg" x="'+L+'" y="'+barY+'" width="'+(W-L-R)+'" height="28" rx="7"></rect><rect class="bar" x="'+L+'" y="'+barY+'" width="'+Math.max(v?3:0,w)+'" height="28" rx="7" data-tip="'+esc(tip)+'"></rect><text x="'+(W-R+10)+'" y="'+(barY+23)+'">'+esc(fmt(v))+'</text>';
+    }else{
+      const y=16+i*rowH,w=(W-L-R)*v/max;
+      body+='<text text-anchor="end" x="'+(L-12)+'" y="'+(y+27)+'">'+esc(label)+'</text><rect class="bar-bg" x="'+L+'" y="'+y+'" width="'+(W-L-R)+'" height="'+(compact?28:32)+'" rx="7"></rect><rect class="bar" x="'+L+'" y="'+y+'" width="'+Math.max(v?3:0,w)+'" height="'+(compact?28:32)+'" rx="7" data-tip="'+esc(tip)+'"></rect><text x="'+(W-R+12)+'" y="'+(y+(compact?23:26))+'">'+esc(fmt(v))+'</text>';
+    }
+  });
   document.getElementById("chart-"+id).innerHTML='<svg class="gr-svg" viewBox="0 0 '+W+' '+H+'" role="img">'+body+'</svg>'
 }
 function donut(id,rows,labelKey,valueKey,fmt){
   if(!rows?.length){empty(id);return}
   const total=rows.reduce((s,r)=>s+Number(r[valueKey]||0),0);if(!total){empty(id);return}
   let at=0,parts=[],legend=[];
-  rows.forEach((r,i)=>{const v=Number(r[valueKey]||0),from=at,to=at+v/total*360,color=palette[i%palette.length];parts.push(color+" "+from+"deg "+to+"deg");at=to;legend.push('<div class="gr-legend-row"><span class="gr-dot" style="background:'+color+'"></span><span>'+esc(r[labelKey]||"—")+'</span><strong>'+esc(fmt(v))+'</strong></div>')});
+  rows.forEach((r,i)=>{const v=Number(r[valueKey]||0),from=at,to=at+v/total*360,color=palette[i%palette.length],tip=(r[labelKey]||"—")+": "+fmt(v);parts.push(color+" "+from+"deg "+to+"deg");at=to;legend.push('<div class="gr-legend-row" data-tip="'+esc(tip)+'"><span class="gr-dot" style="background:'+color+'"></span><span>'+esc(r[labelKey]||"—")+'</span><strong>'+esc(fmt(v))+'</strong></div>')});
   document.getElementById("chart-"+id).innerHTML='<div class="gr-donut-wrap"><div class="gr-donut" style="background:conic-gradient('+parts.join(",")+')"></div><div class="gr-legend">'+legend.join("")+'</div></div>'
 }
 function renderEmpty(d){
@@ -135,23 +176,23 @@ function render(d){
     kpi("Пациенты",m.patients,fmtNum,previousNote(m.patients,p.patients,fmtNum))+
     kpi("Приёмы",m.visits,fmtNum,previousNote(m.visits,p.visits,fmtNum))+
     kpi("Первичный → лечение",m.conversion,fmtPct,previousNote(m.conversion,p.conversion,fmtPct));
-  svgLine("revenue",d.overview.trend,"revenue",fmtMoney,true);setNote("revenue",previousNote(m.revenue,p.revenue,fmtMoney));
-  svgLine("patients",d.overview.trend,"patients",fmtNum,false);setNote("patients",previousNote(m.patients,p.patients,fmtNum));
-  svgLine("visits",d.overview.trend,"visits",fmtNum,false);setNote("visits",previousNote(m.visits,p.visits,fmtNum));
-  svgBars("doctorRevenue",d.doctors,"doctor","revenue",fmtMoney);setNote("doctorRevenue","Фактическая выручка по выбранным фильтрам");
-  svgBars("doctorConversion",d.doctors.filter(x=>x.conversion!=null),"doctor","conversion",fmtPct);setNote("doctorConversion","Первичные пациенты, у которых найдено подтверждённое лечение");
+  svgLine("revenue",d.overview.trend,"revenue",fmtMoney,true,true);setNote("revenue",previousNote(m.revenue,p.revenue,fmtMoney));
+  svgLine("patients",d.overview.trend,"patients",fmtNum,true,false);setNote("patients",previousNote(m.patients,p.patients,fmtNum));
+  svgLine("visits",d.overview.trend,"visits",fmtNum,true,false);setNote("visits",previousNote(m.visits,p.visits,fmtNum));
+  svgBars("doctorRevenue",d.doctors,"doctor","revenue",fmtMoney,{labelFormatter:shortDoctor});setNote("doctorRevenue","Фактическая выручка по выбранным фильтрам");
+  svgBars("doctorConversion",d.doctors.filter(x=>x.conversion!=null),"doctor","conversion",fmtPct,{labelFormatter:shortDoctor});setNote("doctorConversion","Первичные пациенты, у которых найдено подтверждённое лечение");
   svgBars("services",d.services.categories,"label","revenue",fmtMoney);setNote("services","Категории используют ту же классификацию, что BI");
   svgBars("age",d.patients.age_groups,"label","value",fmtNum);setNote("age","Возраст на конец выбранного периода");
   donut("frequency",d.patients.frequency,"label","value",fmtNum);setNote("frequency","1 / 2 / 3+ визитов за период");
-  svgBars("weekday",d.bookings.weekday,"label","visits",fmtNum);setNote("weekday","Фактически проведённые приёмы");
-  svgBars("time",d.bookings.time,"label","visits",fmtNum);setNote("time","Фактически проведённые приёмы");
-  svgBars("deleted",d.bookings.deleted_reasons,"label","value",fmtNum);setNote("deleted",d.bookings.deleted_total?("Всего удалённых записей: "+d.bookings.deleted_total):"");
+  svgBars("weekday",d.bookings.weekday,"label","visits",fmtNum,{compact:true});setNote("weekday","Фактически проведённые приёмы");
+  svgBars("time",d.bookings.time,"label","visits",fmtNum,{compact:true});setNote("time","Фактически проведённые приёмы");
+  svgBars("deleted",d.bookings.deleted_reasons,"label","value",fmtNum,{labelsAbove:true});setNote("deleted",d.bookings.deleted_total?("Всего удалённых записей: "+d.bookings.deleted_total):"");
   const dc=d.revenue.discount_control;
   svgBars("discounts",[
     {label:"До скидок",value:dc.gross||0},
     {label:"Скидка",value:dc.discount||0},
     {label:"После скидок",value:dc.net||0}
-  ],"label","value",fmtMoney);setNote("discounts",dc.note||"");
+  ],"label","value",fmtMoney,{compact:true});setNote("discounts",dc.note||"");
   const pay=d.revenue.payment_methods;pay.available?svgBars("payments",pay.rows,"method","amount",fmtMoney):empty("payments",pay.note||"Нет данных о способах оплаты.");setNote("payments",pay.available?(pay.note||""):"");
   const mk=d.marketing;mk.available?svgBars("marketing",mk.sources,"source","revenue",fmtMoney):empty("marketing",mk.note||"Источники пациентов не заполнены.");setNote("marketing",mk.cost_note||"");
 }
@@ -166,6 +207,11 @@ async function load(){
   render(d)
 }
 document.querySelectorAll(".gr-size button").forEach(btn=>btn.addEventListener("click",()=>{const card=btn.closest(".gr-card");card.classList.remove("size-third","size-half","size-full");card.classList.add("size-"+btn.dataset.size);btn.parentElement.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===btn))}));
+document.querySelectorAll("[data-fill-toggle]").forEach(btn=>btn.addEventListener("click",()=>{const card=btn.closest(".gr-card"),off=card.classList.toggle("fill-off");btn.classList.toggle("active",!off);btn.textContent="Заливка: "+(off?"Выкл":"Вкл")}));
+const tooltip=document.getElementById("grTooltip");
+document.addEventListener("pointerover",e=>{const node=e.target.closest?.("[data-tip]");if(!node)return;tooltip.textContent=node.getAttribute("data-tip")||"";tooltip.hidden=false});
+document.addEventListener("pointermove",e=>{if(tooltip.hidden)return;tooltip.style.left=e.clientX+"px";tooltip.style.top=e.clientY+"px"});
+document.addEventListener("pointerout",e=>{const node=e.target.closest?.("[data-tip]");if(node)tooltip.hidden=true});
 document.getElementById("apply").addEventListener("click",load);
 document.getElementById("reset").addEventListener("click",()=>{dateFrom.value="";dateTo.value="";doctor.value="";service.value="";load()});
 document.getElementById("clinic").addEventListener("change",()=>{dateFrom.value="";dateTo.value="";doctor.value="";service.value="";load()});
