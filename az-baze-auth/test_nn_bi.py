@@ -135,6 +135,8 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertEqual(home.status_code, 200)
         self.assertIn("BI-аналитика", html)
         self.assertIn('/nn/bi/', html)
+        self.assertIn("Графические отчеты", html)
+        self.assertIn('/nn/graphics/', html)
 
         page = self.client_for(2).get("/nn/bi/")
         body = page.get_data(as_text=True)
@@ -160,6 +162,35 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertIn('if(d.empty){renderEmpty(d);return}', body)
         self.assertIn('exportLink.removeAttribute("href")', body)
         self.assertIn('document.getElementById("relApply").disabled=true', body)
+
+    def test_graphical_reports_page_uses_existing_bi_data_contract(self):
+        page = self.client_for(2).get("/nn/graphics/")
+        body = page.get_data(as_text=True)
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("Графические отчеты", body)
+        self.assertIn('/api/nn/bi/summary?', body)
+        for label in (
+            "Выручка во времени",
+            "Пациенты во времени",
+            "Приёмы во времени",
+            "Выручка по врачам",
+            "Конверсия первичный → лечение по врачам",
+            "Выручка по категориям услуг",
+            "Возраст пациентов",
+            "Частота посещений",
+            "Приёмы по дням недели",
+            "Приёмы по времени суток",
+            "Причины удалённых записей",
+            "Скидки",
+            "Способы оплаты",
+            "Источники пациентов",
+        ):
+            self.assertIn(label, body)
+        self.assertIn('data-size="third"', body)
+        self.assertIn('data-size="half"', body)
+        self.assertIn('data-size="full"', body)
+        self.assertIn("function renderEmpty(d)", body)
+        self.assertIn('<a class="nn-back" href="/nn/">← Назад</a>', body)
 
     def test_summary_covers_business_sides_and_filters(self):
         response = self.client_for(2).get(
@@ -285,6 +316,7 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertEqual(client.get("/api/nn/bi/summary?clinic_id=1").status_code, 403)
         self.assertEqual(client.get("/api/nn/bi/relations?clinic_id=1").status_code, 403)
         self.assertEqual(client.get("/nn/bi/export.xlsx?clinic_id=1").status_code, 403)
+        self.assertEqual(client.get("/nn/graphics/").status_code, 403)
 
     def test_optional_payment_parser_extracts_methods_and_period(self):
         rows = nn_normalize._payment_control_rows_from_text(

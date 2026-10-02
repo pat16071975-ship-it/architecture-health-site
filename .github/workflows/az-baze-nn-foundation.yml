@@ -42,7 +42,7 @@ jobs:
           from pathlib import Path
           from jinja2 import Environment
           env = Environment()
-          for name in ("nn_base.html", "nn_home.html", "nn_placeholder.html", "nn_uploads.html", "nn_reports.html", "nn_bi.html", "user_form.html", "admin.html"):
+          for name in ("nn_base.html", "nn_home.html", "nn_placeholder.html", "nn_uploads.html", "nn_reports.html", "nn_bi.html", "nn_graphics.html", "user_form.html", "admin.html"):
               path = Path("az-baze-auth/templates") / name
               env.parse(path.read_text(encoding="utf-8"))
               print("OK", path)
