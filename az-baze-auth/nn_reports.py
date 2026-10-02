@@ -94,6 +94,18 @@ def _date_owned(batch_index, value, periods, merge_controls):
     return True
 
 
+def _patient_owned(batch_index, patient, merge_controls):
+    refs = nn_upload._patient_refs(patient)
+    current = merge_controls[batch_index]
+    if current["modern"] and refs & current["ignore_patient_refs"]:
+        return False
+    for later in range(batch_index + 1, len(merge_controls)):
+        control = merge_controls[later]
+        if control["modern"] and refs & control["replace_patient_refs"]:
+            return False
+    return True
+
+
 def effective_payload(conn, clinic_id):
     rows = _batch_rows(conn, clinic_id)
     if not rows:
@@ -110,6 +122,8 @@ def effective_payload(conn, clinic_id):
             "use_controls": bool(control.get("use_controls", True)) if modern else True,
             "ignore_dates": set(control.get("ignore_dates", [])) if modern else set(),
             "replace_dates": set(control.get("replace_dates", [])) if modern else set(),
+            "ignore_patient_refs": set(control.get("ignore_patient_refs", [])) if modern else set(),
+            "replace_patient_refs": set(control.get("replace_patient_refs", [])) if modern else set(),
         })
 
     control_indices = [
@@ -132,6 +146,8 @@ def effective_payload(conn, clinic_id):
             continue
 
         for patient in payload.get("patients", []):
+            if not _patient_owned(index, patient, merge_controls):
+                continue
             master.append({
                 "name": patient.get("name", ""),
                 "dob": patient.get("dob"),
