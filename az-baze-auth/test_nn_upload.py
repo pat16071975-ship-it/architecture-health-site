@@ -390,7 +390,7 @@ class NNUploadTests(unittest.TestCase):
             """
             INSERT INTO nn_normalized_batches(
                 batch_id,clinic_id,version,period_start,period_end,payload_json,normalized_at
-            ) VALUES(?,1,1,?,?,?,?,?)
+            ) VALUES(?,1,1,?,?,?,?)
             """,
             (
                 batch_id,
