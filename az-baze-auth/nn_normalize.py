@@ -1231,6 +1231,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
     payload = {
         "version": NORMALIZED_VERSION,
         "period": {"start": period_start, "end": period_end},
+        "service_control_period": {"start": period_start, "end": period_end},
         "source_control": {
             "closed_appointments": len(kept_visits),
             "deleted_report_rows_parsed": len(deleted_rows),
