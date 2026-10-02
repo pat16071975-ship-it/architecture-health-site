@@ -48,23 +48,24 @@ async function stub(context){
   });
 }
 
-async function inspectPage(page){
-  await page.waitForFunction(() => document.querySelector('#app')?.style.display === 'block', null, {timeout:5000});
+async function state(page){
   return page.evaluate(() => {
-    const sels=['.bar','.method','.scenario','.scenario-body','.panel','.summary','.accordion','.acc-head','.acc-body','.metric','.card','.table-wrap','.insight'];
+    const sels=['.controlbar','.panel','.metric','.scenario-plan','.result-card','.decision','.advanced','.method','.table-wrap'];
     const backgrounds={};
     for(const sel of sels){
       const el=document.querySelector(sel);
       backgrounds[sel]=el?getComputedStyle(el).backgroundColor:null;
     }
     return {
-      helpCount: document.querySelectorAll('.field small').length,
-      methodExists: !!document.querySelector('#forecastMethod'),
-      methodOpen: document.querySelector('#forecastMethod')?.open || false,
-      methodText: document.querySelector('#forecastMethod')?.textContent.replace(/\s+/g,' ').trim() || '',
-      backgrounds,
-      bodyOverflow: document.documentElement.scrollWidth-window.innerWidth,
-      scenarioCount: document.querySelectorAll('.scenario').length
+      currentMetrics:document.querySelectorAll('#currentSummary .metric').length,
+      currentDirections:document.querySelectorAll('.current-direction').length,
+      planners:document.querySelectorAll('.scenario-plan').length,
+      results:document.querySelectorAll('.result-card').length,
+      decisions:document.querySelectorAll('.decision').length,
+      advancedOpen:document.querySelector('#advancedSettings')?.open || false,
+      methodExists:!!document.querySelector('#forecastMethod'),
+      bodyOverflow:document.documentElement.scrollWidth-window.innerWidth,
+      backgrounds
     };
   });
 }
@@ -73,65 +74,77 @@ async function inspectPage(page){
   fs.mkdirSync('artifacts',{recursive:true});
   const browser=await chromium.launch({headless:true});
 
-  const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  const context=await browser.newContext({viewport:{width:1440,height:1100}});
   await stub(context);
   const page=await context.newPage();
   await page.goto('http://127.0.0.1:4173/reports/forecast.html',{waitUntil:'domcontentloaded',timeout:10000});
-  await page.waitForSelector('#scenarioGrid .scenario',{timeout:5000});
+  await page.waitForFunction(() => document.querySelector('#app')?.style.display === 'block', null, {timeout:5000});
 
-  // Open one accordion section so card/table surfaces exist.
-  await page.click('.acc-head');
-  await page.waitForTimeout(50);
-
-  let state=await inspectPage(page);
-  if(state.scenarioCount!==3) fail('Forecast directions did not render');
-  if(state.helpCount!==27) fail('Expected 27 visible field hints, got '+state.helpCount);
-  if(!state.methodExists) fail('Forecast method block is missing');
-  if(state.bodyOverflow>2) fail('Desktop page has horizontal body overflow');
-
-  for(const [sel,bg] of Object.entries(state.backgrounds)){
+  let s=await state(page);
+  if(s.currentMetrics!==4) fail('Expected 4 current clinic metrics, got '+s.currentMetrics);
+  if(s.currentDirections!==3) fail('Expected 3 current direction cards, got '+s.currentDirections);
+  if(s.planners!==3) fail('Expected 3 editable scenario plans, got '+s.planners);
+  if(s.results!==3) fail('Expected 3 scenario result cards, got '+s.results);
+  if(s.decisions!==3) fail('Expected 3 scenario decisions, got '+s.decisions);
+  if(s.advancedOpen) fail('Technical settings must be closed by default');
+  if(!s.methodExists) fail('Forecast method block is missing');
+  if(s.bodyOverflow>2) fail('Desktop page has horizontal body overflow');
+  for(const [sel,bg] of Object.entries(s.backgrounds)){
     if(bg && !opaque(bg)) fail('Transparent surface remains: '+sel+' = '+bg);
   }
 
-  await page.click('#forecastMethod > summary');
-  await page.waitForTimeout(30);
-  state=await inspectPage(page);
-  if(!state.methodOpen) fail('Forecast method block did not open');
-  for(const phrase of [
-    'Доп. визиты = новые первичные + новые повторные',
-    'Загрузка = (текущие визиты + доп. визиты) / макс. приёмов',
-    'Доп. выручка = доп. визиты × средняя выручка / визит',
-    'Доп. прибыль = доп. выручка − ФОТ − мед. затраты − доп. маркетинг',
-    'не обрезает расчётную выручку автоматически',
-    'Новая опер. прибыль'
-  ]){
-    if(!state.methodText.includes(phrase)) fail('Method help missing: '+phrase);
-  }
+  const before=await page.locator('.result-card[data-scenario="base"] .result-main strong').first().innerText();
+  await page.check('#on-base-dent');
+  await page.fill('#prim-base-dent','10');
+  await page.fill('#mkt-base-dent','50000');
+  await page.waitForTimeout(60);
+  const after=await page.locator('.result-card[data-scenario="base"] .result-main strong').first().innerText();
+  if(before===after) fail('Base scenario result did not react to management inputs');
+  const profitText=await page.locator('.result-card[data-scenario="base"] .result-row').first().innerText();
+  if(!profitText.includes('Доп. прибыль за горизонт')) fail('Cumulative horizon profit is missing');
 
-  await page.screenshot({path:'artifacts/forecast-help-opaque-desktop.png',fullPage:false});
-  console.log('FORECAST OPAQUE SURFACES: PASS');
-  console.log('FORECAST HELP TEXT: PASS');
-  console.log('FORECAST DESKTOP: PASS');
+  await page.fill('#prim-base-dent','1000');
+  await page.waitForTimeout(60);
+  const decision=await page.locator('[data-decision="base"] .badge').innerText();
+  if(decision!=='Упирается в мощность') fail('Capacity warning not triggered for overloaded scenario: '+decision);
+
+  await page.fill('#capadd-base-dent','3000');
+  await page.waitForTimeout(60);
+  const recovered=await page.locator('[data-decision="base"] .badge').innerText();
+  if(recovered==='Упирается в мощность') fail('Added capacity did not clear overload warning');
+
+  await page.click('#advancedSettings > summary');
+  await page.waitForTimeout(30);
+  if(!(await page.locator('#advancedSettings').evaluate(el=>el.open))) fail('Advanced settings did not open');
+  if(await page.locator('#advancedGrid .advanced-direction').count()!==3) fail('Expected 3 advanced direction settings');
+
+  await page.selectOption('#detailScenario','base');
+  await page.locator('.acc-head').first().click();
+  await page.waitForTimeout(30);
+  if(!(await page.locator('.acc-body.open').count())) fail('Detailed monthly calculation did not open');
+
+  await page.screenshot({path:'artifacts/forecast-management-desktop.png',fullPage:false});
+  console.log('FORECAST MANAGEMENT DESKTOP: PASS');
+  console.log('FORECAST SCENARIO REACTION: PASS');
+  console.log('FORECAST CAPACITY WARNING: PASS');
+  console.log('FORECAST ADVANCED SETTINGS: PASS');
   await context.close();
 
   const mobileContext=await browser.newContext({viewport:{width:390,height:844}});
   await stub(mobileContext);
   const mobile=await mobileContext.newPage();
   await mobile.goto('http://127.0.0.1:4173/reports/forecast.html',{waitUntil:'domcontentloaded',timeout:10000});
-  await mobile.waitForSelector('#scenarioGrid .scenario',{timeout:5000});
+  await mobile.waitForFunction(() => document.querySelector('#app')?.style.display === 'block', null, {timeout:5000});
   const mobileState=await mobile.evaluate(()=>({
     bodyOverflow:document.documentElement.scrollWidth-window.innerWidth,
-    helps:document.querySelectorAll('.field small').length,
-    method:!!document.querySelector('#forecastMethod'),
-    methodWidth:document.querySelector('#forecastMethod')?.getBoundingClientRect().width||0,
-    viewport:window.innerWidth
+    plannerColumns:getComputedStyle(document.querySelector('#scenarioPlanner')).gridTemplateColumns,
+    resultColumns:getComputedStyle(document.querySelector('#scenarioResults')).gridTemplateColumns,
+    advancedOpen:document.querySelector('#advancedSettings')?.open || false
   }));
   if(mobileState.bodyOverflow>2) fail('Mobile forecast has horizontal body overflow');
-  if(mobileState.helps!==27) fail('Mobile forecast field hints missing');
-  if(!mobileState.method) fail('Mobile method block missing');
-  if(mobileState.methodWidth>mobileState.viewport+2) fail('Mobile method block exceeds viewport');
-  await mobile.screenshot({path:'artifacts/forecast-help-opaque-mobile.png',fullPage:false});
-  console.log('FORECAST MOBILE: PASS');
+  if(mobileState.advancedOpen) fail('Mobile advanced settings must remain closed by default');
+  await mobile.screenshot({path:'artifacts/forecast-management-mobile.png',fullPage:false});
+  console.log('FORECAST MANAGEMENT MOBILE: PASS');
 
   await mobileContext.close();
   await browser.close();
