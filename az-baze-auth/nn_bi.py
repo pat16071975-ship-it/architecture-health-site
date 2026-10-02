@@ -683,6 +683,69 @@ def _discount_control(payload):
     }
 
 
+def _payment_methods_section(payload, start, end, doctor="", service=""):
+    rows = [dict(row) for row in payload.get("payment_control_rows", [])]
+    if not rows:
+        return {
+            "available": False,
+            "rows": [],
+            "period": None,
+            "scope_matches": False,
+            "note": "Загрузите необязательный файл «Оказанные врачами услуги.pdf» в разделе «Загрузка данных». Пять обязательных файлов при этом не меняются.",
+        }
+    if service:
+        return {
+            "available": False,
+            "rows": [],
+            "period": {
+                "start": rows[0].get("period_start"),
+                "end": rows[0].get("period_end"),
+            },
+            "scope_matches": False,
+            "note": "Дополнительный отчёт по способам оплаты агрегирован без дат по отдельным услугам, поэтому фильтр «Услуга» к нему безопасно применить нельзя.",
+        }
+    if doctor:
+        rows = [row for row in rows if row.get("doctor") == doctor]
+
+    grouped = defaultdict(lambda: {"qty": 0.0, "gross": 0.0, "discount": 0.0, "amount": 0.0})
+    for row in rows:
+        item = grouped[row.get("method") or "Не указан"]
+        item["qty"] += float(row.get("qty") or 0)
+        item["gross"] += _money(row.get("gross_amount"))
+        item["discount"] += _money(row.get("discount"))
+        item["amount"] += _money(row.get("amount"))
+
+    result = [
+        {
+            "method": method,
+            "qty": round(item["qty"], 2),
+            "gross": round(item["gross"], 2),
+            "discount": round(item["discount"], 2),
+            "amount": round(item["amount"], 2),
+        }
+        for method, item in grouped.items()
+    ]
+    result.sort(key=lambda row: -row["amount"])
+    source_start = rows[0].get("period_start") if rows else None
+    source_end = rows[0].get("period_end") if rows else None
+    scope_matches = bool(source_start and source_end and source_start == start and source_end == end)
+    note = (
+        "Способы оплаты относятся к выбранному периоду."
+        if scope_matches
+        else (
+            f"Способы оплаты показаны за период дополнительного отчёта "
+            f"{source_start or '—'} — {source_end or '—'}; активный BI-период к агрегированному источнику не пересчитывается."
+        )
+    )
+    return {
+        "available": bool(result),
+        "rows": result,
+        "period": {"start": source_start, "end": source_end},
+        "scope_matches": scope_matches,
+        "note": note,
+    }
+
+
 def _marketing_section(payload, model):
     patients = _patient_map(payload)
     visits = model["visits"]
@@ -766,10 +829,7 @@ def _summary_data(conn, clinic_id):
         "revenue": {
             "metrics": metrics,
             "discount_control": _discount_control(payload),
-            "payment_methods": {
-                "available": False,
-                "note": "Для способов оплаты нужен дополнительный необязательный источник «Оказанные врачами услуги.pdf». Он не добавлен в пять обязательных файлов.",
-            },
+            "payment_methods": _payment_methods_section(payload, start, end, doctor, service),
         },
         "marketing": _marketing_section(payload, model),
     }
