@@ -261,6 +261,38 @@ def create_app():
         import nn_reports as nn_reports_module
         return nn_reports_module.export_report(report_key)
 
+    @app.get("/nn/bi/")
+    @login_required
+    def nn_bi():
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_bi as nn_bi_module
+        return nn_bi_module.bi_page()
+
+    @app.get("/api/nn/bi/summary")
+    @login_required
+    def nn_bi_summary():
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_bi as nn_bi_module
+        return nn_bi_module.api_summary()
+
+    @app.get("/api/nn/bi/relations")
+    @login_required
+    def nn_bi_relations():
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_bi as nn_bi_module
+        return nn_bi_module.api_relations()
+
+    @app.get("/nn/bi/export.xlsx")
+    @login_required
+    def nn_bi_export():
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_bi as nn_bi_module
+        return nn_bi_module.export_xlsx()
+
     @app.route("/nn/uploads/", methods=["GET", "POST"])
     @login_required
     def nn_uploads():
