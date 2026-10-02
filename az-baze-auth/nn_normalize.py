@@ -583,6 +583,59 @@ def _deleted_rows(path, doctors):
     return rows, total
 
 
+def _payment_control_rows(path, doctors):
+    reader = PdfReader(str(path))
+    text = "\n".join((page.extract_text() or "") for page in reader.pages)
+    doctor_names = sorted(
+        {_clean_text(value) for value in doctors if _clean_text(value)},
+        key=len,
+        reverse=True,
+    )
+    subtotal_re = re.compile(
+        rf"всего\s+"
+        rf"(?P<method>Наличные|Безнал\.?|Смешанная|Без оплаты)\s+"
+        rf"(?P<qty>-?\d+(?:[.,]\d+)?)\s+"
+        rf"(?P<gross>{_PDF_MONEY})\s+"
+        rf"(?P<discount>{_PDF_MONEY})\s+"
+        rf"(?P<net>{_PDF_MONEY})",
+        re.I,
+    )
+    current_doctor = ""
+    rows = []
+    for raw_line in text.splitlines():
+        line = _clean_text(raw_line)
+        if not line:
+            continue
+        normalized_line = _norm_name(line)
+        for doctor in doctor_names:
+            if _norm_name(doctor) and _norm_name(doctor) in normalized_line:
+                current_doctor = doctor
+                break
+        match = subtotal_re.search(line)
+        if not match:
+            continue
+        method_raw = match.group("method").lower().replace(".", "")
+        if "без оплаты" in method_raw:
+            method = "Без оплаты"
+        elif "безнал" in method_raw:
+            method = "Безналичные"
+        elif "смешан" in method_raw:
+            method = "Смешанная"
+        else:
+            method = "Наличные"
+        rows.append({
+            "doctor": current_doctor,
+            "method": method,
+            "qty": _num(match.group("qty")),
+            "gross_amount": _num(match.group("gross")),
+            "discount": _num(match.group("discount")),
+            "amount": _num(match.group("net")),
+        })
+    if not rows:
+        raise ValueError("Не удалось распознать способы оплаты в PDF «Оказанные врачами услуги».")
+    return rows
+
+
 class PatientResolver:
     def __init__(self, master_rows):
         self.patients = {}
@@ -1174,6 +1227,7 @@ def normalize_rows(master, registry, medical, services, deleted_rows, deleted_to
         "visits": kept_visits,
         "medical_records": medical,
         "service_control_rows": services,
+        "payment_control_rows": [],
         "deleted_appointments": deleted_rows,
         "primaries": primaries,
         "repeats": repeats,
@@ -1225,8 +1279,9 @@ def normalize_batch(conn, batch_id, upload_root):
     ).fetchall()
     names = {row["source_key"]: row["stored_filename"] for row in file_rows}
     required = {"appointments_registry", "medical_records", "services_detailed", "patients_general", "deleted_appointments"}
-    if set(names) != required:
-        raise ValueError("Набор файлов неполный.")
+    allowed = required | {"doctor_services_payments"}
+    if not required.issubset(set(names)) or not set(names).issubset(allowed):
+        raise ValueError("Набор файлов неполный или содержит неизвестный источник.")
 
     base = Path(upload_root) / str(batch["clinic_id"]) / str(batch_id)
     paths = {key: base / filename for key, filename in names.items()}
@@ -1235,6 +1290,11 @@ def normalize_batch(conn, batch_id, upload_root):
             raise ValueError("Файл набора отсутствует на сервере.")
 
     payload = normalize_source_files(paths)
+    if "doctor_services_payments" in paths:
+        payload["payment_control_rows"] = _payment_control_rows(
+            paths["doctor_services_payments"],
+            [row.get("doctor") for row in payload.get("visits", [])],
+        )
     now = iso_now()
     conn.execute("BEGIN IMMEDIATE")
     try:
