@@ -99,6 +99,9 @@ def effective_payload(conn, clinic_id):
             master.append({
                 "name": patient.get("name", ""),
                 "dob": patient.get("dob"),
+                "gender": patient.get("gender", ""),
+                "source": patient.get("source", ""),
+                "visits_count": patient.get("visits_count", 0),
                 "iin": patient.get("iin", ""),
                 "chart": patient.get("chart", ""),
                 "phone": patient.get("phone", ""),
