@@ -1,0 +1,1048 @@
+{
+  "date": "2026-10-02",
+  "source": "existing independent site",
+  "wordstat_checked": false,
+  "pages": [
+    {
+      "path": "404.html",
+      "url": "https://azmednsk.ru/404.html",
+      "title": "Страница не найдена | Архитектура здоровья",
+      "description": "Запрашиваемая страница не найдена. Перейдите на главную страницу клиники «Архитектура здоровья».",
+      "operations": [],
+      "before_sha256": "5dc18b31acedd4a1e02b3c7f24bc0d63d624463a0f0433d2cb348e0838174cb4",
+      "after_sha256": "3fbe5b62b98d38eb325d3b99d47a42fd9d90fdda29ba4ae2002ceab128cab21d"
+    },
+    {
+      "path": "contacts/index.html",
+      "url": "https://azmednsk.ru/contacts",
+      "title": "Контакты клиники «Архитектура здоровья» — Новосибирск",
+      "description": "Контакты «Архитектуры здоровья» в Новосибирске: ул. Ленина, 85, телефон +7 (383) 284-24-21, часы работы и онлайн-запись.",
+      "operations": [
+        "individual_information_intro"
+      ],
+      "before_sha256": "4b439805b5dc758c04540a4186c3df5e3cb5f0ca0a203d2e092be437394e9d89",
+      "after_sha256": "44ee9c1f49d00d09e36152dc2b9e63dd0cae52708f6d753d05583a8570b511f9"
+    },
+    {
+      "path": "cookie/index.html",
+      "url": "https://azmednsk.ru/cookie",
+      "title": "Согласие на обработку файлов cookie | Архитектура здоровья",
+      "description": "Информация об использовании файлов cookie на сайте клиники «Архитектура здоровья» и согласие на их обработку.",
+      "operations": [],
+      "before_sha256": "fe05380f058c811f5147568fdbd8f80641495e06541b09c6475d3d4282b1dd5c",
+      "after_sha256": "7adfb34ab0f8c3c3a996d7aeb1cf462bfe294b58c4cc55259906ca8f0b10a7dc"
+    },
+    {
+      "path": "index.html",
+      "url": "https://azmednsk.ru/",
+      "title": "Функциональная и превентивная медицина, стоматология в Новосибирске | Архитектура здоровья",
+      "description": "«Архитектура здоровья» в Новосибирске: функциональная стоматология, остеопатия, гастроэнтерология и другие направления. Врачи, услуги и запись.",
+      "operations": [
+        "homepage_rewrite",
+        "removed_visible_css"
+      ],
+      "before_sha256": "e02c9d8097bb635fe8ee4dae194620fbdf26ea6dcf2fabc30f0496eb06602b38",
+      "after_sha256": "c90c091664da21200075afcc20ad562dfa852f32d4f5800bfe1f38ed67d4d5d8"
+    },
+    {
+      "path": "kompleks-uslugi/arhitektura-zdorovya/index.html",
+      "url": "https://azmednsk.ru/kompleks-uslugi/arhitektura-zdorovya",
+      "title": "Программа «Архитектура здоровья» в Новосибирске | Архитектура здоровья",
+      "description": "Программа «Архитектура здоровья» в Новосибирске. Превентивная медицина, питание и восстановительные методы по индивидуальному плану.",
+      "operations": [
+        "individual_intro",
+        "removed_visible_css"
+      ],
+      "before_sha256": "c5b696a522cb295a3c3650e050ddbc95ca92cb5da331d645a4ff9ed1f66129a5",
+      "after_sha256": "ea46b5f9e51497e07feb699a6d79714327da402675e14f58d246ed8f71c87f31"
+    },
+    {
+      "path": "kompleks-uslugi/index.html",
+      "url": "https://azmednsk.ru/kompleks-uslugi",
+      "title": "Комплексные программы здоровья в Новосибирске | Архитектура здоровья",
+      "description": "Комплексные программы в Новосибирске: «Здоровая спина», поддержка здоровья и работа с вниманием ребёнка в центре «Архитектура здоровья».",
+      "operations": [
+        "individual_intro",
+        "removed_visible_css"
+      ],
+      "before_sha256": "002a6ac6a51896f045eb7b17259cbccfae4202f1f8a087273eee482fec83d8a7",
+      "after_sha256": "ddf22e7f7b6762355f3a68ce4072f7c361cd8eb48b3f00cb01c06e0be8949423"
+    },
+    {
+      "path": "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html",
+      "url": "https://azmednsk.ru/kompleks-uslugi/korrekciya-vnimaniya-deti",
+      "title": "Коррекция внимания и саморегуляции у детей в Новосибирске | Архитектура здоровья",
+      "description": "Программа для детей с трудностями внимания и саморегуляции в Новосибирске. Индивидуальный маршрут в центре «Архитектура здоровья».",
+      "operations": [
+        "removed_visible_css"
+      ],
+      "before_sha256": "6d80789ca9f21d79120c0108080ef6b4025054d5ebe2b4825827f2fcc79212dc",
+      "after_sha256": "6ad441f68db63f3b4cdb2cc03b316aa744c90b147d514919c353970a944625ea"
+    },
+    {
+      "path": "kompleks-uslugi/zdorovaya-spina/index.html",
+      "url": "https://azmednsk.ru/kompleks-uslugi/zdorovaya-spina",
+      "title": "Программа «Здоровая спина и осанка» в Новосибирске | Архитектура здоровья",
+      "description": "Программа «Здоровая спина и осанка» в Новосибирске. Оценка движения и работа специалистов клиники «Архитектура здоровья».",
+      "operations": [
+        "individual_intro",
+        "removed_visible_css"
+      ],
+      "before_sha256": "4bdaea67a3f899aafca4e5af47c92c278d1d3841baf213647210997895dd2d93",
+      "after_sha256": "e83dbbb127dbac4a8ae26f39f6a368de60f08849327a48a920d65074ab6ba80b"
+    },
+    {
+      "path": "lab/index.html",
+      "url": "https://azmednsk.ru/lab",
+      "title": "Зуботехническая лаборатория Dental Lab | Архитектура здоровья — Новосибирск",
+      "description": "Dental Lab в Новосибирске: изготовление функциональных ортодонтических аппаратов и сотрудничество с врачами. Лаборатория «Архитектура здоровья».",
+      "operations": [
+        "individual_information_intro"
+      ],
+      "before_sha256": "5508e2562d7e40d68768ae23d31673efe44f1e4fa5ca360070a1d75f134a6f18",
+      "after_sha256": "78aa3be26cfccdb557056c5ee761c2e2e67c5d4195a8a36b76d3b3167d946a6a"
+    },
+    {
+      "path": "o_nas/index.html",
+      "url": "https://azmednsk.ru/o_nas",
+      "title": "О клинике «Архитектура здоровья» — Новосибирск",
+      "description": "О клинике «Архитектура здоровья» в Новосибирске: функциональная стоматология, превентивная медицина, специалисты и подход к работе с пациентами.",
+      "operations": [
+        "individual_information_intro",
+        "removed_visible_css"
+      ],
+      "before_sha256": "2d6419e0d1108ba4221bfd41cdf785b2ae8041e06a3499190f6020f6dbd7dea3",
+      "after_sha256": "8a32b73888fa753afd35c124aab75dc4ed057abc74c3f29e440a038793a272c8"
+    },
+    {
+      "path": "otziv/index.html",
+      "url": "https://azmednsk.ru/otziv",
+      "title": "Отзывы пациентов | Архитектура здоровья",
+      "description": "Отзывы пациентов о клинике «Архитектура здоровья» в Новосибирске: опыт посещений, работа специалистов и организация приёма.",
+      "operations": [
+        "individual_information_intro"
+      ],
+      "before_sha256": "a21a2afee5c56efe1cb78afe329c8e243f79d75f0b422f95dcc8b52427399d2f",
+      "after_sha256": "843317d11cb0fd7d1ad9362f8e5448e431b106ac0ea40f21c3f2f26b3bff5719"
+    },
+    {
+      "path": "patient/dogovor/index.html",
+      "url": "https://azmednsk.ru/patient/dogovor",
+      "title": "Договор на оказание платных медицинских услуг | Архитектура здоровья",
+      "description": "Договор на оказание платных медицинских услуг клиники «Архитектура здоровья» в Новосибирске. Документ для ознакомления пациентов.",
+      "operations": [
+        "removed_visible_css"
+      ],
+      "before_sha256": "253d97f828b2b652e1cd0c3950e5f16d5cfbbaa1c896ec1ff859103df27d8286",
+      "after_sha256": "b813315aaada2d7213f33b1fe71a1ef0d15f3deec213b87e594e7c713a301d35"
+    },
+    {
+      "path": "patient/gosgarantii/index.html",
+      "url": "https://azmednsk.ru/patient/gosgarantii",
+      "title": "Программа государственных гарантий | Архитектура здоровья",
+      "description": "Информация о программе государственных гарантий оказания медицинской помощи. Раздел для пациентов клиники «Архитектура здоровья».",
+      "operations": [
+        "removed_visible_css"
+      ],
+      "before_sha256": "e6c31fdf3962457845f5ee80342d75930c24609f8cb5b03caf4c002cb23f3e43",
+      "after_sha256": "4a051054b95e85b9257982313a74de2c39facbee7bb7499021a42722281b8bfd"
+    },
+    {
+      "path": "patient/index.html",
+      "url": "https://azmednsk.ru/patient",
+      "title": "Информация для пациентов | Архитектура здоровья",
+      "description": "Пациентам «Архитектуры здоровья»: правила приёма, документы, лицензия, права и обязанности. Медицинский центр в Новосибирске.",
+      "operations": [
+        "individual_information_intro"
+      ],
+      "before_sha256": "ba40967380347525da7553a9af72d30044708d95c69349f75d0a626e3617f652",
+      "after_sha256": "cdd78ca1793f7a1e68c7e1924cb70813a67e7b5b0dffc1fa0a0b79a905534ddf"
+    },
+    {
+      "path": "patient/licens/index.html",
+      "url": "https://azmednsk.ru/patient/licens",
+      "title": "Лицензия клиники | Архитектура здоровья",
+      "description": "Сведения о лицензии и документах медицинского центра «Архитектура здоровья» в Новосибирске. Раздел для пациентов.",
+      "operations": [
+        "removed_visible_css"
+      ],
+      "before_sha256": "7259a07935a70105691264d19d11c104c14d0adc03e042fb6f4f9a04df1b3d8e",
+      "after_sha256": "d6b0a8a52ef96b6a898958ce69c80078bc614e0fae974e2d93854392debf2bf7"
+    },
+    {
+      "path": "patient/patient-pravila/index.html",
+      "url": "https://azmednsk.ru/patient/patient-pravila",
+      "title": "Права и обязанности пациентов | Архитектура здоровья",
+      "description": "Права и обязанности граждан при получении медицинской помощи. Информация для пациентов клиники «Архитектура здоровья».",
+      "operations": [
+        "removed_visible_css"
+      ],
+      "before_sha256": "a79954205f6eb99ba853ee05a5143a7acd5574822f7a8cd531492157dfbe8b16",
+      "after_sha256": "698048349f74a397bcb8eecc596e1fb03cf71c39fc0cc7c36b526d4dabd7a35e"
+    },
+    {
+      "path": "patient/patient-rules/index.html",
+      "url": "https://azmednsk.ru/patient/patient-rules",
+      "title": "Правила внутреннего распорядка для пациентов | Архитектура здоровья",
+      "description": "Правила внутреннего распорядка для пациентов медицинского центра «Архитектура здоровья» в Новосибирске.",
+      "operations": [
+        "removed_visible_css"
+      ],
+      "before_sha256": "91aed9f560566fcd8b96155c62f80ea85ba69e1c4755c9a31f79dbf89428df3c",
+      "after_sha256": "0a506af5293e90102a789d1c068cb7a3eaf5fed86e402684278366cd3af1ded6"
+    },
+    {
+      "path": "patient/priem-patientov/index.html",
+      "url": "https://azmednsk.ru/patient/priem-patientov",
+      "title": "Порядок приёма первичных пациентов | Архитектура здоровья",
+      "description": "Как организован первичный приём в «Архитектуре здоровья»: порядок обращения и информация для пациентов клиники в Новосибирске.",
+      "operations": [
+        "removed_visible_css"
+      ],
+      "before_sha256": "b92d2973ffde320798b99c3e798b72511f1e078df9d4d7dd0ec10101d70c663a",
+      "after_sha256": "ca6b2ed066663879b4c47d1a602f05e458a40d828c9a011ef3202145b3b1029f"
+    },
+    {
+      "path": "patient/supervision/index.html",
+      "url": "https://azmednsk.ru/patient/supervision",
+      "title": "Вышестоящие и контролирующие органы | Архитектура здоровья",
+      "description": "Контакты вышестоящих и контролирующих органов региона. Информация для пациентов клиники «Архитектура здоровья» в Новосибирске.",
+      "operations": [
+        "removed_visible_css"
+      ],
+      "before_sha256": "384b6e69b1570bef647cb8bb6e851d3759fb34ae5d9bbb1126006dcd5287c855",
+      "after_sha256": "6f6211e7bac345d90177f981bcec43da3de9d7daac366aee9376260101530a8e"
+    },
+    {
+      "path": "patient/zhaloba/index.html",
+      "url": "https://azmednsk.ru/patient/zhaloba",
+      "title": "Обращения пациентов | Архитектура здоровья",
+      "description": "Как направить обращение в клинику «Архитектура здоровья» в Новосибирске. Контакты и порядок обратной связи для пациентов.",
+      "operations": [
+        "removed_visible_css"
+      ],
+      "before_sha256": "85db53fa3c2396a0dcad2ac6fa9219ed1431ef311faee5f42cce6cb96493c5c2",
+      "after_sha256": "06c4d0796306cd946c986e5f46e77a35f9c2e1f709619c1c3ae0c5739362ff62"
+    },
+    {
+      "path": "politica/index.html",
+      "url": "https://azmednsk.ru/politica",
+      "title": "Политика конфиденциальности | Архитектура здоровья",
+      "description": "Политика конфиденциальности сайта медицинского центра «Архитектура здоровья». Информация об обработке и защите данных.",
+      "operations": [],
+      "before_sha256": "10c73f30d82d721ef08953526f05c3e3b96dbf652dd51e9645bedca5ce9d682c",
+      "after_sha256": "203201dcce8443ce0338548482127b50ea270256ccbd18208859b25f620dc6da"
+    },
+    {
+      "path": "politica-site/index.html",
+      "url": "https://azmednsk.ru/politica-site",
+      "title": "Политика обработки персональных данных | Архитектура здоровья",
+      "description": "Политика в отношении обработки персональных данных на сайте медицинского центра «Архитектура здоровья».",
+      "operations": [],
+      "before_sha256": "df59c73d8cfc8a2ed4986d49e3e78dd2cd7ffb5d6561615c2647d65ac164d200",
+      "after_sha256": "b54786fc933a0bc8ebc8800e7662f5394b3c167c347f876d3312a512d008943b"
+    },
+    {
+      "path": "rassrochka/index.html",
+      "url": "https://azmednsk.ru/rassrochka",
+      "title": "Рассрочка на услуги клиники | Архитектура здоровья — Новосибирск",
+      "description": "Информация о рассрочке на услуги «Архитектуры здоровья» в Новосибирске. Ознакомьтесь с условиями и уточните доступный вариант в клинике.",
+      "operations": [
+        "individual_information_intro"
+      ],
+      "before_sha256": "a3265a3a0855758bc16acb727e0e474069388da2d11fc409b65849bd1792fc76",
+      "after_sha256": "8f6012830af19d9ce178e5af75dbafeb0aeb73ebf9af3bf4437b45a2fa239fe1"
+    },
+    {
+      "path": "team/bosak-yana/index.html",
+      "url": "https://azmednsk.ru/team/bosak-yana",
+      "title": "Босак Яна Сергеевна — Врач-стоматолог-ортодонт | Новосибирск",
+      "description": "Босак Яна Сергеевна: врач-стоматолог-ортодонт в клинике «Архитектура здоровья», Новосибирск. Образование, опыт работы и запись на консультацию.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "b18433e678b810f8680d32d75a3646249801e5d1811fbb9c3a43dd70d6b19314",
+      "after_sha256": "f996f6a1aac00982256499290c81b8625e89d10112a470e5590c3d8c24e30a09"
+    },
+    {
+      "path": "team/chirkov-maxim/index.html",
+      "url": "https://azmednsk.ru/team/chirkov-maxim",
+      "title": "Чирков Максим Сергеевич — стоматолог-терапевт | Новосибирск",
+      "description": "Чирков Максим Сергеевич — стоматолог-терапевт в «Архитектуре здоровья», Новосибирск. Образование, опыт работы, направления помощи и запись на приём.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "87c22c74b0acc1fbc73ad1701414f406430eb81f2e7e9d79cd7b46279c601f53",
+      "after_sha256": "d1b6b13bfa446f6de9a8cff39b77053a8859463339c98351fe60a3a17538d292"
+    },
+    {
+      "path": "team/dimitrenko-anna/index.html",
+      "url": "https://azmednsk.ru/team/dimitrenko-anna",
+      "title": "Димитренко Анна Яковлевна — Врач-остеопат | Новосибирск",
+      "description": "Димитренко Анна Яковлевна: врач-остеопат в клинике «Архитектура здоровья», Новосибирск. Образование, опыт работы и запись на консультацию.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "938ebb0f37b89dbdeb93dc77b46ea9fff3dc5b8d86c83d10920ecfbb5a6b0712",
+      "after_sha256": "63bded840fef76f36b02381307702176616856042084b4b3ff2009f134abd3a2"
+    },
+    {
+      "path": "team/golishenkov-vladislav/index.html",
+      "url": "https://azmednsk.ru/team/golishenkov-vladislav",
+      "title": "Голышенков Владислав Александрович — Врач стоматолог хирург | Новосибирск",
+      "description": "Голышенков Владислав Александрович: врач стоматолог хирург в клинике «Архитектура здоровья», Новосибирск. Образование, опыт работы и запись на консультацию.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "4e47b72a758f57ccab3e3d42a8b2f2e6f290a3354a4fb48309e1a1ab53b7b441",
+      "after_sha256": "afd4ce5d812e68eeb478764dd5d183a28f07be25d0f49ae97ec46e1ba6f3ef27"
+    },
+    {
+      "path": "team/holodtseva-valeria/index.html",
+      "url": "https://azmednsk.ru/team/holodtseva-valeria",
+      "title": "Холодцева Валерия Евгеньевна — миофункциональный терапевт | Новосибирск",
+      "description": "Холодцева Валерия Евгеньевна — миофункциональный терапевт в «Архитектуре здоровья», Новосибирск. Образование, опыт работы, направления помощи и запись на приём.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "7aaca756e9e63e25258826aaae41a4db1f2f35b77c0fa56fd9dbdf31a02e7a0a",
+      "after_sha256": "b2dbb44f9f0cba100e8cb2e3e8c0854fa94b9233c086c75cc4edf7852f405404"
+    },
+    {
+      "path": "team/index.html",
+      "url": "https://azmednsk.ru/team",
+      "title": "Врачи и специалисты клиники | Архитектура здоровья — Новосибирск",
+      "description": "Врачи и специалисты «Архитектуры здоровья» в Новосибирске. Специализация, образование и опыт работы — в персональных карточках.",
+      "operations": [
+        "individual_information_intro"
+      ],
+      "before_sha256": "b3c8d16d8f7b1b31b523048fd25f8e03c69b94797a2d1aac5778c29f996e107d",
+      "after_sha256": "5bff5d8ff971ee84ffd6929bafb1303d19d5842827f6bb8241b2e24879cedacd"
+    },
+    {
+      "path": "team/lapina-natalia/index.html",
+      "url": "https://azmednsk.ru/team/lapina-natalia",
+      "title": "Лапина Наталья Сергеевна — нейропсихолог, логопед | Новосибирск",
+      "description": "Лапина Наталья Сергеевна — нейропсихолог, логопед в «Архитектуре здоровья», Новосибирск. Образование, опыт работы, направления помощи и запись на приём.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "c7db4a9e2410d50fa85b41eeb9a77d004ef2388c256b9cd78a51fab2197dc450",
+      "after_sha256": "ff2f33693f6ea5ec61ac2fe66d76fba74535a99be30ec2d54d310d912a427d7f"
+    },
+    {
+      "path": "team/lubaeva-alena/index.html",
+      "url": "https://azmednsk.ru/team/lubaeva-alena",
+      "title": "Любаева Алена Юрьевна — гастроэнтеролог, терапевт | Новосибирск",
+      "description": "Любаева Алена Юрьевна — гастроэнтеролог, терапевт в «Архитектуре здоровья», Новосибирск. Образование, опыт работы, направления помощи и запись на приём.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "f7fd594c7e041ee8cc67f230bc6e9d490e4b36e3b7952bfb82467be6b583faf2",
+      "after_sha256": "2cf111b01944f9380c850c52fea5867a86890141854619ecac93b17e7894b3d8"
+    },
+    {
+      "path": "team/mamontova-lubava/index.html",
+      "url": "https://azmednsk.ru/team/mamontova-lubava",
+      "title": "Мамонтова Любава Геннадьевна — Медицинская сестра по массажу | Новосибирск",
+      "description": "Мамонтова Любава Геннадьевна: медицинская сестра по массажу в клинике «Архитектура здоровья», Новосибирск. Образование, опыт работы и запись на консультацию.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "dd0e0411fd06398f9c3b10db3adf2ac29bf2dbaa2da174d28c2f7c3f468cce13",
+      "after_sha256": "4daa8d2453af3a4cd29edf949a2981afd01c120351b0836582c330bad964f6db"
+    },
+    {
+      "path": "team/movseyan-babken/index.html",
+      "url": "https://azmednsk.ru/team/movseyan-babken",
+      "title": "Мовсесян Бабкен Ашотович — Врач-стоматолог-терапевт | Новосибирск",
+      "description": "Мовсесян Бабкен Ашотович: врач-стоматолог-терапевт в клинике «Архитектура здоровья», Новосибирск. Образование, опыт работы и запись на консультацию.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "a384956f0a4bfb9914a069ea57d508e65041bf9ed20bc285966a797e5af1c80d",
+      "after_sha256": "20d5f0efed18e86e362383b32d77188f7070944add9d4ece028d71b267a45f80"
+    },
+    {
+      "path": "team/nazirov-uktamjon/index.html",
+      "url": "https://azmednsk.ru/team/nazirov-uktamjon",
+      "title": "Назыров Уктамжон Жумавоевич — стоматолог-ортопед, гнатолог | Новосибирск",
+      "description": "Назыров Уктамжон Жумавоевич — стоматолог-ортопед, гнатолог в «Архитектуре здоровья», Новосибирск. Образование, опыт работы, направления помощи и запись на приём.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "9118bd75afe5ed9a9349ce9ccc099bfcd0615c3018c8dac5f9b10df2ead856d2",
+      "after_sha256": "ef904324cb131f1fbf76ba19d82112efd6688e022d42b15bf796e5f7dcab9a8c"
+    },
+    {
+      "path": "team/pavlova-anna/index.html",
+      "url": "https://azmednsk.ru/team/pavlova-anna",
+      "title": "Павлова Алла Викторовна — Нутрициолог | Новосибирск",
+      "description": "Павлова Алла Викторовна: нутрициолог в клинике «Архитектура здоровья», Новосибирск. Образование, опыт работы и запись на консультацию.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "55281135de0e4054a80086bd1248ac36b5eef0bda836c7fc32e99f76be73d4d7",
+      "after_sha256": "c88512a378b8864dc6ed106f5bc3932864bf6e91afa64edcb87c3cb998120b52"
+    },
+    {
+      "path": "team/rumyantseva-maria/index.html",
+      "url": "https://azmednsk.ru/team/rumyantseva-maria",
+      "title": "Румянцева Мария Павловна — Стоматолог-терапевт, детский врач-стоматолог | Новосибирск",
+      "description": "Румянцева Мария Павловна: стоматолог-терапевт, детский врач-стоматолог в клинике «Архитектура здоровья», Новосибирск. Образование, опыт работы и запись на консультацию.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "7ab071074ac8d3f6146f8708de3e0b28e704d31a727f2eb202e8ca5656ab1fac",
+      "after_sha256": "d00cc25b54deeeb3bbe03e0cf943bf9c84642fa3037a3a1ffd0794177d79b4a5"
+    },
+    {
+      "path": "team/starostenko-vadim/index.html",
+      "url": "https://azmednsk.ru/team/starostenko-vadim",
+      "title": "Старостенко Вадим Анатольевич — остеопат | Новосибирск",
+      "description": "Старостенко Вадим Анатольевич — остеопат в «Архитектуре здоровья», Новосибирск. Образование, опыт работы, направления помощи и запись на приём.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "83a2e9073e0ccf41cb4359c5d221533f1bfa0a7670ea4e21d069f898e623d263",
+      "after_sha256": "8ec9e87230040277aa63d1e0a8670b781dd0d4d3515e28b61da81a348018f191"
+    },
+    {
+      "path": "team/tproduct/338106745633-palunin-vladislav-andreevich/index.html",
+      "url": "https://azmednsk.ru/team/tproduct/338106745633-palunin-vladislav-andreevich",
+      "title": "Палунин Владислав Андреевич — Зубной техник | Новосибирск",
+      "description": "Палунин Владислав Андреевич: зубной техник в клинике «Архитектура здоровья», Новосибирск. Образование, опыт работы и запись на консультацию.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "5fb2615824b9db6233dc6b3263399b2d89c8890723bb8c8f398169e329a2aa61",
+      "after_sha256": "85806f3bdd7e4c1080dba400acd8f63872fc48ee6fc7e068545b0883d405f50d"
+    },
+    {
+      "path": "team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html",
+      "url": "https://azmednsk.ru/team/tproduct/392688125713-mozharova-ekaterina-sergeevna",
+      "title": "Можарова Екатерина Сергеевна — Зубной техник | Новосибирск",
+      "description": "Можарова Екатерина Сергеевна: зубной техник в клинике «Архитектура здоровья», Новосибирск. Образование, опыт работы и запись на консультацию.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "94873cb242df4a5377eb4c0e5e4e5b6fb72f846e711ec048180265e4961322a9",
+      "after_sha256": "c481aabac3295f449b0b1a8ab8dee539b432c5a5755ac81a9e2e50fd2fd37551"
+    },
+    {
+      "path": "team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html",
+      "url": "https://azmednsk.ru/team/tproduct/834140634503-kazantsev-leonid-evgenevich",
+      "title": "Казанцев Леонид Евгеньевич — Главный зубной техник | Новосибирск",
+      "description": "Казанцев Леонид Евгеньевич: главный зубной техник в клинике «Архитектура здоровья», Новосибирск. Образование, опыт работы и запись на консультацию.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "1e79607a37bade8e85d3fd6815d46202a32cc3394e89015096494a39e2f8b188",
+      "after_sha256": "73de98536574da87c4e1b8763a70e5176cb93341b1e85eaf1d3cda9123c8c56e"
+    },
+    {
+      "path": "team/zubachev-roman/index.html",
+      "url": "https://azmednsk.ru/team/zubachev-roman",
+      "title": "Зубачев Роман Николаевич — стоматолог-хирург | Новосибирск",
+      "description": "Зубачев Роман Николаевич — стоматолог-хирург в «Архитектуре здоровья», Новосибирск. Образование, опыт работы, направления помощи и запись на приём.",
+      "operations": [
+        "individual_specialist_intro"
+      ],
+      "before_sha256": "e8f972a58663e44d6651b227c9f4298d50019026d8b8ac406492e03420fe4e4e",
+      "after_sha256": "265b4c91a1ba149dc585589522f1c925078a6983da33528a908ed3af6c9d3841"
+    },
+    {
+      "path": "thank/index.html",
+      "url": "https://azmednsk.ru/thank",
+      "title": "Спасибо за обращение | Архитектура здоровья",
+      "description": "Благодарность за обращение в клинику «Архитектура здоровья». Информация после отправки заявки.",
+      "operations": [],
+      "before_sha256": "dc1379029d54a0e9a4d8e58ac83fb1185561b46d1035943d24ff3902f86ce0dd",
+      "after_sha256": "79404f90050c2065a26188d4901d22b0377f680a93afbead7f33253ea8e8edf9"
+    },
+    {
+      "path": "uslugi/craniodontic/index.html",
+      "url": "https://azmednsk.ru/uslugi/craniodontic",
+      "title": "Ортокраниодонтия в Новосибирске | Архитектура здоровья",
+      "description": "Ортокраниодонтия в Новосибирске: функциональный подход к работе зубочелюстной системы. Консультация и индивидуальный план в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "13688c49b972b11178c8c6d825fb3ef18af0d74533013a7893d8139e0df97159",
+      "after_sha256": "7c8963f6b38357fe0e848fa1230c50f53246bd6653310a3e6be7b7af6169f753"
+    },
+    {
+      "path": "uslugi/diers-diagnostica/index.html",
+      "url": "https://azmednsk.ru/uslugi/diers-diagnostica",
+      "title": "DIERS-диагностика осанки в Новосибирске | Архитектура здоровья",
+      "description": "DIERS-диагностика в Новосибирске: оценка осанки, движения и распределения нагрузки. Как проходит обследование в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "e0a9b15018e9a9bafdd60f38cb57d7c279cd94b68af2ec7339ff026fa252a3f8",
+      "after_sha256": "6a1eb3a10d33738d1a825fcbada8cbb24292420e136bfe8c4738297d8d5596c1"
+    },
+    {
+      "path": "uslugi/diers_research/index.html",
+      "url": "https://azmednsk.ru/uslugi/diers_research",
+      "title": "Исследование DIERS 4D motion в Новосибирске | Архитектура здоровья",
+      "description": "Исследование DIERS 4D motion в Новосибирске. Оценка положения тела и движения при ходьбе в медицинском центре «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "7faa696a7a65f2901a73e7e9352171ab67b7ecfd41cd0efe466883a4aeef5f44",
+      "after_sha256": "dfdc518c8551de80aeab5fc291b6bea539c0d5d4df660a1a052b9f063a435a1f"
+    },
+    {
+      "path": "uslugi/doc_educate/index.html",
+      "url": "https://azmednsk.ru/uslugi/doc_educate",
+      "title": "Обучение врачей функциональной стоматологии в Новосибирске | Архитектура здоровья",
+      "description": "Обучение врачей функциональной стоматологии на базе клиники «Архитектура здоровья» в Новосибирске. Узнайте о формате и условиях участия.",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "0908ac0a1ec819b7d0f546cc16aa8a9c1262a958a36430a351f9444f2055379b",
+      "after_sha256": "3f3a505ffe73ce21b4869b257d9d34365ad7e7e6ab31693f06026d1d3b2e2a9b"
+    },
+    {
+      "path": "uslugi/functional_dentistry/index.html",
+      "url": "https://azmednsk.ru/uslugi/functional_dentistry",
+      "title": "Функциональная стоматология в Новосибирске | Архитектура здоровья",
+      "description": "Функциональная стоматология в Новосибирске: оценка прикуса, жевательных мышц и работы челюсти. Индивидуальный план в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro",
+        "removed_visible_css"
+      ],
+      "before_sha256": "479e61a685c59257336e2245c2f34e5a9efacae099a42bf1de42d202486ad8b5",
+      "after_sha256": "ec175be8167998d918fa820cfdf968e64afc83128d31c4c9411b52efd01f389b"
+    },
+    {
+      "path": "uslugi/gastroenterologiya/index.html",
+      "url": "https://azmednsk.ru/uslugi/gastroenterologiya",
+      "title": "Гастроэнтеролог в Новосибирске | Архитектура здоровья",
+      "description": "Приём гастроэнтеролога в Новосибирске: жалобы со стороны пищеварения, обследование и план лечения. Запись в клинику «Архитектура здоровья».",
+      "operations": [
+        "individual_intro",
+        "removed_visible_css"
+      ],
+      "before_sha256": "db52ff15411a518294f0fcfba3ecd79b93fa4f200a3c174df48153d027d2cba5",
+      "after_sha256": "694fe370ac19b2038bea527173cbfe115b9277d89ca1cb082ea94f87e9ce2e69"
+    },
+    {
+      "path": "uslugi/hygiene_prevention/index.html",
+      "url": "https://azmednsk.ru/uslugi/hygiene_prevention",
+      "title": "Профессиональная гигиена и отбеливание зубов в Новосибирске | Архитектура здоровья",
+      "description": "Профессиональная чистка и отбеливание зубов в Новосибирске. Удаление налёта и зубного камня, рекомендации по уходу в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "eebe5e422c3546d5e4b8ebb9e51406437f1fb9d802f4942526c236ba0041b55d",
+      "after_sha256": "d4dda870d68f83b4c08093ca36445508fb68cf91c75416154d9a390be6c3181e"
+    },
+    {
+      "path": "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html",
+      "url": "https://azmednsk.ru/uslugi/hygiene_prevention/otbelivanie_zoom4",
+      "title": "Отбеливание зубов Zoom 4 в Новосибирске | Архитектура здоровья",
+      "description": "Отбеливание зубов Zoom 4 в Новосибирске. Консультация перед процедурой, этапы и уход после отбеливания в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "3b4cc00c9f998062e9c4bd7b0ad751625800e82b705978e15badcf82db28ac08",
+      "after_sha256": "f4c61f4b7dffbd245d41c67d547eeac543eb5b10595dcf8c55e57e8f6414b601"
+    },
+    {
+      "path": "uslugi/iggt-terapiya/index.html",
+      "url": "https://azmednsk.ru/uslugi/iggt-terapiya",
+      "title": "ИГГТ — интервальная гипокси-гиперокси терапия в Новосибирске | Архитектура здоровья",
+      "description": "ИГГТ в Новосибирске: как проходит интервальная гипокси-гиперокси терапия, консультация перед курсом и контроль состояния в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "0e4e006b3320cebd13fd824770bc3f2733100122481c580ff19576a3c2e03ebf",
+      "after_sha256": "5c83dd39546ed9d1246e5c6b27b79781eb24a8b44db621256f0f6ff2fb3504f1"
+    },
+    {
+      "path": "uslugi/khirurgiya/implantaciya/index.html",
+      "url": "https://azmednsk.ru/uslugi/khirurgiya/implantaciya",
+      "title": "Имплантация зубов в Новосибирске | Архитектура здоровья",
+      "description": "Имплантация зубов в Новосибирске: диагностика, выбор плана восстановления и этапы лечения. Консультация в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "0250c634b60e7bbcd142d2d6623aa45b90e8a5fa58f677afb10695fb453a12e1",
+      "after_sha256": "e1d2c8646af38e9ac134aafd04313f561f065e71d0c12e832ef9c3b492efcfaa"
+    },
+    {
+      "path": "uslugi/khirurgiya/index.html",
+      "url": "https://azmednsk.ru/uslugi/khirurgiya",
+      "title": "Стоматологическая хирургия и имплантация в Новосибирске | Архитектура здоровья",
+      "description": "Хирургическая стоматология и имплантация в Новосибирске. Варианты восстановления утраченных зубов в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "88772dc7ce6c6a9b2a63de2cfeb979ee70cd29f760211f746e0e460477532ef2",
+      "after_sha256": "efc162d681479a0e01e16cb2f67440d070e58ba4780c6e1ea01579e53712ccab"
+    },
+    {
+      "path": "uslugi/konsultatiya-stomatolog/index.html",
+      "url": "https://azmednsk.ru/uslugi/konsultatiya-stomatolog",
+      "title": "Консультация стоматолога в Новосибирске | Архитектура здоровья",
+      "description": "Консультация стоматолога в Новосибирске: осмотр, диагностика по показаниям и обсуждение вариантов лечения в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "3f510ab68bb2d25282a5300f196a19ee53f6c4342d7f55edc427c37e2ecc7733",
+      "after_sha256": "f703cef94515b096d6c8d05daa0c43b43a412a6b62aa56136d0ea7d5bcf965ea"
+    },
+    {
+      "path": "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html",
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/esteticheskaya_restavraciya",
+      "title": "Эстетическая реставрация зубов в Новосибирске | Архитектура здоровья",
+      "description": "Эстетическая реставрация зубов в Новосибирске: восстановление формы и внешнего вида зуба. Консультация в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "55e237625f0a20ea2984bb7414e777a96035beba206522fced9ab016ac2fb4eb",
+      "after_sha256": "07a149690cfae5ce8bcecbb534dc4e9f282a8d559d5bcc8b81f7df90769e2163"
+    },
+    {
+      "path": "uslugi/lechenie-zubov/index.html",
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov",
+      "title": "Лечение зубов под микроскопом в Новосибирске | Архитектура здоровья",
+      "description": "Лечение зубов под микроскопом в Новосибирске. Кариес, пульпит, периодонтит и восстановление зубов в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "74b8aa0d1b0166247eae0a81536f9f55d0a13aaceabb6c8d610873f9ab7de9f7",
+      "after_sha256": "9510cf852b347215d1b5647e3ac2902703637ac436e22500d60bc21e3b2b0c70"
+    },
+    {
+      "path": "uslugi/lechenie-zubov/karies/index.html",
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/karies",
+      "title": "Лечение кариеса в Новосибирске | Архитектура здоровья",
+      "description": "Лечение кариеса в Новосибирске: осмотр, оценка повреждения тканей и восстановление зуба. Запись в клинику «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "5c733ce9de25eac89399a8b2c36fd5792d0b262adc7fb49f06b389a89581a715",
+      "after_sha256": "a076c7377cb499950bc8a038aec2bf45873f46ce35c17a67e7f34ff6b5ff1e83"
+    },
+    {
+      "path": "uslugi/lechenie-zubov/kista/index.html",
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/kista",
+      "title": "Лечение кисты зуба в Новосибирске | Архитектура здоровья",
+      "description": "Лечение кисты зуба в Новосибирске. Диагностика, оценка состояния корневых каналов и выбор тактики в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "0db491e294546c0a1d1d0bd7b12f58d5ed9561e6ec8ad968228a4063a596c193",
+      "after_sha256": "2afa16e5c34c5ced083ab17866bfc64f29f2d189a6986d981024ec65e61b2cc2"
+    },
+    {
+      "path": "uslugi/lechenie-zubov/periodontit/index.html",
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/periodontit",
+      "title": "Лечение периодонтита в Новосибирске | Архитектура здоровья",
+      "description": "Лечение периодонтита в Новосибирске: диагностика воспаления у корня зуба и работа с корневыми каналами в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "097b87ced5183e5231f80db073bbe74107b6753189a6fe30ccd3053d4d1f92c5",
+      "after_sha256": "21c05db67a93f98a09be314ca5a615ef095c555221f28dd742b3fc091329f707"
+    },
+    {
+      "path": "uslugi/lechenie-zubov/pulpit/index.html",
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/pulpit",
+      "title": "Лечение пульпита в Новосибирске | Архитектура здоровья",
+      "description": "Лечение пульпита под микроскопом в Новосибирске. Диагностика, обработка каналов и восстановление зуба в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "5c78f97aa50a311e9167ecef0b208221a57559b28821988a48b72dc716ad02b5",
+      "after_sha256": "804aeb6cffea3eb0f69cae25b47e68325e30124e4c33c94267762a4891019eb6"
+    },
+    {
+      "path": "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html",
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya",
+      "title": "Удаление зубного камня в Новосибирске | Архитектура здоровья",
+      "description": "Удаление зубного камня в Новосибирске. Осмотр, выбор способа профессиональной гигиены и рекомендации по уходу в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "72d616b5f9837b553b617fa4ca50fadb1357f80276ece40b2c94c329b5f6d43e",
+      "after_sha256": "ee1bb6130a9853b33674500a13f31e02e535cabe492b7f8ada86a6a2d5943253"
+    },
+    {
+      "path": "uslugi/lechenie-zubov/zuby-mudrosti/index.html",
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/zuby-mudrosti",
+      "title": "Лечение зубов мудрости в Новосибирске | Архитектура здоровья",
+      "description": "Лечение зубов мудрости в Новосибирске: оценка положения и состояния зуба, обсуждение сохранения или удаления в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "121e40faaa024f65e32a35ead1718cb06cd96e83268694e8eceb8d50a2a4b43a",
+      "after_sha256": "5284bbc9f2852f2e7f5228ae0cbd0a6ec759f3ec9e589a6ba5f3b5e3713e2b08"
+    },
+    {
+      "path": "uslugi/miofascialnaya-terapia/index.html",
+      "url": "https://azmednsk.ru/uslugi/miofascialnaya-terapia",
+      "title": "Миофасциальная терапия в Новосибирске | Архитектура здоровья",
+      "description": "Миофасциальная терапия в Новосибирске. Оценка мышечного напряжения, движения и подвижности тканей в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro",
+        "removed_visible_css"
+      ],
+      "before_sha256": "6f2663e2d5b30ca32eb65d840fbabc5d241c0320238d6e4d64e166794339aebc",
+      "after_sha256": "fd0e89ce7d835bc0ec9ed7df3778b5bec169caf7ca14fc83bf0ada3b1491f7ad"
+    },
+    {
+      "path": "uslugi/miofascialnyy-massazh/index.html",
+      "url": "https://azmednsk.ru/uslugi/miofascialnyy-massazh",
+      "title": "Миофасциальный массаж в Новосибирске | Архитектура здоровья",
+      "description": "Миофасциальный массаж в Новосибирске: работа с мышечным напряжением и ограничением движения. Консультация в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "82523fe4c75d68123c2104bea7278d054082bf59619c1cea7c7e8f09f7e57e95",
+      "after_sha256": "a966933ba47dd762b89b9e4e50a4d179caf538f091247a618f7bdfe70a08bb07"
+    },
+    {
+      "path": "uslugi/miofunkcionalnaya-terapiya/index.html",
+      "url": "https://azmednsk.ru/uslugi/miofunkcionalnaya-terapiya",
+      "title": "Миофункциональная терапия в Новосибирске | Архитектура здоровья",
+      "description": "Миофункциональная терапия в Новосибирске. Оценка работы мышц лица и языка, привычек дыхания и глотания в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "c37624447d3ff1ba7aa28a1e8d4e7800850b2a9544ae980d949521587004453a",
+      "after_sha256": "d5f74c93faae5c26455537ee0840cef3486ca53863d70d5e5eeaf362179f519b"
+    },
+    {
+      "path": "uslugi/neyropsihologia/index.html",
+      "url": "https://azmednsk.ru/uslugi/neyropsihologia",
+      "title": "Нейропсихолог для детей в Новосибирске | Архитектура здоровья",
+      "description": "Нейропсихолог в Новосибирске: оценка внимания, памяти и учебных трудностей ребёнка. Индивидуальные занятия в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "67f293d92c78d8f27fbfe5218ee335cb369e05ca351afc939abe202fd6647d49",
+      "after_sha256": "58908fca95b897c26058a5d42af6ca7f569b5fa8ab86aae8d3329c47115fed97"
+    },
+    {
+      "path": "uslugi/nutriciologiya/index.html",
+      "url": "https://azmednsk.ru/uslugi/nutriciologiya",
+      "title": "Консультация нутрициолога в Новосибирске | Архитектура здоровья",
+      "description": "Нутрициолог в Новосибирске: индивидуальные рекомендации по питанию и образу жизни. Консультация в центре «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "8130e25b96455cd5d5c5c99e43989f1d1b6d816b243809b0ecce3cc488ac8781",
+      "after_sha256": "857fad47ce318cd646356f878da10da6d89a07a69a71866daddac80b85a3cd26"
+    },
+    {
+      "path": "uslugi/orthodontics/index.html",
+      "url": "https://azmednsk.ru/uslugi/orthodontics",
+      "title": "Консультация ортодонта и исправление прикуса в Новосибирске | Архитектура здоровья",
+      "description": "Ортодонт в Новосибирске: оценка прикуса и выбор ортодонтического лечения. Консультация в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "1f5ae4bda5d2c3a5c5bc91c00ff68019516bfc505c9e1cd0092f38639f128eca",
+      "after_sha256": "864edcb8acc14478440b5201b4d98e6f93d5d0f5e7c1d06e10fa166f37ee0563"
+    },
+    {
+      "path": "uslugi/ortopedicheskie-stelki/index.html",
+      "url": "https://azmednsk.ru/uslugi/ortopedicheskie-stelki",
+      "title": "Индивидуальные стельки Formthotics в Новосибирске | Архитектура здоровья",
+      "description": "Индивидуальные ортопедические стельки Formthotics в Новосибирске. Оценка стоп и подбор стелек в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "acea6dac834aee801de639fc67a65b35b6d1d1fd178a37ea8c50912e8e5c8a95",
+      "after_sha256": "2c45cfb2e7b8ebe22f2c7e9792f5cfce04917df60d10681c8d9aaed8cf2eccb9"
+    },
+    {
+      "path": "uslugi/osteopatiya/index.html",
+      "url": "https://azmednsk.ru/uslugi/osteopatiya",
+      "title": "Остеопатия в Новосибирске | Архитектура здоровья",
+      "description": "Остеопатия в Новосибирске: консультация, оценка движения и индивидуальная работа с телом. Запись в клинику «Архитектура здоровья».",
+      "operations": [
+        "individual_intro",
+        "removed_visible_css"
+      ],
+      "before_sha256": "c81a38e15b1f7edb0951fd4f9530a38d07c03fef4d0851b84edd96b977f8520a",
+      "after_sha256": "d0df05fc61d265cd6f33d387642f310be57ece2d7dd0e5e48582e2449d971150"
+    },
+    {
+      "path": "uslugi/preventivnaya-medicina/index.html",
+      "url": "https://azmednsk.ru/uslugi/preventivnaya-medicina",
+      "title": "Превентивная медицина в Новосибирске | Архитектура здоровья",
+      "description": "Превентивная медицина в Новосибирске: оценка факторов риска и индивидуальный план наблюдения. Консультация в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "d746d5ba86acd716c5388dc2d09acc933a13f52c9a4774e396a765b47a2d1483",
+      "after_sha256": "18422518b165eadb2d0cf5d7d6e70e0b5d075464d795128ad74d7fbe72a53374"
+    },
+    {
+      "path": "uslugi/prosthetics/index.html",
+      "url": "https://azmednsk.ru/uslugi/prosthetics/",
+      "title": "Протезирование зубов в Новосибирске | Архитектура здоровья",
+      "description": "Протезирование зубов в Новосибирске: коронки, мостовидные протезы и виниры. Подбор плана восстановления в клинике «Архитектура здоровья».",
+      "operations": [
+        "removed_visible_css"
+      ],
+      "before_sha256": "a3b903d06bd82fceb77fd7adcfd87d62111be04da9e7fd3a8ff73c6c808bcfbb",
+      "after_sha256": "247e2a99c43a4aae129a67e6ca1aa40f8de7b48850b181e4c48ade7caf7397b8"
+    },
+    {
+      "path": "uslugi/prosthetics/koronki/index.html",
+      "url": "https://azmednsk.ru/uslugi/prosthetics/koronki",
+      "title": "Зубные коронки в Новосибирске | Архитектура здоровья",
+      "description": "Установка коронок на зубы в Новосибирске. Оценка разрушения зуба, выбор материала и этапы протезирования в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "8650746b3b68cf9c4dfb386719fb71779f6c6c7b75f440c014b373af33c3baa1",
+      "after_sha256": "fffe64dca5ed5ccaf36e392e852d2d2dd40148c5544d9f3d84aa129c83a702f1"
+    },
+    {
+      "path": "uslugi/prosthetics/koronki/keramicheskie/index.html",
+      "url": "https://azmednsk.ru/uslugi/prosthetics/koronki/keramicheskie",
+      "title": "Керамические коронки в Новосибирске | Архитектура здоровья",
+      "description": "Керамические коронки на зубы в Новосибирске. Восстановление формы и внешнего вида зуба в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "a5bc33a48f54e4a49c52550d230ccbb8521ddf45081092675a1899a1a6a82399",
+      "after_sha256": "0b3c932ceb47013eccfa933f29d2f9d2c70b0c0b5d9d2a922eb3c8168a3267d2"
+    },
+    {
+      "path": "uslugi/prosthetics/koronki/kompozitnye/index.html",
+      "url": "https://azmednsk.ru/uslugi/prosthetics/koronki/kompozitnye",
+      "title": "Композитные коронки в Новосибирске | Архитектура здоровья",
+      "description": "Композитные коронки на зубы в Новосибирске. Консультация, выбор конструкции и восстановление зуба в «Архитектуре здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "147138fd46d9b2b288f382eabe3fd49fbe8a1ef0a66c7ad387ebca81e28e3f25",
+      "after_sha256": "46c9a7322db687ae8eb9df5b4f5b61ddaabfe68a4fd9b5139893fbdf30cc3858"
+    },
+    {
+      "path": "uslugi/prosthetics/mostovidnyy-protez/index.html",
+      "url": "https://azmednsk.ru/uslugi/prosthetics/mostovidnyy-protez",
+      "title": "Мостовидные зубные протезы в Новосибирске | Архитектура здоровья",
+      "description": "Мостовидное протезирование в Новосибирске. Выбор опоры, подготовка и установка конструкции в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "10477becf5932cc67dc0aa0915602410cba272ebd380bce88de473c6dcaa9208",
+      "after_sha256": "ece9f837ca3e4f9fad660981127400709413d530291bb8179dae2d6406671f59"
+    },
+    {
+      "path": "uslugi/prosthetics/viniry/index.html",
+      "url": "https://azmednsk.ru/uslugi/prosthetics/viniry",
+      "title": "Установка виниров в Новосибирске | Архитектура здоровья",
+      "description": "Виниры в Новосибирске: коррекция формы и внешнего вида зубов. Оценка показаний и выбор материала в клинике «Архитектура здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "adf22a5e2315dfcce5821cccf9a0e690af47c19a43bc14dd2eea0ad544316cdc",
+      "after_sha256": "912bfebf28cede6d396fc5e7df25c3ffd8e172c288d37efa9e7071b5b42f4fda"
+    },
+    {
+      "path": "uslugi/terapia/index.html",
+      "url": "https://azmednsk.ru/uslugi/terapia",
+      "title": "Приём врача-терапевта в Новосибирске | Архитектура здоровья",
+      "description": "Терапевт в Новосибирске: консультация, первичная оценка жалоб и обследования по показаниям. Запись в «Архитектуру здоровья».",
+      "operations": [
+        "individual_intro"
+      ],
+      "before_sha256": "1c6244eb4423fd2f7cb76e1ae567b752c54c49cfbf15ab60b01538dacbf39ebf",
+      "after_sha256": "cc52bdc4b662b397c6ef26fafea90ab2d09a8832e743a457565881f3d8ebeb5e"
+    },
+    {
+      "path": "uslygi/index.html",
+      "url": "https://azmednsk.ru/uslygi",
+      "title": "Направления клиники | Архитектура здоровья — Новосибирск",
+      "description": "Направления «Архитектуры здоровья» в Новосибирске: стоматология, остеопатия, гастроэнтерология, нутрициология и другие услуги.",
+      "operations": [
+        "individual_information_intro",
+        "removed_visible_css"
+      ],
+      "before_sha256": "8a2d53b698f4befcf617f86b0eac887afbb3bb8d314bd2291720b72206700f39",
+      "after_sha256": "1bb18ba3a2c4e21c119456d7596206485d3b42e2229566fa4f610db0470d0dee"
+    }
+  ],
+  "notes": [
+    "Canonical URLs, noindex test restrictions, prices, assets and legal document bodies preserved.",
+    "Individual intros and metadata revised; existing clinical detail retained unless explicitly edited.",
+    "No Wordstat frequency data used; medical factual audit and complete browser review remain separate."
+  ],
+  "link_repairs": [
+    [
+      "index.html",
+      "#text1",
+      "/o_nas"
+    ],
+    [
+      "kompleks-uslugi/index.html",
+      "#zdorovaya_spina",
+      "#booking"
+    ],
+    [
+      "kompleks-uslugi/index.html",
+      "#deti_SDVG",
+      "#booking"
+    ],
+    [
+      "kompleks-uslugi/index.html",
+      "#arhitektura_zdorovia",
+      "#booking"
+    ],
+    [
+      "rassrochka/index.html",
+      "#zapis-rassrochka",
+      "#booking"
+    ],
+    [
+      "uslygi/index.html",
+      "#order",
+      null
+    ],
+    [
+      "uslygi/index.html",
+      "#",
+      null
+    ],
+    [
+      "uslygi/index.html",
+      "#order",
+      null
+    ],
+    [
+      "uslygi/index.html",
+      "#",
+      null
+    ],
+    [
+      "uslugi/miofascialnyy-massazh/index.html",
+      "tel:+%2073832842421",
+      "tel:+73832842421"
+    ],
+    [
+      "uslugi/miofascialnyy-massazh/index.html",
+      "#zvonok",
+      "#booking"
+    ],
+    [
+      "uslugi/miofascialnyy-massazh/index.html",
+      "tel:+%2073832842421",
+      "tel:+73832842421"
+    ],
+    [
+      "uslugi/miofascialnyy-massazh/index.html",
+      "#zvonok",
+      "#booking"
+    ],
+    [
+      "uslugi/prosthetics/index.html",
+      "#more",
+      null
+    ],
+    [
+      "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html",
+      "#deti_SDVG",
+      "#booking"
+    ],
+    [
+      "kompleks-uslugi/zdorovaya-spina/index.html",
+      "#variant-program",
+      "#booking"
+    ],
+    [
+      "kompleks-uslugi/zdorovaya-spina/index.html",
+      "#zdorovaya_spina",
+      "#booking"
+    ],
+    [
+      "kompleks-uslugi/zdorovaya-spina/index.html",
+      "#zdorovaya_spina",
+      "#booking"
+    ],
+    [
+      "kompleks-uslugi/arhitektura-zdorovya/index.html",
+      "#variant-program",
+      "#booking"
+    ],
+    [
+      "team/lubaeva-alena/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/holodtseva-valeria/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/mamontova-lubava/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/rumyantseva-maria/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/lapina-natalia/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/pavlova-anna/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/starostenko-vadim/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/movseyan-babken/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/chirkov-maxim/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/bosak-yana/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/zubachev-roman/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/golishenkov-vladislav/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/nazirov-uktamjon/index.html",
+      "#zapis",
+      "#booking"
+    ],
+    [
+      "team/dimitrenko-anna/index.html",
+      "#zapis",
+      "#booking"
+    ]
+  ]
+}

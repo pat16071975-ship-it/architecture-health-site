@@ -1,0 +1,13 @@
+{
+  "pages": 79,
+  "unique_titles": 79,
+  "unique_descriptions": 79,
+  "one_h1_per_page": true,
+  "protected_text_preserved": true,
+  "prices_media_canonical_preserved": true,
+  "links_only_documented_repairs": true,
+  "no_unresolved_anchors": true,
+  "valid_matching_jsonld": true,
+  "visible_css_removed": true,
+  "browser_visual_review": "not performed: cloud browser disallows local-file protocol; no workaround attempted"
+}
