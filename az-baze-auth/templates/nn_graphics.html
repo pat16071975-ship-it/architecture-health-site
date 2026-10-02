@@ -19,7 +19,7 @@
 .gr-card h3{margin:0;font-size:19px;font-weight:800}.gr-note{margin-top:6px;color:#687067;font-size:15px;line-height:1.45;font-weight:700}
 .gr-size{display:flex;gap:5px;flex:none}.gr-size button{border:1px solid #d9cfbf;background:#fffaf3;border-radius:7px;padding:6px 8px;font:700 12px Montserrat;cursor:pointer;color:#4f5952}.gr-size button.active{background:#e9e1d3;color:#2d342f}
 .gr-chart{min-height:320px;display:flex;align-items:center;justify-content:center;overflow:auto;position:relative}.gr-empty{width:100%;padding:34px;text-align:center;border:1px dashed #d8cdbb;border-radius:10px;color:#687067;font-size:17px;font-weight:700}
-.gr-svg{width:100%;min-width:560px;height:auto;color:#44634f}.gr-svg text{font-family:Montserrat,Arial,sans-serif;fill:#56625b;font-size:22px;font-weight:700}.gr-svg-compact text{font-size:11px;font-weight:500}.gr-svg .grid{stroke:#e7dfd2;stroke-width:1.2}.gr-svg .line{fill:none;stroke:currentColor;stroke-width:3}.gr-svg .area{fill:currentColor;opacity:.13}.gr-svg .dot{fill:#fff;stroke:currentColor;stroke-width:2}.gr-svg .bar{fill:currentColor;opacity:.82}.gr-svg .bar-bg{fill:#eee7dc}.gr-card.fill-off .gr-svg .area{display:none}.gr-card.fill-off .gr-svg .bar{fill:transparent;stroke:currentColor;stroke-width:3;opacity:1}.gr-card.fill-off .gr-svg .bar-bg{fill:#fffdf8;stroke:#ddd3c3;stroke-width:1}.gr-tooltip{position:fixed;z-index:50;max-width:300px;padding:9px 11px;border-radius:9px;background:#2f3f35;color:#fff;font:700 12px/1.35 Montserrat,Arial,sans-serif;box-shadow:0 8px 25px rgba(0,0,0,.18);pointer-events:none;transform:translate(12px,12px)}.gr-tooltip[hidden]{display:none}.gr-card[data-card="revenue"] .gr-chart{min-height:250px}.gr-card[data-card="deleted"] .gr-chart,.gr-card[data-card="discounts"] .gr-chart{min-height:185px}.gr-card[data-card="deleted"],.gr-card[data-card="discounts"]{align-self:start}
+.gr-svg{width:100%;min-width:560px;height:auto;color:#44634f}.gr-svg text{font-family:Montserrat,Arial,sans-serif;fill:#56625b;font-size:22px;font-weight:700}.gr-svg-compact text{font-size:11px;font-weight:500}.gr-svg-small text{font-size:15px;font-weight:700}.gr-svg-fit{min-width:0;width:100%;max-width:100%}.gr-svg .grid{stroke:#e7dfd2;stroke-width:1.2}.gr-svg .line{fill:none;stroke:currentColor;stroke-width:3}.gr-svg .area{fill:currentColor;opacity:.13}.gr-svg .dot{fill:#fff;stroke:currentColor;stroke-width:2}.gr-svg .bar{fill:currentColor;opacity:.82}.gr-svg .bar-bg{fill:#eee7dc}.gr-card.fill-off .gr-svg .area{display:none}.gr-card.fill-off .gr-svg .bar{fill:transparent;stroke:currentColor;stroke-width:3;opacity:1}.gr-card.fill-off .gr-svg .bar-bg{fill:#fffdf8;stroke:#ddd3c3;stroke-width:1}.gr-tooltip{position:fixed;z-index:50;max-width:300px;padding:9px 11px;border-radius:9px;background:#2f3f35;color:#fff;font:700 12px/1.35 Montserrat,Arial,sans-serif;box-shadow:0 8px 25px rgba(0,0,0,.18);pointer-events:none;transform:translate(12px,12px)}.gr-tooltip[hidden]{display:none}.gr-card[data-card="revenue"] .gr-chart{min-height:250px}.gr-card[data-card="weekday"] .gr-chart,.gr-card[data-card="time"] .gr-chart{overflow:hidden}.gr-card[data-card="deleted"],.gr-card[data-card="discounts"]{height:285px;align-self:start}.gr-card[data-card="deleted"] .gr-note,.gr-card[data-card="discounts"] .gr-note{font-size:13px;line-height:1.35}.gr-card[data-card="deleted"] .gr-chart,.gr-card[data-card="discounts"] .gr-chart{min-height:128px;overflow:hidden}
 .gr-donut-wrap{display:grid;grid-template-columns:minmax(220px,280px) 1fr;gap:24px;align-items:center;width:100%}.gr-donut{width:250px;aspect-ratio:1;border-radius:50%;position:relative;margin:auto}.gr-donut:after{content:"";position:absolute;inset:30%;background:#fffdf8;border-radius:50%;box-shadow:inset 0 0 0 1px #eee4d4}.gr-legend{display:grid;gap:11px}.gr-legend-row{display:grid;grid-template-columns:14px 1fr auto;gap:10px;align-items:center;font-size:17px;font-weight:700}.gr-dot{width:13px;height:13px;border-radius:50%}
 .gr-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.gr-kpi{background:#fffdf8;border:1px solid #e1d7c8;border-radius:11px;padding:14px}.gr-kpi span{display:block;color:#657069;font-size:14px;font-weight:700}.gr-kpi strong{display:block;margin-top:5px;font-size:24px;font-weight:800}.gr-kpi small{display:block;margin-top:5px;color:#737b75;font-size:13px;font-weight:700;line-height:1.35}
 @media(max-width:1050px){.gr-filters{grid-template-columns:repeat(2,1fr)}.gr-card,.gr-card.size-half,.gr-card.size-third{grid-column:span 3}.gr-kpi-strip{grid-template-columns:repeat(2,1fr)}}
@@ -138,9 +138,12 @@ function svgLine(id,rows,key,fmt,area=false,compact=false){
 function svgBars(id,rows,labelKey,valueKey,fmt,opts={}){
   if(!rows?.length){empty(id);return}
   const data=opts.limit?rows.slice(0,opts.limit):rows;
-  const compact=!!opts.compact,labelsAbove=!!opts.labelsAbove;
-  const W=compact?760:1040,L=labelsAbove?24:(compact?210:360),R=compact?110:180,rowH=labelsAbove?76:(compact?52:58);
-  const H=labelsAbove?Math.max(120,data.length*rowH+12):Math.max(compact?190:320,data.length*rowH+30);
+  const compact=!!opts.compact,labelsAbove=!!opts.labelsAbove,fit=!!opts.fit,tight=!!opts.tight;
+  const W=fit?560:(compact?760:1040);
+  const L=labelsAbove?18:(fit?132:(compact?210:360));
+  const R=fit?58:(compact?110:180);
+  const rowH=labelsAbove?(tight?58:76):(fit?44:(tight?44:(compact?52:58)));
+  const H=labelsAbove?Math.max(tight?94:120,data.length*rowH+10):Math.max(fit?178:(tight?150:(compact?190:320)),data.length*rowH+(tight?16:30));
   const max=Math.max(...data.map(r=>Number(r[valueKey]||0)),1);
   const labelFor=r=>opts.labelFormatter?opts.labelFormatter(r[labelKey]):(r[labelKey]||"—");
   let body="";
@@ -148,13 +151,15 @@ function svgBars(id,rows,labelKey,valueKey,fmt,opts={}){
     const v=Number(r[valueKey]||0),label=labelFor(r),tip=label+": "+fmt(v);
     if(labelsAbove){
       const y=18+i*rowH,barY=y+26,w=(W-L-R)*v/max;
-      body+='<text x="'+L+'" y="'+(y+15)+'">'+esc(label)+'</text><rect class="bar-bg" x="'+L+'" y="'+barY+'" width="'+(W-L-R)+'" height="28" rx="7"></rect><rect class="bar" x="'+L+'" y="'+barY+'" width="'+Math.max(v?3:0,w)+'" height="28" rx="7" data-tip="'+esc(tip)+'"></rect><text x="'+(W-R+10)+'" y="'+(barY+23)+'">'+esc(fmt(v))+'</text>';
+      const barHeight=tight?22:28;
+      body+='<text x="'+L+'" y="'+(y+15)+'">'+esc(label)+'</text><rect class="bar-bg" x="'+L+'" y="'+barY+'" width="'+(W-L-R)+'" height="'+barHeight+'" rx="7"></rect><rect class="bar" x="'+L+'" y="'+barY+'" width="'+Math.max(v?3:0,w)+'" height="'+barHeight+'" rx="7" data-tip="'+esc(tip)+'"></rect><text x="'+(W-R+10)+'" y="'+(barY+Math.min(23,barHeight-3))+'">'+esc(fmt(v))+'</text>';
     }else{
-      const y=16+i*rowH,w=(W-L-R)*v/max;
-      body+='<text text-anchor="end" x="'+(L-12)+'" y="'+(y+27)+'">'+esc(label)+'</text><rect class="bar-bg" x="'+L+'" y="'+y+'" width="'+(W-L-R)+'" height="'+(compact?28:32)+'" rx="7"></rect><rect class="bar" x="'+L+'" y="'+y+'" width="'+Math.max(v?3:0,w)+'" height="'+(compact?28:32)+'" rx="7" data-tip="'+esc(tip)+'"></rect><text x="'+(W-R+12)+'" y="'+(y+(compact?23:26))+'">'+esc(fmt(v))+'</text>';
+      const y=12+i*rowH,w=(W-L-R)*v/max,barHeight=fit?22:(tight?22:(compact?28:32));
+      body+='<text text-anchor="end" x="'+(L-10)+'" y="'+(y+barHeight-3)+'">'+esc(label)+'</text><rect class="bar-bg" x="'+L+'" y="'+y+'" width="'+(W-L-R)+'" height="'+barHeight+'" rx="7"></rect><rect class="bar" x="'+L+'" y="'+y+'" width="'+Math.max(v?3:0,w)+'" height="'+barHeight+'" rx="7" data-tip="'+esc(tip)+'"></rect><text x="'+(W-R+8)+'" y="'+(y+barHeight-3)+'">'+esc(fmt(v))+'</text>';
     }
   });
-  document.getElementById("chart-"+id).innerHTML='<svg class="gr-svg" viewBox="0 0 '+W+' '+H+'" role="img">'+body+'</svg>'
+  const svgClass='gr-svg'+(opts.smallText?' gr-svg-small':'')+(fit?' gr-svg-fit':'');
+  document.getElementById("chart-"+id).innerHTML='<svg class="'+svgClass+'" viewBox="0 0 '+W+' '+H+'" role="img">'+body+'</svg>'
 }
 function donut(id,rows,labelKey,valueKey,fmt){
   if(!rows?.length){empty(id);return}
@@ -184,15 +189,15 @@ function render(d){
   svgBars("services",d.services.categories,"label","revenue",fmtMoney);setNote("services","Категории используют ту же классификацию, что BI");
   svgBars("age",d.patients.age_groups,"label","value",fmtNum);setNote("age","Возраст на конец выбранного периода");
   donut("frequency",d.patients.frequency,"label","value",fmtNum);setNote("frequency","1 / 2 / 3+ визитов за период");
-  svgBars("weekday",d.bookings.weekday,"label","visits",fmtNum,{compact:true});setNote("weekday","Фактически проведённые приёмы");
-  svgBars("time",d.bookings.time,"label","visits",fmtNum,{compact:true});setNote("time","Фактически проведённые приёмы");
-  svgBars("deleted",d.bookings.deleted_reasons,"label","value",fmtNum,{labelsAbove:true});setNote("deleted",d.bookings.deleted_total?("Всего удалённых записей: "+d.bookings.deleted_total):"");
+  svgBars("weekday",d.bookings.weekday,"label","visits",fmtNum,{compact:true,fit:true,smallText:true});setNote("weekday","Фактически проведённые приёмы");
+  svgBars("time",d.bookings.time,"label","visits",fmtNum,{compact:true,fit:true,smallText:true});setNote("time","Фактически проведённые приёмы");
+  svgBars("deleted",d.bookings.deleted_reasons,"label","value",fmtNum,{labelsAbove:true,smallText:true,tight:true});setNote("deleted",d.bookings.deleted_total?("Всего удалённых записей: "+d.bookings.deleted_total):"");
   const dc=d.revenue.discount_control;
   svgBars("discounts",[
     {label:"До скидок",value:dc.gross||0},
     {label:"Скидка",value:dc.discount||0},
     {label:"После скидок",value:dc.net||0}
-  ],"label","value",fmtMoney,{compact:true});setNote("discounts",dc.note||"");
+  ],"label","value",fmtMoney,{compact:true,smallText:true,tight:true});setNote("discounts",dc.note||"");
   const pay=d.revenue.payment_methods;pay.available?svgBars("payments",pay.rows,"method","amount",fmtMoney):empty("payments",pay.note||"Нет данных о способах оплаты.");setNote("payments",pay.available?(pay.note||""):"");
   const mk=d.marketing;mk.available?svgBars("marketing",mk.sources,"source","revenue",fmtMoney):empty("marketing",mk.note||"Источники пациентов не заполнены.");setNote("marketing",mk.cost_note||"");
 }
