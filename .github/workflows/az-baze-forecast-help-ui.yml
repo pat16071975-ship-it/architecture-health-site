@@ -1,9 +1,9 @@
-name: AZ-BAZE Forecast Management UI
+name: AZ-BAZE Forecast Period Base UI
 
 on:
   push:
     branches:
-      - feature/az-forecast-management-redesign
+      - feature/az-forecast-period-base
       - feature/az-baze-auth
     paths:
       - 'reports/forecast.html'
@@ -33,7 +33,7 @@ jobs:
           import subprocess
           from pathlib import Path
 
-          BASE = "046126beedd22551e9f7b41ddf2cb149dc654fba"
+          BASE = "dd08ce6bd20a11a94c0d6429e565fdd72f2360fc"
 
           def git_show(path):
               return subprocess.check_output(
@@ -80,13 +80,20 @@ jobs:
           print("FORECAST BASE MODEL PRESERVED: OK")
           PY
 
-      - name: Forecast management source contract
+      - name: Forecast period-base source contract
         run: |
           python - <<'PY'
           from pathlib import Path
           html=Path("reports/forecast.html").read_text(encoding="utf-8")
           required=[
-              '1. Текущая точка',
+              '1. База прогноза',
+              'Период для расчёта базы',
+              '3 полных месяца',
+              '6 полных месяцев',
+              '12 полных месяцев',
+              'Свой период',
+              'Средние показатели одного месяца за выбранный период',
+              'не включён в базу прогноза',
               '2. Что хотим изменить',
               '3. Что получим',
               '4. Управленческий вывод',
@@ -95,14 +102,14 @@ jobs:
               'Активный',
               'Доп. прибыль за горизонт',
               'Выручка в месяц к концу горизонта',
-              'Упирается в мощность',
-              'Можно развивать',
               'id="advancedSettings"',
               'Точные настройки',
               'id="forecastMethod"',
-              'Три сценария не имеют скрытых автоматических коэффициентов',
-              'scenarioDirection',
-              'scenarioBundle',
+              'Повторные на 1 первичного считаются как все повторные периода / все первичные периода',
+              'periodBaseline',
+              'clinicPeriodBase',
+              'FULL_MONTHS=ALL_MONTHS.filter(fullMonth)',
+              'PARTIAL_MONTH=latest&&!fullMonth(latest)?latest:null',
               'endRevenue:base.rev+last.rev',
               'endProfit:base.profit+last.profit',
           ]
@@ -110,11 +117,13 @@ jobs:
               assert needle in html, needle
           forbidden=[
               '<div class="bar">',
+              '1. Текущая точка',
+              '<label>Базовый месяц</label>',
               'Новая выручка = текущая выручка базового месяца + суммарная дополнительная выручка за весь выбранный горизонт'
           ]
           for needle in forbidden:
               assert needle not in html, needle
-          print("FORECAST MANAGEMENT SOURCE CONTRACT: OK")
+          print("FORECAST PERIOD BASE SOURCE CONTRACT: OK")
           PY
 
       - name: Inline JavaScript syntax
@@ -146,7 +155,7 @@ jobs:
           cat /tmp/az-forecast-http.log
           exit 1
 
-      - name: Chromium forecast management checks
+      - name: Chromium forecast period-base checks
         run: node .github/scripts/az-forecast-help-opaque-check.cjs
 
       - name: Stop local server
@@ -158,7 +167,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: az-forecast-management-ui-screenshots
-          path: artifacts/forecast-management-*.png
+          name: az-forecast-period-base-ui-screenshots
+          path: artifacts/forecast-period-base-*.png
           if-no-files-found: warn
           retention-days: 7

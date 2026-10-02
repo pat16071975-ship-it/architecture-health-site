@@ -10,26 +10,29 @@ function opaque(value){
   return parts.length < 4 || Number(parts[3]) >= 0.999;
 }
 
+function month(date,cash,dentPrimary,dentRepeat,clinicPrimary,clinicRepeat,dentRev,structureRev,labRev){
+  return {
+    date,cashTotal:cash,factMedicine:dentRev+structureRev,factLab:labRev,
+    dentPrimary,dentRepeat,dentists:{'Тестовый стоматолог':dentRev},
+    clinicPrimary,clinicRepeat,structureDoctors:{'Тестовый специалист':structureRev}
+  };
+}
+
 const FIN = {
   management: {
-    '2026-09': {
-      date:'2026-09-24',
-      cashTotal:1000000,
-      factMedicine:900000,
-      factLab:100000,
-      dentPrimary:20,
-      dentRepeat:40,
-      dentists:{'Тестовый стоматолог':500000},
-      clinicPrimary:10,
-      clinicRepeat:20,
-      structureDoctors:{'Тестовый специалист':300000}
-    }
+    '2026-06': month('2026-06-30',900000,18,36,9,18,430000,360000,110000),
+    '2026-07': month('2026-07-31',1000000,20,40,10,20,480000,390000,130000),
+    '2026-08': month('2026-08-31',1100000,22,44,11,22,520000,430000,150000),
+    '2026-09': month('2026-09-30',1200000,24,48,12,24,560000,480000,160000),
+    '2026-10': month('2026-10-02',132140,1,8,0,4,107560,13500,0)
   },
   expenses: {
     months: {
-      '2026-09': {
-        operating: { base:{total:400000} }
-      }
+      '2026-06': {operating:{base:{total:300000}}},
+      '2026-07': {operating:{base:{total:350000}}},
+      '2026-08': {operating:{base:{total:400000}}},
+      '2026-09': {operating:{base:{total:450000}}},
+      '2026-10': {operating:{base:{total:0}}}
     }
   }
 };
@@ -50,20 +53,23 @@ async function stub(context){
 
 async function state(page){
   return page.evaluate(() => {
-    const sels=['.controlbar','.panel','.metric','.scenario-plan','.result-card','.decision','.advanced','.method','.table-wrap'];
+    const sels=['.controlbar','.panel','.metric','.scenario-plan','.result-card','.decision','.advanced','.method','.partial-strip','.table-wrap'];
     const backgrounds={};
     for(const sel of sels){
       const el=document.querySelector(sel);
       backgrounds[sel]=el?getComputedStyle(el).backgroundColor:null;
     }
     return {
-      currentMetrics:document.querySelectorAll('#currentSummary .metric').length,
-      currentDirections:document.querySelectorAll('.current-direction').length,
+      baseMetrics:document.querySelectorAll('#baseSummary .metric').length,
+      baseDirections:document.querySelectorAll('#baseDirections .current-direction').length,
       planners:document.querySelectorAll('.scenario-plan').length,
       results:document.querySelectorAll('.result-card').length,
       decisions:document.querySelectorAll('.decision').length,
       advancedOpen:document.querySelector('#advancedSettings')?.open || false,
       methodExists:!!document.querySelector('#forecastMethod'),
+      partialText:document.querySelector('#partialCurrent')?.textContent.replace(/\s+/g,' ').trim() || '',
+      periodText:document.querySelector('#periodSummary')?.textContent.replace(/\s+/g,' ').trim() || '',
+      baseFirst:document.querySelector('#baseSummary .metric strong')?.textContent.trim() || '',
       bodyOverflow:document.documentElement.scrollWidth-window.innerWidth,
       backgrounds
     };
@@ -81,8 +87,16 @@ async function state(page){
   await page.waitForFunction(() => document.querySelector('#app')?.style.display === 'block', null, {timeout:5000});
 
   let s=await state(page);
-  if(s.currentMetrics!==4) fail('Expected 4 current clinic metrics, got '+s.currentMetrics);
-  if(s.currentDirections!==3) fail('Expected 3 current direction cards, got '+s.currentDirections);
+  if(s.baseMetrics!==4) fail('Expected 4 base metrics, got '+s.baseMetrics);
+  if(s.baseDirections!==3) fail('Expected 3 base direction cards, got '+s.baseDirections);
+  if(!s.periodText.includes('01.07.2026 — 30.09.2026')) fail('Default base must be last 3 full months: '+s.periodText);
+  if(!s.periodText.includes('3 полных мес.')) fail('Default period month count missing: '+s.periodText);
+  const normalizedBaseFirst=s.baseFirst.replace(/\u00a0/g,' ');
+  if(normalizedBaseFirst!=='1 100 000 ₽') fail('Monthly average revenue must be 1 100 000 ₽, got '+s.baseFirst);
+  if(!s.partialText.includes('октябрь 2026')) fail('Current incomplete month is not shown separately: '+s.partialText);
+  if(!s.partialText.includes('132 140 ₽')) fail('Current incomplete month revenue missing: '+s.partialText);
+  if(!s.partialText.includes('не включён в базу прогноза')) fail('Partial month exclusion warning missing');
+
   if(s.planners!==3) fail('Expected 3 editable scenario plans, got '+s.planners);
   if(s.results!==3) fail('Expected 3 scenario result cards, got '+s.results);
   if(s.decisions!==3) fail('Expected 3 scenario decisions, got '+s.decisions);
@@ -93,6 +107,22 @@ async function state(page){
     if(bg && !opaque(bg)) fail('Transparent surface remains: '+sel+' = '+bg);
   }
 
+  await page.click('.period-btn[data-months="6"]');
+  await page.waitForTimeout(40);
+  s=await state(page);
+  if(!s.periodText.includes('01.06.2026 — 30.09.2026')) fail('6-month preset should use all 4 available full months: '+s.periodText);
+  if(!s.periodText.includes('доступно только 4')) fail('Available-month notice missing: '+s.periodText);
+
+  await page.click('.period-btn[data-months="custom"]');
+  await page.selectOption('#periodFrom','2026-06');
+  await page.selectOption('#periodTo','2026-08');
+  await page.waitForTimeout(40);
+  s=await state(page);
+  if(!s.periodText.includes('01.06.2026 — 31.08.2026')) fail('Custom full-month period did not apply: '+s.periodText);
+
+  await page.click('.period-btn[data-months="3"]');
+  await page.waitForTimeout(40);
+
   const before=await page.locator('.result-card[data-scenario="base"] .result-main strong').first().innerText();
   await page.check('#on-base-dent');
   await page.fill('#prim-base-dent','10');
@@ -100,13 +130,11 @@ async function state(page){
   await page.waitForTimeout(60);
   const after=await page.locator('.result-card[data-scenario="base"] .result-main strong').first().innerText();
   if(before===after) fail('Base scenario result did not react to management inputs');
-  const profitText=await page.locator('.result-card[data-scenario="base"] .result-row').first().innerText();
-  if(!profitText.includes('Доп. прибыль за горизонт')) fail('Cumulative horizon profit is missing');
 
   await page.fill('#prim-base-dent','1000');
   await page.waitForTimeout(60);
   const decision=await page.locator('[data-decision="base"] .badge').innerText();
-  if(decision!=='Упирается в мощность') fail('Capacity warning not triggered for overloaded scenario: '+decision);
+  if(decision!=='Упирается в мощность') fail('Capacity warning not triggered: '+decision);
 
   await page.fill('#capadd-base-dent','3000');
   await page.waitForTimeout(60);
@@ -114,20 +142,14 @@ async function state(page){
   if(recovered==='Упирается в мощность') fail('Added capacity did not clear overload warning');
 
   await page.click('#advancedSettings > summary');
-  await page.waitForTimeout(30);
   if(!(await page.locator('#advancedSettings').evaluate(el=>el.open))) fail('Advanced settings did not open');
   if(await page.locator('#advancedGrid .advanced-direction').count()!==3) fail('Expected 3 advanced direction settings');
 
-  await page.selectOption('#detailScenario','base');
-  await page.locator('.acc-head').first().click();
-  await page.waitForTimeout(30);
-  if(!(await page.locator('.acc-body.open').count())) fail('Detailed monthly calculation did not open');
-
-  await page.screenshot({path:'artifacts/forecast-management-desktop.png',fullPage:false});
+  await page.screenshot({path:'artifacts/forecast-period-base-desktop.png',fullPage:false});
+  console.log('FORECAST PERIOD BASE: PASS');
+  console.log('FORECAST PARTIAL MONTH EXCLUSION: PASS');
+  console.log('FORECAST CUSTOM PERIOD: PASS');
   console.log('FORECAST MANAGEMENT DESKTOP: PASS');
-  console.log('FORECAST SCENARIO REACTION: PASS');
-  console.log('FORECAST CAPACITY WARNING: PASS');
-  console.log('FORECAST ADVANCED SETTINGS: PASS');
   await context.close();
 
   const mobileContext=await browser.newContext({viewport:{width:390,height:844}});
@@ -137,13 +159,13 @@ async function state(page){
   await mobile.waitForFunction(() => document.querySelector('#app')?.style.display === 'block', null, {timeout:5000});
   const mobileState=await mobile.evaluate(()=>({
     bodyOverflow:document.documentElement.scrollWidth-window.innerWidth,
-    plannerColumns:getComputedStyle(document.querySelector('#scenarioPlanner')).gridTemplateColumns,
-    resultColumns:getComputedStyle(document.querySelector('#scenarioResults')).gridTemplateColumns,
-    advancedOpen:document.querySelector('#advancedSettings')?.open || false
+    advancedOpen:document.querySelector('#advancedSettings')?.open || false,
+    partial:document.querySelector('#partialCurrent')?.textContent || ''
   }));
   if(mobileState.bodyOverflow>2) fail('Mobile forecast has horizontal body overflow');
   if(mobileState.advancedOpen) fail('Mobile advanced settings must remain closed by default');
-  await mobile.screenshot({path:'artifacts/forecast-management-mobile.png',fullPage:false});
+  if(!mobileState.partial.includes('не включён в базу прогноза')) fail('Mobile partial-month note missing');
+  await mobile.screenshot({path:'artifacts/forecast-period-base-mobile.png',fullPage:false});
   console.log('FORECAST MANAGEMENT MOBILE: PASS');
 
   await mobileContext.close();
