@@ -274,7 +274,7 @@ class NNBIAnalyticsTests(unittest.TestCase):
         rows = nn_normalize._payment_control_rows_from_text(
             """Период: 01.06.2026 00:00 - 20.06.2026 23:59
 ВРАЧ А
-всего Безнал. 2 373 000,00 17 000,00 356 000,00
+всего Безнал. 2 373 000,0017 000,00356 000,00
 ВРАЧ Б
 всего Наличные 2 156 000,00 0,00 156 000,00
 """,
@@ -285,6 +285,9 @@ class NNBIAnalyticsTests(unittest.TestCase):
         self.assertEqual(rows[0]["doctor"], "Врач А")
         self.assertEqual(rows[0]["period_start"], "2026-06-01")
         self.assertEqual(rows[0]["period_end"], "2026-06-20")
+        self.assertEqual(rows[0]["gross_amount"], 373000.0)
+        self.assertEqual(rows[0]["discount"], 17000.0)
+        self.assertEqual(rows[0]["amount"], 356000.0)
         self.assertEqual(rows[1]["method"], "Наличные")
 
     def test_new_normalization_helpers_preserve_bi_dimensions(self):
