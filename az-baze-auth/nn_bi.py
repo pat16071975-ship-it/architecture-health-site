@@ -1064,11 +1064,33 @@ def export_xlsx():
     ws.append(["Клиника", data["clinic_name"]])
     _autosize(ws)
 
+    ws = wb.create_sheet("Динамика")
+    _sheet_header(ws, ["Период", "Пациенты", "Приёмы", "Выручка"])
+    for row in data["overview"]["trend"]:
+        ws.append([row["period"], row["patients"], row["visits"], row["revenue"]])
+    _autosize(ws)
+
+    ws = wb.create_sheet("Воронка")
+    _sheet_header(ws, ["Этап", "Значение", "Комментарий"])
+    for row in data["funnel"]["steps"]:
+        ws.append([row["label"], row["value"], row.get("note", "")])
+    ws.append(["Конверсия первичный → лечение, %", data["funnel"]["conversion_primary_to_treatment"], ""])
+    ws.append(["Конверсия показания → лечение, %", data["funnel"]["conversion_indicated_to_treatment"], ""])
+    ws.append(["Среднее дней до лечения", data["funnel"]["days_to_treatment"]["average"], ""])
+    ws.append(["Медиана дней до лечения", data["funnel"]["days_to_treatment"]["median"], ""])
+    _autosize(ws)
+
     ws = wb.create_sheet("Врачи")
     headers = ["Врач","Пациенты","Приёмы","Выручка","На пациента","На приём","Первичные","Конверсия %","ЭВЛК","Склеро","Минифлеб","Повторные визиты","Нулевые визиты"]
     _sheet_header(ws, headers)
     for row in data["doctors"]:
         ws.append([row["doctor"],row["patients"],row["visits"],row["revenue"],row["avg_patient"],row["avg_visit"],row["primaries"],row["conversion"],row["evlk"],row["sclero"],row["mini"],row["repeat_visits"],row["zero_visits"]])
+    _autosize(ws)
+
+    ws = wb.create_sheet("Переходы врачей")
+    _sheet_header(ws, ["Врач первичного", "Врач лечения", "Пациенты"])
+    for row in data["doctor_transitions"]:
+        ws.append([row["primary_doctor"], row["treatment_doctor"], row["patients"]])
     _autosize(ws)
 
     ws = wb.create_sheet("Когорты")
@@ -1083,6 +1105,12 @@ def export_xlsx():
         ws.append([row["label"],row["visits"],row["patients"],row["revenue"],row["avg_visit"]])
     _autosize(ws)
 
+    ws = wb.create_sheet("Цепочки услуг")
+    _sheet_header(ws, ["Цепочка", "Пациенты", "Выручка"])
+    for row in data["services"]["chains"]:
+        ws.append([row["chain"], row["patients"], row["revenue"]])
+    _autosize(ws)
+
     ws = wb.create_sheet("Запись и потери")
     _sheet_header(ws, ["Разрез","Значение","Приёмы/количество","Пациенты","Выручка"])
     for row in data["bookings"]["weekday"]:
@@ -1091,6 +1119,19 @@ def export_xlsx():
         ws.append(["Время",row["label"],row["visits"],row["patients"],row["revenue"]])
     for row in data["bookings"]["deleted_reasons"]:
         ws.append(["Причина удаления",row["label"],row["value"],None,None])
+    _autosize(ws)
+
+    ws = wb.create_sheet("Финансы")
+    _sheet_header(ws, ["Раздел", "Показатель", "Количество", "До скидки", "Скидка", "Итого"])
+    discount = data["revenue"]["discount_control"]
+    ws.append(["Скидки", "Итого", None, discount["gross"], discount["discount"], discount["net"]])
+    for row in discount["negative_rows"]:
+        ws.append(["Отрицательные строки", row["service"], row["qty"], None, None, row["amount"]])
+    payments = data["revenue"]["payment_methods"]
+    for row in payments["rows"]:
+        ws.append(["Способы оплаты", row["method"], row["qty"], row["gross"], row["discount"], row["amount"]])
+    if not payments["available"]:
+        ws.append(["Способы оплаты", payments["note"], None, None, None, None])
     _autosize(ws)
 
     ws = wb.create_sheet("Маркетинг")
