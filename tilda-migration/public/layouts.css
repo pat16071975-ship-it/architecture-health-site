@@ -4117,3 +4117,8 @@
 @media screen and (min-width:960px){
 #visual-2488705671-1784641472820000026{width:190px}
 }
+
+/* Restore osteopathy booking button colors from source. */
+#visual-2788165601-1623214447275 > .visual-inner{background-color:#2080c4}
+#visual-2788165601-1623214447275 > .visual-inner:hover{background-color:#2060c4}
+@media(max-width:479px){#visual-2788165601-1623214447275 > .visual-inner{background-color:#0c90da}#visual-2788165601-1623214447275 > .visual-inner:hover{background-color:#1c9ae3}}
