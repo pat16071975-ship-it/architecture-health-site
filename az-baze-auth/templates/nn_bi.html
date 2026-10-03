@@ -16,6 +16,7 @@
 @media(max-width:650px){.bi-grid,.bi-kpis,.bi-rel-controls{grid-template-columns:1fr}.bi-funnel{grid-template-columns:1fr}.bi-toolbar{position:static}.bi-bar-row{grid-template-columns:105px 1fr 70px}.bi-action{width:100%;text-align:center}}
 </style>
 
+<a class="nn-back" style="margin:0 0 14px" href="/nn/">← Назад</a>
 <section class="bi-toolbar">
   <div class="bi-grid">
     <div class="bi-field"><label>Клиника</label><select id="clinic">{% for clinic in clinics %}<option value="{{ clinic.id }}">{{ clinic.name }}</option>{% endfor %}</select></div>
