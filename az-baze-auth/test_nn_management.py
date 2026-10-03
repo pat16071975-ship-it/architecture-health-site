@@ -78,7 +78,7 @@ class NNManagementReportTests(unittest.TestCase):
             """
             INSERT INTO nn_normalized_batches(
                 batch_id,clinic_id,version,period_start,period_end,payload_json,normalized_at
-            ) VALUES(101,1,1,?,?,?,?,?)
+            ) VALUES(101,1,1,?,?,?,?)
             """,
             (
                 payload["period"]["start"],
