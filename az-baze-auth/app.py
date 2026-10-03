@@ -269,6 +269,22 @@ def create_app():
         import nn_management as nn_management_module
         return nn_management_module.management_page()
 
+    @app.get("/nn/forecast/")
+    @login_required
+    def nn_forecast():
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_forecast as nn_forecast_module
+        return nn_forecast_module.forecast_page()
+
+    @app.get("/api/nn/forecast/base")
+    @login_required
+    def nn_forecast_base():
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_forecast as nn_forecast_module
+        return nn_forecast_module.api_base()
+
     @app.get("/api/nn/management/compare")
     @login_required
     def nn_management_compare():
