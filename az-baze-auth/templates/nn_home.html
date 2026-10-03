@@ -3,6 +3,7 @@
 {% block content %}
 <section class="nn-card">
   <nav class="nn-menu" aria-label="Разделы Варикоза нет - KZ">
+    {% if can_reports %}<a class="nn-btn" href="/nn/management/">Управленческий отчёт</a>{% endif %}
     {% if can_reports %}<a class="nn-btn" href="/nn/bi/">BI-аналитика</a>{% endif %}
     {% if can_reports %}<a class="nn-btn" href="/nn/graphics/">Графические отчеты</a>{% endif %}
     {% if can_reports %}<a class="nn-btn" href="/nn/reports/">Отчёты для НН</a>{% endif %}
