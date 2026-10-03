@@ -122,10 +122,10 @@ function build(d){
   body+=row("Должно быть",vals("due"),money,{secondaryRow:true});
   body+=row("Факт",vals("fact"),money,{important:true});
   body+=row("% выполнения плана месяца",vals("execution"),pct,{important:true});
-  body+=row("Первичные приёмы (в скобках — без оплаты)",vals("primary"),count,{secondary:vals("primary_unpaid"),secondaryFmt:count});
+  body+=row("Первичные приёмы — всего (из них без оплаты)",vals("primary"),count,{secondary:vals("primary_unpaid"),secondaryFmt:count});
   body+=row("Повторные приёмы",vals("repeat"),count);
   body+=row("ПП в день",vals("pp_day"),count);
-  body+=row("Средний чек 2025 (в скобках — по всем первичным)",vals("avg_paid"),money,{secondary:vals("avg_all"),secondaryFmt:money,important:true});
+  body+=row("Средний чек — по оплатившим (в скобках — по всем первичным)",vals("avg_paid"),money,{secondary:vals("avg_all"),secondaryFmt:money,important:true});
   body+=group("Выручка по врачам","doctors",cols);
   (d.doctors||[]).forEach(doc=>{body+=row(doc.label,doc.values,money)});
   body+=group("Маркетинг","marketing",cols);
