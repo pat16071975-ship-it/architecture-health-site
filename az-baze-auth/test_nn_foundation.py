@@ -176,6 +176,26 @@ class NNFoundationTests(unittest.TestCase):
         conn.close()
         self.assertEqual([row[0] for row in rows], ["nn_reports", "nn_upload"])
 
+    def test_all_internal_nn_screens_have_top_and_bottom_back_links(self):
+        template_root = Path(__file__).parent / "templates"
+        names = (
+            "nn_uploads.html",
+            "nn_reports.html",
+            "nn_bi.html",
+            "nn_graphics.html",
+            "nn_management.html",
+            "nn_plan.html",
+            "nn_forecast.html",
+            "nn_placeholder.html",
+        )
+        for name in names:
+            body = (template_root / name).read_text(encoding="utf-8")
+            self.assertEqual(
+                body.count('class="nn-back"'),
+                2,
+                msg=f"{name} должен содержать верхнюю и нижнюю кнопку назад",
+            )
+
     def test_nn_routes_are_capability_specific(self):
         conn = sqlite3.connect(app_module.DB_PATH)
         conn.execute("DELETE FROM permissions WHERE user_id=3 AND section='nn_upload'")
