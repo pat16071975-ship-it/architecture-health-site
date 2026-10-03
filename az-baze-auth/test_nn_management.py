@@ -126,6 +126,11 @@ class NNManagementReportTests(unittest.TestCase):
         self.assertIn("Средний чек 2025 (в скобках — по всем первичным)", body)
         self.assertIn("Выручка по врачам", body)
         self.assertIn("Маркетинг", body)
+        self.assertIn(".nn-shell{width:98vw;max-width:none}", body)
+        self.assertIn("width:320px;min-width:320px;max-width:320px", body)
+        self.assertIn("background:#fffdf8!important", body)
+        self.assertIn("box-shadow:3px 0 0 rgba(216,205,187,.92)", body)
+        self.assertIn("tr.mg-group td{position:static!important", body)
 
     def test_compare_uses_same_day_across_months_and_expected_formulas(self):
         response = self.client_for(2).get(
