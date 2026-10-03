@@ -1,0 +1,384 @@
+{
+  "pages_checked": 79,
+  "visual_elements_checked": 620,
+  "canvas_buttons_checked": 78,
+  "restored_elements": 81,
+  "affected_pages": [
+    "index.html",
+    "kompleks-uslugi/arhitektura-zdorovya/index.html",
+    "kompleks-uslugi/index.html",
+    "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html",
+    "kompleks-uslugi/zdorovaya-spina/index.html",
+    "lab/index.html",
+    "o_nas/index.html",
+    "otziv/index.html",
+    "rassrochka/index.html",
+    "team/bosak-yana/index.html",
+    "team/chirkov-maxim/index.html",
+    "team/dimitrenko-anna/index.html",
+    "team/golishenkov-vladislav/index.html",
+    "team/holodtseva-valeria/index.html",
+    "team/lapina-natalia/index.html",
+    "team/lubaeva-alena/index.html",
+    "team/mamontova-lubava/index.html",
+    "team/movseyan-babken/index.html",
+    "team/nazirov-uktamjon/index.html",
+    "team/pavlova-anna/index.html",
+    "team/rumyantseva-maria/index.html",
+    "team/starostenko-vadim/index.html",
+    "team/zubachev-roman/index.html",
+    "uslugi/craniodontic/index.html",
+    "uslugi/diers-diagnostica/index.html",
+    "uslugi/diers_research/index.html",
+    "uslugi/doc_educate/index.html",
+    "uslugi/functional_dentistry/index.html",
+    "uslugi/gastroenterologiya/index.html",
+    "uslugi/hygiene_prevention/index.html",
+    "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html",
+    "uslugi/iggt-terapiya/index.html",
+    "uslugi/khirurgiya/implantaciya/index.html",
+    "uslugi/khirurgiya/index.html",
+    "uslugi/konsultatiya-stomatolog/index.html",
+    "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html",
+    "uslugi/lechenie-zubov/index.html",
+    "uslugi/lechenie-zubov/karies/index.html",
+    "uslugi/lechenie-zubov/kista/index.html",
+    "uslugi/lechenie-zubov/periodontit/index.html",
+    "uslugi/lechenie-zubov/pulpit/index.html",
+    "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html",
+    "uslugi/lechenie-zubov/zuby-mudrosti/index.html",
+    "uslugi/miofascialnaya-terapia/index.html",
+    "uslugi/miofascialnyy-massazh/index.html",
+    "uslugi/miofunkcionalnaya-terapiya/index.html",
+    "uslugi/neyropsihologia/index.html",
+    "uslugi/nutriciologiya/index.html",
+    "uslugi/orthodontics/index.html",
+    "uslugi/ortopedicheskie-stelki/index.html",
+    "uslugi/osteopatiya/index.html",
+    "uslugi/preventivnaya-medicina/index.html",
+    "uslugi/prosthetics/index.html",
+    "uslugi/prosthetics/koronki/index.html",
+    "uslugi/prosthetics/koronki/keramicheskie/index.html",
+    "uslugi/prosthetics/koronki/kompozitnye/index.html",
+    "uslugi/prosthetics/mostovidnyy-protez/index.html",
+    "uslugi/prosthetics/viniry/index.html",
+    "uslugi/terapia/index.html"
+  ],
+  "rules": 834,
+  "elements": {
+    "visual-2488705671-1784635438553000002": [
+      "index.html"
+    ],
+    "visual-2488705671-1784635533568000003": [
+      "index.html"
+    ],
+    "visual-2503250981-1781525698816000001": [
+      "kompleks-uslugi/index.html"
+    ],
+    "visual-2503250981-1781525730399000002": [
+      "kompleks-uslugi/index.html"
+    ],
+    "visual-2503294151-1781525698816000001": [
+      "kompleks-uslugi/arhitektura-zdorovya/index.html"
+    ],
+    "visual-2503294151-1781525730399000002": [
+      "kompleks-uslugi/arhitektura-zdorovya/index.html"
+    ],
+    "visual-2503293881-1781525698816000001": [
+      "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html"
+    ],
+    "visual-2503293881-1781525730399000002": [
+      "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html"
+    ],
+    "visual-2503292941-1781525698816000001": [
+      "kompleks-uslugi/zdorovaya-spina/index.html"
+    ],
+    "visual-2503292941-1781525730399000002": [
+      "kompleks-uslugi/zdorovaya-spina/index.html"
+    ],
+    "visual-2771512401-1785944511724000002": [
+      "lab/index.html"
+    ],
+    "visual-2771512401-1785945455923000004": [
+      "lab/index.html"
+    ],
+    "visual-2771512401-1785945638482000002": [
+      "lab/index.html"
+    ],
+    "visual-2771512401-1785945638482000005": [
+      "lab/index.html"
+    ],
+    "visual-2773325601-1785946952702000001": [
+      "o_nas/index.html"
+    ],
+    "visual-2773325601-1785948040028000004": [
+      "o_nas/index.html"
+    ],
+    "visual-2773325601-1785948105987000010": [
+      "o_nas/index.html"
+    ],
+    "visual-2501721441-1622607370343": [
+      "otziv/index.html"
+    ],
+    "visual-2501705481-1622955535337": [
+      "rassrochka/index.html"
+    ],
+    "visual-2502682211-1784804797050000008": [
+      "team/bosak-yana/index.html"
+    ],
+    "visual-2502665861-1784804797050000008": [
+      "team/chirkov-maxim/index.html"
+    ],
+    "visual-3713801601-1787295809407000001": [
+      "team/chirkov-maxim/index.html"
+    ],
+    "visual-2502811191-1784804797050000008": [
+      "team/dimitrenko-anna/index.html"
+    ],
+    "visual-3205435801-1787295809407000001": [
+      "team/dimitrenko-anna/index.html"
+    ],
+    "visual-2502801591-1784804797050000008": [
+      "team/golishenkov-vladislav/index.html"
+    ],
+    "visual-2502827201-1784804797050000008": [
+      "team/holodtseva-valeria/index.html"
+    ],
+    "visual-3713768101-1787295809407000001": [
+      "team/holodtseva-valeria/index.html"
+    ],
+    "visual-2502820101-1784804797050000008": [
+      "team/lapina-natalia/index.html"
+    ],
+    "visual-3713853301-1787295809407000001": [
+      "team/lapina-natalia/index.html"
+    ],
+    "visual-2502832611-1784804797050000008": [
+      "team/lubaeva-alena/index.html"
+    ],
+    "visual-2502815691-1784804797050000008": [
+      "team/mamontova-lubava/index.html"
+    ],
+    "visual-3713885601-1787295809407000001": [
+      "team/mamontova-lubava/index.html"
+    ],
+    "visual-2502759241-1784804797050000008": [
+      "team/movseyan-babken/index.html"
+    ],
+    "visual-3713787501-1787295809407000001": [
+      "team/movseyan-babken/index.html"
+    ],
+    "visual-2502773101-1784804797050000008": [
+      "team/nazirov-uktamjon/index.html"
+    ],
+    "visual-3713828101-1787295809407000001": [
+      "team/nazirov-uktamjon/index.html"
+    ],
+    "visual-2495415471-1784804797050000008": [
+      "team/pavlova-anna/index.html"
+    ],
+    "visual-2502751851-1784804797050000008": [
+      "team/rumyantseva-maria/index.html"
+    ],
+    "visual-3713897401-1787295809407000001": [
+      "team/rumyantseva-maria/index.html"
+    ],
+    "visual-2502805461-1784804797050000008": [
+      "team/starostenko-vadim/index.html"
+    ],
+    "visual-3713873101-1787295809407000001": [
+      "team/starostenko-vadim/index.html"
+    ],
+    "visual-2502610621-1784804797050000008": [
+      "team/zubachev-roman/index.html"
+    ],
+    "visual-3216937301-1623214447275": [
+      "uslugi/craniodontic/index.html"
+    ],
+    "visual-2785155201-1623214447275": [
+      "uslugi/diers-diagnostica/index.html"
+    ],
+    "visual-3216240501-1623214447275": [
+      "uslugi/diers_research/index.html"
+    ],
+    "visual-3217714501-1623214447275": [
+      "uslugi/doc_educate/index.html"
+    ],
+    "visual-2500810431-1623214447275": [
+      "uslugi/functional_dentistry/index.html"
+    ],
+    "visual-2784667801-1623214447275": [
+      "uslugi/gastroenterologiya/index.html"
+    ],
+    "visual-2786430201-1623214447275": [
+      "uslugi/hygiene_prevention/index.html"
+    ],
+    "visual-3217352201-1623214447275": [
+      "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html"
+    ],
+    "visual-2785605501-1623214447275": [
+      "uslugi/iggt-terapiya/index.html"
+    ],
+    "visual-3207045501-1623214447275": [
+      "uslugi/khirurgiya/index.html"
+    ],
+    "visual-3208679101-1623214447275": [
+      "uslugi/khirurgiya/implantaciya/index.html"
+    ],
+    "visual-2497060231-1623214447275": [
+      "uslugi/konsultatiya-stomatolog/index.html"
+    ],
+    "visual-2500900691-1623214447275": [
+      "uslugi/lechenie-zubov/index.html"
+    ],
+    "visual-2500900691-1784977263767000001": [
+      "uslugi/lechenie-zubov/index.html"
+    ],
+    "visual-2500900691-1784977340537000002": [
+      "uslugi/lechenie-zubov/index.html"
+    ],
+    "visual-2500900691-1784977353253000003": [
+      "uslugi/lechenie-zubov/index.html"
+    ],
+    "visual-3216071301-1623214447275": [
+      "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html"
+    ],
+    "visual-2500960381-1623214447275": [
+      "uslugi/lechenie-zubov/karies/index.html"
+    ],
+    "visual-3216727001-1623214447275": [
+      "uslugi/lechenie-zubov/kista/index.html"
+    ],
+    "visual-2500997791-1623214447275": [
+      "uslugi/lechenie-zubov/periodontit/index.html"
+    ],
+    "visual-2500985671-1623214447275": [
+      "uslugi/lechenie-zubov/pulpit/index.html"
+    ],
+    "visual-2800861301-1623214447275": [
+      "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html"
+    ],
+    "visual-2791760601-1623214447275": [
+      "uslugi/lechenie-zubov/zuby-mudrosti/index.html"
+    ],
+    "visual-3710603101-1623214447275": [
+      "uslugi/miofascialnaya-terapia/index.html"
+    ],
+    "visual-2788796101-1623214447275": [
+      "uslugi/miofascialnyy-massazh/index.html"
+    ],
+    "visual-2786175201-1623214447275": [
+      "uslugi/miofunkcionalnaya-terapiya/index.html"
+    ],
+    "visual-2786062401-1623214447275": [
+      "uslugi/neyropsihologia/index.html"
+    ],
+    "visual-2785017001-1623214447275": [
+      "uslugi/nutriciologiya/index.html"
+    ],
+    "visual-2500736341-1623214447275": [
+      "uslugi/orthodontics/index.html"
+    ],
+    "visual-2786307801-1623214447275": [
+      "uslugi/ortopedicheskie-stelki/index.html"
+    ],
+    "visual-2788165601-1623214447275": [
+      "uslugi/osteopatiya/index.html"
+    ],
+    "visual-2789450901-1623214447275": [
+      "uslugi/preventivnaya-medicina/index.html"
+    ],
+    "visual-2787752601-1623214447275": [
+      "uslugi/prosthetics/index.html"
+    ],
+    "visual-2789974201-1623214447275": [
+      "uslugi/prosthetics/koronki/index.html"
+    ],
+    "visual-3049602801-1623214447275": [
+      "uslugi/prosthetics/koronki/keramicheskie/index.html"
+    ],
+    "visual-2790272301-1623214447275": [
+      "uslugi/prosthetics/koronki/kompozitnye/index.html"
+    ],
+    "visual-2791187401-1623214447275": [
+      "uslugi/prosthetics/mostovidnyy-protez/index.html"
+    ],
+    "visual-3206383401-1623214447275": [
+      "uslugi/prosthetics/viniry/index.html"
+    ],
+    "visual-2784030001-1623214447275": [
+      "uslugi/terapia/index.html"
+    ]
+  },
+  "validation_scope": "Static source-to-migration style comparison; not a complete browser or mobile layout review.",
+  "previously_missing_button_backgrounds": 67,
+  "previously_missing_button_background_ids": [
+    "visual-3207045501-1623214447275",
+    "visual-2488705671-1784635533568000003",
+    "visual-2500736341-1623214447275",
+    "visual-2502773101-1784804797050000008",
+    "visual-2502610621-1784804797050000008",
+    "visual-2502759241-1784804797050000008",
+    "visual-2502820101-1784804797050000008",
+    "visual-2495415471-1784804797050000008",
+    "visual-2502832611-1784804797050000008",
+    "visual-2502751851-1784804797050000008",
+    "visual-2500985671-1623214447275",
+    "visual-2788796101-1623214447275",
+    "visual-3208679101-1623214447275",
+    "visual-2502811191-1784804797050000008",
+    "visual-2502815691-1784804797050000008",
+    "visual-2789450901-1623214447275",
+    "visual-2500997791-1623214447275",
+    "visual-2503294151-1781525698816000001",
+    "visual-2503294151-1781525730399000002",
+    "visual-2785605501-1623214447275",
+    "visual-2501705481-1622955535337",
+    "visual-2502665861-1784804797050000008",
+    "visual-2787752601-1623214447275",
+    "visual-2497060231-1623214447275",
+    "visual-2784030001-1623214447275",
+    "visual-2502827201-1784804797050000008",
+    "visual-2502801591-1784804797050000008",
+    "visual-3710603101-1623214447275",
+    "visual-2503250981-1781525698816000001",
+    "visual-2503250981-1781525730399000002",
+    "visual-3216727001-1623214447275",
+    "visual-2502805461-1784804797050000008",
+    "visual-3206383401-1623214447275",
+    "visual-3216071301-1623214447275",
+    "visual-2503293881-1781525698816000001",
+    "visual-2503293881-1781525730399000002",
+    "visual-2500960381-1623214447275",
+    "visual-3216937301-1623214447275",
+    "visual-3217352201-1623214447275",
+    "visual-2786307801-1623214447275",
+    "visual-2503292941-1781525698816000001",
+    "visual-2503292941-1781525730399000002",
+    "visual-2502682211-1784804797050000008",
+    "visual-2786062401-1623214447275",
+    "visual-3216240501-1623214447275",
+    "visual-2785155201-1623214447275",
+    "visual-2500900691-1623214447275",
+    "visual-2500900691-1784977263767000001",
+    "visual-2500900691-1784977340537000002",
+    "visual-2500900691-1784977353253000003",
+    "visual-2501721441-1622607370343",
+    "visual-3217714501-1623214447275",
+    "visual-2789974201-1623214447275",
+    "visual-2790272301-1623214447275",
+    "visual-3049602801-1623214447275",
+    "visual-2786430201-1623214447275",
+    "visual-2786175201-1623214447275",
+    "visual-2800861301-1623214447275",
+    "visual-2785017001-1623214447275",
+    "visual-2791187401-1623214447275",
+    "visual-2791760601-1623214447275",
+    "visual-2771512401-1785944511724000002",
+    "visual-2771512401-1785945455923000004",
+    "visual-2771512401-1785945638482000002",
+    "visual-2771512401-1785945638482000005",
+    "visual-2500810431-1623214447275",
+    "visual-2784667801-1623214447275"
+  ]
+}
