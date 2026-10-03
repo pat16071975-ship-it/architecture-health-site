@@ -2,6 +2,8 @@
 {% block title %}Управленческий отчёт — Варикоза нет - KZ{% endblock %}
 {% block content %}
 <style>
+.nn-shell{width:98vw;max-width:none}
+.nn-card{width:100%}
 .mg-head{margin-bottom:14px}.mg-head h2{margin:0;font-size:28px}.mg-head p{margin:6px 0 0;color:#687067;font-size:12px}
 .mg-toolbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;padding:13px;border:1px solid var(--line);border-radius:14px;background:#fffdf8;margin-bottom:14px}
 .mg-field{display:grid;gap:5px;min-width:170px}.mg-field label{font-size:11px;font-weight:700;color:#687067}.mg-field select,.mg-field input{height:39px;border:1px solid #d5c9b7;border-radius:9px;background:#fff;padding:0 10px;font:600 12px Montserrat,Arial,sans-serif;color:#2d342f}
@@ -9,12 +11,14 @@
 .mg-note{margin:0 0 10px;padding:9px 12px;border-left:3px solid #b59662;border-radius:8px;background:#fffaf0;color:#665b49;font-size:11.5px;line-height:1.45}
 .mg-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fffdf8;box-shadow:0 10px 28px rgba(71,58,38,.05)}
 .mg-table{width:100%;min-width:780px;border-collapse:separate;border-spacing:0}.mg-table th,.mg-table td{padding:9px 11px;border-bottom:1px solid #e7dfd3;font-size:12px;vertical-align:middle}
-.mg-table thead th{position:sticky;top:0;z-index:3;background:#f8f4ec;text-align:center;font-weight:800;color:#354039}.mg-table thead th:first-child{left:0;z-index:4;text-align:left;min-width:285px}
-.mg-table tbody td{text-align:right;font-weight:700;white-space:nowrap}.mg-table tbody td:first-child{position:sticky;left:0;z-index:2;text-align:left;white-space:normal;background:inherit;font-weight:650;box-shadow:1px 0 0 #e7dfd3}
+.mg-table thead th{position:sticky;top:0;z-index:30;background:#f8f4ec;text-align:center;font-weight:800;color:#354039;min-width:130px}.mg-table thead th:first-child{left:0;z-index:40;text-align:left;width:320px;min-width:320px;max-width:320px;background:#f8f4ec;box-shadow:3px 0 0 rgba(216,205,187,.92)}
+.mg-table tbody td{text-align:right;font-weight:700;white-space:nowrap;min-width:130px}.mg-table tbody td:first-child{position:sticky;left:0;z-index:20;width:320px;min-width:320px;max-width:320px;text-align:left;white-space:normal;background:#fffdf8!important;font-weight:650;box-shadow:3px 0 0 rgba(216,205,187,.92)}
+.mg-table tbody tr.secondary td:first-child{background:#fbfaf6!important}
+.mg-table tbody tr.mg-group td{position:static!important;width:auto!important;min-width:0!important;max-width:none!important;box-shadow:none!important}
 .mg-period{font-weight:800;font-size:15px;color:#2f3a33}.mg-date{display:block;margin-top:3px;color:#777d76;font-size:9px;font-weight:600}
 .mg-group td{padding:10px 13px!important;text-align:left!important;font-size:16px!important;font-weight:800!important}.mg-group.general td{background:#efe5d2!important;color:#5e5037}.mg-group.doctors td{background:#dfe9f2!important;color:#365268}.mg-group.marketing td{background:#eee5f1!important;color:#654a6b}
 .mg-row td{background:#fffdf8}.mg-row.secondary td{background:#fbfaf6}.mg-row.important td{font-weight:850}.mg-empty{color:#aaa;font-weight:500}.mg-paren{color:#6e756f;font-weight:600}
-@media(max-width:720px){.mg-toolbar{display:grid;grid-template-columns:1fr}.mg-field{min-width:0}.mg-action{width:100%}.mg-table{min-width:690px}.mg-table thead th:first-child{min-width:210px}.mg-table th,.mg-table td{padding:8px 9px;font-size:11px}}
+@media(max-width:720px){.nn-shell{width:100%}.mg-toolbar{display:grid;grid-template-columns:1fr}.mg-field{min-width:0}.mg-action{width:100%}.mg-table{min-width:690px}.mg-table thead th:first-child,.mg-table tbody td:first-child{width:210px;min-width:210px;max-width:210px}.mg-table th,.mg-table td{padding:8px 9px;font-size:11px}}
 </style>
 
 <section class="nn-card">
