@@ -122,6 +122,8 @@ class NNManagementReportTests(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertIn("На эту дату по месяцам", body)
         self.assertIn('<option value="compare" selected>', body)
+        self.assertIn('<option value="year" selected>Весь год</option>', body)
+        self.assertNotIn('<option value="ytd" selected>С начала года</option>', body)
         self.assertIn("Первичные приёмы (в скобках — без оплаты)", body)
         self.assertIn("Средний чек 2025 (в скобках — по всем первичным)", body)
         self.assertIn("Выручка по врачам", body)
@@ -138,6 +140,17 @@ class NNManagementReportTests(unittest.TestCase):
         self.assertIn("background:#fffdf8!important", body)
         self.assertIn("box-shadow:3px 0 0 rgba(216,205,187,.92)", body)
         self.assertIn("tr.mg-group td{position:static!important", body)
+
+    def test_default_compare_returns_all_twelve_months(self):
+        response = self.client_for(2).get(
+            "/api/nn/management/compare?clinic_id=1&date=2026-02-20&view=compare"
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["months"]), 12)
+        self.assertEqual(data["months"][0]["label"], "Январь")
+        self.assertEqual(data["months"][-1]["label"], "Декабрь")
+        self.assertEqual(data["range"], "year")
 
     def test_compare_uses_same_day_across_months_and_expected_formulas(self):
         response = self.client_for(2).get(
