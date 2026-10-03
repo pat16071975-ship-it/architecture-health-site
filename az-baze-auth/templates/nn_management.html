@@ -1,0 +1,145 @@
+{% extends "nn_base.html" %}
+{% block title %}Управленческий отчёт — Варикоза нет - KZ{% endblock %}
+{% block content %}
+<style>
+.mg-head{margin-bottom:14px}.mg-head h2{margin:0;font-size:28px}.mg-head p{margin:6px 0 0;color:#687067;font-size:12px}
+.mg-toolbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;padding:13px;border:1px solid var(--line);border-radius:14px;background:#fffdf8;margin-bottom:14px}
+.mg-field{display:grid;gap:5px;min-width:170px}.mg-field label{font-size:11px;font-weight:700;color:#687067}.mg-field select,.mg-field input{height:39px;border:1px solid #d5c9b7;border-radius:9px;background:#fff;padding:0 10px;font:600 12px Montserrat,Arial,sans-serif;color:#2d342f}
+.mg-action{height:39px;border:1px solid #44634f;border-radius:9px;background:#44634f;color:#fff;padding:0 15px;font:700 12px Montserrat,Arial,sans-serif;cursor:pointer}
+.mg-note{margin:0 0 10px;padding:9px 12px;border-left:3px solid #b59662;border-radius:8px;background:#fffaf0;color:#665b49;font-size:11.5px;line-height:1.45}
+.mg-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fffdf8;box-shadow:0 10px 28px rgba(71,58,38,.05)}
+.mg-table{width:100%;min-width:780px;border-collapse:separate;border-spacing:0}.mg-table th,.mg-table td{padding:9px 11px;border-bottom:1px solid #e7dfd3;font-size:12px;vertical-align:middle}
+.mg-table thead th{position:sticky;top:0;z-index:3;background:#f8f4ec;text-align:center;font-weight:800;color:#354039}.mg-table thead th:first-child{left:0;z-index:4;text-align:left;min-width:285px}
+.mg-table tbody td{text-align:right;font-weight:700;white-space:nowrap}.mg-table tbody td:first-child{position:sticky;left:0;z-index:2;text-align:left;white-space:normal;background:inherit;font-weight:650;box-shadow:1px 0 0 #e7dfd3}
+.mg-period{font-weight:800;font-size:15px;color:#2f3a33}.mg-date{display:block;margin-top:3px;color:#777d76;font-size:9px;font-weight:600}
+.mg-group td{padding:10px 13px!important;text-align:left!important;font-size:16px!important;font-weight:800!important}.mg-group.general td{background:#efe5d2!important;color:#5e5037}.mg-group.doctors td{background:#dfe9f2!important;color:#365268}.mg-group.marketing td{background:#eee5f1!important;color:#654a6b}
+.mg-row td{background:#fffdf8}.mg-row.secondary td{background:#fbfaf6}.mg-row.important td{font-weight:850}.mg-empty{color:#aaa;font-weight:500}.mg-paren{color:#6e756f;font-weight:600}
+@media(max-width:720px){.mg-toolbar{display:grid;grid-template-columns:1fr}.mg-field{min-width:0}.mg-action{width:100%}.mg-table{min-width:690px}.mg-table thead th:first-child{min-width:210px}.mg-table th,.mg-table td{padding:8px 9px;font-size:11px}}
+</style>
+
+<section class="nn-card">
+  <div class="mg-head">
+    <h2>Управленческий отчёт</h2>
+    <p>Основной режим — сравнение накопительных показателей на одну и ту же дату по месяцам.</p>
+  </div>
+
+  <div class="mg-toolbar">
+    <div class="mg-field">
+      <label>Клиника</label>
+      <select id="mgClinic">{% for clinic in clinics %}<option value="{{ clinic.id }}">{{ clinic.name }}</option>{% endfor %}</select>
+    </div>
+    <div class="mg-field">
+      <label>Просмотр</label>
+      <select id="mgView">
+        <option value="compare" selected>На эту дату по месяцам</option>
+        <option value="single">Одна дата</option>
+      </select>
+    </div>
+    <div class="mg-field">
+      <label>Дата</label>
+      <input id="mgDate" type="date">
+    </div>
+    <div class="mg-field" id="mgRangeField">
+      <label>Период сравнения</label>
+      <select id="mgRange">
+        <option value="ytd" selected>С начала года</option>
+        <option value="q1">1 квартал</option>
+        <option value="q2">2 квартал</option>
+        <option value="q3">3 квартал</option>
+        <option value="q4">4 квартал</option>
+        <option value="h1">1 полугодие</option>
+        <option value="h2">2 полугодие</option>
+        <option value="year">Весь год</option>
+      </select>
+    </div>
+    <button class="mg-action" type="button" id="mgApply">Показать</button>
+  </div>
+
+  <div class="mg-note" id="mgNote">Загрузка…</div>
+  <div class="mg-table-wrap">
+    <table class="mg-table">
+      <thead id="mgHead"></thead>
+      <tbody id="mgBody"></tbody>
+    </table>
+  </div>
+
+  <a class="nn-back" href="/nn/">← Назад</a>
+</section>
+
+<script>
+const money=v=>v==null?"—":new Intl.NumberFormat("ru-RU",{maximumFractionDigits:0}).format(v)+" ₸";
+const count=v=>v==null?"—":new Intl.NumberFormat("ru-RU",{maximumFractionDigits:2}).format(v);
+const pct=v=>v==null?"—":new Intl.NumberFormat("ru-RU",{maximumFractionDigits:1}).format(v)+"%";
+const esc=v=>String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));
+function heat(values){
+  const nums=values.filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number);
+  if(nums.length<2)return values.map(()=>null);
+  const min=Math.min(...nums),max=Math.max(...nums);
+  if(min===max)return values.map(v=>v==null?null:"rgb(241,238,226)");
+  const mix=(a,b,t)=>Math.round(a+(b-a)*t);
+  return values.map(v=>{
+    if(v==null||!Number.isFinite(Number(v)))return null;
+    const x=(Number(v)-min)/(max-min);
+    const red=[244,215,210],yellow=[245,239,204],green=[216,235,217];
+    const from=x<.5?red:yellow,to=x<.5?yellow:green,u=x<.5?x*2:(x-.5)*2;
+    return "rgb("+mix(from[0],to[0],u)+","+mix(from[1],to[1],u)+","+mix(from[2],to[2],u)+")";
+  });
+}
+function group(label,cls,cols){return '<tr class="mg-group '+cls+'"><td colspan="'+cols+'">'+esc(label)+'</td></tr>'}
+function row(label,values,fmt,opts={}){
+  const colors=heat(values),secondary=opts.secondary||[],secondaryFmt=opts.secondaryFmt||fmt;
+  let html='<tr class="mg-row'+(opts.secondaryRow?' secondary':'')+(opts.important?' important':'')+'"><td>'+esc(label)+'</td>';
+  values.forEach((value,i)=>{
+    const style=colors[i]?' style="background:'+colors[i]+'"':"";
+    const main=value==null?'<span class="mg-empty">—</span>':fmt(value);
+    let sub="";
+    if(Object.prototype.hasOwnProperty.call(secondary,i)){
+      const v=secondary[i];
+      sub=' <span class="mg-paren">('+(v==null?"—":secondaryFmt(v))+')</span>';
+    }
+    html+='<td'+style+'>'+main+sub+'</td>';
+  });
+  return html+"</tr>";
+}
+function build(d){
+  const months=d.months||[],cols=months.length+1;
+  document.getElementById("mgDate").value=d.selected_date||"";
+  const selected=new Date((d.selected_date||"")+"T12:00:00");
+  const day=selected.getDate();
+  document.getElementById("mgNote").textContent=d.view==="compare"
+    ? "На "+day+" число по месяцам "+d.year+". Каждый месяц считается накопительно с 1-го числа по указанную дату; если такого числа нет, берётся последний календарный день месяца."
+    : "Накопительные показатели с 1-го числа по выбранную дату.";
+  document.getElementById("mgHead").innerHTML="<tr><th>Показатель</th>"+months.map(m=>'<th><span class="mg-period">'+esc(m.label)+'</span><span class="mg-date">'+esc(m.target.split("-").reverse().join("."))+(m.has_data?"":" · нет данных")+"</span></th>").join("")+"</tr>";
+  const vals=k=>months.map(m=>m[k]);
+  let body=group("Основные показатели","general",cols);
+  body+=row("План",vals("plan"),money);
+  body+=row("Должно быть",vals("due"),money,{secondaryRow:true});
+  body+=row("Факт",vals("fact"),money,{important:true});
+  body+=row("% выполнения плана месяца",vals("execution"),pct,{important:true});
+  body+=row("Первичные приёмы (в скобках — без оплаты)",vals("primary"),count,{secondary:vals("primary_unpaid"),secondaryFmt:count});
+  body+=row("Повторные приёмы",vals("repeat"),count);
+  body+=row("ПП в день",vals("pp_day"),count);
+  body+=row("Средний чек 2025 (в скобках — по всем первичным)",vals("avg_paid"),money,{secondary:vals("avg_all"),secondaryFmt:money,important:true});
+  body+=group("Выручка по врачам","doctors",cols);
+  (d.doctors||[]).forEach(doc=>{body+=row(doc.label,doc.values,money)});
+  body+=group("Маркетинг","marketing",cols);
+  document.getElementById("mgBody").innerHTML=body;
+}
+async function load(){
+  const clinic=document.getElementById("mgClinic").value;
+  if(!clinic){document.getElementById("mgNote").textContent="Клиники не настроены.";return}
+  const q=new URLSearchParams({clinic_id:clinic,view:document.getElementById("mgView").value,range:document.getElementById("mgRange").value});
+  const selectedDate=document.getElementById("mgDate").value;if(selectedDate)q.set("date",selectedDate);
+  const r=await fetch("/api/nn/management/compare?"+q.toString(),{credentials:"same-origin"}),d=await r.json();
+  if(!r.ok){document.getElementById("mgNote").textContent=d.error||"Ошибка загрузки.";return}
+  build(d)
+}
+function syncView(){document.getElementById("mgRangeField").style.display=document.getElementById("mgView").value==="compare"?"grid":"none"}
+document.getElementById("mgApply").addEventListener("click",load);
+document.getElementById("mgClinic").addEventListener("change",load);
+document.getElementById("mgView").addEventListener("change",()=>{syncView();load()});
+document.getElementById("mgRange").addEventListener("change",load);
+document.getElementById("mgDate").addEventListener("change",load);
+syncView();load();
+</script>
+{% endblock %}
