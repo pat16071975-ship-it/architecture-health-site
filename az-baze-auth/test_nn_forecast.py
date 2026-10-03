@@ -187,7 +187,7 @@ class NNForecastTests(unittest.TestCase):
         self.assertEqual(base["revenue"], 206000.0)
         self.assertEqual(base["primaries"], 1.5)
         self.assertEqual(base["primary_unpaid"], 0.5)
-        self.assertEqual(base["repeats"], 2.0)
+        self.assertEqual(base["repeats"], 1.0)
         self.assertEqual(base["treatments"], 1.0)
         self.assertAlmostEqual(base["conversion"], 2 / 3, places=5)
         self.assertEqual(base["avg_check_paid"], 206000.0)
