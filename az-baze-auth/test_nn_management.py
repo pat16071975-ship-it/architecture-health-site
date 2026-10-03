@@ -124,8 +124,8 @@ class NNManagementReportTests(unittest.TestCase):
         self.assertIn('<option value="compare" selected>', body)
         self.assertIn('<option value="year" selected>Весь год</option>', body)
         self.assertNotIn('<option value="ytd" selected>С начала года</option>', body)
-        self.assertIn("Первичные приёмы — всего (из них без оплаты)", body)
-        self.assertIn("Средний чек — по оплатившим (в скобках — по всем первичным)", body)
+        self.assertIn('row("Первичные приёмы — всего",vals("primary"),count,{labelSub:"(из них без оплаты)"', body)
+        self.assertIn('row("Средний чек — по оплатившим",vals("avg_paid"),money,{labelSub:"(в скобках — по всем первичным)"', body)
         self.assertIn("Выручка по врачам", body)
         self.assertIn("Маркетинг", body)
         self.assertIn('sub("Лиды","marketing-input",cols)', body)
@@ -136,10 +136,15 @@ class NNManagementReportTests(unittest.TestCase):
         self.assertIn('sub("Конверсия","marketing-conv",cols)', body)
         self.assertIn('row("Общая конверсия",emptyMarketing,pct,{important:true})', body)
         self.assertIn(".nn-shell{width:98vw;max-width:none}", body)
-        self.assertIn("width:320px;min-width:320px;max-width:320px", body)
+        self.assertIn("width:300px;min-width:300px;max-width:300px", body)
+        self.assertIn("min-width:100px", body)
+        self.assertIn(".mg-paren{display:block", body)
+        self.assertIn(".mg-label-sub{display:block", body)
+        self.assertIn('class="mg-group-label"', body)
+        self.assertIn('class="mg-group-fill"', body)
+        self.assertIn("td.mg-group-label{position:sticky!important;left:0", body)
         self.assertIn("background:#fffdf8!important", body)
         self.assertIn("box-shadow:3px 0 0 rgba(216,205,187,.92)", body)
-        self.assertIn("tr.mg-group td{position:static!important", body)
 
     def test_default_compare_returns_all_twelve_months(self):
         response = self.client_for(2).get(
