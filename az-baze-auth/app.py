@@ -261,6 +261,22 @@ def create_app():
         import nn_reports as nn_reports_module
         return nn_reports_module.export_report(report_key)
 
+    @app.get("/nn/management/")
+    @login_required
+    def nn_management():
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_management as nn_management_module
+        return nn_management_module.management_page()
+
+    @app.get("/api/nn/management/compare")
+    @login_required
+    def nn_management_compare():
+        if not has_nn_permission(g.user, "nn_reports"):
+            abort(403)
+        import nn_management as nn_management_module
+        return nn_management_module.api_compare()
+
     @app.get("/nn/graphics/")
     @login_required
     def nn_graphics():
@@ -311,6 +327,14 @@ def create_app():
             abort(403)
         import nn_upload
         return nn_upload.handle_uploads_page()
+
+    @app.route("/nn/uploads/plan/", methods=["GET", "POST"])
+    @login_required
+    def nn_upload_plan():
+        if not has_nn_permission(g.user, "nn_upload"):
+            abort(403)
+        import nn_management as nn_management_module
+        return nn_management_module.plan_page()
 
     @app.get("/api/me")
     @login_required
