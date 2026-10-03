@@ -67,6 +67,19 @@ CREATE INDEX IF NOT EXISTS idx_nn_upload_batches_clinic_time
     ON nn_upload_batches(clinic_id, uploaded_at DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_nn_upload_files_batch
     ON nn_upload_files(batch_id, source_key);
+CREATE TABLE IF NOT EXISTS nn_monthly_plans (
+    clinic_id INTEGER NOT NULL,
+    year INTEGER NOT NULL CHECK (year BETWEEN 2000 AND 2100),
+    month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+    amount REAL NOT NULL CHECK (amount >= 0),
+    updated_by INTEGER,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (clinic_id, year, month),
+    FOREIGN KEY (clinic_id) REFERENCES nn_clinics(clinic_id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_nn_monthly_plans_clinic_year
+    ON nn_monthly_plans(clinic_id, year, month);
 """
 
 
