@@ -17,7 +17,8 @@
 .mg-table tbody tr.mg-group td{position:static!important;width:auto!important;min-width:0!important;max-width:none!important;box-shadow:none!important}
 .mg-period{font-weight:800;font-size:15px;color:#2f3a33}.mg-date{display:block;margin-top:3px;color:#777d76;font-size:9px;font-weight:600}
 .mg-group td{padding:10px 13px!important;text-align:left!important;font-size:16px!important;font-weight:800!important}.mg-group.general td{background:#efe5d2!important;color:#5e5037}.mg-group.doctors td{background:#dfe9f2!important;color:#365268}.mg-group.marketing td{background:#eee5f1!important;color:#654a6b}
-.mg-row td{background:#fffdf8}.mg-row.secondary td{background:#fbfaf6}.mg-row.important td{font-weight:850}.mg-empty{color:#aaa;font-weight:500}.mg-paren{color:#6e756f;font-weight:600}
+.mg-sub td{position:static!important;width:auto!important;min-width:0!important;max-width:none!important;box-shadow:none!important;padding:7px 12px!important;text-align:left!important;font-size:10px!important;text-transform:uppercase;letter-spacing:.11em;font-weight:800!important}.mg-sub.marketing-input td{background:#f7f1f8!important;color:#765a7b}.mg-sub.marketing-conv td{background:#efe6f1!important;color:#634a69}
+.mg-row td{background:#fffdf8}.mg-row.marketing td{background:#fcf9fc}.mg-row.marketing-conv td{background:#f7f1f8}.mg-row.secondary td{background:#fbfaf6}.mg-row.important td{font-weight:850}.mg-empty{color:#aaa;font-weight:500}.mg-paren{color:#6e756f;font-weight:600}
 @media(max-width:720px){.nn-shell{width:100%}.mg-toolbar{display:grid;grid-template-columns:1fr}.mg-field{min-width:0}.mg-action{width:100%}.mg-table{min-width:690px}.mg-table thead th:first-child,.mg-table tbody td:first-child{width:210px;min-width:210px;max-width:210px}.mg-table th,.mg-table td{padding:8px 9px;font-size:11px}}
 </style>
 
@@ -90,6 +91,7 @@ function heat(values){
   });
 }
 function group(label,cls,cols){return '<tr class="mg-group '+cls+'"><td colspan="'+cols+'">'+esc(label)+'</td></tr>'}
+function sub(label,cls,cols){return '<tr class="mg-sub '+cls+'"><td colspan="'+cols+'">'+esc(label)+'</td></tr>'}
 function row(label,values,fmt,opts={}){
   const colors=heat(values),secondary=opts.secondary||[],secondaryFmt=opts.secondaryFmt||fmt;
   let html='<tr class="mg-row'+(opts.secondaryRow?' secondary':'')+(opts.important?' important':'')+'"><td>'+esc(label)+'</td>';
@@ -127,6 +129,14 @@ function build(d){
   body+=group("Выручка по врачам","doctors",cols);
   (d.doctors||[]).forEach(doc=>{body+=row(doc.label,doc.values,money)});
   body+=group("Маркетинг","marketing",cols);
+  const emptyMarketing=months.map(()=>null);
+  body+=sub("Лиды","marketing-input",cols);
+  body+=row("Целевые лиды",emptyMarketing,count,{});
+  body+=row("Отказ / мониторинг",emptyMarketing,count,{});
+  body+=row("Резерв",emptyMarketing,count,{});
+  body+=row("Всего лидов",emptyMarketing,count,{important:true});
+  body+=sub("Конверсия","marketing-conv",cols);
+  body+=row("Общая конверсия",emptyMarketing,pct,{important:true});
   document.getElementById("mgBody").innerHTML=body;
 }
 async function load(){
