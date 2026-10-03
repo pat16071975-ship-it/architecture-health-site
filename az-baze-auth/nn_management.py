@@ -131,7 +131,7 @@ def _month_snapshot(payload, year, month, selected_day):
     }
 
 
-def management_compare_data(conn, clinic_id, selected_date=None, range_key="ytd", view="compare"):
+def management_compare_data(conn, clinic_id, selected_date=None, range_key="year", view="compare"):
     clinic = nn_upload._active_clinic(conn, clinic_id)
     if not clinic:
         raise PermissionError("clinic")
@@ -229,9 +229,9 @@ def api_compare():
     view = request.args.get("view", "compare").strip()
     if view not in {"compare", "single"}:
         view = "compare"
-    range_key = request.args.get("range", "ytd").strip()
+    range_key = request.args.get("range", "year").strip()
     if range_key not in {"ytd", *RANGES.keys()}:
-        range_key = "ytd"
+        range_key = "year"
 
     try:
         data = management_compare_data(
