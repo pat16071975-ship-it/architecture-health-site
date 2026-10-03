@@ -220,6 +220,15 @@ class NNForecastTests(unittest.TestCase):
             403,
         )
 
+    def test_forecast_details_typography_is_readable(self):
+        page = self.client_for(2).get("/nn/forecast/")
+        body = page.get_data(as_text=True)
+        self.assertIn(".fc-advanced summary,.fc-method summary{cursor:pointer;padding:15px 16px;font-size:17px;font-weight:900", body)
+        self.assertIn(".fc-advanced-intro,.fc-method-body p{margin:0 0 12px;color:#4f5851;font-size:13px;font-weight:600", body)
+        self.assertIn(".fc-advanced .fc-field label{font-size:12px;font-weight:800", body)
+        self.assertIn(".fc-formula{padding:11px 12px", body)
+        self.assertIn("font-size:12.5px;font-weight:650;line-height:1.45", body)
+
     def test_forecast_never_invents_economic_parameters(self):
         page = self.client_for(2).get("/nn/forecast/")
         body = page.get_data(as_text=True)
