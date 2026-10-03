@@ -1,0 +1,53 @@
+{% extends "nn_base.html" %}
+{% block title %}План — Варикоза нет - KZ{% endblock %}
+{% block content %}
+<style>
+.plan-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px}
+.plan-head h2{margin:0;font-size:28px}.plan-head p{margin:6px 0 0;color:#687067;font-size:12px}
+.plan-select{display:flex;gap:9px;align-items:end;flex-wrap:wrap}.plan-field{display:grid;gap:5px}.plan-field label{font-size:11px;font-weight:700;color:#687067}.plan-field select,.plan-field input{height:39px;border:1px solid #d5c9b7;border-radius:9px;background:#fff;padding:0 10px;font:600 12px Montserrat,Arial,sans-serif}
+.plan-btn{height:39px;border:1px solid #44634f;border-radius:9px;background:#44634f;color:#fff;padding:0 15px;font:700 12px Montserrat,Arial,sans-serif;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+.plan-state{margin:10px 0;padding:10px 12px;border-radius:9px;font-size:12px}.plan-state.ok{background:#edf4ee;border:1px solid #cddfce;color:#315a40}.plan-state.err{background:#f8e8e6;border:1px solid #e4c3bf;color:#8a4542}
+.plan-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.plan-month{border:1px solid #e1d7c8;border-radius:11px;background:#fff;padding:10px}.plan-month label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}.plan-month input{width:100%;height:38px;border:1px solid #d5c9b7;border-radius:8px;padding:0 9px;font:700 13px Montserrat,Arial,sans-serif;text-align:right}
+.plan-save{display:flex;justify-content:center;margin-top:16px}
+@media(max-width:700px){.plan-grid{grid-template-columns:1fr 1fr}.plan-select{display:grid;grid-template-columns:1fr}.plan-field{min-width:0}.plan-btn{justify-content:center}}
+@media(max-width:430px){.plan-grid{grid-template-columns:1fr}}
+</style>
+
+<section class="nn-card">
+  <div class="plan-head">
+    <div><h2>План</h2><p>Месячный план задаётся вручную отдельно для каждой клиники.</p></div>
+  </div>
+
+  <form class="plan-select" method="get" action="/nn/uploads/plan/">
+    <div class="plan-field">
+      <label>Клиника</label>
+      <select name="clinic_id">{% for clinic in clinics %}<option value="{{ clinic.id }}" {% if selected_clinic and clinic.id == selected_clinic.id %}selected{% endif %}>{{ clinic.name }}</option>{% endfor %}</select>
+    </div>
+    <div class="plan-field"><label>Год</label><input type="number" name="year" min="2000" max="2100" value="{{ year }}"></div>
+    <button class="plan-btn" type="submit">Показать</button>
+  </form>
+
+  {% if error %}<div class="plan-state err">{{ error }}</div>{% endif %}
+  {% if result %}<div class="plan-state ok">{{ result }}</div>{% endif %}
+
+  {% if selected_clinic %}
+  <form method="post" action="/nn/uploads/plan/">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="clinic_id" value="{{ selected_clinic.id }}">
+    <input type="hidden" name="year" value="{{ year }}">
+    <div class="plan-grid">
+      {% for month_name in month_names %}
+      {% set month_no = loop.index %}
+      <div class="plan-month">
+        <label for="plan_{{ month_no }}">{{ month_name }}</label>
+        <input id="plan_{{ month_no }}" name="plan_{{ month_no }}" inputmode="decimal" value="{% if plans.get(month_no) is not none %}{{ '%.2f'|format(plans.get(month_no))|replace('.00','') }}{% endif %}" placeholder="0">
+      </div>
+      {% endfor %}
+    </div>
+    <div class="plan-save"><button class="plan-btn" type="submit">Сохранить план</button></div>
+  </form>
+  {% endif %}
+
+  <a class="nn-back" href="/nn/uploads/{% if selected_clinic %}?clinic_id={{ selected_clinic.id }}{% endif %}">← К загрузке данных</a>
+</section>
+{% endblock %}
