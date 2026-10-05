@@ -417,129 +417,323 @@ def _next_required_date(latest):
     return next_day.strftime("%d.%m.%Y")
 
 
-def _process_period_upload(completed_file, services_file):
-    perms = user_permissions(g.user)
-    if "upload_completed" not in perms or "upload_services" not in perms:
-        abort(403)
-
-    _completed_raw, completed_parsed, completed_sheet = _parse_fixed_file(completed_file, "completed")
-    _services_raw, services_parsed, services_sheet = _parse_fixed_file(services_file, "services")
+def _prepare_period_raw(completed_raw, completed_name, services_raw, services_name):
+    completed_parsed, completed_sheet = _parse_fixed_raw(
+        completed_raw, completed_name, "completed"
+    )
+    services_parsed, services_sheet = _parse_fixed_raw(
+        services_raw, services_name, "services"
+    )
     overall, visits = completed_parsed
     items, lab_invoices, (year, month) = services_parsed
-
     period = _split_period(overall, visits, items, lab_invoices)
     dates = [row["data_date"] for row in period]
     month_key = f"{year:04d}-{month:02d}"
     if any(data_date[:7] != month_key for data_date in dates):
         raise ValueError("Месяц в двух файлах не совпадает.")
+    return {
+        "period": period,
+        "dates": dates,
+        "month_key": month_key,
+        "year": year,
+        "month": month,
+        "completed_sheet": completed_sheet,
+        "services_sheet": services_sheet,
+        "completed_name": completed_name or "Завершённые приёмы",
+        "services_name": services_name or "Выполненные услуги",
+    }
 
+
+def _read_period_files(completed_file, services_file):
     completed_name = completed_file.filename or "Завершённые приёмы"
     services_name = services_file.filename or "Выполненные услуги"
+    completed_raw = completed_file.read()
+    services_raw = services_file.read()
+    if not completed_raw:
+        raise ValueError("Выбран пустой файл «Завершённые приёмы».")
+    if not services_raw:
+        raise ValueError("Выбран пустой файл «Выполненные услуги».")
+    if len(completed_raw) > 25 * 1024 * 1024 or len(services_raw) > 25 * 1024 * 1024:
+        raise ValueError("Размер файла превышает 25 МБ.")
+    return completed_raw, completed_name, services_raw, services_name
+
+
+def _comparison_has_conflict(comparison):
+    return bool(
+        comparison.get("conflict")
+        or comparison.get("historical")
+        or comparison.get("removed")
+    )
+
+
+def _comparison_counts(comparison):
+    return {
+        "new": len(comparison.get("new") or []),
+        "identical": len(comparison.get("identical") or []),
+        "conflict": len(comparison.get("conflict") or []),
+        "historical": len(comparison.get("historical") or []),
+        "removed": len(comparison.get("removed") or []),
+    }
+
+
+def _period_preview(completed_file, services_file):
+    perms = user_permissions(g.user)
+    if "upload_completed" not in perms or "upload_services" not in perms:
+        abort(403)
+
+    completed_raw, completed_name, services_raw, services_name = _read_period_files(
+        completed_file, services_file
+    )
     conn = core.db()
+    upload_reconcile.init_schema(conn)
+    upload_reconcile.refresh_runtime(conn, core.ident_import, cash_payments)
+    prepared = _prepare_period_raw(
+        completed_raw, completed_name, services_raw, services_name
+    )
 
     service_data = core.ident_import._load_blob("az-service-analytics-v1")
     if not service_data:
         raise ValueError("База «Аналитики услуг» ещё не подготовлена.")
     through = core._service_through(service_data)
+    comparison = upload_reconcile.compare_clinical(
+        conn, prepared["period"], through
+    )
+    unknown = upload_reconcile.detect_unknown_providers(
+        prepared["period"], core.ident_import, conn
+    )
+    if unknown:
+        upload_reconcile.record_pending_providers(
+            conn,
+            unknown,
+            services_name,
+            actor_id=g.user["id"],
+        )
+        conn.commit()
 
-    # Full preflight first: no report data is changed until every date in the
-    # uploaded period has passed duplicate/replacement checks.
-    actions = []
-    for row in period:
-        data_date = row["data_date"]
+    counts = _comparison_counts(comparison)
+    return {
+        "status": "preview",
+        "period": {
+            "from": prepared["dates"][0],
+            "to": prepared["dates"][-1],
+        },
+        "counts": counts,
+        "conflict_dates": sorted(
+            set(comparison.get("conflict") or [])
+            | set(comparison.get("historical") or [])
+            | set(comparison.get("removed") or [])
+        ),
+        "unknown_providers": unknown,
+        "requires_choice": _comparison_has_conflict(comparison),
+        "requires_provider_mapping": bool(unknown),
+        "can_replace": "upload_replace" in perms,
+    }
+
+
+def _provider_decisions_from_form():
+    raw = request.form.get("provider_decisions", "").strip()
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Не удалось прочитать выбранные направления новых врачей.") from exc
+    if not isinstance(value, dict):
+        raise ValueError("Некорректный список новых врачей.")
+    return value
+
+
+def _validate_historical_replacement(conn, month_key, dates, through):
+    row = conn.execute(
+        """
+        SELECT MIN(date) AS first_date, MAX(date) AS last_date
+        FROM report_data
+        WHERE substr(date,1,7)=?
+        """,
+        (month_key,),
+    ).fetchone()
+    first_old = row["first_date"] if row and row["first_date"] else None
+    last_old = row["last_date"] if row and row["last_date"] else None
+    required_end = min(str(through), str(last_old)) if through and last_old else (str(through) if through else last_old)
+    if first_old and dates[0] > str(first_old):
+        raise ValueError(
+            "Для безопасной замены старой сводной базы загрузите полный исходный период "
+            f"не позднее {_format_date(str(first_old))}."
+        )
+    if required_end and dates[-1] < required_end:
+        raise ValueError(
+            "Для безопасной замены старой сводной базы загрузите данные как минимум по "
+            f"{_format_date(required_end)}."
+        )
+
+
+def _archive_and_remove_missing_daily(conn, comparison, actor_id):
+    for data_date in comparison.get("removed") or []:
         existing = conn.execute(
             "SELECT * FROM daily_uploads WHERE data_date=?",
             (data_date,),
         ).fetchone()
-        old_normalized = None
-        action = "imported"
-        baseline_covered = False
+        if not existing:
+            continue
+        upload_reconcile.archive_daily_row(
+            conn, existing, actor_id, "use_new_removed"
+        )
+        conn.execute("DELETE FROM daily_uploads WHERE data_date=?", (data_date,))
 
-        if existing:
-            try:
-                old_normalized = json.loads(existing["normalized_json"])
-            except (TypeError, ValueError) as exc:
-                raise ValueError(
-                    f"Нельзя безопасно проверить данные за {_format_date(data_date)}: сохранённая версия повреждена."
-                ) from exc
 
-            if _canonical(old_normalized) == _canonical(row["normalized"]):
-                action = "duplicate"
-            else:
-                action = "replaced"
-                if "upload_replace" not in perms:
-                    core._log(
-                        conn,
-                        "denied_replace",
-                        data_date,
-                        "Данные за дату уже существуют и отличаются; нет права на замену.",
-                        completed_name,
-                        services_name,
-                    )
-                    conn.commit()
-                    raise ValueError(
-                        f"За {_format_date(data_date)} данные уже загружены и отличаются. "
-                        "Для замены требуется отдельное право."
-                    )
-        elif through and data_date <= through:
-            action = "duplicate"
-            baseline_covered = True
+def _process_period_upload(completed_file, services_file, decision=None, provider_decisions=None):
+    perms = user_permissions(g.user)
+    if "upload_completed" not in perms or "upload_services" not in perms:
+        abort(403)
 
-        actions.append(
-            {
-                **row,
-                "existing": existing,
-                "old_normalized": old_normalized,
-                "action": action,
-                "baseline_covered": baseline_covered,
-            }
+    completed_raw, completed_name, services_raw, services_name = _read_period_files(
+        completed_file, services_file
+    )
+    conn = core.db()
+    upload_reconcile.init_schema(conn)
+    upload_reconcile.refresh_runtime(conn, core.ident_import, cash_payments)
+
+    initial = _prepare_period_raw(
+        completed_raw, completed_name, services_raw, services_name
+    )
+    unknown = upload_reconcile.detect_unknown_providers(
+        initial["period"], core.ident_import, conn
+    )
+
+    provider_decisions = provider_decisions or {}
+    if provider_decisions:
+        if "upload_replace" not in perms:
+            abort(403)
+        missing = [name for name in unknown if name not in provider_decisions]
+        if missing:
+            raise ValueError(
+                "Не выбрано направление для новых врачей: " + ", ".join(missing)
+            )
+        upload_reconcile.resolve_providers(
+            conn, provider_decisions, g.user["id"]
+        )
+        conn.commit()
+        upload_reconcile.refresh_runtime(conn, core.ident_import, cash_payments)
+        prepared = _prepare_period_raw(
+            completed_raw, completed_name, services_raw, services_name
+        )
+        unknown = upload_reconcile.detect_unknown_providers(
+            prepared["period"], core.ident_import, conn
+        )
+    else:
+        prepared = initial
+
+    if unknown:
+        upload_reconcile.record_pending_providers(
+            conn, unknown, services_name, actor_id=g.user["id"]
+        )
+        conn.commit()
+        raise ValueError(
+            "Обнаружены новые врачи. Сначала определите направление: "
+            + ", ".join(unknown)
         )
 
-    changed = [row for row in actions if row["action"] != "duplicate"]
-    if not changed:
-        for row in actions:
-            detail = (
-                "Дата уже входит в ранее загруженную сводную базу; пропущена без изменений."
-                if row["baseline_covered"]
-                else "Повторная загрузка идентичных данных за день; ничего не изменено."
-            )
-            core._log(
-                conn,
-                "duplicate",
-                row["data_date"],
-                detail,
-                completed_name,
-                services_name,
-            )
-        conn.commit()
+    service_data = core.ident_import._load_blob("az-service-analytics-v1")
+    if not service_data:
+        raise ValueError("База «Аналитики услуг» ещё не подготовлена.")
+    through = core._service_through(service_data)
+    comparison = upload_reconcile.compare_clinical(
+        conn, prepared["period"], through
+    )
+    has_conflict = _comparison_has_conflict(comparison)
+
+    if has_conflict and decision not in {"keep_old", "use_new"}:
+        raise ValueError(
+            "В загружаемом периоде есть отличия. Выберите «Сохранить старые» "
+            "или «Загрузить новые»."
+        )
+    if decision == "use_new" and "upload_replace" not in perms:
+        abort(403)
+
+    dates = prepared["dates"]
+    year = prepared["year"]
+    month = prepared["month"]
+    month_key = prepared["month_key"]
+    completed_sheet = prepared["completed_sheet"]
+    services_sheet = prepared["services_sheet"]
+
+    if comparison.get("historical") and decision == "use_new":
+        _validate_historical_replacement(conn, month_key, dates, through)
+
+    apply_new = decision == "use_new"
+    changed_rows = []
+    for row in prepared["period"]:
+        data_date = row["data_date"]
+        if data_date in set(comparison.get("new") or []):
+            changed_rows.append((row, "imported"))
+        elif apply_new and data_date in set(comparison.get("conflict") or []):
+            changed_rows.append((row, "replaced"))
+        elif apply_new and data_date in set(comparison.get("historical") or []):
+            changed_rows.append((row, "historical_replaced"))
+
+    remove_dates = list(comparison.get("removed") or []) if apply_new else []
+    if not changed_rows and not remove_dates:
         return {
             "status": "duplicate",
             "message": (
-                f"Период {_format_date(dates[0])}–{_format_date(dates[-1])} уже покрыт загруженными данными. "
-                "Повторно ничего не изменено."
+                f"Период {_format_date(dates[0])}–{_format_date(dates[-1])}: "
+                + (
+                    "выбраны старые данные; существующие значения сохранены без изменений."
+                    if has_conflict and decision == "keep_old"
+                    else "данные совпадают; повторно ничего не изменено."
+                )
             ),
             "data_date": dates[-1],
         }
 
-    for row in changed:
-        if row["action"] == "imported" and through and row["data_date"] <= through:
-            raise ValueError(
-                f"Дата {_format_date(row['data_date'])} уже входит в ранее загруженную сводную базу "
-                f"по {_format_date(through)}. Начинайте выгрузку со следующего дня."
-            )
+    backup_path = None
+    if apply_new and has_conflict:
+        backup_path = upload_reconcile.create_db_backup("clinical-reimport")
 
+    historical_replace = bool(comparison.get("historical")) and apply_new
     _ensure_extra_service_doctors(service_data, year, month)
     month_index = core._ensure_month(service_data, year, month)
-    for row in changed:
-        if row["old_normalized"]:
-            core._apply_service_items(
-                service_data,
-                row["old_normalized"].get("items", []),
-                year,
-                month,
-                -1,
-            )
-        month_index = core._apply_service_items(
+
+    if historical_replace:
+        core.ident_import._pad_months(service_data, month_index)
+        service_rows = [row for row, _action in changed_rows]
+        # Full historical replacement makes the uploaded source authoritative
+        # for the covered interval; all incoming service rows are re-applied.
+        service_rows = list(prepared["period"])
+    else:
+        service_rows = [row for row, _action in changed_rows]
+        for data_date in remove_dates:
+            existing = conn.execute(
+                "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
+                (data_date,),
+            ).fetchone()
+            if existing:
+                old_normalized = json.loads(existing["normalized_json"])
+                core._apply_service_items(
+                    service_data,
+                    old_normalized.get("items", []),
+                    year,
+                    month,
+                    -1,
+                )
+        for row, action in changed_rows:
+            if action == "replaced":
+                existing = conn.execute(
+                    "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
+                    (row["data_date"],),
+                ).fetchone()
+                if existing:
+                    old_normalized = json.loads(existing["normalized_json"])
+                    core._apply_service_items(
+                        service_data,
+                        old_normalized.get("items", []),
+                        year,
+                        month,
+                        -1,
+                    )
+
+    for row in service_rows:
+        core._apply_service_items(
             service_data,
             row["normalized"].get("items", []),
             year,
@@ -548,7 +742,7 @@ def _process_period_upload(completed_file, services_file):
         )
 
     old_through = core._service_through(service_data)
-    candidates = [row["data_date"] for row in changed]
+    candidates = [row["data_date"] for row in prepared["period"]]
     if old_through:
         candidates.append(old_through)
     last_known = max(candidates)
@@ -560,74 +754,136 @@ def _process_period_upload(completed_file, services_file):
     source = f"AZ-BAZE period: {services_name} + {completed_name}"
     conn.execute("BEGIN")
     try:
-        for row in actions:
-            data_date = row["data_date"]
-            if row["action"] == "duplicate":
-                detail = (
-                    "Дата уже входит в ранее загруженную сводную базу; пропущена без изменений."
-                    if row["baseline_covered"]
-                    else "Дата уже загружена идентично; данные пропущены без изменений."
+        if historical_replace:
+            old_rows = conn.execute(
+                """
+                SELECT * FROM daily_uploads
+                WHERE data_date>=? AND data_date<=?
+                ORDER BY data_date
+                """,
+                (dates[0], dates[-1]),
+            ).fetchall()
+            old_by_date = {str(row["data_date"]): row for row in old_rows}
+            for old_row in old_rows:
+                upload_reconcile.archive_daily_row(
+                    conn, old_row, g.user["id"], "use_new_historical"
                 )
-                core._log(
-                    conn,
-                    "duplicate",
-                    data_date,
-                    detail,
-                    completed_name,
-                    services_name,
-                )
-                continue
-
-            normalized_json = json.dumps(
-                row["normalized"],
-                ensure_ascii=False,
-                separators=(",", ":"),
+            conn.execute(
+                "DELETE FROM daily_uploads WHERE data_date>=? AND data_date<=?",
+                (dates[0], dates[-1]),
             )
-            if row["action"] == "replaced":
-                revision = int(row["existing"]["revision"] or 1) + 1
+            for row in prepared["period"]:
+                previous = old_by_date.get(row["data_date"])
+                revision = int(previous["revision"] or 1) + 1 if previous else 1
                 conn.execute(
-                    "UPDATE daily_uploads SET completed_filename=?,services_filename=?,completed_sha256=?,services_sha256=?,normalized_json=?,revision=?,uploaded_by=?,uploaded_at=? WHERE data_date=?",
+                    """
+                    INSERT INTO daily_uploads(
+                        data_date,completed_filename,services_filename,
+                        completed_sha256,services_sha256,normalized_json,
+                        revision,uploaded_by,uploaded_at
+                    ) VALUES(?,?,?,?,?,?,?,?,?)
+                    """,
                     (
+                        row["data_date"],
                         completed_name,
                         services_name,
                         row["completed_hash"],
                         row["services_hash"],
-                        normalized_json,
+                        json.dumps(row["normalized"], ensure_ascii=False, separators=(",", ":")),
                         revision,
                         g.user["id"],
                         now,
-                        data_date,
                     ),
                 )
-            else:
-                conn.execute(
-                    "INSERT INTO daily_uploads(data_date,completed_filename,services_filename,completed_sha256,services_sha256,normalized_json,revision,uploaded_by,uploaded_at) VALUES(?,?,?,?,?,?,1,?,?)",
-                    (
-                        data_date,
-                        completed_name,
-                        services_name,
-                        row["completed_hash"],
-                        row["services_hash"],
-                        normalized_json,
-                        g.user["id"],
-                        now,
-                    ),
-                )
-
-            core._log(
-                conn,
-                row["action"],
-                data_date,
-                f"Завершённые приёмы: лист {completed_sheet}; Выполненные услуги: лист {services_sheet}",
-                completed_name,
-                services_name,
+        else:
+            _archive_and_remove_missing_daily(
+                conn, {"removed": remove_dates}, g.user["id"]
             )
+            for row, action in changed_rows:
+                data_date = row["data_date"]
+                normalized_json = json.dumps(
+                    row["normalized"], ensure_ascii=False, separators=(",", ":")
+                )
+                existing = conn.execute(
+                    "SELECT * FROM daily_uploads WHERE data_date=?",
+                    (data_date,),
+                ).fetchone()
+                if existing:
+                    upload_reconcile.archive_daily_row(
+                        conn, existing, g.user["id"], "use_new"
+                    )
+                    revision = int(existing["revision"] or 1) + 1
+                    conn.execute(
+                        """
+                        UPDATE daily_uploads
+                        SET completed_filename=?,services_filename=?,
+                            completed_sha256=?,services_sha256=?,
+                            normalized_json=?,revision=?,uploaded_by=?,uploaded_at=?
+                        WHERE data_date=?
+                        """,
+                        (
+                            completed_name,
+                            services_name,
+                            row["completed_hash"],
+                            row["services_hash"],
+                            normalized_json,
+                            revision,
+                            g.user["id"],
+                            now,
+                            data_date,
+                        ),
+                    )
+                else:
+                    conn.execute(
+                        """
+                        INSERT INTO daily_uploads(
+                            data_date,completed_filename,services_filename,
+                            completed_sha256,services_sha256,normalized_json,
+                            revision,uploaded_by,uploaded_at
+                        ) VALUES(?,?,?,?,?,?,1,?,?)
+                        """,
+                        (
+                            data_date,
+                            completed_name,
+                            services_name,
+                            row["completed_hash"],
+                            row["services_hash"],
+                            normalized_json,
+                            g.user["id"],
+                            now,
+                        ),
+                    )
 
         management = core._rebuild_management(month_key, source)
         cash_payments.overlay_record_map(conn, month_key, management)
+
+        if apply_new:
+            for removed_date in remove_dates:
+                conn.execute("DELETE FROM report_data WHERE date=?", (removed_date,))
+            if historical_replace:
+                incoming_dates = set(dates)
+                old_report_rows = conn.execute(
+                    """
+                    SELECT date FROM report_data
+                    WHERE date>=? AND date<=?
+                    """,
+                    (dates[0], dates[-1]),
+                ).fetchall()
+                for old_row in old_report_rows:
+                    old_date = str(old_row["date"])
+                    if old_date not in management and old_date not in incoming_dates:
+                        conn.execute("DELETE FROM report_data WHERE date=?", (old_date,))
+
         for day, record in management.items():
             conn.execute(
-                "INSERT INTO report_data(date,payload,updated_by,updated_at) VALUES(?,?,?,?) ON CONFLICT(date) DO UPDATE SET payload=excluded.payload,updated_by=excluded.updated_by,updated_at=excluded.updated_at",
+                """
+                INSERT INTO report_data(date,payload,updated_by,updated_at)
+                VALUES(?,?,?,?)
+                ON CONFLICT(date) DO UPDATE SET
+                    payload=excluded.payload,
+                    updated_by=excluded.updated_by,
+                    updated_at=excluded.updated_at
+                """,
                 (
                     day,
                     json.dumps(record, ensure_ascii=False, separators=(",", ":")),
@@ -636,49 +892,78 @@ def _process_period_upload(completed_file, services_file):
                 ),
             )
 
+        # Re-overlay the independent money source after every clinical rebuild.
+        cash_payments.overlay_stored_month(conn, month_key, g.user["id"], now)
+
         core._save_blob(conn, "az-service-analytics-v1", service_data, now)
         for key, value in finance_blobs.items():
             core._save_blob(conn, key, value, now)
+
+        for row, action in changed_rows:
+            core._log(
+                conn,
+                "replaced" if action in {"replaced", "historical_replaced"} else "imported",
+                row["data_date"],
+                (
+                    f"global_decision={decision or 'append'}; "
+                    f"Завершённые приёмы: лист {completed_sheet}; "
+                    f"Выполненные услуги: лист {services_sheet}"
+                ),
+                completed_name,
+                services_name,
+            )
+        for removed_date in remove_dates:
+            core._log(
+                conn,
+                "replaced",
+                removed_date,
+                "global_decision=use_new; дата отсутствует в новой версии периода и удалена из клинического слоя.",
+                completed_name,
+                services_name,
+            )
         conn.commit()
     except Exception:
         conn.rollback()
         raise
 
-    counts = {
-        "imported": sum(1 for row in actions if row["action"] == "imported"),
-        "replaced": sum(1 for row in actions if row["action"] == "replaced"),
-        "duplicate": sum(
-            1 for row in actions if row["action"] == "duplicate" and not row["baseline_covered"]
-        ),
-        "covered": sum(1 for row in actions if row["baseline_covered"]),
-    }
+    counts = _comparison_counts(comparison)
     core.audit(
-        "period_reports_imported",
+        "period_reports_reconciled",
         target_user_id=g.user["id"],
         details=(
-            f"period={dates[0]}..{dates[-1]}; imported={counts['imported']}; "
-            f"replaced={counts['replaced']}; duplicate={counts['duplicate']}; "
-            f"covered={counts['covered']}; completed={completed_name}; services={services_name}"
+            f"period={dates[0]}..{dates[-1]}; decision={decision or 'append'}; "
+            f"new={counts['new']}; identical={counts['identical']}; "
+            f"conflict={counts['conflict']}; historical={counts['historical']}; "
+            f"removed={counts['removed']}; backup={backup_path or ''}; "
+            f"completed={completed_name}; services={services_name}"
         ),
     )
 
-    parts = [f"новых дней: {counts['imported']}"]
-    if counts["replaced"]:
-        parts.append(f"заменено: {counts['replaced']}")
-    if counts["duplicate"]:
-        parts.append(f"совпали и пропущены: {counts['duplicate']}")
-    if counts["covered"]:
-        parts.append(f"уже входили в сводную базу и пропущены: {counts['covered']}")
+    parts = [f"новых дней: {counts['new']}"]
+    if counts["conflict"]:
+        parts.append(
+            f"отличались: {counts['conflict']} ({'загружены новые' if apply_new else 'сохранены старые'})"
+        )
+    if counts["historical"]:
+        parts.append(
+            f"старых сводных дат: {counts['historical']} ({'заменены' if apply_new else 'сохранены'})"
+        )
+    if counts["removed"]:
+        parts.append(
+            f"дат отсутствуют в новой версии: {counts['removed']} ({'удалены из клинического слоя' if apply_new else 'сохранены'})"
+        )
+    if counts["identical"]:
+        parts.append(f"совпали: {counts['identical']}")
     return {
-        "status": "imported" if counts["imported"] else "replaced",
+        "status": "replaced" if apply_new and has_conflict else "imported",
         "message": (
-            f"Готово. Период {_format_date(dates[0])}–{_format_date(dates[-1])} разнесён по дням; "
+            f"Готово. Период {_format_date(dates[0])}–{_format_date(dates[-1])}; "
             + ", ".join(parts)
-            + ". Управленческий отчёт и «Аналитика услуг» пересчитаны."
+            + ". Все зависимые клинические отчёты пересчитаны из одной выбранной версии."
         ),
         "data_date": dates[-1],
+        "backup": backup_path,
     }
-
 
 def register_daily_upload(app):
     core._init_schema()
