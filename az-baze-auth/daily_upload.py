@@ -4,10 +4,11 @@ import re
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
-from flask import abort, g, render_template, request
+from flask import abort, g, jsonify, render_template, request
 
 import daily_upload_core as core
 import cash_payments
+import upload_reconcile
 from app import csrf_token, permission_required, require_csrf
 
 # server.py replaces this module variable with the upload-aware permission wrapper
@@ -206,19 +207,18 @@ def _parse_completed_text(text):
     return overall, visits
 
 
-def _parse_fixed_file(file_storage, kind):
-    raw = file_storage.read()
+def _parse_fixed_raw(raw, filename, kind):
     if not raw:
         raise ValueError("Выбран пустой файл.")
     if len(raw) > 25 * 1024 * 1024:
         raise ValueError("Размер файла превышает 25 МБ.")
 
-    candidates = core._table_candidates(raw, file_storage.filename or "")
+    candidates = core._table_candidates(raw, filename or "")
     last_error = None
     for sheet_name, text in candidates:
         try:
             parsed = _parse_completed_text(text) if kind == "completed" else _parse_revenue_text(text)
-            return raw, parsed, sheet_name
+            return parsed, sheet_name
         except Exception as exc:
             last_error = exc
 
@@ -226,6 +226,12 @@ def _parse_fixed_file(file_storage, kind):
     if isinstance(last_error, ValueError):
         raise last_error
     raise ValueError(f"Не удалось распознать структуру файла {label}.") from last_error
+
+
+def _parse_fixed_file(file_storage, kind):
+    raw = file_storage.read()
+    parsed, sheet_name = _parse_fixed_raw(raw, file_storage.filename or "", kind)
+    return raw, parsed, sheet_name
 
 
 def _doctor_attribution(visits, items):
