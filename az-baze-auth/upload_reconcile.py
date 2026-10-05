@@ -289,7 +289,15 @@ def canonical(value):
 
 
 def compare_clinical(conn, period, service_through):
-    result = {"new": [], "identical": [], "conflict": [], "historical": []}
+    result = {
+        "new": [],
+        "identical": [],
+        "conflict": [],
+        "historical": [],
+        "removed": [],
+    }
+    incoming_dates = sorted(str(row["data_date"]) for row in period)
+    incoming_set = set(incoming_dates)
     for row in period:
         data_date = str(row["data_date"])
         existing = conn.execute(
@@ -309,13 +317,30 @@ def compare_clinical(conn, period, service_through):
         else:
             bucket = "new"
         result[bucket].append(data_date)
+
+    if incoming_dates:
+        old_rows = conn.execute(
+            """
+            SELECT data_date
+            FROM daily_uploads
+            WHERE data_date>=? AND data_date<=?
+            ORDER BY data_date
+            """,
+            (incoming_dates[0], incoming_dates[-1]),
+        ).fetchall()
+        for old_row in old_rows:
+            old_date = str(old_row["data_date"] if hasattr(old_row, "keys") else old_row[0])
+            if old_date not in incoming_set:
+                result["removed"].append(old_date)
     return result
 
 
 def compare_cash(conn, daily):
     init_schema(conn)
-    result = {"new": [], "identical": [], "conflict": []}
-    for data_date in sorted(daily):
+    result = {"new": [], "identical": [], "conflict": [], "removed": []}
+    incoming_dates = sorted(daily)
+    incoming_set = set(incoming_dates)
+    for data_date in incoming_dates:
         row = conn.execute(
             "SELECT payload_json FROM cash_receipts_daily WHERE data_date=?",
             (data_date,),
@@ -331,6 +356,21 @@ def compare_cash(conn, daily):
             ) from exc
         target = "identical" if canonical(old) == canonical(daily[data_date]) else "conflict"
         result[target].append(data_date)
+
+    if incoming_dates:
+        old_rows = conn.execute(
+            """
+            SELECT data_date
+            FROM cash_receipts_daily
+            WHERE data_date>=? AND data_date<=?
+            ORDER BY data_date
+            """,
+            (incoming_dates[0], incoming_dates[-1]),
+        ).fetchall()
+        for old_row in old_rows:
+            old_date = str(old_row["data_date"] if hasattr(old_row, "keys") else old_row[0])
+            if old_date not in incoming_set:
+                result["removed"].append(old_date)
     return result
 
 
