@@ -1,3 +1,4 @@
+import json
 from flask import abort, g, jsonify, redirect, request, url_for
 
 import cash_payments
@@ -64,7 +65,7 @@ def _insert_cash_row(conn, data_date, payload, filename, source_sha, actor_id, n
         """,
         (
             data_date,
-            __import__("json").dumps(payload, ensure_ascii=False, separators=(",", ":")),
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
             filename,
             source_sha,
             actor_id,
