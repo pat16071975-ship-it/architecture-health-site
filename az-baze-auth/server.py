@@ -32,7 +32,7 @@ UPLOAD_PERMISSION_OPTIONS = [
     ("upload_completed", "Загружать файл «Завершённые приёмы»"),
     ("upload_services", "Загружать файл «Выполненные услуги»"),
     ("upload_history", "Просматривать журнал загрузок"),
-    ("upload_replace", "Заменять ранее загруженные данные за дату"),
+    ("upload_replace", "Подтверждать замену данных и классификацию новых врачей"),
 ]
 # The existing permissions table stores string keys, so no DB migration is needed.
 # section5 is reused as the visible «Загрузка данных» section; capabilities are granular.
