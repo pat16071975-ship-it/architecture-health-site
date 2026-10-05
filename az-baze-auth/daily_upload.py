@@ -968,6 +968,42 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
 def register_daily_upload(app):
     core._init_schema()
 
+    @app.post("/api/uploads/clinical/preview")
+    @permission_required("section5")
+    def clinical_upload_preview():
+        require_csrf()
+        completed = request.files.get("completed")
+        services = request.files.get("services")
+        if not completed or not completed.filename:
+            return jsonify({"status": "error", "message": "Выберите файл «Завершённые приёмы»."}), 400
+        if not services or not services.filename:
+            return jsonify({"status": "error", "message": "Выберите файл «Выполненные услуги»."}), 400
+        try:
+            return jsonify(_period_preview(completed, services))
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+
+    @app.post("/api/uploads/clinical/commit")
+    @permission_required("section5")
+    def clinical_upload_commit():
+        require_csrf()
+        completed = request.files.get("completed")
+        services = request.files.get("services")
+        if not completed or not completed.filename:
+            return jsonify({"status": "error", "message": "Выберите файл «Завершённые приёмы»."}), 400
+        if not services or not services.filename:
+            return jsonify({"status": "error", "message": "Выберите файл «Выполненные услуги»."}), 400
+        try:
+            result = _process_period_upload(
+                completed,
+                services,
+                decision=request.form.get("decision") or None,
+                provider_decisions=_provider_decisions_from_form(),
+            )
+            return jsonify(result)
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 409
+
     @app.route("/uploads/", methods=["GET", "POST"])
     @permission_required("section5")
     def uploads_page():
@@ -1005,6 +1041,7 @@ def register_daily_upload(app):
             cash_latest_date=_format_date(cash_latest) if cash_latest else None,
             cash_next_required_date=_format_date(cash_next_required) if cash_next_required else None,
             history=core._history() if "upload_history" in perms else [],
+            pending_providers=upload_reconcile.pending_provider_rows(conn),
             can_daily=("upload_completed" in perms and "upload_services" in perms),
             can_replace=("upload_replace" in perms),
         )
