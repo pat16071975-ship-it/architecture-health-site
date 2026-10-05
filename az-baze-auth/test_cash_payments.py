@@ -89,6 +89,16 @@ class CashPaymentsTests(unittest.TestCase):
         daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
         self.assertEqual(daily["2026-08-31"]["billedTotal"], 1250)
 
+    def test_non_invoice_operation_with_explicit_provider_is_attributed(self):
+        raw = self.workbook_bytes([
+            ["15 сен 2026\n12:00", "А", "Задолженность по счету №501 Чирков М. С.", 2500, 2500, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        day = daily["2026-09-15"]
+        self.assertEqual(day["cashTotal"], 2500)
+        self.assertEqual(day["dentists"]["Чирков Максим Сергеевич"], 2500)
+        self.assertEqual(day["cashUnallocated"], 0)
+
     def test_sequential_daily_uploads_accumulate_without_erasing_previous_days(self):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
