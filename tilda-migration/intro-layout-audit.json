@@ -1,0 +1,24 @@
+{
+  "pages_checked": 79,
+  "pages_updated": [
+    "uslugi/diers-diagnostica/index.html",
+    "uslugi/gastroenterologiya/index.html",
+    "uslugi/iggt-terapiya/index.html",
+    "uslugi/khirurgiya/implantaciya/index.html",
+    "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html",
+    "uslugi/lechenie-zubov/kista/index.html",
+    "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html",
+    "uslugi/miofunkcionalnaya-terapiya/index.html",
+    "uslugi/neyropsihologia/index.html",
+    "uslugi/nutriciologiya/index.html",
+    "uslugi/ortopedicheskie-stelki/index.html",
+    "uslugi/preventivnaya-medicina/index.html",
+    "uslugi/prosthetics/koronki/index.html",
+    "uslugi/prosthetics/koronki/keramicheskie/index.html",
+    "uslugi/prosthetics/viniry/index.html",
+    "uslugi/terapia/index.html"
+  ],
+  "count": 16,
+  "change": "Content-sized service introductions; existing text, links, colors retained",
+  "browser_verification": "pending VPS preview"
+}
