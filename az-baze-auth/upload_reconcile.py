@@ -127,6 +127,43 @@ def refresh_runtime(conn, ident_import, cash_payments=None):
         )
 
 
+
+def bootstrap_runtime(ident_import, cash_payments=None):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        seed_defaults(conn, ident_import)
+        refresh_runtime(conn, ident_import, cash_payments)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def pending_provider_rows(conn):
+    init_schema(conn)
+    rows = conn.execute(
+        """
+        SELECT source_name,display_name,source_filename,first_seen_at,last_seen_at
+        FROM provider_registry
+        WHERE direction='pending'
+        ORDER BY first_seen_at,source_name
+        """
+    ).fetchall()
+    return [
+        {
+            "source_name": str(row["source_name"] if hasattr(row, "keys") else row[0]),
+            "display_name": str(row["display_name"] if hasattr(row, "keys") else row[1]),
+            "source_filename": (
+                str(row["source_filename"] if hasattr(row, "keys") else row[2])
+                if (row["source_filename"] if hasattr(row, "keys") else row[2])
+                else ""
+            ),
+            "first_seen_at": str(row["first_seen_at"] if hasattr(row, "keys") else row[3]),
+            "last_seen_at": str(row["last_seen_at"] if hasattr(row, "keys") else row[4]),
+        }
+        for row in rows
+    ]
+
 def resolved_provider_names(conn):
     init_schema(conn)
     return {
