@@ -318,6 +318,7 @@
     keepBtn.classList.toggle('hidden',!payload.requires_choice);
     newBtn.classList.toggle('hidden',!payload.requires_choice);
     continueBtn.classList.toggle('hidden',payload.requires_choice);
+    keepBtn.disabled=unknown.length>0&&!payload.can_replace;
     newBtn.disabled=!payload.can_replace;
     continueBtn.disabled=unknown.length>0&&!payload.can_replace;
     if(unknown.length&&!payload.can_replace){
