@@ -298,20 +298,22 @@ def _doctor_attribution(visits, items):
 
 
 def _ensure_extra_service_doctors(data, year, month):
-    # Make new providers visible to «Аналитика услуг» as well. Existing historical
-    # doctor dictionaries are preserved; missing doctors start with zero series.
+    # Keep «Аналитика услуг» aligned with the effective provider registry.
+    # Existing historical doctor dictionaries are preserved; newly classified
+    # providers start with zero series until their source rows are applied.
     core._ensure_month(data, year, month)
     month_count = len(data.get("months", []))
     for direction_name, doctor_names in (
-        ("Стоматология", EXTRA_DENTISTS.values()),
-        ("Отделение структуры", EXTRA_STRUCTURE_DOCTORS.values()),
+        ("Стоматология", core.ident_import.DENTISTS.values()),
+        ("Отделение структуры", core.ident_import.STRUCTURE_DOCTORS.values()),
+        ("Лаборатория", core.ident_import.LAB_DOCTORS.values()),
     ):
         direction = data.get("directions", {}).get(direction_name)
         if not isinstance(direction, dict):
             continue
         categories = list(direction.get("categories", []))
         doctors = direction.setdefault("doctors", {})
-        for doctor_name in doctor_names:
+        for doctor_name in sorted(set(doctor_names)):
             if doctor_name in doctors:
                 continue
             doctors[doctor_name] = {
