@@ -357,6 +357,16 @@ def build_summary(conn=None):
             }
         )
 
+    revenue_rows.append(
+        {
+            "key": "unallocated",
+            "label": "Нераспределённые ДС",
+            "amount": round(_num(record.get("cashUnallocated"))),
+            "deviation": None,
+            "comment": "Входят в общий Факт, но не привязаны к врачу/направлению",
+        }
+    )
+
     primary_values = _primary_values(record)
     primary_total = round(primary_values["total"])
     primary = {
