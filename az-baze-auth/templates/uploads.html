@@ -54,9 +54,26 @@
   {% if pending_providers %}
   <div class="provider-pending">
     <strong>Требует внимания: есть новые сотрудники без классификации</strong>
+    <div class="provider-map" style="margin-top:8px">
     {% for item in pending_providers %}
-      {{ item['source_name'] }}{% if item['source_filename'] %} · источник: {{ item['source_filename'] }}{% endif %}{% if not loop.last %}<br>{% endif %}
+      <div class="provider-row">
+        <div><strong>{{ item['source_name'] }}</strong>{% if item['source_filename'] %}<div class="muted">Источник: {{ item['source_filename'] }}</div>{% endif %}</div>
+        {% if can_replace %}
+        <select data-pending-provider="{{ item['source_name']|e }}">
+          <option value="">Выберите направление</option>
+          <option value="dent">Стоматология</option>
+          <option value="structure">Отделение структуры</option>
+          <option value="lab">Лаборатория</option>
+          <option value="ignore">Не учитывать</option>
+        </select>
+        {% else %}
+        <span>Нужно право на замену данных</span>
+        {% endif %}
+      </div>
     {% endfor %}
+    </div>
+    {% if can_replace %}<button type="button" class="btn primary" id="pendingProviderSave" style="margin-top:10px">Сохранить классификацию</button>{% endif %}
+    <div id="pendingProviderResult" class="result hidden"></div>
   </div>
   {% endif %}
 
@@ -384,6 +401,28 @@
 
   clinicalForm?.addEventListener('submit',event=>{event.preventDefault();preview('clinical',clinicalForm)});
   cashForm?.addEventListener('submit',event=>{event.preventDefault();preview('cash',cashForm)});
+  document.getElementById('pendingProviderSave')?.addEventListener('click',async()=>{
+    const result=document.getElementById('pendingProviderResult');
+    try{
+      const decisions={};
+      document.querySelectorAll('[data-pending-provider]').forEach(select=>{
+        if(!select.value)throw new Error('Для каждого нового врача нужно выбрать направление.');
+        decisions[select.dataset.pendingProvider]={direction:select.value,display_name:select.dataset.pendingProvider};
+      });
+      const data=new FormData();
+      data.set('csrf','{{ csrf }}');
+      data.set('provider_decisions',JSON.stringify(decisions));
+      const response=await fetch('/api/uploads/providers/resolve',{method:'POST',body:data,credentials:'same-origin'});
+      const payload=await response.json();
+      if(!response.ok)throw new Error(payload.message||'Не удалось сохранить классификацию.');
+      result.textContent=payload.message;
+      result.className='result ok';
+      setTimeout(()=>location.reload(),1200);
+    }catch(error){
+      result.textContent=error.message||'Ошибка.';
+      result.className='result error';
+    }
+  });
   cancelBtn?.addEventListener('click',()=>{overlay.classList.add('hidden');context=null});
   keepBtn?.addEventListener('click',()=>commit('keep_old'));
   newBtn?.addEventListener('click',()=>commit('use_new'));
