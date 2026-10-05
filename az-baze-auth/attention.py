@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from flask import Response, g, jsonify, render_template
 
 from app import db, permission_required, user_permissions
+import upload_reconcile
 
 
 def _num(value):
@@ -377,6 +378,7 @@ def build_summary(conn=None):
 
     clinical_stale = not latest_clinical or latest_clinical < yesterday.isoformat()
     cash_stale = not latest_cash or latest_cash < yesterday.isoformat()
+    pending_providers = upload_reconcile.pending_provider_rows(conn)
 
     return {
         "today": today.isoformat(),
@@ -388,6 +390,7 @@ def build_summary(conn=None):
         "latest_cash_label": _fmt_date(latest_cash),
         "clinical_stale": clinical_stale,
         "cash_stale": cash_stale,
+        "pending_providers": pending_providers,
         "elapsed_loaded_days": len(current_dates),
         "plan": {
             "fact": round(fact),
@@ -506,6 +509,7 @@ def home_modal_fragment(user_id):
     const warnings=[];
     if(d.clinical_stale)warnings.push('Нет актуальных клинических данных. Последние данные — '+(d.latest_clinical_label||'не определены')+'.');
     if(d.cash_stale)warnings.push('Денежные данные неактуальны. Последние «Счета и оплаты» — '+(d.latest_cash_label||'не определены')+'.');
+    if((d.pending_providers||[]).length)warnings.push('Новые врачи требуют классификации: '+d.pending_providers.map(x=>x.source_name).join(', ')+'. Откройте «Загрузка данных».');
     warn.innerHTML=warnings.map(x=>'<div class="az-attention-warning">'+esc(x)+'</div>').join('');
     const p=d.plan||{{}}, pr=d.primary||{{}};
     let planComment='Недостаточно данных для расчёта';
