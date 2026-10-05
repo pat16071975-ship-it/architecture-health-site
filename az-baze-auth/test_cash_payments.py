@@ -57,6 +57,30 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(day["clinicDocsLegal"]["Старостенко Вадим Анатольевич"]["ip"], 1500)
         self.assertEqual(day["labLegal"]["ooo"], 2500)
 
+    def test_newly_registered_provider_is_used_for_cash_attribution(self):
+        original_dent = dict(cash_payments._PROVIDER_MAPS["dent"])
+        original_structure = dict(cash_payments._PROVIDER_MAPS["structure"])
+        original_lab = dict(cash_payments._PROVIDER_MAPS["lab"])
+        try:
+            cash_payments.configure_providers(
+                original_dent,
+                {**original_structure, "Иванова И. И.": "Иванова И. И."},
+                original_lab,
+            )
+            raw = self.workbook_bytes([
+                ["15 сен 2026\n12:00", "А", "№501 Иванова И. И.", 2500, 2500, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+            ])
+            daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+            day = daily["2026-09-15"]
+            self.assertEqual(day["cashTotal"], 2500)
+            self.assertEqual(day["factMedicine"], 2500)
+            self.assertEqual(day["clinicDocs"]["Иванова И. И."], 2500)
+            self.assertEqual(day["cashUnallocated"], 0)
+        finally:
+            cash_payments.configure_providers(
+                original_dent, original_structure, original_lab
+            )
+
     def test_debt_line_is_included_in_billed_total(self):
         raw = self.workbook_bytes([
             ["31 авг 2026\n19:00", "А", "№100 Счет", 1000, 0, "Основная", "", "", "", "", "", ""],
