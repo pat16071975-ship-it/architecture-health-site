@@ -968,6 +968,38 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
 def register_daily_upload(app):
     core._init_schema()
 
+    @app.post("/api/uploads/providers/resolve")
+    @permission_required("section5")
+    def provider_resolve_api():
+        require_csrf()
+        perms = user_permissions(g.user)
+        if "upload_replace" not in perms:
+            abort(403)
+        try:
+            decisions = _provider_decisions_from_form()
+            if not decisions:
+                raise ValueError("Не выбрано ни одного врача для классификации.")
+            conn = core.db()
+            upload_reconcile.resolve_providers(conn, decisions, g.user["id"])
+            conn.commit()
+            upload_reconcile.refresh_runtime(conn, core.ident_import, cash_payments)
+            core.audit(
+                "provider_registry_updated",
+                target_user_id=g.user["id"],
+                details="providers=" + ",".join(sorted(decisions)),
+            )
+            return jsonify(
+                {
+                    "status": "ok",
+                    "message": (
+                        "Классификация сохранена. Для пересчёта уже загруженного периода "
+                        "повторно загрузите исходные файлы и подтвердите выбранную версию."
+                    ),
+                }
+            )
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+
     @app.post("/api/uploads/clinical/preview")
     @permission_required("section5")
     def clinical_upload_preview():
