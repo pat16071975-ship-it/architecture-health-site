@@ -357,6 +357,8 @@ async function loadServerStore(){
   const payload=await reportApi('/api/reports/data');
   SERVER_STORE=payload.data||{};
   REPORT_CSRF=payload.csrf||'';
+  if(typeof syncProviderNames==='function')syncProviderNames(SERVER_STORE);
+  if(typeof renderStructure==='function')renderStructure();
 }"""
     html = html.replace(old_store, new_store)
 
