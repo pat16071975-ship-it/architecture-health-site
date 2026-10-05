@@ -241,8 +241,8 @@ def resolve_providers(conn, decisions, actor_id):
                 INSERT INTO provider_registry(
                     source_name,display_name,direction,source_filename,
                     first_seen_at,last_seen_at,confirmed_by,confirmed_at
-                ) VALUES(?,?,?,NULL,?,?,?,?,?)
-                """.replace("?,?,?,?,?)", "?,?,?, ?,?)"),
+                ) VALUES(?,?,?,NULL,?,?,?,?)
+                """,
                 (source, display, direction, now, now, actor_id, now),
             )
 
