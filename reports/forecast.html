@@ -306,7 +306,7 @@ function segments(d,m){const s=stat(m,d),out=[['all','Все направлен�
 function segRev(m,d,seg){const s=stat(m,d);if(seg.startsWith('doctor:'))return num(s.docs?.[seg.slice(7)]);if(seg.startsWith('cat:')){const ad=adir(d),cat=seg.slice(4),i=mi(m);let t=0;for(const doc of Object.values(ad?.doctors||{})){const x=doc?.[cat]?.[i]||[0,0];t+=num(x[1])}return t}return s.rev}
 function baseline(m,d,seg){const s=stat(m,d),rev=segRev(m,d,seg);let visits=s.primary+s.repeat;if(seg!=='all'&&s.rev>0)visits*=rev/s.rev;const primary=seg==='all'?s.primary:(s.rev>0?s.primary*rev/s.rev:0),repeat=seg==='all'?s.repeat:(s.rev>0?s.repeat*rev/s.rev:0),avg=visits?rev/visits:(d==='lab'?12000:4500),rr=primary?repeat/primary:(d==='lab'?1:2),fr=fotRate(m,d,rev),med=d==='dent'?.12:d==='lab'?.18:.02,cap=Math.max(Math.ceil(visits*1.5),Math.ceil(visits+20));return{rev,visits,primary,repeat,avg,rr,fr,med,cap}}
 function curve(kind){return kind==='same'?[1]:kind==='fast'?[.6,.4]:[.4,.35,.25]}
-function clinicBase(m){const r=rec(m),legacy=num(r.factMedicine)+num(r.factLab),rev=(r.cashTotal!==undefined&&r.cashTotal!==null&&r.cashTotal!=='')?num(r.cashTotal):legacy,exp=Object.values(FIN?.expenses?.months?.[m]?.operating||{}).reduce((a,x)=>a+num(x.total),0),unallocated=num(r.cashUnallocated);return{rev,exp,profit:rev-exp,unallocated}}
+function clinicBase(m){const r=rec(m),legacy=num(r.factMedicine)+num(r.factLab),rev=(r.cashTotal!==undefined&&r.cashTotal!==null&&r.cashTotal!=='')?num(r.cashTotal):legacy,exp=Object.values(FIN?.expenses?.months?.[m]?.operating||{}).reduce((a,x)=>a+num(x.total),0);return{rev,exp,profit:rev-exp}}
 
 function monthEndISO(m){const [y,mo]=String(m).split('-').map(Number);if(!y||!mo)return'';const d=new Date(Date.UTC(y,mo,0));return d.toISOString().slice(0,10)}
 function monthStartISO(m){return String(m||'')+'-01'}
@@ -351,7 +351,7 @@ function clinicPeriodBase(){
   if(!BASE_MONTHS.length)return{rev:0,exp:0,profit:0,primary:0,repeat:0,unallocated:0};
   const sum=BASE_MONTHS.reduce((a,m)=>{
     const b=clinicBase(m),r=rec(m);
-    a.rev+=b.rev;a.exp+=b.exp;a.profit+=b.profit;a.unallocated+=b.unallocated;
+    a.rev+=b.rev;a.exp+=b.exp;a.profit+=b.profit;a.unallocated+=num(r.cashUnallocated);
     a.primary+=num(r.dentPrimary)+num(r.clinicPrimary);
     a.repeat+=num(r.dentRepeat)+num(r.clinicRepeat);
     return a;
@@ -418,12 +418,12 @@ function applyBase(d,force=false){
 
 function renderPartialCurrent(){
   if(!PARTIAL_MONTH){$('#partialCurrent').innerHTML='';return}
-  const r=rec(PARTIAL_MONTH),b=clinicBase(PARTIAL_MONTH);
+  const r=rec(PARTIAL_MONTH),b=clinicBase(PARTIAL_MONTH),unallocated=num(r.cashUnallocated);
   const primary=num(r.dentPrimary)+num(r.clinicPrimary),repeat=num(r.dentRepeat)+num(r.clinicRepeat);
   const cut=String(r.date||'').slice(0,10);
   $('#partialCurrent').innerHTML='<div class="partial-strip"><h3>Текущий неполный месяц — '+monthLabel(PARTIAL_MONTH)+'</h3>'+
     '<p>Данные по '+ruDate(cut)+'. Этот месяц показан только для информации и <strong>не включён в базу прогноза</strong>.</p>'+
-    '<div class="partial-metrics"><span>Выручка <strong>'+money(b.rev)+'</strong></span><span>Нераспределённые ДС <strong>'+money(b.unallocated)+'</strong></span><span>Первичные <strong>'+primary.toFixed(0)+'</strong></span><span>Повторные <strong>'+repeat.toFixed(0)+'</strong></span></div></div>';
+    '<div class="partial-metrics"><span>Выручка <strong>'+money(b.rev)+'</strong></span><span>Нераспределённые ДС <strong>'+money(unallocated)+'</strong></span><span>Первичные <strong>'+primary.toFixed(0)+'</strong></span><span>Повторные <strong>'+repeat.toFixed(0)+'</strong></span></div></div>';
 }
 
 function renderBase(){
