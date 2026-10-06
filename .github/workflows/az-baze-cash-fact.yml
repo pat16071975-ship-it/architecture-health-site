@@ -173,10 +173,28 @@ jobs:
           assert "Выберите направление" in uploads
           assert "0531380019042729" in uploads and "0463880019042725" in uploads
           assert "movement <= 0" in cash
+          assert "provider_text = re.split(" in cash
+          assert "if short and short in provider_text:" in cash
+          assert "if short and short in operation:" not in cash
+
+          # Owner-approved accounting semantics:
+          # Fact, directions and doctor headline amounts are confirmed cash.
           assert "cashTotal" in management and "Выставлено счетов" in management
           assert "Нераспределённые ДС" in management
+          assert "const dentRev=Object.values(r.dentists||{}).reduce" in management
+          assert "const clinicRev=Object.values(r.clinicDocs||{}).reduce" in management
+          assert "revenueMap(" not in management
+
           assert "ДС ООО" in period and "ДС ИП" in period and "Нераспределённые ДС" in period
+          assert "(r.dentists||{})[name]" in period
+          assert "(r.clinicDocs||{})[name]" in period
+          assert "revenueMap(" not in period
+
           assert "r?.cashTotal" in dashboard and "Нераспределённые ДС" in dashboard
+          assert "dentRev=sumObject(r?.dentists)" in dashboard
+          assert "structureRev=sumObject(r?.clinicDocs)" in dashboard
+          assert "labRevenue=num(r?.labRevenue||r?.factLab)" in dashboard
+          assert "revenueMap(" not in dashboard
           assert "r.cashTotal" in forecast and "Нераспределённые ДС" in forecast
           assert "r.cashTotal" in finrez
           assert 'record.get("cashTotal")' in economics
