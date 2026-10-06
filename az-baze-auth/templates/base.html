@@ -82,6 +82,7 @@
 
     document.querySelectorAll('form').forEach(form => {
       if (!form.querySelector('input[type="file"]')) return;
+      if (form.matches('[data-az-upload-form],[data-az-cash-upload-form]')) return;
       form.addEventListener('submit', () => {
         form.querySelectorAll('button[type="submit"],input[type="submit"]').forEach(button => {
           button.disabled = true;
