@@ -137,12 +137,22 @@ def _add_legal(container, name, legal, value):
 
 
 def _find_provider(operation):
+    # For invoice-like operation strings the provider belongs to the part before
+    # the first discount block. Employee names inside "Скидка от сотрудника"
+    # must never steal the receipt attribution from the primary provider.
+    provider_text = re.split(
+        r"\s+-\s+Скидка\b",
+        str(operation or ""),
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0]
+
     candidates = []
     for direction, mapping in _PROVIDER_MAPS.items():
         for short, full in mapping.items():
             candidates.append((short, direction, full))
     for short, direction, full in sorted(candidates, key=lambda item: len(item[0]), reverse=True):
-        if short and short in operation:
+        if short and short in provider_text:
             return direction, full
     return None, None
 
