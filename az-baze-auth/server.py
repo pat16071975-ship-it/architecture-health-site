@@ -18,6 +18,7 @@ import section_navigation
 import surveys
 import terminology
 import upload_integrity
+import upload_reconcile
 
 # «Раздел 3» был старым местом для рабочих контактов и больше не используется.
 # Убираем его из действующей модели прав, не затрагивая новый раздел «Доступы и контакты».
@@ -31,7 +32,7 @@ UPLOAD_PERMISSION_OPTIONS = [
     ("upload_completed", "Загружать файл «Завершённые приёмы»"),
     ("upload_services", "Загружать файл «Выполненные услуги»"),
     ("upload_history", "Просматривать журнал загрузок"),
-    ("upload_replace", "Заменять ранее загруженные данные за дату"),
+    ("upload_replace", "Подтверждать замену данных и классификацию новых врачей"),
 ]
 # The existing permissions table stores string keys, so no DB migration is needed.
 # section5 is reused as the visible «Загрузка данных» section; capabilities are granular.
@@ -50,6 +51,10 @@ def _user_permissions_with_upload_section(user):
 
 app_core.user_permissions = _user_permissions_with_upload_section
 daily_upload.user_permissions = _user_permissions_with_upload_section
+
+# Persistent provider decisions extend the built-in IDENT provider maps.
+# They are loaded before upload routes so clinical and cash attribution share one registry.
+upload_reconcile.bootstrap_runtime(ident_import, cash_upload.cash_payments)
 
 # One upload-integrity contract is installed before any upload routes are
 # registered. Future upload handlers must reuse the same contract rather than

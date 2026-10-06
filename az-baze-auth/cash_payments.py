@@ -195,7 +195,9 @@ def _parse_rows(rows):
             day["cashIP"] += movement
         day["cashTotal"] += movement
 
-        direction, provider = _find_provider(operation) if operation.startswith("№") else (None, None)
+        # Attribute whenever the operation text explicitly contains a known provider.
+        # «Внесение ДС» and other rows without a provider remain unallocated.
+        direction, provider = _find_provider(operation)
         if direction == "dent":
             day["dentists"][provider] = float(day["dentists"].get(provider) or 0) + movement
             _add_legal(day["dentistsLegal"], provider, legal, movement)

@@ -66,6 +66,9 @@
   {% if summary.cash_stale %}
     <div class="attention-warning">Денежные данные неактуальны. Последние «Счета и оплаты» — {{ summary.latest_cash_label or 'не определены' }}.</div>
   {% endif %}
+  {% if summary.pending_providers %}
+    <div class="attention-warning">Новые врачи требуют классификации: {% for item in summary.pending_providers %}{{ item.source_name }}{% if not loop.last %}, {% endif %}{% endfor %}. Откройте «Загрузка данных».</div>
+  {% endif %}
 
   <section class="attention-grid">
     <article class="attention-card plan">
