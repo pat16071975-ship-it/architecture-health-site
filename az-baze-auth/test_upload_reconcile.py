@@ -185,6 +185,19 @@ class UploadReconcileTests(unittest.TestCase):
             [[4, 400], [0, 0], [6, 600]],
         )
 
+    def test_ajax_upload_forms_are_excluded_from_legacy_loading_modal(self):
+        html = (
+            Path(__file__).parent / "templates" / "base.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "form.matches('[data-az-upload-form],[data-az-cash-upload-form]')",
+            html,
+        )
+        self.assertIn(
+            "if (form.matches('[data-az-upload-form],[data-az-cash-upload-form]')) return;",
+            html,
+        )
+
     def test_legacy_upload_page_post_collapses_to_clean_get(self):
         source = (
             Path(__file__).parent / "daily_upload.py"
