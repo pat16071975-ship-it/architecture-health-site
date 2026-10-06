@@ -185,6 +185,25 @@ class UploadReconcileTests(unittest.TestCase):
             [[4, 400], [0, 0], [6, 600]],
         )
 
+    def test_legacy_upload_page_post_collapses_to_clean_get(self):
+        source = (
+            Path(__file__).parent / "daily_upload.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            'if request.method == "POST":\n'
+            '            return redirect(url_for("uploads_page"), code=303)',
+            source,
+        )
+        route_tail = source.split(
+            '@app.route("/uploads/", methods=["GET", "POST"])',
+            1,
+        )[1]
+        page_block = route_tail.split(
+            'return render_template(',
+            1,
+        )[0]
+        self.assertNotIn("_process_period_upload(", page_block)
+
     def test_provider_save_redirects_with_clean_get(self):
         html = (
             Path(__file__).parent / "templates" / "uploads.html"
