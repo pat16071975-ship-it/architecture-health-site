@@ -88,8 +88,6 @@ let STORE={}, FIN=null, MONTHS=[];
 
 function daysInMonth(date){const d=new Date(date+'T12:00:00');return new Date(d.getFullYear(),d.getMonth()+1,0).getDate()}
 function sumObject(obj){return Object.values(obj||{}).reduce((a,v)=>a+num(v),0)}
-function revenueMap(r,type){const billed=type==='dentists'?r?.billedDentists:r?.billedClinicDocs;if(billed&&typeof billed==='object'&&!Array.isArray(billed))return billed;const legacy=type==='dentists'?r?.dentists:r?.clinicDocs;return legacy&&typeof legacy==='object'&&!Array.isArray(legacy)?legacy:{}}
-function serviceLabRevenue(r){return r?.billedLabRevenue!==undefined&&r?.billedLabRevenue!==null?r.billedLabRevenue:(r?.labRevenue||r?.factLab)}
 function primaryOf(r){const direct=num(r?.primary);return direct||num(r?.dentPrimary)+num(r?.clinicPrimary)}
 function repeatOf(r){const direct=num(r?.repeat);return direct||num(r?.dentRepeat)+num(r?.clinicRepeat)}
 function derive(r){
@@ -97,13 +95,12 @@ function derive(r){
   const rawPlan=r?.plan, hasPlan=rawPlan!==null&&rawPlan!==undefined&&rawPlan!==''&&Number.isFinite(+rawPlan)&&+rawPlan>0, plan=hasPlan?+rawPlan:0;
   const factMedicine=num(r?.factMedicine), factLab=num(r?.factLab), cashUnallocated=num(r?.cashUnallocated);
   const primary=primaryOf(r), repeat=repeatOf(r), dentPrimary=num(r?.dentPrimary), dentRepeat=num(r?.dentRepeat), clinicPrimary=num(r?.clinicPrimary), clinicRepeat=num(r?.clinicRepeat);
-  const dentRev=sumObject(revenueMap(r,'dentists')), structureRev=sumObject(revenueMap(r,'clinicDocs')), labRevenue=num(serviceLabRevenue(r)), labOrders=num(r?.labOrders);
+  const dentRev=sumObject(r?.dentists), structureRev=sumObject(r?.clinicDocs), labRevenue=num(r?.labRevenue||r?.factLab), labOrders=num(r?.labOrders);
   const due=hasPlan?plan*day/daysInMonth(date):0, legacyFact=factMedicine+factLab;
   const factTotal=(r?.cashTotal!==undefined&&r?.cashTotal!==null&&r?.cashTotal!=='')?num(r.cashTotal):legacyFact;
   const leadsDent=num(r?.leadsDent), leadsStructure=num(r?.leadsClinic), leadsReserve=num(r?.leadsReserve), totalLeads=leadsDent+leadsStructure+leadsReserve;
   const hasLeads=[r?.leadsDent,r?.leadsClinic,r?.leadsReserve].some(v=>Number.isFinite(+v)&&+v>0);
-  const dentCash=num(r?.dentCashOOO)+num(r?.dentCashIP), structureCash=num(r?.clinicCashOOO)+num(r?.clinicCashIP), labCash=num(r?.labCashOOO)+num(r?.labCashIP);
-  return {date,hasPlan,plan,due,factMedicine,factLab,factTotal,cashUnallocated,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentCash,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureCash,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labCash,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&plan?factTotal/plan:null};
+  return {date,hasPlan,plan,due,factMedicine,factLab,factTotal,cashUnallocated,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&plan?factTotal/plan:null};
 }
 function latestByMonth(data){
   const map={}; Object.entries(data||{}).forEach(([date,r])=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;const ym=date.slice(0,7);if(!map[ym]||date>map[ym].date)map[ym]={...r,date}}); return map;
@@ -157,7 +154,7 @@ function renderDirections(r){
     <div class="direction dent"><h3>Стоматология</h3><div class="drows">${row('Выручка',money(d.dentRev))}${row('Первичные',count(d.dentPrimary))}${row('Повторные',count(d.dentRepeat))}${row('Средний чек',money(d.dentAvg))}</div></div>
     <div class="direction structure"><h3>Отделение структуры</h3><div class="drows">${row('Выручка',money(d.structureRev))}${row('Первичные',count(d.clinicPrimary))}${row('Повторные',count(d.clinicRepeat))}${row('Средний чек',money(d.structureAvg))}</div></div>
     <div class="direction lab"><h3>Лаборатория</h3><div class="drows">${row('Выручка',money(d.labRevenue))}${row('Заказы',count(d.labOrders))}${row('Средний чек',d.labOrders?money(d.labAvg):'—')}${row('Доля в общей выручке',d.factTotal?pct(d.labRevenue/d.factTotal):'—')}</div></div>`;
-  const total=d.factTotal,parts=[['dent','Стоматология',d.dentCash],['structure','Отделение структуры',d.structureCash],['lab','Лаборатория',d.labCash],['unallocated','Нераспределённые ДС',d.cashUnallocated]];
+  const total=d.factTotal,parts=[['dent','Стоматология',d.dentRev],['structure','Отделение структуры',d.structureRev],['lab','Лаборатория',d.labRevenue],['unallocated','Нераспределённые ДС',d.cashUnallocated]];
   $('#revenueStructure').innerHTML=total?`<div class="revenue-structure-card"><div class="revenue-structure-head"><strong>Структура общего Факта</strong><span>Факт: ${money(total)}</span></div><div class="revenue-structure-bar">${parts.filter(x=>x[2]>0).map(x=>`<div class="revenue-seg ${x[0]}" style="width:${x[2]/total*100}%" title="${x[1]}: ${money(x[2])} (${pct(x[2]/total)})"></div>`).join('')}</div><div class="revenue-share-legend">${parts.map(x=>`<div class="revenue-share-item ${x[0]}"><i></i><div><span>${x[1]}</span><strong>${money(x[2])} · ${pct(x[2]/total)}</strong></div></div>`).join('')}</div></div>`:'<div class="revenue-structure-card"><div class="revenue-structure-head"><strong>Структура общего Факта</strong><span>Нет данных</span></div></div>';
 }
 function renderChart(){
