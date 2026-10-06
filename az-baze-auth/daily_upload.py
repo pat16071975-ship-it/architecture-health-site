@@ -543,6 +543,23 @@ def _provider_decisions_from_form():
     return value
 
 
+def _reset_service_month(data, month_index):
+    """Clear one service-analytics month before authoritative historical rebuild."""
+    for direction in (data.get("directions") or {}).values():
+        doctors = direction.get("doctors") if isinstance(direction, dict) else {}
+        if not isinstance(doctors, dict):
+            continue
+        for doctor in doctors.values():
+            if not isinstance(doctor, dict):
+                continue
+            for series in doctor.values():
+                if not isinstance(series, list):
+                    continue
+                while len(series) <= month_index:
+                    series.append([0, 0])
+                series[month_index] = [0, 0]
+
+
 def _validate_historical_replacement(conn, month_key, dates, through):
     row = conn.execute(
         """
@@ -696,9 +713,10 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
 
     if historical_replace:
         core.ident_import._pad_months(service_data, month_index)
-        service_rows = [row for row, _action in changed_rows]
+        _reset_service_month(service_data, month_index)
         # Full historical replacement makes the uploaded source authoritative
-        # for the covered interval; all incoming service rows are re-applied.
+        # for the covered interval; the old monthly service totals are cleared
+        # before all incoming rows are re-applied.
         service_rows = list(prepared["period"])
     else:
         service_rows = [row for row, _action in changed_rows]
