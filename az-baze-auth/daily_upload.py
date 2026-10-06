@@ -157,11 +157,11 @@ def _parse_revenue_text(text):
         )
 
     if not items:
-        raise ValueError("Файл «Выполненные услуги» не содержит распознаваемых услуг.")
+        raise ValueError("Файл «Выручка по направлениям» не содержит распознаваемых услуг.")
 
     months = {(int(row["date"][0:4]), int(row["date"][5:7])) for row in items}
     if len(months) != 1:
-        raise ValueError("Файл «Выполненные услуги» должен содержать один календарный месяц.")
+        raise ValueError("Файл «Выручка по направлениям» должен содержать один календарный месяц.")
 
     return items, lab_invoices, next(iter(months))
 
@@ -222,7 +222,7 @@ def _parse_fixed_raw(raw, filename, kind):
         except Exception as exc:
             last_error = exc
 
-    label = "«Завершённые приёмы»" if kind == "completed" else "«Выполненные услуги»"
+    label = "«Завершённые приёмы»" if kind == "completed" else "«Выручка по направлениям»"
     if isinstance(last_error, ValueError):
         raise last_error
     raise ValueError(f"Не удалось распознать структуру файла {label}.") from last_error
@@ -329,22 +329,18 @@ def _split_period(overall, visits, items, lab_invoices):
     if not completed_dates:
         raise ValueError("Файл «Завершённые приёмы» не содержит дат.")
     if not service_dates:
-        raise ValueError("Файл «Выполненные услуги» не содержит дат.")
-    if completed_dates != service_dates:
-        only_completed = sorted(set(completed_dates) - set(service_dates))
-        only_services = sorted(set(service_dates) - set(completed_dates))
-        details = []
-        if only_completed:
-            details.append("только в приёмах: " + ", ".join(_format_date(v) for v in only_completed))
-        if only_services:
-            details.append("только в услугах: " + ", ".join(_format_date(v) for v in only_services))
-        suffix = "; ".join(details)
-        raise ValueError("Даты в двух файлах не совпадают" + (f" ({suffix})." if suffix else "."))
+        raise ValueError("Файл «Выручка по направлениям» не содержит дат.")
+
+    # The two MIS exports describe different facts. A calendar day can legitimately
+    # exist in only one source: e.g. revenue/service activity without a completed
+    # visit row, or completed visits without revenue rows. Build one period from
+    # the union of dates and treat the missing source for that day as zero.
+    period_dates = sorted(set(completed_dates) | set(service_dates))
 
     clinical_items = [row for row in items if not _is_retail_item(row)]
     doctors = _doctor_attribution(visits, clinical_items)
     result = []
-    for data_date in completed_dates:
+    for data_date in period_dates:
         day_overall = {data_date: core._plain(overall.get(data_date, {}))}
         day_doctors = {data_date: core._plain(doctors.get(data_date, {}))}
         day_visits = [core._plain(row) for row in visits if str(row.get("date") or "") == data_date]
@@ -363,9 +359,6 @@ def _split_period(overall, visits, items, lab_invoices):
             for row in lab_invoices
             if len(row) >= 2 and str(row[1]) == data_date
         ]
-        if not day_items:
-            raise ValueError(f"За {_format_date(data_date)} в файле услуг нет медицинских строк для загрузки.")
-
         normalized = {
             "data_date": data_date,
             "items": day_items,
@@ -426,6 +419,12 @@ def _prepare_period_raw(completed_raw, completed_name, services_raw, services_na
     )
     overall, visits = completed_parsed
     items, lab_invoices, (year, month) = services_parsed
+    completed_dates = {str(value) for value in overall}
+    service_dates = {str(row.get("date") or "") for row in items if row.get("date")}
+    source_gaps = {
+        "completed_only": sorted(completed_dates - service_dates),
+        "revenue_only": sorted(service_dates - completed_dates),
+    }
     period = _split_period(overall, visits, items, lab_invoices)
     dates = [row["data_date"] for row in period]
     month_key = f"{year:04d}-{month:02d}"
@@ -440,19 +439,20 @@ def _prepare_period_raw(completed_raw, completed_name, services_raw, services_na
         "completed_sheet": completed_sheet,
         "services_sheet": services_sheet,
         "completed_name": completed_name or "Завершённые приёмы",
-        "services_name": services_name or "Выполненные услуги",
+        "services_name": services_name or "Выручка по направлениям",
+        "source_gaps": source_gaps,
     }
 
 
 def _read_period_files(completed_file, services_file):
     completed_name = completed_file.filename or "Завершённые приёмы"
-    services_name = services_file.filename or "Выполненные услуги"
+    services_name = services_file.filename or "Выручка по направлениям"
     completed_raw = completed_file.read()
     services_raw = services_file.read()
     if not completed_raw:
         raise ValueError("Выбран пустой файл «Завершённые приёмы».")
     if not services_raw:
-        raise ValueError("Выбран пустой файл «Выполненные услуги».")
+        raise ValueError("Выбран пустой файл «Выручка по направлениям».")
     if len(completed_raw) > 25 * 1024 * 1024 or len(services_raw) > 25 * 1024 * 1024:
         raise ValueError("Размер файла превышает 25 МБ.")
     return completed_raw, completed_name, services_raw, services_name
@@ -524,6 +524,7 @@ def _period_preview(completed_file, services_file):
             | set(comparison.get("removed") or [])
         ),
         "unknown_providers": unknown,
+        "source_gaps": prepared.get("source_gaps") or {"completed_only": [], "revenue_only": []},
         "requires_choice": _comparison_has_conflict(comparison),
         "requires_provider_mapping": bool(unknown),
         "can_replace": "upload_replace" in perms,
@@ -925,7 +926,7 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
                 (
                     f"global_decision={decision or 'append'}; "
                     f"Завершённые приёмы: лист {completed_sheet}; "
-                    f"Выполненные услуги: лист {services_sheet}"
+                    f"Выручка по направлениям: лист {services_sheet}"
                 ),
                 completed_name,
                 services_name,
@@ -1027,7 +1028,7 @@ def register_daily_upload(app):
         if not completed or not completed.filename:
             return jsonify({"status": "error", "message": "Выберите файл «Завершённые приёмы»."}), 400
         if not services or not services.filename:
-            return jsonify({"status": "error", "message": "Выберите файл «Выполненные услуги»."}), 400
+            return jsonify({"status": "error", "message": "Выберите файл «Выручка по направлениям»."}), 400
         try:
             return jsonify(_period_preview(completed, services))
         except ValueError as exc:
@@ -1042,7 +1043,7 @@ def register_daily_upload(app):
         if not completed or not completed.filename:
             return jsonify({"status": "error", "message": "Выберите файл «Завершённые приёмы»."}), 400
         if not services or not services.filename:
-            return jsonify({"status": "error", "message": "Выберите файл «Выполненные услуги»."}), 400
+            return jsonify({"status": "error", "message": "Выберите файл «Выручка по направлениям»."}), 400
         try:
             result = _process_period_upload(
                 completed,
@@ -1067,7 +1068,7 @@ def register_daily_upload(app):
             if not completed or not completed.filename:
                 error = "Выберите файл «Завершённые приёмы»."
             elif not services or not services.filename:
-                error = "Выберите файл «Выполненные услуги»."
+                error = "Выберите файл «Выручка по направлениям»."
             else:
                 try:
                     result = _process_period_upload(completed, services)
