@@ -4,7 +4,7 @@ import re
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
-from flask import abort, g, jsonify, render_template, request
+from flask import abort, g, jsonify, redirect, render_template, request, url_for
 
 import daily_upload_core as core
 import cash_payments
@@ -1058,22 +1058,16 @@ def register_daily_upload(app):
     @app.route("/uploads/", methods=["GET", "POST"])
     @permission_required("section5")
     def uploads_page():
+        # The page is display-only. All real uploads use the preview/commit API.
+        # A direct POST can only be a legacy/browser replay of an old form submit;
+        # always collapse it to a clean GET so refresh/Ctrl+F5 can never replay
+        # clinical data processing.
+        if request.method == "POST":
+            return redirect(url_for("uploads_page"), code=303)
+
         perms = user_permissions(g.user)
         result = None
         error = None
-        if request.method == "POST":
-            require_csrf()
-            completed = request.files.get("completed")
-            services = request.files.get("services")
-            if not completed or not completed.filename:
-                error = "Выберите файл «Завершённые приёмы»."
-            elif not services or not services.filename:
-                error = "Выберите файл «Выручка по направлениям»."
-            else:
-                try:
-                    result = _process_period_upload(completed, services)
-                except ValueError as exc:
-                    error = str(exc)
 
         conn = core.db()
         latest = conn.execute(
