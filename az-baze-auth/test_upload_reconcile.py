@@ -10,6 +10,7 @@ os.environ.setdefault("AZBAZE_SITE_ROOT", "/tmp/az-upload-reconcile-site")
 
 import cash_payments
 import upload_reconcile
+import daily_upload
 
 
 class FakeCash:
@@ -151,6 +152,37 @@ class UploadReconcileTests(unittest.TestCase):
         self.assertEqual(result["conflict"], ["2026-09-01"])
         self.assertEqual(result["new"], ["2026-09-03"])
         self.assertEqual(result["removed"], ["2026-09-02"])
+
+    def test_historical_service_month_is_cleared_before_rebuild(self):
+        data = {
+            "directions": {
+                "Стоматология": {
+                    "doctors": {
+                        "Doctor": {
+                            "Category": [[1, 100], [2, 200], [3, 300]]
+                        }
+                    }
+                },
+                "Отделение структуры": {
+                    "doctors": {
+                        "Struct": {
+                            "Category": [[4, 400], [5, 500], [6, 600]]
+                        }
+                    }
+                },
+            }
+        }
+
+        daily_upload._reset_service_month(data, 1)
+
+        self.assertEqual(
+            data["directions"]["Стоматология"]["doctors"]["Doctor"]["Category"],
+            [[1, 100], [0, 0], [3, 300]],
+        )
+        self.assertEqual(
+            data["directions"]["Отделение структуры"]["doctors"]["Struct"]["Category"],
+            [[4, 400], [0, 0], [6, 600]],
+        )
 
     def test_cash_reconciliation_requires_visible_unallocated_component(self):
         payload = {
