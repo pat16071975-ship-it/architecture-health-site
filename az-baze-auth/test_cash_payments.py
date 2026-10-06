@@ -81,6 +81,58 @@ class CashPaymentsTests(unittest.TestCase):
                 original_dent, original_structure, original_lab
             )
 
+    def test_discount_employee_cannot_steal_primary_provider_receipt(self):
+        original_dent = dict(cash_payments._PROVIDER_MAPS["dent"])
+        original_structure = dict(cash_payments._PROVIDER_MAPS["structure"])
+        original_lab = dict(cash_payments._PROVIDER_MAPS["lab"])
+        try:
+            cash_payments.configure_providers(
+                {
+                    **original_dent,
+                    "Босак Я. С.": "Босак Яна Сергеевна",
+                    "Зубачев Р. Н.": "Зубачев Роман Николаевич",
+                },
+                original_structure,
+                original_lab,
+            )
+            raw = self.workbook_bytes([
+                [
+                    "16 сен 2026\n12:00", "А",
+                    "№71953 Чирков М. С. - Скидка 15% - Скидка от сотрудника: Зубачев Р. Н.",
+                    6240, 6240, "Основная", "", cash_payments.OOO_KKM, "", "", "", "",
+                ],
+                [
+                    "16 сен 2026\n12:10", "Б",
+                    "№71960 Босак Я. С. - Скидка от сотрудника: Зубачев Р. Н.",
+                    8300, 8300, "Основная", "", cash_payments.IP_KKM, "", "", "", "",
+                ],
+                [
+                    "16 сен 2026\n12:20", "В",
+                    "№71961 Зубачев Р. Н.",
+                    1000, 1000, "Основная", "", cash_payments.OOO_KKM, "", "", "", "",
+                ],
+            ])
+            daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+            day = daily["2026-09-16"]
+
+            self.assertEqual(day["dentists"]["Чирков Максим Сергеевич"], 6240)
+            self.assertEqual(day["dentists"]["Босак Яна Сергеевна"], 8300)
+            self.assertEqual(day["dentists"]["Зубачев Роман Николаевич"], 1000)
+            self.assertEqual(
+                day["dentistsLegal"]["Чирков Максим Сергеевич"]["ooo"], 6240
+            )
+            self.assertEqual(
+                day["dentistsLegal"]["Босак Яна Сергеевна"]["ip"], 8300
+            )
+            self.assertEqual(
+                day["dentistsLegal"]["Зубачев Роман Николаевич"]["ooo"], 1000
+            )
+            self.assertEqual(day["cashUnallocated"], 0)
+        finally:
+            cash_payments.configure_providers(
+                original_dent, original_structure, original_lab
+            )
+
     def test_debt_line_is_included_in_billed_total(self):
         raw = self.workbook_bytes([
             ["31 авг 2026\n19:00", "А", "№100 Счет", 1000, 0, "Основная", "", "", "", "", "", ""],
