@@ -189,8 +189,14 @@ class UploadReconcileTests(unittest.TestCase):
         html = (
             Path(__file__).parent / "templates" / "uploads.html"
         ).read_text(encoding="utf-8")
-        self.assertIn("location.replace('/uploads/')", html)
-        self.assertNotIn("location.reload()", html)
+        self.assertIn(
+            "setTimeout(()=>location.replace('/uploads/'),1200)",
+            html,
+        )
+        self.assertNotIn(
+            "setTimeout(()=>location.reload(),1200)",
+            html,
+        )
 
     def test_upload_ui_uses_approved_revenue_by_directions_label(self):
         html = (
