@@ -185,6 +185,13 @@ class UploadReconcileTests(unittest.TestCase):
             [[4, 400], [0, 0], [6, 600]],
         )
 
+    def test_provider_save_redirects_with_clean_get(self):
+        html = (
+            Path(__file__).parent / "templates" / "uploads.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("location.replace('/uploads/')", html)
+        self.assertNotIn("location.reload()", html)
+
     def test_upload_ui_uses_approved_revenue_by_directions_label(self):
         html = (
             Path(__file__).parent / "templates" / "uploads.html"
