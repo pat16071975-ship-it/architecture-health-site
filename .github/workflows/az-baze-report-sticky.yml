@@ -155,12 +155,6 @@ jobs:
           assert "Выставлено счетов" in current_index
           assert "ДС ООО" in current_index and "ДС ИП" in current_index
           assert "factTotal:cashTotal" in current_index
-          assert "function revenueMap(r,type)" in current_index
-          assert "r?.billedDentists" in current_index and "r?.billedClinicDocs" in current_index
-          assert "Object.keys(revenueMap(r,'dentists'))" in current_index
-          assert "revenueMap(r,'dentists')" in current_period
-          assert "revenueMap(r,'clinicDocs')" in current_period
-          assert "r.dentistsLegal" in current_period and "r.clinicDocsLegal" in current_period
 
           period_functions = (
               "mix",
@@ -169,6 +163,7 @@ jobs:
               "heatStyles",
               "getPeriodDefs",
               "periodData",
+              "doctorReconciliation",
               "clampDate",
               "compareMonths",
               "rawOrNull",
