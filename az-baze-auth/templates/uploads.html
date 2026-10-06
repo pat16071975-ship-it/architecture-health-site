@@ -424,7 +424,7 @@
       if(!response.ok)throw new Error(payload.message||'Не удалось сохранить классификацию.');
       result.textContent=payload.message;
       result.className='result ok';
-      setTimeout(()=>location.reload(),1200);
+      setTimeout(()=>location.replace('/uploads/'),1200);
     }catch(error){
       result.textContent=error.message||'Ошибка.';
       result.className='result error';
