@@ -184,6 +184,48 @@ class UploadReconcileTests(unittest.TestCase):
             [[4, 400], [0, 0], [6, 600]],
         )
 
+    def test_period_union_allows_dates_present_in_only_one_source(self):
+        overall = {
+            "2026-09-02": {"Первичные": 1},
+        }
+        visits = [
+            {
+                "date": "2026-09-02",
+                "patient": "Пациент П. П.",
+                "kind": "Первичные",
+            }
+        ]
+        items = [
+            {
+                "staff": "Чирков М. С.",
+                "patient": "Пациент Д. Д.",
+                "date": "2026-09-01",
+                "group": "Терапия",
+                "service": "Приём",
+                "qty": 1,
+                "amount": 1000,
+                "invoice": "1",
+            }
+        ]
+
+        period = daily_upload._split_period(overall, visits, items, [])
+
+        self.assertEqual(
+            [row["data_date"] for row in period],
+            ["2026-09-01", "2026-09-02"],
+        )
+
+        first = period[0]["normalized"]
+        second = period[1]["normalized"]
+
+        self.assertEqual(first["overall"], {"2026-09-01": {}})
+        self.assertEqual(len(first["items"]), 1)
+        self.assertEqual(first["visits"], [])
+
+        self.assertEqual(second["overall"], {"2026-09-02": {"Первичные": 1}})
+        self.assertEqual(second["items"], [])
+        self.assertEqual(len(second["visits"]), 1)
+
     def test_cash_reconciliation_requires_visible_unallocated_component(self):
         payload = {
             "cashTotal": 1000,
