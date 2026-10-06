@@ -34,7 +34,7 @@
       </div>
       <div class="upload-box">
         <h3>2. Выручка по направлениям</h3>
-        <p>Выгрузка из МИС ровно за тот же период.</p>
+        <p>Выгрузка из МИС за тот же календарный месяц. Отдельные даты могут отсутствовать в одном из двух файлов.</p>
         {% if 'upload_services' in perms %}
           <input type="file" name="services" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
         {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
@@ -319,6 +319,13 @@
     }else{
       message.innerHTML='Период <strong>'+esc(payload.period.from)+' — '+esc(payload.period.to)+'</strong>.'+
         (payload.requires_choice?'<br>В существующих данных есть отличия. Один выбранный вариант будет применён ко всему пересекающемуся периоду.':'<br>Конфликтов с существующими данными нет.');
+      const gaps=payload.source_gaps||{}, completedOnly=gaps.completed_only||[], revenueOnly=gaps.revenue_only||[];
+      if(completedOnly.length||revenueOnly.length){
+        const parts=[];
+        if(completedOnly.length)parts.push('только в «Завершённых приёмах»: '+completedOnly.length);
+        if(revenueOnly.length)parts.push('только в «Выручке по направлениям»: '+revenueOnly.length);
+        message.innerHTML+='<br><strong>Разница дат между источниками допустима:</strong> '+esc(parts.join('; '))+'. Для отсутствующего источника за такую дату используется 0.';
+      }
     }
 
     const unknown=payload.unknown_providers||[];
