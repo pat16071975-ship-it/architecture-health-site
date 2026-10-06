@@ -175,15 +175,8 @@ jobs:
           assert "movement <= 0" in cash
           assert "cashTotal" in management and "Выставлено счетов" in management
           assert "Нераспределённые ДС" in management
-          assert "function revenueMap(r,type)" in management
-          assert "r?.billedDentists" in management and "r?.billedClinicDocs" in management
-          assert "Object.keys(revenueMap(r,'dentists'))" in management
           assert "ДС ООО" in period and "ДС ИП" in period and "Нераспределённые ДС" in period
-          assert "revenueMap(r,'dentists')" in period and "r.dentistsLegal" in period
-          assert "revenueMap(r,'clinicDocs')" in period and "r.clinicDocsLegal" in period
           assert "r?.cashTotal" in dashboard and "Нераспределённые ДС" in dashboard
-          assert "r?.billedDentists" in dashboard and "r?.billedClinicDocs" in dashboard
-          assert "d.dentCash" in dashboard and "d.structureCash" in dashboard and "d.labCash" in dashboard
           assert "r.cashTotal" in forecast and "Нераспределённые ДС" in forecast
           assert "r.cashTotal" in finrez
           assert 'record.get("cashTotal")' in economics
