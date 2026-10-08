@@ -296,7 +296,7 @@ let FIN=null,STORE={},ANALYTICS=null,SALARY=null,EXTRA=null;
 let ALL_MONTHS=[],FULL_MONTHS=[],BASE_MONTHS=[],PARTIAL_MONTH=null,BASE_PRESET='3';
 
 function parseBlob(k){try{return JSON.parse(STORE[k]||'null')}catch{return null}}
-function rec(m){const r=FIN?.management?.[m]||{};return r.paidDataComplete===true?{...r,factLab:num(r.paidLab)}:r}
+function rec(m){return FIN?.management?.[m]||{}}
 function mi(m){return Math.max(0,(+String(m).slice(5,7)||1)-1)}
 function stat(m,d){const r=rec(m);if(d==='dent'){const docs=r.dentists||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.dentPrimary),repeat:num(r.dentRepeat),docs}}if(d==='structure'){const docs=r.structureDoctors||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.clinicPrimary),repeat:num(r.clinicRepeat),docs}}return{rev:num(r.factLab),primary:0,repeat:0,docs:{}}}
 function adir(d){const ds=ANALYTICS?.directions||{};for(const n of d==='dent'?['Стоматология']:d==='structure'?['Отделение структуры','Клиника']:['Лаборатория'])if(ds[n])return ds[n];return null}
@@ -413,7 +413,7 @@ function applyBase(d,force=false){
   if(force||!$('#rr-'+d).dataset.touched){
     $('#rr-'+d).value=b.rr.toFixed(1);$('#avg-'+d).value=Math.round(b.avg);$('#fot-'+d).value=Math.round(b.fr*100);$('#med-'+d).value=Math.round(b.med*100);$('#cap-'+d).value=b.cap;
   }
-  $('#base-'+d).textContent='Средний месяц базы: оплачено '+money(b.rev)+' · первичных '+b.primary.toFixed(1)+' · повторных '+b.repeat.toFixed(1)+' · визитов '+b.visits.toFixed(1)+' · ФОТ ~'+pct(b.fr);
+  $('#base-'+d).textContent='Средний месяц базы: выручка '+money(b.rev)+' · первичных '+b.primary.toFixed(1)+' · повторных '+b.repeat.toFixed(1)+' · визитов '+b.visits.toFixed(1)+' · ФОТ ~'+pct(b.fr);
 }
 
 function renderPartialCurrent(){
@@ -438,14 +438,13 @@ function renderBase(){
   $('#baseDirections').innerHTML=DIRS.map(([d,label])=>{
     const b=periodBaseline(d,'all'),flow=d==='lab'?'Заказы/визиты':'Первичные / мес.';
     return '<div class="current-direction '+d+'"><h3>'+label+'</h3><div class="facts">'+
-      '<div class="fact"><span>Среднее оплачено / мес.</span><strong>'+money(b.rev)+'</strong></div>'+
+      '<div class="fact"><span>Средняя выручка / мес.</span><strong>'+money(b.rev)+'</strong></div>'+
       '<div class="fact"><span>'+flow+'</span><strong>'+(d==='lab'?'—':b.primary.toFixed(1))+'</strong></div>'+
       '<div class="fact"><span>Повторные / мес.</span><strong>'+(d==='lab'?'—':b.repeat.toFixed(1))+'</strong></div>'+
       '<div class="fact"><span>Визиты / мес.</span><strong>'+(b.visits?b.visits.toFixed(1):'—')+'</strong></div>'+
       '</div></div>';
   }).join('');
-  const allocated=DIRS.reduce((sum,[d])=>sum+periodBaseline(d,'all').rev,0);
-  $('#baseReconcile').innerHTML='<div class="partial-strip"><h3>Факт клиники и «Оплачено» по направлениям</h3><p>Средний Факт клиники '+money(base.rev)+' — кассовые поступления. Среднее «Оплачено» по направлениям '+money(allocated)+' — зачёт оплат по услугам. Эти суммы не обязаны совпадать из-за депозитов и оплат ранее или позже выставленных счетов.</p></div>';
+  $('#baseReconcile').innerHTML='<div class="partial-strip"><h3>Источник направлений</h3><p>Выручка по направлениям рассчитывается по действующему источнику. Новый отчёт МИС сохраняется отдельно и до отдельного решения об активации в прогнозе не используется.</p></div>';
   renderPartialCurrent();
 }
 
@@ -541,7 +540,7 @@ function wireAdvanced(){
 
 function initPeriods(){
   ALL_MONTHS=Object.keys(FIN.management||{}).sort();
-  FULL_MONTHS=ALL_MONTHS.filter(m=>fullMonth(m)&&rec(m).paidDataComplete===true);
+  FULL_MONTHS=ALL_MONTHS.filter(fullMonth);
   const latest=ALL_MONTHS[ALL_MONTHS.length-1]||null;
   PARTIAL_MONTH=latest&&!fullMonth(latest)?latest:null;
 
