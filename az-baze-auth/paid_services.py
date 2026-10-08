@@ -632,33 +632,71 @@ def visit_doctors(snapshot, visits, dentists, structure_doctors):
     return doctors, matched, unmatched
 
 
-def apply_visit_attribution(record, snapshot, normalized, dentists, structure_doctors):
+def _source_visit_totals(normalized_rows, up_to_date):
+    primary = repeat = 0
+    for normalized in normalized_rows or []:
+        data_date = str(normalized.get("data_date") or "")
+        if up_to_date and data_date and data_date > up_to_date:
+            continue
+        day_counts = (normalized.get("overall") or {}).get(data_date, {}) or {}
+        primary += int(day_counts.get("Первичные") or 0)
+        repeat += int(day_counts.get("Повторные") or 0)
+        repeat += int(day_counts.get("Отконсультированные") or 0)
+    return primary, repeat
+
+
+def apply_visit_attribution(
+    record,
+    snapshot,
+    normalized_rows,
+    dentists,
+    structure_doctors,
+    lab_doctors=None,
+):
     if not isinstance(record, dict) or not isinstance(snapshot, dict):
         return record
-    visits = normalized.get("visits") if isinstance(normalized, dict) else []
+
+    rows = normalized_rows if isinstance(normalized_rows, list) else [normalized_rows or {}]
+    data_date = str(record.get("date") or "")
+    visits = []
+    for normalized in rows:
+        row_date = str(normalized.get("data_date") or "")
+        if data_date and row_date and row_date > data_date:
+            continue
+        visits.extend(normalized.get("visits") or [])
+
     doctors, matched, unmatched = visit_doctors(
         snapshot,
-        visits or [],
+        visits,
         dentists,
         structure_doctors,
     )
-    data_date = str(record.get("date") or normalized.get("data_date") or "")
-    day = doctors.get(data_date, {})
 
     dent_primary = structure_primary = dent_repeat = structure_repeat = 0
-    for source_name, value in (day.get("Первичные") or {}).items():
-        if source_name in dentists:
-            dent_primary += int(value or 0)
-        elif source_name in structure_doctors:
-            structure_primary += int(value or 0)
-    for kind in ("Повторные", "Отконсультированные"):
-        for source_name, value in (day.get(kind) or {}).items():
+    for day_date, day in doctors.items():
+        if data_date and day_date > data_date:
+            continue
+        for source_name, value in (day.get("Первичные") or {}).items():
             if source_name in dentists:
-                dent_repeat += int(value or 0)
+                dent_primary += int(value or 0)
             elif source_name in structure_doctors:
-                structure_repeat += int(value or 0)
+                structure_primary += int(value or 0)
+        for kind in ("Повторные", "Отконсультированные"):
+            for source_name, value in (day.get(kind) or {}).items():
+                if source_name in dentists:
+                    dent_repeat += int(value or 0)
+                elif source_name in structure_doctors:
+                    structure_repeat += int(value or 0)
 
-    if matched:
+    source_primary, source_repeat = _source_visit_totals(rows, data_date)
+    primary = dent_primary + structure_primary
+    repeat = dent_repeat + structure_repeat
+
+    # A v2 snapshot contains privacy-safe visit links. Once that source exists,
+    # it becomes authoritative for department attribution, including zero matches.
+    if isinstance(snapshot.get("visit_links"), dict):
+        record["primary"] = primary
+        record["repeat"] = repeat
         record["dentPrimary"] = dent_primary
         record["dentRepeat"] = dent_repeat
         record["clinicPrimary"] = structure_primary
@@ -666,13 +704,57 @@ def apply_visit_attribution(record, snapshot, normalized, dentists, structure_do
         record["paidVisitAttribution"] = True
         record["paidVisitMatched"] = matched
         record["paidVisitUnmatched"] = unmatched
+        control = dict(record.get("_uploadControl") or {})
+        control.update(
+            {
+                "sourcePrimary": source_primary,
+                "sourceRepeat": source_repeat,
+                "reportedPrimary": primary,
+                "reportedRepeat": repeat,
+                "unassignedPrimary": max(0, source_primary - primary),
+                "unassignedRepeat": max(0, source_repeat - repeat),
+            }
+        )
+        record["_uploadControl"] = control
 
-    invoices = snapshot.get("invoices") or []
-    lab_sources = set()
-    # lab provider membership is injected by the caller through apply_snapshot;
-    # keep order counting separate there when a paid snapshot is active.
-    record["_paid_invoice_rows"] = invoices
+    lab_sources = set((lab_doctors or {}).keys())
+    if lab_sources and isinstance(snapshot.get("invoices"), list):
+        record["labOrders"] = len({
+            (str(row.get("invoice") or ""), str(row.get("date") or ""))
+            for row in snapshot.get("invoices") or []
+            if str(row.get("staff") or "") in lab_sources
+            and str(row.get("date") or "")
+            and (not data_date or str(row.get("date") or "") <= data_date)
+        })
     return record
+
+
+def _daily_normalized_rows(conn, month):
+    has_daily_uploads = bool(conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_uploads'"
+    ).fetchone())
+    if not has_daily_uploads:
+        return []
+    rows = conn.execute(
+        """
+        SELECT data_date,normalized_json
+        FROM daily_uploads
+        WHERE substr(data_date,1,7)=?
+        ORDER BY data_date
+        """,
+        (str(month),),
+    ).fetchall()
+    result = []
+    for row in rows:
+        try:
+            normalized = json.loads(
+                row["normalized_json"] if hasattr(row, "keys") else row[1]
+            )
+        except (TypeError, ValueError):
+            continue
+        if isinstance(normalized, dict):
+            result.append(normalized)
+    return result
 
 
 def apply_snapshot(record, snapshot, dentists, structure_doctors, lab_doctors, ignored=None):
@@ -705,15 +787,6 @@ def apply_snapshot(record, snapshot, dentists, structure_doctors, lab_doctors, i
     record["serviceDebtOpening"] = round(_num(totals.get("opening")), 2)
     record["serviceBilled"] = round(_num(totals.get("billed")), 2)
     record["serviceDebtClosing"] = round(_num(totals.get("closing")), 2)
-    as_of = str(snapshot.get("as_of_date") or "")
-    lab_sources = set((lab_doctors or {}).keys())
-    record["labOrders"] = len({
-        (str(row.get("invoice") or ""), str(row.get("date") or ""))
-        for row in (snapshot.get("invoices") or [])
-        if str(row.get("staff") or "") in lab_sources
-        and str(row.get("date") or "")
-        and (not as_of or str(row.get("date") or "") <= as_of)
-    })
     return record
 
 
@@ -721,9 +794,7 @@ def overlay_record_map(conn, month, records, dentists, structure_doctors, lab_do
     if not records:
         return records
     month_snapshot = latest_snapshot_for_month(conn, month)
-    has_daily_uploads = bool(conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_uploads'"
-    ).fetchone())
+    normalized_rows = _daily_normalized_rows(conn, month)
     for data_date, record in records.items():
         if str(data_date)[:7] != str(month):
             continue
@@ -737,26 +808,15 @@ def overlay_record_map(conn, month, records, dentists, structure_doctors, lab_do
                 lab_doctors,
                 ignored=ignored,
             )
-        if month_snapshot and has_daily_uploads:
-            daily = conn.execute(
-                "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
-                (str(data_date),),
-            ).fetchone()
-            if daily:
-                try:
-                    normalized = json.loads(
-                        daily["normalized_json"] if hasattr(daily, "keys") else daily[0]
-                    )
-                except (TypeError, ValueError):
-                    normalized = {}
-                apply_visit_attribution(
-                    record,
-                    month_snapshot,
-                    normalized,
-                    dentists,
-                    structure_doctors,
-                )
-        record.pop("_paid_invoice_rows", None)
+        if month_snapshot:
+            apply_visit_attribution(
+                record,
+                month_snapshot,
+                normalized_rows,
+                dentists,
+                structure_doctors,
+                lab_doctors,
+            )
     return records
 
 
@@ -799,9 +859,7 @@ def overlay_stored_month(
         (str(month),),
     ).fetchall()
     month_snapshot = latest_snapshot_for_month(conn, month)
-    has_daily_uploads = bool(conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_uploads'"
-    ).fetchone())
+    normalized_rows = _daily_normalized_rows(conn, month)
     changed = 0
     for row in rows:
         data_date = str(row["date"] if hasattr(row, "keys") else row[0])
@@ -826,41 +884,36 @@ def overlay_stored_month(
             )
             touched = True
 
-        if month_snapshot and has_daily_uploads:
-            daily = conn.execute(
-                "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
-                (data_date,),
-            ).fetchone()
-            if daily:
-                try:
-                    normalized = json.loads(
-                        daily["normalized_json"] if hasattr(daily, "keys") else daily[0]
-                    )
-                except (TypeError, ValueError):
-                    normalized = {}
-                before = (
-                    record.get("dentPrimary"),
-                    record.get("dentRepeat"),
-                    record.get("clinicPrimary"),
-                    record.get("clinicRepeat"),
-                )
-                apply_visit_attribution(
-                    record,
-                    month_snapshot,
-                    normalized,
-                    dentists,
-                    structure_doctors,
-                )
-                after = (
-                    record.get("dentPrimary"),
-                    record.get("dentRepeat"),
-                    record.get("clinicPrimary"),
-                    record.get("clinicRepeat"),
-                )
-                if after != before or record.get("paidVisitAttribution") is True:
-                    touched = True
+        if month_snapshot:
+            before = (
+                record.get("primary"),
+                record.get("repeat"),
+                record.get("dentPrimary"),
+                record.get("dentRepeat"),
+                record.get("clinicPrimary"),
+                record.get("clinicRepeat"),
+                record.get("labOrders"),
+            )
+            apply_visit_attribution(
+                record,
+                month_snapshot,
+                normalized_rows,
+                dentists,
+                structure_doctors,
+                lab_doctors,
+            )
+            after = (
+                record.get("primary"),
+                record.get("repeat"),
+                record.get("dentPrimary"),
+                record.get("dentRepeat"),
+                record.get("clinicPrimary"),
+                record.get("clinicRepeat"),
+                record.get("labOrders"),
+            )
+            if after != before or record.get("paidVisitAttribution") is True:
+                touched = True
 
-        record.pop("_paid_invoice_rows", None)
         if not touched:
             continue
         conn.execute(
