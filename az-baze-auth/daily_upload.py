@@ -92,7 +92,7 @@ def _is_retail_item(row):
     return "сопутствующие товары" in text
 
 
-def _parse_revenue_text(text):
+def _parse_legacy_revenue_text(text):
     items = []
     lab_invoices = []
     current_staff = None
@@ -164,6 +164,164 @@ def _parse_revenue_text(text):
         raise ValueError("Файл «Выручка по направлениям» должен содержать один календарный месяц.")
 
     return items, lab_invoices, next(iter(months))
+
+
+
+def _revenue_header_name(value):
+    return re.sub(r"\s+", " ", str(value or "").strip().lower().replace("ё", "е"))
+
+
+def _date_from_service_cell(value):
+    match = re.search(r"(\d{2}\.\d{2}\.\d{4})", str(value or ""))
+    return _iso(match.group(1)) if match else None
+
+
+def _parse_paid_revenue_text(text):
+    rows = [line.split("\t") for line in text.splitlines()]
+    header_index = None
+    amount_index = paid_index = opening_index = closing_index = None
+    for row_index, cols in enumerate(rows):
+        labels = [_revenue_header_name(value) for value in cols]
+        if "сумма со скидкой" not in labels or "оплачено" not in labels:
+            continue
+        header_index = row_index
+        amount_index = labels.index("сумма со скидкой")
+        paid_index = labels.index("оплачено")
+        opening_index = next(
+            (i for i, label in enumerate(labels) if "задолженность" in label and "нач" in label),
+            None,
+        )
+        closing_index = next(
+            (i for i, label in enumerate(labels) if "задолженность" in label and "кон" in label),
+            None,
+        )
+        break
+
+    if header_index is None:
+        return None
+
+    def cell(cols, index):
+        if index is None or index >= len(cols):
+            return ""
+        return str(cols[index] or "").strip()
+
+    def money_at(cols, index):
+        value = _money(cell(cols, index))
+        return 0.0 if value is None else value
+
+    items = []
+    lab_invoices = []
+    paid_by_provider = {}
+    in_services = False
+    current_staff = None
+    current_patient = None
+    current_date = None
+    current_group = ""
+    current_invoice = None
+
+    for cols in rows[header_index + 1 :]:
+        cols += [""] * max(0, max(8, paid_index + 1, amount_index + 1) - len(cols))
+        first = cell(cols, 0)
+        second = cell(cols, 1)
+        service = cell(cols, 2)
+        qty_text = cell(cols, 3)
+
+        if first == "Услуги" and not second and not service and not qty_text:
+            in_services = True
+            current_staff = current_patient = current_date = current_invoice = None
+            current_group = ""
+            continue
+        if not in_services:
+            continue
+
+        financial_present = any(
+            _money(cell(cols, index)) is not None
+            for index in (opening_index, amount_index, paid_index, closing_index)
+            if index is not None
+        )
+        if (
+            first
+            and _is_staff_header(first)
+            and not second
+            and not service
+            and not qty_text
+            and financial_present
+        ):
+            current_staff = first
+            current_patient = None
+            current_date = None
+            current_group = ""
+            current_invoice = None
+            target = paid_by_provider.setdefault(
+                first,
+                {"opening_debt": 0.0, "billed": 0.0, "paid": 0.0, "closing_debt": 0.0},
+            )
+            target["opening_debt"] += money_at(cols, opening_index)
+            target["billed"] += money_at(cols, amount_index)
+            target["paid"] += money_at(cols, paid_index)
+            target["closing_debt"] += money_at(cols, closing_index)
+            continue
+
+        match = core.ident_import.INVOICE_RE.match(first)
+        if match:
+            current_invoice = match.group(1)
+            current_date = _iso(match.group(2))
+            current_group = ""
+            if current_staff in core.ident_import.LAB_DOCTORS:
+                lab_invoices.append((current_invoice, current_date))
+            continue
+
+        if first and not second and not service and not qty_text:
+            current_patient = first
+            current_date = None
+            current_group = ""
+            current_invoice = None
+            continue
+
+        if not current_staff or not qty_text or not service:
+            continue
+        service_date = _date_from_service_cell(second) or current_date
+        if not service_date:
+            # Historical debt rows without a service/invoice date belong to the
+            # provider-level paid snapshot, not to current service analytics.
+            continue
+        amount = _money(cell(cols, amount_index))
+        if amount is None:
+            continue
+        try:
+            qty = float(qty_text.replace(",", "."))
+        except ValueError:
+            continue
+        if first:
+            current_group = first
+        items.append(
+            {
+                "staff": current_staff,
+                "patient": current_patient or "",
+                "date": service_date,
+                "group": current_group,
+                "service": service,
+                "qty": qty,
+                "amount": amount,
+                "paid_amount": money_at(cols, paid_index),
+                "invoice": current_invoice,
+            }
+        )
+
+    if not items:
+        raise ValueError("Файл «Выручка по направлениям» не содержит распознаваемых услуг в разделе «Услуги».")
+    months = {(int(row["date"][0:4]), int(row["date"][5:7])) for row in items}
+    if len(months) != 1:
+        raise ValueError("Файл «Выручка по направлениям» должен содержать один календарный месяц.")
+    return items, lab_invoices, next(iter(months)), core._plain(paid_by_provider)
+
+
+def _parse_revenue_text(text):
+    paid = _parse_paid_revenue_text(text)
+    if paid is not None:
+        return paid
+    items, lab_invoices, year_month = _parse_legacy_revenue_text(text)
+    return items, lab_invoices, year_month, None
 
 
 def _parse_completed_text(text):
@@ -322,7 +480,7 @@ def _ensure_extra_service_doctors(data, year, month):
             }
 
 
-def _split_period(overall, visits, items, lab_invoices):
+def _split_period(overall, visits, items, lab_invoices, paid_by_provider=None):
     completed_dates = sorted(str(value) for value in overall)
     service_dates = sorted({str(row.get("date") or "") for row in items if row.get("date")})
 
@@ -368,6 +526,12 @@ def _split_period(overall, visits, items, lab_invoices):
             "doctors": day_doctors,
             "visits": day_visits,
         }
+        if paid_by_provider is not None:
+            # The MIS report exposes paid totals for the whole selected period,
+            # not a trustworthy payment date. Store that period delta once.
+            normalized["paid_by_provider"] = (
+                core._plain(paid_by_provider) if data_date == period_dates[-1] else {}
+            )
         completed_hash = _payload_hash(
             {
                 "data_date": data_date,
@@ -376,14 +540,15 @@ def _split_period(overall, visits, items, lab_invoices):
                 "visits": day_visits,
             }
         )
-        services_hash = _payload_hash(
-            {
-                "data_date": data_date,
-                "items": day_items,
-                "retail_items": day_retail,
-                "lab_invoices": day_lab,
-            }
-        )
+        services_payload = {
+            "data_date": data_date,
+            "items": day_items,
+            "retail_items": day_retail,
+            "lab_invoices": day_lab,
+        }
+        if "paid_by_provider" in normalized:
+            services_payload["paid_by_provider"] = normalized["paid_by_provider"]
+        services_hash = _payload_hash(services_payload)
         result.append(
             {
                 "data_date": data_date,
@@ -418,14 +583,14 @@ def _prepare_period_raw(completed_raw, completed_name, services_raw, services_na
         services_raw, services_name, "services"
     )
     overall, visits = completed_parsed
-    items, lab_invoices, (year, month) = services_parsed
+    items, lab_invoices, (year, month), paid_by_provider = services_parsed
     completed_dates = {str(value) for value in overall}
     service_dates = {str(row.get("date") or "") for row in items if row.get("date")}
     source_gaps = {
         "completed_only": sorted(completed_dates - service_dates),
         "revenue_only": sorted(service_dates - completed_dates),
     }
-    period = _split_period(overall, visits, items, lab_invoices)
+    period = _split_period(overall, visits, items, lab_invoices, paid_by_provider)
     dates = [row["data_date"] for row in period]
     month_key = f"{year:04d}-{month:02d}"
     if any(data_date[:7] != month_key for data_date in dates):

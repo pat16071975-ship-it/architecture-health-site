@@ -273,7 +273,7 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(payload["cashTotal"], 5000)
         self.assertEqual(payload["cashOOO"], 3000)
         self.assertEqual(payload["cashIP"], 2000)
-        self.assertEqual(payload["cashUnallocated"], 5000)
+        self.assertNotIn("cashUnallocated", payload)
 
     def test_overlay_preserves_billed_baseline_and_adds_latest_cash_date(self):
         conn = sqlite3.connect(":memory:")
@@ -324,15 +324,20 @@ class CashPaymentsTests(unittest.TestCase):
 
         row30 = json.loads(conn.execute("SELECT payload FROM report_data WHERE date='2026-08-30'").fetchone()[0])
         self.assertEqual(row30["cashTotal"], 3000)
-        self.assertEqual(row30["factMedicine"], 3000)
-        self.assertEqual(row30["billedMedicine"], 7000)
-        self.assertEqual(row30["billedLab"], 500)
+        self.assertEqual(row30["factMedicine"], 7000)
+        self.assertEqual(row30["factLab"], 500)
+        self.assertEqual(row30["dentists"]["Чирков Максим Сергеевич"], 7000)
+        self.assertNotIn("cashUnallocated", row30)
+        self.assertNotIn("dentistsLegal", row30)
 
         row31 = json.loads(conn.execute("SELECT payload FROM report_data WHERE date='2026-08-31'").fetchone()[0])
         self.assertEqual(row31["cashTotal"], 5000)
         self.assertEqual(row31["cashOOO"], 3000)
         self.assertEqual(row31["cashIP"], 2000)
-        self.assertEqual(row31["cashUnallocated"], 2000)
+        self.assertEqual(row31["factMedicine"], 7000)
+        self.assertEqual(row31["factLab"], 500)
+        self.assertEqual(row31["dentists"]["Чирков Максим Сергеевич"], 7000)
+        self.assertNotIn("cashUnallocated", row31)
         self.assertEqual(row31["primary"], 2)
 
 

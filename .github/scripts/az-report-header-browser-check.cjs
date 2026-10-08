@@ -236,36 +236,15 @@ function fail(message) {
     }
   }
 
-  const cashSplit = await page.evaluate(() => {
-    const rows = [...document.querySelectorAll('#dateCompareBody tr')];
-    const byLabel = label => rows.find(row => row.cells?.[0]?.textContent.trim() === label);
-    const labels = [
-      'Выручка стоматологии',
-      'Чирков Максим Сергеевич',
-      'Выручка клиники',
-      'Старостенко Вадим Анатольевич',
-      'Выручка лаборатории',
-    ];
-    const details = {};
-    for (const label of labels) {
-      const row = byLabel(label);
-      const split = row?.querySelector('.cash-split');
-      details[label] = split ? split.textContent.replace(/\s+/g,' ').trim() : null;
-    }
-    return {
-      splitCount: document.querySelectorAll('#dateCompareBody .cash-split').length,
-      splitRows: document.querySelectorAll('#dateCompareBody tr.cash-split').length,
-      details,
-    };
-  });
-  if (cashSplit.splitRows !== 0) fail('Cash split created extra table rows');
-  if (cashSplit.splitCount < 5) fail('Cash split is missing from comparison cells');
-  for (const [label, detail] of Object.entries(cashSplit.details)) {
-    if (!detail || !detail.includes('ООО') || !detail.includes('ИП')) {
-      fail('Cash split missing OOO/IP for ' + label);
-    }
+  const providerSplit = await page.evaluate(() => ({
+    splitCount: document.querySelectorAll('#dateCompareBody .cash-split').length,
+    text: document.querySelector('#dateCompareBody')?.textContent || '',
+  }));
+  if (providerSplit.splitCount !== 0) fail('OOO/IP split must not be shown under doctors or directions');
+  if (!providerSplit.text.includes('ДС ООО') || !providerSplit.text.includes('ДС ИП')) {
+    fail('Clinic-level OOO/IP rows are missing');
   }
-  console.log('BROWSER CHECK CASH LEGAL SPLIT: PASS');
+  console.log('BROWSER CHECK CLINIC-ONLY LEGAL SPLIT: PASS');
 
   const emphasis = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('#dateCompareBody tr')];
@@ -419,7 +398,7 @@ function fail(message) {
   if (mobileCompare.shellWidth > mobileCompare.viewport + 2) fail('Mobile compare: table shell exceeds viewport');
   if (!mobileCompare.shellScrollable) fail('Mobile compare: wide comparison table is not horizontally scrollable');
   if (mobileCompare.stickyCloneHidden !== true) fail('Mobile compare: desktop sticky clone must remain disabled');
-  if (mobileCompare.cashSplitCount < 5) fail('Mobile compare: OOO/IP cash split is missing');
+  if (mobileCompare.cashSplitCount !== 0) fail('Mobile compare: OOO/IP must not appear under doctors/directions');
   await mobile.screenshot({ path: 'artifacts/report-mobile-compare.png', fullPage: false });
   console.log('BROWSER CHECK MOBILE ONE DATE: PASS');
   console.log('BROWSER CHECK MOBILE COMPARE: PASS');

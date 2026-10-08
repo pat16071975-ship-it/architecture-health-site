@@ -67,18 +67,17 @@ def _normalize_record(date, record):
 
 
 CASH_PRESERVED_KEYS = (
-    "billedMedicine", "billedLab", "billedDentists", "billedClinicDocs",
-    "billedLabRevenue", "billedTotal", "cashOOO", "cashIP", "cashTotal",
-    "cashUnallocated", "factMedicine", "factLab", "labRevenue", "dentists",
-    "clinicDocs", "dentistsLegal", "clinicDocsLegal", "labLegal",
-    "dentCashOOO", "dentCashIP", "clinicCashOOO", "clinicCashIP",
-    "labCashOOO", "labCashIP", "_cash_source", "_cash_rule",
+    "billedTotal", "cashOOO", "cashIP", "cashTotal",
+    "_cash_source", "_cash_rule",
 )
 
 
 def _has_cash_state(record):
     return isinstance(record, dict) and (
-        record.get("_cash_rule") == "positive-receipts-only-v1"
+        record.get("_cash_rule") in {
+            "positive-receipts-only-v1",
+            "positive-receipts-clinic-only-v2",
+        }
         or record.get("cashTotal") not in (None, "")
     )
 

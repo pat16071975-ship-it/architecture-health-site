@@ -38,7 +38,7 @@ jobs:
               'function recordAtOrBefore(',
               'function syncDateFilter(',
               'function selected()',
-              'Сравнение на',
+              'План — полный план месяца',
           ]
           for needle in required:
               assert needle in html, needle

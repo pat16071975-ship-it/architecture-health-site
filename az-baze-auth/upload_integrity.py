@@ -188,12 +188,33 @@ def daily_delta(core, normalized):
     data_date = normalized["data_date"]
 
     staff = defaultdict(float)
-    for row in items:
-        staff[str(row.get("staff") or "")] += _float(row.get("amount"))
-    gross_revenue, discount_amount, discount_data_complete = _discount_parts(items)
+    paid_snapshot = "paid_by_provider" in normalized
+    if paid_snapshot:
+        for source_name, raw in (normalized.get("paid_by_provider") or {}).items():
+            if isinstance(raw, dict):
+                paid = _float(raw.get("paid"))
+            else:
+                paid = _float(raw)
+            staff[str(source_name or "")] += paid
+    else:
+        # Backward compatibility for already stored rows from the former MIS
+        # export: service net amount was the only doctor monetary value.
+        for row in items:
+            staff[str(row.get("staff") or "")] += _float(row.get("amount"))
 
-    total_revenue = sum(staff.values())
-    lab_revenue = staff.get("Казанцев Л. Е.", 0.0)
+    gross_revenue, discount_amount, discount_data_complete = _discount_parts(items)
+    dentists_map = getattr(core.ident_import, "DENTISTS", {}) or {}
+    structure_map = getattr(core.ident_import, "STRUCTURE_DOCTORS", {}) or {}
+    lab_map = getattr(core.ident_import, "LAB_DOCTORS", {}) or {}
+
+    if paid_snapshot:
+        dent_revenue = sum(_float(staff.get(short)) for short in dentists_map)
+        structure_revenue = sum(_float(staff.get(short)) for short in structure_map)
+        lab_revenue = sum(_float(staff.get(short)) for short in lab_map)
+        total_revenue = dent_revenue + structure_revenue + lab_revenue
+    else:
+        total_revenue = sum(staff.values())
+        lab_revenue = staff.get("Казанцев Л. Е.", 0.0)
     day_counts = overall.get(data_date, {}) or {}
     source_primary = _int(day_counts.get("Первичные"))
     source_repeat = _int(day_counts.get("Повторные")) + _int(day_counts.get("Отконсультированные"))
@@ -222,7 +243,10 @@ def daily_delta(core, normalized):
     })
 
     return {
-        "factMedicine": round(total_revenue - lab_revenue, 2),
+        "factMedicine": round(
+            (dent_revenue + structure_revenue) if paid_snapshot else (total_revenue - lab_revenue),
+            2,
+        ),
         "factLab": round(lab_revenue, 2),
         "grossRevenue": gross_revenue,
         "discountAmount": discount_amount,
@@ -235,11 +259,11 @@ def daily_delta(core, normalized):
         "clinicRepeat": structure_repeat,
         "dentists": {
             full: round(staff.get(short, 0.0), 2)
-            for short, full in core.ident_import.DENTISTS.items()
+            for short, full in dentists_map.items()
         },
         "clinicDocs": {
             full: round(staff.get(short, 0.0), 2)
-            for short, full in core.ident_import.STRUCTURE_DOCTORS.items()
+            for short, full in structure_map.items()
         },
         "labOrders": lab_orders,
         "labRevenue": round(lab_revenue, 2),

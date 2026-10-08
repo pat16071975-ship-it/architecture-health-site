@@ -206,6 +206,13 @@ def detect_unknown_providers(period, ident_import, conn=None):
             staff = str(item.get("staff") or "").strip()
             if staff:
                 seen.add(staff)
+        paid_by_provider = normalized.get("paid_by_provider") or {}
+        if isinstance(paid_by_provider, dict):
+            seen.update(
+                str(name).strip()
+                for name in paid_by_provider
+                if str(name).strip()
+            )
         doctors = normalized.get("doctors") or {}
         for day in doctors.values():
             if not isinstance(day, dict):
