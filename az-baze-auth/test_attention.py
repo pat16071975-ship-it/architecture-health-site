@@ -77,6 +77,32 @@ class AttentionTests(unittest.TestCase):
         self.assertFalse(summary["clinical_stale"])
         self.assertFalse(summary["cash_stale"])
 
+    def test_revenue_uses_paid_provider_fields_and_has_no_user_unallocated_row(self):
+        self.add_day(
+            "2026-09-27",
+            {
+                "plan": 5000,
+                "cashTotal": 3000,
+                "cashUnallocated": 1200,
+                "dentists": {"D": 500},
+                "clinicDocs": {"C": 300},
+                "labRevenue": 100,
+                "paidDentists": {"D": 1400},
+                "paidClinicDocs": {"C": 900},
+                "paidLabRevenue": 250,
+            },
+            cash=True,
+        )
+
+        with patch.object(attention, "_clinic_today", return_value=self.today):
+            summary = attention.build_summary(self.conn)
+
+        rows = {row["key"]: row for row in summary["revenue"]}
+        self.assertEqual(rows["dentistry"]["amount"], 1400)
+        self.assertEqual(rows["structure"]["amount"], 900)
+        self.assertEqual(rows["lab"]["amount"], 250)
+        self.assertNotIn("unallocated", rows)
+
     def test_revenue_comparison_uses_report_data_history_without_old_daily_uploads(self):
         self.add_report_snapshot(
             "2026-07-28",
