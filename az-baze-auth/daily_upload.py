@@ -925,8 +925,28 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
                         ),
                     )
 
+        if prepared.get("paid_report"):
+            paid_services.store_snapshot(
+                conn,
+                prepared["paid_report"],
+                services_name,
+                prepared["services_source_sha"],
+                g.user["id"],
+                now,
+                decision="use_new" if apply_new else "append",
+            )
+
         management = core._rebuild_management(month_key, source)
         cash_payments.overlay_record_map(conn, month_key, management)
+        paid_services.overlay_record_map(
+            conn,
+            month_key,
+            management,
+            core.ident_import.DENTISTS,
+            core.ident_import.STRUCTURE_DOCTORS,
+            core.ident_import.LAB_DOCTORS,
+            ignored=_ignored_provider_names(conn),
+        )
 
         if apply_new:
             for removed_date in remove_dates:
@@ -963,8 +983,18 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
                 ),
             )
 
-        # Re-overlay the independent money source after every clinical rebuild.
+        # Re-overlay independent sources after every clinical rebuild.
         cash_payments.overlay_stored_month(conn, month_key, g.user["id"], now)
+        paid_services.overlay_stored_month(
+            conn,
+            month_key,
+            g.user["id"],
+            now,
+            core.ident_import.DENTISTS,
+            core.ident_import.STRUCTURE_DOCTORS,
+            core.ident_import.LAB_DOCTORS,
+            ignored=_ignored_provider_names(conn),
+        )
 
         core._save_blob(conn, "az-service-analytics-v1", service_data, now)
         for key, value in finance_blobs.items():
