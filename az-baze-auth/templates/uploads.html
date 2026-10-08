@@ -7,7 +7,7 @@
 </style>
 <div class="card">
   <div class="upload-head">
-    <div><h2 class="upload-title">Загрузка данных</h2><div class="muted">Можно загрузить выгрузки за один день или сразу за несколько дней одного месяца. Система сначала проверяет весь период и только потом изменяет отчёты.</div></div>
+    <div><h2 class="upload-title">Загрузка данных</h2><div class="muted">Источники загружаются отдельно. Система сначала проверяет выбранный файл и только потом изменяет соответствующий слой отчётов.</div></div>
     <div class="upload-head-actions">
       {% if 'reports' in perms %}<button class="btn primary upload-home" type="button" id="planPopupOpen">План</button>{% endif %}
       <a class="btn upload-home" href="/">На главную</a>
@@ -15,11 +15,11 @@
   </div>
 
   <div class="next-upload">
-    {% if next_required_date %}НУЖНО ЗАГРУЗИТЬ ДАННЫЕ С <strong>{{ next_required_date }}</strong>{% else %}ДАТА СЛЕДУЮЩЕЙ ЗАГРУЗКИ ПОКА НЕ ОПРЕДЕЛЕНА{% endif %}
+    {% if next_required_date %}ЗАВЕРШЁННЫЕ ПРИЁМЫ: НУЖНО ЗАГРУЗИТЬ С <strong>{{ next_required_date }}</strong>{% else %}ДАТА СЛЕДУЮЩЕЙ ЗАГРУЗКИ ПРИЁМОВ ПОКА НЕ ОПРЕДЕЛЕНА{% endif %}
   </div>
 
   <div class="status-line">
-    {% if latest %}Ежедневные данные загружены по <strong>{{ latest['data_date'] }}</strong>{% if latest['revision']|int > 1 %} · версия {{ latest['revision'] }}{% endif %}.{% else %}Отдельных ежедневных загрузок через этот раздел пока нет. Дата выше определяется по уже загруженной сводной базе.{% endif %}
+    {% if latest %}«Завершённые приёмы» загружены по <strong>{{ latest['data_date'] }}</strong>{% if latest['revision']|int > 1 %} · версия {{ latest['revision'] }}{% endif %}.{% else %}Отдельных загрузок «Завершённых приёмов» через этот раздел пока нет.{% endif %}
   </div>
 
   <form method="post" enctype="multipart/form-data" class="upload-box" data-az-completed-upload-form>
