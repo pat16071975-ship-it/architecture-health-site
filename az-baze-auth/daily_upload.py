@@ -214,12 +214,27 @@ def _parse_fixed_raw(raw, filename, kind):
     if len(raw) > 25 * 1024 * 1024:
         raise ValueError("Размер файла превышает 25 МБ.")
 
+    if kind == "services":
+        try:
+            paid_report = paid_services.parse_bytes(raw, filename or "")
+        except paid_services.NotPaidServicesReport:
+            paid_report = None
+        if paid_report is not None:
+            year, month = [int(part) for part in paid_report["month"].split("-")]
+            lab_invoices = [
+                (row["invoice"], row["date"])
+                for row in paid_report.get("invoices") or []
+                if row.get("staff") in core.ident_import.LAB_DOCTORS
+            ]
+            parsed = (paid_report["items"], lab_invoices, (year, month))
+            return parsed, paid_report["sheet"], paid_report
+
     candidates = core._table_candidates(raw, filename or "")
     last_error = None
     for sheet_name, text in candidates:
         try:
             parsed = _parse_completed_text(text) if kind == "completed" else _parse_revenue_text(text)
-            return parsed, sheet_name
+            return parsed, sheet_name, None
         except Exception as exc:
             last_error = exc
 
@@ -231,9 +246,10 @@ def _parse_fixed_raw(raw, filename, kind):
 
 def _parse_fixed_file(file_storage, kind):
     raw = file_storage.read()
-    parsed, sheet_name = _parse_fixed_raw(raw, file_storage.filename or "", kind)
-    return raw, parsed, sheet_name
-
+    parsed, sheet_name, paid_report = _parse_fixed_raw(
+        raw, file_storage.filename or "", kind
+    )
+    return raw, parsed, sheet_name, paid_report
 
 def _doctor_attribution(visits, items):
     # The completed-visits export contains patient/date rows but no doctor column.
