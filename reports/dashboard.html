@@ -47,7 +47,7 @@
     </section>
 
     <section class="section general">
-      <div class="section-head"><h2>План и факт по месяцам</h2><div class="hint" id="chartHint">План показан пропорционально последней загруженной дате каждого месяца</div></div>
+      <div class="section-head"><h2>План и факт по месяцам</h2><div class="hint" id="chartHint">План — полный план месяца; Факт — по последнему доступному срезу</div></div>
       <div class="chart-wrap"><div id="chart" class="chart"></div></div>
       <div class="legend"><span><i class="lp"></i>Должно быть к дате</span><span><i class="lf"></i>Факт</span></div>
     </section>
@@ -167,7 +167,7 @@ function renderChart(){
     const [y,m]=x.ym.split('-').map(Number),last=new Date(y,m,0).getDate(),target=`${x.ym}-${String(Math.min(day,last)).padStart(2,'0')}`,record=recordAtOrBefore(x.ym,target);
     return record?{ym:x.ym,...derive(record)}:null;
   }).filter(Boolean);
-  $('#chartHint').textContent=day?`Факт — на ${day}-е число каждого месяца; План — полный план месяца. Если точной даты Факта нет, используется ближайший предыдущий срез`:'План — полный план месяца; Факт — по последнему доступному срезу каждого месяца';
+  $('#chartHint').textContent=day?`Сравнение на ${day}-е число каждого месяца: Факт — по выбранную дату; План — полный план месяца. Если точной даты Факта нет, используется ближайший предыдущий срез`:'План — полный план месяца; Факт — по последнему доступному срезу каждого месяца';
   const max=Math.max(1,...data.flatMap(x=>[x.plan,x.factTotal]));
   $('#chart').style.setProperty('--months',data.length||1);
   $('#chart').innerHTML=data.map(x=>{const hp=x.plan>0?Math.max(2,Math.round(x.plan/max*100)):0,hf=x.factTotal>0?Math.max(2,Math.round(x.factTotal/max*100)):0;return `<div class="month"><div class="bars"><div class="barcol plan" style="height:${hp}%" data-title="План: ${money(x.plan)}"></div><div class="barcol fact" style="height:${hf}%" data-title="Факт: ${money(x.factTotal)}"></div></div><div class="month-label">${shortMonth(x.ym)}</div></div>`}).join('');
