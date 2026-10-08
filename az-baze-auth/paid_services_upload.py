@@ -4,7 +4,6 @@ import json
 from flask import abort, g, jsonify, request
 
 import cash_payments
-import daily_upload_core as core
 import ident_import
 import paid_services
 import upload_reconcile
@@ -223,7 +222,7 @@ def _commit(decision=None):
         raise
 
     audit(
-        "paid_services_reconciled",
+        "paid_services_stored",
         target_user_id=g.user["id"],
         details=(
             f"file={filename}; month={report['month']}; as_of={report['period_end']}; "
