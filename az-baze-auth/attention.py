@@ -120,12 +120,15 @@ def _management_monthly_plan(conn, month):
 
 
 def _direction_values(record):
-    dentists = record.get("dentists") if isinstance(record.get("dentists"), dict) else {}
-    clinic_docs = record.get("clinicDocs") if isinstance(record.get("clinicDocs"), dict) else {}
+    paid = record.get("paidDataComplete") is True
+    dentist_key = "paidDentists" if paid else "dentists"
+    structure_key = "paidClinicDocs" if paid else "clinicDocs"
+    dentists = record.get(dentist_key) if isinstance(record.get(dentist_key), dict) else {}
+    clinic_docs = record.get(structure_key) if isinstance(record.get(structure_key), dict) else {}
     return {
         "dentistry": sum(_num(value) for value in dentists.values()),
         "structure": sum(_num(value) for value in clinic_docs.values()),
-        "lab": _num(record.get("labRevenue") or record.get("factLab")),
+        "lab": _num(record.get("paidLab")) if paid else _num(record.get("labRevenue") or record.get("factLab")),
     }
 
 
@@ -356,16 +359,6 @@ def build_summary(conn=None):
                 "comment": _deviation_text(deviation),
             }
         )
-
-    revenue_rows.append(
-        {
-            "key": "unallocated",
-            "label": "Нераспределённые ДС",
-            "amount": round(_num(record.get("cashUnallocated"))),
-            "deviation": None,
-            "comment": "Входят в общий Факт, но не привязаны к врачу/направлению",
-        }
-    )
 
     primary_values = _primary_values(record)
     primary_total = round(primary_values["total"])
