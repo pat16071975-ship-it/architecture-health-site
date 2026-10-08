@@ -122,14 +122,6 @@ def _prepare():
 def _preview():
     perms, conn, filename, _raw, report, _source_sha, summary, state = _prepare()
     unknown = summary["unknown_providers"]
-    if unknown:
-        upload_reconcile.record_pending_providers(
-            conn,
-            unknown,
-            filename,
-            actor_id=g.user["id"],
-        )
-        conn.commit()
 
     return {
         "status": "preview",
@@ -146,8 +138,8 @@ def _preview():
             "removed": 0,
         },
         "requires_choice": state == "conflict",
-        "requires_provider_mapping": bool(unknown),
-        "unknown_providers": unknown,
+        "requires_provider_mapping": False,
+        "unknown_providers": [],
         "can_replace": "upload_replace" in perms,
         "summary": summary,
     }
@@ -156,24 +148,8 @@ def _preview():
 def _commit(decision=None):
     perms, conn, filename, _raw, report, source_sha, summary, state = _prepare()
 
-    decisions = _provider_decisions()
-    if summary["unknown_providers"]:
-        if not decisions:
-            raise ValueError("Сначала классифицируйте новых сотрудников из нового отчёта МИС.")
-        if "upload_replace" not in perms:
-            abort(403)
-        missing = [name for name in summary["unknown_providers"] if name not in decisions]
-        if missing:
-            raise ValueError(
-                "Не выбрано направление для новых сотрудников: " + ", ".join(missing)
-            )
-        upload_reconcile.resolve_providers(conn, decisions, g.user["id"])
-        conn.commit()
-        upload_reconcile.refresh_runtime(conn, ident_import, cash_payments)
-        summary = _summary(report, conn)
-        if summary["unknown_providers"]:
-            raise ValueError("Не для всех новых сотрудников выбрано направление.")
-
+    # Transition mode is storage-only. Provider classification from the new
+    # source is intentionally not written into the shared active mapping.
     if state == "conflict" and decision not in {"keep_old", "use_new"}:
         raise ValueError(
             "За эту дату уже сохранена другая версия нового отчёта МИС. "
