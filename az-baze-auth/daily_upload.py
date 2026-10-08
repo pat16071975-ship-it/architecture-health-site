@@ -456,6 +456,9 @@ def _prepare_period_raw(completed_raw, completed_name, services_raw, services_na
     }
     period = _split_period(overall, visits, items, lab_invoices, paid_report=paid_report)
     dates = [row["data_date"] for row in period]
+    if paid_report:
+        paid_report = dict(paid_report)
+        paid_report["period_end"] = dates[-1]
     month_key = f"{year:04d}-{month:02d}"
     if any(data_date[:7] != month_key for data_date in dates):
         raise ValueError("Месяц в двух файлах не совпадает.")
