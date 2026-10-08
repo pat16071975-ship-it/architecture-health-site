@@ -346,8 +346,16 @@
         '<br>Задолженность: начало '+money(r.opening)+' → конец '+money(r.closing)+'.';
     }else{
       message.innerHTML='Период <strong>'+esc(payload.period.from)+' — '+esc(payload.period.to)+'</strong>.'+
-        (payload.requires_choice?'<br>В существующих данных есть отличия. Один выбранный вариант будет применён ко всему периоду этого источника.':'<br>Конфликтов с существующими данными нет.');
-
+        (payload.requires_choice?'<br>В существующих данных есть отличия. Один выбранный вариант будет применён ко всему пересекающемуся периоду.':'<br>Конфликтов с существующими данными нет.');
+      if(type==='clinical'){
+        const gaps=payload.source_gaps||{}, completedOnly=gaps.completed_only||[], revenueOnly=gaps.revenue_only||[];
+        if(completedOnly.length||revenueOnly.length){
+          const parts=[];
+          if(completedOnly.length)parts.push('только в «Завершённых приёмах»: '+completedOnly.length);
+          if(revenueOnly.length)parts.push('только в «Выручке по направлениям»: '+revenueOnly.length);
+          message.innerHTML+='<br><strong>Разница дат между источниками допустима:</strong> '+esc(parts.join('; '))+'. Для отсутствующего источника за такую дату используется 0.';
+        }
+      }
     }
 
     const unknown=payload.unknown_providers||[];
