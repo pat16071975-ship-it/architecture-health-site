@@ -75,6 +75,32 @@ class PaidServicesStorageTests(unittest.TestCase):
             1,
         )
 
+    def test_same_payload_with_new_export_hash_is_identical(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        report = {
+            "month": "2026-09",
+            "period_end": "2026-09-30",
+            "totals": {"opening": 0, "billed": 100, "paid": 80, "closing": 20},
+            "providers": {
+                "Dent D.": {"opening": 0, "billed": 100, "paid": 80, "closing": 20}
+            },
+            "provider_residual": {"opening": 0, "billed": 0, "paid": 0, "closing": 0},
+        }
+        self.assertEqual(
+            paid_services.store_snapshot(conn, report, "first.xlsx", "sha-one", 1, "t1"),
+            "imported",
+        )
+        self.assertEqual(
+            paid_services.store_snapshot(conn, report, "second.xlsx", "sha-two", 1, "t2"),
+            "identical",
+        )
+        self.assertEqual(
+            conn.execute("SELECT COUNT(*) FROM service_payment_versions").fetchone()[0],
+            0,
+        )
+        conn.close()
+
     def test_snapshot_applies_only_from_its_as_of_date(self):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
