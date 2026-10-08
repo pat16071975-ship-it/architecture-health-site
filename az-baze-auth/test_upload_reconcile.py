@@ -241,6 +241,59 @@ class UploadReconcileTests(unittest.TestCase):
             html,
         )
 
+    def test_new_revenue_report_parses_provider_paid_totals(self):
+        text = "\n".join([
+            "Группа услуг\tУслуги\t\t\tЗадолженность на нач. периода\tСумма со скидкой\tОплачено\tЗадолженность на конец периода",
+            "Авансы\t\t\t\t100\t0\t0\t100",
+            "Услуги\t\t\t\t0\t300000\t225000\t75000",
+            "Иванова И. И.\t\t\t\t0\t300000\t225000\t75000",
+            "Пациент Первый\t\t\t\t0\t150000\t75000\t75000",
+            "Счет №71943 от 16.09.2026 10:00:00\t\t\t\t0\t150000\t75000\t75000",
+            "Ортодонтия\t16.09.2026 10:00\tУслуга 1\t1\t0\t150000\t75000\t75000",
+            "Пациент Второй\t\t\t\t0\t150000\t150000\t0",
+            "Счет №71945 от 16.09.2026 13:57:27\t\t\t\t0\t150000\t150000\t0",
+            "Ортодонтия\t16.09.2026 13:57\tУслуга 2\t1\t0\t150000\t150000\t0",
+        ])
+        items, _lab, year_month, paid = daily_upload._parse_revenue_text(text)
+        self.assertEqual(year_month, (2026, 9))
+        self.assertEqual([row["amount"] for row in items], [150000, 150000])
+        self.assertEqual([row["paid_amount"] for row in items], [75000, 150000])
+        self.assertEqual(paid["Иванова И. И."]["paid"], 225000)
+        self.assertEqual(paid["Иванова И. И."]["closing_debt"], 75000)
+
+    def test_paid_period_snapshot_is_stored_once_on_last_date(self):
+        overall = {
+            "2026-09-01": {"Первичные": 1},
+            "2026-09-02": {"Первичные": 1},
+        }
+        items = [
+            {"staff": "Чирков М. С.", "patient": "А", "date": "2026-09-01", "group": "Терапия", "service": "Услуга", "qty": 1, "amount": 100, "invoice": "1"},
+            {"staff": "Чирков М. С.", "patient": "Б", "date": "2026-09-02", "group": "Терапия", "service": "Услуга", "qty": 1, "amount": 200, "invoice": "2"},
+        ]
+        paid = {"Чирков М. С.": {"paid": 250}}
+        period = daily_upload._split_period(overall, [], items, [], paid)
+        self.assertEqual(period[0]["normalized"]["paid_by_provider"], {})
+        self.assertEqual(
+            period[1]["normalized"]["paid_by_provider"]["Чирков М. С."]["paid"],
+            250,
+        )
+
+    def test_unknown_provider_is_detected_from_paid_snapshot(self):
+        conn = self.conn()
+        ident = self.ident()
+        upload_reconcile.seed_defaults(conn, ident)
+        period = [{
+            "normalized": {
+                "items": [],
+                "paid_by_provider": {"Новый Н. Н.": {"paid": 1000}},
+                "doctors": {},
+            }
+        }]
+        self.assertEqual(
+            upload_reconcile.detect_unknown_providers(period, ident, conn),
+            ["Новый Н. Н."],
+        )
+
     def test_period_union_allows_dates_present_in_only_one_source(self):
         overall = {
             "2026-09-02": {"Первичные": 1},
@@ -265,7 +318,7 @@ class UploadReconcileTests(unittest.TestCase):
             }
         ]
 
-        period = daily_upload._split_period(overall, visits, items, [])
+        period = daily_upload._split_period(overall, visits, items, [], None)
 
         self.assertEqual(
             [row["data_date"] for row in period],
