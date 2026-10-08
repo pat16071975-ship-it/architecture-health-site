@@ -8,6 +8,7 @@ from flask import abort, g, jsonify, redirect, render_template, request, url_for
 
 import daily_upload_core as core
 import cash_payments
+import paid_services
 import upload_reconcile
 from app import csrf_token, permission_required, require_csrf
 
