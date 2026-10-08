@@ -13,6 +13,7 @@ from app import SITE_ROOT, csrf_token, db, permission_required
 
 FINREZ_DATA_PATH = Path(os.environ.get("AZ_FINREZ_DATA_PATH", "/var/lib/az-baze/finrez-data.enc"))
 FINREZ_KEY_PATH = Path(os.environ.get("AZ_FINREZ_KEY_PATH", "/var/lib/az-baze/finrez.key"))
+ECONOMICS_CONTROL_PATH = Path(os.environ.get("AZ_ECONOMICS_CONTROL_PATH", "/var/lib/az-baze/economics-control.json"))
 
 
 def _xor_hmac_stream(data, key, nonce):
@@ -79,6 +80,34 @@ def _monthly_plans():
         if year < 2020 or year > 2100 or number < 1 or number > 12 or not math.isfinite(value) or value < 0:
             continue
         result[month] = int(value) if value.is_integer() else value
+    return result
+
+
+def _economics_revenue():
+    if not ECONOMICS_CONTROL_PATH.exists():
+        return {}
+    try:
+        payload = json.loads(ECONOMICS_CONTROL_PATH.read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError):
+        return {}
+    opu = payload.get("opu") if isinstance(payload, dict) else None
+    if not isinstance(opu, dict):
+        return {}
+    gross = opu.get("revenue_gross") if isinstance(opu.get("revenue_gross"), dict) else {}
+    discount = opu.get("discount") if isinstance(opu.get("discount"), dict) else {}
+    net = opu.get("revenue_net") if isinstance(opu.get("revenue_net"), dict) else {}
+    result = {}
+    for month in sorted(set(gross) | set(discount) | set(net)):
+        values = {}
+        for key, source in (("gross", gross), ("discount", discount), ("net", net)):
+            try:
+                value = float(source.get(month))
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(value):
+                values[key] = value
+        if values:
+            result[str(month)] = values
     return result
 
 
@@ -164,4 +193,11 @@ def register_finrez(app):
         except Exception as error:
             expenses = {"version": 1, "source": "", "period": {}, "meta": {}, "months": {}, "available": False}
             private_error = str(error)
-        return jsonify(expenses=expenses, management=_management_months(), plans=_monthly_plans(), privateError=private_error, csrf=csrf_token())
+        return jsonify(
+            expenses=expenses,
+            management=_management_months(),
+            plans=_monthly_plans(),
+            economicsRevenue=_economics_revenue(),
+            privateError=private_error,
+            csrf=csrf_token(),
+        )
