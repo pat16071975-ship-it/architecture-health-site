@@ -12,6 +12,7 @@ on:
       - "az-baze-auth/ident_import.py"
       - "az-baze-auth/fixtures/cash_reference_2026_anonymized.tsv"
       - "az-baze-auth/daily_upload.py"
+      - "az-baze-auth/mis_paid_revenue.py"
       - "az-baze-auth/daily_upload_core.py"
       - "az-baze-auth/upload_reconcile.py"
       - "az-baze-auth/attention.py"
@@ -22,12 +23,14 @@ on:
       - "az-baze-auth/templates/attention.html"
       - "az-baze-auth/test_cash_payments.py"
       - "az-baze-auth/test_upload_reconcile.py"
+      - "az-baze-auth/test_mis_paid_revenue.py"
       - "reports/index.html"
       - "reports/period-view.js"
       - "reports/management-mobile-layout.js"
       - "reports/dashboard.html"
       - "reports/forecast.html"
       - "reports/finrez.html"
+      - "reports/finrez-economics-integrated.js"
       - ".github/workflows/az-baze-cash-fact.yml"
   pull_request:
     paths:
@@ -38,6 +41,7 @@ on:
       - "az-baze-auth/ident_import.py"
       - "az-baze-auth/fixtures/cash_reference_2026_anonymized.tsv"
       - "az-baze-auth/daily_upload.py"
+      - "az-baze-auth/mis_paid_revenue.py"
       - "az-baze-auth/daily_upload_core.py"
       - "az-baze-auth/upload_reconcile.py"
       - "az-baze-auth/attention.py"
@@ -48,12 +52,14 @@ on:
       - "az-baze-auth/templates/attention.html"
       - "az-baze-auth/test_cash_payments.py"
       - "az-baze-auth/test_upload_reconcile.py"
+      - "az-baze-auth/test_mis_paid_revenue.py"
       - "reports/index.html"
       - "reports/period-view.js"
       - "reports/management-mobile-layout.js"
       - "reports/dashboard.html"
       - "reports/forecast.html"
       - "reports/finrez.html"
+      - "reports/finrez-economics-integrated.js"
       - ".github/workflows/az-baze-cash-fact.yml"
 
 jobs:
@@ -75,10 +81,10 @@ jobs:
           AZBAZE_DB: /tmp/az-upload-reconcile-ci.db
           AZBAZE_SITE_ROOT: /tmp/az-upload-reconcile-site
         working-directory: az-baze-auth
-        run: python -m unittest -v test_cash_payments.py test_upload_integrity.py test_upload_reconcile.py
+        run: python -m unittest -v test_cash_payments.py test_upload_integrity.py test_upload_reconcile.py test_mis_paid_revenue.py
 
       - name: Python syntax
-        run: python -m py_compile az-baze-auth/cash_payments.py az-baze-auth/cash_upload.py az-baze-auth/daily_upload.py az-baze-auth/daily_upload_core.py az-baze-auth/upload_reconcile.py az-baze-auth/attention.py az-baze-auth/report_storage.py az-baze-auth/ident_import.py az-baze-auth/finrez.py az-baze-auth/economics_control.py az-baze-auth/server.py
+        run: python -m py_compile az-baze-auth/cash_payments.py az-baze-auth/cash_upload.py az-baze-auth/daily_upload.py az-baze-auth/daily_upload_core.py az-baze-auth/mis_paid_revenue.py az-baze-auth/upload_reconcile.py az-baze-auth/attention.py az-baze-auth/report_storage.py az-baze-auth/ident_import.py az-baze-auth/finrez.py az-baze-auth/economics_control.py az-baze-auth/server.py
 
       - name: JavaScript syntax
         run: |
@@ -177,27 +183,36 @@ jobs:
           assert "if short and short in provider_text:" in cash
           assert "if short and short in operation:" not in cash
 
-          # Owner-approved accounting semantics:
-          # Fact, directions and doctor headline amounts are confirmed cash.
+          # Owner-approved split-source semantics:
+          # Clinic Fact + ООО/ИП are confirmed cash. Doctor/direction headline
+          # amounts are MIS provider «Оплачено», and cashUnallocated stays internal.
           assert "cashTotal" in management and "Выставлено счетов" in management
-          assert "Нераспределённые ДС" in management
-          assert "const dentRev=Object.values(r.dentists||{}).reduce" in management
-          assert "const clinicRev=Object.values(r.clinicDocs||{}).reduce" in management
-          assert "revenueMap(" not in management
+          assert "ДС ООО" in management and "ДС ИП" in management
+          assert "paidDentistMap" in management and "paidClinicMap" in management
+          assert "Нераспределённые ДС" not in management
 
-          assert "ДС ООО" in period and "ДС ИП" in period and "Нераспределённые ДС" in period
-          assert "(r.dentists||{})[name]" in period
-          assert "(r.clinicDocs||{})[name]" in period
-          assert "revenueMap(" not in period
+          assert "ДС ООО" in period and "ДС ИП" in period
+          assert "paidDentistMap" in period and "paidClinicMap" in period
+          assert "cash-split" in period  # CSS/helper may remain; provider rows must not call it.
+          assert "Нераспределённые ДС" not in period
 
-          assert "r?.cashTotal" in dashboard and "Нераспределённые ДС" in dashboard
-          assert "dentRev=sumObject(r?.dentists)" in dashboard
-          assert "structureRev=sumObject(r?.clinicDocs)" in dashboard
-          assert "labRevenue=num(r?.labRevenue||r?.factLab)" in dashboard
-          assert "revenueMap(" not in dashboard
-          assert "r.cashTotal" in forecast and "Нераспределённые ДС" in forecast
+          assert "r?.cashTotal" in dashboard
+          assert "paidDentistMap" in dashboard and "paidClinicMap" in dashboard
+          assert "Оплачено по направлениям" in dashboard
+          assert "Нераспределённые ДС" not in dashboard
+          assert "x.plan/max" in dashboard and 'data-title="План:' in dashboard
+          assert "План показан пропорционально" not in dashboard
+
+          assert "r.cashTotal" in forecast and "paidDentists" in forecast
+          assert "Нераспределённые ДС" not in forecast
+
           assert "r.cashTotal" in finrez
-          assert 'record.get("cashTotal")' in economics
+          assert "paidDentists" in finrez and "Оплачено по врачам и направлениям" in finrez
+
+          assert 'record.get("serviceBilledNet")' in economics
+          assert '"revenue_gross": revenue_gross' in economics
+          assert '"discount": discount' in economics
+          assert "gross_discount_reconcile" in economics
           assert "_preserve_cash_state" in storage
           assert "_reapply_cash_after_restore" in storage
           assert "if _has_cash_state(existing):" in storage
