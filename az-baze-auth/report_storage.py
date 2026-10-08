@@ -7,8 +7,6 @@ from flask import Response, abort, g, jsonify, request, session
 
 from app import DB_PATH, SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, user_permissions
 import cash_payments
-import paid_services
-import upload_reconcile
 
 MANAGEMENT_KEY = "az-management-report-v1"
 REPORT_BLOB_KEYS = {
@@ -129,23 +127,6 @@ def _reapply_cash_after_restore(conn, updated_by, updated_at):
     changed = 0
     for month in _cash_months(conn):
         changed += cash_payments.overlay_stored_month(conn, month, updated_by, updated_at)
-    return changed
-
-
-def _reapply_paid_after_restore(conn, updated_by, updated_at):
-    maps = upload_reconcile.provider_maps(conn)
-    changed = 0
-    for month in paid_services.snapshot_months(conn):
-        changed += paid_services.overlay_stored_month(
-            conn,
-            month,
-            updated_by,
-            updated_at,
-            maps["dent"],
-            maps["structure"],
-            maps["lab"],
-            ignored=maps["ignore"],
-        )
     return changed
 
 
@@ -628,7 +609,6 @@ def register_report_storage(app):
             )
             restored_at = iso_now()
             _reapply_cash_after_restore(conn, g.user["id"], restored_at)
-            _reapply_paid_after_restore(conn, g.user["id"], restored_at)
             conn.commit()
         except Exception:
             conn.rollback()
@@ -681,7 +661,6 @@ def register_report_storage(app):
                     (key, value, uid, updated_at),
                 )
             _reapply_cash_after_restore(conn, g.user["id"], now)
-            _reapply_paid_after_restore(conn, g.user["id"], now)
             conn.commit()
         except Exception:
             conn.rollback()
