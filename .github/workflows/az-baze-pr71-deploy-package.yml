@@ -43,6 +43,7 @@ jobs:
               'BACKUP_METADATA=PASS',
               'runtime-manifest.txt',
               'deploy-meta.txt',
+              'DEPLOY_SCRIPT_BLOB=$(git hash-object "$0")',
               'DB_SCHEMA_DELTA=PASS',
               'ROLLBACK_MODE=FILES_AND_DB_PRESTART',
               'ROLLBACK_MODE=FILES_ONLY_POSTSTART',
