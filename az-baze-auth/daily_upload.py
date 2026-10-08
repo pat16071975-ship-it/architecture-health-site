@@ -479,6 +479,28 @@ def _read_period_files(completed_file, services_file):
     return completed_raw, completed_name, services_raw, services_name
 
 
+def _paid_unknown_providers(paid_report, conn):
+    if not paid_report:
+        return []
+    known = (
+        set(core.ident_import.DENTISTS)
+        | set(core.ident_import.STRUCTURE_DOCTORS)
+        | set(core.ident_import.LAB_DOCTORS)
+        | upload_reconcile.resolved_provider_names(conn)
+    )
+    result = []
+    for name, values in (paid_report.get("providers") or {}).items():
+        active = abs(float((values or {}).get("paid") or 0)) > 0.004 or abs(
+            float((values or {}).get("billed") or 0)
+        ) > 0.004
+        if active and name not in known:
+            result.append(str(name))
+    return sorted(set(result))
+
+
+def _ignored_provider_names(conn):
+    return upload_reconcile.provider_names_by_direction(conn, "ignore")
+
 def _comparison_has_conflict(comparison):
     return bool(
         comparison.get("conflict")
