@@ -541,7 +541,7 @@ function wireAdvanced(){
 
 function initPeriods(){
   ALL_MONTHS=Object.keys(FIN.management||{}).sort();
-  FULL_MONTHS=ALL_MONTHS.filter(fullMonth);
+  FULL_MONTHS=ALL_MONTHS.filter(m=>fullMonth(m)&&rec(m).paidDataComplete===true);
   const latest=ALL_MONTHS[ALL_MONTHS.length-1]||null;
   PARTIAL_MONTH=latest&&!fullMonth(latest)?latest:null;
 
