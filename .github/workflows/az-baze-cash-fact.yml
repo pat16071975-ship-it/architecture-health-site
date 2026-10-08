@@ -11,6 +11,7 @@ on:
       - "az-baze-auth/paid_services_upload.py"
       - "az-baze-auth/completed_upload.py"
       - "az-baze-auth/test_completed_upload.py"
+      - "az-baze-auth/test_pr71_approved_restoration.py"
       - "az-baze-auth/test_paid_services.py"
       - "az-baze-auth/test_paid_services_storage.py"
       - "az-baze-auth/test_economics_revenue_source.py"
@@ -44,6 +45,7 @@ on:
       - "az-baze-auth/paid_services_upload.py"
       - "az-baze-auth/completed_upload.py"
       - "az-baze-auth/test_completed_upload.py"
+      - "az-baze-auth/test_pr71_approved_restoration.py"
       - "az-baze-auth/test_paid_services.py"
       - "az-baze-auth/test_paid_services_storage.py"
       - "az-baze-auth/test_economics_revenue_source.py"
@@ -89,7 +91,7 @@ jobs:
           AZBAZE_DB: /tmp/az-upload-reconcile-ci.db
           AZBAZE_SITE_ROOT: /tmp/az-upload-reconcile-site
         working-directory: az-baze-auth
-        run: python -m unittest -v test_cash_payments.py test_upload_integrity.py test_upload_reconcile.py test_paid_services.py test_paid_services_storage.py test_economics_revenue_source.py test_completed_upload.py
+        run: python -m unittest -v test_cash_payments.py test_upload_integrity.py test_upload_reconcile.py test_paid_services.py test_paid_services_storage.py test_economics_revenue_source.py test_completed_upload.py test_pr71_approved_restoration.py
 
       - name: Python syntax
         run: python -m py_compile az-baze-auth/cash_payments.py az-baze-auth/paid_services.py az-baze-auth/paid_services_upload.py az-baze-auth/completed_upload.py az-baze-auth/cash_upload.py az-baze-auth/daily_upload.py az-baze-auth/daily_upload_core.py az-baze-auth/upload_reconcile.py az-baze-auth/attention.py az-baze-auth/report_storage.py az-baze-auth/ident_import.py az-baze-auth/finrez.py az-baze-auth/economics_control.py az-baze-auth/server.py
