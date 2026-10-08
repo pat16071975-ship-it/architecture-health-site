@@ -393,24 +393,6 @@ def _commit(decision=None):
             g.user["id"],
             now,
         )
-        paid_services.overlay_stored_month(
-            conn,
-            prepared["month"],
-            g.user["id"],
-            now,
-            core.ident_import.DENTISTS,
-            core.ident_import.STRUCTURE_DOCTORS,
-            core.ident_import.LAB_DOCTORS,
-            ignored=(
-                upload_reconcile.provider_names_by_direction(conn, "ignore")
-                | (
-                    set(core.ident_import.KNOWN_STAFF)
-                    - set(core.ident_import.DENTISTS)
-                    - set(core.ident_import.STRUCTURE_DOCTORS)
-                    - set(core.ident_import.LAB_DOCTORS)
-                )
-            ),
-        )
         conn.commit()
     except Exception:
         conn.rollback()
