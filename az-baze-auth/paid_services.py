@@ -367,6 +367,18 @@ def direction_summary(report, dentists, structure_doctors, lab_doctors, ignored=
     }
 
 
+def service_analytics_items(report):
+    result = []
+    for row in report.get("items") or []:
+        text = (
+            str(row.get("group") or "") + " " + str(row.get("service") or "")
+        ).lower()
+        if "сопутствующие товары" in text:
+            continue
+        result.append(row)
+    return result
+
+
 def compact_report(report):
     service_totals = {}
     visit_links = {}
