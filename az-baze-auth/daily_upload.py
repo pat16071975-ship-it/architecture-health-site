@@ -216,7 +216,7 @@ def _parse_fixed_raw(raw, filename, kind):
 
     if kind == "services":
         try:
-            paid_report = paid_services.parse_bytes(raw, filename or "")
+            paid_report = paid_services.parse_bytes(raw, filename or "", known_staff=core.ident_import.KNOWN_STAFF)
         except paid_services.NotPaidServicesReport:
             paid_report = None
         if paid_report is not None:
@@ -499,7 +499,16 @@ def _paid_unknown_providers(paid_report, conn):
 
 
 def _ignored_provider_names(conn):
-    return upload_reconcile.provider_names_by_direction(conn, "ignore")
+    clinical = (
+        set(core.ident_import.DENTISTS)
+        | set(core.ident_import.STRUCTURE_DOCTORS)
+        | set(core.ident_import.LAB_DOCTORS)
+    )
+    nonclinical_known = set(core.ident_import.KNOWN_STAFF) - clinical
+    return (
+        upload_reconcile.provider_names_by_direction(conn, "ignore")
+        | nonclinical_known
+    )
 
 def _comparison_has_conflict(comparison):
     return bool(
