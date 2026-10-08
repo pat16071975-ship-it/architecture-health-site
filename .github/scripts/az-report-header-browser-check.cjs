@@ -265,7 +265,11 @@ function fail(message) {
 
   const paidProviderText = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('#dateCompareBody tr')];
-    const value = label => rows.find(row => row.cells?.[0]?.textContent.trim() === label)?.cells?.[1]?.textContent.replace(/\s+/g,' ').trim() || '';
+    const value = label => {
+      const row=rows.find(item => item.cells?.[0]?.textContent.trim() === label);
+      const cells=row?[...row.cells].slice(1):[];
+      return [...cells].reverse().map(cell=>cell.textContent.replace(/\s+/g,' ').trim()).find(Boolean)||'';
+    };
     return {
       dentistry: value('Оплачено стоматологии'),
       doctor: value('Чирков Максим Сергеевич'),
