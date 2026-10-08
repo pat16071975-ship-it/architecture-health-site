@@ -263,6 +263,22 @@ function fail(message) {
   if (cashSplit.splitCount !== 0) fail('Doctor/direction OOO/IP split must be absent');
   console.log('BROWSER CHECK CLINIC-ONLY LEGAL SPLIT: PASS');
 
+  const paidProviderText = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#dateCompareBody tr')];
+    const value = label => rows.find(row => row.cells?.[0]?.textContent.trim() === label)?.cells?.[1]?.textContent.replace(/\s+/g,' ').trim() || '';
+    return {
+      dentistry: value('Оплачено стоматологии'),
+      doctor: value('Чирков Максим Сергеевич'),
+      structure: value('Оплачено отделению структуры'),
+      lab: value('Оплачено лаборатории'),
+    };
+  });
+  if (!paidProviderText.dentistry.includes('700')) fail('Paid dentistry value missing');
+  if (!paidProviderText.doctor.includes('700')) fail('Paid doctor value missing');
+  if (!paidProviderText.structure.includes('200')) fail('Paid structure value missing');
+  if (!paidProviderText.lab.includes('100')) fail('Paid lab value missing');
+  console.log('BROWSER CHECK PAID PROVIDER VALUES: PASS');
+
   const emphasis = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('#dateCompareBody tr')];
     const byLabel = label => rows.find(row => row.cells?.[0]?.textContent.trim() === label);
