@@ -141,6 +141,32 @@ class PaidServicesStorageTests(unittest.TestCase):
             [2.0, 5000.0],
         )
 
+    def test_latest_snapshot_date_is_month_scoped(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        base = {
+            "totals": {"opening": 0, "billed": 100, "paid": 80, "closing": 20},
+            "providers": {"Dent D.": {"opening": 0, "billed": 100, "paid": 80, "closing": 20}},
+            "provider_residual": {"opening": 0, "billed": 0, "paid": 0, "closing": 0},
+        }
+        for as_of in ("2026-09-15", "2026-09-30"):
+            paid_services.store_snapshot(
+                conn,
+                {"month": "2026-09", "period_end": as_of, **base},
+                as_of + ".xlsx",
+                as_of,
+                1,
+                as_of,
+            )
+        self.assertEqual(
+            paid_services.latest_snapshot_date_for_month(conn, "2026-09"),
+            "2026-09-30",
+        )
+        self.assertIsNone(
+            paid_services.latest_snapshot_date_for_month(conn, "2026-10")
+        )
+        conn.close()
+
     def test_snapshot_applies_only_from_its_as_of_date(self):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
