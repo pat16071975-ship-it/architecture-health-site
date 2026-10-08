@@ -179,78 +179,94 @@ jobs:
           finrez = Path("reports/finrez.html").read_text(encoding="utf-8")
           cash = Path("az-baze-auth/cash_payments.py").read_text(encoding="utf-8")
           economics = Path("az-baze-auth/economics_control.py").read_text(encoding="utf-8")
-
           storage = Path("az-baze-auth/report_storage.py").read_text(encoding="utf-8")
           ident = Path("az-baze-auth/ident_import.py").read_text(encoding="utf-8")
           fixture = Path("az-baze-auth/fixtures/cash_reference_2026_anonymized.tsv").read_text(encoding="utf-8")
 
+          # Restored legacy clinical workflow + separate inactive new MIS source.
+          assert 'data-az-upload-form' in uploads
+          assert 'name="completed"' in uploads and 'name="services"' in uploads
+          assert '<h3>2. Выручка по направлениям</h3>' in uploads
+          assert "/api/uploads/clinical/preview" in uploads
+          assert "/api/uploads/clinical/commit" in uploads
           assert 'action="/uploads/cash"' in uploads
-          assert "/api/uploads/completed/preview" in uploads
-          assert "data-az-completed-upload-form" in uploads
-          assert "name=\"services\"" not in uploads
-          assert "/api/uploads/cash/preview" in uploads
+          assert '<h3>3. Счета и оплаты</h3>' in uploads
+          assert '<h3>4. Новый отчёт МИС «Выручка по направлениям»</h3>' in uploads
           assert "/api/uploads/paid-services/preview" in uploads
           assert "data-az-paid-upload-form" in uploads
-          assert "Новый отчёт МИС «Выручка по направлениям»" in uploads
+          assert "data-az-completed-upload-form" not in uploads
+
           assert "register_paid_services_upload(app)" in server
-          assert "register_completed_upload(app)" in server
+          assert "register_completed_upload(app)" not in server
           assert "daily_upload._parse_fixed_raw" in completed_upload
           assert "paid_services.parse_bytes" in paid_upload
           assert "paid_services.store_snapshot" in paid_upload
-          assert "core.replace_service_month" in paid_upload
+          assert "core.replace_service_month" not in paid_upload
+          assert "paid_services.overlay_stored_month" not in paid_upload
+          assert "upload_reconcile.resolve_providers" not in paid_upload
+          assert '"active_source": False' in paid_upload
           assert "service_items" in Path("az-baze-auth/paid_services.py").read_text(encoding="utf-8")
           assert "visit_links" in Path("az-baze-auth/paid_services.py").read_text(encoding="utf-8")
-          assert "paid_services.parse_bytes" not in daily
-          assert "paid_services.store_snapshot" not in daily
-          assert "paid_services.overlay_stored_month" in daily
+          assert "paid_services.overlay_record_map" not in daily
+          assert "paid_services.overlay_stored_month" not in daily
           assert "Сохранить старые" in uploads and "Загрузить новые" in uploads
-          assert "Выберите направление" in uploads
           assert "0531380019042729" in uploads and "0463880019042725" in uploads
           assert "нераспределённые" not in uploads.lower()
+
+          # Cash source remains exactly the approved clinic Fact source.
           assert "movement <= 0" in cash
           assert "provider_text = re.split(" in cash
           assert "if short and short in provider_text:" in cash
           assert "if short and short in operation:" not in cash
 
-          # Owner-approved split-source semantics:
-          # clinic Fact/legal entity stay cash-only; doctor/direction amounts use
-          # MIS «Оплачено» and are not reconciled to the same-period cash Fact.
+          # Active report semantics remain on the pre-PR71 source until explicit activation.
           assert "cashTotal" in management and "Выставлено счетов" in management
           assert "ДС ООО" in management and "ДС ИП" in management
           assert "Нераспределённые ДС" not in management
-          assert "paidDataComplete===true" in management
-          assert "r.paidDentists||{}" in management
-          assert "r.paidClinicDocs||{}" in management
-          assert "Оплачено стоматологии" in management
-          assert "Оплачено отделению структуры" in management
+          assert "paidDataComplete===true" not in management
+          assert "paidDentists" not in management and "paidClinicDocs" not in management
+          assert "Выручка стоматология" in management
+          assert "Выручка клиника" in management
+          assert "Выручка лаборатории" in management
+          assert "avgCheck:p?fm/p:null" in management
 
           assert "ДС ООО" in period and "ДС ИП" in period
           assert "Нераспределённые ДС" not in period
-          assert "Оплачено стоматологии" in period
-          assert "Оплачено по врачам" in period
+          assert "paidDataComplete===true" not in period
+          assert "Выручка стоматологии" in period
+          assert "Выручка по врачам" in period
+          assert "Оплачено стоматологии" not in period
           assert "dentistsLegal" not in period
           assert "clinicDocsLegal" not in period
 
           assert "r?.cashTotal" in dashboard
           assert "Нераспределённые ДС" not in dashboard
-          assert "paidDentists" in dashboard and "paidClinicDocs" in dashboard
+          assert "paidDentists" not in dashboard and "paidClinicDocs" not in dashboard
+          assert "avgCheck:primary?factMedicine/primary:0" in dashboard
           assert "План месяца:" in dashboard
           assert "data.flatMap(x=>[x.plan,x.factTotal])" in dashboard
 
           assert "r.cashTotal" in forecast
           assert "Нераспределённые ДС" not in forecast
-          assert "r.paidDataComplete===true?{...r,factLab:num(r.paidLab)}:r" in forecast
+          assert "paidDataComplete" not in forecast
+          assert "function rec(m){return FIN?.management?.[m]||{}}" in forecast
+          assert "FULL_MONTHS=ALL_MONTHS.filter(fullMonth)" in forecast
+          assert "Средняя выручка / мес." in forecast
 
           assert "r.cashTotal" in finrez
-          assert "Оплачено по направлениям" in finrez
+          assert "Выручка по направлениям" in finrez
+          assert "Оплачено по направлениям" not in finrez
+          assert "paidDataComplete" not in finrez
           assert "Прочая / не распределённая сумма" not in finrez
+
+          # Approved economics/cash infrastructure remains intact.
           assert "_parse_revenue_source" in economics
           assert '"revenue": revenue' in economics
           assert "_preserve_cash_state" in storage
           assert "PAID_PRESERVED_KEYS" in storage
           assert "_reapply_cash_after_restore" in storage
-          assert "_reapply_paid_after_restore" in storage
+          assert "_reapply_paid_after_restore" not in storage
           assert "cash_payments.overlay_record_map" in ident
-          assert "59891795" not in fixture  # totals are produced by parsing, not hard-coded as a total
+          assert "59891795" not in fixture
           print("CASH FACT SOURCE CONTRACT: OK")
           PY

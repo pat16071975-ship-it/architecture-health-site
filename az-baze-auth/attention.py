@@ -120,14 +120,12 @@ def _management_monthly_plan(conn, month):
 
 
 def _direction_values(record):
-    if record.get("paidDataComplete") is not True:
-        return {"dentistry": None, "structure": None, "lab": None}
-    dentists = record.get("paidDentists") if isinstance(record.get("paidDentists"), dict) else {}
-    clinic_docs = record.get("paidClinicDocs") if isinstance(record.get("paidClinicDocs"), dict) else {}
+    dentists = record.get("dentists") if isinstance(record.get("dentists"), dict) else {}
+    clinic_docs = record.get("clinicDocs") if isinstance(record.get("clinicDocs"), dict) else {}
     return {
         "dentistry": sum(_num(value) for value in dentists.values()),
         "structure": sum(_num(value) for value in clinic_docs.values()),
-        "lab": _num(record.get("paidLab")),
+        "lab": _num(record.get("labRevenue") or record.get("factLab")),
     }
 
 
@@ -154,8 +152,7 @@ def _comparison_average(conn, today, snapshot_date):
             continue
         directions = _direction_values(record)
         for key in values:
-            if directions[key] is not None:
-                values[key].append(directions[key])
+            values[key].append(directions[key])
 
     return {
         key: (sum(items) / len(items) if len(items) >= 2 else None)
@@ -164,7 +161,7 @@ def _comparison_average(conn, today, snapshot_date):
 
 
 def _deviation(current, average):
-    if current is None or average is None or average <= 0:
+    if average is None or average <= 0:
         return None
     return (current - average) / average * 100.0
 
@@ -349,19 +346,14 @@ def build_summary(conn=None):
         ("structure", "Отделение структуры"),
         ("lab", "Лаборатория"),
     ):
-        current_amount = directions[key]
-        deviation = _deviation(current_amount, comparable[key])
+        deviation = _deviation(directions[key], comparable[key])
         revenue_rows.append(
             {
                 "key": key,
                 "label": label,
-                "amount": round(current_amount) if current_amount is not None else None,
+                "amount": round(directions[key]),
                 "deviation": round(deviation, 1) if deviation is not None else None,
-                "comment": (
-                    _deviation_text(deviation)
-                    if current_amount is not None
-                    else "Нет данных нового отчёта МИС"
-                ),
+                "comment": _deviation_text(deviation),
             }
         )
 
@@ -525,7 +517,7 @@ def home_modal_fragment(user_id):
     const rev=(d.revenue||[]).map(x=>'<div class="az-attention-row"><strong>'+esc(x.label)+' — '+(x.amount==null?'Нет данных':money(x.amount))+'</strong><span class="'+state(x.deviation)+'">'+esc(x.comment)+'</span></div>').join('');
     body.innerHTML=
       '<div class="az-attention-card plan"><div class="az-attention-kicker">Текущее выполнение плана</div><div class="az-attention-main">'+(p.execution==null?'—':esc(p.execution)+'%')+'</div><div class="az-attention-sub"><span class="az-attention-plan-line">Факт месяца — <span class="az-attention-value-strong">'+money(p.fact)+'</span></span><span class="az-attention-plan-line">Должно быть — <span class="az-attention-value-strong">'+money(p.due)+'</span></span></div><div class="az-attention-sub '+state(p.delta)+'">'+esc(planComment)+'</div></div>'+
-      '<div class="az-attention-card"><div class="az-attention-kicker">Оплачено по направлениям</div>'+rev+'</div>'+
+      '<div class="az-attention-card"><div class="az-attention-kicker">Выручка по направлениям</div>'+rev+'</div>'+
       '<div class="az-attention-card"><div class="az-attention-kicker">Первичные пациенты — с начала месяца</div><div class="az-attention-main">'+n(pr.total)+'</div><div class="az-attention-sub">Стоматология — '+n(pr.dentistry)+'<br>Отделение структуры — '+n(pr.structure)+'<br>Заказы лаборатории — '+n(pr.lab_orders)+(pr.forecast_total==null?'':'<br><strong>Прогноз на конец месяца — '+n(pr.forecast_total)+' первичных</strong>')+'</div></div>';
     overlay.hidden=false;
   }}).catch(err=>console.error(err));
