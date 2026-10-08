@@ -339,6 +339,17 @@ assert_db_quiescent
 mkdir -p "$BACKUP/files" "$BACKUP/db"
 chmod 700 "$BACKUP"
 capture_db_baseline
+cp -a "$BASELINE_JSON" "$BACKUP/db/baseline.json"
+cp -a "$MANIFEST_FILE" "$BACKUP/runtime-manifest.txt"
+cat > "$BACKUP/deploy-meta.txt" <<EOF
+BASE_COMMIT=$BASE_COMMIT
+TARGET_COMMIT=$TARGET_COMMIT
+SOURCE_HEAD=$SOURCE_HEAD
+DEPLOY_SCRIPT_BLOB_PENDING_RUNTIME_VERIFICATION=1
+UTC_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+EOF
+chmod 600 "$BACKUP/db/baseline.json" "$BACKUP/runtime-manifest.txt" "$BACKUP/deploy-meta.txt"
+echo "BACKUP_METADATA=PASS"
 
 while IFS='|' read -r scope rel base target; do
   [ "$base" = "-" ] && continue
