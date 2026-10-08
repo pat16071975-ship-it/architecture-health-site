@@ -150,6 +150,41 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(record["_uploadControl"]["unassignedPrimary"], 0)
         self.assertEqual(record["_uploadControl"]["unassignedRepeat"], 0)
 
+    def test_unmatched_visit_keeps_completed_source_total(self):
+        p1 = "Alpha A."
+        missing = "Missing M."
+        snapshot = {
+            "visit_links": {
+                "2026-09-01|" + paid_services._patient_token(p1): ["Dent D."],
+            },
+            "invoices": [],
+        }
+        rows = [
+            {
+                "data_date": "2026-09-01",
+                "overall": {"2026-09-01": {"Первичные": 2}},
+                "visits": [
+                    {"date": "2026-09-01", "patient": p1, "kind": "Первичные"},
+                    {"date": "2026-09-01", "patient": missing, "kind": "Первичные"},
+                ],
+            },
+        ]
+        record = {"date": "2026-09-01"}
+        paid_services.apply_visit_attribution(
+            record,
+            snapshot,
+            rows,
+            {"Dent D.": "Dent Doctor"},
+            {},
+            {},
+        )
+        self.assertEqual(record["primary"], 2)
+        self.assertEqual(record["dentPrimary"], 1)
+        self.assertEqual(record["clinicPrimary"], 0)
+        self.assertEqual(record["paidVisitMatched"], 1)
+        self.assertEqual(record["paidVisitUnmatched"], 1)
+        self.assertEqual(record["_uploadControl"]["unassignedPrimary"], 1)
+
     def test_direction_summary_uses_paid_not_billed_and_keeps_unknown_separate(self):
         parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
         summary = paid_services.direction_summary(
