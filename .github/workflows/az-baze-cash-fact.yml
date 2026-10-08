@@ -226,7 +226,7 @@ jobs:
 
           assert "r.cashTotal" in forecast
           assert "Нераспределённые ДС" not in forecast
-          assert "r.paidDataComplete===true?num(r.paidLab):num(r.factLab)" in forecast
+          assert "r.paidDataComplete===true?{...r,factLab:num(r.paidLab)}:r" in forecast
 
           assert "r.cashTotal" in finrez
           assert "Оплачено по направлениям" in finrez
