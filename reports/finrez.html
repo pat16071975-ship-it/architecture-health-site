@@ -77,10 +77,10 @@ function values12(fn){return Array.from({length:12},(_,i)=>fn(i))}
 function hasAny(vals){return vals.some(v=>v!==null&&v!==undefined&&Math.abs(num(v))>.004)}
 function node(id,label,level,values,children=[],cls='',fmt='money',shareMode='',categoryValues=null){return{id,label,level,values,children,cls,fmt,shareMode,categoryValues}}
 function revenueTree(year){
-  const dent=values12(i=>{const r=managementRecord(year,i);return r&&r.paidDataComplete===true?Object.values(r.dentists||{}).reduce((a,v)=>a+num(v),0):null});
-  const structure=values12(i=>{const r=managementRecord(year,i);return r&&r.paidDataComplete===true?Object.values(r.structureDoctors||{}).reduce((a,v)=>a+num(v),0):null});
-  const lab=values12(i=>{const r=managementRecord(year,i);return r&&r.paidDataComplete===true?num(r.paidLab):null});
-  const total=values12(i=>dent[i]===null?null:num(dent[i])+num(structure[i])+num(lab[i]));
+  const dent=values12(i=>{const r=managementRecord(year,i);return r?Object.values(r.dentists||{}).reduce((a,v)=>a+num(v),0):null});
+  const structure=values12(i=>{const r=managementRecord(year,i);return r?Object.values(r.structureDoctors||{}).reduce((a,v)=>a+num(v),0):null});
+  const lab=values12(i=>{const r=managementRecord(year,i);return r?num(r.factLab):null});
+  const total=values12(i=>dent[i]===null&&structure[i]===null&&lab[i]===null?null:num(dent[i])+num(structure[i])+num(lab[i]));
   const doctorNames=new Set();
   const structureNames=new Set();
   for(let i=0;i<12;i++){
@@ -91,7 +91,7 @@ function revenueTree(year){
   const dentChildren=[...doctorNames].sort().map((name,idx)=>node(`rev-dent-doc-${idx}`,name,2,values12(i=>managementRecord(year,i)?num(managementRecord(year,i).dentists?.[name]):null),[],'detail'));
   const structureChildren=[...structureNames].sort().map((name,idx)=>node(`rev-struct-doc-${idx}`,name,2,values12(i=>managementRecord(year,i)?num(managementRecord(year,i).structureDoctors?.[name]):null),[],'detail'));
   const dirs=[node('rev-dent','Стоматология',1,dent,dentChildren,'category'),node('rev-structure','Отделение структуры',1,structure,structureChildren,'category'),node('rev-lab','Лаборатория',1,lab,[],'category')];
-  return node('revenue','Оплачено по направлениям',0,total,dirs,'revenue');
+  return node('revenue','Выручка по направлениям',0,total,dirs,'revenue');
 }
 function expenseCategoryNode(year,mainName,index){
   const vals=values12(i=>categoryTotal(year,i,mainName));
