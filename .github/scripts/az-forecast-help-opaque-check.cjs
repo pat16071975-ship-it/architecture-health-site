@@ -13,6 +13,7 @@ function opaque(value){
 function month(date,cash,dentPrimary,dentRepeat,clinicPrimary,clinicRepeat,dentRev,structureRev,labRev){
   return {
     date,cashTotal:cash,factMedicine:dentRev+structureRev,factLab:labRev,
+    paidDataComplete:true,paidLab:labRev,
     dentPrimary,dentRepeat,dentists:{'Тестовый стоматолог':dentRev},
     clinicPrimary,clinicRepeat,structureDoctors:{'Тестовый специалист':structureRev}
   };
