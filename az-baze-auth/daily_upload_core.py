@@ -315,6 +315,51 @@ def _ensure_month(data, year, month):
     return month_index
 
 
+def _ensure_service_doctors(data, year, month):
+    month_index = _ensure_month(data, year, month)
+    month_count = len(data.get("months", []))
+    for direction_name, doctor_names in (
+        ("Стоматология", ident_import.DENTISTS.values()),
+        ("Отделение структуры", ident_import.STRUCTURE_DOCTORS.values()),
+        ("Лаборатория", ident_import.LAB_DOCTORS.values()),
+    ):
+        direction = (data.get("directions") or {}).get(direction_name)
+        if not isinstance(direction, dict):
+            continue
+        categories = list(direction.get("categories") or [])
+        doctors = direction.setdefault("doctors", {})
+        for doctor_name in sorted(set(doctor_names)):
+            if doctor_name in doctors:
+                continue
+            doctors[doctor_name] = {
+                category: [[0, 0] for _ in range(month_count)]
+                for category in categories
+            }
+    return month_index
+
+
+def _reset_service_month(data, month_index):
+    for direction in (data.get("directions") or {}).values():
+        if not isinstance(direction, dict):
+            continue
+        for doctor in (direction.get("doctors") or {}).values():
+            if not isinstance(doctor, dict):
+                continue
+            for series in doctor.values():
+                if not isinstance(series, list):
+                    continue
+                while len(series) <= month_index:
+                    series.append([0, 0])
+                series[month_index] = [0, 0]
+
+
+def replace_service_month(data, items, year, month):
+    month_index = _ensure_service_doctors(data, year, month)
+    _reset_service_month(data, month_index)
+    _apply_service_items(data, items, year, month, +1)
+    return month_index
+
+
 def _apply_service_items(data, items, year, month, sign):
     month_index = _ensure_month(data, year, month)
     directions = data["directions"]
