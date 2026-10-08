@@ -133,18 +133,18 @@ def _find_sheet(workbook):
     )
 
 
-def _provider_header(row):
+def _provider_header(row, known_staff=None):
     first = _text(row[0])
     return bool(
         first
-        and STAFF_HEADER_RE.fullmatch(first)
+        and (first in set(known_staff or ()) or STAFF_HEADER_RE.fullmatch(first))
         and not _text(row[1])
         and not _text(row[2])
         and not _text(row[3])
     )
 
 
-def parse_bytes(raw, filename=""):
+def parse_bytes(raw, filename="", known_staff=None):
     if not raw:
         raise ValueError("Выбран пустой файл «Выручка по направлениям».")
     if len(raw) > 25 * 1024 * 1024:
@@ -191,7 +191,7 @@ def parse_bytes(raw, filename=""):
                 # become a second service item.
                 continue
 
-            if _provider_header(values):
+            if _provider_header(values, known_staff=known_staff):
                 current_staff = first
                 current_patient = ""
                 current_invoice = None
