@@ -66,7 +66,8 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(parsed["providers"]["Dent D."]["paid"], 225)
         self.assertEqual(parsed["providers"]["Struct S."]["closing"], 50)
         self.assertEqual(parsed["providers"]["Unknown U."]["paid"], 7)
-        self.assertEqual(parsed["provider_residual"]["billed"], 10)
+        self.assertEqual(parsed["provider_residual"]["billed"], 0)
+        self.assertEqual(parsed["providers"]["Старшийадминистратор -."]["billed"], 10)
         self.assertEqual(parsed["provider_residual"]["paid"], 0)
         self.assertEqual(len(parsed["items"]), 4)
         self.assertEqual(parsed["items"][0]["amount"], 200)
@@ -80,6 +81,7 @@ class PaidServicesTests(unittest.TestCase):
             {"Dent D.": "Dent Doctor"},
             {"Struct S.": "Struct Doctor"},
             {"Lab L.": "Lab Doctor"},
+            ignored={"Старшийадминистратор -."},
         )
         self.assertEqual(summary["dentists"]["Dent Doctor"], 225)
         self.assertEqual(summary["clinicDocs"]["Struct Doctor"], 100)
@@ -100,7 +102,7 @@ class PaidServicesTests(unittest.TestCase):
             {"Dent D.": "Dent Doctor"},
             {"Struct S.": "Struct Doctor"},
             {"Lab L.": "Lab Doctor"},
-            ignored={"Unknown U."},
+            ignored={"Unknown U.", "Старшийадминистратор -."},
         )
         self.assertEqual(summary["unknownProviders"], {})
         self.assertEqual(summary["ignoredPaid"], 7)
