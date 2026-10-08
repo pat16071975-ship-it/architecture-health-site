@@ -83,7 +83,7 @@ When separately authorized, apply performs:
 5. backs up every existing runtime file and verifies its base Git blob;
 6. creates and verifies a SQLite backup in
    `/var/lib/az-baze/backups/pr71-paid-services-<UTC>/`;
-7. records the backup SHA-256;
+7. stores the captured DB baseline, runtime manifest, exact commit provenance and backup SHA-256 inside the protected backup directory;
 8. installs only the exact target runtime blobs;
 9. applies only the additive paid-services schema;
 10. verifies the exact DB schema delta and unchanged legacy row counts;
