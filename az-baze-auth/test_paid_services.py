@@ -74,6 +74,43 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(parsed["items"][0]["paid_amount"], 225)
         self.assertEqual(parsed["items"][0]["invoice"], "100")
 
+    def test_compact_snapshot_keeps_service_analytics_without_patient_names(self):
+        parsed = paid_services.parse_bytes(
+            self.reference_report(),
+            "paid.xlsx",
+            known_staff={"Старшийадминистратор -."},
+        )
+        compact = paid_services.compact_report(parsed)
+        serialized = json.dumps(compact, ensure_ascii=False)
+        self.assertEqual(compact["version"], 2)
+        self.assertNotIn("Пациент Один", serialized)
+        self.assertNotIn("Пациент Два", serialized)
+        self.assertTrue(compact["service_items"])
+        self.assertTrue(compact["visit_links"])
+        self.assertEqual(len(compact["invoices"]), 4)
+
+    def test_visit_attribution_uses_hashed_patient_links(self):
+        parsed = paid_services.parse_bytes(
+            self.reference_report(),
+            "paid.xlsx",
+            known_staff={"Старшийадминистратор -."},
+        )
+        compact = paid_services.compact_report(parsed)
+        doctors, matched, unmatched = paid_services.visit_doctors(
+            compact,
+            [
+                {"date": "2026-09-10", "patient": "Пациент Один", "kind": "Первичные"},
+                {"date": "2026-09-11", "patient": "Пациент Два", "kind": "Повторные"},
+                {"date": "2026-09-20", "patient": "Нет В. Базе", "kind": "Первичные"},
+            ],
+            {"Dent D.": "Dent Doctor"},
+            {"Struct S.": "Struct Doctor"},
+        )
+        self.assertEqual(matched, 2)
+        self.assertEqual(unmatched, 1)
+        self.assertEqual(doctors["2026-09-10"]["Первичные"]["Dent D."], 1)
+        self.assertEqual(doctors["2026-09-11"]["Повторные"]["Struct S."], 1)
+
     def test_direction_summary_uses_paid_not_billed_and_keeps_unknown_separate(self):
         parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
         summary = paid_services.direction_summary(
