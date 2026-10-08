@@ -147,7 +147,7 @@ function renderMetrics(r){
     metric('Выполнение плана',d.hasPlan?pct(d.execution):'План не задан',d.hasPlan?'Факт / план месяца':'Расчёт появится после задания плана',d.hasPlan?cls:'missing',d.hasPlan&&p?.hasPlan&&d.execution!==null&&p.execution!==null?trendPoints(d.execution,p.execution,label):''),
     metric('Первичные',count(d.primary),'Стоматология + отделение структуры','',p?trendCount(d.primary,p.primary,label):''),
     metric('Повторные',count(d.repeat),'За выбранный период','',p?trendCount(d.repeat,p.repeat,label):''),
-    metric('Средний чек',money(d.avgCheck),'Выручка медицины / первичные','',p?trendPercent(d.avgCheck,p.avgCheck,label):'')
+    metric('Средний чек',money(d.avgCheck),'Оплачено по медицине / первичные','',p?trendPercent(d.avgCheck,p.avgCheck,label):'')
   ].join('');
 }
 function renderDirections(r){
