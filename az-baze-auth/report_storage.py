@@ -7,6 +7,8 @@ from flask import Response, abort, g, jsonify, request, session
 
 from app import DB_PATH, SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, user_permissions
 import cash_payments
+import paid_services
+import upload_reconcile
 
 MANAGEMENT_KEY = "az-management-report-v1"
 REPORT_BLOB_KEYS = {
@@ -75,6 +77,13 @@ CASH_PRESERVED_KEYS = (
     "labCashOOO", "labCashIP", "_cash_source", "_cash_rule",
 )
 
+PAID_PRESERVED_KEYS = (
+    "paidDataComplete", "paidAsOf", "paidDentists", "paidClinicDocs",
+    "paidLabDocs", "paidDentistry", "paidStructure", "paidLab",
+    "paidServicesTotal", "paidClassifiedTotal", "paidUnclassified",
+    "serviceDebtOpening", "serviceBilled", "serviceDebtClosing",
+)
+
 
 def _has_cash_state(record):
     return isinstance(record, dict) and (
@@ -84,12 +93,15 @@ def _has_cash_state(record):
 
 
 def _preserve_cash_state(existing, incoming):
-    if not _has_cash_state(existing):
-        return incoming
     result = dict(incoming)
-    for key in CASH_PRESERVED_KEYS:
-        if key in existing:
-            result[key] = existing[key]
+    if _has_cash_state(existing):
+        for key in CASH_PRESERVED_KEYS:
+            if key in existing:
+                result[key] = existing[key]
+    if isinstance(existing, dict) and existing.get("paidDataComplete") is True:
+        for key in PAID_PRESERVED_KEYS:
+            if key in existing:
+                result[key] = existing[key]
     return result
 
 
@@ -116,6 +128,23 @@ def _reapply_cash_after_restore(conn, updated_by, updated_at):
     changed = 0
     for month in _cash_months(conn):
         changed += cash_payments.overlay_stored_month(conn, month, updated_by, updated_at)
+    return changed
+
+
+def _reapply_paid_after_restore(conn, updated_by, updated_at):
+    maps = upload_reconcile.provider_maps(conn)
+    changed = 0
+    for month in paid_services.snapshot_months(conn):
+        changed += paid_services.overlay_stored_month(
+            conn,
+            month,
+            updated_by,
+            updated_at,
+            maps["dent"],
+            maps["structure"],
+            maps["lab"],
+            ignored=maps["ignore"],
+        )
     return changed
 
 
@@ -596,7 +625,9 @@ def register_report_storage(app):
                 "INSERT INTO report_data(date, payload, updated_by, updated_at) VALUES(?,?,?,?)",
                 rows,
             )
-            _reapply_cash_after_restore(conn, g.user["id"], iso_now())
+            restored_at = iso_now()
+            _reapply_cash_after_restore(conn, g.user["id"], restored_at)
+            _reapply_paid_after_restore(conn, g.user["id"], restored_at)
             conn.commit()
         except Exception:
             conn.rollback()
@@ -649,6 +680,7 @@ def register_report_storage(app):
                     (key, value, uid, updated_at),
                 )
             _reapply_cash_after_restore(conn, g.user["id"], now)
+            _reapply_paid_after_restore(conn, g.user["id"], now)
             conn.commit()
         except Exception:
             conn.rollback()
