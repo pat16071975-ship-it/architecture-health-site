@@ -445,7 +445,7 @@ function renderBase(){
       '</div></div>';
   }).join('');
   const allocated=DIRS.reduce((sum,[d])=>sum+periodBaseline(d,'all').rev,0);
-  $('#baseReconcile').innerHTML='<div class="partial-strip"><h3>Факт клиники и «Оплачено» по направлениям</h3><p>Средний Факт клиники '+money(base.rev)+' — кассовые поступления. Среднее «Оплачено» по направлениям '+money(allocated)+' — зачёт оплат по услугам. Эти суммы не обязаны совпадать из-за депозитов и оплат ранее или позже выставленных счетов.</p></div>';
+  $('#baseReconcile').innerHTML='';
   renderPartialCurrent();
 }
 
