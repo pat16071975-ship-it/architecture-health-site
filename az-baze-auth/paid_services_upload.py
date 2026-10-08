@@ -4,6 +4,7 @@ import json
 from flask import abort, g, jsonify, request
 
 import cash_payments
+import daily_upload_core as core
 import ident_import
 import paid_services
 import upload_reconcile
@@ -211,6 +212,30 @@ def _commit(decision=None):
             now,
             decision="use_new" if decision == "use_new" else "append",
         )
+
+        service_data = ident_import._load_blob("az-service-analytics-v1")
+        if not service_data:
+            raise ValueError("База «Аналитики услуг» ещё не подготовлена.")
+        year, month_number = [int(part) for part in report["month"].split("-")]
+        month_index = core.replace_service_month(
+            service_data,
+            report.get("items") or [],
+            year,
+            month_number,
+        )
+        previous_through = core._service_through(service_data)
+        through = max(
+            [value for value in (previous_through, report.get("period_end")) if value]
+        )
+        service_data["id"] = f"az-services-{year}-through-{through}-v1"
+        service_data["source"] = (
+            f"Новый MIS-отчёт «Выручка по направлениям» through {through}; "
+            "услуги = Сумма со скидкой, врачи/направления = Оплачено"
+        )
+        core._save_blob(conn, "az-service-analytics-v1", service_data, now)
+        for key, value in ident_import._pad_financial_months(month_index).items():
+            core._save_blob(conn, key, value, now)
+
         updated = paid_services.overlay_stored_month(
             conn,
             report["month"],
@@ -238,8 +263,9 @@ def _commit(decision=None):
     return {
         "status": "replaced" if status == "replaced" else "imported",
         "message": (
-            "Новый отчёт МИС загружен отдельно. Оплаты врачей/направлений "
-            f"обновлены в {updated} управленческих срезах; кассовый Факт и ООО/ИП не менялись."
+            "Новый отчёт МИС загружен отдельно. Обновлены «Оплачено» по врачам/направлениям, "
+            "задолженность и «Аналитика услуг»; "
+            f"управленческих срезов: {updated}. Кассовый Факт и ООО/ИП не менялись."
         ),
         "summary": summary,
         "rows": updated,
