@@ -1014,8 +1014,6 @@ def register_daily_upload(app):
             conn = core.db()
             upload_reconcile.resolve_providers(conn, decisions, g.user["id"])
             upload_reconcile.refresh_runtime(conn, core.ident_import, cash_payments)
-            now = core.iso_now()
-            for month in paid_services.snapshot_months(conn):
             conn.commit()
             core.audit(
                 "provider_registry_updated",
@@ -1026,7 +1024,7 @@ def register_daily_upload(app):
                 {
                     "status": "ok",
                     "message": (
-                        "Классификация сохранена. Уже сохранённые агрегаты «Оплачено» "
+                        "Классификация сохранена. Действующие отчёты "
                         "перераспределены по новому направлению. Для изменения состава услуг "
                         "повторно загружайте исходный клинический период только при необходимости."
                     ),
