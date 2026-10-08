@@ -120,11 +120,12 @@ def _xlsx_cell_value(cell, shared_strings):
 
 def _load_xlsx_subset(stream):
     """
-    Read only the two source sheets needed for the economic model.
+    Read only the economic source sheets needed by AZ-BAZE.
 
     The source workbook has dozens of sheets. Loading the whole workbook inside
     a web request caused the Gunicorn worker to exceed its request time. This
-    reader parses only OPU and payroll using the Python standard library.
+    reader parses OPU, payroll and the compact revenue/discount sheet using the
+    Python standard library.
     """
     if hasattr(stream, "seek"):
         stream.seek(0)
@@ -804,7 +805,7 @@ def _build_payload(wb):
             "potential_revenue": "Потерянные часы × фактическая выручка за проведённый час — только оценочная потенциальная выручка, не фактическая потеря.",
         },
         "layers": {
-            "raw": ["ОПУ", "Свод по ЗП new", "IDENT"],
+            "raw": ["ОПУ", "Свод по ЗП new"] + (["Выручка"] if revenue["available"] else []) + ["IDENT"],
             "normalized": [
                 "сотрудники / employee_id",
                 "роли / assignment_id",
