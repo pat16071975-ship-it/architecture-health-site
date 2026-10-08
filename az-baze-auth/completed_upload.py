@@ -116,10 +116,17 @@ def compare_completed(existing, prepared):
         else:
             result["conflict"].append(data_date)
 
-    incoming_dates = set(incoming)
-    for data_date, old in existing.items():
-        if old.get("has_completed") and data_date not in incoming_dates:
-            result["removed"].append(data_date)
+    incoming_dates = sorted(incoming)
+    incoming_set = set(incoming_dates)
+    if incoming_dates:
+        start_date, end_date = incoming_dates[0], incoming_dates[-1]
+        for data_date, old in existing.items():
+            if (
+                start_date <= data_date <= end_date
+                and old.get("has_completed")
+                and data_date not in incoming_set
+            ):
+                result["removed"].append(data_date)
 
     for key in result:
         result[key] = sorted(result[key])
