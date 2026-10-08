@@ -517,7 +517,7 @@ def home_modal_fragment(user_id):
     const rev=(d.revenue||[]).map(x=>'<div class="az-attention-row"><strong>'+esc(x.label)+' — '+money(x.amount)+'</strong><span class="'+state(x.deviation)+'">'+esc(x.comment)+'</span></div>').join('');
     body.innerHTML=
       '<div class="az-attention-card plan"><div class="az-attention-kicker">Текущее выполнение плана</div><div class="az-attention-main">'+(p.execution==null?'—':esc(p.execution)+'%')+'</div><div class="az-attention-sub"><span class="az-attention-plan-line">Факт месяца — <span class="az-attention-value-strong">'+money(p.fact)+'</span></span><span class="az-attention-plan-line">Должно быть — <span class="az-attention-value-strong">'+money(p.due)+'</span></span></div><div class="az-attention-sub '+state(p.delta)+'">'+esc(planComment)+'</div></div>'+
-      '<div class="az-attention-card"><div class="az-attention-kicker">Выручка по направлениям</div>'+rev+'</div>'+
+      '<div class="az-attention-card"><div class="az-attention-kicker">Оплачено по направлениям</div>'+rev+'</div>'+
       '<div class="az-attention-card"><div class="az-attention-kicker">Первичные пациенты — с начала месяца</div><div class="az-attention-main">'+n(pr.total)+'</div><div class="az-attention-sub">Стоматология — '+n(pr.dentistry)+'<br>Отделение структуры — '+n(pr.structure)+'<br>Заказы лаборатории — '+n(pr.lab_orders)+(pr.forecast_total==null?'':'<br><strong>Прогноз на конец месяца — '+n(pr.forecast_total)+' первичных</strong>')+'</div></div>';
     overlay.hidden=false;
   }}).catch(err=>console.error(err));
