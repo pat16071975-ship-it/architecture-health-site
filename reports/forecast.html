@@ -445,8 +445,7 @@ function renderBase(){
       '</div></div>';
   }).join('');
   const allocated=DIRS.reduce((sum,[d])=>sum+periodBaseline(d,'all').rev,0);
-  const delta=base.rev-allocated-base.unallocated;
-  $('#baseReconcile').innerHTML='<div class="partial-strip"><h3>Контроль общего Факта</h3><p>Средний Факт '+money(base.rev)+' = направления '+money(allocated)+' + нераспределённые ДС '+money(base.unallocated)+'.'+(Math.abs(delta)>1?' <strong>Расхождение '+money(delta)+' — требуется проверка.</strong>':' Баланс сходится.')+'</p></div>';
+  $('#baseReconcile').innerHTML='<div class="partial-strip"><h3>Факт клиники и «Оплачено» по направлениям</h3><p>Средний Факт клиники '+money(base.rev)+' — кассовые поступления. Среднее «Оплачено» по направлениям '+money(allocated)+' — зачёт оплат по услугам. Эти суммы не обязаны совпадать из-за депозитов и оплат ранее или позже выставленных счетов.</p></div>';
   renderPartialCurrent();
 }
 
