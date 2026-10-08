@@ -8,6 +8,7 @@ from flask import abort, g, jsonify, redirect, render_template, request, url_for
 
 import daily_upload_core as core
 import cash_payments
+import mis_paid_revenue
 import upload_reconcile
 from app import csrf_token, permission_required, require_csrf
 
@@ -93,6 +94,16 @@ def _is_retail_item(row):
 
 
 def _parse_revenue_text(text):
+    if mis_paid_revenue.is_expanded_report(text):
+        return mis_paid_revenue.parse_expanded_report(
+            text,
+            is_staff_header=_is_staff_header,
+            invoice_re=core.ident_import.INVOICE_RE,
+            iso_date=_iso,
+            money=_money,
+            lab_doctors=core.ident_import.LAB_DOCTORS,
+        )
+
     items = []
     lab_invoices = []
     current_staff = None
@@ -163,7 +174,7 @@ def _parse_revenue_text(text):
     if len(months) != 1:
         raise ValueError("Файл «Выручка по направлениям» должен содержать один календарный месяц.")
 
-    return items, lab_invoices, next(iter(months))
+    return items, lab_invoices, next(iter(months)), None
 
 
 def _parse_completed_text(text):
@@ -322,7 +333,7 @@ def _ensure_extra_service_doctors(data, year, month):
             }
 
 
-def _split_period(overall, visits, items, lab_invoices):
+def _split_period(overall, visits, items, lab_invoices, paid_snapshot=None):
     completed_dates = sorted(str(value) for value in overall)
     service_dates = sorted({str(row.get("date") or "") for row in items if row.get("date")})
 
@@ -392,6 +403,17 @@ def _split_period(overall, visits, items, lab_invoices):
                 "services_hash": services_hash,
             }
         )
+    if paid_snapshot and result:
+        result[-1]["normalized"]["paid_snapshot"] = core._plain(paid_snapshot)
+        result[-1]["services_hash"] = _payload_hash(
+            {
+                "data_date": result[-1]["data_date"],
+                "items": result[-1]["normalized"].get("items", []),
+                "retail_items": result[-1]["normalized"].get("retail_items", []),
+                "lab_invoices": result[-1]["normalized"].get("lab_invoices", []),
+                "paid_snapshot": result[-1]["normalized"].get("paid_snapshot"),
+            }
+        )
     return result
 
 
@@ -418,14 +440,18 @@ def _prepare_period_raw(completed_raw, completed_name, services_raw, services_na
         services_raw, services_name, "services"
     )
     overall, visits = completed_parsed
-    items, lab_invoices, (year, month) = services_parsed
+    if len(services_parsed) == 4:
+        items, lab_invoices, (year, month), paid_snapshot = services_parsed
+    else:
+        items, lab_invoices, (year, month) = services_parsed
+        paid_snapshot = None
     completed_dates = {str(value) for value in overall}
     service_dates = {str(row.get("date") or "") for row in items if row.get("date")}
     source_gaps = {
         "completed_only": sorted(completed_dates - service_dates),
         "revenue_only": sorted(service_dates - completed_dates),
     }
-    period = _split_period(overall, visits, items, lab_invoices)
+    period = _split_period(overall, visits, items, lab_invoices, paid_snapshot)
     dates = [row["data_date"] for row in period]
     month_key = f"{year:04d}-{month:02d}"
     if any(data_date[:7] != month_key for data_date in dates):
@@ -441,6 +467,7 @@ def _prepare_period_raw(completed_raw, completed_name, services_raw, services_na
         "completed_name": completed_name or "Завершённые приёмы",
         "services_name": services_name or "Выручка по направлениям",
         "source_gaps": source_gaps,
+        "paid_snapshot": paid_snapshot,
     }
 
 

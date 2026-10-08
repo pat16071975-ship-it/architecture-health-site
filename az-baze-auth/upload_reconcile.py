@@ -214,6 +214,24 @@ def detect_unknown_providers(period, ident_import, conn=None):
                 if isinstance(kind, dict):
                     seen.update(str(name).strip() for name in kind if str(name).strip())
 
+        paid_snapshot = normalized.get("paid_snapshot") or {}
+        providers = paid_snapshot.get("providers") if isinstance(paid_snapshot, dict) else {}
+        if isinstance(providers, dict):
+            # A provider can appear in the expanded report only because an old
+            # opening debt exists. Do not force classification for dormant
+            # historical rows. Snapshot-only classification is required when
+            # the provider actually received an allocated payment in the
+            # selected period; current service rows are already covered above.
+            for name, financials in providers.items():
+                if not str(name).strip() or not isinstance(financials, dict):
+                    continue
+                try:
+                    paid = float(financials.get("paid") or 0)
+                except (TypeError, ValueError):
+                    paid = 0.0
+                if abs(paid) > 0.004:
+                    seen.add(str(name).strip())
+
     return sorted(name for name in seen if name not in known)
 
 

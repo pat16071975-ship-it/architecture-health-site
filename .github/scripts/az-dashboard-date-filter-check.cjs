@@ -19,14 +19,14 @@ const DATA = {
   },
   '2026-09-15': {
     date:'2026-09-15', plan:5000, cashTotal:1500, factMedicine:1300, factLab:200,
-    primary:12, repeat:22, dentPrimary:7, dentRepeat:13, dentists:{'A':850},
-    clinicPrimary:5, clinicRepeat:9, clinicDocs:{'B':450}, labOrders:4, labRevenue:200,
+    primary:12, repeat:22, dentPrimary:7, dentRepeat:13, dentists:{'A':850}, paidDentists:{'A':1000},
+    clinicPrimary:5, clinicRepeat:9, clinicDocs:{'B':450}, paidClinicDocs:{'B':500}, labOrders:4, labRevenue:200, paidLabRevenue:220,
     leadsDent:12, leadsClinic:9, leadsReserve:0
   },
   '2026-09-23': {
     date:'2026-09-23', plan:5000, cashTotal:2300, factMedicine:2000, factLab:300,
-    primary:20, repeat:38, dentPrimary:12, dentRepeat:23, dentists:{'A':1300},
-    clinicPrimary:8, clinicRepeat:15, clinicDocs:{'B':700}, labOrders:6, labRevenue:300,
+    primary:20, repeat:38, dentPrimary:12, dentRepeat:23, dentists:{'A':1300}, paidDentists:{'A':1600},
+    clinicPrimary:8, clinicRepeat:15, clinicDocs:{'B':700}, paidClinicDocs:{'B':800}, labOrders:6, labRevenue:300, paidLabRevenue:350,
     leadsDent:20, leadsClinic:15, leadsReserve:0
   }
 };
@@ -76,12 +76,16 @@ async function stub(context){
     revenue:document.querySelector('#metrics .metric strong')?.textContent.trim(),
     direction:document.querySelector('#directionHint')?.textContent.trim(),
     chartHint:document.querySelector('#chartHint')?.textContent.trim(),
-    bars:document.querySelectorAll('#chart .barcol').length
+    bars:document.querySelectorAll('#chart .barcol').length,
+    planTitles:[...document.querySelectorAll('#chart .barcol.plan')].map(x=>x.getAttribute('data-title')||''),
+    dentistText:document.querySelector('.direction.dent .drows')?.textContent||''
   }));
   if(!norm(dated.revenue).includes('1 500')) fail('Specific date did not change dashboard metrics');
   if(!dated.direction.includes('15.09.2026')) fail('Specific date did not change direction slice');
   if(!dated.chartHint.includes('15-е число')) fail('Chart did not switch to same-day monthly comparison');
   if(dated.bars!==4) fail('Same-day chart should contain two months x two bars');
+  if(!dated.planTitles.some(x=>norm(x).includes('4 000'))||!dated.planTitles.some(x=>norm(x).includes('5 000'))) fail('Chart Plan bars are not full monthly plans');
+  if(!norm(dated.dentistText).includes('1 000')) fail('Dashboard dentistry does not use MIS paid-provider amount');
 
   await page.click('#dateClear');
   await page.waitForTimeout(50);

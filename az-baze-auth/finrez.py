@@ -121,6 +121,13 @@ def _management_months():
             "clinicRepeat": record.get("clinicRepeat", 0),
             "dentists": record.get("dentists") if isinstance(record.get("dentists"), dict) else {},
             "structureDoctors": record.get("clinicDocs") if isinstance(record.get("clinicDocs"), dict) else {},
+            "paidDentists": record.get("paidDentists") if isinstance(record.get("paidDentists"), dict) else {},
+            "paidStructureDoctors": record.get("paidClinicDocs") if isinstance(record.get("paidClinicDocs"), dict) else {},
+            "paidLabRevenue": record.get("paidLabRevenue"),
+            "serviceDebtStart": record.get("serviceDebtStart"),
+            "serviceBilledNet": record.get("serviceBilledNet"),
+            "servicePaidTotal": record.get("servicePaidTotal"),
+            "serviceDebtEnd": record.get("serviceDebtEnd"),
         }
     return result
 

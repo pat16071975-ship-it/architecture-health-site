@@ -120,12 +120,22 @@ def _management_monthly_plan(conn, month):
 
 
 def _direction_values(record):
-    dentists = record.get("dentists") if isinstance(record.get("dentists"), dict) else {}
-    clinic_docs = record.get("clinicDocs") if isinstance(record.get("clinicDocs"), dict) else {}
+    paid_dentists = record.get("paidDentists")
+    if not isinstance(paid_dentists, dict) or not paid_dentists:
+        paid_dentists = record.get("dentists") if isinstance(record.get("dentists"), dict) else {}
+
+    paid_structure = record.get("paidClinicDocs")
+    if not isinstance(paid_structure, dict) or not paid_structure:
+        paid_structure = record.get("clinicDocs") if isinstance(record.get("clinicDocs"), dict) else {}
+
+    paid_lab = record.get("paidLabRevenue")
+    if paid_lab is None:
+        paid_lab = record.get("labRevenue") or record.get("factLab")
+
     return {
-        "dentistry": sum(_num(value) for value in dentists.values()),
-        "structure": sum(_num(value) for value in clinic_docs.values()),
-        "lab": _num(record.get("labRevenue") or record.get("factLab")),
+        "dentistry": sum(_num(value) for value in paid_dentists.values()),
+        "structure": sum(_num(value) for value in paid_structure.values()),
+        "lab": _num(paid_lab),
     }
 
 
@@ -356,16 +366,6 @@ def build_summary(conn=None):
                 "comment": _deviation_text(deviation),
             }
         )
-
-    revenue_rows.append(
-        {
-            "key": "unallocated",
-            "label": "Нераспределённые ДС",
-            "amount": round(_num(record.get("cashUnallocated"))),
-            "deviation": None,
-            "comment": "Входят в общий Факт, но не привязаны к врачу/направлению",
-        }
-    )
 
     primary_values = _primary_values(record)
     primary_total = round(primary_values["total"])

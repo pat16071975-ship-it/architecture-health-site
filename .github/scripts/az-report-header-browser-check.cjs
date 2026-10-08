@@ -30,13 +30,15 @@ function fail(message) {
         billedTotal:1200, factMedicine:600, factLab:100, primary:2, repeat:3,
         dentPrimary:1, dentRepeat:1,
         dentists:{'Чирков Максим Сергеевич':500},
+        paidDentists:{'Чирков Максим Сергеевич':700},
         dentistsLegal:{'Чирков Максим Сергеевич':{ooo:300,ip:200}},
         dentCashOOO:300,dentCashIP:200,
         clinicPrimary:1, clinicRepeat:2,
         clinicDocs:{'Старостенко Вадим Анатольевич':100},
+        paidClinicDocs:{'Старостенко Вадим Анатольевич':200},
         clinicDocsLegal:{'Старостенко Вадим Анатольевич':{ooo:70,ip:30}},
         clinicCashOOO:70,clinicCashIP:30,
-        labOrders:1, labRevenue:100, labLegal:{ooo:50,ip:50}, labCashOOO:50,labCashIP:50,
+        labOrders:1, labRevenue:100, paidLabRevenue:150, labLegal:{ooo:50,ip:50}, labCashOOO:50,labCashIP:50,
         leadsDent:2, leadsClinic:2, leadsReserve:0
       }
     }));
@@ -236,36 +238,24 @@ function fail(message) {
     }
   }
 
-  const cashSplit = await page.evaluate(() => {
+  const paidProviderView = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('#dateCompareBody tr')];
-    const byLabel = label => rows.find(row => row.cells?.[0]?.textContent.trim() === label);
-    const labels = [
-      'Выручка стоматологии',
-      'Чирков Максим Сергеевич',
-      'Выручка клиники',
-      'Старостенко Вадим Анатольевич',
-      'Выручка лаборатории',
-    ];
-    const details = {};
-    for (const label of labels) {
-      const row = byLabel(label);
-      const split = row?.querySelector('.cash-split');
-      details[label] = split ? split.textContent.replace(/\s+/g,' ').trim() : null;
-    }
+    const rowText = label => {
+      const row = rows.find(item => item.cells?.[0]?.textContent.trim() === label);
+      return row ? row.textContent.replace(/\s+/g, ' ').trim() : '';
+    };
     return {
-      splitCount: document.querySelectorAll('#dateCompareBody .cash-split').length,
-      splitRows: document.querySelectorAll('#dateCompareBody tr.cash-split').length,
-      details,
+      cashSplitCount: document.querySelectorAll('#dateCompareBody .cash-split').length,
+      dentist: rowText('Чирков Максим Сергеевич'),
+      structure: rowText('Старостенко Вадим Анатольевич'),
+      lab: rowText('Выручка лаборатории'),
     };
   });
-  if (cashSplit.splitRows !== 0) fail('Cash split created extra table rows');
-  if (cashSplit.splitCount < 5) fail('Cash split is missing from comparison cells');
-  for (const [label, detail] of Object.entries(cashSplit.details)) {
-    if (!detail || !detail.includes('ООО') || !detail.includes('ИП')) {
-      fail('Cash split missing OOO/IP for ' + label);
-    }
-  }
-  console.log('BROWSER CHECK CASH LEGAL SPLIT: PASS');
+  if (paidProviderView.cashSplitCount !== 0) fail('Provider/direction rows still expose ООО/ИП cash split');
+  if (!paidProviderView.dentist.includes('700')) fail('Dentist row does not use MIS paid-provider amount');
+  if (!paidProviderView.structure.includes('200')) fail('Structure provider row does not use MIS paid-provider amount');
+  if (!paidProviderView.lab.includes('150')) fail('Laboratory row does not use MIS paid-provider amount');
+  console.log('BROWSER CHECK PROVIDER PAID WITHOUT LEGAL SPLIT: PASS');
 
   const emphasis = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('#dateCompareBody tr')];
@@ -351,13 +341,15 @@ function fail(message) {
         billedTotal:1200, factMedicine:600, factLab:100, primary:2, repeat:3,
         dentPrimary:1, dentRepeat:1,
         dentists:{'Чирков Максим Сергеевич':500},
+        paidDentists:{'Чирков Максим Сергеевич':700},
         dentistsLegal:{'Чирков Максим Сергеевич':{ooo:300,ip:200}},
         dentCashOOO:300,dentCashIP:200,
         clinicPrimary:1, clinicRepeat:2,
         clinicDocs:{'Старостенко Вадим Анатольевич':100},
+        paidClinicDocs:{'Старостенко Вадим Анатольевич':200},
         clinicDocsLegal:{'Старостенко Вадим Анатольевич':{ooo:70,ip:30}},
         clinicCashOOO:70,clinicCashIP:30,
-        labOrders:1, labRevenue:100, labLegal:{ooo:50,ip:50}, labCashOOO:50,labCashIP:50
+        labOrders:1, labRevenue:100, paidLabRevenue:150, labLegal:{ooo:50,ip:50}, labCashOOO:50,labCashIP:50
       }
     }));
   });
@@ -419,7 +411,7 @@ function fail(message) {
   if (mobileCompare.shellWidth > mobileCompare.viewport + 2) fail('Mobile compare: table shell exceeds viewport');
   if (!mobileCompare.shellScrollable) fail('Mobile compare: wide comparison table is not horizontally scrollable');
   if (mobileCompare.stickyCloneHidden !== true) fail('Mobile compare: desktop sticky clone must remain disabled');
-  if (mobileCompare.cashSplitCount < 5) fail('Mobile compare: OOO/IP cash split is missing');
+  if (mobileCompare.cashSplitCount !== 0) fail('Mobile compare: provider/direction ООО/IP split must be hidden');
   await mobile.screenshot({ path: 'artifacts/report-mobile-compare.png', fullPage: false });
   console.log('BROWSER CHECK MOBILE ONE DATE: PASS');
   console.log('BROWSER CHECK MOBILE COMPARE: PASS');

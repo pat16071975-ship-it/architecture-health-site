@@ -293,6 +293,22 @@
     const originalCategoryTotal = categoryTotal;
     const originalOperatingExpenses = operatingExpenses;
     const originalExpenseCategoryNode = expenseCategoryNode;
+    const originalDiscountFor = discountFor;
+    const originalGrossRevenueFor = grossRevenueFor;
+
+    discountFor = function(year, index) {
+      const month = auditedMonth(year, index);
+      const value = month ? economics?.opu?.discount?.[month] : null;
+      if (value !== null && value !== undefined && value !== '' && Number.isFinite(+value)) return +value;
+      return originalDiscountFor(year, index);
+    };
+
+    grossRevenueFor = function(year, index) {
+      const month = auditedMonth(year, index);
+      const value = month ? economics?.opu?.revenue_gross?.[month] : null;
+      if (value !== null && value !== undefined && value !== '' && Number.isFinite(+value)) return +value;
+      return originalGrossRevenueFor(year, index);
+    };
 
     const effectiveCategoryTotal = function(year, index, name) {
       if (year === 2026 && name === 'ФОТ') {
