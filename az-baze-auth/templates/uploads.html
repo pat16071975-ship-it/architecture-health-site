@@ -316,9 +316,8 @@
     if(type==='cash'&&payload.reconciliation){
       const r=payload.reconciliation;
       message.innerHTML='Период <strong>'+esc(payload.period.from)+' — '+esc(payload.period.to)+'</strong>.'+
-        '<br>Новый файл: общий Факт '+money(r.total)+' = стоматология '+money(r.dent)+
-        ' + отделение структуры '+money(r.structure)+' + лаборатория '+money(r.lab)+
-        ' + нераспределённые '+money(r.unallocated)+'.';
+        '<br>Новый файл: общий Факт '+money(r.total)+
+        ' = ООО '+money(r.ooo)+' + ИП '+money(r.ip)+'.';
     }else if(type==='paid'&&payload.summary){
       const r=payload.summary;
       message.innerHTML='Период <strong>'+esc(payload.period.from)+' — '+esc(payload.period.to)+'</strong>.'+
