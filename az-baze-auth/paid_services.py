@@ -695,8 +695,11 @@ def apply_visit_attribution(
     # A v2 snapshot contains privacy-safe visit links. Once that source exists,
     # it becomes authoritative for department attribution, including zero matches.
     if isinstance(snapshot.get("visit_links"), dict):
-        record["primary"] = primary
-        record["repeat"] = repeat
+        # «Завершённые приёмы» остаются авторитетным источником общего
+        # количества первичных/повторных. Новый MIS-отчёт распределяет только
+        # ту часть визитов, которую удаётся надёжно связать с направлением.
+        record["primary"] = source_primary
+        record["repeat"] = source_repeat
         record["dentPrimary"] = dent_primary
         record["dentRepeat"] = dent_repeat
         record["clinicPrimary"] = structure_primary
