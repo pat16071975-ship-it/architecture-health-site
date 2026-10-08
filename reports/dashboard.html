@@ -47,9 +47,9 @@
     </section>
 
     <section class="section general">
-      <div class="section-head"><h2>План и факт по месяцам</h2><div class="hint" id="chartHint">План показан пропорционально последней загруженной дате каждого месяца</div></div>
+      <div class="section-head"><h2>План и факт по месяцам</h2><div class="hint" id="chartHint">План — полный план месяца; Факт — по последнему доступному денежному срезу</div></div>
       <div class="chart-wrap"><div id="chart" class="chart"></div></div>
-      <div class="legend"><span><i class="lp"></i>Должно быть к дате</span><span><i class="lf"></i>Факт</span></div>
+      <div class="legend"><span><i class="lp"></i>План месяца</span><span><i class="lf"></i>Факт</span></div>
     </section>
 
     <section class="section marketing">
@@ -93,14 +93,14 @@ function repeatOf(r){const direct=num(r?.repeat);return direct||num(r?.dentRepea
 function derive(r){
   const date=r?.date||''; const d=new Date(date+'T12:00:00'); const day=d.getDate()||1;
   const rawPlan=r?.plan, hasPlan=rawPlan!==null&&rawPlan!==undefined&&rawPlan!==''&&Number.isFinite(+rawPlan)&&+rawPlan>0, plan=hasPlan?+rawPlan:0;
-  const factMedicine=num(r?.factMedicine), factLab=num(r?.factLab), cashUnallocated=num(r?.cashUnallocated);
+  const factMedicine=num(r?.factMedicine), factLab=num(r?.factLab);
   const primary=primaryOf(r), repeat=repeatOf(r), dentPrimary=num(r?.dentPrimary), dentRepeat=num(r?.dentRepeat), clinicPrimary=num(r?.clinicPrimary), clinicRepeat=num(r?.clinicRepeat);
   const dentRev=sumObject(r?.dentists), structureRev=sumObject(r?.clinicDocs), labRevenue=num(r?.labRevenue||r?.factLab), labOrders=num(r?.labOrders);
   const due=hasPlan?plan*day/daysInMonth(date):0, legacyFact=factMedicine+factLab;
   const factTotal=(r?.cashTotal!==undefined&&r?.cashTotal!==null&&r?.cashTotal!=='')?num(r.cashTotal):legacyFact;
   const leadsDent=num(r?.leadsDent), leadsStructure=num(r?.leadsClinic), leadsReserve=num(r?.leadsReserve), totalLeads=leadsDent+leadsStructure+leadsReserve;
   const hasLeads=[r?.leadsDent,r?.leadsClinic,r?.leadsReserve].some(v=>Number.isFinite(+v)&&+v>0);
-  return {date,hasPlan,plan,due,factMedicine,factLab,factTotal,cashUnallocated,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&plan?factTotal/plan:null};
+  return {date,hasPlan,plan,due,factMedicine,factLab,factTotal,primary,repeat,avgCheck:primary?factMedicine/primary:0,dentPrimary,dentRepeat,dentRev,dentAvg:dentPrimary?dentRev/dentPrimary:0,clinicPrimary,clinicRepeat,structureRev,structureAvg:clinicPrimary?structureRev/clinicPrimary:0,labRevenue,labOrders,labAvg:labOrders?labRevenue/labOrders:0,hasLeads,leadsDent,leadsStructure,leadsReserve,totalLeads,convDent:hasLeads&&leadsDent?dentPrimary/leadsDent:null,convStructure:hasLeads&&leadsStructure?clinicPrimary/leadsStructure:null,totalConv:hasLeads&&totalLeads?primary/totalLeads:null,execution:hasPlan&&plan?factTotal/plan:null};
 }
 function latestByMonth(data){
   const map={}; Object.entries(data||{}).forEach(([date,r])=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;const ym=date.slice(0,7);if(!map[ym]||date>map[ym].date)map[ym]={...r,date}}); return map;
@@ -142,7 +142,6 @@ function renderMetrics(r){
     metric('Выручка',money(d.factTotal),'Общий Факт по двум ККМ','',p?trendPercent(d.factTotal,p.factTotal,label):''),
     metric('Должно быть к дате',d.hasPlan?money(d.due):'План не задан',d.hasPlan?`План месяца: ${money(d.plan)}`:'В Финрезе нет плана на месяц',d.hasPlan?'':'missing',d.hasPlan&&p?.hasPlan?trendPercent(d.due,p.due,label):''),
     metric('Выполнение плана',d.hasPlan?pct(d.execution):'План не задан',d.hasPlan?'Факт / план месяца':'Расчёт появится после задания плана',d.hasPlan?cls:'missing',d.hasPlan&&p?.hasPlan&&d.execution!==null&&p.execution!==null?trendPoints(d.execution,p.execution,label):''),
-    metric('Нераспределённые ДС',money(d.cashUnallocated),'Входят в общий Факт, но не привязаны к направлению','',p?trendPercent(d.cashUnallocated,p.cashUnallocated,label):''),
     metric('Первичные',count(d.primary),'Стоматология + отделение структуры','',p?trendCount(d.primary,p.primary,label):''),
     metric('Повторные',count(d.repeat),'За выбранный период','',p?trendCount(d.repeat,p.repeat,label):''),
     metric('Средний чек',money(d.avgCheck),'Выручка медицины / первичные','',p?trendPercent(d.avgCheck,p.avgCheck,label):'')
@@ -151,11 +150,11 @@ function renderMetrics(r){
 function renderDirections(r){
   const d=derive(r); $('#directionHint').textContent=`Срез на ${fmtDate(d.date)}`;
   $('#directions').innerHTML=`
-    <div class="direction dent"><h3>Стоматология</h3><div class="drows">${row('Выручка',money(d.dentRev))}${row('Первичные',count(d.dentPrimary))}${row('Повторные',count(d.dentRepeat))}${row('Средний чек',money(d.dentAvg))}</div></div>
-    <div class="direction structure"><h3>Отделение структуры</h3><div class="drows">${row('Выручка',money(d.structureRev))}${row('Первичные',count(d.clinicPrimary))}${row('Повторные',count(d.clinicRepeat))}${row('Средний чек',money(d.structureAvg))}</div></div>
-    <div class="direction lab"><h3>Лаборатория</h3><div class="drows">${row('Выручка',money(d.labRevenue))}${row('Заказы',count(d.labOrders))}${row('Средний чек',d.labOrders?money(d.labAvg):'—')}${row('Доля в общей выручке',d.factTotal?pct(d.labRevenue/d.factTotal):'—')}</div></div>`;
-  const total=d.factTotal,parts=[['dent','Стоматология',d.dentRev],['structure','Отделение структуры',d.structureRev],['lab','Лаборатория',d.labRevenue],['unallocated','Нераспределённые ДС',d.cashUnallocated]];
-  $('#revenueStructure').innerHTML=total?`<div class="revenue-structure-card"><div class="revenue-structure-head"><strong>Структура общего Факта</strong><span>Факт: ${money(total)}</span></div><div class="revenue-structure-bar">${parts.filter(x=>x[2]>0).map(x=>`<div class="revenue-seg ${x[0]}" style="width:${x[2]/total*100}%" title="${x[1]}: ${money(x[2])} (${pct(x[2]/total)})"></div>`).join('')}</div><div class="revenue-share-legend">${parts.map(x=>`<div class="revenue-share-item ${x[0]}"><i></i><div><span>${x[1]}</span><strong>${money(x[2])} · ${pct(x[2]/total)}</strong></div></div>`).join('')}</div></div>`:'<div class="revenue-structure-card"><div class="revenue-structure-head"><strong>Структура общего Факта</strong><span>Нет данных</span></div></div>';
+    <div class="direction dent"><h3>Стоматология</h3><div class="drows">${row('Оплачено',money(d.dentRev))}${row('Первичные',count(d.dentPrimary))}${row('Повторные',count(d.dentRepeat))}${row('Средний чек',money(d.dentAvg))}</div></div>
+    <div class="direction structure"><h3>Отделение структуры</h3><div class="drows">${row('Оплачено',money(d.structureRev))}${row('Первичные',count(d.clinicPrimary))}${row('Повторные',count(d.clinicRepeat))}${row('Средний чек',money(d.structureAvg))}</div></div>
+    <div class="direction lab"><h3>Лаборатория</h3><div class="drows">${row('Оплачено',money(d.labRevenue))}${row('Заказы',count(d.labOrders))}${row('Средний чек',d.labOrders?money(d.labAvg):'—')}</div></div>`;
+  const total=d.dentRev+d.structureRev+d.labRevenue,parts=[['dent','Стоматология',d.dentRev],['structure','Отделение структуры',d.structureRev],['lab','Лаборатория',d.labRevenue]];
+  $('#revenueStructure').innerHTML=total?`<div class="revenue-structure-card"><div class="revenue-structure-head"><strong>Структура оплаченных услуг</strong><span>Оплачено: ${money(total)}</span></div><div class="revenue-structure-bar">${parts.filter(x=>x[2]>0).map(x=>`<div class="revenue-seg ${x[0]}" style="width:${x[2]/total*100}%" title="${x[1]}: ${money(x[2])} (${pct(x[2]/total)})"></div>`).join('')}</div><div class="revenue-share-legend">${parts.map(x=>`<div class="revenue-share-item ${x[0]}"><i></i><div><span>${x[1]}</span><strong>${money(x[2])} · ${pct(x[2]/total)}</strong></div></div>`).join('')}</div></div>`:'<div class="revenue-structure-card"><div class="revenue-structure-head"><strong>Структура оплаченных услуг</strong><span>Нет данных</span></div></div>';
 }
 function renderChart(){
   const sel=selected(),year=sel.ym.slice(0,4),day=sel.specific?Number(sel.requestedDate.slice(-2)):null;
@@ -164,10 +163,10 @@ function renderChart(){
     const [y,m]=x.ym.split('-').map(Number),last=new Date(y,m,0).getDate(),target=`${x.ym}-${String(Math.min(day,last)).padStart(2,'0')}`,record=recordAtOrBefore(x.ym,target);
     return record?{ym:x.ym,...derive(record)}:null;
   }).filter(Boolean);
-  $('#chartHint').textContent=day?`Сравнение на ${day}-е число каждого месяца; если точной даты нет, используется ближайший предыдущий срез`:'План показан пропорционально последней загруженной дате каждого месяца';
-  const max=Math.max(1,...data.flatMap(x=>[x.due,x.factTotal]));
+  $('#chartHint').textContent=day?`Факт — на ${day}-е число каждого месяца; План — полный план месяца. Если точной даты нет, используется ближайший предыдущий срез`:'План — полный план месяца; Факт — по последнему доступному денежному срезу';
+  const max=Math.max(1,...data.flatMap(x=>[x.plan,x.factTotal]));
   $('#chart').style.setProperty('--months',data.length||1);
-  $('#chart').innerHTML=data.map(x=>{const hp=x.due>0?Math.max(2,Math.round(x.due/max*100)):0,hf=x.factTotal>0?Math.max(2,Math.round(x.factTotal/max*100)):0;return `<div class="month"><div class="bars"><div class="barcol plan" style="height:${hp}%" data-title="Должно быть: ${money(x.due)}"></div><div class="barcol fact" style="height:${hf}%" data-title="Факт: ${money(x.factTotal)}"></div></div><div class="month-label">${shortMonth(x.ym)}</div></div>`}).join('');
+  $('#chart').innerHTML=data.map(x=>{const hp=x.plan>0?Math.max(2,Math.round(x.plan/max*100)):0,hf=x.factTotal>0?Math.max(2,Math.round(x.factTotal/max*100)):0;return `<div class="month"><div class="bars"><div class="barcol plan" style="height:${hp}%" data-title="План: ${money(x.plan)}"></div><div class="barcol fact" style="height:${hf}%" data-title="Факт: ${money(x.factTotal)}"></div></div><div class="month-label">${shortMonth(x.ym)}</div></div>`}).join('');
 }
 function renderMarketing(r){
   const d=derive(r),missing=d.hasLeads?'':'missing',lead=v=>d.hasLeads?count(v):'Нет данных',conversion=v=>d.hasLeads?pct(v):'Нет данных'; $('#marketingMetrics').innerHTML=[
