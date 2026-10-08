@@ -77,9 +77,9 @@ function values12(fn){return Array.from({length:12},(_,i)=>fn(i))}
 function hasAny(vals){return vals.some(v=>v!==null&&v!==undefined&&Math.abs(num(v))>.004)}
 function node(id,label,level,values,children=[],cls='',fmt='money',shareMode='',categoryValues=null){return{id,label,level,values,children,cls,fmt,shareMode,categoryValues}}
 function revenueTree(year){
-  const dent=values12(i=>{const r=managementRecord(year,i);return r?Object.values(r.dentists||{}).reduce((a,v)=>a+num(v),0):null});
-  const structure=values12(i=>{const r=managementRecord(year,i);return r?Object.values(r.structureDoctors||{}).reduce((a,v)=>a+num(v),0):null});
-  const lab=values12(i=>{const r=managementRecord(year,i);if(!r)return null;return r.paidDataComplete===true?num(r.paidLab):num(r.factLab)});
+  const dent=values12(i=>{const r=managementRecord(year,i);return r&&r.paidDataComplete===true?Object.values(r.dentists||{}).reduce((a,v)=>a+num(v),0):null});
+  const structure=values12(i=>{const r=managementRecord(year,i);return r&&r.paidDataComplete===true?Object.values(r.structureDoctors||{}).reduce((a,v)=>a+num(v),0):null});
+  const lab=values12(i=>{const r=managementRecord(year,i);return r&&r.paidDataComplete===true?num(r.paidLab):null});
   const total=values12(i=>dent[i]===null?null:num(dent[i])+num(structure[i])+num(lab[i]));
   const doctorNames=new Set();
   const structureNames=new Set();
