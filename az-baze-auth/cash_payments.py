@@ -351,25 +351,21 @@ def apply_to_record(record, snapshot, source_label="Счета и оплаты")
     if not snapshot:
         return record
     result = dict(record or {})
-    result.setdefault("billedMedicine", result.get("factMedicine", 0))
-    result.setdefault("billedLab", result.get("factLab", result.get("labRevenue", 0)))
-    result.setdefault("billedDentists", dict(result.get("dentists") or {}))
-    result.setdefault("billedClinicDocs", dict(result.get("clinicDocs") or {}))
-    result.setdefault("billedLabRevenue", result.get("labRevenue", result.get("factLab", 0)))
-
-    for key in (
-        "billedTotal", "cashOOO", "cashIP", "cashTotal", "cashUnallocated",
-        "factMedicine", "factLab", "labRevenue", "dentCashOOO", "dentCashIP",
-        "clinicCashOOO", "clinicCashIP", "labCashOOO", "labCashIP",
-    ):
+    for key in ("billedTotal", "cashOOO", "cashIP", "cashTotal"):
         result[key] = snapshot.get(key, 0)
-    result["dentists"] = dict(snapshot.get("dentists") or {})
-    result["clinicDocs"] = dict(snapshot.get("clinicDocs") or {})
-    result["dentistsLegal"] = dict(snapshot.get("dentistsLegal") or {})
-    result["clinicDocsLegal"] = dict(snapshot.get("clinicDocsLegal") or {})
-    result["labLegal"] = dict(snapshot.get("labLegal") or {"ooo": 0, "ip": 0})
+
+    # Doctor/direction amounts now come from «Выручка по направлениям» → «Оплачено».
+    # Cash attribution remains available only inside cash_receipts_daily for audit.
+    for key in (
+        "cashUnallocated",
+        "dentistsLegal", "clinicDocsLegal", "labLegal",
+        "dentCashOOO", "dentCashIP", "clinicCashOOO", "clinicCashIP",
+        "labCashOOO", "labCashIP",
+    ):
+        result.pop(key, None)
+
     result["_cash_source"] = source_label
-    result["_cash_rule"] = "positive-receipts-only-v1"
+    result["_cash_rule"] = "positive-receipts-clinic-only-v2"
     return result
 
 
