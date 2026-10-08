@@ -888,15 +888,7 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
 
         management = core._rebuild_management(month_key, source)
         cash_payments.overlay_record_map(conn, month_key, management)
-        paid_services.overlay_record_map(
-            conn,
-            month_key,
-            management,
-            core.ident_import.DENTISTS,
-            core.ident_import.STRUCTURE_DOCTORS,
-            core.ident_import.LAB_DOCTORS,
-            ignored=_ignored_provider_names(conn),
-        )
+
 
         if apply_new:
             for removed_date in remove_dates:
@@ -935,16 +927,7 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
 
         # Re-overlay independent sources after every clinical rebuild.
         cash_payments.overlay_stored_month(conn, month_key, g.user["id"], now)
-        paid_services.overlay_stored_month(
-            conn,
-            month_key,
-            g.user["id"],
-            now,
-            core.ident_import.DENTISTS,
-            core.ident_import.STRUCTURE_DOCTORS,
-            core.ident_import.LAB_DOCTORS,
-            ignored=_ignored_provider_names(conn),
-        )
+
 
         core._save_blob(conn, "az-service-analytics-v1", service_data, now)
         for key, value in finance_blobs.items():
@@ -1035,89 +1018,7 @@ def register_daily_upload(app):
             upload_reconcile.refresh_runtime(conn, core.ident_import, cash_payments)
             now = core.iso_now()
             for month in paid_services.snapshot_months(conn):
-                paid_services.overlay_stored_month(
-                    conn,
-                    month,
-                    g.user["id"],
-                    now,
-                    core.ident_import.DENTISTS,
-                    core.ident_import.STRUCTURE_DOCTORS,
-                    core.ident_import.LAB_DOCTORS,
-                    ignored=_ignored_provider_names(conn),
-                )
-            conn.commit()
-            core.audit(
-                "provider_registry_updated",
-                target_user_id=g.user["id"],
-                details="providers=" + ",".join(sorted(decisions)),
-            )
-            return jsonify(
-                {
-                    "status": "ok",
-                    "message": (
-                        "Классификация сохранена. Уже сохранённые агрегаты «Оплачено» "
-                        "перераспределены по новому направлению. Для изменения состава услуг "
-                        "повторно загружайте исходный клинический период только при необходимости."
-                    ),
-                }
-            )
-        except ValueError as exc:
-            return jsonify({"status": "error", "message": str(exc)}), 400
-
-    @app.post("/api/uploads/clinical/preview")
-    @permission_required("section5")
-    def clinical_upload_preview():
-        require_csrf()
-        completed = request.files.get("completed")
-        services = request.files.get("services")
-        if not completed or not completed.filename:
-            return jsonify({"status": "error", "message": "Выберите файл «Завершённые приёмы»."}), 400
-        if not services or not services.filename:
-            return jsonify({"status": "error", "message": "Выберите файл «Выручка по направлениям»."}), 400
-        try:
-            return jsonify(_period_preview(completed, services))
-        except ValueError as exc:
-            return jsonify({"status": "error", "message": str(exc)}), 400
-
-    @app.post("/api/uploads/clinical/commit")
-    @permission_required("section5")
-    def clinical_upload_commit():
-        require_csrf()
-        completed = request.files.get("completed")
-        services = request.files.get("services")
-        if not completed or not completed.filename:
-            return jsonify({"status": "error", "message": "Выберите файл «Завершённые приёмы»."}), 400
-        if not services or not services.filename:
-            return jsonify({"status": "error", "message": "Выберите файл «Выручка по направлениям»."}), 400
-        try:
-            result = _process_period_upload(
-                completed,
-                services,
-                decision=request.form.get("decision") or None,
-                provider_decisions=_provider_decisions_from_form(),
-            )
-            return jsonify(result)
-        except ValueError as exc:
-            return jsonify({"status": "error", "message": str(exc)}), 409
-
-    @app.route("/uploads/", methods=["GET", "POST"])
-    @permission_required("section5")
-    def uploads_page():
-        # The page is display-only. All real uploads use the preview/commit API.
-        # A direct POST can only be a legacy/browser replay of an old form submit;
-        # always collapse it to a clean GET so refresh/Ctrl+F5 can never replay
-        # clinical data processing.
-        if request.method == "POST":
-            return redirect(url_for("uploads_page"), code=303)
-
-        perms = user_permissions(g.user)
-        result = None
-        error = None
-
-        conn = core.db()
-        latest = conn.execute(
-            "SELECT data_date,revision,uploaded_at FROM daily_uploads ORDER BY data_date DESC LIMIT 1"
-        ).fetchone()
+        .fetchone()
         cash_latest = cash_payments.latest_loaded_date(conn)
         cash_next_required = cash_payments.next_required_date(conn)
         paid_latest = paid_services.latest_loaded_date(conn)
