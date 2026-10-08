@@ -1,0 +1,88 @@
+name: AZ-BAZE PR71 deploy package
+
+on:
+  pull_request:
+    paths:
+      - "az-baze-auth/deploy/deploy-pr71-paid-services-source.sh"
+      - "az-baze-auth/deploy/CONTROLLED-PR71-PAID-SERVICES.md"
+      - ".github/workflows/az-baze-pr71-deploy-package.yml"
+
+jobs:
+  deploy-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bash syntax
+        run: bash -n az-baze-auth/deploy/deploy-pr71-paid-services-source.sh
+
+      - name: Controlled deploy source contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("az-baze-auth/deploy/deploy-pr71-paid-services-source.sh")
+          text = path.read_text(encoding="utf-8")
+
+          required = [
+              'BASE_COMMIT="742d4b68bf471be32c5a072e5d646f79eeab5e8d"',
+              'TARGET_COMMIT="49bdf49628d252e8eccb3f5a55c3810e650e84c1"',
+              'SOURCE_HEAD="186598f723a096ac63cb61ee04e79d85866e73db"',
+              'CONFIRM_TOKEN="PR71-DEPLOY-49BDF496"',
+              'EXPECTED_HOST="az-server"',
+              'SERVICE="az-baze-auth"',
+              'HEALTH_URL="http://127.0.0.1:8001/health"',
+              'DB_READONLY_PRECHECK=PASS',
+              'LIVE_BASE_GUARD=PASS',
+              'TARGET_BLOBS=PASS',
+              'TARGET_CONTRACT=PASS',
+              'DB_BACKUP_VERIFY=PASS',
+              'DB_SCHEMA_DELTA=PASS',
+              'ROLLBACK_MODE=FILES_AND_DB_PRESTART',
+              'ROLLBACK_MODE=FILES_ONLY_POSTSTART',
+              'DB RESTORE SKIPPED AFTER START ATTEMPT TO AVOID DATA LOSS',
+              'PR71 CONTROLLED DEPLOY: PASS',
+          ]
+          for needle in required:
+              assert needle in text, needle
+
+          manifest = []
+          in_manifest = False
+          for line in text.splitlines():
+              if line.strip() == "cat > \"$MANIFEST_FILE\" <<'EOF'":
+                  in_manifest = True
+                  continue
+              if in_manifest and line.strip() == "EOF":
+                  break
+              if in_manifest and line.strip():
+                  manifest.append(line.strip())
+
+          assert len(manifest) == 20, len(manifest)
+          paths = [row.split("|")[1] for row in manifest]
+          assert len(paths) == len(set(paths)), "duplicate manifest path"
+          new_paths = [row.split("|")[1] for row in manifest if row.split("|")[2] == "-"]
+          assert sorted(new_paths) == sorted([
+              "completed_upload.py",
+              "paid_services.py",
+              "paid_services_upload.py",
+          ]), new_paths
+
+          forbidden = [
+              "test_paid_services.py",
+              "test_completed_upload.py",
+              ".github/",
+          ]
+          for value in forbidden:
+              assert value not in "\n".join(manifest), value
+
+          assert re.search(r'case "\$MODE" in\s+--preflight\)', text)
+          assert '--apply)' in text
+          print("PR71 DEPLOY PACKAGE CONTRACT: PASS")
+          PY
+
+      - name: Documentation status guard
+        run: |
+          grep -Fq 'Status: **PREPARED ONLY. DEPLOY NOT AUTHORIZED.**' az-baze-auth/deploy/CONTROLLED-PR71-PAID-SERVICES.md
+          grep -Fq 'does not:' az-baze-auth/deploy/CONTROLLED-PR71-PAID-SERVICES.md
+          grep -Fq 'Never execute from a mutable branch tip.' az-baze-auth/deploy/CONTROLLED-PR71-PAID-SERVICES.md
