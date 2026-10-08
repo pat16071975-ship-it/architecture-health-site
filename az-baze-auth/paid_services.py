@@ -611,20 +611,19 @@ def visit_doctors(snapshot, visits, dentists, structure_doctors):
             unmatched += len(kinds)
             continue
 
-        representatives = []
-        seen_directions = set()
-        for direction, source_name in candidates:
-            if direction in seen_directions:
-                continue
-            representatives.append((direction, source_name))
-            seen_directions.add(direction)
+        directions = {direction for direction, _source_name in candidates}
+        if len(directions) != 1:
+            # Один пациент в один день может иметь услуги разных направлений.
+            # «Завершённые приёмы» не содержат врача, поэтому выбирать одно
+            # направление по порядку строк было бы догадкой. Такие визиты
+            # остаются в общем количестве и отмечаются как нераспределённые
+            # только во внутреннем контроле атрибуции.
+            unmatched += len(kinds)
+            continue
 
-        assignments = representatives[: len(kinds)]
-        while len(assignments) < len(kinds):
-            assignments.append(candidates[0])
-
+        source_name = candidates[0][1]
         day = doctors.setdefault(data_date, {})
-        for kind, (_direction, source_name) in zip(kinds, assignments):
+        for kind in kinds:
             by_kind = day.setdefault(kind, {})
             by_kind[source_name] = int(by_kind.get(source_name, 0)) + 1
             matched += 1
