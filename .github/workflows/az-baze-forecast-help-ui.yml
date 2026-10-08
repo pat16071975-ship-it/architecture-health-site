@@ -112,7 +112,7 @@ jobs:
               'Повторные на 1 первичного считаются как все повторные периода / все первичные периода',
               'periodBaseline',
               'clinicPeriodBase',
-              'FULL_MONTHS=ALL_MONTHS.filter(fullMonth)',
+              'FULL_MONTHS=ALL_MONTHS.filter(m=>fullMonth(m)&&rec(m).paidDataComplete===true)',
               'PARTIAL_MONTH=latest&&!fullMonth(latest)?latest:null',
               'endRevenue:base.rev+last.rev',
               'endProfit:base.profit+last.profit',
