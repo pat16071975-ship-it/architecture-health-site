@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Bash syntax
         run: bash -n az-baze-auth/deploy/deploy-pr71-paid-services-source.sh
@@ -59,6 +61,32 @@ jobs:
                   manifest.append(line.strip())
 
           assert len(manifest) == 20, len(manifest)
+
+          import subprocess
+          base_commit = "742d4b68bf471be32c5a072e5d646f79eeab5e8d"
+          target_commit = "49bdf49628d252e8eccb3f5a55c3810e650e84c1"
+          for row in manifest:
+              scope, rel, base_blob, target_blob = row.split("|")
+              repo_path = ("az-baze-auth/" if scope == "app" else "reports/") + rel
+              actual_target = subprocess.check_output(
+                  ["git", "rev-parse", f"{target_commit}:{repo_path}"],
+                  text=True,
+              ).strip()
+              assert actual_target == target_blob, (repo_path, actual_target, target_blob)
+              if base_blob == "-":
+                  missing = subprocess.run(
+                      ["git", "cat-file", "-e", f"{base_commit}:{repo_path}"],
+                      stdout=subprocess.DEVNULL,
+                      stderr=subprocess.DEVNULL,
+                  )
+                  assert missing.returncode != 0, repo_path
+              else:
+                  actual_base = subprocess.check_output(
+                      ["git", "rev-parse", f"{base_commit}:{repo_path}"],
+                      text=True,
+                  ).strip()
+                  assert actual_base == base_blob, (repo_path, actual_base, base_blob)
+
           paths = [row.split("|")[1] for row in manifest]
           assert len(paths) == len(set(paths)), "duplicate manifest path"
           new_paths = [row.split("|")[1] for row in manifest if row.split("|")[2] == "-"]
