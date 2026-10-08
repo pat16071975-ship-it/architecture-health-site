@@ -541,9 +541,12 @@ def _period_preview(completed_file, services_file):
     comparison = upload_reconcile.compare_clinical(
         conn, prepared["period"], through
     )
-    unknown = upload_reconcile.detect_unknown_providers(
-        prepared["period"], core.ident_import, conn
-    )
+    unknown = sorted(set(
+        upload_reconcile.detect_unknown_providers(
+            prepared["period"], core.ident_import, conn
+        )
+        + _paid_unknown_providers(prepared.get("paid_report"), conn)
+    ))
     if unknown:
         upload_reconcile.record_pending_providers(
             conn,
@@ -657,9 +660,12 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
     initial = _prepare_period_raw(
         completed_raw, completed_name, services_raw, services_name
     )
-    unknown = upload_reconcile.detect_unknown_providers(
-        initial["period"], core.ident_import, conn
-    )
+    unknown = sorted(set(
+        upload_reconcile.detect_unknown_providers(
+            initial["period"], core.ident_import, conn
+        )
+        + _paid_unknown_providers(initial.get("paid_report"), conn)
+    ))
 
     provider_decisions = provider_decisions or {}
     if provider_decisions:
@@ -678,9 +684,12 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
         prepared = _prepare_period_raw(
             completed_raw, completed_name, services_raw, services_name
         )
-        unknown = upload_reconcile.detect_unknown_providers(
-            prepared["period"], core.ident_import, conn
-        )
+        unknown = sorted(set(
+            upload_reconcile.detect_unknown_providers(
+                prepared["period"], core.ident_import, conn
+            )
+            + _paid_unknown_providers(prepared.get("paid_report"), conn)
+        ))
     else:
         prepared = initial
 
