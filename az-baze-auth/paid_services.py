@@ -709,6 +709,9 @@ def overlay_record_map(conn, month, records, dentists, structure_doctors, lab_do
     if not records:
         return records
     month_snapshot = latest_snapshot_for_month(conn, month)
+    has_daily_uploads = bool(conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_uploads'"
+    ).fetchone())
     for data_date, record in records.items():
         if str(data_date)[:7] != str(month):
             continue
@@ -722,7 +725,7 @@ def overlay_record_map(conn, month, records, dentists, structure_doctors, lab_do
                 lab_doctors,
                 ignored=ignored,
             )
-        if month_snapshot:
+        if month_snapshot and has_daily_uploads:
             daily = conn.execute(
                 "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
                 (str(data_date),),
@@ -784,6 +787,9 @@ def overlay_stored_month(
         (str(month),),
     ).fetchall()
     month_snapshot = latest_snapshot_for_month(conn, month)
+    has_daily_uploads = bool(conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_uploads'"
+    ).fetchone())
     changed = 0
     for row in rows:
         data_date = str(row["date"] if hasattr(row, "keys") else row[0])
@@ -808,7 +814,7 @@ def overlay_stored_month(
             )
             touched = True
 
-        if month_snapshot:
+        if month_snapshot and has_daily_uploads:
             daily = conn.execute(
                 "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
                 (data_date,),
