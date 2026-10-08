@@ -362,6 +362,13 @@ def _commit(decision=None):
 
         source = f"AZ-BAZE completed visits: {prepared['filename']}"
         management = core._rebuild_management(prepared["month"], source)
+        # Discounts/gross revenue are no longer sourced from the completed-visits
+        # path. Finrez receives them from the economists' workbook. If that source
+        # is absent, the UI must show no data rather than a synthetic zero.
+        for record in management.values():
+            record["discountDataComplete"] = False
+            record["grossRevenue"] = 0
+            record["discountAmount"] = 0
         cash_payments.overlay_record_map(conn, prepared["month"], management)
 
         for data_date, record in management.items():
