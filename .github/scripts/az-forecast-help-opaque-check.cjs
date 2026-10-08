@@ -89,9 +89,10 @@ async function state(page){
   await page.waitForFunction(() => document.querySelector('#app')?.style.display === 'block', null, {timeout:5000});
 
   let s=await state(page);
-  if(s.baseMetrics!==5) fail('Expected 5 base metrics including unallocated cash, got '+s.baseMetrics);
-  if(!s.baseText.includes('Нераспределённые ДС')) fail('Unallocated cash base metric is missing: '+s.baseText);
-  if(!s.reconcileText.includes('Контроль общего Факта')) fail('Fact reconciliation block is missing: '+s.reconcileText);
+  if(s.baseMetrics!==4) fail('Expected 4 base metrics after removing user-facing unallocated cash, got '+s.baseMetrics);
+  if(s.baseText.includes('Нераспределённые ДС')) fail('Unallocated cash must not be shown in forecast: '+s.baseText);
+  if(!s.reconcileText.includes('Источники денежных показателей')) fail('Split-source explanation is missing: '+s.reconcileText);
+  if(!s.reconcileText.includes('не обязаны совпадать')) fail('Deposit/debt timing explanation is missing: '+s.reconcileText);
   if(s.baseDirections!==3) fail('Expected 3 base direction cards, got '+s.baseDirections);
   if(!s.periodText.includes('01.07.2026 — 30.09.2026')) fail('Default base must be last 3 full months: '+s.periodText);
   if(!s.periodText.includes('3 полных мес.')) fail('Default period month count missing: '+s.periodText);
