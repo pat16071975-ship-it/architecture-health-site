@@ -197,7 +197,7 @@
   function updateEntryReconcile(){
     const box=document.getElementById('entryReconcileTop');if(!box)return;
     box.className='entry-reconcile';
-    box.textContent='Факт клиники и ООО/ИП берутся из «Счета и оплаты»; выручка врачей — из действующего клинического комплекта. Эти суммы не обязаны совпадать.';
+    box.textContent='Факт клиники и ООО/ИП берутся из «Счета и оплаты»; выручка врачей — из действующего клинического комплекта.';
   }
   function entryDoctorValues(r,type){
     return r?.[type]||{};
