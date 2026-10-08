@@ -393,7 +393,7 @@ def store_snapshot(
     if existing:
         old_payload = existing["payload_json"] if hasattr(existing, "keys") else existing[2]
         old_sha = existing["source_sha256"] if hasattr(existing, "keys") else existing[4]
-        if str(old_sha) == str(source_sha256) and str(old_payload) == payload_json:
+        if str(old_payload) == payload_json:
             return "identical"
         conn.execute(
             """
