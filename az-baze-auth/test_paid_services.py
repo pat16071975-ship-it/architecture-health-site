@@ -57,7 +57,7 @@ class PaidServicesTests(unittest.TestCase):
         ])
 
     def test_parse_new_report_preserves_provider_paid_and_debt(self):
-        parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx")
+        parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
         self.assertEqual(parsed["source_type"], "paid_services_v1")
         self.assertEqual(parsed["sheet"], "Выручка по направлениям")
         self.assertEqual(parsed["month"], "2026-09")
@@ -74,7 +74,7 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(parsed["items"][0]["invoice"], "100")
 
     def test_direction_summary_uses_paid_not_billed_and_keeps_unknown_separate(self):
-        parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx")
+        parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
         summary = paid_services.direction_summary(
             parsed,
             {"Dent D.": "Dent Doctor"},
@@ -94,7 +94,7 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(summary["unclassifiedPaid"], 7)
 
     def test_ignored_provider_is_not_reported_as_unknown(self):
-        parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx")
+        parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
         summary = paid_services.direction_summary(
             parsed,
             {"Dent D.": "Dent Doctor"},
