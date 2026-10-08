@@ -155,10 +155,11 @@ jobs:
           assert "Выставлено счетов" in current_index
           assert "ДС ООО" in current_index and "ДС ИП" in current_index
           assert "factTotal:cashTotal" in current_index
-          assert "paidDataComplete===true" in current_index
-          assert "Оплачено стоматологии" in current_index
+          assert "paidDataComplete===true" not in current_index
+          assert "Выручка стоматологии" in current_index
           assert "Нераспределённые ДС" not in current_index
-          assert "Оплачено по врачам" in current_period
+          assert "Выручка по врачам" in current_period
+          assert "paidDataComplete===true" not in current_period
           assert "Нераспределённые ДС" not in current_period
           assert "dentistsLegal" not in current_period
           assert "clinicDocsLegal" not in current_period
