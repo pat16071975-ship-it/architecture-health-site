@@ -214,6 +214,11 @@ def detect_unknown_providers(period, ident_import, conn=None):
                 if isinstance(kind, dict):
                     seen.update(str(name).strip() for name in kind if str(name).strip())
 
+        paid_snapshot = normalized.get("paid_snapshot") or {}
+        providers = paid_snapshot.get("providers") if isinstance(paid_snapshot, dict) else {}
+        if isinstance(providers, dict):
+            seen.update(str(name).strip() for name in providers if str(name).strip())
+
     return sorted(name for name in seen if name not in known)
 
 
