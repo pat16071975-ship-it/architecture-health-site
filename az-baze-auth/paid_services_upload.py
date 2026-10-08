@@ -4,7 +4,6 @@ import json
 from flask import abort, g, jsonify, request
 
 import cash_payments
-import daily_upload_core as core
 import ident_import
 import paid_services
 import upload_reconcile
@@ -201,7 +200,6 @@ def _commit(decision=None):
         backup = upload_reconcile.create_db_backup("paid-services-reimport")
 
     now = iso_now()
-    latest_before = paid_services.latest_snapshot_date_for_month(conn, report["month"])
     conn.execute("BEGIN")
     try:
         status = paid_services.store_snapshot(
@@ -213,70 +211,35 @@ def _commit(decision=None):
             now,
             decision="use_new" if decision == "use_new" else "append",
         )
-
-        analytics_updated = (
-            latest_before is None
-            or str(report.get("period_end") or "") >= str(latest_before)
-        )
-        if analytics_updated:
-            service_data = ident_import._load_blob("az-service-analytics-v1")
-            if not service_data:
-                raise ValueError("База «Аналитики услуг» ещё не подготовлена.")
-            year, month_number = [int(part) for part in report["month"].split("-")]
-            month_index = core.replace_service_month(
-                service_data,
-                paid_services.service_analytics_items(report),
-                year,
-                month_number,
-            )
-            previous_through = core._service_through(service_data)
-            through = max(
-                [value for value in (previous_through, report.get("period_end")) if value]
-            )
-            service_data["id"] = f"az-services-{year}-through-{through}-v1"
-            service_data["source"] = (
-                f"Новый MIS-отчёт «Выручка по направлениям» through {through}; "
-                "услуги = Сумма со скидкой, врачи/направления = Оплачено"
-            )
-            core._save_blob(conn, "az-service-analytics-v1", service_data, now)
-            for key, value in ident_import._pad_financial_months(month_index).items():
-                core._save_blob(conn, key, value, now)
-
-        updated = paid_services.overlay_stored_month(
-            conn,
-            report["month"],
-            g.user["id"],
-            now,
-            ident_import.DENTISTS,
-            ident_import.STRUCTURE_DOCTORS,
-            ident_import.LAB_DOCTORS,
-            ignored=_ignored_provider_names(conn),
-        )
+        # Transition mode approved after PR71 restoration:
+        # store/validate the new MIS source only. It must not change the active
+        # management layer, service analytics, visit attribution or lab orders
+        # until the owner separately authorizes source activation.
         conn.commit()
     except Exception:
         conn.rollback()
         raise
 
     audit(
-        "paid_services_reconciled",
+        "paid_services_stored_transition",
         target_user_id=g.user["id"],
         details=(
             f"file={filename}; month={report['month']}; as_of={report['period_end']}; "
             f"decision={decision or 'append'}; status={status}; "
-            f"paid={summary['paid']}; reports={updated}; "
-            f"analytics_updated={int(analytics_updated)}; backup={backup or ''}"
+            f"paid={summary['paid']}; active_source=0; backup={backup or ''}"
         ),
     )
     return {
         "status": "replaced" if status == "replaced" else "imported",
         "message": (
-            "Новый отчёт МИС загружен отдельно. Обновлены «Оплачено» по врачам/направлениям, "
-            "задолженность и «Аналитика услуг»; "
-            f"управленческих срезов: {updated}. Кассовый Факт и ООО/ИП не менялись."
+            "Новый отчёт МИС сохранён отдельно и проверен. "
+            "Действующие управленческие показатели, старая «Выручка по направлениям», "
+            "аналитика услуг, приёмы и лабораторные заказы не изменены."
         ),
         "summary": summary,
-        "rows": updated,
+        "rows": 0,
         "backup": backup,
+        "active_source": False,
     }
 
 
