@@ -615,9 +615,15 @@ def _ident_revenue():
             continue
         try:
             record = json.loads(row["payload"])
-            cash_total = record.get("cashTotal")
-            if cash_total is not None and cash_total != "":
-                result[month] = _num(cash_total)
+            service_net = record.get("serviceBilledNet")
+            if service_net is not None and service_net != "":
+                result[month] = _num(service_net)
+            elif record.get("discountDataComplete") is True:
+                result[month] = _num(record.get("grossRevenue")) - _num(
+                    record.get("discountAmount")
+                )
+            elif record.get("billedTotal") is not None and record.get("billedTotal") != "":
+                result[month] = _num(record.get("billedTotal"))
             else:
                 result[month] = _num(record.get("factMedicine")) + _num(
                     record.get("factLab", record.get("labRevenue"))
