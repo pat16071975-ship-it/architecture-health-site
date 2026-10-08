@@ -164,6 +164,18 @@ def pending_provider_rows(conn):
         for row in rows
     ]
 
+def provider_names_by_direction(conn, direction):
+    init_schema(conn)
+    if direction not in DIRECTIONS:
+        raise ValueError("Недопустимое направление сотрудника.")
+    return {
+        str(row[0])
+        for row in conn.execute(
+            "SELECT source_name FROM provider_registry WHERE direction=?",
+            (direction,),
+        ).fetchall()
+    }
+
 def resolved_provider_names(conn):
     init_schema(conn)
     return {
