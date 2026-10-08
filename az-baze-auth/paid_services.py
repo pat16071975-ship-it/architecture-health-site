@@ -533,6 +533,16 @@ def overlay_record_map(conn, month, records, dentists, structure_doctors, lab_do
     return records
 
 
+def snapshot_months(conn):
+    init_schema(conn)
+    return [
+        str(row[0])
+        for row in conn.execute(
+            "SELECT DISTINCT month FROM service_payment_snapshots ORDER BY month"
+        ).fetchall()
+    ]
+
+
 def overlay_stored_month(
     conn,
     month,
