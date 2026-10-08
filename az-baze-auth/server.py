@@ -30,7 +30,7 @@ app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
 UPLOAD_PERMISSION_OPTIONS = [
     ("upload_completed", "Загружать файл «Завершённые приёмы»"),
-    ("upload_services", "Загружать файл «Выполненные услуги»"),
+    ("upload_services", "Загружать файл «Выручка по направлениям»"),
     ("upload_history", "Просматривать журнал загрузок"),
     ("upload_replace", "Подтверждать замену данных и классификацию новых врачей"),
 ]
