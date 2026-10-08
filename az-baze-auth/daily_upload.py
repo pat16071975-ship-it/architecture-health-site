@@ -1120,6 +1120,7 @@ def register_daily_upload(app):
         ).fetchone()
         cash_latest = cash_payments.latest_loaded_date(conn)
         cash_next_required = cash_payments.next_required_date(conn)
+        paid_latest = paid_services.latest_loaded_date(conn)
         return render_template(
             "uploads.html",
             csrf=csrf_token(),
@@ -1130,6 +1131,7 @@ def register_daily_upload(app):
             next_required_date=_next_required_date(latest),
             cash_latest_date=_format_date(cash_latest) if cash_latest else None,
             cash_next_required_date=_format_date(cash_next_required) if cash_next_required else None,
+            paid_services_latest_date=_format_date(paid_latest) if paid_latest else None,
             history=core._history() if "upload_history" in perms else [],
             pending_providers=upload_reconcile.pending_provider_rows(conn),
             can_daily=("upload_completed" in perms and "upload_services" in perms),
