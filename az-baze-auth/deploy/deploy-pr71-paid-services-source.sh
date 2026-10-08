@@ -345,7 +345,7 @@ cat > "$BACKUP/deploy-meta.txt" <<EOF
 BASE_COMMIT=$BASE_COMMIT
 TARGET_COMMIT=$TARGET_COMMIT
 SOURCE_HEAD=$SOURCE_HEAD
-DEPLOY_SCRIPT_BLOB_PENDING_RUNTIME_VERIFICATION=1
+DEPLOY_SCRIPT_BLOB=$(git hash-object "$0")
 UTC_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 chmod 600 "$BACKUP/db/baseline.json" "$BACKUP/runtime-manifest.txt" "$BACKUP/deploy-meta.txt"
