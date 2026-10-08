@@ -430,10 +430,10 @@ def _next_required_date(latest):
 
 
 def _prepare_period_raw(completed_raw, completed_name, services_raw, services_name):
-    completed_parsed, completed_sheet = _parse_fixed_raw(
+    completed_parsed, completed_sheet, _completed_paid = _parse_fixed_raw(
         completed_raw, completed_name, "completed"
     )
-    services_parsed, services_sheet = _parse_fixed_raw(
+    services_parsed, services_sheet, paid_report = _parse_fixed_raw(
         services_raw, services_name, "services"
     )
     overall, visits = completed_parsed
@@ -444,7 +444,7 @@ def _prepare_period_raw(completed_raw, completed_name, services_raw, services_na
         "completed_only": sorted(completed_dates - service_dates),
         "revenue_only": sorted(service_dates - completed_dates),
     }
-    period = _split_period(overall, visits, items, lab_invoices)
+    period = _split_period(overall, visits, items, lab_invoices, paid_report=paid_report)
     dates = [row["data_date"] for row in period]
     month_key = f"{year:04d}-{month:02d}"
     if any(data_date[:7] != month_key for data_date in dates):
@@ -460,6 +460,8 @@ def _prepare_period_raw(completed_raw, completed_name, services_raw, services_na
         "completed_name": completed_name or "Завершённые приёмы",
         "services_name": services_name or "Выручка по направлениям",
         "source_gaps": source_gaps,
+        "paid_report": paid_report,
+        "services_source_sha": hashlib.sha256(services_raw).hexdigest(),
     }
 
 
