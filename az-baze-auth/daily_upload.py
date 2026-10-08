@@ -339,7 +339,7 @@ def _ensure_extra_service_doctors(data, year, month):
             }
 
 
-def _split_period(overall, visits, items, lab_invoices):
+def _split_period(overall, visits, items, lab_invoices, paid_report=None):
     completed_dates = sorted(str(value) for value in overall)
     service_dates = sorted({str(row.get("date") or "") for row in items if row.get("date")})
 
@@ -385,6 +385,8 @@ def _split_period(overall, visits, items, lab_invoices):
             "doctors": day_doctors,
             "visits": day_visits,
         }
+        if paid_report and data_date == str(paid_report.get("period_end") or ""):
+            normalized["paid_snapshot"] = paid_services.compact_report(paid_report)
         completed_hash = _payload_hash(
             {
                 "data_date": data_date,
