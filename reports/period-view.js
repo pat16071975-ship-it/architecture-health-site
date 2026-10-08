@@ -188,8 +188,8 @@
   document.getElementById('entryClinicSummary').innerHTML=manualDefs.clinic.map(x=>inputHtml(...x)).join('');
   document.getElementById('entryLab').innerHTML=manualDefs.lab.map(x=>inputHtml(...x)).join('');
   document.getElementById('entryMarketing').innerHTML=manualDefs.marketing.map(x=>inputHtml(...x)).join('');
-  document.getElementById('entryDentDoctors').innerHTML=dentists.map(name=>`<div class="entry-doctor"><span>${escapeHtml(name)}</span><input readonly class="view-only" inputmode="decimal" data-entry-doctor-type="dentists" data-entry-doctor="${escapeHtml(name)}" aria-label="Оплачено ${escapeHtml(name)}"></div>`).join('');
-  document.getElementById('entryClinicDoctors').innerHTML=clinicDocs.map(name=>`<div class="entry-doctor"><span>${escapeHtml(name)}</span><input readonly class="view-only" inputmode="decimal" data-entry-doctor-type="clinicDocs" data-entry-doctor="${escapeHtml(name)}" aria-label="Оплачено ${escapeHtml(name)}"></div>`).join('');
+  document.getElementById('entryDentDoctors').innerHTML=dentists.map(name=>`<div class="entry-doctor"><span>${escapeHtml(name)}</span><input readonly class="view-only" inputmode="decimal" data-entry-doctor-type="dentists" data-entry-doctor="${escapeHtml(name)}" aria-label="Выручка ${escapeHtml(name)}"></div>`).join('');
+  document.getElementById('entryClinicDoctors').innerHTML=clinicDocs.map(name=>`<div class="entry-doctor"><span>${escapeHtml(name)}</span><input readonly class="view-only" inputmode="decimal" data-entry-doctor-type="clinicDocs" data-entry-doctor="${escapeHtml(name)}" aria-label="Выручка ${escapeHtml(name)}"></div>`).join('');
 
   function doctorReconciliation(_r){
     return {hasData:false,doctors:0,total:0,delta:0,mismatch:false};
@@ -197,10 +197,9 @@
   function updateEntryReconcile(){
     const box=document.getElementById('entryReconcileTop');if(!box)return;
     box.className='entry-reconcile';
-    box.textContent='Факт клиники и ООО/ИП берутся из «Счета и оплаты»; оплачено врачам — из «Выручка по направлениям». Эти суммы не обязаны совпадать.';
+    box.textContent='Факт клиники и ООО/ИП берутся из «Счета и оплаты»; выручка врачей — из действующего клинического комплекта. Эти суммы не обязаны совпадать.';
   }
   function entryDoctorValues(r,type){
-    if(false){ return {}; }
     return r?.[type]||{};
   }
   function openEntry(){
