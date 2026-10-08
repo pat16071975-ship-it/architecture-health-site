@@ -1082,8 +1082,20 @@ def register_daily_upload(app):
                 raise ValueError("Не выбрано ни одного врача для классификации.")
             conn = core.db()
             upload_reconcile.resolve_providers(conn, decisions, g.user["id"])
-            conn.commit()
             upload_reconcile.refresh_runtime(conn, core.ident_import, cash_payments)
+            now = core.iso_now()
+            for month in paid_services.snapshot_months(conn):
+                paid_services.overlay_stored_month(
+                    conn,
+                    month,
+                    g.user["id"],
+                    now,
+                    core.ident_import.DENTISTS,
+                    core.ident_import.STRUCTURE_DOCTORS,
+                    core.ident_import.LAB_DOCTORS,
+                    ignored=_ignored_provider_names(conn),
+                )
+            conn.commit()
             core.audit(
                 "provider_registry_updated",
                 target_user_id=g.user["id"],
@@ -1093,8 +1105,9 @@ def register_daily_upload(app):
                 {
                     "status": "ok",
                     "message": (
-                        "Классификация сохранена. Для пересчёта уже загруженного периода "
-                        "повторно загрузите исходные файлы и подтвердите выбранную версию."
+                        "Классификация сохранена. Уже сохранённые агрегаты «Оплачено» "
+                        "перераспределены по новому направлению. Для изменения состава услуг "
+                        "повторно загружайте исходный клинический период только при необходимости."
                     ),
                 }
             )
