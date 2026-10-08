@@ -191,49 +191,38 @@
   document.getElementById('entryDentDoctors').innerHTML=dentists.map(name=>`<div class="entry-doctor"><span>${escapeHtml(name)}</span><input readonly class="view-only" inputmode="decimal" data-entry-doctor-type="dentists" data-entry-doctor="${escapeHtml(name)}" aria-label="Оплачено ${escapeHtml(name)}"></div>`).join('');
   document.getElementById('entryClinicDoctors').innerHTML=clinicDocs.map(name=>`<div class="entry-doctor"><span>${escapeHtml(name)}</span><input readonly class="view-only" inputmode="decimal" data-entry-doctor-type="clinicDocs" data-entry-doctor="${escapeHtml(name)}" aria-label="Оплачено ${escapeHtml(name)}"></div>`).join('');
 
-  function doctorReconciliation(r){
-    const doctorValues=[...Object.values(r.dentists||{}),...Object.values(r.clinicDocs||{})],hasDoctors=doctorValues.some(v=>!isBlankValue(v)),hasTotal=!isBlankValue(r.factMedicine);
-    const doctors=doctorValues.reduce((a,v)=>a+num(v),0),total=num(r.factMedicine),delta=total-doctors;
-    return {hasData:hasDoctors||hasTotal,doctors,total,delta,mismatch:(hasDoctors||hasTotal)&&Math.abs(delta)>.01};
+  function doctorReconciliation(_r){
+    return {hasData:false,doctors:0,total:0,delta:0,mismatch:false};
   }
   function updateEntryReconcile(){
     const box=document.getElementById('entryReconcileTop');if(!box)return;
-    const sourceRecord=typeof currentRecord==='function'?currentRecord():null;
-    if(sourceRecord&&sourceRecord.cashTotal!==undefined&&sourceRecord.cashTotal!==null&&sourceRecord.cashTotal!==''){
-      box.className='entry-reconcile';box.textContent='Денежные показатели загружаются из файла «Счета и оплаты» и вручную здесь не изменяются.';return;
+    box.className='entry-reconcile';
+    box.textContent='Факт клиники и ООО/ИП берутся из «Счета и оплаты»; оплачено врачам — из «Выручка по направлениям». Эти суммы не обязаны совпадать.';
+  }
+  function entryDoctorValues(r,type){
+    if(r?.paidDataComplete===true){
+      return type==='dentists'?(r.paidDentists||{}):(r.paidClinicDocs||{});
     }
-    const total=document.querySelector('[data-entry-key="factMedicine"]')?.value||'';
-    const r={factMedicine:total,dentists:{},clinicDocs:{}};document.querySelectorAll('[data-entry-doctor]').forEach(i=>r[i.dataset.entryDoctorType][i.dataset.entryDoctor]=i.value);
-    const c=doctorReconciliation(r);
-    if(!c.hasData){box.className='entry-reconcile';box.textContent='Денежные показатели загружаются из файла «Счета и оплаты».';return}
-    if(c.mismatch){box.className='entry-reconcile bad';box.textContent=`Сумма врачей ${money(c.doctors)} не совпадает с общей выручкой ${money(c.total)}. Расхождение: ${money(Math.abs(c.delta))} (${c.delta>0?'общая сумма выше':'оборот врачей выше'}).`;}
-    else{box.className='entry-reconcile';box.textContent=`Проверка пройдена: общая выручка совпадает с суммой врачей — ${money(c.total)}.`}
+    return r?.[type]||{};
   }
   function openEntry(){
     const date=document.getElementById('reportDate').value;if(!date)return;
     const store=loadStore(),r=store[date]||blankRecord(date);document.getElementById('entryDate').value=date;
     document.querySelectorAll('[data-entry-key]').forEach(i=>i.value=r[i.dataset.entryKey]??'');
-    document.querySelectorAll('[data-entry-doctor]').forEach(i=>i.value=(r[i.dataset.entryDoctorType]||{})[i.dataset.entryDoctor]??'');
+    document.querySelectorAll('[data-entry-doctor]').forEach(i=>i.value=entryDoctorValues(r,i.dataset.entryDoctorType)[i.dataset.entryDoctor]??'');
     updateEntryReconcile();overlay.classList.remove('hidden');document.body.style.overflow='hidden';
   }
   function closeEntry(){overlay.classList.add('hidden');document.body.style.overflow=''}
   function saveEntry(){
     const date=document.getElementById('entryDate').value;if(!date)return;
-    const store=loadStore(),existing=store[date]||blankRecord(date),r={...existing,date,dentists:{...(existing.dentists||{})},clinicDocs:{...(existing.clinicDocs||{})}};
+    const store=loadStore(),existing=store[date]||blankRecord(date),r={...existing,date};
     document.querySelectorAll('[data-entry-key]').forEach(i=>r[i.dataset.entryKey]=i.value.trim());
-    document.querySelectorAll('[data-entry-doctor]').forEach(i=>r[i.dataset.entryDoctorType][i.dataset.entryDoctor]=i.value.trim());
-    const c=doctorReconciliation(r);
-    if(c.mismatch){
-      const ok=confirm(`Введённая общая выручка медицины не совпадает с суммой врачей.\n\nОбщая сумма: ${money(c.total)}\nСумма врачей: ${money(c.doctors)}\nРасхождение: ${money(Math.abs(c.delta))}\n\nСохранить запись с расхождением?`);
-      if(!ok)return;
-      r._doctorRevenueMismatch=true;r._doctorRevenueDelta=c.delta;r._doctorRevenueTotal=c.doctors;
-    }else{r._doctorRevenueMismatch=false;r._doctorRevenueDelta=0;r._doctorRevenueTotal=c.doctors}
+    r._doctorRevenueMismatch=false;r._doctorRevenueDelta=0;r._doctorRevenueTotal=0;
     store[date]=r;saveStore(store);document.getElementById('reportDate').value=date;fillRecord(r);renderMismatchNote(r);document.getElementById('status').textContent='Сохранено в этом браузере: '+new Date(date+'T12:00:00').toLocaleString('ru-RU');closeEntry();if(document.getElementById('dateViewMode').value==='compare')renderDateComparison();
   }
-  function renderMismatchNote(r){
-    const section=document.querySelector('#editView .section.general');if(!section)return;let note=section.querySelector('.reconcile-note');
-    if(r?._doctorRevenueMismatch){if(!note){note=document.createElement('div');note.className='reconcile-note';section.querySelector('h2')?.insertAdjacentElement('afterend',note)}const delta=Math.abs(num(r._doctorRevenueDelta));note.textContent=`⚠ Общая сумма медицины не совпадает с оборотом врачей. Расхождение: ${money(delta)}.`;}
-    else if(note)note.remove();
+  function renderMismatchNote(_r){
+    const section=document.querySelector('#editView .section.general');if(!section)return;
+    const note=section.querySelector('.reconcile-note');if(note)note.remove();
   }
   function currentRecord(){const date=document.getElementById('reportDate').value;return loadStore()[date]||null}
   entryBtn.addEventListener('click',openEntry);todayBtn.addEventListener('click',()=>{const d=new Date(),date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');document.getElementById('reportDate').value=date;loadDate();renderMismatchNote(currentRecord());if(document.getElementById('dateViewMode').value==='compare')renderDateComparison()});
