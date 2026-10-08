@@ -533,6 +533,14 @@ def overlay_record_map(conn, month, records, dentists, structure_doctors, lab_do
     return records
 
 
+def latest_loaded_date(conn):
+    init_schema(conn)
+    row = conn.execute(
+        "SELECT MAX(as_of_date) FROM service_payment_snapshots"
+    ).fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
 def snapshot_months(conn):
     init_schema(conn)
     return [
