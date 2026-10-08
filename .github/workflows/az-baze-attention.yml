@@ -42,5 +42,5 @@ jobs:
         run: |
           grep -Fq 'Требует внимания' reports/menu.html
           grep -Fq '@media(max-width:700px)' az-baze-auth/templates/attention.html
-          grep -Fq 'Оплачено по направлениям' az-baze-auth/templates/attention.html
+          grep -Fq 'Выручка по направлениям' az-baze-auth/templates/attention.html
           grep -Fq 'Первичные пациенты' az-baze-auth/templates/attention.html
