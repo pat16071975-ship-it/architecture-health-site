@@ -11,10 +11,10 @@ from flask import Response, g, jsonify, request
 from app import SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, require_csrf
 
 DATA_PATH = Path("/var/lib/az-baze/economics-control.json")
-PERIOD = [f"2026-{m:02d}" for m in range(1, 9)]
-MONTHS_RU = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август"]
-OPU_COLS = [21, 23, 25, 27, 29, 31, 33, 35]
-PAYROLL_COLS = [14, 15, 16, 17, 18, 19, 20, 21]
+PERIOD = [f"2026-{m:02d}" for m in range(1, 10)]
+MONTHS_RU = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь"]
+OPU_COLS = [21, 23, 25, 27, 29, 31, 33, 35, 38]
+PAYROLL_COLS = [14, 15, 16, 17, 18, 19, 20, 21, 22]
 MAX_SOURCE_COL = max(OPU_COLS + PAYROLL_COLS + [5])
 
 _XLSX_MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -318,7 +318,9 @@ def _expense_category(label):
 
 
 def _parse_opu(ws):
+    revenue_gross = _row_series(ws, "ВЫРУЧКА, руб.", 1)
     revenue_net = _row_series(ws, "ВЫРУЧКА со скидкой, руб.", 38)
+    discount = _row_series(ws, "СКИДКА", 1)
     operating_profit = _row_series(ws, "ОПЕРАЦИОННАЯ ПРИБЫЛЬ", 150)
     net_profit = _row_series(ws, "ЧИСТАЯ ПРИБЫЛЬ", 200)
     materials = _row_series(ws, "Материалы", 130)
@@ -378,7 +380,9 @@ def _parse_opu(ws):
                 )
 
     return {
+        "revenue_gross": revenue_gross,
         "revenue_net": revenue_net,
+        "discount": discount,
         "operating_profit": operating_profit,
         "net_profit": net_profit,
         "materials": materials,
@@ -666,6 +670,13 @@ def _validate_payload(payload):
     checks["materials_present"] = sum(opu["materials"].values()) > 0
     checks["assistants_present"] = sum(opu["assistant_salary"].values()) > 0
     checks["revenue_present"] = sum(opu["revenue_net"].values()) > 0
+    checks["gross_discount_reconcile"] = all(
+        _close(
+            opu["revenue_gross"][month] - opu["discount"][month],
+            opu["revenue_net"][month],
+        )
+        for month in PERIOD
+    )
 
     failed = [name for name, ok in checks.items() if not ok]
     if failed:
