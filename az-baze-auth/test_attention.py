@@ -34,12 +34,12 @@ class AttentionTests(unittest.TestCase):
 
     def test_summary_uses_comparable_loaded_days_and_current_snapshot(self):
         # August: three comparable loaded days.
-        self.add_day("2026-08-01", {"paidDataComplete": True, "paidDentists": {"D": 100}, "paidClinicDocs": {"C": 200}, "paidLab": 50})
-        self.add_day("2026-08-02", {"paidDataComplete": True, "paidDentists": {"D": 200}, "paidClinicDocs": {"C": 400}, "paidLab": 100})
-        self.add_day("2026-08-03", {"paidDataComplete": True, "paidDentists": {"D": 300}, "paidClinicDocs": {"C": 600}, "paidLab": 150})
+        self.add_day("2026-08-01", {"dentists": {"D": 100}, "clinicDocs": {"C": 200}, "labRevenue": 50})
+        self.add_day("2026-08-02", {"dentists": {"D": 200}, "clinicDocs": {"C": 400}, "labRevenue": 100})
+        self.add_day("2026-08-03", {"dentists": {"D": 300}, "clinicDocs": {"C": 600}, "labRevenue": 150})
 
         # September: two loaded days, latest is current snapshot.
-        self.add_day("2026-09-26", {"paidDataComplete": True, "paidDentists": {"D": 150}, "paidClinicDocs": {"C": 210}, "paidLab": 55})
+        self.add_day("2026-09-26", {"dentists": {"D": 150}, "clinicDocs": {"C": 210}, "labRevenue": 55})
         self.add_day(
             "2026-09-27",
             {
@@ -53,9 +53,9 @@ class AttentionTests(unittest.TestCase):
                 "clinicDocs": {"C": 500},
                 "labRevenue": 120,
                 "paidDataComplete": True,
-                "paidDentists": {"D": 240},
-                "paidClinicDocs": {"C": 500},
-                "paidLab": 120,
+                "paidDentists": {"D": 9999},
+                "paidClinicDocs": {"C": 9999},
+                "paidLab": 9999,
             },
             cash=True,
         )
@@ -81,7 +81,7 @@ class AttentionTests(unittest.TestCase):
         self.assertFalse(summary["clinical_stale"])
         self.assertFalse(summary["cash_stale"])
 
-    def test_current_direction_values_prefer_paid_service_snapshot(self):
+    def test_current_direction_values_ignore_inactive_paid_snapshot_during_transition(self):
         self.add_day(
             "2026-09-27",
             {
@@ -106,25 +106,25 @@ class AttentionTests(unittest.TestCase):
             summary = attention.build_summary(self.conn)
 
         rows = {row["key"]: row for row in summary["revenue"]}
-        self.assertEqual(rows["dentistry"]["amount"], 900)
-        self.assertEqual(rows["structure"]["amount"], 700)
-        self.assertEqual(rows["lab"]["amount"], 180)
+        self.assertEqual(rows["dentistry"]["amount"], 240)
+        self.assertEqual(rows["structure"]["amount"], 500)
+        self.assertEqual(rows["lab"]["amount"], 120)
         self.assertNotIn("unallocated", rows)
 
     def test_revenue_comparison_uses_report_data_history_without_old_daily_uploads(self):
         self.add_report_snapshot(
             "2026-07-28",
-            {"paidDataComplete": True, "paidDentists": {"D": 400}, "paidClinicDocs": {"C": 200}, "paidLab": 100},
+            {"dentists": {"D": 400}, "clinicDocs": {"C": 200}, "labRevenue": 100},
         )
         self.add_report_snapshot(
             "2026-08-28",
-            {"paidDataComplete": True, "paidDentists": {"D": 500}, "paidClinicDocs": {"C": 300}, "paidLab": 150},
+            {"dentists": {"D": 500}, "clinicDocs": {"C": 300}, "labRevenue": 150},
         )
 
-        self.add_day("2026-09-27", {"paidDataComplete": True, "paidDentists": {"D": 550}, "paidClinicDocs": {"C": 250}, "paidLab": 125})
+        self.add_day("2026-09-27", {"dentists": {"D": 550}, "clinicDocs": {"C": 250}, "labRevenue": 125})
         self.add_day(
             "2026-09-28",
-            {"paidDataComplete": True, "paidDentists": {"D": 600}, "paidClinicDocs": {"C": 350}, "paidLab": 200},
+            {"dentists": {"D": 600}, "clinicDocs": {"C": 350}, "labRevenue": 200},
             cash=True,
         )
 
