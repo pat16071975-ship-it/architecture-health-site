@@ -111,6 +111,27 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(doctors["2026-09-10"]["Первичные"]["Dent D."], 1)
         self.assertEqual(doctors["2026-09-11"]["Повторные"]["Struct S."], 1)
 
+    def test_visit_attribution_does_not_guess_between_two_directions(self):
+        patient = "Alpha A."
+        snapshot = {
+            "visit_links": {
+                "2026-09-01|" + paid_services._patient_token(patient): [
+                    "Dent D.",
+                    "Struct S.",
+                ],
+            },
+            "invoices": [],
+        }
+        doctors, matched, unmatched = paid_services.visit_doctors(
+            snapshot,
+            [{"date": "2026-09-01", "patient": patient, "kind": "Первичные"}],
+            {"Dent D.": "Dent Doctor"},
+            {"Struct S.": "Struct Doctor"},
+        )
+        self.assertEqual(doctors, {})
+        self.assertEqual(matched, 0)
+        self.assertEqual(unmatched, 1)
+
     def test_visit_attribution_is_cumulative_month_to_date(self):
         p1 = "Alpha A."
         p2 = "Beta B."
