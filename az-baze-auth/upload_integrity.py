@@ -286,6 +286,67 @@ def merge_payload(existing, managed, marketing_sources=None, marketing_as_of=Non
     return record
 
 
+def _paid_snapshot_fields(core, snapshot):
+    if not isinstance(snapshot, dict):
+        return {}
+    providers = snapshot.get("providers")
+    totals = snapshot.get("totals")
+    if not isinstance(providers, dict) or not isinstance(totals, dict):
+        return {}
+
+    dentists = {}
+    structure = {}
+    lab_revenue = 0.0
+    other = {}
+    source_details = {}
+
+    for source_name, raw in providers.items():
+        if not isinstance(raw, dict):
+            continue
+        paid = _float(raw.get("paid"))
+        detail = {
+            key: round(_float(raw.get(key)), 2)
+            for key in ("debt_start", "billed_net", "paid", "debt_end")
+        }
+        source_details[str(source_name)] = detail
+
+        if source_name in core.ident_import.DENTISTS:
+            display = core.ident_import.DENTISTS[source_name]
+            dentists[display] = round(_float(dentists.get(display)) + paid, 2)
+        elif source_name in core.ident_import.STRUCTURE_DOCTORS:
+            display = core.ident_import.STRUCTURE_DOCTORS[source_name]
+            structure[display] = round(_float(structure.get(display)) + paid, 2)
+        elif source_name in core.ident_import.LAB_DOCTORS:
+            lab_revenue += paid
+        else:
+            other[str(source_name)] = round(paid, 2)
+
+    paid_dent = round(sum(dentists.values()), 2)
+    paid_structure = round(sum(structure.values()), 2)
+    paid_lab = round(lab_revenue, 2)
+    paid_known = round(paid_dent + paid_structure + paid_lab, 2)
+    paid_total = round(_float(totals.get("paid")), 2)
+
+    return {
+        "paidDentists": dentists,
+        "paidClinicDocs": structure,
+        "paidLabRevenue": paid_lab,
+        "paidDentistry": paid_dent,
+        "paidStructure": paid_structure,
+        "paidKnownTotal": paid_known,
+        "paidUnclassifiedTotal": round(paid_total - paid_known, 2),
+        "paidUnclassifiedProviders": other,
+        "serviceDebtStart": round(_float(totals.get("debt_start")), 2),
+        "serviceBilledNet": round(_float(totals.get("billed_net")), 2),
+        "servicePaidTotal": paid_total,
+        "serviceDebtEnd": round(_float(totals.get("debt_end")), 2),
+        "paidProviderFinancials": source_details,
+        "_paid_rule": str(snapshot.get("rule") or "mis-provider-paid-period-snapshot-v1"),
+        "_paid_period_start": str(snapshot.get("period_start") or ""),
+        "_paid_period_end": str(snapshot.get("period_end") or ""),
+    }
+
+
 def rebuild_management(core, month, source):
     rows = core._active_month_rows(month)
     if not rows:
@@ -348,8 +409,11 @@ def rebuild_management(core, month, source):
         core, month, first_date
     )
     rebuilt = {}
+    active_paid_snapshot = None
 
     for data_date, normalized in rows:
+        if isinstance(normalized.get("paid_snapshot"), dict):
+            active_paid_snapshot = normalized.get("paid_snapshot")
         delta = daily_delta(core, normalized)
         for key in (
             "factMedicine",
@@ -423,6 +487,8 @@ def rebuild_management(core, month, source):
                 "unassignedRepeat": current["unassignedRepeat"],
             },
         }
+        if active_paid_snapshot:
+            managed.update(_paid_snapshot_fields(core, active_paid_snapshot))
         rebuilt[data_date] = merge_payload(
             existing,
             managed,
