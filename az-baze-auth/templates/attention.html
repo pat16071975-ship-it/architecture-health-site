@@ -79,7 +79,7 @@
     </article>
 
     <article class="attention-card">
-      <div class="attention-kicker">Выручка по направлениям — с начала месяца</div>
+      <div class="attention-kicker">Оплачено по направлениям — с начала месяца</div>
       {% for row in summary.revenue %}
         <div class="attention-row">
           <strong>{{ row.label }} — {{ "{:,.0f}".format(row.amount).replace(",", " ") }} ₽</strong>
