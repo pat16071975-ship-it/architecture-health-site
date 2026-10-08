@@ -10,8 +10,6 @@ import upload_reconcile
 from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
 
 
-SEPARATE_SERVICES_LABEL = "Новый отчёт МИС — отдельная загрузка"
-
 
 def _file_from_request():
     file_storage = request.files.get("completed")
@@ -260,7 +258,7 @@ def _insert_or_update_day(conn, prepared, data_date, actor_id, now):
         (
             data_date,
             prepared["filename"],
-            SEPARATE_SERVICES_LABEL,
+            "",
             day["completed_hash"],
             "",
             json.dumps(normalized, ensure_ascii=False, separators=(",", ":")),
