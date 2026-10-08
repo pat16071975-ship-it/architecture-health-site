@@ -483,7 +483,8 @@ def _paid_unknown_providers(paid_report, conn):
     if not paid_report:
         return []
     known = (
-        set(core.ident_import.DENTISTS)
+        set(core.ident_import.KNOWN_STAFF)
+        | set(core.ident_import.DENTISTS)
         | set(core.ident_import.STRUCTURE_DOCTORS)
         | set(core.ident_import.LAB_DOCTORS)
         | upload_reconcile.resolved_provider_names(conn)
