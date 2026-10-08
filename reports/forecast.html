@@ -296,9 +296,9 @@ let FIN=null,STORE={},ANALYTICS=null,SALARY=null,EXTRA=null;
 let ALL_MONTHS=[],FULL_MONTHS=[],BASE_MONTHS=[],PARTIAL_MONTH=null,BASE_PRESET='3';
 
 function parseBlob(k){try{return JSON.parse(STORE[k]||'null')}catch{return null}}
-function rec(m){return FIN?.management?.[m]||{}}
+function rec(m){const r=FIN?.management?.[m]||{};return r.paidDataComplete===true?{...r,factLab:num(r.paidLab)}:r}
 function mi(m){return Math.max(0,(+String(m).slice(5,7)||1)-1)}
-function stat(m,d){const r=rec(m);if(d==='dent'){const docs=r.dentists||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.dentPrimary),repeat:num(r.dentRepeat),docs}}if(d==='structure'){const docs=r.structureDoctors||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.clinicPrimary),repeat:num(r.clinicRepeat),docs}}return{rev:r.paidDataComplete===true?num(r.paidLab):num(r.factLab),primary:0,repeat:0,docs:{}}}
+function stat(m,d){const r=rec(m);if(d==='dent'){const docs=r.dentists||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.dentPrimary),repeat:num(r.dentRepeat),docs}}if(d==='structure'){const docs=r.structureDoctors||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.clinicPrimary),repeat:num(r.clinicRepeat),docs}}return{rev:num(r.factLab),primary:0,repeat:0,docs:{}}}
 function adir(d){const ds=ANALYTICS?.directions||{};for(const n of d==='dent'?['Стоматология']:d==='structure'?['Отделение структуры','Клиника']:['Лаборатория'])if(ds[n])return ds[n];return null}
 function recsum(o,i){if(o==null)return 0;if(Array.isArray(o)){if(typeof o[i]==='number')return num(o[i]);return o.reduce((a,v)=>a+recsum(v,i),0)}if(typeof o==='object')return Object.values(o).reduce((a,v)=>a+recsum(v,i),0);return 0}
 function fotRate(m,d,rev){const i=mi(m),names=d==='dent'?['Стоматология']:d==='structure'?['Отделение структуры','Клиника']:['Лаборатория'];let t=0;for(const n of names){if(SALARY?.[n])t+=recsum(SALARY[n],i);if(EXTRA?.[n])t+=recsum(EXTRA[n],i)}return rev>0&&t>0&&t/rev<1.2?t/rev:(d==='dent'?.30:d==='structure'?.35:.40)}
