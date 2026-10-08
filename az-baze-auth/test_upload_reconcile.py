@@ -230,14 +230,17 @@ class UploadReconcileTests(unittest.TestCase):
             html,
         )
 
-    def test_upload_ui_uses_approved_revenue_by_directions_label(self):
+    def test_upload_ui_uses_separate_completed_and_paid_services_sources(self):
         html = (
             Path(__file__).parent / "templates" / "uploads.html"
         ).read_text(encoding="utf-8")
-        self.assertIn("2. Выручка по направлениям", html)
-        self.assertNotIn("2. Выполненные услуги", html)
+        self.assertIn("1. Завершённые приёмы", html)
+        self.assertIn("3. Новый отчёт МИС «Выручка по направлениям»", html)
+        self.assertIn("data-az-completed-upload-form", html)
+        self.assertIn("data-az-paid-upload-form", html)
+        self.assertNotIn('name="services"', html)
         self.assertIn(
-            "Отдельные даты могут отсутствовать в одном из двух файлов",
+            "Файл с услугами к ней больше не прикладывается",
             html,
         )
 
