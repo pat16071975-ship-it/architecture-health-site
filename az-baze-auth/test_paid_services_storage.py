@@ -3,6 +3,8 @@ import sqlite3
 import unittest
 
 import paid_services
+import daily_upload_core
+import ident_import
 
 
 class PaidServicesStorageTests(unittest.TestCase):
@@ -100,6 +102,44 @@ class PaidServicesStorageTests(unittest.TestCase):
             0,
         )
         conn.close()
+
+    def test_new_mis_items_replace_service_analytics_month(self):
+        source_name, display_name = next(iter(ident_import.DENTISTS.items()))
+        group = "Терапия"
+        service = "Тестовая терапевтическая услуга"
+        category = ident_import._classify_dent(group, service)
+        months = list(ident_import.MONTH_NAMES[:9])
+        data = {
+            "year": 2026,
+            "months": months,
+            "directions": {
+                "Стоматология": {
+                    "categories": [category],
+                    "doctors": {
+                        display_name: {
+                            category: [[0, 0] for _ in months]
+                        }
+                    },
+                }
+            },
+        }
+        data["directions"]["Стоматология"]["doctors"][display_name][category][8] = [99, 99999]
+        daily_upload_core.replace_service_month(
+            data,
+            [{
+                "staff": source_name,
+                "group": group,
+                "service": service,
+                "qty": 2,
+                "amount": 5000,
+            }],
+            2026,
+            9,
+        )
+        self.assertEqual(
+            data["directions"]["Стоматология"]["doctors"][display_name][category][8],
+            [2.0, 5000.0],
+        )
 
     def test_snapshot_applies_only_from_its_as_of_date(self):
         conn = sqlite3.connect(":memory:")
