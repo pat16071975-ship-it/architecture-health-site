@@ -111,6 +111,45 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(doctors["2026-09-10"]["Первичные"]["Dent D."], 1)
         self.assertEqual(doctors["2026-09-11"]["Повторные"]["Struct S."], 1)
 
+    def test_visit_attribution_is_cumulative_month_to_date(self):
+        p1 = "Alpha A."
+        p2 = "Beta B."
+        snapshot = {
+            "visit_links": {
+                "2026-09-01|" + paid_services._patient_token(p1): ["Dent D."],
+                "2026-09-02|" + paid_services._patient_token(p2): ["Struct S."],
+            },
+            "invoices": [],
+        }
+        rows = [
+            {
+                "data_date": "2026-09-01",
+                "overall": {"2026-09-01": {"Первичные": 1}},
+                "visits": [{"date": "2026-09-01", "patient": p1, "kind": "Первичные"}],
+            },
+            {
+                "data_date": "2026-09-02",
+                "overall": {"2026-09-02": {"Повторные": 1}},
+                "visits": [{"date": "2026-09-02", "patient": p2, "kind": "Повторные"}],
+            },
+        ]
+        record = {"date": "2026-09-02"}
+        paid_services.apply_visit_attribution(
+            record,
+            snapshot,
+            rows,
+            {"Dent D.": "Dent Doctor"},
+            {"Struct S.": "Struct Doctor"},
+            {},
+        )
+        self.assertEqual(record["primary"], 1)
+        self.assertEqual(record["repeat"], 1)
+        self.assertEqual(record["dentPrimary"], 1)
+        self.assertEqual(record["clinicRepeat"], 1)
+        self.assertEqual(record["paidVisitMatched"], 2)
+        self.assertEqual(record["_uploadControl"]["unassignedPrimary"], 0)
+        self.assertEqual(record["_uploadControl"]["unassignedRepeat"], 0)
+
     def test_direction_summary_uses_paid_not_billed_and_keeps_unknown_separate(self):
         parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
         summary = paid_services.direction_summary(
