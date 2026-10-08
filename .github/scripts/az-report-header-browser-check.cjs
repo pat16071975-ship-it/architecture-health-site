@@ -29,6 +29,7 @@ function fail(message) {
         date:'2026-09-21', plan:5000, cashTotal:1000, cashOOO:600, cashIP:400,
         billedTotal:1200, factMedicine:600, factLab:100, primary:2, repeat:3,
         dentPrimary:1, dentRepeat:1,
+        paidDataComplete:true, paidDentists:{'Чирков Максим Сергеевич':700}, paidClinicDocs:{'Старостенко Вадим Анатольевич':200}, paidLab:100, paidServicesTotal:1000,
         dentists:{'Чирков Максим Сергеевич':500},
         dentistsLegal:{'Чирков Максим Сергеевич':{ooo:300,ip:200}},
         dentCashOOO:300,dentCashIP:200,
@@ -240,11 +241,11 @@ function fail(message) {
     const rows = [...document.querySelectorAll('#dateCompareBody tr')];
     const byLabel = label => rows.find(row => row.cells?.[0]?.textContent.trim() === label);
     const labels = [
-      'Выручка стоматологии',
+      'Оплачено стоматологии',
       'Чирков Максим Сергеевич',
-      'Выручка клиники',
+      'Оплачено отделению структуры',
       'Старостенко Вадим Анатольевич',
-      'Выручка лаборатории',
+      'Оплачено лаборатории',
     ];
     const details = {};
     for (const label of labels) {
@@ -259,13 +260,28 @@ function fail(message) {
     };
   });
   if (cashSplit.splitRows !== 0) fail('Cash split created extra table rows');
-  if (cashSplit.splitCount < 5) fail('Cash split is missing from comparison cells');
-  for (const [label, detail] of Object.entries(cashSplit.details)) {
-    if (!detail || !detail.includes('ООО') || !detail.includes('ИП')) {
-      fail('Cash split missing OOO/IP for ' + label);
-    }
-  }
-  console.log('BROWSER CHECK CASH LEGAL SPLIT: PASS');
+  if (cashSplit.splitCount !== 0) fail('Doctor/direction OOO/IP split must be absent');
+  console.log('BROWSER CHECK CLINIC-ONLY LEGAL SPLIT: PASS');
+
+  const paidProviderText = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#dateCompareBody tr')];
+    const value = label => {
+      const row=rows.find(item => item.cells?.[0]?.textContent.trim() === label);
+      const cells=row?[...row.cells].slice(1):[];
+      return [...cells].reverse().map(cell=>cell.textContent.replace(/\s+/g,' ').trim()).find(Boolean)||'';
+    };
+    return {
+      dentistry: value('Оплачено стоматологии'),
+      doctor: value('Чирков Максим Сергеевич'),
+      structure: value('Оплачено отделению структуры'),
+      lab: value('Оплачено лаборатории'),
+    };
+  });
+  if (!paidProviderText.dentistry.includes('700')) fail('Paid dentistry value missing');
+  if (!paidProviderText.doctor.includes('700')) fail('Paid doctor value missing');
+  if (!paidProviderText.structure.includes('200')) fail('Paid structure value missing');
+  if (!paidProviderText.lab.includes('100')) fail('Paid lab value missing');
+  console.log('BROWSER CHECK PAID PROVIDER VALUES: PASS');
 
   const emphasis = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('#dateCompareBody tr')];
@@ -350,6 +366,7 @@ function fail(message) {
         date:'2026-09-21', plan:5000, cashTotal:1000, cashOOO:600, cashIP:400,
         billedTotal:1200, factMedicine:600, factLab:100, primary:2, repeat:3,
         dentPrimary:1, dentRepeat:1,
+        paidDataComplete:true, paidDentists:{'Чирков Максим Сергеевич':700}, paidClinicDocs:{'Старостенко Вадим Анатольевич':200}, paidLab:100, paidServicesTotal:1000,
         dentists:{'Чирков Максим Сергеевич':500},
         dentistsLegal:{'Чирков Максим Сергеевич':{ooo:300,ip:200}},
         dentCashOOO:300,dentCashIP:200,
@@ -419,7 +436,7 @@ function fail(message) {
   if (mobileCompare.shellWidth > mobileCompare.viewport + 2) fail('Mobile compare: table shell exceeds viewport');
   if (!mobileCompare.shellScrollable) fail('Mobile compare: wide comparison table is not horizontally scrollable');
   if (mobileCompare.stickyCloneHidden !== true) fail('Mobile compare: desktop sticky clone must remain disabled');
-  if (mobileCompare.cashSplitCount < 5) fail('Mobile compare: OOO/IP cash split is missing');
+  if (mobileCompare.cashSplitCount !== 0) fail('Mobile compare: doctor/direction OOO/IP split must be absent');
   await mobile.screenshot({ path: 'artifacts/report-mobile-compare.png', fullPage: false });
   console.log('BROWSER CHECK MOBILE ONE DATE: PASS');
   console.log('BROWSER CHECK MOBILE COMPARE: PASS');

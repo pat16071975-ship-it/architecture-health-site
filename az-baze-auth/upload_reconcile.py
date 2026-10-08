@@ -164,6 +164,40 @@ def pending_provider_rows(conn):
         for row in rows
     ]
 
+def provider_maps(conn):
+    init_schema(conn)
+    result = {"dent": {}, "structure": {}, "lab": {}, "ignore": set()}
+    rows = conn.execute(
+        """
+        SELECT source_name,display_name,direction
+        FROM provider_registry
+        WHERE direction<>'pending'
+        ORDER BY source_name
+        """
+    ).fetchall()
+    for row in rows:
+        source = str(row["source_name"] if hasattr(row, "keys") else row[0])
+        display = str(row["display_name"] if hasattr(row, "keys") else row[1])
+        direction = str(row["direction"] if hasattr(row, "keys") else row[2])
+        if direction in {"dent", "structure", "lab"}:
+            result[direction][source] = display
+        elif direction == "ignore":
+            result["ignore"].add(source)
+    return result
+
+
+def provider_names_by_direction(conn, direction):
+    init_schema(conn)
+    if direction not in DIRECTIONS:
+        raise ValueError("Недопустимое направление сотрудника.")
+    return {
+        str(row[0])
+        for row in conn.execute(
+            "SELECT source_name FROM provider_registry WHERE direction=?",
+            (direction,),
+        ).fetchall()
+    }
+
 def resolved_provider_names(conn):
     init_schema(conn)
     return {

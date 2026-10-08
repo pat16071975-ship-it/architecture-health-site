@@ -79,10 +79,10 @@
     </article>
 
     <article class="attention-card">
-      <div class="attention-kicker">Выручка по направлениям — с начала месяца</div>
+      <div class="attention-kicker">Оплачено по направлениям — с начала месяца</div>
       {% for row in summary.revenue %}
         <div class="attention-row">
-          <strong>{{ row.label }} — {{ "{:,.0f}".format(row.amount).replace(",", " ") }} ₽</strong>
+          <strong>{{ row.label }} — {% if row.amount is not none %}{{ "{:,.0f}".format(row.amount).replace(",", " ") }} ₽{% else %}Нет данных{% endif %}</strong>
           <span class="{% if row.deviation is not none and row.deviation > 5 %}positive{% elif row.deviation is not none and row.deviation < -5 %}negative{% endif %}">{{ row.comment }}</span>
         </div>
       {% endfor %}

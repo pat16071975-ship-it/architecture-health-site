@@ -8,6 +8,7 @@ from flask import abort, g, jsonify, redirect, render_template, request, url_for
 
 import daily_upload_core as core
 import cash_payments
+import paid_services
 import upload_reconcile
 from app import csrf_token, permission_required, require_csrf
 
@@ -458,6 +459,18 @@ def _read_period_files(completed_file, services_file):
     return completed_raw, completed_name, services_raw, services_name
 
 
+def _ignored_provider_names(conn):
+    clinical = (
+        set(core.ident_import.DENTISTS)
+        | set(core.ident_import.STRUCTURE_DOCTORS)
+        | set(core.ident_import.LAB_DOCTORS)
+    )
+    nonclinical_known = set(core.ident_import.KNOWN_STAFF) - clinical
+    return (
+        upload_reconcile.provider_names_by_direction(conn, "ignore")
+        | nonclinical_known
+    )
+
 def _comparison_has_conflict(comparison):
     return bool(
         comparison.get("conflict")
@@ -875,6 +888,15 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
 
         management = core._rebuild_management(month_key, source)
         cash_payments.overlay_record_map(conn, month_key, management)
+        paid_services.overlay_record_map(
+            conn,
+            month_key,
+            management,
+            core.ident_import.DENTISTS,
+            core.ident_import.STRUCTURE_DOCTORS,
+            core.ident_import.LAB_DOCTORS,
+            ignored=_ignored_provider_names(conn),
+        )
 
         if apply_new:
             for removed_date in remove_dates:
@@ -911,8 +933,18 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
                 ),
             )
 
-        # Re-overlay the independent money source after every clinical rebuild.
+        # Re-overlay independent sources after every clinical rebuild.
         cash_payments.overlay_stored_month(conn, month_key, g.user["id"], now)
+        paid_services.overlay_stored_month(
+            conn,
+            month_key,
+            g.user["id"],
+            now,
+            core.ident_import.DENTISTS,
+            core.ident_import.STRUCTURE_DOCTORS,
+            core.ident_import.LAB_DOCTORS,
+            ignored=_ignored_provider_names(conn),
+        )
 
         core._save_blob(conn, "az-service-analytics-v1", service_data, now)
         for key, value in finance_blobs.items():
@@ -1000,8 +1032,20 @@ def register_daily_upload(app):
                 raise ValueError("Не выбрано ни одного врача для классификации.")
             conn = core.db()
             upload_reconcile.resolve_providers(conn, decisions, g.user["id"])
-            conn.commit()
             upload_reconcile.refresh_runtime(conn, core.ident_import, cash_payments)
+            now = core.iso_now()
+            for month in paid_services.snapshot_months(conn):
+                paid_services.overlay_stored_month(
+                    conn,
+                    month,
+                    g.user["id"],
+                    now,
+                    core.ident_import.DENTISTS,
+                    core.ident_import.STRUCTURE_DOCTORS,
+                    core.ident_import.LAB_DOCTORS,
+                    ignored=_ignored_provider_names(conn),
+                )
+            conn.commit()
             core.audit(
                 "provider_registry_updated",
                 target_user_id=g.user["id"],
@@ -1011,8 +1055,9 @@ def register_daily_upload(app):
                 {
                     "status": "ok",
                     "message": (
-                        "Классификация сохранена. Для пересчёта уже загруженного периода "
-                        "повторно загрузите исходные файлы и подтвердите выбранную версию."
+                        "Классификация сохранена. Уже сохранённые агрегаты «Оплачено» "
+                        "перераспределены по новому направлению. Для изменения состава услуг "
+                        "повторно загружайте исходный клинический период только при необходимости."
                     ),
                 }
             )
@@ -1075,6 +1120,7 @@ def register_daily_upload(app):
         ).fetchone()
         cash_latest = cash_payments.latest_loaded_date(conn)
         cash_next_required = cash_payments.next_required_date(conn)
+        paid_latest = paid_services.latest_loaded_date(conn)
         return render_template(
             "uploads.html",
             csrf=csrf_token(),
@@ -1085,6 +1131,7 @@ def register_daily_upload(app):
             next_required_date=_next_required_date(latest),
             cash_latest_date=_format_date(cash_latest) if cash_latest else None,
             cash_next_required_date=_format_date(cash_next_required) if cash_next_required else None,
+            paid_services_latest_date=_format_date(paid_latest) if paid_latest else None,
             history=core._history() if "upload_history" in perms else [],
             pending_providers=upload_reconcile.pending_provider_rows(conn),
             can_daily=("upload_completed" in perms and "upload_services" in perms),

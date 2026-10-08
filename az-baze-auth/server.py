@@ -10,6 +10,8 @@ import credentials_store
 import clinic_structure_settings
 import daily_upload
 import cash_upload
+import completed_upload
+import paid_services_upload
 import economics_control
 import finrez
 import ident_import
@@ -30,7 +32,7 @@ app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
 
 UPLOAD_PERMISSION_OPTIONS = [
     ("upload_completed", "Загружать файл «Завершённые приёмы»"),
-    ("upload_services", "Загружать файл «Выполненные услуги»"),
+    ("upload_services", "Загружать файл «Выручка по направлениям»"),
     ("upload_history", "Просматривать журнал загрузок"),
     ("upload_replace", "Подтверждать замену данных и классификацию новых врачей"),
 ]
@@ -69,7 +71,9 @@ ident_import.register_ident_import(app)
 finrez.register_finrez(app)
 economics_control.register_economics_control(app)
 daily_upload.register_daily_upload(app)
+completed_upload.register_completed_upload(app)
 cash_upload.register_cash_upload(app)
+paid_services_upload.register_paid_services_upload(app)
 credentials_store.register_credentials(app)
 access_contacts_ext.register(app)
 clinic_structure_settings.register(app)

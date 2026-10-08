@@ -18,12 +18,28 @@ def _cash_file():
 
 
 def _cash_totals(daily):
-    total = {"total": 0.0, "dent": 0.0, "structure": 0.0, "lab": 0.0, "unallocated": 0.0}
+    total = {
+        "total": 0.0,
+        "ooo": 0.0,
+        "ip": 0.0,
+        "dent": 0.0,
+        "structure": 0.0,
+        "lab": 0.0,
+        "unallocated": 0.0,
+    }
     for payload in (daily or {}).values():
         check = upload_reconcile.assert_cash_reconciliation(payload)
-        for key in total:
-            total[key] += float(check[key] or 0)
-    return {key: round(value, 2) for key, value in total.items()}
+        total["total"] += float(check["total"] or 0)
+        total["dent"] += float(check["dent"] or 0)
+        total["structure"] += float(check["structure"] or 0)
+        total["lab"] += float(check["lab"] or 0)
+        total["unallocated"] += float(check["unallocated"] or 0)
+        total["ooo"] += float((payload or {}).get("cashOOO") or 0)
+        total["ip"] += float((payload or {}).get("cashIP") or 0)
+    result = {key: round(value, 2) for key, value in total.items()}
+    if abs(result["total"] - result["ooo"] - result["ip"]) > 0.02:
+        raise ValueError("Факт не сходится с разбивкой ООО + ИП.")
+    return result
 
 
 def _cash_preview():

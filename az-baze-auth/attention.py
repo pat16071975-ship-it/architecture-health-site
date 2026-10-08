@@ -120,12 +120,14 @@ def _management_monthly_plan(conn, month):
 
 
 def _direction_values(record):
-    dentists = record.get("dentists") if isinstance(record.get("dentists"), dict) else {}
-    clinic_docs = record.get("clinicDocs") if isinstance(record.get("clinicDocs"), dict) else {}
+    if record.get("paidDataComplete") is not True:
+        return {"dentistry": None, "structure": None, "lab": None}
+    dentists = record.get("paidDentists") if isinstance(record.get("paidDentists"), dict) else {}
+    clinic_docs = record.get("paidClinicDocs") if isinstance(record.get("paidClinicDocs"), dict) else {}
     return {
         "dentistry": sum(_num(value) for value in dentists.values()),
         "structure": sum(_num(value) for value in clinic_docs.values()),
-        "lab": _num(record.get("labRevenue") or record.get("factLab")),
+        "lab": _num(record.get("paidLab")),
     }
 
 
@@ -152,7 +154,8 @@ def _comparison_average(conn, today, snapshot_date):
             continue
         directions = _direction_values(record)
         for key in values:
-            values[key].append(directions[key])
+            if directions[key] is not None:
+                values[key].append(directions[key])
 
     return {
         key: (sum(items) / len(items) if len(items) >= 2 else None)
@@ -161,7 +164,7 @@ def _comparison_average(conn, today, snapshot_date):
 
 
 def _deviation(current, average):
-    if average is None or average <= 0:
+    if current is None or average is None or average <= 0:
         return None
     return (current - average) / average * 100.0
 
@@ -346,26 +349,21 @@ def build_summary(conn=None):
         ("structure", "Отделение структуры"),
         ("lab", "Лаборатория"),
     ):
-        deviation = _deviation(directions[key], comparable[key])
+        current_amount = directions[key]
+        deviation = _deviation(current_amount, comparable[key])
         revenue_rows.append(
             {
                 "key": key,
                 "label": label,
-                "amount": round(directions[key]),
+                "amount": round(current_amount) if current_amount is not None else None,
                 "deviation": round(deviation, 1) if deviation is not None else None,
-                "comment": _deviation_text(deviation),
+                "comment": (
+                    _deviation_text(deviation)
+                    if current_amount is not None
+                    else "Нет данных нового отчёта МИС"
+                ),
             }
         )
-
-    revenue_rows.append(
-        {
-            "key": "unallocated",
-            "label": "Нераспределённые ДС",
-            "amount": round(_num(record.get("cashUnallocated"))),
-            "deviation": None,
-            "comment": "Входят в общий Факт, но не привязаны к врачу/направлению",
-        }
-    )
 
     primary_values = _primary_values(record)
     primary_total = round(primary_values["total"])
@@ -524,10 +522,10 @@ def home_modal_fragment(user_id):
     const p=d.plan||{{}}, pr=d.primary||{{}};
     let planComment='Недостаточно данных для расчёта';
     if(p.delta!=null) planComment=p.delta<-5?'Отставание от текущего плана на '+Math.round(Math.abs(p.delta))+'%':p.delta>5?'Опережение текущего плана на '+Math.round(p.delta)+'%':'В пределах ±5% от текущего плана';
-    const rev=(d.revenue||[]).map(x=>'<div class="az-attention-row"><strong>'+esc(x.label)+' — '+money(x.amount)+'</strong><span class="'+state(x.deviation)+'">'+esc(x.comment)+'</span></div>').join('');
+    const rev=(d.revenue||[]).map(x=>'<div class="az-attention-row"><strong>'+esc(x.label)+' — '+(x.amount==null?'Нет данных':money(x.amount))+'</strong><span class="'+state(x.deviation)+'">'+esc(x.comment)+'</span></div>').join('');
     body.innerHTML=
       '<div class="az-attention-card plan"><div class="az-attention-kicker">Текущее выполнение плана</div><div class="az-attention-main">'+(p.execution==null?'—':esc(p.execution)+'%')+'</div><div class="az-attention-sub"><span class="az-attention-plan-line">Факт месяца — <span class="az-attention-value-strong">'+money(p.fact)+'</span></span><span class="az-attention-plan-line">Должно быть — <span class="az-attention-value-strong">'+money(p.due)+'</span></span></div><div class="az-attention-sub '+state(p.delta)+'">'+esc(planComment)+'</div></div>'+
-      '<div class="az-attention-card"><div class="az-attention-kicker">Выручка по направлениям</div>'+rev+'</div>'+
+      '<div class="az-attention-card"><div class="az-attention-kicker">Оплачено по направлениям</div>'+rev+'</div>'+
       '<div class="az-attention-card"><div class="az-attention-kicker">Первичные пациенты — с начала месяца</div><div class="az-attention-main">'+n(pr.total)+'</div><div class="az-attention-sub">Стоматология — '+n(pr.dentistry)+'<br>Отделение структуры — '+n(pr.structure)+'<br>Заказы лаборатории — '+n(pr.lab_orders)+(pr.forecast_total==null?'':'<br><strong>Прогноз на конец месяца — '+n(pr.forecast_total)+' первичных</strong>')+'</div></div>';
     overlay.hidden=false;
   }}).catch(err=>console.error(err));

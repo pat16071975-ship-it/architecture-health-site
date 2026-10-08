@@ -120,11 +120,12 @@ def _xlsx_cell_value(cell, shared_strings):
 
 def _load_xlsx_subset(stream):
     """
-    Read only the two source sheets needed for the economic model.
+    Read only the economic source sheets needed by AZ-BAZE.
 
     The source workbook has dozens of sheets. Loading the whole workbook inside
     a web request caused the Gunicorn worker to exceed its request time. This
-    reader parses only OPU and payroll using the Python standard library.
+    reader parses OPU, payroll and the compact revenue/discount sheet using the
+    Python standard library.
     """
     if hasattr(stream, "seek"):
         stream.seek(0)
@@ -146,7 +147,8 @@ def _load_xlsx_subset(stream):
         rels_root = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
         rel_map = {node.attrib["Id"]: node.attrib["Target"] for node in rels_root}
 
-        wanted = {"ОПУ", "Свод по ЗП new"}
+        required = {"ОПУ", "Свод по ЗП new"}
+        wanted = required | {"Выручка"}
         targets = {}
         sheets_node = workbook_root.find(f"{{{_XLSX_MAIN_NS}}}sheets")
         if sheets_node is None:
@@ -163,7 +165,7 @@ def _load_xlsx_subset(stream):
             path = ("xl/" + target.lstrip("/")).replace("xl/xl/", "xl/")
             targets[name] = path
 
-        missing = wanted - set(targets)
+        missing = required - set(targets)
         if missing:
             raise ValueError("В файле нет листов: " + ", ".join(sorted(missing)))
 
@@ -315,6 +317,48 @@ def _expense_category(label):
     ):
         return "Маркетинг и реклама"
     return "Прочие операционные / разовые расходы"
+
+
+def _parse_revenue_source(ws):
+    months = {}
+    if ws is None:
+        return {"available": False, "months": {}}
+
+    max_row = ws.max_row or 1000
+    for row in range(1, max_row + 1):
+        if _norm_key(ws.cell(row, 4).value) != _norm_key("ВСЕГО по филиалам"):
+            continue
+        try:
+            month_number = int(float(ws.cell(row, 2).value))
+            year = int(float(ws.cell(row, 3).value))
+        except (TypeError, ValueError):
+            continue
+        if month_number < 1 or month_number > 12 or year < 2020 or year > 2100:
+            continue
+
+        gross = _num(ws.cell(row, 8).value)
+        discount = _num(ws.cell(row, 9).value)
+        net = _num(ws.cell(row, 10).value)
+        if abs((gross - discount) - net) > 0.02:
+            raise ValueError(
+                f"Не сходится выручка/скидка в листе «Выручка» за {year}-{month_number:02d}"
+            )
+
+        control_gross = _num(ws.cell(row, 11).value)
+        control_net = _num(ws.cell(row, 12).value)
+        months[f"{year:04d}-{month_number:02d}"] = {
+            "gross": round(gross, 2),
+            "discount": round(discount, 2),
+            "net": round(net, 2),
+            "control_gross": round(control_gross, 2),
+            "control_net": round(control_net, 2),
+        }
+
+    return {
+        "available": bool(months),
+        "source": "Выручка",
+        "months": months,
+    }
 
 
 def _parse_opu(ws):
@@ -689,6 +733,7 @@ def _build_payload(wb):
 
     opu = _parse_opu(wb["ОПУ"])
     payroll = _parse_payroll(wb["Свод по ЗП new"])
+    revenue = _parse_revenue_source(wb["Выручка"] if "Выручка" in wb.sheetnames else None)
     ident = _ident_revenue()
 
     revenue_control = []
@@ -747,11 +792,12 @@ def _build_payload(wb):
     payload = {
         "version": 3,
         "available": True,
-        "source": "ОПУ + Свод по ЗП new + IDENT",
+        "source": "ОПУ + Свод по ЗП new + Выручка + IDENT" if revenue["available"] else "ОПУ + Свод по ЗП new + IDENT",
         "generated_at": iso_now(),
         "period": PERIOD,
         "opu": opu,
         "payroll": payroll,
+        "revenue": revenue,
         "revenue_control": revenue_control,
         "data_quality": data_quality,
         "notes": {
@@ -759,7 +805,7 @@ def _build_payload(wb):
             "potential_revenue": "Потерянные часы × фактическая выручка за проведённый час — только оценочная потенциальная выручка, не фактическая потеря.",
         },
         "layers": {
-            "raw": ["ОПУ", "Свод по ЗП new", "IDENT"],
+            "raw": ["ОПУ", "Свод по ЗП new"] + (["Выручка"] if revenue["available"] else []) + ["IDENT"],
             "normalized": [
                 "сотрудники / employee_id",
                 "роли / assignment_id",

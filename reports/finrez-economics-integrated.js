@@ -290,6 +290,24 @@
     if (typeof expenseCategoryNode !== 'function' || typeof categoryTotal !== 'function' || typeof operatingExpenses !== 'function' || typeof node !== 'function' || typeof render !== 'function') return;
     economicsInstalled = true;
 
+    const originalDiscountFor = discountFor;
+    const originalGrossRevenueFor = grossRevenueFor;
+    const economicsRevenue = function(year, index) {
+      const month = `${year}-${String(index + 1).padStart(2, '0')}`;
+      const row = economics?.revenue?.months?.[month];
+      return row && typeof row === 'object' ? row : null;
+    };
+    discountFor = function(year, index) {
+      const row = economicsRevenue(year, index);
+      if (row && Number.isFinite(+row.discount)) return +row.discount;
+      return originalDiscountFor(year, index);
+    };
+    grossRevenueFor = function(year, index) {
+      const row = economicsRevenue(year, index);
+      if (row && Number.isFinite(+row.gross)) return +row.gross;
+      return originalGrossRevenueFor(year, index);
+    };
+
     const originalCategoryTotal = categoryTotal;
     const originalOperatingExpenses = operatingExpenses;
     const originalExpenseCategoryNode = expenseCategoryNode;
