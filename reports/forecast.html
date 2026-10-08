@@ -296,7 +296,7 @@ let FIN=null,STORE={},ANALYTICS=null,SALARY=null,EXTRA=null;
 let ALL_MONTHS=[],FULL_MONTHS=[],BASE_MONTHS=[],PARTIAL_MONTH=null,BASE_PRESET='3';
 
 function parseBlob(k){try{return JSON.parse(STORE[k]||'null')}catch{return null}}
-function rec(m){const r=FIN?.management?.[m]||{};return r.paidDataComplete===true?{...r,factLab:num(r.paidLab)}:r}
+function rec(m){return FIN?.management?.[m]||{}}
 function mi(m){return Math.max(0,(+String(m).slice(5,7)||1)-1)}
 function stat(m,d){const r=rec(m);if(d==='dent'){const docs=r.dentists||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.dentPrimary),repeat:num(r.dentRepeat),docs}}if(d==='structure'){const docs=r.structureDoctors||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.clinicPrimary),repeat:num(r.clinicRepeat),docs}}return{rev:num(r.factLab),primary:0,repeat:0,docs:{}}}
 function adir(d){const ds=ANALYTICS?.directions||{};for(const n of d==='dent'?['Стоматология']:d==='structure'?['Отделение структуры','Клиника']:['Лаборатория'])if(ds[n])return ds[n];return null}
@@ -541,7 +541,7 @@ function wireAdvanced(){
 
 function initPeriods(){
   ALL_MONTHS=Object.keys(FIN.management||{}).sort();
-  FULL_MONTHS=ALL_MONTHS.filter(m=>fullMonth(m)&&rec(m).paidDataComplete===true);
+  FULL_MONTHS=ALL_MONTHS.filter(fullMonth);
   const latest=ALL_MONTHS[ALL_MONTHS.length-1]||null;
   PARTIAL_MONTH=latest&&!fullMonth(latest)?latest:null;
 
