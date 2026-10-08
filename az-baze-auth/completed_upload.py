@@ -1,7 +1,5 @@
 import hashlib
 import json
-from collections import defaultdict
-
 from flask import abort, g, jsonify, request
 
 import cash_payments
@@ -171,6 +169,9 @@ def _preview():
     filename, raw = _file_from_request()
     prepared = _parse(raw, filename)
     conn = db()
+    cash_payments.init_schema(conn)
+    paid_services.init_schema(conn)
+    upload_reconcile.init_schema(conn)
     comparison = _comparison(conn, prepared)
     conflicts = sorted(set(comparison["conflict"]) | set(comparison["removed"]))
     paid_snapshot = paid_services.latest_snapshot_for_month(conn, prepared["month"])
@@ -311,6 +312,9 @@ def _commit(decision=None):
     filename, raw = _file_from_request()
     prepared = _parse(raw, filename)
     conn = db()
+    cash_payments.init_schema(conn)
+    paid_services.init_schema(conn)
+    upload_reconcile.init_schema(conn)
     comparison = _comparison(conn, prepared)
     has_conflict = bool(comparison["conflict"] or comparison["removed"])
 
