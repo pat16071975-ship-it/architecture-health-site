@@ -382,7 +382,7 @@ def service_analytics_items(report):
 def compact_report(report):
     service_totals = {}
     visit_links = {}
-    for item in report.get("items") or []:
+    for item in service_analytics_items(report):
         staff = str(item.get("staff") or "").strip()
         group = str(item.get("group") or "").strip()
         service = str(item.get("service") or "").strip()
