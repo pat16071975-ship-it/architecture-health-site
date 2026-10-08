@@ -241,11 +241,11 @@ function fail(message) {
     const rows = [...document.querySelectorAll('#dateCompareBody tr')];
     const byLabel = label => rows.find(row => row.cells?.[0]?.textContent.trim() === label);
     const labels = [
-      'Оплачено стоматологии',
+      'Выручка стоматологии',
       'Чирков Максим Сергеевич',
-      'Оплачено отделению структуры',
+      'Выручка клиники',
       'Старостенко Вадим Анатольевич',
-      'Оплачено лаборатории',
+      'Выручка лаборатории',
     ];
     const details = {};
     for (const label of labels) {
@@ -263,7 +263,7 @@ function fail(message) {
   if (cashSplit.splitCount !== 0) fail('Doctor/direction OOO/IP split must be absent');
   console.log('BROWSER CHECK CLINIC-ONLY LEGAL SPLIT: PASS');
 
-  const paidProviderText = await page.evaluate(() => {
+  const legacyProviderText = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('#dateCompareBody tr')];
     const value = label => {
       const row=rows.find(item => item.cells?.[0]?.textContent.trim() === label);
@@ -271,17 +271,17 @@ function fail(message) {
       return [...cells].reverse().map(cell=>cell.textContent.replace(/\s+/g,' ').trim()).find(Boolean)||'';
     };
     return {
-      dentistry: value('Оплачено стоматологии'),
+      dentistry: value('Выручка стоматологии'),
       doctor: value('Чирков Максим Сергеевич'),
-      structure: value('Оплачено отделению структуры'),
-      lab: value('Оплачено лаборатории'),
+      structure: value('Выручка клиники'),
+      lab: value('Выручка лаборатории'),
     };
   });
-  if (!paidProviderText.dentistry.includes('700')) fail('Paid dentistry value missing');
-  if (!paidProviderText.doctor.includes('700')) fail('Paid doctor value missing');
-  if (!paidProviderText.structure.includes('200')) fail('Paid structure value missing');
-  if (!paidProviderText.lab.includes('100')) fail('Paid lab value missing');
-  console.log('BROWSER CHECK PAID PROVIDER VALUES: PASS');
+  if (!legacyProviderText.dentistry.includes('500')) fail('Legacy dentistry value missing');
+  if (!legacyProviderText.doctor.includes('500')) fail('Legacy doctor value missing');
+  if (!legacyProviderText.structure.includes('100')) fail('Legacy structure value missing');
+  if (!legacyProviderText.lab.includes('100')) fail('Legacy lab value missing');
+  console.log('BROWSER CHECK APPROVED LEGACY PROVIDER VALUES: PASS');
 
   const emphasis = await page.evaluate(() => {
     const rows = [...document.querySelectorAll('#dateCompareBody tr')];
