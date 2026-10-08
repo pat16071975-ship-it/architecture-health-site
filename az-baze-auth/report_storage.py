@@ -82,6 +82,7 @@ PAID_PRESERVED_KEYS = (
     "paidLabDocs", "paidDentistry", "paidStructure", "paidLab",
     "paidServicesTotal", "paidClassifiedTotal", "paidUnclassified",
     "serviceDebtOpening", "serviceBilled", "serviceDebtClosing",
+    "paidVisitAttribution", "paidVisitMatched", "paidVisitUnmatched",
 )
 
 
