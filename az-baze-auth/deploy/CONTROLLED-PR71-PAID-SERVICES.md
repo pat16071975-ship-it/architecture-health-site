@@ -111,6 +111,20 @@ After a service-start attempt:
 
 This avoids losing writes after traffic may have resumed. The old application ignores the additive tables.
 
+## Post-deploy data activation
+
+A successful code/schema deploy does not itself populate the new sources.
+
+Immediately after deploy:
+
+- clinic Fact and clinic-wide ООО/ИП continue from the already stored «Счета и оплаты» layer;
+- paid doctor/direction metrics intentionally show no new paid-source value until the new MIS «Выручка по направлениям» file is uploaded through its separate control;
+- the paid-services tables are present but empty;
+- existing completed-visit history remains present;
+- the economics JSON created by the pre-PR71 parser does not yet contain the new `revenue` subsection, so Finrez gross/discount switches to the economists’ canonical source only after the economics workbook is explicitly re-imported.
+
+The first paid-services upload and the economics-workbook re-import are **data operations, not part of deploy**. They require their own operator action after the deployed UI/health is verified. No deploy script silently uploads, backfills, or rewrites those business sources.
+
 ## Explicit exclusions
 
 This preparation does not:
