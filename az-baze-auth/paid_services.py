@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 from datetime import date, datetime
@@ -49,6 +50,23 @@ class NotPaidServicesReport(ValueError):
 
 def _text(value):
     return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def _person_key(value):
+    text = str(value or "").lower().replace("ё", "е")
+    parts = re.findall(r"[a-zа-я]+", text)
+    if not parts:
+        return ""
+    surname = parts[0]
+    initials = "".join(part[0] for part in parts[1:3])
+    return surname + "_" + initials
+
+
+def _patient_token(value):
+    key = _person_key(value)
+    if not key:
+        return ""
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
 def _num(value):
@@ -350,8 +368,42 @@ def direction_summary(report, dentists, structure_doctors, lab_doctors, ignored=
 
 
 def compact_report(report):
+    service_totals = {}
+    visit_links = {}
+    for item in report.get("items") or []:
+        staff = str(item.get("staff") or "").strip()
+        group = str(item.get("group") or "").strip()
+        service = str(item.get("service") or "").strip()
+        if staff and service:
+            key = (staff, group, service)
+            row = service_totals.setdefault(
+                key,
+                {"staff": staff, "group": group, "service": service, "qty": 0.0, "amount": 0.0},
+            )
+            row["qty"] = round(row["qty"] + _num(item.get("qty")), 4)
+            row["amount"] = round(row["amount"] + _num(item.get("amount")), 2)
+
+        data_date = str(item.get("date") or "")
+        token = _patient_token(item.get("patient"))
+        if data_date and token and staff:
+            link_key = data_date + "|" + token
+            providers = visit_links.setdefault(link_key, [])
+            if staff not in providers:
+                providers.append(staff)
+
+    invoices = []
+    seen_invoices = set()
+    for row in report.get("invoices") or []:
+        staff = str(row.get("staff") or "").strip()
+        invoice = str(row.get("invoice") or "").strip()
+        data_date = str(row.get("date") or "")
+        key = (staff, invoice, data_date)
+        if staff and invoice and data_date and key not in seen_invoices:
+            seen_invoices.add(key)
+            invoices.append({"staff": staff, "invoice": invoice, "date": data_date})
+
     return {
-        "version": 1,
+        "version": 2,
         "month": str(report.get("month") or ""),
         "as_of_date": str(report.get("period_end") or ""),
         "totals": dict(report.get("totals") or {}),
@@ -360,6 +412,18 @@ def compact_report(report):
             for name, values in (report.get("providers") or {}).items()
         },
         "provider_residual": dict(report.get("provider_residual") or {}),
+        "service_items": sorted(
+            service_totals.values(),
+            key=lambda row: (row["staff"], row["group"], row["service"]),
+        ),
+        "visit_links": {
+            key: sorted(values)
+            for key, values in sorted(visit_links.items())
+        },
+        "invoices": sorted(
+            invoices,
+            key=lambda row: (row["date"], row["staff"], row["invoice"]),
+        ),
     }
 
 
@@ -462,7 +526,7 @@ def _snapshot_payload(row):
         value = json.loads(raw)
     except (TypeError, ValueError):
         return None
-    return value if isinstance(value, dict) and value.get("version") == 1 else None
+    return value if isinstance(value, dict) and value.get("version") in {1, 2} else None
 
 
 def snapshot_for_date(conn, data_date):
@@ -479,6 +543,124 @@ def snapshot_for_date(conn, data_date):
         (month, str(data_date)),
     ).fetchone()
     return _snapshot_payload(row)
+
+
+def latest_snapshot_for_month(conn, month):
+    init_schema(conn)
+    row = conn.execute(
+        """
+        SELECT payload_json
+        FROM service_payment_snapshots
+        WHERE month=?
+        ORDER BY as_of_date DESC
+        LIMIT 1
+        """,
+        (str(month),),
+    ).fetchone()
+    return _snapshot_payload(row)
+
+
+def _provider_direction(source_name, dentists, structure_doctors):
+    if source_name in (dentists or {}):
+        return "dent"
+    if source_name in (structure_doctors or {}):
+        return "structure"
+    return None
+
+
+def visit_doctors(snapshot, visits, dentists, structure_doctors):
+    links = snapshot.get("visit_links") if isinstance(snapshot, dict) else {}
+    if not isinstance(links, dict) or not links:
+        return {}, 0, 0
+
+    grouped = {}
+    for visit in visits or []:
+        data_date = str(visit.get("date") or "")
+        token = _patient_token(visit.get("patient"))
+        kind = str(visit.get("kind") or "")
+        if not data_date or not token or not kind:
+            continue
+        grouped.setdefault((data_date, token), []).append(kind)
+
+    doctors = {}
+    matched = 0
+    unmatched = 0
+    for (data_date, token), kinds in grouped.items():
+        providers = links.get(data_date + "|" + token) or []
+        candidates = []
+        for source_name in providers:
+            direction = _provider_direction(source_name, dentists, structure_doctors)
+            if direction:
+                pair = (direction, source_name)
+                if pair not in candidates:
+                    candidates.append(pair)
+
+        if not candidates:
+            unmatched += len(kinds)
+            continue
+
+        representatives = []
+        seen_directions = set()
+        for direction, source_name in candidates:
+            if direction in seen_directions:
+                continue
+            representatives.append((direction, source_name))
+            seen_directions.add(direction)
+
+        assignments = representatives[: len(kinds)]
+        while len(assignments) < len(kinds):
+            assignments.append(candidates[0])
+
+        day = doctors.setdefault(data_date, {})
+        for kind, (_direction, source_name) in zip(kinds, assignments):
+            by_kind = day.setdefault(kind, {})
+            by_kind[source_name] = int(by_kind.get(source_name, 0)) + 1
+            matched += 1
+
+    return doctors, matched, unmatched
+
+
+def apply_visit_attribution(record, snapshot, normalized, dentists, structure_doctors):
+    if not isinstance(record, dict) or not isinstance(snapshot, dict):
+        return record
+    visits = normalized.get("visits") if isinstance(normalized, dict) else []
+    doctors, matched, unmatched = visit_doctors(
+        snapshot,
+        visits or [],
+        dentists,
+        structure_doctors,
+    )
+    data_date = str(record.get("date") or normalized.get("data_date") or "")
+    day = doctors.get(data_date, {})
+
+    dent_primary = structure_primary = dent_repeat = structure_repeat = 0
+    for source_name, value in (day.get("Первичные") or {}).items():
+        if source_name in dentists:
+            dent_primary += int(value or 0)
+        elif source_name in structure_doctors:
+            structure_primary += int(value or 0)
+    for kind in ("Повторные", "Отконсультированные"):
+        for source_name, value in (day.get(kind) or {}).items():
+            if source_name in dentists:
+                dent_repeat += int(value or 0)
+            elif source_name in structure_doctors:
+                structure_repeat += int(value or 0)
+
+    if matched:
+        record["dentPrimary"] = dent_primary
+        record["dentRepeat"] = dent_repeat
+        record["clinicPrimary"] = structure_primary
+        record["clinicRepeat"] = structure_repeat
+        record["paidVisitAttribution"] = True
+        record["paidVisitMatched"] = matched
+        record["paidVisitUnmatched"] = unmatched
+
+    invoices = snapshot.get("invoices") or []
+    lab_sources = set()
+    # lab provider membership is injected by the caller through apply_snapshot;
+    # keep order counting separate there when a paid snapshot is active.
+    record["_paid_invoice_rows"] = invoices
+    return record
 
 
 def apply_snapshot(record, snapshot, dentists, structure_doctors, lab_doctors, ignored=None):
@@ -511,12 +693,22 @@ def apply_snapshot(record, snapshot, dentists, structure_doctors, lab_doctors, i
     record["serviceDebtOpening"] = round(_num(totals.get("opening")), 2)
     record["serviceBilled"] = round(_num(totals.get("billed")), 2)
     record["serviceDebtClosing"] = round(_num(totals.get("closing")), 2)
+    as_of = str(snapshot.get("as_of_date") or "")
+    lab_sources = set((lab_doctors or {}).keys())
+    record["labOrders"] = len({
+        (str(row.get("invoice") or ""), str(row.get("date") or ""))
+        for row in (snapshot.get("invoices") or [])
+        if str(row.get("staff") or "") in lab_sources
+        and str(row.get("date") or "")
+        and (not as_of or str(row.get("date") or "") <= as_of)
+    })
     return record
 
 
 def overlay_record_map(conn, month, records, dentists, structure_doctors, lab_doctors, ignored=None):
     if not records:
         return records
+    month_snapshot = latest_snapshot_for_month(conn, month)
     for data_date, record in records.items():
         if str(data_date)[:7] != str(month):
             continue
@@ -530,6 +722,26 @@ def overlay_record_map(conn, month, records, dentists, structure_doctors, lab_do
                 lab_doctors,
                 ignored=ignored,
             )
+        if month_snapshot:
+            daily = conn.execute(
+                "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
+                (str(data_date),),
+            ).fetchone()
+            if daily:
+                try:
+                    normalized = json.loads(
+                        daily["normalized_json"] if hasattr(daily, "keys") else daily[0]
+                    )
+                except (TypeError, ValueError):
+                    normalized = {}
+                apply_visit_attribution(
+                    record,
+                    month_snapshot,
+                    normalized,
+                    dentists,
+                    structure_doctors,
+                )
+        record.pop("_paid_invoice_rows", None)
     return records
 
 
@@ -571,6 +783,7 @@ def overlay_stored_month(
         """,
         (str(month),),
     ).fetchall()
+    month_snapshot = latest_snapshot_for_month(conn, month)
     changed = 0
     for row in rows:
         data_date = str(row["date"] if hasattr(row, "keys") else row[0])
@@ -581,17 +794,57 @@ def overlay_stored_month(
             continue
         if not isinstance(record, dict):
             continue
+
+        touched = False
         snapshot = snapshot_for_date(conn, data_date)
-        if not snapshot:
+        if snapshot:
+            apply_snapshot(
+                record,
+                snapshot,
+                dentists,
+                structure_doctors,
+                lab_doctors,
+                ignored=ignored,
+            )
+            touched = True
+
+        if month_snapshot:
+            daily = conn.execute(
+                "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
+                (data_date,),
+            ).fetchone()
+            if daily:
+                try:
+                    normalized = json.loads(
+                        daily["normalized_json"] if hasattr(daily, "keys") else daily[0]
+                    )
+                except (TypeError, ValueError):
+                    normalized = {}
+                before = (
+                    record.get("dentPrimary"),
+                    record.get("dentRepeat"),
+                    record.get("clinicPrimary"),
+                    record.get("clinicRepeat"),
+                )
+                apply_visit_attribution(
+                    record,
+                    month_snapshot,
+                    normalized,
+                    dentists,
+                    structure_doctors,
+                )
+                after = (
+                    record.get("dentPrimary"),
+                    record.get("dentRepeat"),
+                    record.get("clinicPrimary"),
+                    record.get("clinicRepeat"),
+                )
+                if after != before or record.get("paidVisitAttribution") is True:
+                    touched = True
+
+        record.pop("_paid_invoice_rows", None)
+        if not touched:
             continue
-        apply_snapshot(
-            record,
-            snapshot,
-            dentists,
-            structure_doctors,
-            lab_doctors,
-            ignored=ignored,
-        )
         conn.execute(
             """
             UPDATE report_data
