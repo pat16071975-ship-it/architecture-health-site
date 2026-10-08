@@ -214,27 +214,12 @@ def _parse_fixed_raw(raw, filename, kind):
     if len(raw) > 25 * 1024 * 1024:
         raise ValueError("Размер файла превышает 25 МБ.")
 
-    if kind == "services":
-        try:
-            paid_report = paid_services.parse_bytes(raw, filename or "", known_staff=core.ident_import.KNOWN_STAFF)
-        except paid_services.NotPaidServicesReport:
-            paid_report = None
-        if paid_report is not None:
-            year, month = [int(part) for part in paid_report["month"].split("-")]
-            lab_invoices = [
-                (row["invoice"], row["date"])
-                for row in paid_report.get("invoices") or []
-                if row.get("staff") in core.ident_import.LAB_DOCTORS
-            ]
-            parsed = (paid_report["items"], lab_invoices, (year, month))
-            return parsed, paid_report["sheet"], paid_report
-
     candidates = core._table_candidates(raw, filename or "")
     last_error = None
     for sheet_name, text in candidates:
         try:
             parsed = _parse_completed_text(text) if kind == "completed" else _parse_revenue_text(text)
-            return parsed, sheet_name, None
+            return parsed, sheet_name
         except Exception as exc:
             last_error = exc
 
@@ -246,10 +231,9 @@ def _parse_fixed_raw(raw, filename, kind):
 
 def _parse_fixed_file(file_storage, kind):
     raw = file_storage.read()
-    parsed, sheet_name, paid_report = _parse_fixed_raw(
-        raw, file_storage.filename or "", kind
-    )
-    return raw, parsed, sheet_name, paid_report
+    parsed, sheet_name = _parse_fixed_raw(raw, file_storage.filename or "", kind)
+    return raw, parsed, sheet_name
+
 
 def _doctor_attribution(visits, items):
     # The completed-visits export contains patient/date rows but no doctor column.
@@ -339,7 +323,7 @@ def _ensure_extra_service_doctors(data, year, month):
             }
 
 
-def _split_period(overall, visits, items, lab_invoices, paid_report=None):
+def _split_period(overall, visits, items, lab_invoices):
     completed_dates = sorted(str(value) for value in overall)
     service_dates = sorted({str(row.get("date") or "") for row in items if row.get("date")})
 
@@ -353,16 +337,6 @@ def _split_period(overall, visits, items, lab_invoices, paid_report=None):
     # visit row, or completed visits without revenue rows. Build one period from
     # the union of dates and treat the missing source for that day as zero.
     period_dates = sorted(set(completed_dates) | set(service_dates))
-
-    if paid_report:
-        paid_report = dict(paid_report)
-        paid_as_of = period_dates[-1]
-        if str(paid_report.get("month") or "") != paid_as_of[:7]:
-            raise ValueError(
-                "Период нового отчёта «Выручка по направлениям» не совпадает "
-                "с календарным месяцем клинической загрузки."
-            )
-        paid_report["period_end"] = paid_as_of
 
     clinical_items = [row for row in items if not _is_retail_item(row)]
     doctors = _doctor_attribution(visits, clinical_items)
@@ -395,8 +369,6 @@ def _split_period(overall, visits, items, lab_invoices, paid_report=None):
             "doctors": day_doctors,
             "visits": day_visits,
         }
-        if paid_report and data_date == str(paid_report.get("period_end") or ""):
-            normalized["paid_snapshot"] = paid_services.compact_report(paid_report)
         completed_hash = _payload_hash(
             {
                 "data_date": data_date,
@@ -440,10 +412,10 @@ def _next_required_date(latest):
 
 
 def _prepare_period_raw(completed_raw, completed_name, services_raw, services_name):
-    completed_parsed, completed_sheet, _completed_paid = _parse_fixed_raw(
+    completed_parsed, completed_sheet = _parse_fixed_raw(
         completed_raw, completed_name, "completed"
     )
-    services_parsed, services_sheet, paid_report = _parse_fixed_raw(
+    services_parsed, services_sheet = _parse_fixed_raw(
         services_raw, services_name, "services"
     )
     overall, visits = completed_parsed
@@ -454,11 +426,8 @@ def _prepare_period_raw(completed_raw, completed_name, services_raw, services_na
         "completed_only": sorted(completed_dates - service_dates),
         "revenue_only": sorted(service_dates - completed_dates),
     }
-    period = _split_period(overall, visits, items, lab_invoices, paid_report=paid_report)
+    period = _split_period(overall, visits, items, lab_invoices)
     dates = [row["data_date"] for row in period]
-    if paid_report:
-        paid_report = dict(paid_report)
-        paid_report["period_end"] = dates[-1]
     month_key = f"{year:04d}-{month:02d}"
     if any(data_date[:7] != month_key for data_date in dates):
         raise ValueError("Месяц в двух файлах не совпадает.")
@@ -473,8 +442,6 @@ def _prepare_period_raw(completed_raw, completed_name, services_raw, services_na
         "completed_name": completed_name or "Завершённые приёмы",
         "services_name": services_name or "Выручка по направлениям",
         "source_gaps": source_gaps,
-        "paid_report": paid_report,
-        "services_source_sha": hashlib.sha256(services_raw).hexdigest(),
     }
 
 
@@ -490,26 +457,6 @@ def _read_period_files(completed_file, services_file):
     if len(completed_raw) > 25 * 1024 * 1024 or len(services_raw) > 25 * 1024 * 1024:
         raise ValueError("Размер файла превышает 25 МБ.")
     return completed_raw, completed_name, services_raw, services_name
-
-
-def _paid_unknown_providers(paid_report, conn):
-    if not paid_report:
-        return []
-    known = (
-        set(core.ident_import.KNOWN_STAFF)
-        | set(core.ident_import.DENTISTS)
-        | set(core.ident_import.STRUCTURE_DOCTORS)
-        | set(core.ident_import.LAB_DOCTORS)
-        | upload_reconcile.resolved_provider_names(conn)
-    )
-    result = []
-    for name, values in (paid_report.get("providers") or {}).items():
-        active = abs(float((values or {}).get("paid") or 0)) > 0.004 or abs(
-            float((values or {}).get("billed") or 0)
-        ) > 0.004
-        if active and name not in known:
-            result.append(str(name))
-    return sorted(set(result))
 
 
 def _ignored_provider_names(conn):
@@ -564,12 +511,9 @@ def _period_preview(completed_file, services_file):
     comparison = upload_reconcile.compare_clinical(
         conn, prepared["period"], through
     )
-    unknown = sorted(set(
-        upload_reconcile.detect_unknown_providers(
-            prepared["period"], core.ident_import, conn
-        )
-        + _paid_unknown_providers(prepared.get("paid_report"), conn)
-    ))
+    unknown = upload_reconcile.detect_unknown_providers(
+        prepared["period"], core.ident_import, conn
+    )
     if unknown:
         upload_reconcile.record_pending_providers(
             conn,
@@ -683,12 +627,9 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
     initial = _prepare_period_raw(
         completed_raw, completed_name, services_raw, services_name
     )
-    unknown = sorted(set(
-        upload_reconcile.detect_unknown_providers(
-            initial["period"], core.ident_import, conn
-        )
-        + _paid_unknown_providers(initial.get("paid_report"), conn)
-    ))
+    unknown = upload_reconcile.detect_unknown_providers(
+        initial["period"], core.ident_import, conn
+    )
 
     provider_decisions = provider_decisions or {}
     if provider_decisions:
@@ -707,12 +648,9 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
         prepared = _prepare_period_raw(
             completed_raw, completed_name, services_raw, services_name
         )
-        unknown = sorted(set(
-            upload_reconcile.detect_unknown_providers(
-                prepared["period"], core.ident_import, conn
-            )
-            + _paid_unknown_providers(prepared.get("paid_report"), conn)
-        ))
+        unknown = upload_reconcile.detect_unknown_providers(
+            prepared["period"], core.ident_import, conn
+        )
     else:
         prepared = initial
 
@@ -947,17 +885,6 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
                             now,
                         ),
                     )
-
-        if prepared.get("paid_report"):
-            paid_services.store_snapshot(
-                conn,
-                prepared["paid_report"],
-                services_name,
-                prepared["services_source_sha"],
-                g.user["id"],
-                now,
-                decision="use_new" if apply_new else "append",
-            )
 
         management = core._rebuild_management(month_key, source)
         cash_payments.overlay_record_map(conn, month_key, management)
