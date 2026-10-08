@@ -19,6 +19,7 @@ class UploadIntegrityTests(unittest.TestCase):
         ident = SimpleNamespace(
             DENTISTS={"Dent D.": "Dent Doctor"},
             STRUCTURE_DOCTORS={"Struct S.": "Struct Doctor"},
+            LAB_DOCTORS={"Lab L.": "Lab Doctor"},
         )
         self.core = SimpleNamespace(ident_import=ident)
 
@@ -99,6 +100,31 @@ class UploadIntegrityTests(unittest.TestCase):
         self.assertEqual(delta["grossRevenue"], 0)
         self.assertEqual(delta["discountAmount"], 0)
         self.assertEqual(delta["factMedicine"], 80)
+
+    def test_paid_provider_snapshot_is_management_money_source(self):
+        normalized = {
+            "data_date": "2026-09-30",
+            "items": [
+                {"staff": "Dent D.", "amount": 9999},
+                {"staff": "Struct S.", "amount": 9999},
+            ],
+            "paid_by_provider": {
+                "Dent D.": {"paid": 225},
+                "Struct S.": {"paid": 50},
+                "Lab L.": {"paid": 25},
+                "Unknown U.": {"paid": 100},
+            },
+            "lab_invoices": [],
+            "overall": {"2026-09-30": {}},
+            "doctors": {"2026-09-30": {}},
+        }
+        delta = upload_integrity.daily_delta(self.core, normalized)
+        self.assertEqual(delta["factMedicine"], 275)
+        self.assertEqual(delta["factLab"], 25)
+        self.assertEqual(delta["dentists"]["Dent Doctor"], 225)
+        self.assertEqual(delta["clinicDocs"]["Struct Doctor"], 50)
+        self.assertEqual(delta["labRevenue"], 25)
+        self.assertFalse(delta["discountDataComplete"])
 
     def test_enrich_service_items_reads_price_discount_and_net(self):
         ident = SimpleNamespace(
