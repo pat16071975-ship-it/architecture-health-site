@@ -206,6 +206,7 @@ jobs:
           assert "Сохранить старые" in uploads and "Загрузить новые" in uploads
           assert "Выберите направление" in uploads
           assert "0531380019042729" in uploads and "0463880019042725" in uploads
+          assert "нераспределённые" not in uploads.lower()
           assert "movement <= 0" in cash
           assert "provider_text = re.split(" in cash
           assert "if short and short in provider_text:" in cash
