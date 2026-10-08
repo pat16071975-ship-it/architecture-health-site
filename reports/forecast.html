@@ -298,7 +298,7 @@ let ALL_MONTHS=[],FULL_MONTHS=[],BASE_MONTHS=[],PARTIAL_MONTH=null,BASE_PRESET='
 function parseBlob(k){try{return JSON.parse(STORE[k]||'null')}catch{return null}}
 function rec(m){return FIN?.management?.[m]||{}}
 function mi(m){return Math.max(0,(+String(m).slice(5,7)||1)-1)}
-function stat(m,d){const r=rec(m);if(d==='dent'){const docs=r.dentists||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.dentPrimary),repeat:num(r.dentRepeat),docs}}if(d==='structure'){const docs=r.structureDoctors||{};return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.clinicPrimary),repeat:num(r.clinicRepeat),docs}}return{rev:num(r.factLab),primary:0,repeat:0,docs:{}}}
+function stat(m,d){const r=rec(m);if(d==='dent'){const docs=r.paidDentists&&Object.keys(r.paidDentists).length?r.paidDentists:(r.dentists||{});return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.dentPrimary),repeat:num(r.dentRepeat),docs}}if(d==='structure'){const docs=r.paidStructureDoctors&&Object.keys(r.paidStructureDoctors).length?r.paidStructureDoctors:(r.structureDoctors||{});return{rev:Object.values(docs).reduce((a,v)=>a+num(v),0),primary:num(r.clinicPrimary),repeat:num(r.clinicRepeat),docs}}const lab=r.paidLabRevenue!==null&&r.paidLabRevenue!==undefined?r.paidLabRevenue:r.factLab;return{rev:num(lab),primary:0,repeat:0,docs:{}}}
 function adir(d){const ds=ANALYTICS?.directions||{};for(const n of d==='dent'?['Стоматология']:d==='structure'?['Отделение структуры','Клиника']:['Лаборатория'])if(ds[n])return ds[n];return null}
 function recsum(o,i){if(o==null)return 0;if(Array.isArray(o)){if(typeof o[i]==='number')return num(o[i]);return o.reduce((a,v)=>a+recsum(v,i),0)}if(typeof o==='object')return Object.values(o).reduce((a,v)=>a+recsum(v,i),0);return 0}
 function fotRate(m,d,rev){const i=mi(m),names=d==='dent'?['Стоматология']:d==='structure'?['Отделение структуры','Клиника']:['Лаборатория'];let t=0;for(const n of names){if(SALARY?.[n])t+=recsum(SALARY[n],i);if(EXTRA?.[n])t+=recsum(EXTRA[n],i)}return rev>0&&t>0&&t/rev<1.2?t/rev:(d==='dent'?.30:d==='structure'?.35:.40)}
@@ -348,16 +348,16 @@ function periodBaseline(d,seg='all'){
 }
 
 function clinicPeriodBase(){
-  if(!BASE_MONTHS.length)return{rev:0,exp:0,profit:0,primary:0,repeat:0,unallocated:0};
+  if(!BASE_MONTHS.length)return{rev:0,exp:0,profit:0,primary:0,repeat:0};
   const sum=BASE_MONTHS.reduce((a,m)=>{
     const b=clinicBase(m),r=rec(m);
-    a.rev+=b.rev;a.exp+=b.exp;a.profit+=b.profit;a.unallocated+=num(r.cashUnallocated);
+    a.rev+=b.rev;a.exp+=b.exp;a.profit+=b.profit;
     a.primary+=num(r.dentPrimary)+num(r.clinicPrimary);
     a.repeat+=num(r.dentRepeat)+num(r.clinicRepeat);
     return a;
-  },{rev:0,exp:0,profit:0,primary:0,repeat:0,unallocated:0});
+  },{rev:0,exp:0,profit:0,primary:0,repeat:0});
   const n=BASE_MONTHS.length;
-  return{rev:sum.rev/n,exp:sum.exp/n,profit:sum.profit/n,primary:sum.primary/n,repeat:sum.repeat/n,unallocated:sum.unallocated/n};
+  return{rev:sum.rev/n,exp:sum.exp/n,profit:sum.profit/n,primary:sum.primary/n,repeat:sum.repeat/n};
 }
 
 function setPreset(value){
@@ -418,12 +418,12 @@ function applyBase(d,force=false){
 
 function renderPartialCurrent(){
   if(!PARTIAL_MONTH){$('#partialCurrent').innerHTML='';return}
-  const r=rec(PARTIAL_MONTH),b=clinicBase(PARTIAL_MONTH),unallocated=num(r.cashUnallocated);
+  const r=rec(PARTIAL_MONTH),b=clinicBase(PARTIAL_MONTH);
   const primary=num(r.dentPrimary)+num(r.clinicPrimary),repeat=num(r.dentRepeat)+num(r.clinicRepeat);
   const cut=String(r.date||'').slice(0,10);
   $('#partialCurrent').innerHTML='<div class="partial-strip"><h3>Текущий неполный месяц — '+monthLabel(PARTIAL_MONTH)+'</h3>'+
     '<p>Данные по '+ruDate(cut)+'. Этот месяц показан только для информации и <strong>не включён в базу прогноза</strong>.</p>'+
-    '<div class="partial-metrics"><span>Выручка <strong>'+money(b.rev)+'</strong></span><span>Нераспределённые ДС <strong>'+money(unallocated)+'</strong></span><span>Первичные <strong>'+primary.toFixed(0)+'</strong></span><span>Повторные <strong>'+repeat.toFixed(0)+'</strong></span></div></div>';
+    '<div class="partial-metrics"><span>Факт клиники <strong>'+money(b.rev)+'</strong></span><span>Первичные <strong>'+primary.toFixed(0)+'</strong></span><span>Повторные <strong>'+repeat.toFixed(0)+'</strong></span></div></div>';
 }
 
 function renderBase(){
@@ -431,7 +431,6 @@ function renderBase(){
   $('#baseSummary').innerHTML=[
     ['Средняя месячная выручка',money(base.rev),periodLabel()],
     ['Средняя операционная прибыль',money(base.profit),'среднее за один месяц базы'],
-    ['Нераспределённые ДС / мес.',money(base.unallocated),'входят в общий Факт, но не привязаны к направлению'],
     ['Первичные / мес.',base.primary.toFixed(1),'среднее за один месяц'],
     ['Повторные / мес.',base.repeat.toFixed(1),'среднее за один месяц']
   ].map(x=>'<div class="metric"><span>'+x[0]+'</span><strong>'+x[1]+'</strong><em>'+x[2]+'</em></div>').join('');
@@ -445,9 +444,7 @@ function renderBase(){
       '<div class="fact"><span>Визиты / мес.</span><strong>'+(b.visits?b.visits.toFixed(1):'—')+'</strong></div>'+
       '</div></div>';
   }).join('');
-  const allocated=DIRS.reduce((sum,[d])=>sum+periodBaseline(d,'all').rev,0);
-  const delta=base.rev-allocated-base.unallocated;
-  $('#baseReconcile').innerHTML='<div class="partial-strip"><h3>Контроль общего Факта</h3><p>Средний Факт '+money(base.rev)+' = направления '+money(allocated)+' + нераспределённые ДС '+money(base.unallocated)+'.'+(Math.abs(delta)>1?' <strong>Расхождение '+money(delta)+' — требуется проверка.</strong>':' Баланс сходится.')+'</p></div>';
+  $('#baseReconcile').innerHTML='';
   renderPartialCurrent();
 }
 
