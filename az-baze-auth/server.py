@@ -10,6 +10,7 @@ import credentials_store
 import clinic_structure_settings
 import daily_upload
 import cash_upload
+import paid_services_upload
 import economics_control
 import finrez
 import ident_import
@@ -70,6 +71,7 @@ finrez.register_finrez(app)
 economics_control.register_economics_control(app)
 daily_upload.register_daily_upload(app)
 cash_upload.register_cash_upload(app)
+paid_services_upload.register_paid_services_upload(app)
 credentials_store.register_credentials(app)
 access_contacts_ext.register(app)
 clinic_structure_settings.register(app)
