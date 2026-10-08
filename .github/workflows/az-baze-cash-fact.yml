@@ -109,18 +109,26 @@ jobs:
               "factMedicine": 200,
               "factLab": 300,
               "dentists": {"Doctor": 200},
-              "_cash_rule": "positive-receipts-only-v1",
+              "_cash_rule": "positive-receipts-clinic-only-v2",
           }
-          incoming = {"date": "2026-08-31", "plan": 999, "leadsDent": 12}
+          incoming = {
+              "date": "2026-08-31",
+              "plan": 999,
+              "leadsDent": 12,
+              "factMedicine": 900,
+              "factLab": 100,
+              "dentists": {"Doctor": 900},
+          }
           merged = report_storage._preserve_cash_state(existing, incoming)
           assert merged["plan"] == 999
           assert merged["leadsDent"] == 12
           assert merged["cashTotal"] == 7796465
           assert merged["cashOOO"] == 3617945
           assert merged["cashIP"] == 4178520
-          assert merged["factMedicine"] == 200
-          assert merged["factLab"] == 300
-          assert merged["dentists"] == {"Doctor": 200}
+          assert merged["factMedicine"] == 900
+          assert merged["factLab"] == 100
+          assert merged["dentists"] == {"Doctor": 900}
+          assert "cashUnallocated" not in merged
 
           conn = sqlite3.connect(":memory:")
           conn.row_factory = sqlite3.Row
@@ -143,7 +151,8 @@ jobs:
           ).fetchone()[0])
           assert changed == 1
           assert restored["cashTotal"] == 1000
-          assert restored["cashUnallocated"] == 1000
+          assert restored["cashOOO"] == 1000
+          assert "cashUnallocated" not in restored
           assert restored["plan"] == 5000
           print("CASH WRITE-PATH GUARDS: OK")
           PY
@@ -177,27 +186,46 @@ jobs:
           assert "if short and short in provider_text:" in cash
           assert "if short and short in operation:" not in cash
 
-          # Owner-approved accounting semantics:
-          # Fact, directions and doctor headline amounts are confirmed cash.
+          # Owner-approved split source semantics:
+          # Clinic Fact + ООО/ИП come from cash; doctors/directions come from
+          # «Выручка по направлениям» → «Оплачено».
+          daily = Path("az-baze-auth/daily_upload.py").read_text(encoding="utf-8")
+          assert "paid_by_provider" in daily and '"Оплачено"' in daily
+          assert "positive-receipts-clinic-only-v2" in cash
+
           assert "cashTotal" in management and "Выставлено счетов" in management
-          assert "Нераспределённые ДС" in management
+          assert "Нераспределённые ДС" not in management
           assert "const dentRev=Object.values(r.dentists||{}).reduce" in management
           assert "const clinicRev=Object.values(r.clinicDocs||{}).reduce" in management
           assert "revenueMap(" not in management
 
-          assert "ДС ООО" in period and "ДС ИП" in period and "Нераспределённые ДС" in period
+          assert "ДС ООО" in period and "ДС ИП" in period
+          assert "Нераспределённые ДС" not in period
           assert "(r.dentists||{})[name]" in period
           assert "(r.clinicDocs||{})[name]" in period
+          assert "dentistsLegal||" not in period
+          assert "clinicDocsLegal||" not in period
           assert "revenueMap(" not in period
 
-          assert "r?.cashTotal" in dashboard and "Нераспределённые ДС" in dashboard
+          assert "r?.cashTotal" in dashboard
+          assert "Нераспределённые ДС" not in dashboard
+          assert "Структура оплаченных услуг" in dashboard
+          assert "data.flatMap(x=>[x.plan,x.factTotal])" in dashboard
+          assert 'data-title="План:' in dashboard
           assert "dentRev=sumObject(r?.dentists)" in dashboard
           assert "structureRev=sumObject(r?.clinicDocs)" in dashboard
           assert "labRevenue=num(r?.labRevenue||r?.factLab)" in dashboard
           assert "revenueMap(" not in dashboard
-          assert "r.cashTotal" in forecast and "Нераспределённые ДС" in forecast
+
+          assert "r.cashTotal" in forecast
+          assert "Нераспределённые ДС" not in forecast
+          assert "эти суммы не обязаны совпадать" in forecast
+
           assert "r.cashTotal" in finrez
+          assert "Оплачено по услугам" in finrez
+          assert "economicsRevenue" in finrez
           assert 'record.get("cashTotal")' in economics
+          assert "revenue_gross" in economics and '"СКИДКА"' in economics
           assert "_preserve_cash_state" in storage
           assert "_reapply_cash_after_restore" in storage
           assert "if _has_cash_state(existing):" in storage
