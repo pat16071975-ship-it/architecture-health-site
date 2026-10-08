@@ -265,7 +265,7 @@ jobs:
           assert "_preserve_cash_state" in storage
           assert "PAID_PRESERVED_KEYS" in storage
           assert "_reapply_cash_after_restore" in storage
-          assert "_reapply_paid_after_restore" in storage
+          assert "_reapply_paid_after_restore" not in storage
           assert "cash_payments.overlay_record_map" in ident
           assert "59891795" not in fixture
           print("CASH FACT SOURCE CONTRACT: OK")
