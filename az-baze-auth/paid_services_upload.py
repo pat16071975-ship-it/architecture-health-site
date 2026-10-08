@@ -74,8 +74,7 @@ def _existing_state(conn, report, source_sha):
         separators=(",", ":"),
     )
     existing_payload = str(row["payload_json"] if hasattr(row, "keys") else row[0])
-    existing_sha = str(row["source_sha256"] if hasattr(row, "keys") else row[1])
-    if existing_sha == source_sha and json.dumps(
+    if json.dumps(
         json.loads(existing_payload),
         ensure_ascii=False,
         sort_keys=True,
