@@ -164,10 +164,10 @@ function renderChart(){
     const [y,m]=x.ym.split('-').map(Number),last=new Date(y,m,0).getDate(),target=`${x.ym}-${String(Math.min(day,last)).padStart(2,'0')}`,record=recordAtOrBefore(x.ym,target);
     return record?{ym:x.ym,...derive(record)}:null;
   }).filter(Boolean);
-  $('#chartHint').textContent=day?`Сравнение на ${day}-е число каждого месяца; если точной даты нет, используется ближайший предыдущий срез`:'План показан пропорционально последней загруженной дате каждого месяца';
-  const max=Math.max(1,...data.flatMap(x=>[x.due,x.factTotal]));
+  $('#chartHint').textContent=day?`Сравнение на ${day}-е число каждого месяца; если точной даты нет, используется ближайший предыдущий срез`:'План — полный месяц; Факт — по последней загруженной дате';
+  const max=Math.max(1,...data.flatMap(x=>[x.plan,x.factTotal]));
   $('#chart').style.setProperty('--months',data.length||1);
-  $('#chart').innerHTML=data.map(x=>{const hp=x.due>0?Math.max(2,Math.round(x.due/max*100)):0,hf=x.factTotal>0?Math.max(2,Math.round(x.factTotal/max*100)):0;return `<div class="month"><div class="bars"><div class="barcol plan" style="height:${hp}%" data-title="Должно быть: ${money(x.due)}"></div><div class="barcol fact" style="height:${hf}%" data-title="Факт: ${money(x.factTotal)}"></div></div><div class="month-label">${shortMonth(x.ym)}</div></div>`}).join('');
+  $('#chart').innerHTML=data.map(x=>{const hp=x.hasPlan&&x.plan>0?Math.max(2,Math.round(x.plan/max*100)):0,hf=x.factTotal>0?Math.max(2,Math.round(x.factTotal/max*100)):0;return `<div class="month"><div class="bars"><div class="barcol plan" style="height:${hp}%" data-title="План месяца: ${money(x.plan)}"></div><div class="barcol fact" style="height:${hf}%" data-title="Факт: ${money(x.factTotal)}"></div></div><div class="month-label">${shortMonth(x.ym)}</div></div>`}).join('');
 }
 function renderMarketing(r){
   const d=derive(r),missing=d.hasLeads?'':'missing',lead=v=>d.hasLeads?count(v):'Нет данных',conversion=v=>d.hasLeads?pct(v):'Нет данных'; $('#marketingMetrics').innerHTML=[
