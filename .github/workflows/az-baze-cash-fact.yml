@@ -7,6 +7,10 @@ on:
     paths:
       - "az-baze-auth/requirements.txt"
       - "az-baze-auth/cash_payments.py"
+      - "az-baze-auth/paid_services.py"
+      - "az-baze-auth/test_paid_services.py"
+      - "az-baze-auth/test_paid_services_storage.py"
+      - "az-baze-auth/test_economics_revenue_source.py"
       - "az-baze-auth/cash_upload.py"
       - "az-baze-auth/report_storage.py"
       - "az-baze-auth/ident_import.py"
@@ -33,6 +37,10 @@ on:
     paths:
       - "az-baze-auth/requirements.txt"
       - "az-baze-auth/cash_payments.py"
+      - "az-baze-auth/paid_services.py"
+      - "az-baze-auth/test_paid_services.py"
+      - "az-baze-auth/test_paid_services_storage.py"
+      - "az-baze-auth/test_economics_revenue_source.py"
       - "az-baze-auth/cash_upload.py"
       - "az-baze-auth/report_storage.py"
       - "az-baze-auth/ident_import.py"
@@ -75,10 +83,10 @@ jobs:
           AZBAZE_DB: /tmp/az-upload-reconcile-ci.db
           AZBAZE_SITE_ROOT: /tmp/az-upload-reconcile-site
         working-directory: az-baze-auth
-        run: python -m unittest -v test_cash_payments.py test_upload_integrity.py test_upload_reconcile.py
+        run: python -m unittest -v test_cash_payments.py test_upload_integrity.py test_upload_reconcile.py test_paid_services.py test_paid_services_storage.py test_economics_revenue_source.py
 
       - name: Python syntax
-        run: python -m py_compile az-baze-auth/cash_payments.py az-baze-auth/cash_upload.py az-baze-auth/daily_upload.py az-baze-auth/daily_upload_core.py az-baze-auth/upload_reconcile.py az-baze-auth/attention.py az-baze-auth/report_storage.py az-baze-auth/ident_import.py az-baze-auth/finrez.py az-baze-auth/economics_control.py az-baze-auth/server.py
+        run: python -m py_compile az-baze-auth/cash_payments.py az-baze-auth/paid_services.py az-baze-auth/cash_upload.py az-baze-auth/daily_upload.py az-baze-auth/daily_upload_core.py az-baze-auth/upload_reconcile.py az-baze-auth/attention.py az-baze-auth/report_storage.py az-baze-auth/ident_import.py az-baze-auth/finrez.py az-baze-auth/economics_control.py az-baze-auth/server.py
 
       - name: JavaScript syntax
         run: |
@@ -177,30 +185,44 @@ jobs:
           assert "if short and short in provider_text:" in cash
           assert "if short and short in operation:" not in cash
 
-          # Owner-approved accounting semantics:
-          # Fact, directions and doctor headline amounts are confirmed cash.
+          # Owner-approved split-source semantics:
+          # clinic Fact/legal entity stay cash-only; doctor/direction amounts use
+          # MIS «Оплачено» and are not reconciled to the same-period cash Fact.
           assert "cashTotal" in management and "Выставлено счетов" in management
-          assert "Нераспределённые ДС" in management
-          assert "const dentRev=Object.values(r.dentists||{}).reduce" in management
-          assert "const clinicRev=Object.values(r.clinicDocs||{}).reduce" in management
-          assert "revenueMap(" not in management
+          assert "ДС ООО" in management and "ДС ИП" in management
+          assert "Нераспределённые ДС" not in management
+          assert "paidDataComplete===true" in management
+          assert "r.paidDentists||{}" in management
+          assert "r.paidClinicDocs||{}" in management
+          assert "Оплачено стоматологии" in management
+          assert "Оплачено отделению структуры" in management
 
-          assert "ДС ООО" in period and "ДС ИП" in period and "Нераспределённые ДС" in period
-          assert "(r.dentists||{})[name]" in period
-          assert "(r.clinicDocs||{})[name]" in period
-          assert "revenueMap(" not in period
+          assert "ДС ООО" in period and "ДС ИП" in period
+          assert "Нераспределённые ДС" not in period
+          assert "Оплачено стоматологии" in period
+          assert "Оплачено по врачам" in period
+          assert "dentistsLegal" not in period
+          assert "clinicDocsLegal" not in period
 
-          assert "r?.cashTotal" in dashboard and "Нераспределённые ДС" in dashboard
-          assert "dentRev=sumObject(r?.dentists)" in dashboard
-          assert "structureRev=sumObject(r?.clinicDocs)" in dashboard
-          assert "labRevenue=num(r?.labRevenue||r?.factLab)" in dashboard
-          assert "revenueMap(" not in dashboard
-          assert "r.cashTotal" in forecast and "Нераспределённые ДС" in forecast
+          assert "r?.cashTotal" in dashboard
+          assert "Нераспределённые ДС" not in dashboard
+          assert "paidDentists" in dashboard and "paidClinicDocs" in dashboard
+          assert "План месяца:" in dashboard
+          assert "data.flatMap(x=>[x.plan,x.factTotal])" in dashboard
+
+          assert "r.cashTotal" in forecast
+          assert "Нераспределённые ДС" not in forecast
+          assert "r.paidDataComplete===true?num(r.paidLab):num(r.factLab)" in forecast
+
           assert "r.cashTotal" in finrez
-          assert 'record.get("cashTotal")' in economics
+          assert "Оплачено по направлениям" in finrez
+          assert "Прочая / не распределённая сумма" not in finrez
+          assert "_parse_revenue_source" in economics
+          assert '"revenue": revenue' in economics
           assert "_preserve_cash_state" in storage
+          assert "PAID_PRESERVED_KEYS" in storage
           assert "_reapply_cash_after_restore" in storage
-          assert "if _has_cash_state(existing):" in storage
+          assert "_reapply_paid_after_restore" in storage
           assert "cash_payments.overlay_record_map" in ident
           assert "59891795" not in fixture  # totals are produced by parsing, not hard-coded as a total
           print("CASH FACT SOURCE CONTRACT: OK")
