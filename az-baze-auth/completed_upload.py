@@ -88,9 +88,19 @@ def _existing_completed_dates(conn, month):
             normalized = {}
         overall = normalized.get("overall") if isinstance(normalized, dict) else {}
         visits = normalized.get("visits") if isinstance(normalized, dict) else []
-        has_completed = bool(overall or visits)
+        has_completed = bool(
+            any((value or {}) for value in (overall or {}).values())
+            or visits
+        )
+        canonical_hash = daily_upload._payload_hash(
+            {
+                "data_date": data_date,
+                "overall": overall or {},
+                "visits": visits or [],
+            }
+        )
         result[data_date] = {
-            "completed_hash": str(row["completed_hash"] or ""),
+            "completed_hash": canonical_hash,
             "has_completed": has_completed,
         }
     return result
