@@ -354,6 +354,16 @@ def _split_period(overall, visits, items, lab_invoices, paid_report=None):
     # the union of dates and treat the missing source for that day as zero.
     period_dates = sorted(set(completed_dates) | set(service_dates))
 
+    if paid_report:
+        paid_report = dict(paid_report)
+        paid_as_of = period_dates[-1]
+        if str(paid_report.get("month") or "") != paid_as_of[:7]:
+            raise ValueError(
+                "Период нового отчёта «Выручка по направлениям» не совпадает "
+                "с календарным месяцем клинической загрузки."
+            )
+        paid_report["period_end"] = paid_as_of
+
     clinical_items = [row for row in items if not _is_retail_item(row)]
     doctors = _doctor_attribution(visits, clinical_items)
     result = []
