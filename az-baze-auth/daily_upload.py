@@ -459,18 +459,6 @@ def _read_period_files(completed_file, services_file):
     return completed_raw, completed_name, services_raw, services_name
 
 
-def _ignored_provider_names(conn):
-    clinical = (
-        set(core.ident_import.DENTISTS)
-        | set(core.ident_import.STRUCTURE_DOCTORS)
-        | set(core.ident_import.LAB_DOCTORS)
-    )
-    nonclinical_known = set(core.ident_import.KNOWN_STAFF) - clinical
-    return (
-        upload_reconcile.provider_names_by_direction(conn, "ignore")
-        | nonclinical_known
-    )
-
 def _comparison_has_conflict(comparison):
     return bool(
         comparison.get("conflict")
@@ -1022,9 +1010,8 @@ def register_daily_upload(app):
                 {
                     "status": "ok",
                     "message": (
-                        "Классификация сохранена. Уже сохранённые агрегаты «Оплачено» "
-                        "перераспределены по новому направлению. Для изменения состава услуг "
-                        "повторно загружайте исходный клинический период только при необходимости."
+                        "Классификация сохранена. Для пересчёта уже загруженного периода "
+                        "повторно загрузите исходные файлы и подтвердите выбранную версию."
                     ),
                 }
             )
