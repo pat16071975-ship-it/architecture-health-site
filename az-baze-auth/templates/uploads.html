@@ -34,7 +34,7 @@
       </div>
       <div class="upload-box">
         <h3>2. Выручка по направлениям</h3>
-        <p>Выгрузка из МИС за тот же календарный месяц. Отдельные даты могут отсутствовать в одном из двух файлов.</p>
+        <p>Новая выгрузка из МИС за тот же календарный месяц. Для врачей и направлений используется поле «Оплачено». Отдельные даты могут отсутствовать в одном из двух файлов.</p>
         {% if 'upload_services' in perms %}
           <input type="file" name="services" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
         {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
