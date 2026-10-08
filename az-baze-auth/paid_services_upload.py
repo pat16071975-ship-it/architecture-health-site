@@ -219,7 +219,7 @@ def _commit(decision=None):
         year, month_number = [int(part) for part in report["month"].split("-")]
         month_index = core.replace_service_month(
             service_data,
-            report.get("items") or [],
+            paid_services.service_analytics_items(report),
             year,
             month_number,
         )
