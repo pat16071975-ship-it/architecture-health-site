@@ -201,6 +201,7 @@ def _commit(decision=None):
         backup = upload_reconcile.create_db_backup("paid-services-reimport")
 
     now = iso_now()
+    latest_before = paid_services.latest_snapshot_date_for_month(conn, report["month"])
     conn.execute("BEGIN")
     try:
         status = paid_services.store_snapshot(
@@ -213,28 +214,33 @@ def _commit(decision=None):
             decision="use_new" if decision == "use_new" else "append",
         )
 
-        service_data = ident_import._load_blob("az-service-analytics-v1")
-        if not service_data:
-            raise ValueError("База «Аналитики услуг» ещё не подготовлена.")
-        year, month_number = [int(part) for part in report["month"].split("-")]
-        month_index = core.replace_service_month(
-            service_data,
-            paid_services.service_analytics_items(report),
-            year,
-            month_number,
+        analytics_updated = (
+            latest_before is None
+            or str(report.get("period_end") or "") >= str(latest_before)
         )
-        previous_through = core._service_through(service_data)
-        through = max(
-            [value for value in (previous_through, report.get("period_end")) if value]
-        )
-        service_data["id"] = f"az-services-{year}-through-{through}-v1"
-        service_data["source"] = (
-            f"Новый MIS-отчёт «Выручка по направлениям» through {through}; "
-            "услуги = Сумма со скидкой, врачи/направления = Оплачено"
-        )
-        core._save_blob(conn, "az-service-analytics-v1", service_data, now)
-        for key, value in ident_import._pad_financial_months(month_index).items():
-            core._save_blob(conn, key, value, now)
+        if analytics_updated:
+            service_data = ident_import._load_blob("az-service-analytics-v1")
+            if not service_data:
+                raise ValueError("База «Аналитики услуг» ещё не подготовлена.")
+            year, month_number = [int(part) for part in report["month"].split("-")]
+            month_index = core.replace_service_month(
+                service_data,
+                paid_services.service_analytics_items(report),
+                year,
+                month_number,
+            )
+            previous_through = core._service_through(service_data)
+            through = max(
+                [value for value in (previous_through, report.get("period_end")) if value]
+            )
+            service_data["id"] = f"az-services-{year}-through-{through}-v1"
+            service_data["source"] = (
+                f"Новый MIS-отчёт «Выручка по направлениям» through {through}; "
+                "услуги = Сумма со скидкой, врачи/направления = Оплачено"
+            )
+            core._save_blob(conn, "az-service-analytics-v1", service_data, now)
+            for key, value in ident_import._pad_financial_months(month_index).items():
+                core._save_blob(conn, key, value, now)
 
         updated = paid_services.overlay_stored_month(
             conn,
@@ -257,7 +263,8 @@ def _commit(decision=None):
         details=(
             f"file={filename}; month={report['month']}; as_of={report['period_end']}; "
             f"decision={decision or 'append'}; status={status}; "
-            f"paid={summary['paid']}; reports={updated}; backup={backup or ''}"
+            f"paid={summary['paid']}; reports={updated}; "
+            f"analytics_updated={int(analytics_updated)}; backup={backup or ''}"
         ),
     )
     return {
