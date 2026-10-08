@@ -76,12 +76,16 @@ async function stub(context){
     revenue:document.querySelector('#metrics .metric strong')?.textContent.trim(),
     direction:document.querySelector('#directionHint')?.textContent.trim(),
     chartHint:document.querySelector('#chartHint')?.textContent.trim(),
-    bars:document.querySelectorAll('#chart .barcol').length
+    bars:document.querySelectorAll('#chart .barcol').length,
+    planTitles:[...document.querySelectorAll('#chart .barcol.plan')].map(x=>x.getAttribute('data-title'))
   }));
   if(!norm(dated.revenue).includes('1 500')) fail('Specific date did not change dashboard metrics');
   if(!dated.direction.includes('15.09.2026')) fail('Specific date did not change direction slice');
   if(!dated.chartHint.includes('15-е число')) fail('Chart did not switch to same-day monthly comparison');
   if(dated.bars!==4) fail('Same-day chart should contain two months x two bars');
+  if(!dated.planTitles.some(x=>norm(x).includes('План: 4 000'))||!dated.planTitles.some(x=>norm(x).includes('План: 5 000'))) {
+    fail('Same-day chart prorated the monthly Plan instead of showing the full monthly Plan');
+  }
 
   await page.click('#dateClear');
   await page.waitForTimeout(50);
