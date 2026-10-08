@@ -557,6 +557,15 @@ def snapshot_for_date(conn, data_date):
     return _snapshot_payload(row)
 
 
+def latest_snapshot_date_for_month(conn, month):
+    init_schema(conn)
+    row = conn.execute(
+        "SELECT MAX(as_of_date) FROM service_payment_snapshots WHERE month=?",
+        (str(month),),
+    ).fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
 def latest_snapshot_for_month(conn, month):
     init_schema(conn)
     row = conn.execute(
