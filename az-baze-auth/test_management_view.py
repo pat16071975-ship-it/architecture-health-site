@@ -156,7 +156,7 @@ class SourceAsOfProjectionTests(unittest.TestCase):
         html = (REPORTS / "forecast.html").read_text(encoding="utf-8")
         defs = []
         for name in ("rec", "monthEndISO", "fullMonth"):
-            found = re.search(r"^function " + name + r"\\([^\\n]+$", html, re.M)
+            found = re.search(r"^function " + name + r"\([^\n]+$", html, re.M)
             self.assertIsNotNone(found, "Missing forecast helper: " + name)
             defs.append(found.group(0))
         js = (
@@ -164,7 +164,7 @@ class SourceAsOfProjectionTests(unittest.TestCase):
             "'2026-09':{date:'2026-09-30',clinicalAsOf:'2026-09-30',cashAsOf:'2026-09-29'},"
             "'2026-08':{date:'2026-08-31',clinicalAsOf:'2026-08-30',cashAsOf:'2026-08-31'},"
             "'2026-07':{date:'2026-07-31',clinicalAsOf:'2026-07-31',cashAsOf:'2026-07-31'}"
-            "}};\\n" + "\\n".join(defs) + "\\n"
+            "}};\n" + "\n".join(defs) + "\n"
             "if(fullMonth('2026-09')!==false)throw Error('late cash counted full');"
             "if(fullMonth('2026-08')!==false)throw Error('late visits counted full');"
             "if(fullMonth('2026-07')!==true)throw Error('complete month rejected');"
