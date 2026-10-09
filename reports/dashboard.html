@@ -205,9 +205,12 @@ async function init(){
     MONTHS=Object.keys(map).sort().map(ym=>({ym,record:map[ym]})); if(!MONTHS.length)throw new Error('В управленческом отчёте пока нет данных.');
     const latestRecord=MONTHS[MONTHS.length-1].record,latest=latestRecord.date;
     const sourceDetail=r=>{
-      const clinic=String(r?._clinicalAsOf||'');
-      return clinic&&clinic<r.date?' · Приёмы по '+fmtDate(clinic):
-        (!clinic&&r?._cashAsOf?' · Приёмы: нет подтверждённых данных':'');
+      const clinic=String(r?._clinicalAsOf||''),cash=String(r?._cashAsOf||'');
+      const parts=[];
+      if(cash&&cash<r.date)parts.push('Касса по '+fmtDate(cash));
+      if(clinic&&clinic<r.date)parts.push('Приёмы по '+fmtDate(clinic));
+      if(!clinic&&cash)parts.push('Приёмы: нет подтверждённых данных');
+      return parts.length?' · '+parts.join(' · '):'';
     };
     $('#freshness').textContent=`Данные по ${fmtDate(latest)} включительно`+sourceDetail(latestRecord);
     $('#period').innerHTML=MONTHS.slice().reverse().map(x=>`<option value="${x.ym}">${monthLabel(x.ym)} · по ${fmtDate(x.record.date)}${sourceDetail(x.record)}</option>`).join('');
