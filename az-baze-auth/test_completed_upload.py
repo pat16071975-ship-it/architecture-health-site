@@ -122,6 +122,132 @@ class CompletedUploadTests(unittest.TestCase):
         self.assertEqual(updated["overall"], day["overall"])
 
 
+
+class W03ApprovedUnassignedAttributionTests(unittest.TestCase):
+    """Owner-approved: one visit + two departments cannot guess a direction."""
+
+    DAY = "2026-10-09"
+    PATIENT = "Иванов П. С."
+
+    def _services(self):
+        return [
+            {"date": self.DAY, "patient": self.PATIENT,
+             "staff": "Чирков М. С.", "group": "Стоматология",
+             "service": "Приём", "qty": 1, "amount": 2000},
+            {"date": self.DAY, "patient": self.PATIENT,
+             "staff": "Старостенко В. А.", "group": "Клиника",
+             "service": "Консультация", "qty": 1, "amount": 3000},
+        ]
+
+    def _normalized(self, kind, services, counts):
+        visits = [
+            {"date": self.DAY, "patient": self.PATIENT, "kind": kind}
+        ]
+        period = completed_upload.daily_upload._split_period(
+            {self.DAY: counts}, visits, services, [],
+        )
+        self.assertEqual(len(period), 1)
+        return period[0]["normalized"]
+
+    def test_w03_one_primary_two_directions_unassigned_in_either_file_order(self):
+        for reversed_file in (False, True):
+            with self.subTest(reversed_file=reversed_file):
+                services = self._services()
+                if reversed_file:
+                    services.reverse()
+                normalized = self._normalized(
+                    "Первичные", services, {"Первичные": 1}
+                )
+                self.assertEqual(normalized["doctors"], {self.DAY: {}})
+                self.assertEqual(
+                    normalized["overall"], {self.DAY: {"Первичные": 1}}
+                )
+                self.assertEqual(len(normalized["visits"]), 1)
+
+                delta = upload_integrity.daily_delta(
+                    completed_upload.core, normalized
+                )
+                self.assertEqual(delta["sourcePrimary"], 1)
+                self.assertEqual(delta["primary"], 0)
+                self.assertEqual(delta["dentPrimary"], 0)
+                self.assertEqual(delta["clinicPrimary"], 0)
+                self.assertEqual(delta["unassignedPrimary"], 1)
+                self.assertEqual(delta["sourceRepeat"], 0)
+                self.assertEqual(delta["factMedicine"], 5000)
+                # Do not remove actual financial services or doctor revenue.
+                self.assertEqual(
+                    delta["dentists"]["Чирков Максим Сергеевич"], 2000
+                )
+                self.assertEqual(
+                    delta["clinicDocs"]["Старостенко Вадим Анатольевич"],
+                    3000,
+                )
+                stored = {self.DAY: {
+                    "primary": delta["primary"], "repeat": delta["repeat"],
+                    "_uploadControl": {
+                        "sourcePrimary": delta["sourcePrimary"],
+                        "sourceRepeat": delta["sourceRepeat"],
+                    },
+                }}
+                completed_upload._preserve_completed_totals(stored)
+                self.assertEqual(stored[self.DAY]["primary"], 1)
+                self.assertEqual(stored[self.DAY]["repeat"], 0)
+
+    def test_w03_repeat_or_consulted_two_directions_stay_unassigned(self):
+        for kind in ("Повторные", "Отконсультированные"):
+            with self.subTest(kind=kind):
+                normalized = self._normalized(
+                    kind, self._services(), {kind: 1}
+                )
+                self.assertEqual(normalized["doctors"], {self.DAY: {}})
+                delta = upload_integrity.daily_delta(
+                    completed_upload.core, normalized
+                )
+                self.assertEqual(delta["sourceRepeat"], 1)
+                self.assertEqual(delta["repeat"], 0)
+                self.assertEqual(delta["dentRepeat"], 0)
+                self.assertEqual(delta["clinicRepeat"], 0)
+                self.assertEqual(delta["unassignedRepeat"], 1)
+                self.assertEqual(delta["factMedicine"], 5000)
+
+    def test_w03_single_proven_direction_stays_attributed(self):
+        for services, expected in (
+            ([self._services()[0]], "dentPrimary"),
+            ([self._services()[1]], "clinicPrimary"),
+        ):
+            with self.subTest(expected=expected):
+                normalized = self._normalized(
+                    "Первичные", services, {"Первичные": 1}
+                )
+                delta = upload_integrity.daily_delta(
+                    completed_upload.core, normalized
+                )
+                self.assertEqual(delta["sourcePrimary"], 1)
+                self.assertEqual(delta["primary"], 1)
+                self.assertEqual(delta[expected], 1)
+                self.assertEqual(delta["unassignedPrimary"], 0)
+
+    def test_w03_two_visits_with_two_directions_keep_existing_attribution(self):
+        visits = [
+            {"date": self.DAY, "patient": self.PATIENT,
+             "kind": "Первичные"},
+            {"date": self.DAY, "patient": self.PATIENT,
+             "kind": "Повторные"},
+        ]
+        period = completed_upload.daily_upload._split_period(
+            {self.DAY: {"Первичные": 1, "Повторные": 1}},
+            visits, self._services(), [],
+        )
+        normalized = period[0]["normalized"]
+        delta = upload_integrity.daily_delta(completed_upload.core, normalized)
+        self.assertEqual(delta["sourcePrimary"], 1)
+        self.assertEqual(delta["sourceRepeat"], 1)
+        self.assertEqual(delta["dentPrimary"], 1)
+        self.assertEqual(delta["clinicRepeat"], 1)
+        self.assertEqual(delta["unassignedPrimary"], 0)
+        self.assertEqual(delta["unassignedRepeat"], 0)
+
+
 class IndependentCompletedIntegrationTests(unittest.TestCase):
     """Isolated SQLite regression without Production or external data."""
 
