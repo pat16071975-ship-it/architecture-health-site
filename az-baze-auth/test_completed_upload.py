@@ -164,7 +164,7 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
         )
         self.conn.commit()
 
-    def _run(self, prepared, decision=None, cash_replay=None):
+    def _run(self, prepared, decision=None, cash_replay=None, cash_overlay=None):
         with self.app.test_request_context("/api/uploads/completed/commit", method="POST"):
             g.user = {"id": 1}
             with ExitStack() as stack:
@@ -180,7 +180,7 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
                     (completed_upload.upload_reconcile, "init_schema", lambda conn: None),
                     (completed_upload.upload_reconcile, "archive_daily_row", lambda *a: None),
                     (completed_upload.upload_reconcile, "create_db_backup", lambda _label: "fixture-backup"),
-                    (completed_upload.cash_payments, "overlay_record_map", lambda _conn, _month, records: records),
+                    (completed_upload.cash_payments, "overlay_record_map", cash_overlay or (lambda _conn, _month, records: records)),
                     (completed_upload.cash_payments, "overlay_stored_month", cash_replay or (lambda *a: 0)),
                 ]
                 for obj, name, replacement in defaults:
@@ -271,8 +271,17 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
             (day, json.dumps(old, ensure_ascii=False)),
         )
         self.conn.commit()
+        def corrupt_cash_overlay(_conn, _month, records):
+            for record in records.values():
+                record["factMedicine"] = 0
+            return records
+
         with self.assertRaisesRegex(ValueError, "сохранённый показатель"):
-            self._run(self._prepared(day, primary=2), decision="use_new")
+            self._run(
+                self._prepared(day, primary=2),
+                decision="use_new",
+                cash_overlay=corrupt_cash_overlay,
+            )
         self.assertEqual(self._stored(day), old)
         row = self.conn.execute(
             "SELECT completed_sha256 FROM daily_uploads WHERE data_date=?", (day,),
@@ -366,7 +375,11 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
              added["_uploadControl"]["sourceRepeat"]), (5, 5)
         )
         self.assertEqual(added["factMedicine"], 20000)
-        self.assertEqual(added["labOrders"], 1)
+        self.assertEqual(added["labOrders"], 4)
+        self.assertEqual(added["discountAmount"], 1500)
+        self.assertEqual(added["grossRevenue"], 21500)
+        self.assertTrue(added["discountDataComplete"])
+        self.assertEqual(added["_serviceAsOf"], "2026-10-06")
         self.assertEqual(added["dentists"]["Чирков Максим Сергеевич"], 20000)
         row = self.conn.execute(
             "SELECT services_filename,services_sha256 FROM daily_uploads "
