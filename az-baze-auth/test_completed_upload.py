@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from contextlib import ExitStack
 from unittest.mock import patch
 
@@ -246,6 +247,293 @@ class W03ApprovedUnassignedAttributionTests(unittest.TestCase):
         self.assertEqual(delta["clinicRepeat"], 1)
         self.assertEqual(delta["unassignedPrimary"], 0)
         self.assertEqual(delta["unassignedRepeat"], 0)
+
+
+class W03R01PairedPersistenceRegressionTests(unittest.TestCase):
+    """Exercise the actual paired commit and SQLite, not a hand-built report."""
+
+    DAY = "2026-10-09"
+    PATIENT = "Иванов П. С."
+
+    def setUp(self):
+        self.conn = sqlite3.connect(":memory:")
+        self.conn.row_factory = sqlite3.Row
+        self.conn.executescript("""
+            CREATE TABLE daily_uploads (
+                data_date TEXT PRIMARY KEY,
+                completed_filename TEXT NOT NULL,
+                services_filename TEXT NOT NULL,
+                completed_sha256 TEXT NOT NULL,
+                services_sha256 TEXT NOT NULL,
+                normalized_json TEXT NOT NULL,
+                revision INTEGER NOT NULL DEFAULT 1,
+                uploaded_by INTEGER,
+                uploaded_at TEXT NOT NULL
+            );
+            CREATE TABLE report_data (
+                date TEXT PRIMARY KEY, payload TEXT NOT NULL,
+                updated_by INTEGER, updated_at TEXT
+            );
+            CREATE TABLE report_blobs (
+                key TEXT PRIMARY KEY, payload TEXT NOT NULL,
+                updated_by INTEGER, updated_at TEXT
+            );
+            CREATE TABLE upload_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                data_date TEXT, status TEXT NOT NULL, details TEXT,
+                completed_filename TEXT, services_filename TEXT,
+                uploaded_by INTEGER, created_at TEXT NOT NULL
+            );
+        """)
+        self.conn.commit()
+        self.app = Flask("pr76_w03_r01_paired_persistence")
+
+    def tearDown(self):
+        self.conn.close()
+
+    def _service(self, data_date, staff, patient=None, amount=1000):
+        return {
+            "date": data_date, "patient": patient or self.PATIENT,
+            "staff": staff, "group": "Приём", "service": "Консультация",
+            "qty": 1, "amount": amount,
+        }
+
+    def _visit(self, data_date, kind):
+        return {"date": data_date, "patient": self.PATIENT, "kind": kind}
+
+    def _stored(self, date):
+        row = self.conn.execute(
+            "SELECT payload FROM report_data WHERE date=?", (date,)
+        ).fetchone()
+        return json.loads(row["payload"]) if row else None
+
+    def _paired(self, overall, visits, items):
+        """Real paired _process_period_upload and real SQLite report_data upsert.
+
+        Mock only raw workbook parsing and external service-analytics dependencies.
+        Keep _prepare_period_raw, _split_period, attribution, compare_clinical,
+        upload_integrity.rebuild_management and the actual SQLite write intact.
+        """
+        paired = completed_upload.daily_upload
+        core = completed_upload.core
+        source_service_data = {
+            "id": "az-services-2026-through-2026-09-30-v1",
+            "months": [],
+            "directions": {},
+        }
+
+        def parse_fixture(_raw, _filename, kind):
+            if kind == "completed":
+                return (overall, visits), "Завершённые"
+            if kind == "services":
+                return (items, [], (2026, 10)), "Выручка"
+            raise AssertionError("Unexpected paired parser type")
+
+        with self.app.test_request_context(
+            "/api/uploads/clinical/commit", method="POST"
+        ):
+            g.user = {"id": 1}
+            with ExitStack() as stack:
+                for obj, name, fn in (
+                    (paired, "user_permissions",
+                     lambda _u: {"upload_completed", "upload_services", "upload_replace"}),
+                    (paired, "_parse_fixed_raw", parse_fixture),
+                    (paired.upload_reconcile, "refresh_runtime",
+                     lambda *a, **kw: None),
+                    (core, "db", lambda: self.conn),
+                    (core.ident_import, "_load_blob",
+                     lambda _key: source_service_data),
+                    (core.ident_import, "_pad_financial_months",
+                     lambda _index: {}),
+                    (core, "_ensure_month", lambda *_args: 0),
+                    (core, "_apply_service_items", lambda *_args: None),
+                    (core, "_rebuild_management",
+                     lambda month, source: upload_integrity.rebuild_management(
+                         core, month, source)),
+                    (core, "iso_now", lambda: "2026-10-09T00:00:00"),
+                    (core, "audit", lambda *a, **kw: None),
+                ):
+                    stack.enter_context(patch.object(obj, name, fn))
+                return paired._process_period_upload(
+                    SimpleNamespace(
+                        filename="completed.txt",
+                        read=lambda: b"test-completed-source"
+                    ),
+                    SimpleNamespace(
+                        filename="services.txt",
+                        read=lambda: b"test-services-source"
+                    ),
+                )
+
+    def _assert_marked_unassigned(self, date, kind, reversed_services=False):
+        services = [
+            self._service(date, "Чирков М. С.", amount=2000),
+            self._service(date, "Старостенко В. А.", amount=3000),
+        ]
+        if reversed_services:
+            services.reverse()
+        out = self._paired(
+            {date: {kind: 1}},
+            [self._visit(date, kind)],
+            services,
+        )
+        self.assertEqual(out["status"], "imported")
+        saved = self._stored(date)
+        self.assertIsNotNone(saved)
+        repeat = kind != "Первичные"
+        total_key = "repeat" if repeat else "primary"
+        source_key = "sourceRepeat" if repeat else "sourcePrimary"
+        witness_key = "w03UnassignedRepeat" if repeat else "w03UnassignedPrimary"
+        unknown_key = "unassignedRepeat" if repeat else "unassignedPrimary"
+        dental_key = "dentRepeat" if repeat else "dentPrimary"
+        clinic_key = "clinicRepeat" if repeat else "clinicPrimary"
+        self.assertEqual(saved[total_key], 1)
+        self.assertEqual(saved[dental_key], 0)
+        self.assertEqual(saved[clinic_key], 0)
+        control = saved["_uploadControl"]
+        self.assertEqual(control[source_key], 1)
+        self.assertEqual(control[witness_key], 1)
+        self.assertEqual(control[unknown_key], 1)
+        self.assertEqual(control["reportedRepeat" if repeat else "reportedPrimary"], 1)
+        self.assertEqual(saved["factMedicine"], 5000)
+        self.assertEqual(saved["dentists"]["Чирков Максим Сергеевич"], 2000)
+        self.assertEqual(
+            saved["clinicDocs"]["Старостенко Вадим Анатольевич"], 3000
+        )
+        raw_day = json.loads(self.conn.execute(
+            "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
+            (date,),
+        ).fetchone()[0])
+        self.assertEqual(raw_day["doctors"], {date: {}})
+        self.assertEqual(
+            raw_day["_w03Unassigned"], {
+                "primary": 0 if repeat else 1,
+                "repeat": 1 if repeat else 0,
+            },
+        )
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT COUNT(*) FROM upload_log WHERE data_date=?", (date,)
+            ).fetchone()[0], 1
+        )
+        # Read-only as-of view and dashboard source consume ACTUAL stored total.
+        projected = management_view.project_for_reports({date: saved})[date]
+        self.assertEqual(projected[total_key], 1)
+        self.assertEqual(
+            projected[dental_key] + projected[clinic_key], 0
+        )
+
+    def test_w03_r01_paired_primary_persists_unassigned_in_both_service_orders(self):
+        for reverse in (False, True):
+            with self.subTest(reverse=reverse):
+                if reverse:
+                    # Fresh state avoids another import being treated as replace.
+                    with self.conn:
+                        self.conn.execute("DELETE FROM report_data")
+                        self.conn.execute("DELETE FROM daily_uploads")
+                        self.conn.execute("DELETE FROM upload_log")
+                        self.conn.execute("DELETE FROM report_blobs")
+                self._assert_marked_unassigned(
+                    self.DAY, "Первичные", reversed_services=reverse
+                )
+
+    def test_w03_r01_paired_repeat_and_consulted_persist_unassigned(self):
+        for kind in ("Повторные", "Отконсультированные"):
+            with self.subTest(kind=kind):
+                self._assert_marked_unassigned(self.DAY, kind)
+                with self.conn:
+                    self.conn.execute("DELETE FROM report_data")
+                    self.conn.execute("DELETE FROM daily_uploads")
+                    self.conn.execute("DELETE FROM upload_log")
+                    self.conn.execute("DELETE FROM report_blobs")
+
+    def test_w03_r01_existing_baseline_preserved_and_next_day_accumulates(self):
+        before_date = "2026-10-08"
+        baseline = {
+            "date": before_date,
+            "primary": 3, "repeat": 2,
+            "dentPrimary": 2, "dentRepeat": 1,
+            "clinicPrimary": 1, "clinicRepeat": 1,
+            "factMedicine": 10000,
+            "factLab": 0,
+            "dentists": {"Чирков Максим Сергеевич": 7000},
+            "clinicDocs": {"Старостенко Вадим Анатольевич": 3000},
+            "labOrders": 4,
+            "_source": "earlier-approved-paired",
+            "_uploadControl": {"sourcePrimary": 3, "sourceRepeat": 2},
+        }
+        saved_old_bytes = json.dumps(baseline, ensure_ascii=False)
+        self.conn.execute(
+            "INSERT INTO report_data(date,payload,updated_by,updated_at)"
+            "VALUES(?,?,1,'prior')",
+            (before_date, saved_old_bytes),
+        )
+        self.conn.commit()
+
+        next_date = "2026-10-10"
+        result = self._paired(
+            {
+                self.DAY: {"Первичные": 1},
+                next_date: {"Повторные": 1},
+            },
+            [
+                self._visit(self.DAY, "Первичные"),
+                self._visit(next_date, "Повторные"),
+            ],
+            [
+                self._service(self.DAY, "Чирков М. С.", amount=2000),
+                self._service(self.DAY, "Старостенко В. А.", amount=3000),
+                self._service(next_date, "Старостенко В. А.", amount=1000),
+            ],
+        )
+        self.assertEqual(result["status"], "imported")
+        ninth = self._stored(self.DAY)
+        tenth = self._stored(next_date)
+        self.assertEqual(
+            (ninth["primary"], ninth["repeat"], ninth["dentPrimary"],
+             ninth["clinicPrimary"]), (4, 2, 2, 1)
+        )
+        self.assertEqual(
+            (tenth["primary"], tenth["repeat"], tenth["dentPrimary"],
+             tenth["clinicPrimary"], tenth["clinicRepeat"]), (4, 3, 2, 1, 2)
+        )
+        self.assertEqual(ninth["_uploadControl"]["w03UnassignedPrimary"], 1)
+        self.assertEqual(tenth["_uploadControl"]["w03UnassignedPrimary"], 1)
+        self.assertEqual(ninth["_uploadControl"]["sourcePrimary"], 4)
+        self.assertEqual(tenth["_uploadControl"]["sourceRepeat"], 3)
+        self.assertEqual(
+            (ninth["factMedicine"], tenth["factMedicine"]), (15000, 16000)
+        )
+        self.assertEqual(
+            (ninth["labOrders"], tenth["labOrders"]), (4, 4)
+        )
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT payload FROM report_data WHERE date=?", (before_date,)
+            ).fetchone()[0], saved_old_bytes
+        )
+
+    def test_w03_r01_certain_direction_is_not_counted_twice(self):
+        for doctor, direction in (
+            ("Чирков М. С.", "dentPrimary"),
+            ("Старостенко В. А.", "clinicPrimary"),
+        ):
+            with self.subTest(direction=direction):
+                result = self._paired(
+                    {self.DAY: {"Первичные": 1}},
+                    [self._visit(self.DAY, "Первичные")],
+                    [self._service(self.DAY, doctor, amount=1700)],
+                )
+                self.assertEqual(result["status"], "imported")
+                saved = self._stored(self.DAY)
+                self.assertEqual(saved["primary"], 1)
+                self.assertEqual(saved[direction], 1)
+                self.assertEqual(saved["_uploadControl"]["w03UnassignedPrimary"], 0)
+                with self.conn:
+                    self.conn.execute("DELETE FROM report_data")
+                    self.conn.execute("DELETE FROM daily_uploads")
+                    self.conn.execute("DELETE FROM upload_log")
+                    self.conn.execute("DELETE FROM report_blobs")
 
 
 class IndependentCompletedIntegrationTests(unittest.TestCase):
