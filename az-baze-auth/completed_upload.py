@@ -1,11 +1,13 @@
 import hashlib
 import json
+import sqlite3
 import copy
 from flask import abort, g, jsonify, request
 
 import cash_payments
 import daily_upload
 import daily_upload_core as core
+import management_view
 import upload_reconcile
 import upload_integrity
 from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
@@ -168,6 +170,62 @@ def _clinical_history_present(record):
     ))
 
 
+
+def _genuine_clinical_row(conn, data_date, record):
+    """Provenance check: cash-forward copies must not block real visit imports.
+
+    The cash import can forward-copy an old clinical MTD onto a new cash date.
+    Explicit clone metadata is decisive; old copies require matching the real
+    earlier clinical payload AND an actual cash receipt on the cloned date.
+    Ambiguous/independent historical clinical rows remain protected.
+    """
+    if not _clinical_history_present(record):
+        return False
+    if record.get("_cash_rule") != "positive-receipts-only-v1":
+        return True
+
+    if conn.execute(
+        "SELECT 1 FROM daily_uploads WHERE data_date=?", (data_date,)
+    ).fetchone():
+        return True
+
+    if record.get("_cashForwardClone") is True:
+        return False
+    clinical_as_of = str(record.get("_clinicalAsOf") or "")
+    if clinical_as_of:
+        return clinical_as_of >= data_date
+
+    # No marker: only old cash imports matching an earlier clinical source
+    # are confidently classified as forward clones.
+    try:
+        receipt = conn.execute(
+            "SELECT 1 FROM cash_receipts_daily WHERE data_date=?", (data_date,)
+        ).fetchone()
+    except sqlite3.OperationalError:
+        receipt = None
+    if not receipt:
+        return True
+
+    previous = []
+    rows = conn.execute(
+        "SELECT date,payload FROM report_data "
+        "WHERE substr(date,1,7)=? AND date<? ORDER BY date DESC",
+        (data_date[:7], data_date),
+    ).fetchall()
+    for row in rows:
+        try:
+            candidate = json.loads(row["payload"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Нельзя подтвердить происхождение старого отчёта за {row['date']}."
+            ) from exc
+        if isinstance(candidate, dict):
+            previous.append((str(row["date"]), candidate))
+    return management_view.copied_cash_clinical_source(
+        record, data_date, previous,
+    ) is None
+
+
 def _guard_historical_scope(conn, prepared):
     """Fail closed before a completed-only rebuild can touch legacy clinical history.
 
@@ -220,7 +278,7 @@ def _guard_historical_scope(conn, prepared):
             raise ValueError(
                 f"Нельзя безопасно проверить исторические данные за {data_date}."
             ) from exc
-        if _clinical_history_present(previous):
+        if _genuine_clinical_row(conn, data_date, previous):
             raise ValueError(
                 f"За {data_date} уже есть исторические клинические данные, "
                 "не представленные в ежедневном журнале. Отдельная загрузка "
@@ -464,7 +522,7 @@ def _read_previous_clinical_checkpoint(conn, data_date):
             raise ValueError(
                 f"Не удалось проверить предыдущий отчёт за {row['date']}."
             ) from exc
-        if _clinical_history_present(saved):
+        if _genuine_clinical_row(conn, str(row["date"]), saved):
             return str(row["date"]), saved
     return None, {}
 
@@ -488,7 +546,7 @@ def _guard_future_clinical_dates(conn, changed_dates):
             raise ValueError(
                 f"Нельзя безопасно проверить отчёт за {other_date}."
             ) from exc
-        if _clinical_history_present(record):
+        if _genuine_clinical_row(conn, other_date, record):
             raise ValueError(
                 "В месяце уже есть более поздний клинический срез за "
                 f"{other_date}. Частичная замена приёмов остановлена, "
