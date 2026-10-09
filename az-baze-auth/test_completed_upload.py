@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 from flask import Flask, g
 import upload_integrity
+import management_view
+import finrez
 
 import completed_upload
 
@@ -532,6 +534,73 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
         self._run(self._prepared("2026-10-07", 1, 1))
         self.assertFalse(self._stored("2026-10-07")["discountDataComplete"])
         self.assertEqual(self._stored("2026-10-07")["discountAmount"], 1500)
+
+
+    def test_b05_real_completed_commit_then_finrez_joins_later_cash_date(self):
+        self._legacy_day()
+        day_cash = "2026-10-09"
+        latest_cash = {
+            "date": day_cash, "_cash_rule": "positive-receipts-only-v1",
+            "cashTotal": 190000, "cashOOO": 120000, "cashIP": 70000,
+            "dentists": {"Кассовый врач": 180000}, "factMedicine": 185000,
+        }
+        self._report(day_cash, latest_cash)
+        original_cash = self.conn.execute(
+            "SELECT payload FROM report_data WHERE date=?", (day_cash,)
+        ).fetchone()[0]
+        self._run(self._prepared("2026-10-07", 3, 4))
+        # Independent completed -> read-only projection -> exact Finrez selector.
+        with patch.object(finrez, "db", lambda: self.conn):
+            output = finrez._management_months()["2026-10"]
+        self.assertEqual(output["date"], day_cash)
+        self.assertEqual(output["clinicalAsOf"], "2026-10-07")
+        self.assertEqual(output["cashAsOf"], "2026-10-09")
+        self.assertEqual(output["serviceAsOf"], "2026-10-06")
+        self.assertEqual((output["cashTotal"], output["cashOOO"], output["cashIP"]),
+                         (190000, 120000, 70000))
+        self.assertEqual((output["dentPrimary"], output["clinicPrimary"]), (1, 0))
+        self.assertEqual(output["discountAmount"], 1500)
+        self.assertEqual(output["grossRevenue"], 21500)
+        self.assertEqual(self.conn.execute(
+            "SELECT payload FROM report_data WHERE date=?", (day_cash,)
+        ).fetchone()[0], original_cash)
+
+        raw = {
+            row["date"]: json.loads(row["payload"]) for row in self.conn.execute(
+                "SELECT date,payload FROM report_data ORDER BY date"
+            ).fetchall()
+        }
+        self.assertNotIn("primary", raw[day_cash])
+        projection = management_view.project_for_reports(raw)
+        self.assertEqual((projection[day_cash]["primary"], projection[day_cash]["repeat"]), (5, 5))
+
+    def test_b05_completed_marks_actual_cash_receipt_snapshot_date(self):
+        self._legacy_day()
+        day = "2026-10-07"
+        completed_upload.cash_payments.init_schema(self.conn)
+        cash_delta = completed_upload.cash_payments._blank_day()
+        cash_delta.update({
+            "cashTotal": 24000, "cashOOO": 24000,
+            "factMedicine": 24000,
+            "dentists": {"Чирков Максим Сергеевич": 24000},
+        })
+        completed_upload.cash_payments.replace_range(
+            self.conn, {day: cash_delta}, "cash.xlsx", "sha", 1, "now",
+        )
+        self.conn.commit()
+        real_overlay = completed_upload.cash_payments.overlay_record_map
+        self._run(
+            self._prepared(day, 3, 1),
+            cash_overlay=real_overlay,
+        )
+        record = self._stored(day)
+        self.assertEqual(record["_clinicalAsOf"], day)
+        self.assertEqual(record["_cashAsOf"], day)
+        self.assertEqual(record["_serviceAsOf"], "2026-10-06")
+        self.assertEqual(record["cashTotal"], 24000)
+        self.assertEqual(record["cashOOO"], 24000)
+        self.assertEqual(record["labOrders"], 4)
+        self.assertEqual(record["discountAmount"], 1500)
 
 
 if __name__ == "__main__":
