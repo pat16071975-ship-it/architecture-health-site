@@ -235,7 +235,7 @@ def _parse_fixed_file(file_storage, kind):
     return raw, parsed, sheet_name
 
 
-def _doctor_attribution(visits, items):
+def _doctor_attribution(visits, items, w03_unassigned=None):
     # The completed-visits export contains patient/date rows but no doctor column.
     # Link them to the revenue export by patient + date. If a single completed
     # visit matches both departments, its direction is unproven: leave the
@@ -294,6 +294,17 @@ def _doctor_attribution(visits, items):
         # The source primary/repeat total stays in overall; the delta layer
         # records this unmatched visit in unassignedPrimary/unassignedRepeat.
         if len(kinds) == 1 and len(seen_departments) > 1:
+            if w03_unassigned is not None:
+                bucket = (
+                    "primary" if kinds[0] == "Первичные"
+                    else "repeat" if kinds[0] in ("Повторные", "Отконсультированные")
+                    else None
+                )
+                if bucket:
+                    day_counts = w03_unassigned.setdefault(
+                        key[0], {"primary": 0, "repeat": 0}
+                    )
+                    day_counts[bucket] += 1
             continue
 
         assignments = representatives[: len(kinds)]
@@ -348,7 +359,8 @@ def _split_period(overall, visits, items, lab_invoices):
     period_dates = sorted(set(completed_dates) | set(service_dates))
 
     clinical_items = [row for row in items if not _is_retail_item(row)]
-    doctors = _doctor_attribution(visits, clinical_items)
+    w03_unassigned = {}
+    doctors = _doctor_attribution(visits, clinical_items, w03_unassigned)
     result = []
     for data_date in period_dates:
         day_overall = {data_date: core._plain(overall.get(data_date, {}))}
@@ -378,6 +390,10 @@ def _split_period(overall, visits, items, lab_invoices):
             "doctors": day_doctors,
             "visits": day_visits,
         }
+        # Record only the exact owner-approved ambiguity, not every unmatched
+        # visit, so the historical rules for other unknown directions survive.
+        if data_date in w03_unassigned:
+            normalized["_w03Unassigned"] = core._plain(w03_unassigned[data_date])
         completed_hash = _payload_hash(
             {
                 "data_date": data_date,
