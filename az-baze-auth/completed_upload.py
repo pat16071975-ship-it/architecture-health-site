@@ -147,6 +147,143 @@ def _counts(comparison):
     }
 
 
+
+def _clinical_history_present(record):
+    """Cash-only snapshots can precede a completed upload; legacy clinical data cannot."""
+    if not isinstance(record, dict):
+        return True
+    clinical_keys = (
+        "_source", "_aggregation", "_uploadControl", "primary", "repeat",
+        "dentPrimary", "dentRepeat", "clinicPrimary", "clinicRepeat", "labOrders",
+    )
+    if any(key in record for key in clinical_keys):
+        return True
+    if record.get("_cash_rule") == "positive-receipts-only-v1":
+        return False
+    return any(key in record for key in (
+        "factMedicine", "factLab", "dentists", "clinicDocs", "labRevenue",
+        "grossRevenue", "discountAmount",
+    ))
+
+
+def _guard_historical_scope(conn, prepared):
+    """Fail closed before a completed-only rebuild can touch legacy clinical history.
+
+    A cash-only report row is not evidence of a completed clinical upload.
+    However, previously imported clinical report_data and the legacy services
+    through-date are authoritative until a separately approved cutover.
+    """
+    month = prepared["month"]
+    registered = {
+        str(row[0])
+        for row in conn.execute(
+            "SELECT data_date FROM daily_uploads WHERE substr(data_date,1,7)=?",
+            (month,),
+        ).fetchall()
+    }
+    first_rebuilt_date = min(set(prepared["dates"]) | registered)
+
+    source = conn.execute(
+        "SELECT payload FROM report_blobs WHERE key=?",
+        ("az-service-analytics-v1",),
+    ).fetchone()
+    if source:
+        try:
+            data = json.loads(source[0])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Нельзя проверить исторический источник услуг: данные повреждены.") from exc
+        if not isinstance(data, dict):
+            raise ValueError("Нельзя проверить исторический источник услуг: неверный формат.")
+        through = core._service_through(data)
+        if through and first_rebuilt_date <= through:
+            raise ValueError(
+                "Отдельная загрузка «Завершённых приёмов» пересекает ранее "
+                "сохранённую сводную базу услуг. Изменения остановлены; "
+                "старые клинические показатели не заменены."
+            )
+
+    rows = conn.execute(
+        "SELECT date,payload FROM report_data WHERE substr(date,1,7)=? AND date>=? ORDER BY date",
+        (month, first_rebuilt_date),
+    ).fetchall()
+    for row in rows:
+        data_date = str(row["date"])
+        if data_date in registered:
+            continue
+        try:
+            previous = json.loads(row["payload"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Нельзя безопасно проверить исторические данные за {data_date}."
+            ) from exc
+        if _clinical_history_present(previous):
+            raise ValueError(
+                f"За {data_date} уже есть исторические клинические данные, "
+                "не представленные в ежедневном журнале. Отдельная загрузка "
+                "остановлена без их замены."
+            )
+
+
+def _preserve_completed_totals(management):
+    """The completed-visits file is authoritative for overall primary/repeat."""
+    for record in management.values():
+        control = record.get("_uploadControl")
+        if not isinstance(control, dict) or not {"sourcePrimary", "sourceRepeat"} <= control.keys():
+            raise ValueError(
+                "Нет контрольных общих чисел приёмов; перезапись отчёта остановлена."
+            )
+        record["primary"] = int(control["sourcePrimary"])
+        record["repeat"] = int(control["sourceRepeat"])
+    return management
+
+
+def _same_financial_value(before, after):
+    if isinstance(before, dict) and isinstance(after, dict):
+        return before.keys() == after.keys() and all(
+            _same_financial_value(value, after[key]) for key, value in before.items()
+        )
+    if isinstance(before, (int, float)) and isinstance(after, (int, float)):
+        if isinstance(before, bool) or isinstance(after, bool):
+            return before is after
+        return abs(float(before) - float(after)) < 0.005
+    return before == after
+
+
+def _guard_existing_financial_values(conn, management):
+    """A completed-only import cannot silently replace money or service counts."""
+    protected = (
+        "factMedicine", "factLab", "dentists", "clinicDocs", "labRevenue",
+        "labOrders", "grossRevenue", "discountAmount", "discountDataComplete",
+        "billedMedicine", "billedLab", "billedDentists", "billedClinicDocs",
+        "billedLabRevenue", "billedTotal", "cashTotal", "cashOOO", "cashIP",
+        "cashUnallocated", "dentCashOOO", "dentCashIP", "clinicCashOOO",
+        "clinicCashIP", "labCashOOO", "labCashIP",
+    )
+    for data_date, record in management.items():
+        row = conn.execute(
+            "SELECT payload FROM report_data WHERE date=?", (data_date,)
+        ).fetchone()
+        if not row:
+            continue
+        try:
+            existing = json.loads(row["payload"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Нельзя проверить сохранённые суммы за {data_date}."
+            ) from exc
+        if not isinstance(existing, dict):
+            raise ValueError(f"Неверный формат сохранённых сумм за {data_date}.")
+        for field in protected:
+            if field in existing and (
+                field not in record
+                or not _same_financial_value(existing[field], record[field])
+            ):
+                raise ValueError(
+                    f"Отдельная загрузка приёмов изменила бы сохранённый "
+                    f"показатель {field} за {data_date}. Операция остановлена."
+                )
+
+
 def _merge_normalized(existing_normalized, day=None, removed=False):
     value = dict(existing_normalized or {})
     value.setdefault("items", [])
@@ -177,6 +314,7 @@ def _preview():
     prepared = _parse(raw, filename)
     conn = db()
     # All required tables already exist; preview must not create or modify them.
+    _guard_historical_scope(conn, prepared)
     comparison = _comparison(conn, prepared)
     conflicts = sorted(set(comparison["conflict"]) | set(comparison["removed"]))
     return {
@@ -315,6 +453,7 @@ def _commit(decision=None):
     filename, raw = _file_from_request()
     prepared = _parse(raw, filename)
     conn = db()
+    _guard_historical_scope(conn, prepared)
     cash_payments.init_schema(conn)
     upload_reconcile.init_schema(conn)
     comparison = _comparison(conn, prepared)
@@ -357,7 +496,9 @@ def _commit(decision=None):
 
         source = f"AZ-BAZE completed visits: {prepared['filename']}"
         management = core._rebuild_management(prepared["month"], source)
+        _preserve_completed_totals(management)
         cash_payments.overlay_record_map(conn, prepared["month"], management)
+        _guard_existing_financial_values(conn, management)
 
         for data_date, record in management.items():
             conn.execute(
