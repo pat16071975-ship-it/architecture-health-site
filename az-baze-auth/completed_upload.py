@@ -181,6 +181,8 @@ def _guard_historical_scope(conn, prepared):
             (month,),
         ).fetchall()
     }
+    # Existing daily rows are used to rebuild month-to-date totals but they
+    # are NOT new imports. Only incoming dates may cross the legacy boundary.
     first_rebuilt_date = min(set(prepared["dates"]) | registered)
 
     source = conn.execute(
@@ -195,7 +197,7 @@ def _guard_historical_scope(conn, prepared):
         if not isinstance(data, dict):
             raise ValueError("Нельзя проверить исторический источник услуг: неверный формат.")
         through = core._service_through(data)
-        if through and first_rebuilt_date <= through:
+        if through and any(str(day) <= through for day in prepared["dates"]):
             raise ValueError(
                 "Отдельная загрузка «Завершённых приёмов» пересекает ранее "
                 "сохранённую сводную базу услуг. Изменения остановлены; "
@@ -498,9 +500,23 @@ def _commit(decision=None):
         management = core._rebuild_management(prepared["month"], source)
         _preserve_completed_totals(management)
         cash_payments.overlay_record_map(conn, prepared["month"], management)
-        _guard_existing_financial_values(conn, management)
 
-        for data_date, record in management.items():
+        # A month-to-date rebuild calculates prior days for continuity, but
+        # completed-only uploads MUST NOT rewrite untouched historical days.
+        # In particular, their visits, services, discounts and cash snapshots
+        # remain exactly as stored by their own authoritative import sources.
+        changed_dates = set(apply_dates) | set(removed_dates)
+        if not changed_dates.issubset(management):
+            raise ValueError(
+                "Нет пересчитанных показателей для изменённых дат приёмов; "
+                "запись остановлена."
+            )
+        changed_management = {
+            day: management[day] for day in sorted(changed_dates)
+        }
+        _guard_existing_financial_values(conn, changed_management)
+
+        for data_date, record in changed_management.items():
             conn.execute(
                 """
                 INSERT INTO report_data(date,payload,updated_by,updated_at)
@@ -518,13 +534,8 @@ def _commit(decision=None):
                 ),
             )
 
-        cash_payments.overlay_stored_month(
-            conn,
-            prepared["month"],
-            g.user["id"],
-            now,
-        )
-
+        # Cash snapshots were already read into changed dates above.
+        # A completed-only upload has no mandate to rewrite old cash dates.
         conn.commit()
     except Exception:
         conn.rollback()
