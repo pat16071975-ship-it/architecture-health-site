@@ -230,19 +230,21 @@ class UploadReconcileTests(unittest.TestCase):
             html,
         )
 
-    def test_upload_ui_uses_separate_completed_and_paid_services_sources(self):
+    def test_upload_ui_preserves_paired_clinical_source_and_separate_new_mis(self):
         html = (
             Path(__file__).parent / "templates" / "uploads.html"
         ).read_text(encoding="utf-8")
         self.assertIn("1. Завершённые приёмы", html)
-        self.assertIn("3. Новый отчёт МИС «Выручка по направлениям»", html)
-        self.assertIn("data-az-completed-upload-form", html)
+        self.assertIn("2. Выручка по направлениям", html)
+        self.assertIn("3. Счета и оплаты", html)
+        self.assertIn("4. Новый отчёт МИС «Выручка по направлениям»", html)
+        self.assertIn("data-az-upload-form", html)
         self.assertIn("data-az-paid-upload-form", html)
-        self.assertNotIn('name="services"', html)
-        self.assertIn(
-            "Файл с услугами к ней больше не прикладывается",
-            html,
-        )
+        self.assertIn('name="completed"', html)
+        self.assertIn('name="services"', html)
+        self.assertNotIn("data-az-completed-upload-form", html)
+        self.assertIn("/api/uploads/clinical/preview", html)
+        self.assertIn("/api/uploads/clinical/commit", html)
 
     def test_period_union_allows_dates_present_in_only_one_source(self):
         overall = {

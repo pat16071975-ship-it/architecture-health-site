@@ -7,7 +7,7 @@
 </style>
 <div class="card">
   <div class="upload-head">
-    <div><h2 class="upload-title">Загрузка данных</h2><div class="muted">Источники загружаются отдельно. Система сначала проверяет выбранный файл и только потом изменяет соответствующий слой отчётов.</div></div>
+    <div><h2 class="upload-title">Загрузка данных</h2><div class="muted">Клинический комплект загружается вместе, денежные данные и новый отчёт МИС — отдельно.</div></div>
     <div class="upload-head-actions">
       {% if 'reports' in perms %}<button class="btn primary upload-home" type="button" id="planPopupOpen">План</button>{% endif %}
       <a class="btn upload-home" href="/">На главную</a>
@@ -15,23 +15,40 @@
   </div>
 
   <div class="next-upload">
-    {% if next_required_date %}ЗАВЕРШЁННЫЕ ПРИЁМЫ: НУЖНО ЗАГРУЗИТЬ С <strong>{{ next_required_date }}</strong>{% else %}ДАТА СЛЕДУЮЩЕЙ ЗАГРУЗКИ ПРИЁМОВ ПОКА НЕ ОПРЕДЕЛЕНА{% endif %}
+    {% if next_required_date %}НУЖНО ЗАГРУЗИТЬ ДАННЫЕ С <strong>{{ next_required_date }}</strong>{% else %}ДАТА СЛЕДУЮЩЕЙ ЗАГРУЗКИ ПОКА НЕ ОПРЕДЕЛЕНА{% endif %}
   </div>
 
   <div class="status-line">
-    {% if latest %}«Завершённые приёмы» загружены по <strong>{{ latest['data_date'] }}</strong>{% if latest['revision']|int > 1 %} · версия {{ latest['revision'] }}{% endif %}.{% else %}Отдельных загрузок «Завершённых приёмов» через этот раздел пока нет.{% endif %}
+    {% if latest %}Ежедневные данные загружены по <strong>{{ latest['data_date'] }}</strong>{% if latest['revision']|int > 1 %} · версия {{ latest['revision'] }}{% endif %}.{% else %}Отдельных ежедневных загрузок через этот раздел пока нет. Дата выше определяется по уже загруженной сводной базе.{% endif %}
   </div>
 
-  <form method="post" enctype="multipart/form-data" class="upload-box" data-az-completed-upload-form>
+  <form method="post" enctype="multipart/form-data" data-az-upload-form>
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <h3>1. Завершённые приёмы</h3>
-    <p>Отдельная выгрузка МИС для первичных, повторных и отконсультированных приёмов. Файл с услугами к ней больше не прикладывается.</p>
-    {% if 'upload_completed' in perms %}
-      <input type="file" name="completed" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
-      <button class="btn primary" type="submit" style="margin-top:12px">Проверить и загрузить приёмы</button>
-    {% else %}<div class="lock">Нет права на загрузку файла «Завершённые приёмы».</div>{% endif %}
-    <div class="hint">Первичные/повторные берутся только из этого файла. Привязка к Стоматологии/Отделению структуры выполняется отдельно по новому отчёту МИС «Выручка по направлениям».</div>
-    <div id="completedClientResult" class="result hidden"></div>
+    <div class="upload-grid">
+      <div class="upload-box">
+        <h3>1. Завершённые приёмы</h3>
+        <p>Выгрузка из МИС за нужный период.</p>
+        {% if 'upload_completed' in perms %}
+          <input type="file" name="completed" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
+        {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
+      </div>
+      <div class="upload-box">
+        <h3>2. Выручка по направлениям</h3>
+        <p>Выгрузка из МИС за тот же календарный месяц. Отдельные даты могут отсутствовать в одном из двух файлов.</p>
+        {% if 'upload_services' in perms %}
+          <input type="file" name="services" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
+        {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
+      </div>
+    </div>
+    {% if can_daily %}
+      <button class="btn primary" type="submit" style="margin-top:14px">Загрузить данные</button>
+    {% else %}
+      <div class="hint">Для загрузки комплекта нужны права на оба обязательных файла.</div>
+    {% endif %}
+    <div class="hint">Защита от задвоения действует по каждой дате отдельно. День, уже входящий в ранее загруженную сводную базу, будет пропущен без повторного начисления. Полностью совпадающий ежедневный день тоже будет пропущен. Если за уже сохранённую ежедневную дату пришли другие данные, замена разрешается только отдельным правом.</div>
+    {% if result %}<div class="result ok">{{ result['message'] }}</div>{% endif %}
+    {% if error %}<div class="result error">{{ error }}</div>{% endif %}
+    <div id="clinicalClientResult" class="result hidden"></div>
   </form>
 
   {% if pending_providers %}
@@ -62,7 +79,7 @@
 
   <form method="post" action="/uploads/cash" enctype="multipart/form-data" class="upload-box cash-upload-box" data-az-cash-upload-form>
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <h3>2. Счета и оплаты</h3>
+    <h3>3. Счета и оплаты</h3>
     <p>Денежная выгрузка из МИС. Можно загружать большой период, в том числе с начала года.</p>
     <div class="status-line">
       {% if cash_latest_date and cash_next_required_date %}
@@ -85,8 +102,8 @@
 
   <form method="post" enctype="multipart/form-data" class="upload-box paid-upload-box" data-az-paid-upload-form>
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <h3>3. Новый отчёт МИС «Выручка по направлениям»</h3>
-    <p>Отдельный источник для показателей «Оплачено» по врачам и направлениям, а также задолженности. Кассовый Факт и ООО/ИП из «Счета и оплаты» не заменяет.</p>
+    <h3>4. Новый отчёт МИС «Выручка по направлениям»</h3>
+    <p>Отдельный источник для проверки и хранения нового отчёта МИС. Не заменяет старую «Выручку по направлениям», клинический комплект и действующие показатели до отдельного решения.</p>
     <div class="status-line">
       {% if paid_services_latest_date %}
         Новый отчёт МИС загружен по <strong>{{ paid_services_latest_date }}</strong>.
@@ -264,7 +281,7 @@
 
 <script>
 (()=>{
-  const completedForm=document.querySelector('[data-az-completed-upload-form]');
+  const clinicalForm=document.querySelector('[data-az-upload-form]');
   const cashForm=document.querySelector('[data-az-cash-upload-form]');
   const paidForm=document.querySelector('[data-az-paid-upload-form]');
   const overlay=document.getElementById('reconcileOverlay');
@@ -282,7 +299,7 @@
   const money=value=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Number(value)||0)+' ₽';
 
   function resultBox(type,text,ok){
-    const ids={completed:'completedClientResult',cash:'cashClientResult',paid:'paidClientResult'};
+    const ids={clinical:'clinicalClientResult',cash:'cashClientResult',paid:'paidClientResult'};
     const el=document.getElementById(ids[type]||'');
     if(!el)return;
     el.textContent=text||'';
@@ -305,7 +322,7 @@
 
   function openPreview(type,form,payload){
     context={type,form,payload};
-    title.textContent=type==='completed'?'Проверка файла «Завершённые приёмы»':type==='cash'?'Проверка файла «Счета и оплаты»':'Проверка нового отчёта МИС';
+    title.textContent=type==='clinical'?'Проверка клинического периода':type==='cash'?'Проверка файла «Счета и оплаты»':'Проверка нового отчёта МИС';
     const c=payload.counts||{};
     stats.innerHTML=
       stat('Новые',c.new||0)+
@@ -329,9 +346,15 @@
         '<br>Задолженность: начало '+money(r.opening)+' → конец '+money(r.closing)+'.';
     }else{
       message.innerHTML='Период <strong>'+esc(payload.period.from)+' — '+esc(payload.period.to)+'</strong>.'+
-        (payload.requires_choice?'<br>В существующих данных есть отличия. Один выбранный вариант будет применён ко всему периоду этого источника.':'<br>Конфликтов с существующими данными нет.');
-      if(type==='completed'&&payload.paid_source_ready===false){
-        message.innerHTML+='<br><strong>Новый отчёт МИС «Выручка по направлениям» за этот месяц ещё не загружен.</strong> Общие первичные/повторные сохранятся, а распределение по направлениям появится после отдельной загрузки нового отчёта.';
+        (payload.requires_choice?'<br>В существующих данных есть отличия. Один выбранный вариант будет применён ко всему пересекающемуся периоду.':'<br>Конфликтов с существующими данными нет.');
+      if(type==='clinical'){
+        const gaps=payload.source_gaps||{}, completedOnly=gaps.completed_only||[], revenueOnly=gaps.revenue_only||[];
+        if(completedOnly.length||revenueOnly.length){
+          const parts=[];
+          if(completedOnly.length)parts.push('только в «Завершённых приёмах»: '+completedOnly.length);
+          if(revenueOnly.length)parts.push('только в «Выручке по направлениям»: '+revenueOnly.length);
+          message.innerHTML+='<br><strong>Разница дат между источниками допустима:</strong> '+esc(parts.join('; '))+'. Для отсутствующего источника за такую дату используется 0.';
+        }
       }
     }
 
@@ -370,11 +393,11 @@
   async function commit(choice){
     if(!context)return;
     const extra={decision:choice||'append'};
-    if(context.type==='paid'){
+    if(context.type==='paid'||context.type==='clinical'){
       const choices=providerDecisions();
       if(Object.keys(choices).length)extra.provider_decisions=JSON.stringify(choices);
     }
-    const url=context.type==='completed'?'/api/uploads/completed/commit':context.type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit';
+    const url=context.type==='clinical'?'/api/uploads/clinical/commit':context.type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit';
     try{
       keepBtn.disabled=true;newBtn.disabled=true;continueBtn.disabled=true;
       const out=await send(url,context.form,extra);
@@ -392,7 +415,7 @@
 
   async function preview(type,form){
     resultBox(type,'Проверяю файл перед записью…',true);
-    const url=type==='completed'?'/api/uploads/completed/preview':type==='cash'?'/api/uploads/cash/preview':'/api/uploads/paid-services/preview';
+    const url=type==='clinical'?'/api/uploads/clinical/preview':type==='cash'?'/api/uploads/cash/preview':'/api/uploads/paid-services/preview';
     try{
       const out=await send(url,form);
       const needs=out.requires_choice||out.requires_provider_mapping;
@@ -401,7 +424,7 @@
         openPreview(type,form,out);
       }else{
         const committed=await send(
-          type==='completed'?'/api/uploads/completed/commit':type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit',
+          type==='clinical'?'/api/uploads/clinical/commit':type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit',
           form,
           {decision:'append'}
         );
@@ -413,7 +436,7 @@
     }
   }
 
-  completedForm?.addEventListener('submit',event=>{event.preventDefault();preview('completed',completedForm)});
+  clinicalForm?.addEventListener('submit',event=>{event.preventDefault();preview('clinical',clinicalForm)});
   cashForm?.addEventListener('submit',event=>{event.preventDefault();preview('cash',cashForm)});
   paidForm?.addEventListener('submit',event=>{event.preventDefault();preview('paid',paidForm)});
   document.getElementById('pendingProviderSave')?.addEventListener('click',async()=>{

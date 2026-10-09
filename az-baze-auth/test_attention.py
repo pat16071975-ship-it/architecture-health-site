@@ -81,7 +81,7 @@ class AttentionTests(unittest.TestCase):
         self.assertFalse(summary["clinical_stale"])
         self.assertFalse(summary["cash_stale"])
 
-    def test_current_direction_values_prefer_paid_service_snapshot(self):
+    def test_current_direction_values_keep_approved_clinical_source_when_paid_snapshot_exists(self):
         self.add_day(
             "2026-09-27",
             {
@@ -106,25 +106,29 @@ class AttentionTests(unittest.TestCase):
             summary = attention.build_summary(self.conn)
 
         rows = {row["key"]: row for row in summary["revenue"]}
-        self.assertEqual(rows["dentistry"]["amount"], 900)
-        self.assertEqual(rows["structure"]["amount"], 700)
-        self.assertEqual(rows["lab"]["amount"], 180)
+        self.assertEqual(rows["dentistry"]["amount"], 240)
+        self.assertEqual(rows["structure"]["amount"], 500)
+        self.assertEqual(rows["lab"]["amount"], 120)
         self.assertNotIn("unallocated", rows)
 
     def test_revenue_comparison_uses_report_data_history_without_old_daily_uploads(self):
         self.add_report_snapshot(
             "2026-07-28",
-            {"paidDataComplete": True, "paidDentists": {"D": 400}, "paidClinicDocs": {"C": 200}, "paidLab": 100},
+            {"dentists": {"D": 400}, "clinicDocs": {"C": 200}, "labRevenue": 100,
+             "paidDataComplete": True, "paidDentists": {"D": 900}, "paidClinicDocs": {"C": 800}, "paidLab": 700},
         )
         self.add_report_snapshot(
             "2026-08-28",
-            {"paidDataComplete": True, "paidDentists": {"D": 500}, "paidClinicDocs": {"C": 300}, "paidLab": 150},
+            {"dentists": {"D": 500}, "clinicDocs": {"C": 300}, "labRevenue": 150,
+             "paidDataComplete": True, "paidDentists": {"D": 950}, "paidClinicDocs": {"C": 850}, "paidLab": 750},
         )
 
-        self.add_day("2026-09-27", {"paidDataComplete": True, "paidDentists": {"D": 550}, "paidClinicDocs": {"C": 250}, "paidLab": 125})
+        self.add_day("2026-09-27", {"dentists": {"D": 550}, "clinicDocs": {"C": 250}, "labRevenue": 125,
+                                         "paidDataComplete": True, "paidDentists": {"D": 980}, "paidClinicDocs": {"C": 880}, "paidLab": 780})
         self.add_day(
             "2026-09-28",
-            {"paidDataComplete": True, "paidDentists": {"D": 600}, "paidClinicDocs": {"C": 350}, "paidLab": 200},
+            {"dentists": {"D": 600}, "clinicDocs": {"C": 350}, "labRevenue": 200,
+             "paidDataComplete": True, "paidDentists": {"D": 990}, "paidClinicDocs": {"C": 890}, "paidLab": 790},
             cash=True,
         )
 

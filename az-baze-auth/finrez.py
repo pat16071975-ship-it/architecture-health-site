@@ -102,9 +102,8 @@ def _management_months():
     result = {}
     for month, entry in latest.items():
         record = entry["record"]
-        paid = record.get("paidDataComplete") is True
-        dentists = record.get("paidDentists") if paid else {}
-        structure_doctors = record.get("paidClinicDocs") if paid else {}
+        dentists = record.get("dentists")
+        structure_doctors = record.get("clinicDocs")
         result[month] = {
             "date": entry["date"],
             "plan": record.get("plan", ""),
@@ -118,10 +117,6 @@ def _management_months():
             "grossRevenue": record.get("grossRevenue"),
             "discountAmount": record.get("discountAmount"),
             "discountDataComplete": record.get("discountDataComplete") is True,
-            "paidDataComplete": paid,
-            "paidAsOf": record.get("paidAsOf"),
-            "paidServicesTotal": record.get("paidServicesTotal"),
-            "paidLab": record.get("paidLab") if paid else None,
             "dentPrimary": record.get("dentPrimary", 0),
             "dentRepeat": record.get("dentRepeat", 0),
             "clinicPrimary": record.get("clinicPrimary", 0),

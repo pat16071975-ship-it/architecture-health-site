@@ -888,15 +888,6 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
 
         management = core._rebuild_management(month_key, source)
         cash_payments.overlay_record_map(conn, month_key, management)
-        paid_services.overlay_record_map(
-            conn,
-            month_key,
-            management,
-            core.ident_import.DENTISTS,
-            core.ident_import.STRUCTURE_DOCTORS,
-            core.ident_import.LAB_DOCTORS,
-            ignored=_ignored_provider_names(conn),
-        )
 
         if apply_new:
             for removed_date in remove_dates:
@@ -935,16 +926,6 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
 
         # Re-overlay independent sources after every clinical rebuild.
         cash_payments.overlay_stored_month(conn, month_key, g.user["id"], now)
-        paid_services.overlay_stored_month(
-            conn,
-            month_key,
-            g.user["id"],
-            now,
-            core.ident_import.DENTISTS,
-            core.ident_import.STRUCTURE_DOCTORS,
-            core.ident_import.LAB_DOCTORS,
-            ignored=_ignored_provider_names(conn),
-        )
 
         core._save_blob(conn, "az-service-analytics-v1", service_data, now)
         for key, value in finance_blobs.items():
@@ -1033,18 +1014,6 @@ def register_daily_upload(app):
             conn = core.db()
             upload_reconcile.resolve_providers(conn, decisions, g.user["id"])
             upload_reconcile.refresh_runtime(conn, core.ident_import, cash_payments)
-            now = core.iso_now()
-            for month in paid_services.snapshot_months(conn):
-                paid_services.overlay_stored_month(
-                    conn,
-                    month,
-                    g.user["id"],
-                    now,
-                    core.ident_import.DENTISTS,
-                    core.ident_import.STRUCTURE_DOCTORS,
-                    core.ident_import.LAB_DOCTORS,
-                    ignored=_ignored_provider_names(conn),
-                )
             conn.commit()
             core.audit(
                 "provider_registry_updated",
@@ -1055,9 +1024,8 @@ def register_daily_upload(app):
                 {
                     "status": "ok",
                     "message": (
-                        "Классификация сохранена. Уже сохранённые агрегаты «Оплачено» "
-                        "перераспределены по новому направлению. Для изменения состава услуг "
-                        "повторно загружайте исходный клинический период только при необходимости."
+                        "Классификация сохранена. Действующие отчётные значения "
+                        "не изменены автоматически."
                     ),
                 }
             )
