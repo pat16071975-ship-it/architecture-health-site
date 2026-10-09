@@ -1,6 +1,10 @@
 import unittest
 import json
 import sqlite3
+import re
+import shutil
+import subprocess
+from pathlib import Path
 from contextlib import ExitStack
 from unittest.mock import patch
 
@@ -751,6 +755,133 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
         self.assertEqual(view["2026-10-09"]["_clinicalAsOf"], "2026-10-09")
         self.assertEqual((view["2026-10-09"]["primary"],
                           view["2026-10-09"]["repeat"]), (5, 3))
+
+
+    def test_b08_cash20_completed31_cash31_updates_source_and_forecast(self):
+        """End-to-end isolated SQLite: cash20 -> completed31 -> cash31.
+
+        Uses the actual cash ledger, completed-only commit, Finrez selector,
+        and live Forecast.fullMonth JavaScript source. No production writes.
+        """
+        cash = completed_upload.cash_payments
+        cash.init_schema(self.conn)
+        cash20 = cash._blank_day()
+        cash20.update({
+            "cashOOO": 3000, "cashIP": 2000, "cashTotal": 5000,
+            "factMedicine": 4800, "factLab": 200,
+        })
+        cash.replace_range(
+            self.conn, {"2026-10-20": cash20},
+            "cash20.xlsx", "sha20", 1, "cash-at-20",
+        )
+        self.assertEqual(
+            cash.overlay_stored_month(self.conn, "2026-10", 1, "cash-at-20"), 1
+        )
+        self.conn.commit()
+        self.assertEqual(self._stored("2026-10-20")["_cashAsOf"], "2026-10-20")
+
+        # Completed source reaches month-end, but the last confirmed cash
+        # receipt is still dated 20 Oct.
+        result = self._run(self._prepared("2026-10-31", primary=4, repeat=6))
+        self.assertEqual(result["status"], "imported")
+        earlier = self._stored("2026-10-31")
+        self.assertEqual(
+            (earlier["_clinicalAsOf"], earlier["_cashAsOf"]),
+            ("2026-10-31", "2026-10-20"),
+        )
+        self.assertEqual((earlier["primary"], earlier["repeat"]), (4, 6))
+        self.assertEqual(
+            (earlier["cashTotal"], earlier["cashOOO"], earlier["cashIP"]),
+            (5000, 3000, 2000),
+        )
+        with patch.object(finrez, "db", lambda: self.conn):
+            before = finrez._management_months()["2026-10"]
+        self.assertEqual(
+            (before["clinicalAsOf"], before["cashAsOf"]),
+            ("2026-10-31", "2026-10-20"),
+        )
+
+        # Later the actual 31 Oct cash file arrives and overlays the ALREADY
+        # EXISTING report_data 31 Oct row; it must refresh stale provenance.
+        cash31 = cash._blank_day()
+        cash31.update({
+            "cashOOO": 6000, "cashIP": 3000, "cashTotal": 9000,
+            "factMedicine": 8500, "factLab": 500,
+        })
+        cash.replace_range(
+            self.conn, {"2026-10-31": cash31},
+            "cash31.xlsx", "sha31", 1, "cash-at-31",
+        )
+        self.assertGreaterEqual(
+            cash.overlay_stored_month(self.conn, "2026-10", 1, "cash-at-31"),
+            1,
+        )
+        self.conn.commit()
+        final = self._stored("2026-10-31")
+        self.assertEqual(
+            (final["_clinicalAsOf"], final["_cashAsOf"]),
+            ("2026-10-31", "2026-10-31"),
+        )
+        self.assertEqual((final["primary"], final["repeat"]), (4, 6))
+        self.assertNotIn("_cashForwardClone", final)
+        self.assertEqual(
+            (final["cashTotal"], final["cashOOO"], final["cashIP"]),
+            (14000, 9000, 5000),
+        )
+        self.assertEqual(
+            final["cashTotal"], final["cashOOO"] + final["cashIP"]
+        )
+        self.assertEqual(
+            (final["factMedicine"], final["factLab"]), (13300, 700)
+        )
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT COUNT(*) FROM daily_uploads WHERE data_date=?",
+                ("2026-10-31",),
+            ).fetchone()[0], 1,
+        )
+        self.assertEqual(self._stored("2026-10-20")["_cashAsOf"], "2026-10-20")
+        with patch.object(finrez, "db", lambda: self.conn):
+            after = finrez._management_months()["2026-10"]
+        self.assertEqual(after["date"], "2026-10-31")
+        self.assertEqual(
+            (after["clinicalAsOf"], after["cashAsOf"]),
+            ("2026-10-31", "2026-10-31"),
+        )
+        self.assertEqual(
+            (after["cashTotal"], after["cashOOO"], after["cashIP"]),
+            (14000, 9000, 5000),
+        )
+
+        # Execute the actual Forecast.fullMonth function on BOTH genuine
+        # Finrez API-shaped checkpoints: incomplete before cash31, complete
+        # afterwards. This does not duplicate the business formula in Python.
+        node = shutil.which("node")
+        self.assertIsNotNone(node, "Node required for B08 Forecast regression")
+        html = (
+            Path(__file__).resolve().parent.parent / "reports" / "forecast.html"
+        ).read_text(encoding="utf-8")
+        functions = []
+        for name in ("rec", "monthEndISO", "fullMonth"):
+            match = re.search(r"^function " + name + r"\([^\n]+$", html, re.M)
+            self.assertIsNotNone(match, f"Missing Forecast function {name}")
+            functions.append(match.group(0))
+        script = (
+            "const FIN={management:" +
+            json.dumps({"2026-10": before}, ensure_ascii=False) +
+            "};\n" +
+            "\n".join(functions) +
+            "\nif(fullMonth('2026-10')!==false)"
+            "{throw Error('B08 incorrectly accepted cash-through-20');}\n" +
+            "FIN.management=" +
+            json.dumps({"2026-10": after}, ensure_ascii=False) +
+            ";\nif(fullMonth('2026-10')!==true)"
+            "{throw Error('B08 incorrectly rejected cash-through-31');}"
+        )
+        check = subprocess.run(
+            [node, "-e", script], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(check.returncode, 0, check.stderr)
 
 
 if __name__ == "__main__":
