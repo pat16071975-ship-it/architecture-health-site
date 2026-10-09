@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import finrez
 import management_view
+import report_storage
 
 ROOT = Path(__file__).resolve().parent
 REPORTS = ROOT.parent / "reports"
@@ -128,6 +129,20 @@ class SourceAsOfProjectionTests(unittest.TestCase):
         self.assertIn("Приёмы по ", dashboard)
         self.assertIn("r.clinicalAsOf", forecast)
         self.assertIn("(!r.cashAsOf||!!clinic)", forecast)
+
+    def test_b05_actual_management_page_period_uses_view_not_editable_raw(self):
+        with patch.object(
+            report_storage, "_read_report_file",
+            lambda filename: (REPORTS / filename).read_text(encoding="utf-8"),
+        ):
+            rendered = report_storage._render_server_reports()
+        self.assertIn("MANAGEMENT_VIEW=payload.managementView||payload.data||{}", rendered)
+        self.assertIn("const s=MANAGEMENT_VIEW,rows=", rendered)
+        self.assertIn("SERVER_STORE=payload.data||{}", rendered)
+        self.assertIn("const r=collectRecord()", rendered)
+        self.assertIn("await loadServerStore();fillRecord(saved)", rendered)
+        self.assertIn("await loadServerStore();loadDate()", rendered)
+        self.assertNotIn("const s=loadStore(),rows=", rendered)
 
     def test_b05_projection_read_is_deterministic_no_write(self):
         source = historical_source()
