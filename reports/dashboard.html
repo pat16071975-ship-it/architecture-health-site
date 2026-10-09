@@ -201,10 +201,16 @@ async function init(){
   try{
     const [dr,fr]=await Promise.all([fetch('/api/reports/data',{credentials:'same-origin',cache:'no-store'}),fetch('/api/reports/finrez',{credentials:'same-origin',cache:'no-store'})]);
     if(!dr.ok||!fr.ok)throw new Error('Не удалось получить серверные данные.');
-    const data=(await dr.json()).data||{}; FIN=await fr.json(); STORE=data; const map=latestByMonth(data);
+    const response=await dr.json(); const data=response.managementView||response.data||{}; FIN=await fr.json(); STORE=data; const map=latestByMonth(data);
     MONTHS=Object.keys(map).sort().map(ym=>({ym,record:map[ym]})); if(!MONTHS.length)throw new Error('В управленческом отчёте пока нет данных.');
-    const latest=MONTHS[MONTHS.length-1].record.date; $('#freshness').textContent=`Данные по ${fmtDate(latest)} включительно`;
-    $('#period').innerHTML=MONTHS.slice().reverse().map(x=>`<option value="${x.ym}">${monthLabel(x.ym)} · по ${fmtDate(x.record.date)}</option>`).join('');
+    const latestRecord=MONTHS[MONTHS.length-1].record,latest=latestRecord.date;
+    const sourceDetail=r=>{
+      const clinic=String(r?._clinicalAsOf||'');
+      return clinic&&clinic<r.date?' · Приёмы по '+fmtDate(clinic):
+        (!clinic&&r?._cashAsOf?' · Приёмы: нет подтверждённых данных':'');
+    };
+    $('#freshness').textContent=`Данные по ${fmtDate(latest)} включительно`+sourceDetail(latestRecord);
+    $('#period').innerHTML=MONTHS.slice().reverse().map(x=>`<option value="${x.ym}">${monthLabel(x.ym)} · по ${fmtDate(x.record.date)}${sourceDetail(x.record)}</option>`).join('');
     $('#period').value=MONTHS[MONTHS.length-1].ym;
     $('#period').onchange=onMonthChange;
     $('#dateFilter').onchange=onDateChange;
