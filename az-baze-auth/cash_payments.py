@@ -399,6 +399,9 @@ def overlay_stored_month(conn, month, updated_by, updated_at):
         last_cash_date = max(snapshots)
         updated = apply_to_record({"date": last_cash_date}, snapshots[last_cash_date])
         updated["date"] = last_cash_date
+        updated["_cashForwardClone"] = True
+        updated["_clinicalAsOf"] = ""
+        updated["_cashAsOf"] = last_cash_date
         conn.execute(
             "INSERT INTO report_data(date,payload,updated_by,updated_at) VALUES(?,?,?,?)",
             (last_cash_date, json.dumps(updated, ensure_ascii=False, separators=(",", ":")), updated_by, updated_at),
@@ -421,6 +424,15 @@ def overlay_stored_month(conn, month, updated_by, updated_at):
     if last_cash_date > last_report_date:
         clone = dict(last_report)
         clone["date"] = last_cash_date
+        # Only the cash source advanced. Copying a clinical report forward is
+        # NOT evidence of a clinical visit on the new cash date.
+        clone["_cashForwardClone"] = True
+        clone["_clinicalAsOf"] = str(
+            last_report.get("_clinicalAsOf") or last_report_date
+        ) if any(key in last_report for key in (
+            "_source", "_uploadControl", "primary", "repeat", "labOrders",
+        )) else str(last_report.get("_clinicalAsOf") or "")
+        clone["_cashAsOf"] = last_cash_date
         parsed.append((last_cash_date, clone))
 
     changed = 0
