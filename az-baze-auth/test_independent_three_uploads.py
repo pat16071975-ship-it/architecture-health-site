@@ -59,7 +59,8 @@ class IndependentThreeUploadsTests(unittest.TestCase):
         self.assertNotIn("paid_services.", completed)
         self.assertNotIn("replace_service_month(", completed)
         self.assertNotIn('record["discountDataComplete"] = False', completed)
-        self.assertIn('cash_payments.overlay_stored_month(', completed)
+        self.assertIn('cash_payments.overlay_record_map(', completed)
+        self.assertNotIn('cash_payments.overlay_stored_month(', completed)
         self.assertIn('daily_upload._doctor_attribution(', completed)
         self.assertIn('SELECT data_date,completed_sha256,normalized_json', completed)
         preview = completed.split("def _preview():", 1)[1].split("def _read_normalized(", 1)[0]
