@@ -1,6 +1,11 @@
 from html.parser import HTMLParser
 from pathlib import Path
 import unittest
+import re
+import shutil
+import subprocess
+import tempfile
+from jinja2 import Environment
 
 ROOT = Path(__file__).resolve().parent
 
@@ -72,6 +77,21 @@ class IndependentThreeUploadsTests(unittest.TestCase):
         self.assertIn("paid_services.store_snapshot(", paid)
         self.assertNotIn("paid_services.overlay_stored_month(", paid)
         self.assertNotIn("core.replace_service_month(", paid)
+
+    def test_jinja_and_both_inline_javascript_blocks_parse(self):
+        html = (ROOT / "templates/uploads.html").read_text(encoding="utf-8")
+        Environment().parse(html)
+        scripts = re.findall(r"<script[^>]*>(.*?)</script>", html, flags=re.IGNORECASE | re.DOTALL)
+        self.assertGreaterEqual(len(scripts), 2)
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is required for syntax verification")
+        with tempfile.TemporaryDirectory() as folder:
+            for index, script in enumerate(scripts):
+                file = Path(folder) / f"inline-{index}.cjs"
+                file.write_text(script, encoding="utf-8")
+                result = subprocess.run([node, "--check", str(file)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":
