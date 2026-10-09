@@ -428,5 +428,111 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
         self.assertEqual(self._stored("2026-10-09"), old_cash)
 
 
+    def _span(self, *days):
+        prepared = self._prepared(days[0][0], days[0][1], days[0][2])
+        for day, primary, repeat in days[1:]:
+            part = self._prepared(day, primary, repeat)
+            prepared["dates"].append(day)
+            prepared["days"].update(part["days"])
+        prepared["dates"].sort()
+        return prepared
+
+    def test_b04_checkpoint_overrides_incomplete_legacy_daily_detail(self):
+        self._legacy_day()
+        previous = self._stored("2026-10-06")
+        self.assertEqual(previous["labOrders"], 4)
+        # Source daily_uploads only knows one lab invoice, not all historical orders.
+        old_normalized = json.loads(self.conn.execute(
+            "SELECT normalized_json FROM daily_uploads WHERE data_date='2026-10-06'"
+        ).fetchone()[0])
+        self.assertEqual(len(old_normalized["lab_invoices"]), 1)
+        self.assertEqual(self._run(self._prepared("2026-10-07", 3, 4))["status"], "imported")
+        new = self._stored("2026-10-07")
+        self.assertEqual(new["labOrders"], 4)
+        self.assertEqual(new["grossRevenue"], 21500)
+        self.assertEqual(new["discountAmount"], 1500)
+        self.assertTrue(new["discountDataComplete"])
+        self.assertEqual(new["_serviceAsOf"], "2026-10-06")
+        self.assertEqual(new["primary"], 5)
+        self.assertEqual(new["repeat"], 5)
+        self.assertEqual(self._stored("2026-10-06"), previous)
+
+    def test_b04_two_new_days_accumulate_only_new_completed_visits(self):
+        self._legacy_day()
+        res = self._run(self._span(
+            ("2026-10-07", 3, 4),
+            ("2026-10-08", 1, 2),
+        ))
+        self.assertEqual(res["status"], "imported")
+        seventh = self._stored("2026-10-07")
+        eighth = self._stored("2026-10-08")
+        self.assertEqual((seventh["primary"], seventh["repeat"]), (5, 5))
+        self.assertEqual((eighth["primary"], eighth["repeat"]), (6, 7))
+        self.assertEqual((eighth["labOrders"], eighth["grossRevenue"],
+                          eighth["discountAmount"]), (4, 21500, 1500))
+        self.assertEqual(eighth["_serviceAsOf"], "2026-10-06")
+        self.assertEqual(self._stored("2026-10-06")["labOrders"], 4)
+
+    def test_b04_different_verified_clinic_total_beats_partial_daily_ledger(self):
+        self._legacy_day()
+        clinical = self._stored("2026-10-06")
+        clinical["primary"] = 100
+        clinical["_uploadControl"]["sourcePrimary"] = 100
+        self.conn.execute(
+            "UPDATE report_data SET payload=? WHERE date='2026-10-06'",
+            (json.dumps(clinical, ensure_ascii=False),),
+        )
+        self.conn.commit()
+        self._run(self._prepared("2026-10-07", 3, 2))
+        self.assertEqual(self._stored("2026-10-07")["primary"], 103)
+        self.assertEqual(self._stored("2026-10-07")["repeat"], 3)
+        self.assertEqual(self._stored("2026-10-06")["primary"], 100)
+
+    def test_b04_backward_edit_refused_if_later_clinical_snapshot_exists(self):
+        self._legacy_day()
+        self._run(self._span(("2026-10-07", 2, 2), ("2026-10-08", 1, 1)))
+        before = self._stored("2026-10-07")
+        later = self._stored("2026-10-08")
+        with self.assertRaisesRegex(ValueError, "более поздний клинический срез"):
+            self._run(self._prepared("2026-10-07", 5, 5), decision="use_new")
+        self.assertEqual(self._stored("2026-10-07"), before)
+        self.assertEqual(self._stored("2026-10-08"), later)
+
+    def test_b04_fails_closed_if_unproven_service_items_present(self):
+        self._legacy_day()
+        day = "2026-10-07"
+        normalized = {
+            "data_date": day, "items": [{"date": day, "amount": 999}],
+            "lab_invoices": [], "retail_items": [], "doctors": {},
+            "overall": {day: {"Первичные": 1}}, "visits": [],
+        }
+        self.conn.execute(
+            "INSERT INTO daily_uploads VALUES(?,?,?,?,?,?,1,1,'old')",
+            (day, "c.xlsx", "", "hash-old", "hash-services",
+             json.dumps(normalized, ensure_ascii=False)),
+        )
+        self.conn.commit()
+        with self.assertRaisesRegex(ValueError, "услуги"):
+            self._run(self._prepared(day, 2, 0), decision="use_new")
+        old = self.conn.execute(
+            "SELECT normalized_json FROM daily_uploads WHERE data_date=?", (day,)
+        ).fetchone()[0]
+        self.assertEqual(json.loads(old)["items"], normalized["items"])
+        self.assertIsNone(self._stored(day))
+
+    def test_b04_incomplete_discount_history_is_not_falsely_marked_complete(self):
+        self._legacy_day()
+        old = self._stored("2026-10-06")
+        old["discountDataComplete"] = False
+        self.conn.execute(
+            "UPDATE report_data SET payload=? WHERE date='2026-10-06'",
+            (json.dumps(old, ensure_ascii=False),),
+        )
+        self.conn.commit()
+        self._run(self._prepared("2026-10-07", 1, 1))
+        self.assertFalse(self._stored("2026-10-07")["discountDataComplete"])
+        self.assertEqual(self._stored("2026-10-07")["discountAmount"], 1500)
+
+
 if __name__ == "__main__":
     unittest.main()
