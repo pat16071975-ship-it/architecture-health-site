@@ -596,6 +596,9 @@ def _completed_source_day(conn, data_date, source):
 
     base = copy.deepcopy(earlier)
     base.update(copy.deepcopy(current))
+    # A completed visit actually recorded on a formerly forward-copied cash
+    # date makes this date a genuine clinical checkpoint (B06).
+    base.pop("_cashForwardClone", None)
     delta = upload_integrity.daily_delta(core, normalized)
     control = earlier.get("_uploadControl")
     if not isinstance(control, dict):
