@@ -1,5 +1,8 @@
 import copy
 import json
+import re
+import shutil
+import subprocess
 from pathlib import Path
 import sqlite3
 import unittest
@@ -127,8 +130,10 @@ class SourceAsOfProjectionTests(unittest.TestCase):
         forecast = (REPORTS / "forecast.html").read_text(encoding="utf-8")
         self.assertIn("response.managementView||response.data", dashboard)
         self.assertIn("Приёмы по ", dashboard)
+        self.assertIn("Касса по ", dashboard)
         self.assertIn("r.clinicalAsOf", forecast)
-        self.assertIn("(!r.cashAsOf||!!clinic)", forecast)
+        self.assertIn("(!cash||!!clinic)", forecast)
+        self.assertIn("(!cash||cash>=end)", forecast)
 
     def test_b05_actual_management_page_period_uses_view_not_editable_raw(self):
         with patch.object(
@@ -143,6 +148,29 @@ class SourceAsOfProjectionTests(unittest.TestCase):
         self.assertIn("await loadServerStore();fillRecord(saved)", rendered)
         self.assertIn("await loadServerStore();loadDate()", rendered)
         self.assertNotIn("const s=loadStore(),rows=", rendered)
+
+    def test_b05_full_month_forecast_rejects_either_lagging_source(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node required to validate forecast evaluation")
+        html = (REPORTS / "forecast.html").read_text(encoding="utf-8")
+        defs = []
+        for name in ("rec", "monthEndISO", "fullMonth"):
+            found = re.search(r"^function " + name + r"\\([^\\n]+$", html, re.M)
+            self.assertIsNotNone(found, "Missing forecast helper: " + name)
+            defs.append(found.group(0))
+        js = (
+            "const FIN={management:{"
+            "'2026-09':{date:'2026-09-30',clinicalAsOf:'2026-09-30',cashAsOf:'2026-09-29'},"
+            "'2026-08':{date:'2026-08-31',clinicalAsOf:'2026-08-30',cashAsOf:'2026-08-31'},"
+            "'2026-07':{date:'2026-07-31',clinicalAsOf:'2026-07-31',cashAsOf:'2026-07-31'}"
+            "}};\\n" + "\\n".join(defs) + "\\n"
+            "if(fullMonth('2026-09')!==false)throw Error('late cash counted full');"
+            "if(fullMonth('2026-08')!==false)throw Error('late visits counted full');"
+            "if(fullMonth('2026-07')!==true)throw Error('complete month rejected');"
+        )
+        result = subprocess.run([node, "-e", js], text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_b05_projection_read_is_deterministic_no_write(self):
         source = historical_source()
