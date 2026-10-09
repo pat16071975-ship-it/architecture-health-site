@@ -652,6 +652,15 @@ def _commit(decision=None):
             records = {data_date: record}
             cash_payments.overlay_record_map(conn, prepared["month"], records)
             record = records[data_date]
+            # Track the real receipt snapshot date separately from visits.
+            # Overlaying newer cash must not keep a stale inherited as-of date.
+            cash_dates = [
+                date for date in cash_payments.month_snapshots(
+                    conn, prepared["month"]
+                ) if date <= data_date
+            ]
+            if cash_dates:
+                record["_cashAsOf"] = max(cash_dates)
             _guard_existing_financial_values(conn, {data_date: record})
             conn.execute(
                 """
