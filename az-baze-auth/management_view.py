@@ -30,6 +30,49 @@ def _has_clinical(record):
     ))
 
 
+_CLONED_CLINICAL_FIELDS = (
+    "_source", "_aggregation", "_uploadControl", "primary", "repeat",
+    "dentPrimary", "dentRepeat", "clinicPrimary", "clinicRepeat", "labOrders",
+    "grossRevenue", "discountAmount", "discountDataComplete",
+)
+
+
+def copied_cash_clinical_source(record, date, previous):
+    """Return source day for a proven cash-forward clinical copy, else None.
+
+    Explicit markers are authoritative for new copies. Legacy unmarked copies
+    qualify only when their clinical identity and cumulative fields match an
+    earlier known record exactly. Unproven differences stay clinical/guarded.
+    'previous' is an iterable of (date, real clinical record), newest first.
+    """
+    if not isinstance(record, dict) or record.get("_cash_rule") != "positive-receipts-only-v1":
+        return None
+
+    explicit = str(record.get("_clinicalAsOf") or "")
+    if record.get("_cashForwardClone") is True:
+        return explicit if explicit and explicit < date else ""
+    if explicit:
+        return explicit if explicit < date else None
+
+    source_name = record.get("_source")
+    if not isinstance(source_name, str) or not source_name:
+        return None
+    for prior_date, earlier in previous:
+        if prior_date >= date or not isinstance(earlier, dict):
+            continue
+        if earlier.get("_source") != source_name:
+            continue
+        if not any(k in earlier for k in ("primary", "repeat", "_uploadControl")):
+            continue
+        if all(
+            (key in record) == (key in earlier)
+            and (key not in earlier or record[key] == earlier[key])
+            for key in _CLONED_CLINICAL_FIELDS
+        ):
+            return str(earlier.get("_clinicalAsOf") or prior_date)
+    return None
+
+
 def project_for_reports(records):
     """Make a detached as-of view of {ISO-date: stored-report} for read-only UI.
 
@@ -40,6 +83,7 @@ def project_for_reports(records):
     """
     result = {}
     last_clinical = {}
+    clinical_sources = {}
     for data_date in sorted(records):
         if not _DAY.fullmatch(str(data_date)):
             continue
@@ -49,19 +93,24 @@ def project_for_reports(records):
         month = data_date[:7]
         view = copy.deepcopy(stored)
         view["date"] = data_date
-        has_clinical = _has_clinical(stored)
+        previous_sources = list(reversed(clinical_sources.get(month, [])))
+        forwarded = copied_cash_clinical_source(stored, data_date, previous_sources)
+        has_clinical = _has_clinical(stored) and forwarded is None
         if has_clinical:
             observed_as_of = str(stored.get("_clinicalAsOf") or data_date)
             if not _DAY.fullmatch(observed_as_of) or observed_as_of[:7] != month or observed_as_of > data_date:
                 raise ValueError(f"Неверная дата источника приёмов за {data_date}.")
             view["_clinicalAsOf"] = observed_as_of
             last_clinical[month] = (observed_as_of, view)
+            clinical_sources.setdefault(month, []).append((data_date, stored))
         else:
             previous = last_clinical.get(month)
             if previous is not None:
                 prior_day, prior = previous
                 for name in _CLINICAL_CARRY:
-                    if name not in view and name in prior:
+                    # A forward cash clone may contain old clinical numbers.
+                    # Replace them with the latest independently verified MTD.
+                    if name in prior and (forwarded is not None or name not in view):
                         view[name] = copy.deepcopy(prior[name])
                 view["_clinicalAsOf"] = prior_day
                 if "_serviceAsOf" in prior:
