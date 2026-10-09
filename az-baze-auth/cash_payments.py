@@ -446,6 +446,13 @@ def overlay_stored_month(conn, month, updated_by, updated_at):
             continue
         updated = apply_to_record(payload, snapshot)
         updated["date"] = data_date
+        # The report row may predate this cash import (e.g. completed visits
+        # through month-end followed by receipts for that same day). Refresh
+        # provenance from the last ACTUAL receipt date included in snapshot,
+        # never from a stale marker or from the report's clinical date.
+        updated["_cashAsOf"] = max(
+            receipt_date for receipt_date in snapshots if receipt_date <= data_date
+        )
         conn.execute(
             "INSERT INTO report_data(date,payload,updated_by,updated_at) VALUES(?,?,?,?) "
             "ON CONFLICT(date) DO UPDATE SET payload=excluded.payload,updated_by=excluded.updated_by,updated_at=excluded.updated_at",
