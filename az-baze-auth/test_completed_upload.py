@@ -782,7 +782,10 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
 
         # Completed source reaches month-end, but the last confirmed cash
         # receipt is still dated 20 Oct.
-        result = self._run(self._prepared("2026-10-31", primary=4, repeat=6))
+        result = self._run(
+            self._prepared("2026-10-31", primary=4, repeat=6),
+            cash_overlay=cash.overlay_record_map,
+        )
         self.assertEqual(result["status"], "imported")
         earlier = self._stored("2026-10-31")
         self.assertEqual(
