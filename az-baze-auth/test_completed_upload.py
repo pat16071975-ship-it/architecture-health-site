@@ -164,7 +164,7 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
         )
         self.conn.commit()
 
-    def _run(self, prepared, decision=None):
+    def _run(self, prepared, decision=None, cash_replay=None):
         with self.app.test_request_context("/api/uploads/completed/commit", method="POST"):
             g.user = {"id": 1}
             with ExitStack() as stack:
@@ -181,7 +181,7 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
                     (completed_upload.upload_reconcile, "archive_daily_row", lambda *a: None),
                     (completed_upload.upload_reconcile, "create_db_backup", lambda _label: "fixture-backup"),
                     (completed_upload.cash_payments, "overlay_record_map", lambda _conn, _month, records: records),
-                    (completed_upload.cash_payments, "overlay_stored_month", lambda *a: 0),
+                    (completed_upload.cash_payments, "overlay_stored_month", cash_replay or (lambda *a: 0)),
                 ]
                 for obj, name, replacement in defaults:
                     stack.enter_context(patch.object(obj, name, replacement))
@@ -278,6 +278,141 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
             "SELECT completed_sha256 FROM daily_uploads WHERE data_date=?", (day,),
         ).fetchone()
         self.assertEqual(row[0], "old-hash")
+
+
+    def _legacy_day(self, day="2026-10-06"):
+        """An old paired upload, its management report, and service-through cutoff."""
+        normalized = {
+            "data_date": day,
+            "items": [
+                {"date": day, "staff": "Чирков М. С.", "patient": "Иванов П. С.",
+                 "group": "Стоматология", "service": "Приём", "qty": 1,
+                 "amount": 20000},
+            ],
+            "retail_items": [],
+            "lab_invoices": [["76001", day]],
+            "overall": {day: {"Первичные": 2, "Повторные": 1}},
+            "visits": [
+                {"date": day, "patient": "Иванов П. С.", "kind": "Первичные"}
+            ],
+            "doctors": {day: {"Первичные": {"Чирков М. С.": 1}}},
+        }
+        self.conn.execute(
+            "INSERT INTO daily_uploads VALUES (?,?,?,?,?,?,1,1,'old')",
+            (day, "old-completed.xlsx", "old-services.xlsx", "legacy-hash",
+             "legacy-services-hash", json.dumps(normalized, ensure_ascii=False)),
+        )
+        self.conn.execute(
+            "INSERT INTO report_blobs(key,payload) VALUES(?,?)",
+            ("az-service-analytics-v1", json.dumps({
+                "id": "az-services-2026-through-2026-10-06-v1"
+            })),
+        )
+        old_management = {
+            "date": day, "_source": "previous paired clinical",
+            "primary": 2, "repeat": 1,
+            "dentPrimary": 1, "dentRepeat": 0,
+            "factMedicine": 20000, "factLab": 0,
+            "dentists": {"Чирков Максим Сергеевич": 20000},
+            "clinicDocs": {},
+            "labRevenue": 0, "labOrders": 4,
+            "discountAmount": 1500, "grossRevenue": 21500,
+            "discountDataComplete": True,
+            "cashTotal": 95000, "cashOOO": 75000, "cashIP": 20000,
+            "_cash_rule": "positive-receipts-only-v1",
+            "_uploadControl": {"sourcePrimary": 2, "sourceRepeat": 1},
+        }
+        self.conn.execute(
+            "INSERT INTO report_data VALUES (?,?,1,'old')",
+            (day, json.dumps(old_management, ensure_ascii=False)),
+        )
+        self.conn.commit()
+        return normalized, old_management
+
+    def test_b03_next_day_after_legacy_paired_source_commits_without_rewrite(self):
+        """Critical path: legacy 06.10 then standalone completed 07.10."""
+        legacy, old_report = self._legacy_day()
+        old_normalized = self.conn.execute(
+            "SELECT normalized_json FROM daily_uploads WHERE data_date='2026-10-06'"
+        ).fetchone()[0]
+        old_json = self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-06'"
+        ).fetchone()[0]
+
+        def forbidden_cash_replay(*args):
+            self.fail("Completed-only import may not rewrite historical cash data")
+
+        result = self._run(
+            self._prepared("2026-10-07", primary=3, repeat=4),
+            cash_replay=forbidden_cash_replay,
+        )
+        self.assertEqual(result["status"], "imported")
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT normalized_json FROM daily_uploads WHERE data_date='2026-10-06'"
+            ).fetchone()[0], old_normalized
+        )
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT payload FROM report_data WHERE date='2026-10-06'"
+            ).fetchone()[0], old_json
+        )
+        self.assertEqual(self._stored("2026-10-06"), old_report)
+        added = self._stored("2026-10-07")
+        self.assertEqual((added["primary"], added["repeat"]), (5, 5))
+        self.assertEqual((added["dentPrimary"], added["dentRepeat"]), (1, 0))
+        self.assertEqual(
+            (added["_uploadControl"]["sourcePrimary"],
+             added["_uploadControl"]["sourceRepeat"]), (5, 5)
+        )
+        self.assertEqual(added["factMedicine"], 20000)
+        self.assertEqual(added["labOrders"], 1)
+        self.assertEqual(added["dentists"]["Чирков Максим Сергеевич"], 20000)
+        row = self.conn.execute(
+            "SELECT services_filename,services_sha256 FROM daily_uploads "
+            "WHERE data_date='2026-10-07'"
+        ).fetchone()
+        self.assertEqual(tuple(row), ("", ""))
+
+    def test_b03_prior_paired_day_still_blocked_from_replacement(self):
+        self._legacy_day()
+        original = self._stored("2026-10-06")
+        with self.assertRaisesRegex(ValueError, "сводную базу услуг"):
+            self._run(self._prepared("2026-10-06"), decision="use_new")
+        self.assertEqual(self._stored("2026-10-06"), original)
+        self.assertEqual(
+            self.conn.execute("SELECT COUNT(*) FROM daily_uploads").fetchone()[0],
+            1,
+        )
+
+    def test_b03_unregistered_later_legacy_report_still_blocks_partial_import(self):
+        self._legacy_day()
+        later = {
+            "date": "2026-10-08", "_source": "historical-clinic",
+            "primary": 12, "factMedicine": 80000,
+        }
+        self._report("2026-10-08", later)
+        with self.assertRaisesRegex(ValueError, "исторические клинические данные"):
+            self._run(self._prepared("2026-10-07"))
+        self.assertEqual(self._stored("2026-10-08"), later)
+        self.assertIsNone(self._stored("2026-10-07"))
+
+    def test_b03_untouched_existing_cash_snapshot_remains_byte_identical(self):
+        self._legacy_day()
+        old_cash = {
+            "date": "2026-10-09", "_cash_rule": "positive-receipts-only-v1",
+            "cashTotal": 123456, "cashOOO": 100000, "cashIP": 23456,
+        }
+        self._report("2026-10-09", old_cash)
+        before = self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-09'"
+        ).fetchone()[0]
+        result = self._run(self._prepared("2026-10-07", primary=1, repeat=1))
+        self.assertEqual(result["status"], "imported")
+        self.assertEqual(self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-09'"
+        ).fetchone()[0], before)
+        self.assertEqual(self._stored("2026-10-09"), old_cash)
 
 
 if __name__ == "__main__":
