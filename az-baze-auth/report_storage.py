@@ -7,6 +7,7 @@ from flask import Response, abort, g, jsonify, request, session
 
 from app import DB_PATH, SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, user_permissions
 import cash_payments
+import management_view
 import paid_services
 import upload_reconcile
 
@@ -369,7 +370,7 @@ def _render_server_reports():
 
     old_store = """function loadStore(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}}
 function saveStore(v){localStorage.setItem(STORAGE_KEY,JSON.stringify(v))}"""
-    new_store = """let SERVER_STORE={},REPORT_CSRF='';
+    new_store = """let SERVER_STORE={},MANAGEMENT_VIEW={},REPORT_CSRF='';
 function loadStore(){return SERVER_STORE}
 function saveStore(v){SERVER_STORE=v}
 async function reportApi(url,options={}){
@@ -386,11 +387,19 @@ async function reportApi(url,options={}){
 async function loadServerStore(){
   const payload=await reportApi('/api/reports/data');
   SERVER_STORE=payload.data||{};
+  MANAGEMENT_VIEW=payload.managementView||payload.data||{};
   REPORT_CSRF=payload.csrf||'';
   if(typeof syncProviderNames==='function')syncProviderNames(SERVER_STORE);
   if(typeof renderStructure==='function')renderStructure();
 }"""
     html = html.replace(old_store, new_store)
+    # Read-only period/month aggregation uses an as-of projection; editable
+    # daily records, backup exports and saves use SERVER_STORE raw source.
+    html = html.replace(
+        "function latestMonthlyRecords(year,startMonth,endMonth){const s=loadStore(),rows=",
+        "function latestMonthlyRecords(year,startMonth,endMonth){const s=MANAGEMENT_VIEW,rows=",
+        1,
+    )
 
     old_save = """function saveDate(){const r=collectRecord();if(!r.date)return;const store=loadStore();store[r.date]=r;saveStore(store);fillRecord(r);$('#status').textContent='Сохранено в этом браузере: '+new Date(r.date+'T12:00:00').toLocaleString('ru-RU');}"""
     new_save = """async function saveDate(){const r=collectRecord();if(!r.date)return;try{const result=await reportApi('/api/reports/data/'+encodeURIComponent(r.date),{method:'PUT',body:JSON.stringify(r)});const saved=result?.record||r;SERVER_STORE[r.date]=saved;fillRecord(saved);$('#status').textContent='Сохранено на сервере: '+new Date(r.date+'T12:00:00').toLocaleString('ru-RU')}catch(error){console.error(error);$('#status').textContent='Не удалось сохранить данные на сервере';alert('Не удалось сохранить данные.')}}"""
@@ -499,7 +508,11 @@ def register_report_storage(app):
             if month in monthly_plans:
                 record["plan"] = monthly_plans[month]
             data[row["date"]] = record
-        return jsonify(data=data, csrf=csrf_token())
+        return jsonify(
+            data=data,
+            managementView=management_view.project_for_reports(data),
+            csrf=csrf_token(),
+        )
 
     @app.put("/api/reports/data/<date>")
     @permission_required("reports")
