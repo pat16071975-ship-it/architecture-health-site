@@ -132,8 +132,8 @@ class SourceAsOfProjectionTests(unittest.TestCase):
         self.assertIn("Приёмы по ", dashboard)
         self.assertIn("Касса по ", dashboard)
         self.assertIn("r.clinicalAsOf", forecast)
-        self.assertIn("(!cash||!!clinic)", forecast)
-        self.assertIn("(!cash||cash>=end)", forecast)
+        self.assertIn("separate=!!clinic||!!cash", forecast)
+        self.assertIn("(!separate||(!!clinic&&clinic>=end&&!!cash&&cash>=end))", forecast)
 
     def test_b05_actual_management_page_period_uses_view_not_editable_raw(self):
         with patch.object(
@@ -163,14 +163,53 @@ class SourceAsOfProjectionTests(unittest.TestCase):
             "const FIN={management:{"
             "'2026-09':{date:'2026-09-30',clinicalAsOf:'2026-09-30',cashAsOf:'2026-09-29'},"
             "'2026-08':{date:'2026-08-31',clinicalAsOf:'2026-08-30',cashAsOf:'2026-08-31'},"
-            "'2026-07':{date:'2026-07-31',clinicalAsOf:'2026-07-31',cashAsOf:'2026-07-31'}"
+            "'2026-07':{date:'2026-07-31',clinicalAsOf:'2026-07-31',cashAsOf:'2026-07-31'},"
+            "'2026-10':{date:'2026-10-31',clinicalAsOf:'2026-10-31',cashAsOf:''},"
+            "'2026-11':{date:'2026-11-30',clinicalAsOf:'',cashAsOf:'2026-11-30'},"
+            "'2026-12':{date:'2026-12-31'}"
             "}};\n" + "\n".join(defs) + "\n"
             "if(fullMonth('2026-09')!==false)throw Error('late cash counted full');"
             "if(fullMonth('2026-08')!==false)throw Error('late visits counted full');"
             "if(fullMonth('2026-07')!==true)throw Error('complete month rejected');"
+            "if(fullMonth('2026-10')!==false)throw Error('missing cash accepted');"
+            "if(fullMonth('2026-11')!==false)throw Error('missing clinic accepted');"
+            "if(fullMonth('2026-12')!==true)throw Error('legacy complete month rejected');"
         )
         result = subprocess.run([node, "-e", js], text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+
+    def test_b06_legacy_cash_clone_without_markers_stays_cash_as_of_only(self):
+        records = historical_source()
+        from_sixth = copy.deepcopy(records["2026-10-06"])
+        from_sixth["date"] = "2026-10-09"
+        from_sixth["_cash_rule"] = "positive-receipts-only-v1"
+        from_sixth["_cash_source"] = "Счета и оплаты"
+        from_sixth["cashTotal"] = 190000
+        from_sixth["cashOOO"] = 120000
+        from_sixth["cashIP"] = 70000
+        records["2026-10-09"] = from_sixth
+        snapshot = copy.deepcopy(records)
+        projected = management_view.project_for_reports(records)
+        self.assertEqual(records, snapshot)
+        self.assertEqual(projected["2026-10-09"]["_clinicalAsOf"], "2026-10-07")
+        self.assertEqual(projected["2026-10-09"]["_cashAsOf"], "2026-10-09")
+        self.assertEqual((projected["2026-10-09"]["primary"],
+                          projected["2026-10-09"]["repeat"]), (5, 5))
+        self.assertEqual(projected["2026-10-09"]["cashTotal"], 190000)
+
+    def test_b06_explicit_cash_clone_without_clinic_does_not_forge_visits(self):
+        rows = {
+            "2026-10-31": {
+                "date": "2026-10-31", "_cash_rule": "positive-receipts-only-v1",
+                "_cashForwardClone": True, "_clinicalAsOf": "",
+                "_cashAsOf": "2026-10-31", "cashTotal": 3000,
+            }
+        }
+        view = management_view.project_for_reports(rows)
+        self.assertEqual(view["2026-10-31"]["_clinicalAsOf"], "")
+        self.assertNotIn("primary", view["2026-10-31"])
+        self.assertEqual(view["2026-10-31"]["cashTotal"], 3000)
 
     def test_b05_projection_read_is_deterministic_no_write(self):
         source = historical_source()
