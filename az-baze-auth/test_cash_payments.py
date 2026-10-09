@@ -334,6 +334,38 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(row31["cashIP"], 2000)
         self.assertEqual(row31["cashUnallocated"], 2000)
         self.assertEqual(row31["primary"], 2)
+        self.assertTrue(row31["_cashForwardClone"])
+        self.assertEqual(row31["_clinicalAsOf"], "2026-08-30")
+        self.assertEqual(row31["_cashAsOf"], "2026-08-31")
+        self.assertNotIn("_cashForwardClone", row30)
+
+
+    def test_b06_cash_first_month_has_no_invented_clinical_source(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute(
+            "CREATE TABLE report_data(date TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+        )
+        cash_payments.init_schema(conn)
+        cash_payments.replace_range(
+            conn,
+            {"2026-10-31": {
+                **cash_payments._blank_day(),
+                "cashTotal": 3500, "cashOOO": 3500,
+            }},
+            "cash.xlsx", "sha", 1, "now",
+        )
+        self.assertEqual(cash_payments.overlay_stored_month(conn, "2026-10", 1, "now"), 1)
+        row = json.loads(conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-31'"
+        ).fetchone()[0])
+        self.assertTrue(row["_cashForwardClone"])
+        self.assertEqual(row["_clinicalAsOf"], "")
+        self.assertEqual(row["_cashAsOf"], "2026-10-31")
+        self.assertNotIn("primary", row)
+        self.assertEqual(row["cashTotal"], 3500)
+        conn.close()
+
 
 
 if __name__ == "__main__":
