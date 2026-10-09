@@ -603,5 +603,131 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
         self.assertEqual(record["discountAmount"], 1500)
 
 
+    def _cash_forward_to_ninth(self):
+        """Use the REAL cash receipts overlay; do not handcraft a cash-only row."""
+        cash = completed_upload.cash_payments
+        cash.init_schema(self.conn)
+        values = cash._blank_day()
+        values.update({
+            "cashOOO": 120000, "cashIP": 70000, "cashTotal": 190000,
+            "factMedicine": 185000,
+            "dentists": {"Чирков Максим Сергеевич": 185000},
+        })
+        cash.replace_range(
+            self.conn, {"2026-10-09": values},
+            "cash.xlsx", "cash-source-sha", 1, "now",
+        )
+        count = cash.overlay_stored_month(self.conn, "2026-10", 1, "now")
+        self.assertGreaterEqual(count, 1)
+        self.conn.commit()
+        return self._stored("2026-10-09")
+
+    def test_b06_real_cash_forward_clone_then_next_completed_day(self):
+        self._legacy_day()
+        original_cash = self._cash_forward_to_ninth()
+        self.assertTrue(original_cash["_cashForwardClone"])
+        self.assertEqual(original_cash["_clinicalAsOf"], "2026-10-06")
+        self.assertEqual(original_cash["_cashAsOf"], "2026-10-09")
+        before_cash = self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-09'"
+        ).fetchone()[0]
+        before_legacy = self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-06'"
+        ).fetchone()[0]
+
+        out = self._run(self._prepared("2026-10-07", 3, 4))
+        self.assertEqual(out["status"], "imported")
+        self.assertEqual((self._stored("2026-10-07")["primary"],
+                          self._stored("2026-10-07")["repeat"]), (5, 5))
+        self.assertEqual(self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-09'"
+        ).fetchone()[0], before_cash)
+        self.assertEqual(self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-06'"
+        ).fetchone()[0], before_legacy)
+
+        with patch.object(finrez, "db", lambda: self.conn):
+            latest = finrez._management_months()["2026-10"]
+        self.assertEqual((latest["clinicalAsOf"], latest["cashAsOf"]),
+                         ("2026-10-07", "2026-10-09"))
+        self.assertEqual((latest["cashTotal"], latest["cashOOO"], latest["cashIP"]),
+                         (190000, 120000, 70000))
+        view = management_view.project_for_reports({
+            row["date"]: json.loads(row["payload"])
+            for row in self.conn.execute(
+                "SELECT date,payload FROM report_data ORDER BY date"
+            ).fetchall()
+        })
+        self.assertEqual((view["2026-10-09"]["primary"], view["2026-10-09"]["repeat"]), (5, 5))
+        self.assertEqual(view["2026-10-09"]["labOrders"], 4)
+
+    def test_b06_preexisting_unmarked_cash_clone_is_identified_by_earlier_source(self):
+        self._legacy_day()
+        original = self._cash_forward_to_ninth()
+        self.assertTrue(original["_cashForwardClone"])
+        # Emulate existing cash-forward rows produced BEFORE the new markers.
+        original.pop("_cashForwardClone")
+        original.pop("_clinicalAsOf")
+        original.pop("_cashAsOf")
+        self.conn.execute(
+            "UPDATE report_data SET payload=? WHERE date='2026-10-09'",
+            (json.dumps(original, ensure_ascii=False),),
+        )
+        self.conn.commit()
+        before = self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-09'"
+        ).fetchone()[0]
+        self.assertEqual(self._run(self._prepared("2026-10-07", 3, 1))["status"], "imported")
+        self.assertEqual(self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-09'"
+        ).fetchone()[0], before)
+        view = management_view.project_for_reports({
+            row["date"]: json.loads(row["payload"])
+            for row in self.conn.execute("SELECT date,payload FROM report_data").fetchall()
+        })
+        self.assertEqual(view["2026-10-09"]["_clinicalAsOf"], "2026-10-07")
+        self.assertEqual(view["2026-10-09"]["primary"], 5)
+
+    def test_b06_unknown_clinical_cash_report_stays_protected(self):
+        self._legacy_day()
+        ambiguous = self._cash_forward_to_ninth()
+        ambiguous.pop("_cashForwardClone")
+        ambiguous.pop("_clinicalAsOf")
+        ambiguous["_source"] = "different manually recorded clinic"
+        ambiguous["primary"] = 999
+        self.conn.execute(
+            "UPDATE report_data SET payload=? WHERE date='2026-10-09'",
+            (json.dumps(ambiguous, ensure_ascii=False),),
+        )
+        self.conn.commit()
+        with self.assertRaisesRegex(ValueError, "исторические клинические данные"):
+            self._run(self._prepared("2026-10-07", 1, 1))
+        self.assertIsNone(self._stored("2026-10-07"))
+        self.assertEqual(self._stored("2026-10-09")["primary"], 999)
+
+    def test_b06_completed_then_real_cash_forward_preserves_clinical_as_of(self):
+        self._legacy_day()
+        self.assertEqual(self._run(self._prepared("2026-10-07", 3, 4))["status"], "imported")
+        cloned = self._cash_forward_to_ninth()
+        self.assertTrue(cloned["_cashForwardClone"])
+        self.assertEqual(cloned["_clinicalAsOf"], "2026-10-07")
+        self.assertEqual(cloned["_cashAsOf"], "2026-10-09")
+        with patch.object(finrez, "db", lambda: self.conn):
+            projected = finrez._management_months()["2026-10"]
+        self.assertEqual(projected["clinicalAsOf"], "2026-10-07")
+        self.assertEqual(projected["cashAsOf"], "2026-10-09")
+        self.assertEqual((projected["cashTotal"], projected["cashOOO"], projected["cashIP"]),
+                         (190000, 120000, 70000))
+
+    def test_b06_cash_clone_does_not_block_next_second_day_either(self):
+        self._legacy_day()
+        self._cash_forward_to_ninth()
+        self._run(self._prepared("2026-10-07", 1, 1))
+        self.assertEqual(self._run(self._prepared("2026-10-08", 2, 3))["status"], "imported")
+        self.assertEqual((self._stored("2026-10-08")["primary"],
+                          self._stored("2026-10-08")["repeat"]), (5, 5))
+        self.assertEqual(self._stored("2026-10-09")["_clinicalAsOf"], "2026-10-06")
+
+
 if __name__ == "__main__":
     unittest.main()
