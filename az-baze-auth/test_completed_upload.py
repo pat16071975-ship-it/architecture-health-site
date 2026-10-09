@@ -1,4 +1,6 @@
 import unittest
+import json
+import sqlite3
 
 import completed_upload
 
@@ -78,6 +80,35 @@ class CompletedUploadTests(unittest.TestCase):
         self.assertEqual(merged["doctors"], {})
         self.assertEqual(merged["visits"], [])
         self.assertEqual(merged["overall"], {"2026-09-16": {}})
+
+    def test_existing_completed_dates_use_actual_schema_column(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute("CREATE TABLE daily_uploads (data_date TEXT, completed_sha256 TEXT, normalized_json TEXT)")
+        data_date = "2026-09-16"
+        normalized = {"overall": {data_date: {"Первичные": 2}}, "visits": []}
+        conn.execute("INSERT INTO daily_uploads VALUES (?,?,?)", (data_date, "sha", json.dumps(normalized)))
+        existing = completed_upload._existing_completed_dates(conn, "2026-09")
+        self.assertTrue(existing[data_date]["has_completed"])
+        self.assertNotEqual(existing[data_date]["completed_hash"], "sha")
+        conn.close()
+
+    def test_completed_update_preserves_items_and_recalculates_approved_attribution(self):
+        data_date = "2026-09-16"
+        old = {
+            "data_date": data_date,
+            "items": [{"staff": "Чирков М. С.", "patient": "Иванов П. С.", "date": data_date,
+                       "group": "Услуги", "service": "Приём", "qty": 1, "amount": 100}],
+            "retail_items": [], "lab_invoices": [],
+            "doctors": {data_date: {"Первичные": {"Чирков М. С.": 2}}},
+            "overall": {data_date: {"Первичные": 2}}, "visits": [],
+        }
+        day = {"data_date": data_date, "overall": {data_date: {"Первичные": 1}},
+               "visits": [{"date": data_date, "patient": "Иванов П. С.", "kind": "Первичные"}]}
+        updated = completed_upload._merge_normalized(old, day=day)
+        self.assertEqual(updated["items"], old["items"])
+        self.assertEqual(updated["doctors"][data_date]["Первичные"]["Чирков М. С."], 1)
+        self.assertEqual(updated["overall"], day["overall"])
 
 
 if __name__ == "__main__":
