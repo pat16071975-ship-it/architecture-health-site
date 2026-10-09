@@ -1,0 +1,100 @@
+name: AZ-BAZE PR74 restoration deploy package
+
+on:
+  pull_request:
+    paths:
+      - "az-baze-auth/deploy/deploy-pr74-restoration.sh"
+      - "az-baze-auth/deploy/CONTROLLED-PR74-RESTORATION.md"
+      - ".github/workflows/az-baze-pr74-deploy-package.yml"
+
+jobs:
+  deploy-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bash syntax
+        run: bash -n az-baze-auth/deploy/deploy-pr74-restoration.sh
+
+      - name: Exact manifest and source contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          path = Path("az-baze-auth/deploy/deploy-pr74-restoration.sh")
+          text = path.read_text(encoding="utf-8")
+
+          required = [
+              'LIVE_BASE_COMMIT="49bdf49628d252e8eccb3f5a55c3810e650e84c1"',
+              'SOURCE_HEAD="e71a52e84870234a43871571c8ecb41d22cef472"',
+              'TARGET_COMMIT="e2c4507653a78fab382c74a5d34100f15674de4a"',
+              'CONFIRM_TOKEN="PR74-RESTORE-E2C45076"',
+              'EXPECTED_HOST="az-server"',
+              'SERVICE="az-baze-auth"',
+              'LIVE_BASE_GUARD=PASS',
+              'TARGET_BLOBS=PASS',
+              'TARGET_CONTRACT=PASS',
+              'DB_READONLY_PRECHECK=PASS',
+              'DB_EXACT_UNCHANGED=PASS',
+              'DB_SCHEMA_UNCHANGED=PASS',
+              'DB_RESTORE=NOT_PERFORMED_FILE_ONLY_DEPLOY',
+              'PR74 CONTROLLED DEPLOY: PASS',
+          ]
+          for needle in required:
+              assert needle in text, needle
+
+          manifest = []
+          in_manifest = False
+          for line in text.splitlines():
+              if line.strip() == "cat > \"$MANIFEST_FILE\" <<'EOF'":
+                  in_manifest = True
+                  continue
+              if in_manifest and line.strip() == "EOF":
+                  break
+              if in_manifest and line.strip():
+                  manifest.append(line.strip())
+
+          assert len(manifest) == 12, len(manifest)
+          paths = [row.split("|")[1] for row in manifest]
+          assert len(paths) == len(set(paths)), "duplicate runtime path"
+
+          base_commit = "49bdf49628d252e8eccb3f5a55c3810e650e84c1"
+          target_commit = "e2c4507653a78fab382c74a5d34100f15674de4a"
+
+          for row in manifest:
+              scope, rel, base_blob, target_blob = row.split("|")
+              repo_path = ("az-baze-auth/" if scope == "app" else "reports/") + rel
+
+              actual_base = subprocess.check_output(
+                  ["git", "rev-parse", f"{base_commit}:{repo_path}"], text=True
+              ).strip()
+              actual_target = subprocess.check_output(
+                  ["git", "rev-parse", f"{target_commit}:{repo_path}"], text=True
+              ).strip()
+
+              assert actual_base == base_blob, (repo_path, actual_base, base_blob)
+              assert actual_target == target_blob, (repo_path, actual_target, target_blob)
+
+          forbidden = [
+              ".github/",
+              "test_",
+              "completed_upload.py",
+              "paid_services.py",
+              "report_storage.py",
+          ]
+          joined = "\n".join(manifest)
+          for value in forbidden:
+              assert value not in joined, value
+
+          print("PR74 DEPLOY MANIFEST: PASS")
+          PY
+
+      - name: Restoration contract guard
+        run: |
+          grep -Fq 'Status: **PREPARED ONLY. DEPLOY NOT AUTHORIZED.**' az-baze-auth/deploy/CONTROLLED-PR74-RESTORATION.md
+          grep -Fq 'file-only restoration deploy' az-baze-auth/deploy/CONTROLLED-PR74-RESTORATION.md
+          grep -Fq 'Never execute from a mutable branch tip.' az-baze-auth/deploy/CONTROLLED-PR74-RESTORATION.md
+          grep -Fq 'The DB is **not automatically restored**' az-baze-auth/deploy/CONTROLLED-PR74-RESTORATION.md
