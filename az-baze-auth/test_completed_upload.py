@@ -729,5 +729,29 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
         self.assertEqual(self._stored("2026-10-09")["_clinicalAsOf"], "2026-10-06")
 
 
+    def test_b06_same_day_cash_forward_becomes_real_completed_clinical(self):
+        self._legacy_day()
+        before = self._cash_forward_to_ninth()
+        self.assertTrue(before["_cashForwardClone"])
+        self.assertEqual(before["_clinicalAsOf"], "2026-10-06")
+        self.assertEqual(self._run(self._prepared("2026-10-09", 3, 2))["status"], "imported")
+        after = self._stored("2026-10-09")
+        self.assertNotIn("_cashForwardClone", after)
+        self.assertEqual(after["_clinicalAsOf"], "2026-10-09")
+        self.assertEqual(after["_cashAsOf"], "2026-10-09")
+        self.assertEqual((after["primary"], after["repeat"]), (5, 3))
+        self.assertEqual((after["cashTotal"], after["cashOOO"], after["cashIP"]),
+                         (190000, 120000, 70000))
+        view = management_view.project_for_reports({
+            row["date"]: json.loads(row["payload"])
+            for row in self.conn.execute(
+                "SELECT date,payload FROM report_data ORDER BY date"
+            ).fetchall()
+        })
+        self.assertEqual(view["2026-10-09"]["_clinicalAsOf"], "2026-10-09")
+        self.assertEqual((view["2026-10-09"]["primary"],
+                          view["2026-10-09"]["repeat"]), (5, 3))
+
+
 if __name__ == "__main__":
     unittest.main()
