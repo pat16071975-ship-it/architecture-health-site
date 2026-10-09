@@ -237,8 +237,9 @@ def _parse_fixed_file(file_storage, kind):
 
 def _doctor_attribution(visits, items):
     # The completed-visits export contains patient/date rows but no doctor column.
-    # Link them to the revenue export by patient + date. When a patient has visits
-    # in both departments on the same date, allocate at least one visit to each.
+    # Link them to the revenue export by patient + date. If a single completed
+    # visit matches both departments, its direction is unproven: leave the
+    # source visit total intact, without guessing a doctor's department.
     providers = defaultdict(list)
     for row in items:
         staff = row.get("staff")
@@ -286,6 +287,14 @@ def _doctor_attribution(visits, items):
                 continue
             representatives.append((department, staff))
             seen_departments.add(department)
+
+        # Owner-approved W03: one completed visit with services in both
+        # dentistry and clinic has no proven direction in this export.
+        # Do not assign it to whichever service happened to appear first.
+        # The source primary/repeat total stays in overall; the delta layer
+        # records this unmatched visit in unassignedPrimary/unassignedRepeat.
+        if len(kinds) == 1 and len(seen_departments) > 1:
+            continue
 
         assignments = representatives[: len(kinds)]
         while len(assignments) < len(kinds):
