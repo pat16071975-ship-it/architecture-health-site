@@ -1301,5 +1301,281 @@ class IndependentCompletedIntegrationTests(unittest.TestCase):
         self.assertEqual(check.returncode, 0, check.stderr)
 
 
+    def test_w06_standalone_completed_days_without_services_keep_blank_as_of(self):
+        """Two independent commits without services cannot invent source dates."""
+        for day, primary, repeat, expected in (
+            ("2026-10-07", 2, 1, (2, 1)),
+            ("2026-10-08", 1, 2, (3, 3)),
+            ("2026-10-09", 1, 0, (4, 3)),
+        ):
+            self.assertEqual(
+                self._run(self._prepared(day, primary, repeat))["status"],
+                "imported",
+            )
+            stored = self._stored(day)
+            self.assertEqual(stored["_clinicalAsOf"], day)
+            self.assertEqual(stored["_serviceAsOf"], "")
+            self.assertEqual(
+                (stored["primary"], stored["repeat"]), expected
+            )
+            self.assertEqual(stored["factMedicine"], 0)
+            self.assertEqual(stored["labOrders"], 0)
+
+        with patch.object(finrez, "db", lambda: self.conn):
+            month = finrez._management_months()["2026-10"]
+        self.assertEqual(month["date"], "2026-10-09")
+        self.assertEqual(month["clinicalAsOf"], "2026-10-09")
+        self.assertEqual(month["serviceAsOf"], "")
+
+    def test_w06_multiple_days_in_one_completed_commit_stay_unconfirmed(self):
+        self.assertEqual(
+            self._run(self._span(
+                ("2026-10-07", 2, 1),
+                ("2026-10-08", 1, 2),
+                ("2026-10-09", 1, 0),
+            ))["status"], "imported",
+        )
+        for day, totals in (
+            ("2026-10-07", (2, 1)),
+            ("2026-10-08", (3, 3)),
+            ("2026-10-09", (4, 3)),
+        ):
+            saved = self._stored(day)
+            self.assertEqual(saved["_serviceAsOf"], "")
+            self.assertEqual(saved["_clinicalAsOf"], day)
+            self.assertEqual(
+                (saved["primary"], saved["repeat"]), totals
+            )
+
+    def test_w06_verified_legacy_paired_services_keep_original_as_of(self):
+        self._legacy_day()
+        original = self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-06'"
+        ).fetchone()[0]
+        self.assertEqual(
+            self._run(self._span(
+                ("2026-10-07", 2, 1),
+                ("2026-10-08", 1, 2),
+            ))["status"], "imported",
+        )
+        for day in ("2026-10-07", "2026-10-08"):
+            saved = self._stored(day)
+            self.assertEqual(saved["_serviceAsOf"], "2026-10-06")
+            self.assertEqual(saved["_clinicalAsOf"], day)
+            self.assertEqual(saved["factMedicine"], 20000)
+            self.assertEqual(saved["labOrders"], 4)
+            self.assertEqual(saved["grossRevenue"], 21500)
+            self.assertEqual(saved["discountAmount"], 1500)
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT payload FROM report_data WHERE date='2026-10-06'"
+            ).fetchone()[0], original,
+        )
+        with patch.object(finrez, "db", lambda: self.conn):
+            self.assertEqual(
+                finrez._management_months()["2026-10"]["serviceAsOf"],
+                "2026-10-06",
+            )
+
+    def test_w06_cash_only_forward_view_cannot_invent_services(self):
+        self.assertEqual(
+            self._run(self._span(
+                ("2026-10-07", 2, 1), ("2026-10-08", 1, 1),
+            ))["status"], "imported",
+        )
+        self._report("2026-10-09", {
+            "date": "2026-10-09",
+            "_cash_rule": "positive-receipts-only-v1",
+            "_cashForwardClone": True,
+            "_clinicalAsOf": "",
+            "_cashAsOf": "2026-10-09",
+            "cashTotal": 14000,
+            "cashOOO": 9000,
+            "cashIP": 5000,
+        })
+        raw_cash = self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-09'"
+        ).fetchone()[0]
+        raw = {
+            row["date"]: json.loads(row["payload"])
+            for row in self.conn.execute(
+                "SELECT date,payload FROM report_data ORDER BY date"
+            ).fetchall()
+        }
+        projection = management_view.project_for_reports(raw)
+        latest = projection["2026-10-09"]
+        self.assertEqual(latest["_clinicalAsOf"], "2026-10-08")
+        self.assertEqual(latest["_cashAsOf"], "2026-10-09")
+        self.assertEqual(latest["_serviceAsOf"], "")
+        self.assertEqual(
+            (latest["cashTotal"], latest["cashOOO"], latest["cashIP"]),
+            (14000, 9000, 5000),
+        )
+        with patch.object(finrez, "db", lambda: self.conn):
+            month = finrez._management_months()["2026-10"]
+        self.assertEqual(month["serviceAsOf"], "")
+        self.assertEqual(
+            (month["cashTotal"], month["cashOOO"], month["cashIP"]),
+            (14000, 9000, 5000),
+        )
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT payload FROM report_data WHERE date='2026-10-09'"
+            ).fetchone()[0], raw_cash,
+        )
+
+    def test_w06_cross_month_or_future_service_blob_is_not_proof(self):
+        for source_through in ("2026-09-30", "2026-10-31", "2026-02-31"):
+            with self.subTest(source_through=source_through):
+                service_blob = {
+                    "id": f"az-services-2026-through-{source_through}-v1",
+                    "source": (
+                        f"IDENT revenue export through {source_through}; "
+                        "unified price classifier"
+                    ),
+                    "months": ["Октябрь"], "directions": {},
+                }
+                self.conn.execute(
+                    "INSERT INTO report_blobs(key,payload) VALUES(?,?) "
+                    "ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
+                    ("az-service-analytics-v1",
+                     json.dumps(service_blob, ensure_ascii=False)),
+                )
+                self.conn.commit()
+                self.assertEqual(
+                    completed_upload._service_source_as_of(
+                        self.conn, "2026-10-07"
+                    ), "",
+                )
+        # A source in the previous month cannot justify this month's date.
+        self.conn.execute(
+            "UPDATE report_blobs SET payload=? WHERE key=?",
+            (
+                json.dumps({
+                    "id": "az-services-2026-through-2026-09-30-v1",
+                    "source": "IDENT revenue export through 2026-09-30",
+                }),
+                "az-service-analytics-v1",
+            ),
+        )
+        self.conn.commit()
+        self.assertEqual(
+            self._run(self._span(
+                ("2026-10-07", 1, 0), ("2026-10-08", 1, 0),
+            ))["status"], "imported",
+        )
+        self.assertEqual(self._stored("2026-10-08")["_serviceAsOf"], "")
+
+    def test_w06_paired_union_date_without_service_items_not_service_proof(self):
+        self._legacy_day()
+        later_day = "2026-10-07"
+        normalized = {
+            "data_date": later_day,
+            "items": [], "lab_invoices": [], "retail_items": [],
+            "overall": {later_day: {}}, "visits": [], "doctors": {},
+        }
+        self.conn.execute(
+            "INSERT INTO daily_uploads VALUES(?,?,?,?,?,?,1,1,'old')",
+            (
+                later_day, "paired-completed.xlsx", "paired-services.xlsx",
+                "completed-sha", "services-sha",
+                json.dumps(normalized, ensure_ascii=False),
+            ),
+        )
+        self.conn.execute(
+            "UPDATE report_blobs SET payload=? WHERE key=?",
+            (json.dumps({
+                "id": "az-services-2026-through-2026-10-07-v1",
+                "source": "Ежедневные загрузки AZ-BAZE through 2026-10-07",
+                "months": ["Октябрь"], "directions": {},
+            }, ensure_ascii=False), "az-service-analytics-v1"),
+        )
+        self.conn.commit()
+        self.assertEqual(
+            completed_upload._service_source_as_of(
+                self.conn, "2026-10-08"
+            ), "2026-10-06",
+        )
+        self.assertEqual(
+            self._run(self._prepared("2026-10-08", 1, 1))["status"],
+            "imported",
+        )
+        self.assertEqual(
+            self._stored("2026-10-08")["_serviceAsOf"], "2026-10-06"
+        )
+
+    def test_w06_storage_only_paid_snapshot_does_not_activate_services(self):
+        self.conn.execute(
+            "CREATE TABLE service_payment_snapshots "
+            "(as_of_date TEXT, payload_json TEXT)"
+        )
+        self.conn.execute(
+            "INSERT INTO service_payment_snapshots VALUES(?,?)",
+            ("2026-10-08", json.dumps({"paid": 70000})),
+        )
+        self.conn.commit()
+        self.assertEqual(
+            self._run(self._span(
+                ("2026-10-07", 1, 1), ("2026-10-08", 1, 1)
+            ))["status"], "imported",
+        )
+        self.assertEqual(self._stored("2026-10-08")["_serviceAsOf"], "")
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT COUNT(*) FROM service_payment_snapshots"
+            ).fetchone()[0], 1,
+        )
+
+    def test_w06_old_explicit_without_source_proof_not_carried_forward(self):
+        self.assertEqual(
+            self._run(self._prepared("2026-10-07", 2, 1))["status"],
+            "imported",
+        )
+        first = self._stored("2026-10-07")
+        first["_serviceAsOf"] = "2026-10-07"
+        self.conn.execute(
+            "UPDATE report_data SET payload=? WHERE date=?",
+            (json.dumps(first, ensure_ascii=False), "2026-10-07"),
+        )
+        self.conn.commit()
+        original = self.conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-10-07'"
+        ).fetchone()[0]
+        self.assertEqual(
+            self._run(self._prepared("2026-10-08", 1, 1))["status"],
+            "imported",
+        )
+        self.assertEqual(self._stored("2026-10-08")["_serviceAsOf"], "")
+        self.assertEqual(
+            self.conn.execute(
+                "SELECT payload FROM report_data WHERE date='2026-10-07'"
+            ).fetchone()[0], original,
+        )
+
+    def test_w06_full_ident_service_blob_without_daily_journal_is_proven(self):
+        self.conn.execute(
+            "INSERT INTO report_blobs(key,payload) VALUES(?,?)",
+            (
+                "az-service-analytics-v1",
+                json.dumps({
+                    "id": "az-services-2026-through-2026-10-06-v1",
+                    "source": (
+                        "IDENT revenue export through 2026-10-06; "
+                        "unified price classifier"
+                    ),
+                    "months": ["Октябрь"], "directions": {},
+                }, ensure_ascii=False),
+            ),
+        )
+        self.conn.commit()
+        self.assertEqual(
+            self._run(self._span(
+                ("2026-10-07", 1, 1), ("2026-10-08", 1, 1)
+            ))["status"], "imported",
+        )
+        self.assertEqual(self._stored("2026-10-07")["_serviceAsOf"], "2026-10-06")
+        self.assertEqual(self._stored("2026-10-08")["_serviceAsOf"], "2026-10-06")
+
+
 if __name__ == "__main__":
     unittest.main()
