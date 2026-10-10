@@ -2,7 +2,7 @@ import hashlib
 import json
 import re
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from flask import abort, g, jsonify, redirect, render_template, request, url_for
 
@@ -421,19 +421,26 @@ def _split_period(overall, visits, items, lab_invoices):
     return result
 
 
-def _next_required_date(latest):
-    basis = latest["data_date"] if latest else None
-    if not basis:
-        service_data = core.ident_import._load_blob("az-service-analytics-v1")
-        if service_data:
-            basis = core._service_through(service_data)
-    if not basis:
-        return None
-    try:
-        next_day = datetime.strptime(str(basis), "%Y-%m-%d") + timedelta(days=1)
-    except ValueError:
-        return None
-    return next_day.strftime("%d.%m.%Y")
+def _latest_confirmed_completed_date(conn):
+    """Last completed-visits source date, not the latest services-only day."""
+    for row in conn.execute(
+        "SELECT data_date,normalized_json FROM daily_uploads ORDER BY data_date DESC"
+    ):
+        try:
+            normalized = json.loads(row["normalized_json"])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(normalized, dict):
+            continue
+        overall = normalized.get("overall") or {}
+        visits = normalized.get("visits") or []
+        has_completed = (
+            isinstance(overall, dict)
+            and any(isinstance(value, dict) and bool(value) for value in overall.values())
+        ) or (isinstance(visits, list) and bool(visits))
+        if has_completed:
+            return str(row["data_date"])
+    return None
 
 
 def _prepare_period_raw(completed_raw, completed_name, services_raw, services_name):
@@ -1108,11 +1115,8 @@ def register_daily_upload(app):
         error = None
 
         conn = core.db()
-        latest = conn.execute(
-            "SELECT data_date,revision,uploaded_at FROM daily_uploads ORDER BY data_date DESC LIMIT 1"
-        ).fetchone()
+        completed_latest = _latest_confirmed_completed_date(conn)
         cash_latest = cash_payments.latest_loaded_date(conn)
-        cash_next_required = cash_payments.next_required_date(conn)
         paid_latest = paid_services.latest_loaded_date(conn)
         return render_template(
             "uploads.html",
@@ -1120,10 +1124,8 @@ def register_daily_upload(app):
             perms=perms,
             result=result,
             error=error,
-            latest=latest,
-            next_required_date=_next_required_date(latest),
+            completed_latest_date=_format_date(completed_latest) if completed_latest else None,
             cash_latest_date=_format_date(cash_latest) if cash_latest else None,
-            cash_next_required_date=_format_date(cash_next_required) if cash_next_required else None,
             paid_services_latest_date=_format_date(paid_latest) if paid_latest else None,
             history=core._history() if "upload_history" in perms else [],
             pending_providers=upload_reconcile.pending_provider_rows(conn),
