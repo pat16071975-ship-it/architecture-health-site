@@ -122,15 +122,7 @@ def _prepare():
 def _preview():
     perms, conn, filename, _raw, report, _source_sha, summary, state = _prepare()
     unknown = summary["unknown_providers"]
-    if unknown:
-        upload_reconcile.record_pending_providers(
-            conn,
-            unknown,
-            filename,
-            actor_id=g.user["id"],
-        )
-        conn.commit()
-
+    # Preview must not persist pending providers; explicit commit resolves them.
     return {
         "status": "preview",
         "period": {
