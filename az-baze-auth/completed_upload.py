@@ -625,7 +625,7 @@ def _service_source_as_of(conn, data_date):
             # a later COMPLETED-only date, so their blob cutoff is not proof.
             if eligible(through) and (
                 origin.startswith("IDENT revenue export through ")
-                or (not paired_rows_seen and (
+                or (not paired_rows_seen and not origin and (
                     "directions" in analytics or "months" in analytics
                 ))
             ):
