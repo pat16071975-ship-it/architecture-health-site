@@ -2,12 +2,13 @@ import json
 import os
 import re
 import sqlite3
+import tempfile
 import unittest
 from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
-from flask import Flask, g
+from flask import Flask, g, jsonify
 from jinja2 import Environment
 
 os.environ.setdefault("AZBAZE_SECRET_KEY", "test-secret")
@@ -15,6 +16,7 @@ os.environ.setdefault("AZBAZE_DB", "/tmp/az-upload-reconcile-tests.db")
 os.environ.setdefault("AZBAZE_SITE_ROOT", "/tmp/az-upload-reconcile-site")
 
 import cash_payments
+import paid_services
 import upload_reconcile
 import daily_upload
 
@@ -485,6 +487,249 @@ class W01IndependentUploadStatusesTests(unittest.TestCase):
         self.assertIn("пока не определена", status_templates["completed"].render(**blank))
         self.assertIn("ещё не загружался", status_templates["paid"].render(**blank))
         self.assertIn("пока не определена", status_templates["cash"].render(**blank))
+
+
+class W01G01UploadsGetNoDDlTests(unittest.TestCase):
+    """HTTP GET must not create SQLite tables even if source schemas are absent."""
+
+    @staticmethod
+    def connection(*, daily=False):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        if daily:
+            conn.execute(
+                "CREATE TABLE daily_uploads("
+                "data_date TEXT PRIMARY KEY, normalized_json TEXT NOT NULL)"
+            )
+        return conn
+
+    @staticmethod
+    def db_state(conn):
+        return (
+            conn.total_changes,
+            conn.execute("PRAGMA schema_version").fetchone()[0],
+            tuple(conn.iterdump()),
+        )
+
+    @staticmethod
+    def get_page(conn, *, permissions=None):
+        if permissions is None:
+            permissions = {"upload_completed", "upload_services"}
+        app = Flask("w01-g01-real-get")
+        @app.before_request
+        def _fixture_user():
+            g.user = {"id": 42}
+
+        # Only application startup schema-init and the auth decorator are
+        # bypassed. All three source readers and pending-provider reader run
+        # for real on the same isolated SQLite connection.
+        with (
+            patch.object(daily_upload.core, "_init_schema", return_value=None),
+            patch.object(
+                daily_upload, "permission_required",
+                side_effect=lambda _section: lambda function: function,
+            ),
+        ):
+            daily_upload.register_daily_upload(app)
+
+        def _render(_template, **values):
+            return jsonify({
+                "completed": values["completed_latest_date"],
+                "cash": values["cash_latest_date"],
+                "paid": values["paid_services_latest_date"],
+                "pending": values["pending_providers"],
+                "history_size": len(values["history"]),
+                "can_daily": values["can_daily"],
+            })
+
+        with (
+            patch.object(daily_upload.core, "db", return_value=conn),
+            patch.object(
+                daily_upload, "user_permissions", return_value=set(permissions),
+            ),
+            patch.object(daily_upload, "csrf_token", return_value="test-csrf"),
+            patch.object(daily_upload, "render_template", side_effect=_render),
+        ):
+            return app.test_client().get("/uploads/")
+
+    def test_w01_g01_real_get_on_completely_empty_db_has_no_ddl_dml(self):
+        conn = self.connection()
+        try:
+            before = self.db_state(conn)
+            trace = []
+            conn.set_trace_callback(trace.append)
+            response = self.get_page(conn)
+            conn.set_trace_callback(None)
+            self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+            self.assertEqual(response.get_json()["completed"], None)
+            self.assertEqual(response.get_json()["cash"], None)
+            self.assertEqual(response.get_json()["paid"], None)
+            self.assertEqual(response.get_json()["pending"], [])
+            self.assertEqual(self.db_state(conn), before)
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()[0], 0,
+            )
+            write_words = {"CREATE", "INSERT", "UPDATE", "DELETE", "ALTER", "DROP", "REPLACE"}
+            self.assertEqual([
+                statement for statement in trace
+                if statement.strip().split(None, 1)[0].upper() in write_words
+            ], [])
+        finally:
+            conn.close()
+
+    def test_w01_g01_real_get_on_partial_db_does_not_bootstrap_missing_sources(self):
+        conn = self.connection(daily=True)
+        try:
+            conn.execute(
+                "INSERT INTO daily_uploads VALUES(?,?)",
+                ("2026-10-07", json.dumps({
+                    "overall": {"2026-10-07": {"Первичные": 1}},
+                    "visits": [],
+                })),
+            )
+            # Legacy paired service-only activity is not a completed checkpoint.
+            conn.execute(
+                "INSERT INTO daily_uploads VALUES(?,?)",
+                ("2026-10-08", json.dumps({
+                    "overall": {"2026-10-08": {}},
+                    "visits": [],
+                    "items": [{"date": "2026-10-08", "amount": 800}],
+                })),
+            )
+            conn.commit()
+            before = self.db_state(conn)
+            response = self.get_page(conn)
+            self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+            self.assertEqual(response.get_json()["completed"], "07.10.2026")
+            self.assertIsNone(response.get_json()["cash"])
+            self.assertIsNone(response.get_json()["paid"])
+            self.assertEqual(response.get_json()["pending"], [])
+            self.assertEqual(self.db_state(conn), before)
+            names = [
+                row[0] for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            ]
+            self.assertEqual(names, ["daily_uploads"])
+        finally:
+            conn.close()
+
+    def test_w01_g01_real_get_preserves_cash_paid_registry_and_history(self):
+        conn = self.connection(daily=True)
+        try:
+            conn.execute(
+                "INSERT INTO daily_uploads VALUES(?,?)",
+                ("2026-10-07", json.dumps({
+                    "overall": {"2026-10-07": {"Повторные": 2}}, "visits": [],
+                })),
+            )
+            cash_payments.init_schema(conn)
+            paid_services.init_schema(conn)
+            upload_reconcile.init_schema(conn)
+            conn.execute(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY, full_name TEXT)"
+            )
+            conn.execute(
+                "CREATE TABLE upload_log ("
+                "id INTEGER PRIMARY KEY, data_date TEXT, uploaded_by INTEGER)"
+            )
+            conn.execute("INSERT INTO users VALUES(?,?)", (42, "Синтетический пользователь"))
+            conn.execute(
+                "INSERT INTO upload_log VALUES(?,?,?)", (1, "2026-10-07", 42)
+            )
+            conn.execute(
+                "INSERT INTO cash_receipts_daily VALUES(?,?,?,?,?,?)",
+                ("2026-10-04", json.dumps({"cashTotal": 9000}),
+                 "cash.xlsx", "source-hash", 42, "synthetic-now"),
+            )
+            conn.execute(
+                "INSERT INTO service_payment_snapshots VALUES(?,?,?,?,?,?,?)",
+                ("2026-09-30", "2026-09", json.dumps({"paid": 8000}),
+                 "mis.xlsx", "source-hash", 42, "synthetic-now"),
+            )
+            conn.execute(
+                "INSERT INTO provider_registry VALUES(?,?,?,?,?,?,?,?)",
+                ("Unknown U.", "Unknown U.", "pending", "old.xlsx",
+                 "synthetic-before", "synthetic-before", None, None),
+            )
+            conn.execute(
+                "CREATE TABLE report_data (date TEXT PRIMARY KEY,payload TEXT)"
+            )
+            conn.execute(
+                "INSERT INTO report_data VALUES(?,?)",
+                ("2026-09-30", json.dumps({
+                    "cashTotal": 9000, "cashOOO": 4000, "cashIP": 5000,
+                    "primary": 2, "repeat": 7,
+                })),
+            )
+            conn.commit()
+            before = self.db_state(conn)
+            response = self.get_page(
+                conn,
+                permissions={"upload_completed", "upload_services", "upload_history"},
+            )
+            self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+            data = response.get_json()
+            self.assertEqual(
+                (data["completed"], data["cash"], data["paid"]),
+                ("07.10.2026", "04.10.2026", "30.09.2026"),
+            )
+            self.assertEqual(data["history_size"], 1)
+            self.assertEqual(data["pending"][0]["source_name"], "Unknown U.")
+            self.assertEqual(data["pending"][0]["source_filename"], "old.xlsx")
+            self.assertEqual(self.db_state(conn), before)
+        finally:
+            conn.close()
+
+    def test_w01_g01_real_get_succeeds_with_readonly_file_sqlite(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "w01-g01-readonly.sqlite"
+            first = sqlite3.connect(path)
+            try:
+                first.execute(
+                    "CREATE TABLE daily_uploads("
+                    "data_date TEXT PRIMARY KEY, normalized_json TEXT NOT NULL)"
+                )
+                first.execute(
+                    "INSERT INTO daily_uploads VALUES(?,?)",
+                    ("2026-10-07", json.dumps({
+                        "overall": {"2026-10-07": {"Первичные": 1}},
+                    })),
+                )
+                first.commit()
+            finally:
+                first.close()
+            conn = sqlite3.connect("file:" + path.as_posix() + "?mode=ro", uri=True)
+            conn.row_factory = sqlite3.Row
+            try:
+                before = self.db_state(conn)
+                response = self.get_page(conn)
+                self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
+                self.assertEqual(response.get_json()["completed"], "07.10.2026")
+                self.assertIsNone(response.get_json()["cash"])
+                self.assertIsNone(response.get_json()["paid"])
+                self.assertEqual(self.db_state(conn), before)
+            finally:
+                conn.close()
+
+    def test_w01_g01_default_status_getters_still_initialize_on_write_path(self):
+        conn = self.connection()
+        try:
+            self.assertIsNone(cash_payments.latest_loaded_date(conn))
+            self.assertIsNone(paid_services.latest_loaded_date(conn))
+            self.assertEqual(upload_reconcile.pending_provider_rows(conn), [])
+            names = {
+                row[0] for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            }
+            for name in (
+                "cash_receipts_daily", "service_payment_snapshots",
+                "provider_registry",
+            ):
+                self.assertIn(name, names)
+        finally:
+            conn.close()
 
 
 if __name__ == "__main__":
