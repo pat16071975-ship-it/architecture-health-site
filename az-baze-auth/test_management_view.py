@@ -221,5 +221,240 @@ class SourceAsOfProjectionTests(unittest.TestCase):
         self.assertEqual(two["2026-10-09"]["primary"], 5)
 
 
+# W05: execute the actual date-comparison renderer and formatting helpers in
+# a DOM stub with the backend's genuine read-only projection fixture.
+_W05_NODE_RENDER = r"""
+const fs = require('node:fs');
+const vm = require('node:vm');
+const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+const source = fs.readFileSync('reports/period-view.js', 'utf8');
+const html = fs.readFileSync('reports/index.html', 'utf8');
+
+function line(prefix) {
+  const found = html.split('\n').find(s => s.startsWith(prefix));
+  if (!found) throw Error('missing management helper: ' + prefix);
+  return found;
+}
+function between(startText, endText) {
+  const start = source.indexOf(startText);
+  const end = source.indexOf(endText, start + startText.length);
+  if (start < 0 || end < 0) throw Error('date renderer region missing: ' + startText);
+  return source.slice(start, end);
+}
+const actualCode = [
+  line('const money='), line('const num='), line('const pct='),
+  line('const count='), line('function daysInMonth('), line('function derive('),
+  between('  const fmtMoney=', '  function getPeriodDefs('),
+  between('  function addGroup(', '  function addMetric('),
+  between('  const monthNames=', '\n  let dateStickyRaf=')
+].join('\n');
+
+class Element {
+  constructor() { this._html = ''; this.textContent = ''; this.children = [];
+    this.className = ''; this.value = ''; }
+  get innerHTML() { return this._html; }
+  set innerHTML(value) { this._html = value; this.children = []; }
+  appendChild(child) { this.children.push(child); return child; }
+}
+const elements = {};
+for (const id of ['reportDate', 'compareRange', 'dateCompareHead',
+                  'dateCompareBody', 'dateSummaryNote', 'dateCompareTitle',
+                  'dateCompareHint']) elements[id] = new Element();
+elements.reportDate.value = input.date;
+elements.compareRange.value = input.range || 'q4';
+
+let rawReads = 0;
+const rawBefore = JSON.stringify(input.raw);
+const viewBefore = JSON.stringify(input.view);
+const context = vm.createContext({
+  document: {getElementById: id => elements[id] || null,
+             createElement: () => new Element()},
+  dentists: input.dentists || [], clinicDocs: input.clinicDocs || [],
+  loadStore: () => {rawReads += 1; return input.raw;},
+  queueDateStickyClone: () => {}, __view: input.view,
+  __viewUpdated: input.updatedView
+});
+if (!input.offline) vm.runInContext('let MANAGEMENT_VIEW = __view;', context);
+vm.runInContext(actualCode, context);
+
+function cells() {
+  const selectors = {
+    primary: ['Первичные приёмы', 'row-general'],
+    repeat: ['Повторные приёмы', 'row-general'],
+    fact: ['Факт', 'row-general'],
+    ooo: ['ДС ООО', 'row-general'],
+    ip: ['ДС ИП', 'row-general'],
+    dentPrimary: ['Первичные', 'row-visits-dent'],
+    labOrders: ['Количество заказов', 'row-lab-volume'],
+    dentist: ['Кассовый врач', 'row-team-dent']
+  };
+  const result = {};
+  for (const [name, [label, css]] of Object.entries(selectors)) {
+    const row = elements.dateCompareBody.children.find(
+      el => el.className.split(' ').includes(css) &&
+            el.innerHTML.startsWith('<td>' + label + '</td>'));
+    const htmlCells = row
+      ? [...row.innerHTML.matchAll(/<td(?:\s+[^>]*)?>([\s\S]*?)<\/td>/g)]
+          .slice(1).map(match => match[1].replace(/<[^>]*>/g, '')
+            .replace(/[\u00a0\u202f\s]/g, ''))
+      : null;
+    result[name] = htmlCells;
+  }
+  return result;
+}
+vm.runInContext('renderDateComparison();', context);
+const initial = cells();
+let updated = null;
+if (input.updatedView) {
+  vm.runInContext('MANAGEMENT_VIEW = __viewUpdated; renderDateComparison();', context);
+  updated = cells();
+}
+process.stdout.write(JSON.stringify({
+  title: elements.dateCompareTitle.textContent,
+  head: elements.dateCompareHead.innerHTML,
+  initial, updated, rawReads,
+  rawUnchanged: rawBefore === JSON.stringify(input.raw),
+  viewUnchanged: viewBefore === JSON.stringify(input.view)
+}));
+"""
+
+
+class W05ActualDateComparisonTests(unittest.TestCase):
+    def render_date(self, raw, date, *, projected=None, interval="q4",
+                    offline=False, updated_view=None):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node is required for executing actual W05 renderer")
+        payload = {
+            "raw": raw, "view": projected, "date": date,
+            "range": interval, "offline": offline,
+            "updatedView": updated_view, "dentists": ["Кассовый врач"],
+        }
+        result = subprocess.run(
+            [node, "-e", _W05_NODE_RENDER],
+            input=json.dumps(payload, ensure_ascii=False),
+            text=True, capture_output=True, cwd=ROOT.parent, timeout=20,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_w05_cash_only_day_displays_confirmed_visits_and_exact_cash(self):
+        raw = historical_source()
+        view = management_view.project_for_reports(raw)
+        actual = self.render_date(raw, "2026-10-09", projected=view)
+        self.assertEqual(actual["initial"]["primary"][0], "5")
+        self.assertEqual(actual["initial"]["repeat"][0], "5")
+        self.assertEqual(actual["initial"]["dentPrimary"][0], "1")
+        self.assertEqual(actual["initial"]["labOrders"][0], "4")
+        self.assertEqual(actual["initial"]["fact"][0], "190000₽")
+        self.assertEqual(actual["initial"]["ooo"][0], "120000₽")
+        self.assertEqual(actual["initial"]["ip"][0], "70000₽")
+        self.assertEqual(actual["initial"]["dentist"][0], "185000₽")
+        self.assertEqual(actual["rawReads"], 0)
+        self.assertTrue(actual["rawUnchanged"] and actual["viewUnchanged"])
+
+    def test_w05_cash_only_without_clinic_does_not_invent_visits(self):
+        raw = {"2026-10-09": {"date": "2026-10-09",
+               "_cash_rule": "positive-receipts-only-v1",
+               "cashTotal": 2100, "cashOOO": 2100}}
+        actual = self.render_date(
+            raw, "2026-10-09",
+            projected=management_view.project_for_reports(raw),
+        )
+        self.assertEqual(actual["initial"]["primary"][0], "—")
+        self.assertEqual(actual["initial"]["repeat"][0], "—")
+        self.assertEqual(actual["initial"]["fact"][0], "2100₽")
+
+    def test_w05_31st_clamps_to_february_and_never_carries_prior_month(self):
+        raw = {
+            "2026-01-31": {"date": "2026-01-31", "primary": 8, "repeat": 3},
+            "2026-02-28": {"date": "2026-02-28",
+                           "_cash_rule": "positive-receipts-only-v1",
+                           "cashTotal": 900},
+        }
+        actual = self.render_date(
+            raw, "2026-01-31", projected=management_view.project_for_reports(raw),
+            interval="q1",
+        )
+        self.assertIn("28.02.2026", actual["head"])
+        self.assertEqual(actual["initial"]["primary"], ["8", "—", "—"])
+        self.assertEqual(actual["initial"]["repeat"], ["3", "—", "—"])
+        self.assertEqual(actual["initial"]["fact"][1], "900₽")
+
+    def test_w05_missing_exact_date_stays_missing_and_offline_falls_back(self):
+        raw = historical_source()
+        view = management_view.project_for_reports(raw)
+        missing = self.render_date(raw, "2026-10-08", projected=view)
+        self.assertIn("нет данных", missing["head"])
+        self.assertEqual(missing["initial"]["primary"][0], "—")
+        self.assertEqual(missing["rawReads"], 0)
+        offline = self.render_date(raw, "2026-10-09", offline=True)
+        self.assertEqual(offline["initial"]["primary"][0], "—")
+        self.assertEqual(offline["initial"]["fact"][0], "190000₽")
+        self.assertGreater(offline["rawReads"], 0)
+
+    def test_w05_marked_and_legacy_cash_clones_use_true_as_of_source(self):
+        marked = historical_source()
+        clone = copy.deepcopy(marked["2026-10-07"])
+        clone.update(date="2026-10-09",
+                     _cash_rule="positive-receipts-only-v1",
+                     _cashForwardClone=True, cashTotal=190000)
+        marked["2026-10-09"] = clone
+        marked["2026-10-10"] = {
+            "date": "2026-10-10", "_cash_rule": "positive-receipts-only-v1",
+            "cashTotal": 200000,
+        }
+        actual = self.render_date(
+            marked, "2026-10-10",
+            projected=management_view.project_for_reports(marked),
+        )
+        self.assertEqual(actual["initial"]["primary"][0], "5")
+        self.assertEqual(actual["initial"]["fact"][0], "200000₽")
+
+        legacy = historical_source()
+        copy_of_sixth = copy.deepcopy(legacy["2026-10-06"])
+        copy_of_sixth.update(
+            date="2026-10-09", _cash_rule="positive-receipts-only-v1",
+            _cash_source="Счета и оплаты", cashTotal=190000,
+            cashOOO=120000, cashIP=70000,
+        )
+        legacy["2026-10-09"] = copy_of_sixth
+        actual = self.render_date(
+            legacy, "2026-10-09",
+            projected=management_view.project_for_reports(legacy),
+        )
+        self.assertEqual(actual["initial"]["primary"][0], "5")
+        self.assertEqual(actual["initial"]["fact"][0], "190000₽")
+        self.assertTrue(actual["rawUnchanged"])
+
+    def test_w05_refetch_rerender_changes_view_only_raw_and_quarters_unchanged(self):
+        raw = historical_source()
+        view = management_view.project_for_reports(raw)
+        later = copy.deepcopy(view)
+        later["2026-10-09"]["primary"] = 6
+        actual = self.render_date(
+            raw, "2026-10-09", projected=view, updated_view=later,
+        )
+        self.assertEqual(actual["initial"]["primary"][0], "5")
+        self.assertEqual(actual["updated"]["primary"][0], "6")
+        self.assertEqual(actual["rawReads"], 0)
+        self.assertTrue(actual["rawUnchanged"])
+        source = (REPORTS / "period-view.js").read_text(encoding="utf-8")
+        backend = (ROOT / "report_storage.py").read_text(encoding="utf-8")
+        self.assertIn(
+            "store=(typeof MANAGEMENT_VIEW!=='undefined'&&MANAGEMENT_VIEW)"
+            "?MANAGEMENT_VIEW:loadStore();", source,
+        )
+        self.assertIn("const store=loadStore(),r=store[date]||blankRecord(date)", source)
+        self.assertIn("store[date]=r;saveStore(store)", source)
+        self.assertIn("return loadStore()[date]||null", source)
+        self.assertIn(
+            "function latestMonthlyRecords(year,startMonth,endMonth){const s=MANAGEMENT_VIEW,rows=",
+            backend,
+        )
+        self.assertIn("function loadStore(){return SERVER_STORE}", backend)
+        self.assertIn("function saveStore(v){SERVER_STORE=v}", backend)
+
+
 if __name__ == "__main__":
     unittest.main()
