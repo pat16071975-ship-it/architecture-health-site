@@ -2,10 +2,16 @@ import io
 import json
 import sqlite3
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
+from flask import Flask, g
 from openpyxl import Workbook
+from werkzeug.exceptions import Forbidden
 
 import paid_services
+import paid_services_upload
+import upload_reconcile
 
 
 class PaidServicesTests(unittest.TestCase):
@@ -282,6 +288,171 @@ class PaidServicesTests(unittest.TestCase):
         ])
         with self.assertRaisesRegex(ValueError, "один календарный месяц"):
             paid_services.parse_bytes(raw, "two-months.xlsx")
+
+
+class W04PaidServicesPreviewNoWriteTests(unittest.TestCase):
+    """Exercise real MIS XLS parsing/preview on an isolated SQLite database."""
+
+    @staticmethod
+    def fixture():
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        paid_services.init_schema(conn)
+        upload_reconcile.init_schema(conn)
+        conn.execute("CREATE TABLE report_data(date TEXT PRIMARY KEY, payload TEXT)")
+        conn.execute(
+            "INSERT INTO report_data VALUES (?,?)",
+            ("2026-09-30", json.dumps({
+                "cashTotal": 190000, "cashOOO": 120000, "cashIP": 70000,
+                "primary": 5, "repeat": 5,
+            })),
+        )
+        ident = SimpleNamespace(
+            DENTISTS={"Dent D.": "Dent Doctor"},
+            STRUCTURE_DOCTORS={"Struct S.": "Struct Doctor"},
+            LAB_DOCTORS={"Lab L.": "Lab Doctor"},
+            KNOWN_STAFF={"Dent D.", "Struct S.", "Lab L.",
+                         "Старшийадминистратор -."},
+        )
+        upload_reconcile.seed_defaults(conn, ident)
+        conn.commit()
+        return conn, ident
+
+    @staticmethod
+    def db_state(conn):
+        return conn.total_changes, tuple(conn.iterdump())
+
+    def invoke(self, operation, conn, ident, permissions, *,
+               filename="preview.xlsx", raw=None, decisions=None):
+        if raw is None:
+            raw = PaidServicesTests().reference_report()
+        data = {"paid_services": (io.BytesIO(raw), filename)}
+        if decisions is not None:
+            data["provider_decisions"] = json.dumps(decisions, ensure_ascii=False)
+        app = Flask("w04-paid-preview")
+        with app.test_request_context(
+            "/api/uploads/paid-services/" + operation,
+            method="POST", data=data, content_type="multipart/form-data",
+        ):
+            g.user = {"id": 42}
+            with (
+                patch.object(paid_services_upload, "db", return_value=conn),
+                patch.object(paid_services_upload, "user_permissions",
+                             return_value=set(permissions)),
+                patch.object(paid_services_upload, "ident_import", ident),
+                patch.object(paid_services_upload, "cash_payments",
+                             SimpleNamespace(configure_providers=lambda *a: None)),
+                patch.object(paid_services_upload, "audit", return_value=None),
+                patch.object(paid_services_upload, "iso_now",
+                             return_value="2026-10-10T12:00:00+00:00"),
+            ):
+                return getattr(paid_services_upload, "_" + operation)()
+
+    def test_w04_unknown_preview_is_no_write_without_replace_right(self):
+        conn, ident = self.fixture()
+        try:
+            original = self.db_state(conn)
+            response = self.invoke("preview", conn, ident, {"upload_services"})
+            self.assertEqual(response["status"], "preview")
+            self.assertEqual(response["unknown_providers"], ["Unknown U."])
+            self.assertTrue(response["requires_provider_mapping"])
+            self.assertFalse(response["can_replace"])
+            self.assertEqual(response["summary"]["paid"], 372)
+            self.assertEqual(self.db_state(conn), original)
+            self.assertEqual(upload_reconcile.pending_provider_rows(conn), [])
+        finally:
+            conn.close()
+
+    def test_w04_repeated_preview_cannot_overwrite_existing_pending(self):
+        conn, ident = self.fixture()
+        try:
+            upload_reconcile.record_pending_providers(
+                conn, ["Unknown U."], "original.xlsx", actor_id=7,
+            )
+            conn.commit()
+            original = self.db_state(conn)
+            for filename in ("newer.xlsx", "another.xlsx"):
+                response = self.invoke(
+                    "preview", conn, ident,
+                    {"upload_services", "upload_replace"}, filename=filename,
+                )
+                self.assertEqual(response["unknown_providers"], ["Unknown U."])
+                self.assertTrue(response["can_replace"])
+                self.assertEqual(self.db_state(conn), original)
+            pending = upload_reconcile.pending_provider_rows(conn)
+            self.assertEqual(len(pending), 1)
+            self.assertEqual(pending[0]["source_filename"], "original.xlsx")
+        finally:
+            conn.close()
+
+    def test_w04_preview_then_explicit_commit_resolves_without_pending(self):
+        conn, ident = self.fixture()
+        try:
+            original = self.db_state(conn)
+            preview = self.invoke(
+                "preview", conn, ident, {"upload_services", "upload_replace"},
+            )
+            self.assertTrue(preview["requires_provider_mapping"])
+            self.assertEqual(self.db_state(conn), original)
+            self.assertEqual(upload_reconcile.pending_provider_rows(conn), [])
+            result = self.invoke(
+                "commit", conn, ident, {"upload_services", "upload_replace"},
+                decisions={"Unknown U.": {
+                    "direction": "structure", "display_name": "Unknown U.",
+                }},
+            )
+            self.assertEqual(result["status"], "imported")
+            self.assertEqual(
+                conn.execute(
+                    "SELECT direction FROM provider_registry WHERE source_name=?",
+                    ("Unknown U.",),
+                ).fetchone()[0], "structure",
+            )
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM service_payment_snapshots").fetchone()[0],
+                1,
+            )
+            self.assertEqual(
+                json.loads(conn.execute(
+                    "SELECT payload FROM report_data WHERE date='2026-09-30'"
+                ).fetchone()[0]),
+                {"cashTotal": 190000, "cashOOO": 120000, "cashIP": 70000,
+                 "primary": 5, "repeat": 5},
+            )
+        finally:
+            conn.close()
+
+    def test_w04_commit_without_replace_permission_is_fail_closed(self):
+        conn, ident = self.fixture()
+        try:
+            original = self.db_state(conn)
+            with self.assertRaises(Forbidden):
+                self.invoke(
+                    "commit", conn, ident, {"upload_services"},
+                    decisions={"Unknown U.": "dent"},
+                )
+            self.assertEqual(self.db_state(conn), original)
+        finally:
+            conn.close()
+
+    def test_w04_bad_xls_preview_leaves_database_unchanged(self):
+        conn, ident = self.fixture()
+        try:
+            invalid = PaidServicesTests().workbook_bytes([
+                ["Итого", None, None, None, 0, 100, 90, 0],
+                ["Услуги", None, None, None, 0, 100, 90, 0],
+                ["Unknown U.", None, None, None, 0, 100, 90, 0],
+                ["Пациент", None, None, None, 0, 100, 90, 0],
+                ["Счет №1 от 30.09.2026", None, None, None, 0, 100, 90, 10],
+                ["Терапия", "30.09.2026", "Услуга", 1, 0, 100, 90, 10],
+            ])
+            original = self.db_state(conn)
+            with self.assertRaisesRegex(ValueError, "Нарушен баланс"):
+                self.invoke("preview", conn, ident, {"upload_services"},
+                            raw=invalid)
+            self.assertEqual(self.db_state(conn), original)
+        finally:
+            conn.close()
 
 
 if __name__ == "__main__":
