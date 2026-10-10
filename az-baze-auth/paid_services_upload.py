@@ -1,5 +1,6 @@
 import hashlib
 import json
+import sqlite3
 
 from flask import abort, g, jsonify, request
 
@@ -7,7 +8,17 @@ import cash_payments
 import ident_import
 import paid_services
 import upload_reconcile
-from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
+from app import DB_PATH, audit, db, iso_now, permission_required, require_csrf, user_permissions
+
+
+def bootstrap_schema():
+    """Prepare paid MIS storage during server startup, never in HTTP preview."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        paid_services.init_schema(conn)
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _file_from_request():
@@ -20,23 +31,25 @@ def _file_from_request():
     return file_storage.filename, raw
 
 
-def _ignored_provider_names(conn):
+def _ignored_provider_names(conn, *, ensure_schema=True):
     clinical = (
         set(ident_import.DENTISTS)
         | set(ident_import.STRUCTURE_DOCTORS)
         | set(ident_import.LAB_DOCTORS)
     )
     nonclinical_known = set(ident_import.KNOWN_STAFF) - clinical
-    return upload_reconcile.provider_names_by_direction(conn, "ignore") | nonclinical_known
+    return upload_reconcile.provider_names_by_direction(
+        conn, "ignore", ensure_schema=ensure_schema
+    ) | nonclinical_known
 
 
-def _summary(report, conn):
+def _summary(report, conn, *, ensure_schema=True):
     values = paid_services.direction_summary(
         report,
         ident_import.DENTISTS,
         ident_import.STRUCTURE_DOCTORS,
         ident_import.LAB_DOCTORS,
-        ignored=_ignored_provider_names(conn),
+        ignored=_ignored_provider_names(conn, ensure_schema=ensure_schema),
     )
     totals = report.get("totals") or {}
     return {
@@ -54,8 +67,15 @@ def _summary(report, conn):
     }
 
 
-def _existing_state(conn, report, source_sha):
-    paid_services.init_schema(conn)
+def _existing_state(conn, report, source_sha, *, read_only=False):
+    if read_only:
+        if not conn.execute(
+            "SELECT 1 FROM sqlite_master "
+            "WHERE type='table' AND name='service_payment_snapshots'"
+        ).fetchone():
+            return "new"
+    else:
+        paid_services.init_schema(conn)
     row = conn.execute(
         """
         SELECT payload_json,source_sha256
@@ -97,16 +117,19 @@ def _provider_decisions():
     return value
 
 
-def _prepare():
+def _prepare(*, read_only=False):
     perms = user_permissions(g.user)
     if "upload_services" not in perms:
         abort(403)
 
     filename, raw = _file_from_request()
     conn = db()
-    paid_services.init_schema(conn)
-    upload_reconcile.init_schema(conn)
-    upload_reconcile.refresh_runtime(conn, ident_import, cash_payments)
+    if not read_only:
+        paid_services.init_schema(conn)
+        upload_reconcile.init_schema(conn)
+    upload_reconcile.refresh_runtime(
+        conn, ident_import, cash_payments, ensure_schema=not read_only
+    )
 
     report = paid_services.parse_bytes(
         raw,
@@ -114,13 +137,15 @@ def _prepare():
         known_staff=ident_import.KNOWN_STAFF,
     )
     source_sha = hashlib.sha256(raw).hexdigest()
-    summary = _summary(report, conn)
-    state = _existing_state(conn, report, source_sha)
+    summary = _summary(report, conn, ensure_schema=not read_only)
+    state = _existing_state(conn, report, source_sha, read_only=read_only)
     return perms, conn, filename, raw, report, source_sha, summary, state
 
 
 def _preview():
-    perms, conn, filename, _raw, report, _source_sha, summary, state = _prepare()
+    perms, conn, filename, _raw, report, _source_sha, summary, state = _prepare(
+        read_only=True
+    )
     unknown = summary["unknown_providers"]
     # Preview must not persist pending providers; explicit commit resolves them.
     return {
