@@ -22,19 +22,18 @@
     </div>
   </div>
 
-  <div class="next-upload">
-    {% if next_required_date %}НУЖНО ЗАГРУЗИТЬ ДАННЫЕ С <strong>{{ next_required_date }}</strong>{% else %}ДАТА СЛЕДУЮЩЕЙ ЗАГРУЗКИ ПОКА НЕ ОПРЕДЕЛЕНА{% endif %}
-  </div>
-
-  <div class="status-line">
-    {% if latest %}Ежедневные данные загружены по <strong>{{ latest['data_date'] }}</strong>{% if latest['revision']|int > 1 %} · версия {{ latest['revision'] }}{% endif %}.{% else %}Отдельных ежедневных загрузок через этот раздел пока нет. Дата выше определяется по уже загруженной сводной базе.{% endif %}
-  </div>
-
-  <div class="independent-upload-grid">
+    <div class="independent-upload-grid">
   <form method="post" enctype="multipart/form-data" class="upload-box completed-upload-box" data-az-completed-upload-form>
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <h3>1. Завершённые приёмы</h3>
     <p>Независимая загрузка приёмов за один календарный месяц.</p>
+    <div class="status-line">
+      {% if completed_latest_date %}
+        Последняя подтверждённая дата завершённых приёмов: <strong>{{ completed_latest_date }}</strong>.
+      {% else %}
+        Дата подтверждённых завершённых приёмов пока не определена.
+      {% endif %}
+    </div>
     {% if 'upload_completed' in perms %}
       <input type="file" name="completed" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
       <button class="btn primary" type="submit" style="margin-top:12px">Загрузить приёмы</button>
@@ -48,7 +47,7 @@
     <p>Отдельный источник для проверки и хранения нового отчёта МИС. Не заменяет старую «Выручку по направлениям», клинический комплект и действующие показатели до отдельного решения.</p>
     <div class="status-line">
       {% if paid_services_latest_date %}
-        Новый отчёт МИС загружен по <strong>{{ paid_services_latest_date }}</strong>.
+        Последний сохранённый срез нового отчёта МИС: <strong>{{ paid_services_latest_date }}</strong> (отдельное хранение).
       {% else %}
         Новый отчёт МИС ещё не загружался.
       {% endif %}
@@ -65,10 +64,10 @@
     <h3>3. Счета и оплаты</h3>
     <p>Денежная выгрузка из МИС. Можно загружать большой период, в том числе с начала года.</p>
     <div class="status-line">
-      {% if cash_latest_date and cash_next_required_date %}
-        Счета и оплаты загружены по <strong>{{ cash_latest_date }}</strong>. Нужно загрузить с <strong>{{ cash_next_required_date }}</strong>.
+      {% if cash_latest_date %}
+        Последняя дата распознанных операций «Счета и оплаты»: <strong>{{ cash_latest_date }}</strong>.
       {% else %}
-        По счетам и оплатам дата последней загрузки пока не определена.
+        Дата распознанных операций «Счета и оплаты» пока не определена.
       {% endif %}
     </div>
     {% if 'upload_services' in perms %}
