@@ -1,9 +1,14 @@
 import json
 import os
+import re
 import sqlite3
 import unittest
 from types import SimpleNamespace
 from pathlib import Path
+from unittest.mock import patch
+
+from flask import Flask, g
+from jinja2 import Environment
 
 os.environ.setdefault("AZBAZE_SECRET_KEY", "test-secret")
 os.environ.setdefault("AZBAZE_DB", "/tmp/az-upload-reconcile-tests.db")
@@ -311,6 +316,175 @@ class UploadReconcileTests(unittest.TestCase):
         bad["cashUnallocated"] = 250
         with self.assertRaisesRegex(ValueError, "Нарушен баланс"):
             upload_reconcile.assert_cash_reconciliation(bad)
+
+
+class W01IndependentUploadStatusesTests(unittest.TestCase):
+    """Source-specific dates must not imply all three MIS uploads are complete."""
+
+    @staticmethod
+    def conn():
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute(
+            "CREATE TABLE daily_uploads("
+            "data_date TEXT PRIMARY KEY, normalized_json TEXT NOT NULL)"
+        )
+        return conn
+
+    @staticmethod
+    def add(conn, date, normalized):
+        payload = normalized if isinstance(normalized, str) else json.dumps(
+            normalized, ensure_ascii=False
+        )
+        conn.execute(
+            "INSERT INTO daily_uploads(data_date,normalized_json) VALUES(?,?)",
+            (date, payload),
+        )
+
+    @staticmethod
+    def source_cards():
+        html = (Path(__file__).parent / "templates" / "uploads.html").read_text(
+            encoding="utf-8"
+        )
+        forms = {
+            key: html.split(marker, 1)[1].split("</form>", 1)[0]
+            for key, marker in (
+                ("completed", "data-az-completed-upload-form"),
+                ("paid", "data-az-paid-upload-form"),
+                ("cash", "data-az-cash-upload-form"),
+            )
+        }
+        statuses = {}
+        for key, source in forms.items():
+            match = re.search(
+                r'<div class="status-line">.*?</div>', source, flags=re.DOTALL
+            )
+            if match is None:
+                raise AssertionError(f"No source-specific status for {key}")
+            statuses[key] = Environment(autoescape=True).from_string(
+                match.group(0)
+            )
+        return html, statuses
+
+    def test_w01_latest_completed_skips_service_only_and_invalid_rows(self):
+        conn = self.conn()
+        try:
+            self.add(conn, "2026-10-07", {
+                "overall": {"2026-10-07": {"Первичные": 5, "Повторные": 5}},
+                "visits": [{"date": "2026-10-07", "kind": "Первичные"}],
+            })
+            # Old paired upload: 08 October has services but no completed source.
+            self.add(conn, "2026-10-08", {
+                "overall": {"2026-10-08": {}},
+                "visits": [],
+                "items": [{"date": "2026-10-08", "amount": 800}],
+            })
+            self.add(conn, "2026-10-09", "{broken-json")
+            self.assertEqual(
+                daily_upload._latest_confirmed_completed_date(conn), "2026-10-07"
+            )
+            # A legitimate completed export may explicitly confirm zero visits.
+            self.add(conn, "2026-10-10", {
+                "overall": {"2026-10-10": {"Первичные": 0, "Повторные": 0}},
+                "visits": [],
+            })
+            self.assertEqual(
+                daily_upload._latest_confirmed_completed_date(conn), "2026-10-10"
+            )
+            self.add(conn, "2026-10-11", {
+                "overall": {}, "visits": [{"date": "2026-10-11", "kind": "Повторные"}],
+            })
+            self.assertEqual(
+                daily_upload._latest_confirmed_completed_date(conn), "2026-10-11"
+            )
+        finally:
+            conn.close()
+
+    def test_w01_no_completed_source_never_uses_legacy_service_checkpoint(self):
+        conn = self.conn()
+        try:
+            self.assertIsNone(daily_upload._latest_confirmed_completed_date(conn))
+            self.add(conn, "2026-09-30", {
+                "overall": {"2026-09-30": {}},
+                "items": [{"date": "2026-09-30", "amount": 300}],
+                "visits": [],
+            })
+            self.assertIsNone(daily_upload._latest_confirmed_completed_date(conn))
+            self.assertNotIn(
+                "_service_through",
+                daily_upload._latest_confirmed_completed_date.__code__.co_names,
+            )
+        finally:
+            conn.close()
+
+    def test_w01_uploads_page_provides_three_independent_source_dates(self):
+        conn = self.conn()
+        try:
+            self.add(conn, "2026-10-07", {
+                "overall": {"2026-10-07": {"Первичные": 5}}, "visits": [],
+            })
+            self.add(conn, "2026-10-10", {
+                "overall": {"2026-10-10": {}}, "items": [{"amount": 10}],
+            })
+            app = Flask("w01-source-status-fixture")
+            # Registration must not create real local upload DB tables.
+            with (
+                patch.object(daily_upload.core, "_init_schema", return_value=None),
+                patch.object(daily_upload, "permission_required",
+                             side_effect=lambda _key: lambda func: func),
+            ):
+                daily_upload.register_daily_upload(app)
+            with app.test_request_context("/uploads/", method="GET"):
+                g.user = {"id": 42}
+                with (
+                    patch.object(daily_upload, "user_permissions",
+                                 return_value={"upload_completed", "upload_services"}),
+                    patch.object(daily_upload.core, "db", return_value=conn),
+                    patch.object(daily_upload.cash_payments, "latest_loaded_date",
+                                 return_value="2026-10-04"),
+                    patch.object(daily_upload.paid_services, "latest_loaded_date",
+                                 return_value="2026-09-30"),
+                    patch.object(daily_upload.upload_reconcile, "pending_provider_rows",
+                                 return_value=[]),
+                    patch.object(daily_upload, "csrf_token", return_value="fixture"),
+                    patch.object(daily_upload, "render_template",
+                                 side_effect=lambda _name, **kwargs: kwargs),
+                ):
+                    status = app.view_functions["uploads_page"]()
+            self.assertEqual(status["completed_latest_date"], "07.10.2026")
+            self.assertEqual(status["cash_latest_date"], "04.10.2026")
+            self.assertEqual(status["paid_services_latest_date"], "30.09.2026")
+            self.assertNotIn("next_required_date", status)
+            self.assertNotIn("cash_next_required_date", status)
+            self.assertNotIn("latest", status)
+        finally:
+            conn.close()
+
+    def test_w01_cards_render_distinct_dates_without_fake_next_upload(self):
+        html, status_templates = self.source_cards()
+        self.assertEqual(html.count('class="status-line"'), 3)
+        self.assertNotIn("НУЖНО ЗАГРУЗИТЬ ДАННЫЕ С", html)
+        self.assertNotIn("cash_next_required_date", html)
+        self.assertNotIn("next_required_date", html)
+        self.assertIn("Прежняя парная загрузка", html)
+        self.assertIn("2. Выручка по направлениям (новый оплаты)", html)
+        values = {
+            "completed_latest_date": "07.10.2026",
+            "paid_services_latest_date": "30.09.2026",
+            "cash_latest_date": "04.10.2026",
+        }
+        for key, date in (("completed", "07.10.2026"),
+                          ("paid", "30.09.2026"), ("cash", "04.10.2026")):
+            rendered = status_templates[key].render(**values)
+            self.assertIn(date, rendered)
+            self.assertEqual(sum(mark in rendered for mark in values.values()), 1)
+            self.assertNotIn("Нужно загрузить с", rendered)
+        self.assertIn("последняя", status_templates["cash"].render(**values).lower())
+        self.assertIn("срез", status_templates["paid"].render(**values))
+        blank = {key: None for key in values}
+        self.assertIn("пока не определена", status_templates["completed"].render(**blank))
+        self.assertIn("ещё не загружался", status_templates["paid"].render(**blank))
+        self.assertIn("пока не определена", status_templates["cash"].render(**blank))
 
 
 if __name__ == "__main__":
