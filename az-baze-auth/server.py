@@ -58,6 +58,9 @@ daily_upload.user_permissions = _user_permissions_with_upload_section
 # They are loaded before upload routes so clinical and cash attribution share one registry.
 upload_reconcile.bootstrap_runtime(ident_import, cash_upload.cash_payments)
 
+# Ensure the new MIS snapshot tables exist before any paid-services preview.
+paid_services_upload.bootstrap_schema()
+
 # One upload-integrity contract is installed before any upload routes are
 # registered. Future upload handlers must reuse the same contract rather than
 # rebuilding report payloads independently.
