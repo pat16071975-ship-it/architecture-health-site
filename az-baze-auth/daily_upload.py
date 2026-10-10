@@ -423,6 +423,10 @@ def _split_period(overall, visits, items, lab_invoices):
 
 def _latest_confirmed_completed_date(conn):
     """Last completed-visits source date, not the latest services-only day."""
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_uploads'"
+    ).fetchone():
+        return None
     for row in conn.execute(
         "SELECT data_date,normalized_json FROM daily_uploads ORDER BY data_date DESC"
     ):
@@ -1116,8 +1120,8 @@ def register_daily_upload(app):
 
         conn = core.db()
         completed_latest = _latest_confirmed_completed_date(conn)
-        cash_latest = cash_payments.latest_loaded_date(conn)
-        paid_latest = paid_services.latest_loaded_date(conn)
+        cash_latest = cash_payments.latest_loaded_date(conn, ensure_schema=False)
+        paid_latest = paid_services.latest_loaded_date(conn, ensure_schema=False)
         return render_template(
             "uploads.html",
             csrf=csrf_token(),
@@ -1128,7 +1132,9 @@ def register_daily_upload(app):
             cash_latest_date=_format_date(cash_latest) if cash_latest else None,
             paid_services_latest_date=_format_date(paid_latest) if paid_latest else None,
             history=core._history() if "upload_history" in perms else [],
-            pending_providers=upload_reconcile.pending_provider_rows(conn),
+            pending_providers=upload_reconcile.pending_provider_rows(
+                conn, ensure_schema=False
+            ),
             can_daily=("upload_completed" in perms and "upload_services" in perms),
             can_replace=("upload_replace" in perms),
         )
