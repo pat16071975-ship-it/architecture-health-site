@@ -52,8 +52,14 @@ def init_schema(conn):
     conn.executescript(CASH_SCHEMA)
 
 
-def latest_loaded_date(conn):
-    init_schema(conn)
+def latest_loaded_date(conn, *, ensure_schema=True):
+    if ensure_schema:
+        init_schema(conn)
+    elif not conn.execute(
+        "SELECT 1 FROM sqlite_master "
+        "WHERE type='table' AND name='cash_receipts_daily'"
+    ).fetchone():
+        return None
     row = conn.execute(
         "SELECT MAX(data_date) AS data_date FROM cash_receipts_daily"
     ).fetchone()
