@@ -1,7 +1,9 @@
 import io
 import json
 import sqlite3
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -294,19 +296,20 @@ class W04PaidServicesPreviewNoWriteTests(unittest.TestCase):
     """Exercise real MIS XLS parsing/preview on an isolated SQLite database."""
 
     @staticmethod
-    def fixture():
+    def fixture(*, initialized=True):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
-        paid_services.init_schema(conn)
-        upload_reconcile.init_schema(conn)
-        conn.execute("CREATE TABLE report_data(date TEXT PRIMARY KEY, payload TEXT)")
-        conn.execute(
-            "INSERT INTO report_data VALUES (?,?)",
-            ("2026-09-30", json.dumps({
-                "cashTotal": 190000, "cashOOO": 120000, "cashIP": 70000,
-                "primary": 5, "repeat": 5,
-            })),
-        )
+        if initialized:
+            paid_services.init_schema(conn)
+            upload_reconcile.init_schema(conn)
+            conn.execute("CREATE TABLE report_data(date TEXT PRIMARY KEY, payload TEXT)")
+            conn.execute(
+                "INSERT INTO report_data VALUES (?,?)",
+                ("2026-09-30", json.dumps({
+                    "cashTotal": 190000, "cashOOO": 120000, "cashIP": 70000,
+                    "primary": 5, "repeat": 5,
+                })),
+            )
         ident = SimpleNamespace(
             DENTISTS={"Dent D.": "Dent Doctor"},
             STRUCTURE_DOCTORS={"Struct S.": "Struct Doctor"},
@@ -314,8 +317,9 @@ class W04PaidServicesPreviewNoWriteTests(unittest.TestCase):
             KNOWN_STAFF={"Dent D.", "Struct S.", "Lab L.",
                          "Старшийадминистратор -."},
         )
-        upload_reconcile.seed_defaults(conn, ident)
-        conn.commit()
+        if initialized:
+            upload_reconcile.seed_defaults(conn, ident)
+            conn.commit()
         return conn, ident
 
     @staticmethod
@@ -453,6 +457,110 @@ class W04PaidServicesPreviewNoWriteTests(unittest.TestCase):
             self.assertEqual(self.db_state(conn), original)
         finally:
             conn.close()
+
+
+    def test_w04_b01_first_preview_on_clean_schema_never_executes_ddl(self):
+        conn, ident = self.fixture(initialized=False)
+        try:
+            before = self.db_state(conn)
+            version_before = conn.execute("PRAGMA schema_version").fetchone()[0]
+            sql_trace = []
+            conn.set_trace_callback(sql_trace.append)
+            result = self.invoke("preview", conn, ident, {"upload_services"})
+            conn.set_trace_callback(None)
+            self.assertEqual(result["status"], "preview")
+            self.assertEqual(result["counts"]["new"], 1)
+            self.assertEqual(result["unknown_providers"], ["Unknown U."])
+            self.assertEqual(self.db_state(conn), before)
+            self.assertEqual(
+                conn.execute("PRAGMA schema_version").fetchone()[0],
+                version_before,
+            )
+            self.assertFalse([
+                sql for sql in sql_trace
+                if sql.lstrip().split(None, 1)[0].upper()
+                in {"CREATE", "INSERT", "UPDATE", "DELETE", "ALTER", "DROP", "REPLACE"}
+            ])
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM sqlite_master").fetchone()[0], 0,
+            )
+        finally:
+            conn.close()
+
+    def test_w04_b01_bad_xlsx_first_preview_keeps_schema_empty(self):
+        conn, ident = self.fixture(initialized=False)
+        try:
+            invalid = PaidServicesTests().workbook_bytes([
+                ["Итого", None, None, None, 0, 100, 90, 0],
+                ["Услуги", None, None, None, 0, 100, 90, 0],
+                ["Unknown U.", None, None, None, 0, 100, 90, 0],
+                ["Пациент", None, None, None, 0, 100, 90, 0],
+                ["Счет №1 от 30.09.2026", None, None, None, 0, 100, 90, 10],
+                ["Терапия", "30.09.2026", "Услуга", 1, 0, 100, 90, 10],
+            ])
+            before = self.db_state(conn)
+            schema_before = conn.execute("PRAGMA schema_version").fetchone()[0]
+            with self.assertRaisesRegex(ValueError, "Нарушен баланс"):
+                self.invoke(
+                    "preview", conn, ident, {"upload_services"}, raw=invalid,
+                )
+            self.assertEqual(self.db_state(conn), before)
+            self.assertEqual(
+                conn.execute("PRAGMA schema_version").fetchone()[0],
+                schema_before,
+            )
+        finally:
+            conn.close()
+
+    def test_w04_b01_partial_schema_does_not_recreate_missing_paid_tables(self):
+        conn, ident = self.fixture()
+        try:
+            conn.execute("DROP TABLE service_payment_snapshots")
+            conn.execute("DROP TABLE service_payment_versions")
+            conn.commit()
+            before = self.db_state(conn)
+            schema_before = conn.execute("PRAGMA schema_version").fetchone()[0]
+            result = self.invoke(
+                "preview", conn, ident, {"upload_services", "upload_replace"},
+            )
+            self.assertEqual(result["counts"]["new"], 1)
+            self.assertEqual(result["unknown_providers"], ["Unknown U."])
+            self.assertEqual(self.db_state(conn), before)
+            self.assertEqual(
+                conn.execute("PRAGMA schema_version").fetchone()[0],
+                schema_before,
+            )
+            self.assertIsNone(conn.execute(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type='table' AND name='service_payment_snapshots'"
+            ).fetchone())
+        finally:
+            conn.close()
+
+    def test_w04_b01_startup_initializes_paid_schema_before_readonly_preview(self):
+        server_source = (Path(__file__).parent / "server.py").read_text(encoding="utf-8")
+        self.assertIn("paid_services_upload.bootstrap_schema()", server_source)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "startup.db"
+            with patch.object(paid_services_upload, "DB_PATH", path):
+                paid_services_upload.bootstrap_schema()
+            conn = sqlite3.connect("file:" + path.as_posix() + "?mode=ro", uri=True)
+            conn.row_factory = sqlite3.Row
+            unused, ident = self.fixture(initialized=False)
+            unused.close()
+            try:
+                for table in ("service_payment_snapshots", "service_payment_versions"):
+                    self.assertIsNotNone(conn.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+                        (table,),
+                    ).fetchone())
+                before = self.db_state(conn)
+                result = self.invoke("preview", conn, ident, {"upload_services"})
+                self.assertEqual(result["status"], "preview")
+                self.assertEqual(result["unknown_providers"], ["Unknown U."])
+                self.assertEqual(self.db_state(conn), before)
+            finally:
+                conn.close()
 
 
 if __name__ == "__main__":
