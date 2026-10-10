@@ -215,6 +215,18 @@ def daily_delta(core, normalized):
 
     primary = dent_primary + structure_primary
     repeat = dent_repeat + structure_repeat
+    # W03-R01: only ambiguity explicitly observed by the paired upload may
+    # augment the overall source totals. Other unmatched historical visits
+    # retain the original conservative attribution rule.
+    w03 = normalized.get("_w03Unassigned") or {}
+    if not isinstance(w03, dict):
+        w03 = {}
+    w03_primary = min(
+        max(0, _int(w03.get("primary"))), max(0, source_primary - primary)
+    )
+    w03_repeat = min(
+        max(0, _int(w03.get("repeat"))), max(0, source_repeat - repeat)
+    )
     lab_orders = len({
         (str(invoice), str(day))
         for invoice, day in lab_invoices
@@ -245,6 +257,8 @@ def daily_delta(core, normalized):
         "labRevenue": round(lab_revenue, 2),
         "sourcePrimary": source_primary,
         "sourceRepeat": source_repeat,
+        "w03UnassignedPrimary": w03_primary,
+        "w03UnassignedRepeat": w03_repeat,
         "unassignedPrimary": max(0, source_primary - primary),
         "unassignedRepeat": max(0, source_repeat - repeat),
     }
@@ -340,6 +354,8 @@ def rebuild_management(core, month, source):
         "labRevenue": _float(baseline.get("labRevenue") or baseline.get("factLab")),
         "sourcePrimary": _int(baseline_control.get("sourcePrimary", baseline.get("primary"))),
         "sourceRepeat": _int(baseline_control.get("sourceRepeat", baseline.get("repeat"))),
+        "w03UnassignedPrimary": _int(baseline_control.get("w03UnassignedPrimary")),
+        "w03UnassignedRepeat": _int(baseline_control.get("w03UnassignedRepeat")),
         "unassignedPrimary": _int(baseline_control.get("unassignedPrimary")),
         "unassignedRepeat": _int(baseline_control.get("unassignedRepeat")),
     }
@@ -364,6 +380,8 @@ def rebuild_management(core, month, source):
             "labRevenue",
             "sourcePrimary",
             "sourceRepeat",
+            "w03UnassignedPrimary",
+            "w03UnassignedRepeat",
             "unassignedPrimary",
             "unassignedRepeat",
         ):
@@ -372,8 +390,17 @@ def rebuild_management(core, month, source):
         current["discountDataComplete"] = bool(
             current["discountDataComplete"] and delta["discountDataComplete"]
         )
-        current["primary"] = current["dentPrimary"] + current["clinicPrimary"]
-        current["repeat"] = current["dentRepeat"] + current["clinicRepeat"]
+        # The displayed overall count includes the narrowly verified W03
+        # unassigned cases; direction totals remain unchanged. Do NOT add
+        # every generic source/department gap or overwrite historic reports.
+        current["primary"] = (
+            current["dentPrimary"] + current["clinicPrimary"]
+            + current["w03UnassignedPrimary"]
+        )
+        current["repeat"] = (
+            current["dentRepeat"] + current["clinicRepeat"]
+            + current["w03UnassignedRepeat"]
+        )
 
         for name, value in delta["dentists"].items():
             current["dentists"][name] = current["dentists"].get(name, 0) + value
@@ -417,6 +444,8 @@ def rebuild_management(core, month, source):
             "_uploadControl": {
                 "sourcePrimary": current["sourcePrimary"],
                 "sourceRepeat": current["sourceRepeat"],
+                "w03UnassignedPrimary": current["w03UnassignedPrimary"],
+                "w03UnassignedRepeat": current["w03UnassignedRepeat"],
                 "reportedPrimary": current["primary"],
                 "reportedRepeat": current["repeat"],
                 "unassignedPrimary": current["unassignedPrimary"],

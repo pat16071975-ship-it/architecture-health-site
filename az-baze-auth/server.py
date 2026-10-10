@@ -9,6 +9,7 @@ import attention
 import credentials_store
 import clinic_structure_settings
 import daily_upload
+import completed_upload
 import cash_upload
 import paid_services_upload
 import economics_control
@@ -57,6 +58,9 @@ daily_upload.user_permissions = _user_permissions_with_upload_section
 # They are loaded before upload routes so clinical and cash attribution share one registry.
 upload_reconcile.bootstrap_runtime(ident_import, cash_upload.cash_payments)
 
+# Ensure the new MIS snapshot tables exist before any paid-services preview.
+paid_services_upload.bootstrap_schema()
+
 # One upload-integrity contract is installed before any upload routes are
 # registered. Future upload handlers must reuse the same contract rather than
 # rebuilding report payloads independently.
@@ -70,6 +74,7 @@ ident_import.register_ident_import(app)
 finrez.register_finrez(app)
 economics_control.register_economics_control(app)
 daily_upload.register_daily_upload(app)
+completed_upload.register_completed_upload(app)
 cash_upload.register_cash_upload(app)
 paid_services_upload.register_paid_services_upload(app)
 credentials_store.register_credentials(app)

@@ -90,9 +90,18 @@ def seed_defaults(conn, ident_import):
     _seed_mapping(conn, ident_import.LAB_DOCTORS, "lab")
 
 
-def refresh_runtime(conn, ident_import, cash_payments=None):
+def _provider_registry_exists(conn):
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='provider_registry'"
+    ).fetchone() is not None
+
+
+def refresh_runtime(conn, ident_import, cash_payments=None, *, ensure_schema=True):
     """Apply persistent provider decisions to the in-process IDENT maps."""
-    init_schema(conn)
+    if ensure_schema:
+        init_schema(conn)
+    elif not _provider_registry_exists(conn):
+        return
     rows = conn.execute(
         """
         SELECT source_name,display_name,direction
@@ -139,8 +148,11 @@ def bootstrap_runtime(ident_import, cash_payments=None):
         conn.close()
 
 
-def pending_provider_rows(conn):
-    init_schema(conn)
+def pending_provider_rows(conn, *, ensure_schema=True):
+    if ensure_schema:
+        init_schema(conn)
+    elif not _provider_registry_exists(conn):
+        return []
     rows = conn.execute(
         """
         SELECT source_name,display_name,source_filename,first_seen_at,last_seen_at
@@ -186,10 +198,13 @@ def provider_maps(conn):
     return result
 
 
-def provider_names_by_direction(conn, direction):
-    init_schema(conn)
+def provider_names_by_direction(conn, direction, *, ensure_schema=True):
     if direction not in DIRECTIONS:
         raise ValueError("Недопустимое направление сотрудника.")
+    if ensure_schema:
+        init_schema(conn)
+    elif not _provider_registry_exists(conn):
+        return set()
     return {
         str(row[0])
         for row in conn.execute(

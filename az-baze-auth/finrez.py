@@ -10,6 +10,7 @@ from pathlib import Path
 from flask import Response, jsonify
 
 from app import SITE_ROOT, csrf_token, db, permission_required
+import management_view
 
 FINREZ_DATA_PATH = Path(os.environ.get("AZ_FINREZ_DATA_PATH", "/var/lib/az-baze/finrez-data.enc"))
 FINREZ_KEY_PATH = Path(os.environ.get("AZ_FINREZ_KEY_PATH", "/var/lib/az-baze/finrez.key"))
@@ -84,21 +85,24 @@ def _monthly_plans():
 
 def _management_months():
     rows = db().execute("SELECT date, payload FROM report_data ORDER BY date").fetchall()
-    latest = {}
+    raw = {}
     for row in rows:
         date = str(row["date"] or "")
-        if len(date) < 7:
+        if len(date) != 10:
             continue
-        month = date[:7]
         try:
             record = json.loads(row["payload"])
         except (TypeError, ValueError):
             continue
-        if not isinstance(record, dict):
-            continue
-        current = latest.get(month)
-        if current is None or date > current["date"]:
-            latest[month] = {"date": date, "record": record}
+        if isinstance(record, dict):
+            raw[date] = record
+    # Same read-only source-as-of projection as Dashboard/management periods.
+    # Stored cash-only rows remain untouched.
+    projected = management_view.project_for_reports(raw)
+    latest = {}
+    for date, record in projected.items():
+        month = date[:7]
+        latest[month] = {"date": date, "record": record}
     result = {}
     for month, entry in latest.items():
         record = entry["record"]
@@ -106,6 +110,9 @@ def _management_months():
         structure_doctors = record.get("clinicDocs")
         result[month] = {
             "date": entry["date"],
+            "clinicalAsOf": record.get("_clinicalAsOf", ""),
+            "cashAsOf": record.get("_cashAsOf", ""),
+            "serviceAsOf": record.get("_serviceAsOf", ""),
             "plan": record.get("plan", ""),
             "factMedicine": record.get("factMedicine", 0),
             "factLab": record.get("factLab", record.get("labRevenue", 0)),
