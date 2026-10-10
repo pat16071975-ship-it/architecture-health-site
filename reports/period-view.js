@@ -252,7 +252,7 @@
     tbody.appendChild(tr);
   }
   function renderDateComparison(){
-    const date=document.getElementById('reportDate').value;if(!date)return;const base=new Date(date+'T12:00:00'),year=base.getFullYear(),day=base.getDate(),selectedMonth=base.getMonth()+1,range=document.getElementById('compareRange').value,store=loadStore();
+    const date=document.getElementById('reportDate').value;if(!date)return;const base=new Date(date+'T12:00:00'),year=base.getFullYear(),day=base.getDate(),selectedMonth=base.getMonth()+1,range=document.getElementById('compareRange').value,store=(typeof MANAGEMENT_VIEW!=='undefined'&&MANAGEMENT_VIEW)?MANAGEMENT_VIEW:loadStore();
     const months=compareMonths(range,selectedMonth).map(month=>{const target=clampDate(year,month,day),r=store[target]||null;return {month,target,r,d:r?derive(r):null}});
     const head=document.getElementById('dateCompareHead'),tbody=document.getElementById('dateCompareBody'),note=document.getElementById('dateSummaryNote');if(!head||!tbody)return;
     document.getElementById('dateCompareTitle').textContent=`На ${day} число по месяцам ${year}`;document.getElementById('dateCompareHint').textContent='Если такого числа в месяце нет, используется последний календарный день месяца.';
