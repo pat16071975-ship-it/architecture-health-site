@@ -148,8 +148,11 @@ def bootstrap_runtime(ident_import, cash_payments=None):
         conn.close()
 
 
-def pending_provider_rows(conn):
-    init_schema(conn)
+def pending_provider_rows(conn, *, ensure_schema=True):
+    if ensure_schema:
+        init_schema(conn)
+    elif not _provider_registry_exists(conn):
+        return []
     rows = conn.execute(
         """
         SELECT source_name,display_name,source_filename,first_seen_at,last_seen_at
