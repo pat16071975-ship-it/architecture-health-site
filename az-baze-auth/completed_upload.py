@@ -2,6 +2,7 @@ import hashlib
 import json
 import sqlite3
 import copy
+from datetime import date
 from flask import abort, g, jsonify, request
 
 import cash_payments
@@ -554,6 +555,85 @@ def _guard_future_clinical_dates(conn, changed_dates):
             )
 
 
+
+def _service_source_as_of(conn, data_date):
+    """Return a verified service-source date, never a completed-visit date.
+
+    A paired daily row is evidence for its own date only when the uploaded
+    services file actually contains services/laboratory source entries for
+    that day. A legacy full IDENT revenue import has its own explicit
+    service-through provenance in the saved analytics blob. The newer MIS
+    paid-services snapshot is deliberately NOT an active service source.
+    """
+    month = data_date[:7]
+
+    def eligible(value):
+        raw = str(value or "")
+        if len(raw) != 10 or raw[:7] != month or raw > data_date:
+            return False
+        try:
+            return date.fromisoformat(raw).isoformat() == raw
+        except ValueError:
+            return False
+
+    confirmed = []
+    paired_rows_seen = False
+    rows = conn.execute(
+        "SELECT data_date,services_filename,services_sha256,normalized_json "
+        "FROM daily_uploads WHERE substr(data_date,1,7)=? AND data_date<=?",
+        (month, data_date),
+    ).fetchall()
+    for row in rows:
+        source_day = str(row["data_date"])
+        if not (row["services_filename"] and row["services_sha256"]):
+            continue
+        paired_rows_seen = True
+        try:
+            normalized = json.loads(row["normalized_json"])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(normalized, dict):
+            continue
+        service_items = normalized.get("items") or []
+        laboratory = normalized.get("lab_invoices") or []
+        has_items = isinstance(service_items, list) and any(
+            isinstance(item, dict) and str(item.get("date") or "") == source_day
+            for item in service_items
+        )
+        has_laboratory = isinstance(laboratory, list) and any(
+            isinstance(invoice, (list, tuple)) and len(invoice) >= 2
+            and str(invoice[1]) == source_day
+            for invoice in laboratory
+        )
+        if eligible(source_day) and (has_items or has_laboratory):
+            confirmed.append(source_day)
+
+    blob_row = conn.execute(
+        "SELECT payload FROM report_blobs WHERE key=?",
+        ("az-service-analytics-v1",),
+    ).fetchone()
+    if blob_row:
+        try:
+            analytics = json.loads(blob_row["payload"])
+        except (TypeError, ValueError):
+            analytics = None
+        if isinstance(analytics, dict):
+            through = core._service_through(analytics)
+            origin = str(analytics.get("source") or "")
+            # Full IDENT revenue exports use a genuine service-through
+            # checkpoint. Paired daily imports can advance the blob's id to
+            # a later COMPLETED-only date, so their blob cutoff is not proof.
+            if eligible(through) and (
+                origin.startswith("IDENT revenue export through ")
+                or (not paired_rows_seen and (
+                    "directions" in analytics or "months" in analytics
+                ))
+            ):
+                confirmed.append(str(through))
+
+    return max(confirmed) if confirmed else ""
+
+
 def _completed_source_day(conn, data_date, source):
     """Append one completed-only day onto the last authoritative clinical MTD.
 
@@ -638,10 +718,9 @@ def _completed_source_day(conn, data_date, source):
     base["_source"] = source
     base["_aggregation"] = "month_to_date"
     base["_clinicalAsOf"] = data_date
-    base["_serviceAsOf"] = (
-        str(earlier.get("_serviceAsOf") or earlier_date or "")
-        if earlier_date else str(current.get("_serviceAsOf") or "")
-    )
+    # W06: a previous clinical checkpoint is NOT proof of a service upload.
+    # Revalidate source provenance; old explicit markers may already be wrong.
+    base["_serviceAsOf"] = _service_source_as_of(conn, data_date)
     if base.get("_cash_rule") == "positive-receipts-only-v1":
         base["_cashAsOf"] = str(
             current.get("_cashAsOf") or
