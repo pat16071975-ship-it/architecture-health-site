@@ -831,8 +831,14 @@ def overlay_record_map(conn, month, records, dentists, structure_doctors, lab_do
     return records
 
 
-def latest_loaded_date(conn):
-    init_schema(conn)
+def latest_loaded_date(conn, *, ensure_schema=True):
+    if ensure_schema:
+        init_schema(conn)
+    elif not conn.execute(
+        "SELECT 1 FROM sqlite_master "
+        "WHERE type='table' AND name='service_payment_snapshots'"
+    ).fetchone():
+        return None
     row = conn.execute(
         "SELECT MAX(as_of_date) FROM service_payment_snapshots"
     ).fetchone()
