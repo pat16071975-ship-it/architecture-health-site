@@ -210,11 +210,37 @@
     updateEntryReconcile();overlay.classList.remove('hidden');document.body.style.overflow='hidden';
   }
   function closeEntry(){overlay.classList.add('hidden');document.body.style.overflow=''}
-  function saveEntry(){
+  async function saveEntry(){
     const date=document.getElementById('entryDate').value;if(!date)return;
+    const button=document.getElementById('entrySave');if(button?.disabled)return;
     const store=loadStore(),existing=store[date]||blankRecord(date),r={...existing,date};
     document.querySelectorAll('[data-entry-key]').forEach(i=>r[i.dataset.entryKey]=i.value.trim());
     r._doctorRevenueMismatch=false;r._doctorRevenueDelta=0;r._doctorRevenueTotal=0;
+    // In AZ-BAZE server mode, only the authorized PUT with CSRF persists an
+    // entry. Never report success or mutate the local source before it returns.
+    if(typeof reportApi==='function'&&typeof loadServerStore==='function'){
+      if(button)button.disabled=true;
+      try{
+        const result=await reportApi('/api/reports/data/'+encodeURIComponent(date),{method:'PUT',body:JSON.stringify(r)});
+        if(!result?.ok||!result.record)throw new Error('Сервер не подтвердил сохранение записи');
+        store[date]=result.record;saveStore(store);
+        let refreshFailed=false;
+        try{await loadServerStore()}catch(error){refreshFailed=true;console.error(error)}
+        const saved=(refreshFailed?result.record:loadStore()[date])||result.record;
+        document.getElementById('reportDate').value=date;fillRecord(saved);renderMismatchNote(saved);
+        document.getElementById('status').textContent=refreshFailed
+          ?'Сохранено на сервере, но не удалось обновить данные. Обновите страницу.'
+          :'Сохранено на сервере: '+new Date(date+'T12:00:00').toLocaleString('ru-RU');
+        closeEntry();
+        if(!refreshFailed&&document.getElementById('dateViewMode').value==='compare')renderDateComparison();
+      }catch(error){
+        console.error(error);
+        document.getElementById('status').textContent='Не удалось сохранить данные на сервере';
+        alert('Не удалось сохранить данные. Попробуйте ещё раз.');
+      }finally{if(button)button.disabled=false}
+      return;
+    }
+    // Preserve the original standalone/offline page behavior.
     store[date]=r;saveStore(store);document.getElementById('reportDate').value=date;fillRecord(r);renderMismatchNote(r);document.getElementById('status').textContent='Сохранено в этом браузере: '+new Date(date+'T12:00:00').toLocaleString('ru-RU');closeEntry();if(document.getElementById('dateViewMode').value==='compare')renderDateComparison();
   }
   function renderMismatchNote(_r){
