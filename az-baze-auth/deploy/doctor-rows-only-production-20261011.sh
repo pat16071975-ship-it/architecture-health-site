@@ -114,7 +114,7 @@ verify_target_contract() {
   grep -Fq 'doctorPeriodPaid(rows' "$STAGE/report/period-view.js"
   grep -Fq 'window.azDoctorHasPaidForDate' "$STAGE/report/period-view.js"
   grep -Fq 'period-view.js?v=20261011-doctors-1' "$STAGE/report/index.html"
-  grep -Fq 'addMetric(tbody,\x27Факт\x27' "$STAGE/report/period-view.js"
+  grep -Fq "addMetric(tbody,'Факт'" "$STAGE/report/period-view.js"
   echo "DOCTOR_ONLY_TARGET_CONTRACT=PASS"
 }
 
