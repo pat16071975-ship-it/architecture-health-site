@@ -310,7 +310,7 @@ function clinicBase(m){const r=rec(m),legacy=num(r.factMedicine)+num(r.factLab),
 
 function monthEndISO(m){const [y,mo]=String(m).split('-').map(Number);if(!y||!mo)return'';const d=new Date(Date.UTC(y,mo,0));return d.toISOString().slice(0,10)}
 function monthStartISO(m){return String(m||'')+'-01'}
-function fullMonth(m){const d=String(rec(m).date||'').slice(0,10);return !!d&&d>=monthEndISO(m)}
+function fullMonth(m){const r=rec(m),end=monthEndISO(m),d=String(r.date||'').slice(0,10),clinic=String(r.clinicalAsOf||'').slice(0,10),cash=String(r.cashAsOf||'').slice(0,10),separate=!!clinic||!!cash;return !!d&&d>=end&&(!separate||(!!clinic&&clinic>=end&&!!cash&&cash>=end))}
 function ruDate(iso){if(!iso)return'—';const [y,m,d]=String(iso).slice(0,10).split('-');return d&&m&&y?d+'.'+m+'.'+y:'—'}
 function monthLabel(m){const [y,mo]=String(m).split('-').map(Number);if(!y||!mo)return m;return new Intl.DateTimeFormat('ru-RU',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(Date.UTC(y,mo-1,1)))}
 function baseEndMonth(){return BASE_MONTHS[BASE_MONTHS.length-1]||FULL_MONTHS[FULL_MONTHS.length-1]||ALL_MONTHS[ALL_MONTHS.length-1]||''}

@@ -1,12 +1,16 @@
 import hashlib
 import json
+import sqlite3
+import copy
+from datetime import date
 from flask import abort, g, jsonify, request
 
 import cash_payments
 import daily_upload
 import daily_upload_core as core
-import paid_services
+import management_view
 import upload_reconcile
+import upload_integrity
 from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
 
 
@@ -69,7 +73,7 @@ def _existing_completed_dates(conn, month):
     result = {}
     rows = conn.execute(
         """
-        SELECT data_date,completed_hash,normalized_json
+        SELECT data_date,completed_sha256,normalized_json
         FROM daily_uploads
         WHERE substr(data_date,1,7)=?
         ORDER BY data_date
@@ -148,13 +152,208 @@ def _counts(comparison):
     }
 
 
+
+def _clinical_history_present(record):
+    """Cash-only snapshots can precede a completed upload; legacy clinical data cannot."""
+    if not isinstance(record, dict):
+        return True
+    clinical_keys = (
+        "_source", "_aggregation", "_uploadControl", "primary", "repeat",
+        "dentPrimary", "dentRepeat", "clinicPrimary", "clinicRepeat", "labOrders",
+    )
+    if any(key in record for key in clinical_keys):
+        return True
+    if record.get("_cash_rule") == "positive-receipts-only-v1":
+        return False
+    return any(key in record for key in (
+        "factMedicine", "factLab", "dentists", "clinicDocs", "labRevenue",
+        "grossRevenue", "discountAmount",
+    ))
+
+
+
+def _genuine_clinical_row(conn, data_date, record):
+    """Provenance check: cash-forward copies must not block real visit imports.
+
+    The cash import can forward-copy an old clinical MTD onto a new cash date.
+    Explicit clone metadata is decisive; old copies require matching the real
+    earlier clinical payload AND an actual cash receipt on the cloned date.
+    Ambiguous/independent historical clinical rows remain protected.
+    """
+    if not _clinical_history_present(record):
+        return False
+    if record.get("_cash_rule") != "positive-receipts-only-v1":
+        return True
+
+    if conn.execute(
+        "SELECT 1 FROM daily_uploads WHERE data_date=?", (data_date,)
+    ).fetchone():
+        return True
+
+    if record.get("_cashForwardClone") is True:
+        return False
+    clinical_as_of = str(record.get("_clinicalAsOf") or "")
+    if clinical_as_of:
+        return clinical_as_of >= data_date
+
+    # No marker: only old cash imports matching an earlier clinical source
+    # are confidently classified as forward clones.
+    try:
+        receipt = conn.execute(
+            "SELECT 1 FROM cash_receipts_daily WHERE data_date=?", (data_date,)
+        ).fetchone()
+    except sqlite3.OperationalError:
+        receipt = None
+    if not receipt:
+        return True
+
+    previous = []
+    rows = conn.execute(
+        "SELECT date,payload FROM report_data "
+        "WHERE substr(date,1,7)=? AND date<? ORDER BY date DESC",
+        (data_date[:7], data_date),
+    ).fetchall()
+    for row in rows:
+        try:
+            candidate = json.loads(row["payload"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Нельзя подтвердить происхождение старого отчёта за {row['date']}."
+            ) from exc
+        if isinstance(candidate, dict):
+            previous.append((str(row["date"]), candidate))
+    return management_view.copied_cash_clinical_source(
+        record, data_date, previous,
+    ) is None
+
+
+def _guard_historical_scope(conn, prepared):
+    """Fail closed before a completed-only rebuild can touch legacy clinical history.
+
+    A cash-only report row is not evidence of a completed clinical upload.
+    However, previously imported clinical report_data and the legacy services
+    through-date are authoritative until a separately approved cutover.
+    """
+    month = prepared["month"]
+    registered = {
+        str(row[0])
+        for row in conn.execute(
+            "SELECT data_date FROM daily_uploads WHERE substr(data_date,1,7)=?",
+            (month,),
+        ).fetchall()
+    }
+    # Existing daily rows are used to rebuild month-to-date totals but they
+    # are NOT new imports. Only incoming dates may cross the legacy boundary.
+    first_rebuilt_date = min(set(prepared["dates"]) | registered)
+
+    source = conn.execute(
+        "SELECT payload FROM report_blobs WHERE key=?",
+        ("az-service-analytics-v1",),
+    ).fetchone()
+    if source:
+        try:
+            data = json.loads(source[0])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Нельзя проверить исторический источник услуг: данные повреждены.") from exc
+        if not isinstance(data, dict):
+            raise ValueError("Нельзя проверить исторический источник услуг: неверный формат.")
+        through = core._service_through(data)
+        if through and any(str(day) <= through for day in prepared["dates"]):
+            raise ValueError(
+                "Отдельная загрузка «Завершённых приёмов» пересекает ранее "
+                "сохранённую сводную базу услуг. Изменения остановлены; "
+                "старые клинические показатели не заменены."
+            )
+
+    rows = conn.execute(
+        "SELECT date,payload FROM report_data WHERE substr(date,1,7)=? AND date>=? ORDER BY date",
+        (month, first_rebuilt_date),
+    ).fetchall()
+    for row in rows:
+        data_date = str(row["date"])
+        if data_date in registered:
+            continue
+        try:
+            previous = json.loads(row["payload"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Нельзя безопасно проверить исторические данные за {data_date}."
+            ) from exc
+        if _genuine_clinical_row(conn, data_date, previous):
+            raise ValueError(
+                f"За {data_date} уже есть исторические клинические данные, "
+                "не представленные в ежедневном журнале. Отдельная загрузка "
+                "остановлена без их замены."
+            )
+
+
+def _preserve_completed_totals(management):
+    """The completed-visits file is authoritative for overall primary/repeat."""
+    for record in management.values():
+        control = record.get("_uploadControl")
+        if not isinstance(control, dict) or not {"sourcePrimary", "sourceRepeat"} <= control.keys():
+            raise ValueError(
+                "Нет контрольных общих чисел приёмов; перезапись отчёта остановлена."
+            )
+        record["primary"] = int(control["sourcePrimary"])
+        record["repeat"] = int(control["sourceRepeat"])
+    return management
+
+
+def _same_financial_value(before, after):
+    if isinstance(before, dict) and isinstance(after, dict):
+        return before.keys() == after.keys() and all(
+            _same_financial_value(value, after[key]) for key, value in before.items()
+        )
+    if isinstance(before, (int, float)) and isinstance(after, (int, float)):
+        if isinstance(before, bool) or isinstance(after, bool):
+            return before is after
+        return abs(float(before) - float(after)) < 0.005
+    return before == after
+
+
+def _guard_existing_financial_values(conn, management):
+    """A completed-only import cannot silently replace money or service counts."""
+    protected = (
+        "factMedicine", "factLab", "dentists", "clinicDocs", "labRevenue",
+        "labOrders", "grossRevenue", "discountAmount", "discountDataComplete",
+        "billedMedicine", "billedLab", "billedDentists", "billedClinicDocs",
+        "billedLabRevenue", "billedTotal", "cashTotal", "cashOOO", "cashIP",
+        "cashUnallocated", "dentCashOOO", "dentCashIP", "clinicCashOOO",
+        "clinicCashIP", "labCashOOO", "labCashIP",
+    )
+    for data_date, record in management.items():
+        row = conn.execute(
+            "SELECT payload FROM report_data WHERE date=?", (data_date,)
+        ).fetchone()
+        if not row:
+            continue
+        try:
+            existing = json.loads(row["payload"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Нельзя проверить сохранённые суммы за {data_date}."
+            ) from exc
+        if not isinstance(existing, dict):
+            raise ValueError(f"Неверный формат сохранённых сумм за {data_date}.")
+        for field in protected:
+            if field in existing and (
+                field not in record
+                or not _same_financial_value(existing[field], record[field])
+            ):
+                raise ValueError(
+                    f"Отдельная загрузка приёмов изменила бы сохранённый "
+                    f"показатель {field} за {data_date}. Операция остановлена."
+                )
+
+
 def _merge_normalized(existing_normalized, day=None, removed=False):
     value = dict(existing_normalized or {})
     value.setdefault("items", [])
     value.setdefault("retail_items", [])
     value.setdefault("lab_invoices", [])
-    value["doctors"] = {}
     if removed:
+        value["doctors"] = {}
         data_date = str(value.get("data_date") or "")
         value["overall"] = {data_date: {}} if data_date else {}
         value["visits"] = []
@@ -163,6 +362,9 @@ def _merge_normalized(existing_normalized, day=None, removed=False):
     value["data_date"] = day["data_date"]
     value["overall"] = day["overall"]
     value["visits"] = day["visits"]
+    # Preserve the approved clinical attribution rule when completed visits change.
+    clinical_items = [row for row in value["items"] if not daily_upload._is_retail_item(row)]
+    value["doctors"] = core._plain(daily_upload._doctor_attribution(value["visits"], clinical_items))
     return value
 
 
@@ -174,12 +376,10 @@ def _preview():
     filename, raw = _file_from_request()
     prepared = _parse(raw, filename)
     conn = db()
-    cash_payments.init_schema(conn)
-    paid_services.init_schema(conn)
-    upload_reconcile.init_schema(conn)
+    # All required tables already exist; preview must not create or modify them.
+    _guard_historical_scope(conn, prepared)
     comparison = _comparison(conn, prepared)
     conflicts = sorted(set(comparison["conflict"]) | set(comparison["removed"]))
-    paid_snapshot = paid_services.latest_snapshot_for_month(conn, prepared["month"])
     return {
         "status": "preview",
         "period": {"from": prepared["dates"][0], "to": prepared["dates"][-1]},
@@ -188,7 +388,6 @@ def _preview():
         "requires_choice": bool(conflicts),
         "requires_provider_mapping": False,
         "can_replace": "upload_replace" in perms,
-        "paid_source_ready": bool(paid_snapshot),
     }
 
 
@@ -309,6 +508,228 @@ def _clear_removed_day(conn, prepared, data_date, actor_id, now):
     )
 
 
+
+def _read_previous_clinical_checkpoint(conn, data_date):
+    """Latest previously SAVED clinical MTD state, not partial normalized history."""
+    rows = conn.execute(
+        "SELECT date,payload FROM report_data "
+        "WHERE substr(date,1,7)=? AND date<? ORDER BY date DESC",
+        (data_date[:7], data_date),
+    ).fetchall()
+    for row in rows:
+        try:
+            saved = json.loads(row["payload"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Не удалось проверить предыдущий отчёт за {row['date']}."
+            ) from exc
+        if _genuine_clinical_row(conn, str(row["date"]), saved):
+            return str(row["date"]), saved
+    return None, {}
+
+
+def _guard_future_clinical_dates(conn, changed_dates):
+    """Do not silently leave a later MTD clinical snapshot stale after backfill."""
+    first_date = min(changed_dates)
+    last_date = first_date[:7] + "-31"
+    rows = conn.execute(
+        "SELECT date,payload FROM report_data "
+        "WHERE date>? AND date<=? ORDER BY date",
+        (first_date, last_date),
+    ).fetchall()
+    for row in rows:
+        other_date = str(row["date"])
+        if other_date in changed_dates:
+            continue
+        try:
+            record = json.loads(row["payload"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Нельзя безопасно проверить отчёт за {other_date}."
+            ) from exc
+        if _genuine_clinical_row(conn, other_date, record):
+            raise ValueError(
+                "В месяце уже есть более поздний клинический срез за "
+                f"{other_date}. Частичная замена приёмов остановлена, "
+                "чтобы не оставить старые накопительные значения."
+            )
+
+
+
+def _service_source_as_of(conn, data_date):
+    """Return a verified service-source date, never a completed-visit date.
+
+    A paired daily row is evidence for its own date only when the uploaded
+    services file actually contains services/laboratory source entries for
+    that day. A legacy full IDENT revenue import has its own explicit
+    service-through provenance in the saved analytics blob. The newer MIS
+    paid-services snapshot is deliberately NOT an active service source.
+    """
+    month = data_date[:7]
+
+    def eligible(value):
+        raw = str(value or "")
+        if len(raw) != 10 or raw[:7] != month or raw > data_date:
+            return False
+        try:
+            return date.fromisoformat(raw).isoformat() == raw
+        except ValueError:
+            return False
+
+    confirmed = []
+    paired_rows_seen = False
+    rows = conn.execute(
+        "SELECT data_date,services_filename,services_sha256,normalized_json "
+        "FROM daily_uploads WHERE substr(data_date,1,7)=? AND data_date<=?",
+        (month, data_date),
+    ).fetchall()
+    for row in rows:
+        source_day = str(row["data_date"])
+        if not (row["services_filename"] and row["services_sha256"]):
+            continue
+        paired_rows_seen = True
+        try:
+            normalized = json.loads(row["normalized_json"])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(normalized, dict):
+            continue
+        service_items = normalized.get("items") or []
+        laboratory = normalized.get("lab_invoices") or []
+        has_items = isinstance(service_items, list) and any(
+            isinstance(item, dict) and str(item.get("date") or "") == source_day
+            for item in service_items
+        )
+        has_laboratory = isinstance(laboratory, list) and any(
+            isinstance(invoice, (list, tuple)) and len(invoice) >= 2
+            and str(invoice[1]) == source_day
+            for invoice in laboratory
+        )
+        if eligible(source_day) and (has_items or has_laboratory):
+            confirmed.append(source_day)
+
+    blob_row = conn.execute(
+        "SELECT payload FROM report_blobs WHERE key=?",
+        ("az-service-analytics-v1",),
+    ).fetchone()
+    if blob_row:
+        try:
+            analytics = json.loads(blob_row["payload"])
+        except (TypeError, ValueError):
+            analytics = None
+        if isinstance(analytics, dict):
+            through = core._service_through(analytics)
+            origin = str(analytics.get("source") or "")
+            # Full IDENT revenue exports use a genuine service-through
+            # checkpoint. Paired daily imports can advance the blob's id to
+            # a later COMPLETED-only date, so their blob cutoff is not proof.
+            if eligible(through) and (
+                origin.startswith("IDENT revenue export through ")
+                or (not paired_rows_seen and not origin and (
+                    "directions" in analytics or "months" in analytics
+                ))
+            ):
+                confirmed.append(str(through))
+
+    return max(confirmed) if confirmed else ""
+
+
+def _completed_source_day(conn, data_date, source):
+    """Append one completed-only day onto the last authoritative clinical MTD.
+
+    Only visits are new in this independent source. Earlier approved money,
+    laboratory counts and discount figures must never be reconstructed from
+    an incomplete set of daily_uploads rows.
+    """
+    row = conn.execute(
+        "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
+        (data_date,),
+    ).fetchone()
+    if not row:
+        raise ValueError(f"Не найден сохранённый день приёмов {data_date}.")
+    try:
+        normalized = json.loads(row["normalized_json"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Нельзя прочитать день приёмов {data_date}.") from exc
+    if not isinstance(normalized, dict) or normalized.get("data_date") != data_date:
+        raise ValueError(f"Некорректные данные дня приёмов {data_date}.")
+    # Services have their own authoritative upload. Completed-only must not
+    # infer service revenue from a row whose provenance is unclear.
+    if normalized.get("items") or normalized.get("lab_invoices"):
+        raise ValueError(
+            f"За {data_date} обнаружены услуги, которые нельзя безопасно "
+            "пересчитывать из отдельного файла приёмов."
+        )
+
+    earlier_date, earlier = _read_previous_clinical_checkpoint(conn, data_date)
+    current_row = conn.execute(
+        "SELECT payload FROM report_data WHERE date=?", (data_date,)
+    ).fetchone()
+    current = {}
+    if current_row:
+        try:
+            current = json.loads(current_row["payload"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Нельзя проверить отчёт за {data_date}.") from exc
+        if not isinstance(current, dict):
+            raise ValueError(f"Некорректный формат отчёта за {data_date}.")
+
+    base = copy.deepcopy(earlier)
+    base.update(copy.deepcopy(current))
+    # A completed visit actually recorded on a formerly forward-copied cash
+    # date makes this date a genuine clinical checkpoint (B06).
+    base.pop("_cashForwardClone", None)
+    delta = upload_integrity.daily_delta(core, normalized)
+    control = earlier.get("_uploadControl")
+    if not isinstance(control, dict):
+        control = {}
+
+    original_primary = int(control.get("sourcePrimary", earlier.get("primary", 0)) or 0)
+    original_repeat = int(control.get("sourceRepeat", earlier.get("repeat", 0)) or 0)
+    primary = original_primary + delta["sourcePrimary"]
+    repeat = original_repeat + delta["sourceRepeat"]
+
+    for key in ("dentPrimary", "dentRepeat", "clinicPrimary", "clinicRepeat"):
+        base[key] = int(earlier.get(key, 0) or 0) + int(delta[key])
+    base["primary"] = primary
+    base["repeat"] = repeat
+    base["_uploadControl"] = {
+        "sourcePrimary": primary,
+        "sourceRepeat": repeat,
+        "reportedPrimary": primary,
+        "reportedRepeat": repeat,
+        "unassignedPrimary": max(0, primary - base["dentPrimary"] - base["clinicPrimary"]),
+        "unassignedRepeat": max(0, repeat - base["dentRepeat"] - base["clinicRepeat"]),
+    }
+
+    # No independent services were uploaded with this file. Carry the exact
+    # last approved clinic/service MTD checkpoint rather than summing old
+    # service invoices from an incomplete journal (B04).
+    for key, fallback in (
+        ("factMedicine", 0), ("factLab", 0), ("labRevenue", 0),
+        ("labOrders", 0), ("dentists", {}), ("clinicDocs", {}),
+        ("grossRevenue", 0), ("discountAmount", 0),
+        ("discountDataComplete", False),
+    ):
+        if key not in base:
+            base[key] = copy.deepcopy(fallback)
+
+    base["date"] = data_date
+    base["_source"] = source
+    base["_aggregation"] = "month_to_date"
+    base["_clinicalAsOf"] = data_date
+    # W06: a previous clinical checkpoint is NOT proof of a service upload.
+    # Revalidate source provenance; old explicit markers may already be wrong.
+    base["_serviceAsOf"] = _service_source_as_of(conn, data_date)
+    if base.get("_cash_rule") == "positive-receipts-only-v1":
+        base["_cashAsOf"] = str(
+            current.get("_cashAsOf") or
+            (data_date if current.get("_cash_rule") == "positive-receipts-only-v1" else
+             earlier.get("_cashAsOf") or earlier_date or "")
+        )
+    return base
+
+
 def _commit(decision=None):
     perms = user_permissions(g.user)
     if "upload_completed" not in perms:
@@ -317,8 +738,8 @@ def _commit(decision=None):
     filename, raw = _file_from_request()
     prepared = _parse(raw, filename)
     conn = db()
+    _guard_historical_scope(conn, prepared)
     cash_payments.init_schema(conn)
-    paid_services.init_schema(conn)
     upload_reconcile.init_schema(conn)
     comparison = _comparison(conn, prepared)
     has_conflict = bool(comparison["conflict"] or comparison["removed"])
@@ -351,6 +772,11 @@ def _commit(decision=None):
         backup = upload_reconcile.create_db_backup("completed-reimport")
 
     now = iso_now()
+    changed_dates = set(apply_dates) | set(removed_dates)
+    # Fail closed for backward edits that would leave a future clinical MTD
+    # stale; cash-only future snapshots are not clinical history.
+    _guard_future_clinical_dates(conn, changed_dates)
+
     conn.execute("BEGIN")
     try:
         for data_date in sorted(apply_dates):
@@ -359,25 +785,31 @@ def _commit(decision=None):
             _clear_removed_day(conn, prepared, data_date, g.user["id"], now)
 
         source = f"AZ-BAZE completed visits: {prepared['filename']}"
-        management = core._rebuild_management(prepared["month"], source)
-        # Discounts/gross revenue are no longer sourced from the completed-visits
-        # path. Finrez receives them from the economists' workbook. If that source
-        # is absent, the UI must show no data rather than a synthetic zero.
-        for record in management.values():
-            record["discountDataComplete"] = False
-            record["grossRevenue"] = 0
-            record["discountAmount"] = 0
-        cash_payments.overlay_record_map(conn, prepared["month"], management)
-
-        for data_date, record in management.items():
+        # Build each written date from the PREVIOUS APPROVED report checkpoint,
+        # not an incomplete full-month daily_uploads service ledger.
+        for data_date in sorted(changed_dates):
+            record = _completed_source_day(conn, data_date, source)
+            records = {data_date: record}
+            cash_payments.overlay_record_map(conn, prepared["month"], records)
+            record = records[data_date]
+            # Track the real receipt snapshot date separately from visits.
+            # Overlaying newer cash must not keep a stale inherited as-of date.
+            cash_dates = [
+                date for date in cash_payments.month_snapshots(
+                    conn, prepared["month"]
+                ) if date <= data_date
+            ]
+            if cash_dates:
+                record["_cashAsOf"] = max(cash_dates)
+            _guard_existing_financial_values(conn, {data_date: record})
             conn.execute(
                 """
                 INSERT INTO report_data(date,payload,updated_by,updated_at)
                 VALUES(?,?,?,?)
                 ON CONFLICT(date) DO UPDATE SET
-                    payload=excluded.payload,
-                    updated_by=excluded.updated_by,
-                    updated_at=excluded.updated_at
+                payload=excluded.payload,
+                updated_by=excluded.updated_by,
+                updated_at=excluded.updated_at
                 """,
                 (
                     data_date,
@@ -386,31 +818,8 @@ def _commit(decision=None):
                     now,
                 ),
             )
-
-        cash_payments.overlay_stored_month(
-            conn,
-            prepared["month"],
-            g.user["id"],
-            now,
-        )
-        paid_services.overlay_stored_month(
-            conn,
-            prepared["month"],
-            g.user["id"],
-            now,
-            core.ident_import.DENTISTS,
-            core.ident_import.STRUCTURE_DOCTORS,
-            core.ident_import.LAB_DOCTORS,
-            ignored=(
-                upload_reconcile.provider_names_by_direction(conn, "ignore")
-                | (
-                    set(core.ident_import.KNOWN_STAFF)
-                    - set(core.ident_import.DENTISTS)
-                    - set(core.ident_import.STRUCTURE_DOCTORS)
-                    - set(core.ident_import.LAB_DOCTORS)
-                )
-            ),
-        )
+        # Cash source snapshots and untouched historical clinical rows are not
+        # rewritten from a completed-only upload.
         conn.commit()
     except Exception:
         conn.rollback()

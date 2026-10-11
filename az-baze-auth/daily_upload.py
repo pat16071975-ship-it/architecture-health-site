@@ -2,7 +2,7 @@ import hashlib
 import json
 import re
 from collections import Counter, defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from flask import abort, g, jsonify, redirect, render_template, request, url_for
 
@@ -235,10 +235,11 @@ def _parse_fixed_file(file_storage, kind):
     return raw, parsed, sheet_name
 
 
-def _doctor_attribution(visits, items):
+def _doctor_attribution(visits, items, w03_unassigned=None):
     # The completed-visits export contains patient/date rows but no doctor column.
-    # Link them to the revenue export by patient + date. When a patient has visits
-    # in both departments on the same date, allocate at least one visit to each.
+    # Link them to the revenue export by patient + date. If a single completed
+    # visit matches both departments, its direction is unproven: leave the
+    # source visit total intact, without guessing a doctor's department.
     providers = defaultdict(list)
     for row in items:
         staff = row.get("staff")
@@ -286,6 +287,25 @@ def _doctor_attribution(visits, items):
                 continue
             representatives.append((department, staff))
             seen_departments.add(department)
+
+        # Owner-approved W03: one completed visit with services in both
+        # dentistry and clinic has no proven direction in this export.
+        # Do not assign it to whichever service happened to appear first.
+        # The source primary/repeat total stays in overall; the delta layer
+        # records this unmatched visit in unassignedPrimary/unassignedRepeat.
+        if len(kinds) == 1 and len(seen_departments) > 1:
+            if w03_unassigned is not None:
+                bucket = (
+                    "primary" if kinds[0] == "Первичные"
+                    else "repeat" if kinds[0] in ("Повторные", "Отконсультированные")
+                    else None
+                )
+                if bucket:
+                    day_counts = w03_unassigned.setdefault(
+                        key[0], {"primary": 0, "repeat": 0}
+                    )
+                    day_counts[bucket] += 1
+            continue
 
         assignments = representatives[: len(kinds)]
         while len(assignments) < len(kinds):
@@ -339,7 +359,8 @@ def _split_period(overall, visits, items, lab_invoices):
     period_dates = sorted(set(completed_dates) | set(service_dates))
 
     clinical_items = [row for row in items if not _is_retail_item(row)]
-    doctors = _doctor_attribution(visits, clinical_items)
+    w03_unassigned = {}
+    doctors = _doctor_attribution(visits, clinical_items, w03_unassigned)
     result = []
     for data_date in period_dates:
         day_overall = {data_date: core._plain(overall.get(data_date, {}))}
@@ -369,6 +390,10 @@ def _split_period(overall, visits, items, lab_invoices):
             "doctors": day_doctors,
             "visits": day_visits,
         }
+        # Record only the exact owner-approved ambiguity, not every unmatched
+        # visit, so the historical rules for other unknown directions survive.
+        if data_date in w03_unassigned:
+            normalized["_w03Unassigned"] = core._plain(w03_unassigned[data_date])
         completed_hash = _payload_hash(
             {
                 "data_date": data_date,
@@ -396,19 +421,30 @@ def _split_period(overall, visits, items, lab_invoices):
     return result
 
 
-def _next_required_date(latest):
-    basis = latest["data_date"] if latest else None
-    if not basis:
-        service_data = core.ident_import._load_blob("az-service-analytics-v1")
-        if service_data:
-            basis = core._service_through(service_data)
-    if not basis:
+def _latest_confirmed_completed_date(conn):
+    """Last completed-visits source date, not the latest services-only day."""
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_uploads'"
+    ).fetchone():
         return None
-    try:
-        next_day = datetime.strptime(str(basis), "%Y-%m-%d") + timedelta(days=1)
-    except ValueError:
-        return None
-    return next_day.strftime("%d.%m.%Y")
+    for row in conn.execute(
+        "SELECT data_date,normalized_json FROM daily_uploads ORDER BY data_date DESC"
+    ):
+        try:
+            normalized = json.loads(row["normalized_json"])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(normalized, dict):
+            continue
+        overall = normalized.get("overall") or {}
+        visits = normalized.get("visits") or []
+        has_completed = (
+            isinstance(overall, dict)
+            and any(isinstance(value, dict) and bool(value) for value in overall.values())
+        ) or (isinstance(visits, list) and bool(visits))
+        if has_completed:
+            return str(row["data_date"])
+    return None
 
 
 def _prepare_period_raw(completed_raw, completed_name, services_raw, services_name):
@@ -1083,25 +1119,22 @@ def register_daily_upload(app):
         error = None
 
         conn = core.db()
-        latest = conn.execute(
-            "SELECT data_date,revision,uploaded_at FROM daily_uploads ORDER BY data_date DESC LIMIT 1"
-        ).fetchone()
-        cash_latest = cash_payments.latest_loaded_date(conn)
-        cash_next_required = cash_payments.next_required_date(conn)
-        paid_latest = paid_services.latest_loaded_date(conn)
+        completed_latest = _latest_confirmed_completed_date(conn)
+        cash_latest = cash_payments.latest_loaded_date(conn, ensure_schema=False)
+        paid_latest = paid_services.latest_loaded_date(conn, ensure_schema=False)
         return render_template(
             "uploads.html",
             csrf=csrf_token(),
             perms=perms,
             result=result,
             error=error,
-            latest=latest,
-            next_required_date=_next_required_date(latest),
+            completed_latest_date=_format_date(completed_latest) if completed_latest else None,
             cash_latest_date=_format_date(cash_latest) if cash_latest else None,
-            cash_next_required_date=_format_date(cash_next_required) if cash_next_required else None,
             paid_services_latest_date=_format_date(paid_latest) if paid_latest else None,
             history=core._history() if "upload_history" in perms else [],
-            pending_providers=upload_reconcile.pending_provider_rows(conn),
+            pending_providers=upload_reconcile.pending_provider_rows(
+                conn, ensure_schema=False
+            ),
             can_daily=("upload_completed" in perms and "upload_services" in perms),
             can_replace=("upload_replace" in perms),
         )

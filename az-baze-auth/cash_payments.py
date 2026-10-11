@@ -52,8 +52,14 @@ def init_schema(conn):
     conn.executescript(CASH_SCHEMA)
 
 
-def latest_loaded_date(conn):
-    init_schema(conn)
+def latest_loaded_date(conn, *, ensure_schema=True):
+    if ensure_schema:
+        init_schema(conn)
+    elif not conn.execute(
+        "SELECT 1 FROM sqlite_master "
+        "WHERE type='table' AND name='cash_receipts_daily'"
+    ).fetchone():
+        return None
     row = conn.execute(
         "SELECT MAX(data_date) AS data_date FROM cash_receipts_daily"
     ).fetchone()
@@ -399,6 +405,9 @@ def overlay_stored_month(conn, month, updated_by, updated_at):
         last_cash_date = max(snapshots)
         updated = apply_to_record({"date": last_cash_date}, snapshots[last_cash_date])
         updated["date"] = last_cash_date
+        updated["_cashForwardClone"] = True
+        updated["_clinicalAsOf"] = ""
+        updated["_cashAsOf"] = last_cash_date
         conn.execute(
             "INSERT INTO report_data(date,payload,updated_by,updated_at) VALUES(?,?,?,?)",
             (last_cash_date, json.dumps(updated, ensure_ascii=False, separators=(",", ":")), updated_by, updated_at),
@@ -421,6 +430,15 @@ def overlay_stored_month(conn, month, updated_by, updated_at):
     if last_cash_date > last_report_date:
         clone = dict(last_report)
         clone["date"] = last_cash_date
+        # Only the cash source advanced. Copying a clinical report forward is
+        # NOT evidence of a clinical visit on the new cash date.
+        clone["_cashForwardClone"] = True
+        clone["_clinicalAsOf"] = str(
+            last_report.get("_clinicalAsOf") or last_report_date
+        ) if any(key in last_report for key in (
+            "_source", "_uploadControl", "primary", "repeat", "labOrders",
+        )) else str(last_report.get("_clinicalAsOf") or "")
+        clone["_cashAsOf"] = last_cash_date
         parsed.append((last_cash_date, clone))
 
     changed = 0
@@ -434,6 +452,13 @@ def overlay_stored_month(conn, month, updated_by, updated_at):
             continue
         updated = apply_to_record(payload, snapshot)
         updated["date"] = data_date
+        # The report row may predate this cash import (e.g. completed visits
+        # through month-end followed by receipts for that same day). Refresh
+        # provenance from the last ACTUAL receipt date included in snapshot,
+        # never from a stale marker or from the report's clinical date.
+        updated["_cashAsOf"] = max(
+            receipt_date for receipt_date in snapshots if receipt_date <= data_date
+        )
         conn.execute(
             "INSERT INTO report_data(date,payload,updated_by,updated_at) VALUES(?,?,?,?) "
             "ON CONFLICT(date) DO UPDATE SET payload=excluded.payload,updated_by=excluded.updated_by,updated_at=excluded.updated_at",
