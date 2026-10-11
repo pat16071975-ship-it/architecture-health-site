@@ -7,6 +7,7 @@ from flask import Response, abort, g, jsonify, request, session
 
 from app import DB_PATH, SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, user_permissions
 import cash_payments
+import ident_import
 import paid_services
 import upload_reconcile
 
@@ -147,6 +148,85 @@ def _reapply_paid_after_restore(conn, updated_by, updated_at):
             ignored=maps["ignore"],
         )
     return changed
+
+
+
+def _management_doctor_paid_snapshots(conn):
+    """Read-only doctor rows from confirmed new MIS paid snapshots.
+
+    Never overlay report_data, cash, direction totals, lab, or visit figures.
+    A month is usable only when all paid providers have a confirmed mapping.
+    """
+    exists = conn.execute(
+        "SELECT 1 FROM sqlite_master "
+        "WHERE type='table' AND name='service_payment_snapshots'"
+    ).fetchone()
+    if not exists:
+        return {}
+
+    mappings = {
+        "dent": dict(ident_import.DENTISTS),
+        "structure": dict(ident_import.STRUCTURE_DOCTORS),
+        "lab": dict(ident_import.LAB_DOCTORS),
+    }
+    ignored = set(ident_import.KNOWN_STAFF)
+    for providers in mappings.values():
+        ignored.difference_update(providers)
+
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' "
+        "AND name='provider_registry'"
+    ).fetchone():
+        for row in conn.execute(
+            "SELECT source_name,display_name,direction "
+            "FROM provider_registry WHERE direction<>'pending' "
+            "ORDER BY source_name"
+        ):
+            source = str(row["source_name"])
+            for providers in mappings.values():
+                providers.pop(source, None)
+            ignored.discard(source)
+            direction = str(row["direction"])
+            if direction in mappings:
+                mappings[direction][source] = str(row["display_name"])
+            elif direction == "ignore":
+                ignored.add(source)
+
+    result = {}
+    for row in conn.execute(
+        "SELECT as_of_date,month,payload_json "
+        "FROM service_payment_snapshots ORDER BY month,as_of_date"
+    ):
+        as_of = str(row["as_of_date"] or "")
+        month = str(row["month"] or "")
+        if not DATE_RE.fullmatch(as_of) or month != as_of[:7]:
+            continue
+        try:
+            snapshot = json.loads(row["payload_json"])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(snapshot, dict) or snapshot.get("version") not in (1, 2):
+            continue
+        summary = paid_services.direction_summary(
+            {
+                "providers": snapshot.get("providers") or {},
+                "totals": snapshot.get("totals") or {},
+                "provider_residual": snapshot.get("provider_residual") or {},
+            },
+            mappings["dent"],
+            mappings["structure"],
+            mappings["lab"],
+            ignored=ignored,
+        )
+        # Do not assign unclassified staff's payments to any existing doctor.
+        if summary["unknownProviders"]:
+            continue
+        result.setdefault(month, []).append({
+            "asOf": as_of,
+            "dentists": summary["dentists"],
+            "clinicDocs": summary["clinicDocs"],
+        })
+    return result
 
 
 def _read_report_file(name):
@@ -369,7 +449,7 @@ def _render_server_reports():
 
     old_store = """function loadStore(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}}
 function saveStore(v){localStorage.setItem(STORAGE_KEY,JSON.stringify(v))}"""
-    new_store = """let SERVER_STORE={},REPORT_CSRF='';
+    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={};
 function loadStore(){return SERVER_STORE}
 function saveStore(v){SERVER_STORE=v}
 async function reportApi(url,options={}){
@@ -386,8 +466,13 @@ async function reportApi(url,options={}){
 async function loadServerStore(){
   const payload=await reportApi('/api/reports/data');
   SERVER_STORE=payload.data||{};
+  DOCTOR_PAID_SNAPSHOTS=payload.doctorPaidSnapshots||{};
   REPORT_CSRF=payload.csrf||'';
-  if(typeof syncProviderNames==='function')syncProviderNames(SERVER_STORE);
+  if(typeof syncProviderNames==='function'){
+    syncProviderNames(SERVER_STORE);
+    Object.values(DOCTOR_PAID_SNAPSHOTS).forEach(rows=>
+      rows.forEach(r=>syncProviderNames({[r.asOf]:{dentists:r.dentists,clinicDocs:r.clinicDocs}})));
+  }
   if(typeof renderStructure==='function')renderStructure();
 }"""
     html = html.replace(old_store, new_store)
@@ -499,7 +584,7 @@ def register_report_storage(app):
             if month in monthly_plans:
                 record["plan"] = monthly_plans[month]
             data[row["date"]] = record
-        return jsonify(data=data, csrf=csrf_token())
+        return jsonify(data=data, doctorPaidSnapshots=_management_doctor_paid_snapshots(db()), csrf=csrf_token())
 
     @app.put("/api/reports/data/<date>")
     @permission_required("reports")

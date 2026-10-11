@@ -92,8 +92,8 @@ const lg=$('#labGrid');lg.innerHTML='';[['Количество заказов','
 const mg=$('#marketingGrid');mg.innerHTML='';[['Стоматология — целевые лиды','leadsDent','count'],['из них отказ / мониторинг','leadsDentLost','count'],['Конверсия стоматология','convDent','pct',1],['Клиника — целевые лиды','leadsClinic','count'],['Конверсия клиника','convClinic','pct',1],['Резерв','leadsReserve','count'],['Всего лидов','totalLeads','count',1],['Общая конверсия','totalConv','pct',1]].forEach(x=>inputMetric(mg,...x));
 }
 function getSelectedDate(){return $('#reportDate').value}
-function fillRecord(r){const d=derive(r);document.querySelectorAll('[data-key]').forEach(inp=>{const k=inp.dataset.key,t=inp.dataset.type,v=d[k];if(inp.readOnly){inp.value=t==='money'?money(v):t==='pct'?pct(v):count(v)}else{inp.value=v??''}});document.querySelectorAll('[data-doctor]').forEach(inp=>{inp.value=(d[inp.dataset.doctorType]||{})[inp.dataset.doctor]??''});}
-function collectRecord(){const date=getSelectedDate(),existing=loadStore()[date]||blankRecord(date);const r={...existing,date,dentists:{...(existing.dentists||{})},clinicDocs:{...(existing.clinicDocs||{})}};document.querySelectorAll('[data-key]:not([readonly])').forEach(inp=>r[inp.dataset.key]=inp.value.trim());document.querySelectorAll('[data-doctor]').forEach(inp=>r[inp.dataset.doctorType][inp.dataset.doctor]=inp.value.trim());return r}
+function fillRecord(r){const d=derive(r);document.querySelectorAll('[data-key]').forEach(inp=>{const k=inp.dataset.key,t=inp.dataset.type,v=d[k];if(inp.readOnly){inp.value=t==='money'?money(v):t==='pct'?pct(v):count(v)}else{inp.value=v??''}});document.querySelectorAll('[data-doctor]').forEach(inp=>{const original=(d[inp.dataset.doctorType]||{})[inp.dataset.doctor]??'';inp.value=typeof window.azDoctorPaidValue==='function'?window.azDoctorPaidValue(r.date,inp.dataset.doctorType,inp.dataset.doctor,original):original});}
+function collectRecord(){const date=getSelectedDate(),existing=loadStore()[date]||blankRecord(date);const r={...existing,date,dentists:{...(existing.dentists||{})},clinicDocs:{...(existing.clinicDocs||{})}};document.querySelectorAll('[data-key]:not([readonly])').forEach(inp=>r[inp.dataset.key]=inp.value.trim());document.querySelectorAll('[data-doctor]').forEach(inp=>{if(typeof window.azDoctorHasPaidForDate==='function'&&window.azDoctorHasPaidForDate(date))return;r[inp.dataset.doctorType][inp.dataset.doctor]=inp.value.trim()});return r}
 function refreshAutos(){fillRecord(collectRecord())}
 function loadDate(){const date=getSelectedDate();if(!date)return;const store=loadStore();const r=store[date]||blankRecord(date);fillRecord(r);$('#status').textContent=store[date]?`Загружена сохранённая запись за ${new Date(date+'T12:00:00').toLocaleDateString('ru-RU')}`:'Новая запись — пока не сохранена';}
 function saveDate(){const r=collectRecord();if(!r.date)return;const store=loadStore();store[r.date]=r;saveStore(store);fillRecord(r);$('#status').textContent='Сохранено в этом браузере: '+new Date(r.date+'T12:00:00').toLocaleString('ru-RU');}
@@ -111,7 +111,7 @@ function init(){renderStructure();const ys=$('#year');const cy=new Date().getFul
 init();
 </script>
 <script src="./seed-data.js?v=20260827-2"></script>
-<script src="./period-view.js?v=20260918-1"></script>
+<script src="./period-view.js?v=20261011-doctors-1"></script>
 <script src="./secure-import.js?v=20260831-1"></script>
 </body>
 </html>
