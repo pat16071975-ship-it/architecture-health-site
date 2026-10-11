@@ -8,6 +8,7 @@ import socket
 import sqlite3
 import subprocess
 import sys
+import time
 import urllib.request
 import uuid
 from pathlib import Path
@@ -81,6 +82,25 @@ def test_health():
                     "private-test response marker missing")
     except Exception as e:
         raise Blocked("Test health/marker failed: " + type(e).__name__) from e
+
+def wait_test_health(phase, *, timeout=60, interval=1.0):
+    """Wait for Gunicorn readiness after start; never skip status/body/marker."""
+    deadline = time.monotonic() + timeout
+    attempts = 0
+    while True:
+        attempts += 1
+        try:
+            test_health()
+            print(f"TEST_HEALTH_READY=PASS | phase={phase} | attempts={attempts}")
+            return
+        except Blocked as error:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise Blocked(
+                    f"Test health readiness timeout in {phase} after "
+                    f"{timeout}s, attempts={attempts}: {error}"
+                ) from error
+            time.sleep(min(interval, remaining))
 
 def sqlite_connection(path, read_only=False):
     if read_only:
@@ -354,7 +374,7 @@ def rollback(created_nn, stopped, backup_verified):
             pass
     cmd(["systemctl", "start", TEST_SERVICE])
     require(service_status(TEST_SERVICE)=="active", "old Test service failed restart")
-    test_health()
+    wait_test_health("rollback")
     require(git_head(TEST_REPO)==ORIGINAL, "rollback Test git commit mismatch")
     return "PASS"
 
@@ -400,7 +420,7 @@ def main():
         smoke_test(uid)
         cmd(["systemctl", "start", TEST_SERVICE])
         require(service_status(TEST_SERVICE)=="active", "Test service failed start")
-        test_health()
+        wait_test_health("apply")
         require(service_status(LIVE_SERVICE)=="active", "Production service not active after Test update")
         require(git_head(TEST_REPO)==TARGET, "post-health Test source SHA drift")
         require(TEST_REPORTS.joinpath("period-view.js").is_file(), "Test report asset missing")
