@@ -284,5 +284,164 @@ class PaidServicesTests(unittest.TestCase):
             paid_services.parse_bytes(raw, "two-months.xlsx")
 
 
+
+class DoctorPaidOnlyManagementTests(unittest.TestCase):
+    """Only individual doctor rows are sourced from monthly MIS 'Оплачено'."""
+
+    def memory_db(self, *, unknown=False):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript("""
+            CREATE TABLE service_payment_snapshots(
+                as_of_date TEXT PRIMARY KEY,month TEXT,payload_json TEXT);
+            CREATE TABLE provider_registry(
+                source_name TEXT PRIMARY KEY,display_name TEXT,direction TEXT);
+            CREATE TABLE report_data(date TEXT PRIMARY KEY,payload TEXT);
+        """)
+        conn.executemany(
+            "INSERT INTO provider_registry VALUES(?,?,?)",
+            [
+                ("Dent D.", "Врач стоматолог", "dent"),
+                ("Struct S.", "Врач клиники", "structure"),
+                ("Lab L.", "Врач лаборатории", "lab"),
+                ("Администраторы", "Администраторы", "ignore"),
+            ],
+        )
+        providers = {
+            "Dent D.": {"paid": 225, "billed": 200},
+            "Struct S.": {"paid": 100, "billed": 100},
+            "Lab L.": {"paid": 15, "billed": 15},
+            "Администраторы": {"paid": 0, "billed": 0},
+        }
+        if unknown:
+            providers["Unknown Doctor"] = {"paid": 80, "billed": 80}
+        payload = {
+            "version": 2, "month": "2026-09", "as_of_date": "2026-09-30",
+            "providers": providers, "totals": {"paid": 340},
+            "provider_residual": {"paid": -3800},
+        }
+        conn.execute(
+            "INSERT INTO service_payment_snapshots VALUES(?,?,?)",
+            ("2026-09-30", "2026-09", json.dumps(payload, ensure_ascii=False)),
+        )
+        original = {"date": "2026-09-30", "cashTotal": 9479310,
+                    "cashOOO": 4000000, "cashIP": 5479310,
+                    "dentists": {"Врач стоматолог": 350},
+                    "clinicDocs": {"Врач клиники": 400},
+                    "dentPrimary": 10, "labRevenue": 173240}
+        conn.execute(
+            "INSERT INTO report_data VALUES(?,?)",
+            ("2026-09-30", json.dumps(original, ensure_ascii=False)),
+        )
+        conn.commit()
+        return conn, original
+
+    def test_doctor_paid_rows_are_read_only_and_do_not_change_any_approved_totals(self):
+        import report_storage
+        conn, original = self.memory_db()
+        try:
+            baseline = list(conn.iterdump())
+            conn.execute("PRAGMA query_only=ON")
+            rows = report_storage._management_doctor_paid_snapshots(conn)
+            self.assertEqual(
+                rows, {"2026-09": [{
+                    "asOf": "2026-09-30",
+                    "dentists": {"Врач стоматолог": 225.0},
+                    "clinicDocs": {"Врач клиники": 100.0},
+                }]},
+            )
+            self.assertEqual(list(conn.iterdump()), baseline)
+            stored = json.loads(conn.execute(
+                "SELECT payload FROM report_data WHERE date='2026-09-30'"
+            ).fetchone()[0])
+            self.assertEqual(stored, original)
+            self.assertEqual(
+                (stored["cashTotal"], stored["dentPrimary"], stored["labRevenue"]),
+                (9479310, 10, 173240),
+            )
+        finally:
+            conn.close()
+
+    def test_unknown_paid_provider_is_not_guessed_or_overlaid(self):
+        import report_storage
+        conn, _ = self.memory_db(unknown=True)
+        try:
+            conn.execute("PRAGMA query_only=ON")
+            self.assertEqual(report_storage._management_doctor_paid_snapshots(conn), {})
+        finally:
+            conn.close()
+
+    def test_absent_monthly_source_does_not_fabricate_doctor_values(self):
+        import report_storage
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("PRAGMA query_only=ON")
+            self.assertEqual(report_storage._management_doctor_paid_snapshots(conn), {})
+        finally:
+            conn.close()
+
+    def test_actual_report_ui_only_replaces_doctor_cells_with_asof_guard(self):
+        import shutil
+        import subprocess
+        from pathlib import Path
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("Node required for real report JS execution")
+        js = r"""
+const fs=require('node:fs'),vm=require('node:vm');
+const src=fs.readFileSync('reports/period-view.js','utf8');
+const start=src.indexOf('  function doctorPaidSnapshot(date){');
+const end=src.indexOf('  function mix(',start);
+if(start<0||end<0)throw Error('doctor-only helper not found');
+const ctx={
+  window:{},
+  num:v=>v===''||v==null||!Number.isFinite(+v)?0:+v,
+  DOCTOR_PAID_SNAPSHOTS:{
+    '2026-07':[{asOf:'2026-07-31',dentists:{'D':10},clinicDocs:{'S':20}}],
+    '2026-08':[{asOf:'2026-08-31',dentists:{'D':30},clinicDocs:{'S':40}}],
+  }
+};
+vm.createContext(ctx);vm.runInContext(src.slice(start,end),ctx);
+const old={date:'2026-07-31',dentists:{D:999},clinicDocs:{S:888},cashTotal:9479310,primary:12};
+const n=ctx.window.azDoctorPaidValue;
+if(n('2026-07-30','dentists','D',999)!==999)throw Error('future paid leaked');
+if(n('2026-07-31','dentists','D',999)!==10)throw Error('July dentist not shown');
+if(n('2026-07-31','clinicDocs','S',888)!==20)throw Error('July clinician not shown');
+if(n('2026-08-31','dentists','D',999)!==30)throw Error('August dentist not shown');
+if(n('2026-06-30','dentists','D',999)!==999)throw Error('no-source fallback changed');
+if(n('2026-08-31','dentists','MISSING',999)!==0)throw Error('missing doctor misattributed');
+if(!ctx.window.azDoctorHasPaidForDate('2026-07-31'))throw Error('missing snapshot detection');
+if(ctx.window.azDoctorHasPaidForDate('2026-07-30'))throw Error('future snapshot detected');
+const rows=[{...old},{...old,date:'2026-08-31'}];
+if(vm.runInContext('doctorPeriodPaid',ctx)(rows,'dentists','D')!==40)throw Error('quarter sum wrong');
+if(old.cashTotal!==9479310||old.primary!==12||old.dentists.D!==999)
+  throw Error('approved old raw values changed');
+process.stdout.write('DOCTOR_ONLY_UI=PASS');
+"""
+        root = Path(__file__).resolve().parent.parent
+        result = subprocess.run(
+            [node, "-e", js], cwd=root, text=True, capture_output=True,
+            timeout=20,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("DOCTOR_ONLY_UI=PASS", result.stdout)
+
+    def test_existing_direction_totals_and_other_sections_stay_on_old_source(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        html = (root / "reports/index.html").read_text(encoding="utf-8")
+        view = (root / "reports/period-view.js").read_text(encoding="utf-8")
+        storage = (Path(__file__).resolve().parent / "report_storage.py").read_text(encoding="utf-8")
+        self.assertIn("const dentRev=Object.values(r.dentists||{}).reduce", html)
+        self.assertIn("const clinicRev=Object.values(r.clinicDocs||{}).reduce", html)
+        self.assertIn("addMetric(tbody,'Выручка стоматологии'", view)
+        self.assertIn("addMetric(tbody,'Выручка клиники'", view)
+        self.assertIn("doctorPeriodPaid(rows,'dentists',name)", view)
+        self.assertIn("doctorPeriodPaid(rows,'clinicDocs',name)", view)
+        self.assertIn("doctorPaidSnapshots=_management_doctor_paid_snapshots(db())", storage)
+        self.assertIn("function collectRecord(){", html)
+        self.assertIn("window.azDoctorHasPaidForDate(date)", html)
+
 if __name__ == "__main__":
     unittest.main()
