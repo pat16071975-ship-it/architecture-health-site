@@ -551,6 +551,17 @@ class ManagementDialogSaveRegressionTests(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stderr)
         return json.loads(result.stdout)
 
+    def test_management_dialog_server_page_loads_bumped_handler_asset(self):
+        with patch.object(
+            report_storage, "_read_report_file",
+            lambda filename: (REPORTS / filename).read_text(encoding="utf-8"),
+        ):
+            html=report_storage._render_server_reports()
+        self.assertIn('<script src="./period-view.js?v=20261011-1"></script>',html)
+        self.assertNotIn('period-view.js?v=20260918-1',html)
+        self.assertIn("async function reportApi(url,options={})",html)
+        self.assertIn("async function loadServerStore()",html)
+
     def test_management_dialog_server_save_put_roundtrip_refresh_and_cash_preservation(self):
         actual=self.execute("success")
         self.assertEqual(len(actual["requests"]),1)
