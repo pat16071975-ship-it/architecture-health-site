@@ -269,7 +269,7 @@ class PaidServicesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Нарушен баланс"):
             paid_services.parse_bytes(raw, "bad.xlsx")
 
-    def test_multi_month_report_is_rejected(self):
+    def test_multi_month_report_requires_selected_period(self):
         raw = self.workbook_bytes([
             ["Итого", None, None, None, 0, 200, 200, 0],
             ["Услуги", None, None, None, 0, 200, 200, 0],
@@ -280,8 +280,15 @@ class PaidServicesTests(unittest.TestCase):
             ["Счет №2 от 01.10.2026 12:00:00", None, None, None, "-", 100, 100, 0],
             ["Терапия", "01.10.2026 12:00", "Услуга", 1, "-", 100, 100, 0],
         ])
-        with self.assertRaisesRegex(ValueError, "один календарный месяц"):
+        with self.assertRaisesRegex(ValueError, "Укажите период"):
             paid_services.parse_bytes(raw, "two-months.xlsx")
+        parsed = paid_services.parse_bytes(
+            raw, "two-months.xlsx", period_start="2026-09-01", period_end="2026-10-01",
+        )
+        self.assertEqual(parsed["period_start"], "2026-09-01")
+        self.assertEqual(parsed["period_end"], "2026-10-01")
+        self.assertEqual(parsed["providers"]["Dent D."]["paid"], 200)
+        self.assertEqual(paid_services.compact_report(parsed)["version"], 3)
 
 
 
@@ -391,7 +398,7 @@ class DoctorPaidOnlyManagementTests(unittest.TestCase):
         js = r"""
 const fs=require('node:fs'),vm=require('node:vm');
 const src=fs.readFileSync('reports/period-view.js','utf8');
-const start=src.indexOf('  function doctorPaidSnapshot(date){');
+const start=src.indexOf('  function paidDate(value){');
 const end=src.indexOf('  function mix(',start);
 if(start<0||end<0)throw Error('doctor-only helper not found');
 const ctx={
@@ -433,15 +440,18 @@ process.stdout.write('DOCTOR_ONLY_UI=PASS');
         html = (root / "reports/index.html").read_text(encoding="utf-8")
         view = (root / "reports/period-view.js").read_text(encoding="utf-8")
         storage = (Path(__file__).resolve().parent / "report_storage.py").read_text(encoding="utf-8")
-        self.assertIn("const dentRev=Object.values(r.dentists||{}).reduce", html)
-        self.assertIn("const clinicRev=Object.values(r.clinicDocs||{}).reduce", html)
-        self.assertIn("addMetric(tbody,'Выручка стоматологии'", view)
-        self.assertIn("addMetric(tbody,'Выручка клиники'", view)
-        self.assertIn("doctorPeriodPaid(rows,'dentists',name)", view)
-        self.assertIn("doctorPeriodPaid(rows,'clinicDocs',name)", view)
-        self.assertIn("doctorPaidSnapshots=_management_doctor_paid_snapshots(db())", storage)
-        self.assertIn("function collectRecord(){", html)
-        self.assertIn("window.azDoctorHasPaidForDate(date)", html)
+        for fragment, source in (
+            ("const dentRev=Object.values(r.dentists||{}).reduce", html),
+            ("const clinicRev=Object.values(r.clinicDocs||{}).reduce", html),
+            ("addMetric(tbody,'Выручка стоматологии'", view),
+            ("addMetric(tbody,'Выручка клиники'", view),
+            ("doctorPartsPaid(pd.paidParts,'dentists',name)", view),
+            ("doctorPartsPaid(pd.paidParts,'clinicDocs',name)", view),
+            ("doctorPaidSnapshots=_management_doctor_paid_snapshots(db())", storage),
+            ("function collectRecord(){", html),
+            ("window.azDoctorHasPaidForDate(date)", html),
+        ):
+            self.assertTrue(fragment in source, "Missing report contract: " + fragment)
 
 if __name__ == "__main__":
     unittest.main()

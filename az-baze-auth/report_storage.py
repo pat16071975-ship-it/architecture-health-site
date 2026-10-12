@@ -3,6 +3,7 @@ import math
 import re
 import secrets
 import sqlite3
+from datetime import date as calendar_date
 from flask import Response, abort, g, jsonify, request, session
 
 from app import DB_PATH, SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, user_permissions
@@ -151,19 +152,8 @@ def _reapply_paid_after_restore(conn, updated_by, updated_at):
 
 
 
-def _management_doctor_paid_snapshots(conn):
-    """Read-only doctor rows from confirmed new MIS paid snapshots.
-
-    Never overlay report_data, cash, direction totals, lab, or visit figures.
-    A month is usable only when all paid providers have a confirmed mapping.
-    """
-    exists = conn.execute(
-        "SELECT 1 FROM sqlite_master "
-        "WHERE type='table' AND name='service_payment_snapshots'"
-    ).fetchone()
-    if not exists:
-        return {}
-
+def _management_doctor_provider_mappings(conn):
+    """Use the same confirmed provider decisions for every paid period."""
     mappings = {
         "dent": dict(ident_import.DENTISTS),
         "structure": dict(ident_import.STRUCTURE_DOCTORS),
@@ -191,6 +181,20 @@ def _management_doctor_paid_snapshots(conn):
                 mappings[direction][source] = str(row["display_name"])
             elif direction == "ignore":
                 ignored.add(source)
+
+    return mappings, ignored
+
+
+def _management_doctor_paid_snapshots(conn):
+    """Read monthly doctor values without changing stored management data."""
+    exists = conn.execute(
+        "SELECT 1 FROM sqlite_master "
+        "WHERE type='table' AND name='service_payment_snapshots'"
+    ).fetchone()
+    if not exists:
+        return {}
+
+    mappings, ignored = _management_doctor_provider_mappings(conn)
 
     result = {}
     for row in conn.execute(
@@ -223,6 +227,64 @@ def _management_doctor_paid_snapshots(conn):
             continue
         result.setdefault(month, []).append({
             "asOf": as_of,
+            "dentists": summary["dentists"],
+            "clinicDocs": summary["clinicDocs"],
+        })
+    return result
+
+
+def _management_doctor_paid_periods(conn):
+    """Return whole source intervals; never manufacture monthly paid values."""
+    if not conn.execute(
+        "SELECT 1 FROM sqlite_master "
+        "WHERE type='table' AND name='service_payment_periods'"
+    ).fetchone():
+        return []
+
+    mappings, ignored = _management_doctor_provider_mappings(conn)
+    result = []
+    for row in conn.execute(
+        "SELECT period_start,period_end,payload_json "
+        "FROM service_payment_periods ORDER BY period_start,period_end"
+    ):
+        start = str(row["period_start"] or "")
+        end = str(row["period_end"] or "")
+        if not DATE_RE.fullmatch(start) or not DATE_RE.fullmatch(end) or start > end:
+            continue
+        try:
+            calendar_date.fromisoformat(start)
+            calendar_date.fromisoformat(end)
+            snapshot = json.loads(row["payload_json"])
+        except (TypeError, ValueError):
+            continue
+        if (
+            not isinstance(snapshot, dict)
+            or snapshot.get("version") != 3
+            or snapshot.get("period_start") != start
+            or snapshot.get("period_end") != end
+            or not isinstance(snapshot.get("providers"), dict)
+            or any(not isinstance(value, dict) for value in snapshot["providers"].values())
+        ):
+            continue
+        try:
+            summary = paid_services.direction_summary(
+                snapshot,
+                mappings["dent"],
+                mappings["structure"],
+                mappings["lab"],
+                ignored=ignored,
+            )
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if summary["unknownProviders"] or any(
+            not math.isfinite(value)
+            for key in ("dentists", "clinicDocs", "labDocs")
+            for value in summary[key].values()
+        ):
+            continue
+        result.append({
+            "from": start,
+            "to": end,
             "dentists": summary["dentists"],
             "clinicDocs": summary["clinicDocs"],
         })
@@ -449,7 +511,7 @@ def _render_server_reports():
 
     old_store = """function loadStore(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}}
 function saveStore(v){localStorage.setItem(STORAGE_KEY,JSON.stringify(v))}"""
-    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={};
+    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={},DOCTOR_PAID_PERIODS=[];
 function loadStore(){return SERVER_STORE}
 function saveStore(v){SERVER_STORE=v}
 async function reportApi(url,options={}){
@@ -467,11 +529,14 @@ async function loadServerStore(){
   const payload=await reportApi('/api/reports/data');
   SERVER_STORE=payload.data||{};
   DOCTOR_PAID_SNAPSHOTS=payload.doctorPaidSnapshots||{};
+  DOCTOR_PAID_PERIODS=Array.isArray(payload.doctorPaidPeriods)?payload.doctorPaidPeriods:[];
   REPORT_CSRF=payload.csrf||'';
   if(typeof syncProviderNames==='function'){
     syncProviderNames(SERVER_STORE);
     Object.values(DOCTOR_PAID_SNAPSHOTS).forEach(rows=>
       rows.forEach(r=>syncProviderNames({[r.asOf]:{dentists:r.dentists,clinicDocs:r.clinicDocs}})));
+    DOCTOR_PAID_PERIODS.forEach(r=>
+      syncProviderNames({[r.to]:{dentists:r.dentists,clinicDocs:r.clinicDocs}}));
   }
   if(typeof renderStructure==='function')renderStructure();
 }"""
@@ -584,7 +649,12 @@ def register_report_storage(app):
             if month in monthly_plans:
                 record["plan"] = monthly_plans[month]
             data[row["date"]] = record
-        return jsonify(data=data, doctorPaidSnapshots=_management_doctor_paid_snapshots(db()), csrf=csrf_token())
+        return jsonify(
+            data=data,
+            doctorPaidSnapshots=_management_doctor_paid_snapshots(db()),
+            doctorPaidPeriods=_management_doctor_paid_periods(db()),
+            csrf=csrf_token(),
+        )
 
     @app.put("/api/reports/data/<date>")
     @permission_required("reports")

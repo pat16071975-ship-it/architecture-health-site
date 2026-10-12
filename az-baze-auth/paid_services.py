@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 import re
 from datetime import date, datetime
 from io import BytesIO
@@ -41,6 +42,35 @@ CREATE TABLE IF NOT EXISTS service_payment_versions (
 );
 CREATE INDEX IF NOT EXISTS idx_service_payment_versions_date
     ON service_payment_versions(as_of_date, id);
+
+CREATE TABLE IF NOT EXISTS service_payment_periods (
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    source_filename TEXT NOT NULL,
+    source_sha256 TEXT NOT NULL,
+    imported_by INTEGER,
+    imported_at TEXT NOT NULL,
+    PRIMARY KEY (period_start, period_end)
+);
+CREATE INDEX IF NOT EXISTS idx_service_payment_periods_end
+    ON service_payment_periods(period_end, period_start);
+
+CREATE TABLE IF NOT EXISTS service_payment_period_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    source_filename TEXT NOT NULL,
+    source_sha256 TEXT NOT NULL,
+    imported_by INTEGER,
+    imported_at TEXT NOT NULL,
+    archived_by INTEGER,
+    archived_at TEXT NOT NULL,
+    decision TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_service_payment_period_versions_range
+    ON service_payment_period_versions(period_start, period_end, id);
 """
 
 
@@ -75,15 +105,19 @@ def _num(value):
     if isinstance(value, bool):
         return float(value)
     if isinstance(value, (int, float)):
-        return float(value)
-    text = str(value).replace("\xa0", " ").replace("₽", "").strip()
-    if text in {"", "-", "—"}:
-        return 0.0
-    text = text.replace(" ", "").replace(",", ".")
+        text = value
+    else:
+        text = str(value).replace("\xa0", " ").replace("₽", "").strip()
+        if text in {"", "-", "—"}:
+            return 0.0
+        text = text.replace(" ", "").replace(",", ".")
     try:
-        return float(text)
-    except ValueError as exc:
+        number = float(text)
+    except (ValueError, OverflowError) as exc:
         raise ValueError(f"Не удалось прочитать денежное значение «{value}».") from exc
+    if not math.isfinite(number):
+        raise ValueError("Денежное значение в отчёте должно быть конечным числом.")
+    return number
 
 
 def _qty(value):
@@ -162,11 +196,45 @@ def _provider_header(row, known_staff=None):
     )
 
 
-def parse_bytes(raw, filename="", known_staff=None):
+def _validate_period(period_start, period_end):
+    start = str(period_start or "").strip()
+    end = str(period_end or "").strip()
+    if not start or not end:
+        raise ValueError("Укажите даты начала и конца периода, за который сформирован файл.")
+    try:
+        if any(not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) for value in (start, end)):
+            raise ValueError
+        date.fromisoformat(start)
+        date.fromisoformat(end)
+    except ValueError as exc:
+        raise ValueError("Укажите корректные даты начала и конца периода.") from exc
+    if start > end:
+        raise ValueError("Дата начала периода не может быть позже даты окончания.")
+    return start, end
+
+
+def report_period(report):
+    month = str(report.get("month") or "")
+    return _validate_period(
+        report.get("period_start") or (month + "-01" if month else ""),
+        report.get("period_end"),
+    )
+
+
+def is_monthly_report(report):
+    start, end = report_period(report)
+    return start == end[:7] + "-01"
+
+
+def parse_bytes(raw, filename="", known_staff=None, period_start=None, period_end=None):
     if not raw:
         raise ValueError("Выбран пустой файл «Выручка по направлениям».")
     if len(raw) > 25 * 1024 * 1024:
         raise ValueError("Размер файла «Выручка по направлениям» превышает 25 МБ.")
+
+    explicit_period = bool(str(period_start or "").strip() or str(period_end or "").strip())
+    if explicit_period:
+        period_start, period_end = _validate_period(period_start, period_end)
 
     try:
         wb = load_workbook(BytesIO(raw), read_only=True, data_only=True)
@@ -274,14 +342,26 @@ def parse_bytes(raw, filename="", known_staff=None):
             raise ValueError("В новом отчёте не найден раздел «Услуги».")
         if not providers:
             raise ValueError("В новом отчёте не найдены строки врачей/исполнителей.")
-        if not items:
+        if not items and not explicit_period:
             raise ValueError("В новом отчёте не найдены строки услуг выбранного периода.")
 
-        months = sorted({str(item["date"])[:7] for item in items if item.get("date")})
-        if len(months) != 1:
-            raise ValueError("Новый отчёт «Выручка по направлениям» должен содержать один календарный месяц.")
-        month = months[0]
-        period_end = max(str(item["date"]) for item in items if item.get("date"))
+        service_dates = sorted({str(item["date"]) for item in items if item.get("date")})
+        if explicit_period:
+            if service_dates and (service_dates[0] < period_start or service_dates[-1] > period_end):
+                raise ValueError(
+                    "Даты услуг в файле выходят за указанный период. "
+                    "Проверьте даты, за которые сформирован отчёт."
+                )
+        else:
+            months = sorted({value[:7] for value in service_dates})
+            if len(months) != 1:
+                raise ValueError(
+                    "Файл содержит услуги за несколько месяцев. "
+                    "Укажите период, за который сформирован отчёт."
+                )
+            period_start = months[0] + "-01"
+            period_end = service_dates[-1]
+        month = period_end[:7] if period_start == period_end[:7] + "-01" else ""
 
         provider_sum = {
             key: round(sum(value[key] for value in providers.values()), 2)
@@ -298,6 +378,7 @@ def parse_bytes(raw, filename="", known_staff=None):
             "sheet": ws.title,
             "filename": filename or "",
             "month": month,
+            "period_start": period_start,
             "period_end": period_end,
             "totals": section_totals,
             "providers": providers,
@@ -414,7 +495,7 @@ def compact_report(report):
             seen_invoices.add(key)
             invoices.append({"staff": staff, "invoice": invoice, "date": data_date})
 
-    return {
+    payload = {
         "version": 2,
         "month": str(report.get("month") or ""),
         "as_of_date": str(report.get("period_end") or ""),
@@ -437,10 +518,86 @@ def compact_report(report):
             key=lambda row: (row["date"], row["staff"], row["invoice"]),
         ),
     }
+    if not is_monthly_report(report):
+        period_start, period_end = report_period(report)
+        payload["version"] = 3
+        del payload["month"]
+        del payload["as_of_date"]
+        payload["period_start"] = period_start
+        payload["period_end"] = period_end
+    return payload
 
 
 def init_schema(conn):
-    conn.executescript(SCHEMA)
+    # execute(), unlike executescript(), does not implicitly commit a caller's
+    # transaction. The schema contains only independent CREATE statements.
+    for statement in SCHEMA.split(";"):
+        if statement.strip():
+            conn.execute(statement)
+
+
+def existing_report(conn, report):
+    period_start, period_end = report_period(report)
+    if is_monthly_report(report):
+        return conn.execute(
+            "SELECT * FROM service_payment_snapshots WHERE as_of_date=?",
+            (period_end,),
+        ).fetchone()
+    return conn.execute(
+        "SELECT * FROM service_payment_periods WHERE period_start=? AND period_end=?",
+        (period_start, period_end),
+    ).fetchone()
+
+
+def _same_payload(raw, incoming):
+    try:
+        old = json.loads(raw)
+    except (TypeError, ValueError):
+        return False
+    options = {"ensure_ascii": False, "sort_keys": True, "separators": (",", ":")}
+    return json.dumps(old, **options) == json.dumps(incoming, **options)
+
+
+def _store_period(conn, report, payload, source_filename, source_sha256, actor_id, imported_at, decision):
+    period_start, period_end = report_period(report)
+    existing = existing_report(conn, report)
+    payload_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    if existing:
+        values = tuple(existing)
+        if _same_payload(values[2], payload):
+            return "identical"
+        if decision != "use_new":
+            raise ValueError("За этот период уже сохранена другая версия отчёта. Повторите проверку файла.")
+        conn.execute(
+            """
+            INSERT INTO service_payment_period_versions(
+                period_start,period_end,payload_json,source_filename,source_sha256,
+                imported_by,imported_at,archived_by,archived_at,decision
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            """,
+            (*values, actor_id, imported_at, decision),
+        )
+        conn.execute(
+            """
+            UPDATE service_payment_periods
+            SET payload_json=?,source_filename=?,source_sha256=?,imported_by=?,imported_at=?
+            WHERE period_start=? AND period_end=?
+            """,
+            (payload_json, source_filename or "Выручка по направлениям", source_sha256,
+             actor_id, imported_at, period_start, period_end),
+        )
+        return "replaced"
+    conn.execute(
+        """
+        INSERT INTO service_payment_periods(
+            period_start,period_end,payload_json,source_filename,source_sha256,
+            imported_by,imported_at
+        ) VALUES(?,?,?,?,?,?,?)
+        """,
+        (period_start, period_end, payload_json, source_filename or "Выручка по направлениям",
+         source_sha256, actor_id, imported_at),
+    )
+    return "imported"
 
 
 def store_snapshot(
@@ -452,8 +609,13 @@ def store_snapshot(
     imported_at,
     decision="append",
 ):
-    init_schema(conn)
+    if not conn.in_transaction:
+        init_schema(conn)
     payload = compact_report(report)
+    if payload["version"] == 3:
+        return _store_period(
+            conn, report, payload, source_filename, source_sha256, actor_id, imported_at, decision,
+        )
     as_of_date = payload["as_of_date"]
     month = payload["month"]
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", as_of_date):
@@ -469,8 +631,10 @@ def store_snapshot(
     if existing:
         old_payload = existing["payload_json"] if hasattr(existing, "keys") else existing[2]
         old_sha = existing["source_sha256"] if hasattr(existing, "keys") else existing[4]
-        if str(old_payload) == payload_json:
+        if _same_payload(old_payload, payload):
             return "identical"
+        if decision != "use_new":
+            raise ValueError("За этот период уже сохранена другая версия отчёта. Повторите проверку файла.")
         conn.execute(
             """
             INSERT INTO service_payment_versions(
@@ -834,7 +998,9 @@ def overlay_record_map(conn, month, records, dentists, structure_doctors, lab_do
 def latest_loaded_date(conn):
     init_schema(conn)
     row = conn.execute(
-        "SELECT MAX(as_of_date) FROM service_payment_snapshots"
+        "SELECT MAX(loaded_date) FROM ("
+        "SELECT as_of_date AS loaded_date FROM service_payment_snapshots "
+        "UNION ALL SELECT period_end FROM service_payment_periods)"
     ).fetchone()
     return str(row[0]) if row and row[0] else None
 
