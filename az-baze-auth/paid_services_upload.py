@@ -89,6 +89,29 @@ def _existing_revision(conn, report):
     return _state_and_revision(conn, report)[1]
 
 
+def _overlap_state(conn, report):
+    overlaps = paid_services.overlapping_reports(conn, report)
+    fingerprint = hashlib.sha256(
+        json.dumps(
+            [
+                {
+                    "from": item["from"],
+                    "to": item["to"],
+                    "relation": item["relation"],
+                    "source_kind": item["source_kind"],
+                    "source_sha256": item["source_sha256"],
+                    "revision": item["revision"],
+                }
+                for item in overlaps
+            ],
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    return overlaps, fingerprint
+
+
 def _provider_decisions():
     raw = request.form.get("provider_decisions", "").strip()
     if not raw:
@@ -166,8 +189,6 @@ def _prepare():
         raw,
         filename,
         known_staff=ident_import.KNOWN_STAFF,
-        period_start=request.form.get("period_start"),
-        period_end=request.form.get("period_end"),
     )
     source_sha = hashlib.sha256(raw).hexdigest()
     summary = _summary(report, conn)
@@ -178,7 +199,9 @@ def _prepare():
 def _preview():
     perms, conn, filename, _raw, report, _source_sha, summary, state = _prepare()
     state, revision = _state_and_revision(conn, report)
+    overlaps, overlap_revision = _overlap_state(conn, report)
     unknown = summary["unknown_providers"]
+    distinct_overlaps = [item for item in overlaps if item["relation"] != "exact"]
 
     return {
         "status": "preview",
@@ -188,14 +211,28 @@ def _preview():
         },
         "month": report["month"],
         "revision": revision,
+        "overlap_revision": overlap_revision,
+        "overlaps": [
+            {
+                "from": item["from"],
+                "to": item["to"],
+                "relation": item["relation"],
+                "source_filename": item["source_filename"],
+                "same_payload": item["same_payload"],
+            }
+            for item in overlaps
+        ],
         "counts": {
             "new": 1 if state == "new" else 0,
             "identical": 1 if state == "identical" else 0,
             "conflict": 1 if state == "conflict" else 0,
-            "historical": 0,
+            "historical": len(distinct_overlaps),
+            "overlap": len(distinct_overlaps),
             "removed": 0,
         },
         "requires_choice": state == "conflict",
+        "requires_review": bool(overlaps),
+        "changes_detected": state == "conflict",
         "requires_provider_mapping": bool(unknown),
         "unknown_providers": unknown,
         "can_replace": "upload_replace" in perms,
@@ -206,7 +243,9 @@ def _preview():
 def _commit(decision=None):
     perms, conn, filename, _raw, report, source_sha, summary, state = _prepare()
     initial_revision = _existing_revision(conn, report)
+    _initial_overlaps, initial_overlap_revision = _overlap_state(conn, report)
     expected_revision = request.form.get("expected_revision")
+    expected_overlap_revision = request.form.get("expected_overlap_revision")
     decisions = _provider_decisions()
     if decision == "use_new" and "upload_replace" not in perms:
         abort(403)
@@ -220,6 +259,12 @@ def _commit(decision=None):
         revision = _existing_revision(conn, report)
         if revision != (expected_revision or initial_revision):
             raise ValueError("Сохранённый отчёт уже изменился. Повторите проверку файла.")
+        _overlaps, overlap_revision = _overlap_state(conn, report)
+        if overlap_revision != (expected_overlap_revision or initial_overlap_revision):
+            raise ValueError(
+                "Набор пересекающихся загруженных периодов уже изменился. "
+                "Повторите проверку файла."
+            )
         state = _existing_state(conn, report, source_sha)
         summary = _summary(report, conn)
         if state == "identical" or (state == "conflict" and decision == "keep_old"):
