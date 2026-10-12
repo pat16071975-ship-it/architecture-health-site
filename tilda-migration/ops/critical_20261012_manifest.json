@@ -1,0 +1,817 @@
+{
+  "version": 1,
+  "files": {
+    "contacts/index.html": {
+      "before": "163dee8f144abc7b3bee7e1a5bf7d372fcb848b2891ec04892492aacb79d87ca",
+      "after": "dd91e91acb60d518404d7ece1bcc54e36a9dc37b018f924be7b03f3d46c53f76",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ],
+        [
+          "<a href=\"tel:+73832496411\">+ 7</a>",
+          "<a href=\"tel:+73832842421\">+ 7</a>"
+        ],
+        [
+          "<a href=\"tel:+73832846011\">(383) 284-24-21</a>",
+          "<a href=\"tel:+73832842421\">(383) 284-24-21</a>"
+        ]
+      ]
+    },
+    "cookie/index.html": {
+      "before": "5f72cbbb846b08a5475702a74f2ecf60ff12ed4860cb4fb4862929998e2e47e7",
+      "after": "5f80f8477fa91598f0745b4c4aba1ac3973523d7ad5983b2eb24680625e554db",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "index.html": {
+      "before": "39a01442a159ea278ddda612513171e689cc7a71a4cbf3a2ea22cc7b7d121933",
+      "after": "78dd4977565f2e9c1c68bbdbcf10804a36a93573c155be2bee4ede07537557f5",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ],
+        [
+          "<a href=\"tel:+73832496411\">+ 7</a>",
+          "<a href=\"tel:+73832842421\">+ 7</a>"
+        ],
+        [
+          "<a href=\"tel:+73832846011\">(383) 284-24-21</a>",
+          "<a href=\"tel:+73832842421\">(383) 284-24-21</a>"
+        ]
+      ]
+    },
+    "kompleks-uslugi/arhitektura-zdorovya/index.html": {
+      "before": "dac7d1f73d8eb29d260b2d5236859ca644635a35bd855a52c71a141f11ad72d7",
+      "after": "94cee43e0fee21935976f0388d10118820675f871324e45f086505ed190cba40",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "kompleks-uslugi/index.html": {
+      "before": "97aa506b78cac58c902dd34aeb1eea4d72b8774f26464cd16b17753b17b6a67e",
+      "after": "f8a72b5f0491dde4118f6bf5b24e4c810cc54e9f55cdd81939f84a06610a0491",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html": {
+      "before": "918d02bea5b091e4c718d74d52f3e245c68806d5aa1c3cc1bb01a6b98ed1f3b8",
+      "after": "19d9af56688bc066d224a4fbedc69cc2e3d9ea70ca911827dd001f53de720763",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "kompleks-uslugi/zdorovaya-spina/index.html": {
+      "before": "a1f81d70107bdce0368bbad4200e6ab9c8596938e0165c551e1f65c7fd283d58",
+      "after": "682071ffd6716972f9959a22cc94fba9eebdc9b3495ad2b710c66c5237968d4f",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "lab/index.html": {
+      "before": "14e589f0bb59736819f753af63208a422a053d6804331373a14395f6e8c22eec",
+      "after": "46bc8cb67fc284d9eab3b1259f761d8eb989c47776724217ea541115dfd21739",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "o_nas/index.html": {
+      "before": "36ff683b50669f13166f87ed411d22f49b76306d5e778271ba3a6e8f52cb1337",
+      "after": "10c662f038701a59330c0282c2eaf41b94003c2a8ddb565eb85eb3eaa77251a8",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ],
+        [
+          "<a href=\"tel:+73832496411\">+ 7</a>",
+          "<a href=\"tel:+73832842421\">+ 7</a>"
+        ],
+        [
+          "<a href=\"tel:+73832846011\">(383) 284-24-21</a>",
+          "<a href=\"tel:+73832842421\">(383) 284-24-21</a>"
+        ]
+      ]
+    },
+    "otziv/index.html": {
+      "before": "16e62f339835df742dd4e9a38d11a50a3b039253b1d7c465c4da75b52b61b3b0",
+      "after": "6a16426e703a388ca23e9c154d9925c7c4ab6cd0747a009b6d3cbf603e76eef8",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "patient/dogovor/index.html": {
+      "before": "0ee9401f565c6c54d8459f79a315c41c2203a60f1c492bdea888d68c0132a70c",
+      "after": "356d9d559bcc273d5734d29f53f2b833b424c3c01955e5133a7d0c349bb85d17",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "patient/gosgarantii/index.html": {
+      "before": "7c6b3ca93620687b9ffa1e7f592571523525e8b005321de60f0c106e1bfaa70c",
+      "after": "6cd8f790c514bc6001403047eac0899eb16277a2201d9000ac058d79114184f5",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "patient/index.html": {
+      "before": "210ab267dbc9e4739fc8e31b2a316ce86e2828a5ad30f8bb1d5c0d282a194b0e",
+      "after": "d5bc0c95af2233b987692bf9b8f173a0d3ffa0041ac4e27eef49fc38b95de739",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "patient/licens/index.html": {
+      "before": "b234b315d581ee238ae232fd916304e333f53c44782bbfc2ea482737d9cbf433",
+      "after": "4741d0cfdd87a4a4617ecb66381d4e7d832dfad21c3804a6303dcddf1956dbd4",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "patient/patient-pravila/index.html": {
+      "before": "ea75d00f42ef124d1e57adf765f280b5daf629c20c02687dafac4e9a0c6e5502",
+      "after": "3dcb71ad77adf38153ea7ecf5666fc79398611e42be323c4484cd773bca47780",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "patient/patient-rules/index.html": {
+      "before": "16e4dbd920fcb469d2f1375d71fb2f366545b266cb6da2d53f086b9f8f02dc1c",
+      "after": "cf3d3ca58cfc0e5e4a36d9117e1c0be2de305c8feb09e23265813c7f8d6dd122",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "patient/priem-patientov/index.html": {
+      "before": "01a0c094b99c072cdf38b3ead783ef4c761d3749badb702d9d039701aba562c5",
+      "after": "f391ec8cd9ab604d9e3389ec03dca42df7868aae8ea5f5dfd8b67c4c575e7d31",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "patient/supervision/index.html": {
+      "before": "56a3c5086a2449061ef75f14232bb478f44cff9686691a08792598ec53cf1805",
+      "after": "4d6713b9e0aebfeca61729a6b6ff99577a729be86d5e22c5f5d5247de7a5697d",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "patient/zhaloba/index.html": {
+      "before": "e09d742d8eb72a049a19c47217cc88d1be33fbe09d5cdcbd147e9644e0b6f140",
+      "after": "11c70f209ca52f7fe97f7335c7513da363a84201b47bbcb3ad767449698a60b7",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "politica-site/index.html": {
+      "before": "d18f86c04d985349efabc15c7c1958662f9b82de3f926866658a4374932edf91",
+      "after": "f6b1373899186217fd48be9ec4b91353f361e0eb19de61107071ef07e2985de3",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "politica/index.html": {
+      "before": "573a3d0df03c89a38b563351ba09a9e837748160ff0215f450a1fbf126f44ca5",
+      "after": "18139bac6fdf22124fe5b73a63987b961e540875105b29ee3a4b502da0badb19",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "rassrochka/index.html": {
+      "before": "4d39be80a2cf5a5696d35c96085b92f0189a10972a0cb3fb0fea9425fbaf0815",
+      "after": "672a8c5a9c50594ecf9e037758b94bfab5520b5971a0432f3aa3acf3fdf03f76",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/bosak-yana/index.html": {
+      "before": "e689cf4641af476928030a97260f528e149791f83f3cc2b954bc252715963cc8",
+      "after": "38e543caa35edbbe668a7efc80b26fe2ab24abc18b23afbe4ed6068311217123",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/chirkov-maxim/index.html": {
+      "before": "e5ed79ebc7cedc52c2fe241439222fc46343b53243d32ce4c6fa8d70ec4a4b99",
+      "after": "e70537fa27f5eaead67af6e5ab5924557a8e9c251267fa9f4992d04803da1d2b",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/dimitrenko-anna/index.html": {
+      "before": "14d727859edc8bb8af412a78b657cba5d83887107e836364fdac053ff566f59d",
+      "after": "44dec4ee44e5db560023cf33cecf03c37d1ad347f1343eea6d11293d288b2505",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/golishenkov-vladislav/index.html": {
+      "before": "a875c32c6083272fc91032c79352d7389b40d0d83471bf1e8b393339f1a15188",
+      "after": "c6ea8bea4eb916bbdfa9f0e8a491bd426b8219524ac86da21b5fbe8edf408e15",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/holodtseva-valeria/index.html": {
+      "before": "7bfd692370ffbe4243b7f4e4524150e5c2e27f1e19da3f3ec6c5656452bd343b",
+      "after": "7d8982138ca29a3aaf1d1e20f1abb9e131e36add03dd712fa1fa41bb092edd08",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/index.html": {
+      "before": "8d3f576332f362f129d2245148c57266f2e43bedf64561d17ca925735ca7e88b",
+      "after": "c37c3a778465e873641a6f497bc45e343746c4252c1f15e1f5e3ee8d31b7bc23",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/lapina-natalia/index.html": {
+      "before": "df9f7305afb10ca2b800e842be90575eaf18aadd9b8e06591cf54172735ba2b5",
+      "after": "1590d9e9dfb504841afaa2a868ae00d9002db3bb9d5236b1218d99a58a0d6cb7",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/lubaeva-alena/index.html": {
+      "before": "ca4a1fb88dfc23e057e917e134c362d618dff3118bb83c27e2e244dd9e192bc8",
+      "after": "54a2e96b76e830b6e7422712ab4875f98c781927804376d48e4901931f0c863d",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/mamontova-lubava/index.html": {
+      "before": "2f747bd80dcc2cb4a95b25261cb2003a6309d03d4760078fe6187829e8940351",
+      "after": "6c8f79e3f05b0330cc5933e91fd86c9e14b033171f2b3d6f81b510f4d508c65f",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/movseyan-babken/index.html": {
+      "before": "b6696ea4080ed2755b994e1301c2416a6f52d3e112919fe774b987ea2b0ad88b",
+      "after": "0af4d9619731e9efc3dd34fc8cff234c758a517495071afe8918ebd9fa60b393",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/nazirov-uktamjon/index.html": {
+      "before": "b6d9a218b408ff561b22edb6d1f7b019abc4c5a92c54b56875d1e3403a859271",
+      "after": "acb4eca37f5ecb758f4f73e475593cbbaabe3d06a4dbfe2fe1c533afe3c2b5a1",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/pavlova-anna/index.html": {
+      "before": "b88bdb4907299d0cdf12afb8820bf765413cb29bba878b19c7d0c70779fa1947",
+      "after": "82cb1e4d275272b25b40f4bb0497e6809181fea4fdf189df2e79e71bf0f568b2",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/rumyantseva-maria/index.html": {
+      "before": "2f44479eb869940232f6844cfa2636c50487dea2b3bb825143c5a6fbf00d3e07",
+      "after": "e942d4695bc5e8de5bf14cad604971877cc4c62d46352d4a31ca5b891aaee736",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/starostenko-vadim/index.html": {
+      "before": "4b88831bfff71bfab1302fd39fbbfdb5b7db709f2d4b00d0aa7961543eb6f697",
+      "after": "78497ac967037ea91288e329b234b3460ee9c5e5c855aa44c0be3f39dcffe3f5",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/tproduct/338106745633-palunin-vladislav-andreevich/index.html": {
+      "before": "6a596ff008c5692e3d2cb57ac04c1293f8867d7b61e87fc6a22b2f07c6c58113",
+      "after": "7d659f2883a0a841cb81a44c2f9e1c92c2be74b8f4ad19e364e23f7edb7ff560",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html": {
+      "before": "a7fff4b19279b354b51fb2590e440a0a9e3452a1f0f47efa36f63464fb2cccc8",
+      "after": "acd1fbc01cd46949a126af6461bf0f3fd4de4ec9f4eeb1b8a2b3c20b2e9e6872",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html": {
+      "before": "f614a010ca441ea28558beed49cbb3626bb86c3c4448134776ffa4dcf48dd45c",
+      "after": "82546b20061db470fb23d42dc539772e32b035d5e604d7bbf873c2ab6a7e5912",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "team/zubachev-roman/index.html": {
+      "before": "0a88eb2c10ae71720643e26a5e6b28983652fbd805bc078cd95c58a2d0c27b24",
+      "after": "34ef859116102684b6433dbecfc5d6dcba7cbe2b595f23ee4f6bcffd2268e1a4",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/craniodontic/index.html": {
+      "before": "b14c3fe7a1e7a0bc2de9e0d9484b58ee956994368a329de85cd437a379a9372c",
+      "after": "6a76433f56c0555c126a333038d14b39c0dd4b790737f1fb3f7d06023f0ad975",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/diers-diagnostica/index.html": {
+      "before": "beea40e8cdc059316073cf1ab6983c3a18182c6c0898100a1acf7e4548b1a408",
+      "after": "540c771bc11094aa9f49b93e1d17164f75805ac42c401b12586540e947ec6a20",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/diers_research/index.html": {
+      "before": "beff87e3af1a070489f022cd0dc2ba80ccae75cc5e3f17d55d8bb3b9d19e816f",
+      "after": "44903335c357a5fd55ede101c5f3f43253e383a951b33e80eb336fbb116d9f2c",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/doc_educate/index.html": {
+      "before": "f16d0eef12df09402055157069200ac05614003763482688045275a2b7134266",
+      "after": "7f7c27dfd80da611759f3a1418597cba7b31b598adb40fc97d00d89eed09ab63",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/functional_dentistry/index.html": {
+      "before": "f841cf7e0a354da46b792aa12b4dfea9c8f8934e48b3c55add3ad8b486df25d5",
+      "after": "dc59445c07ef56b04d889b5669f2c617216b141e0cd74d3e5a00eca5b1ef07e4",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/gastroenterologiya/index.html": {
+      "before": "8dab7ecdaca9e48489b61ce497a72fe5148c6994fb639b4c86e4dbeaa6846453",
+      "after": "09a44b0f12cff8aefdd3f1ba2b3dbd90f58fc4a67df8defef897df773880b8dc",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/hygiene_prevention/index.html": {
+      "before": "deeca2951aee234e5f089db8b78cda8cbbef26df44758352df22ab4029e9fb8e",
+      "after": "d47b80ffa63648e9243aa84711c2e50614979c34f92dee5d17dc06c3ef30b358",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html": {
+      "before": "d75d92ca4e51a7b02b034fa4ad1da1644cc13dd17c3e562eb08c624882cfbafb",
+      "after": "3ec88dc1fd859ac2fae0c775bfb8d48b72a09bddadae5e9e8b7ca2bf2b5a4f5b",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/iggt-terapiya/index.html": {
+      "before": "35ed971060c40f5dcf77eb82c5c7d1d3039777bc1795f4a62e57a9b12c37afa1",
+      "after": "8215e81ca91584dadb22450c5035736a6ac42924b9659ef9084f64d2eb972d1f",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/khirurgiya/implantaciya/index.html": {
+      "before": "bac7bbf50489c33a492ef1c49053764da7c1dbe94671aaf17ee58f7a78f5c3db",
+      "after": "5ad300822d31a07ea1698148a871f9312463ddd8abc0331f2a14bbe494eede8b",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/khirurgiya/index.html": {
+      "before": "70c09540542e31f92edb5dacf72d6a9579680ff83a2e33f97171e63f914778b0",
+      "after": "98df7573e2acb60777a072b0f5e81e25b44489fb675657930870d2ba204396fe",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/konsultatiya-stomatolog/index.html": {
+      "before": "58f6ef2354b78de5813893971dd770d2116777d00ac1052d36dd9b7b34c74099",
+      "after": "1418b7352893edccf692c238ae1ac6444d81722d2bf6568e130a364099ec771c",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html": {
+      "before": "7a55fba4b4fce054ea59d101aecd0497a0edcb5727d3ee780cb47f2008a71908",
+      "after": "5781c50a1c0a76da03d4c24fa8a917866182771696b763680a77f86c1c9145da",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/index.html": {
+      "before": "faf598e3f685db6d3c669b2ef307796f7fab607649b9213b524535b1f2932722",
+      "after": "fffbb96c3a3ef05ebb08701ea7a37d803f0f94646426a600c6e1684751f1cfd3",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/karies/index.html": {
+      "before": "bbe7f4015e3cb6e695df0eef8b48b3184d9d597c4f126177854ff290dd748478",
+      "after": "f7123520034f10ac2ed4f348768a501588f660c54ee506a90cfb3d3587bcffb2",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/kista/index.html": {
+      "before": "7e237d1a8a940e832553b9d3b3d187c36e8ff0673f73af6e3c866adfaffc2805",
+      "after": "d98b672e107c5571af4c996f98014403b8e02a0d37e000703aa83c97ccbbba4d",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/periodontit/index.html": {
+      "before": "baa75a2e9fb4f77ad435bacb2800c1fdc46fbd78b20388898fa961a98b52dafa",
+      "after": "ce4acdda493fe99ce91e1fed29b8411f95ee61347ca751f4d3baa156604db24e",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/pulpit/index.html": {
+      "before": "8b9053a44e861e0bceccf739394ccef0eec24145eabdc12e9fac2ce466612118",
+      "after": "85aefd04ca7f4eac59746cdd4e6a5b660e339bf58b629c22df308464c3d5959e",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html": {
+      "before": "e7a57171bccc7443bbe5cbe27ca27eeffde07589310ee3dce2f24a2041ced794",
+      "after": "acbbc82db25e5a4e50d29041c485bbde892120135cf067439454c1544095cbc9",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/zuby-mudrosti/index.html": {
+      "before": "6fbc3ec5e96d5aef77287d1e0fcb6d197226f992e3a0a1a91445f13884c1567e",
+      "after": "24abc4a46aeb879d06105b4a5d0698f0833ea2d681d76b6b085e6bfe0bfbda57",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/miofascialnaya-terapia/index.html": {
+      "before": "9c7f61af15b749eaf8bc5cda6b9fea332f4044128e6fd07826e23ec029af0e64",
+      "after": "457001feefe9b503159e4392f525d760efb6f2a7f928277c631bf41510dda014",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/miofascialnyy-massazh/index.html": {
+      "before": "be59ece64aa98f0a5f2b5fb7ca55e63ce1e312a9566ae8b6c28b54eb58c5b9f5",
+      "after": "d3a24ffdbcbe94d45cf05639f4dc01d08d866dc4315c0dd11c7049835db86411",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/miofunkcionalnaya-terapiya/index.html": {
+      "before": "a8fc6776881af29991cc5f773d7d97cd575cf294ef82988e54580840b85ac1a6",
+      "after": "8dc6e79a39dabbe0db5d718504abeb2a86733398c601e2e097dadb7faf8de668",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/neyropsihologia/index.html": {
+      "before": "b3fe11a173615da12f29a1e2db1eb7d38968c4104ef871628dfd476e80feaa12",
+      "after": "0a97faa4235ac7cf48d2c33739e6313c23d12d53d495a2ef154ee18b78eb9e03",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/nutriciologiya/index.html": {
+      "before": "5a1e2a45e39f2b30a5a66498d7c876149862140f182e04ea697807c0f1ac1cc7",
+      "after": "e3c04c860878b34180c8897d8b3f61549f81e1367cbb41c625f679128f62af2f",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/orthodontics/index.html": {
+      "before": "37e19c31d189e4e283f97291839bee9f8d06660d7055d3c7b6e7b7ccb600aae0",
+      "after": "adf619674af98ea838a79997d67abd03d3005931f7db7bf3ca01a60deecd08b7",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/ortopedicheskie-stelki/index.html": {
+      "before": "7515b9a592c4654d3e66f1b3b7438716df96a6a5417143a0da47ba30da31bc23",
+      "after": "a0d5a02088469d304d03a9072d64144387888b16133bd308f9006c39219d049a",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/osteopatiya/index.html": {
+      "before": "7f3ba1b6f9a7d153e0e9026ed42b13e712c37ff5bd63f5549646aadf910d1e4d",
+      "after": "a5656e8f2ca8e61c2bdd8a753d8e34c7257937eea7afd243f90c3d8189441d14",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/preventivnaya-medicina/index.html": {
+      "before": "c6d870a1497a515a7b74236180812dc40f50ea5049ee0234bdff730423cd9594",
+      "after": "70a9b647347272a15519b49015918aa56c47583de74946600a8d5e33324c6497",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/prosthetics/index.html": {
+      "before": "70477088c6d622be2309f92de527f76640c10340e538437e99cdc75144090dcb",
+      "after": "f424235202fa111c3e4cc4da17afbf03a381cc9886298594e05d2993bc324e6e",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/index.html": {
+      "before": "272f2bff1d30529be500433671b7d7756867aa6b289eb6254d594e000cb547c9",
+      "after": "22f5b20cb2e83469706590a37be50d27000f854c186f8b1c5563cf452c36e568",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/keramicheskie/index.html": {
+      "before": "5f8abc3792d3a9a0a6c3f761f3bddaced9384ad097cffe95fd28500a31e71f75",
+      "after": "3c3f6705f4c572100901705bcff05d967673fd920cb3e0e8879ba674c5176981",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/kompozitnye/index.html": {
+      "before": "9857f6176d080185b6ce3cf130ccc1d5e4e5be72fe838c82d218132b9d03c85b",
+      "after": "4e4336c8094870dba94d2fdc5b36225c454441b9d987ed52688cb29abc6ecb1e",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/prosthetics/mostovidnyy-protez/index.html": {
+      "before": "85e4c097ee87166457d2fab2358671374fb487af48ddcbef0dadcca356d4e6f9",
+      "after": "9b86ad22c5b9cf20dca313da5322e062c0e1af095ad88a1464d05d849876bebd",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/prosthetics/viniry/index.html": {
+      "before": "35beedbc952afd6be9c11c49db1eb2f1dfec154667f515fc1cae45e5db0e498e",
+      "after": "f449e2c3cb5db00720b1655f44f7f487ed86d990b8608ded68ead76f8c9bc443",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslugi/terapia/index.html": {
+      "before": "ee1b5e3ea1d2fd700d411a53850e0f729428c6257407cb33ade836fd6fa83e4d",
+      "after": "d60d797331707e230dbc71314189ade6e667eb4130883b5f5e0c948b461d6133",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "uslygi/index.html": {
+      "before": "ee8a2846546b759bd346b86ce8001a465a1338e0ef1a55c6f69181360a3169e0",
+      "after": "83a3b28f9abf58b755cd65553e94df47a8ca58d6cb0b5e9480052bbb7504da92",
+      "replacements": [
+        [
+          "<meta name=\"robots\" content=\"noindex,nofollow\">",
+          "<meta name=\"robots\" content=\"index,follow\">"
+        ]
+      ]
+    },
+    "layouts.css": {
+      "before": "8c5e35169bf1a6415bed0be42c5e6e84a7b91bfd6437680de8a96d4992b28fa2",
+      "after": "66d78398182263a458236c439c1a098fc8390539c7d45511d9240bd54f1a3a71",
+      "append": "\n/* AZ approved P0: keep the home heading inside desktop viewports. */\n@media (min-width:1200px){#visual-2488705671-1470209944682{left:max(20px,calc(50% - 600px - 88px));}}\n@media (min-width:960px) and (max-width:1199px){#visual-2488705671-1470209944682{left:max(20px,calc(50% - 480px - 12px));}}\n"
+    },
+    "robots.txt": {
+      "before": "331ea9090db0c9f6f597bd9840fd5b171830f6e0b3ba1cb24dfa91f0c95aedc1",
+      "after": "9a93da66b2f7b9bc05ad7429409692dff442b3bf8f988f2937ae21ad9cf6744f",
+      "content": "User-agent: *\nAllow: /\n\nSitemap: https://azmednsk.ru/sitemap.xml\n"
+    },
+    "sitemap.xml": {
+      "before": null,
+      "after": "74ffc28b998df2bc8425c17f6b3369cf15484b9398a17dc48aef497dd87b8ba4",
+      "content": "<?xml version='1.0' encoding='utf-8'?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>https://azmednsk.ru/contacts/</loc></url><url><loc>https://azmednsk.ru/cookie/</loc></url><url><loc>https://azmednsk.ru/</loc></url><url><loc>https://azmednsk.ru/kompleks-uslugi/arhitektura-zdorovya/</loc></url><url><loc>https://azmednsk.ru/kompleks-uslugi/</loc></url><url><loc>https://azmednsk.ru/kompleks-uslugi/korrekciya-vnimaniya-deti/</loc></url><url><loc>https://azmednsk.ru/kompleks-uslugi/zdorovaya-spina/</loc></url><url><loc>https://azmednsk.ru/lab/</loc></url><url><loc>https://azmednsk.ru/o_nas/</loc></url><url><loc>https://azmednsk.ru/otziv/</loc></url><url><loc>https://azmednsk.ru/patient/dogovor/</loc></url><url><loc>https://azmednsk.ru/patient/gosgarantii/</loc></url><url><loc>https://azmednsk.ru/patient/</loc></url><url><loc>https://azmednsk.ru/patient/licens/</loc></url><url><loc>https://azmednsk.ru/patient/patient-pravila/</loc></url><url><loc>https://azmednsk.ru/patient/patient-rules/</loc></url><url><loc>https://azmednsk.ru/patient/priem-patientov/</loc></url><url><loc>https://azmednsk.ru/patient/supervision/</loc></url><url><loc>https://azmednsk.ru/patient/zhaloba/</loc></url><url><loc>https://azmednsk.ru/politica-site/</loc></url><url><loc>https://azmednsk.ru/politica/</loc></url><url><loc>https://azmednsk.ru/rassrochka/</loc></url><url><loc>https://azmednsk.ru/team/bosak-yana/</loc></url><url><loc>https://azmednsk.ru/team/chirkov-maxim/</loc></url><url><loc>https://azmednsk.ru/team/dimitrenko-anna/</loc></url><url><loc>https://azmednsk.ru/team/golishenkov-vladislav/</loc></url><url><loc>https://azmednsk.ru/team/holodtseva-valeria/</loc></url><url><loc>https://azmednsk.ru/team/</loc></url><url><loc>https://azmednsk.ru/team/lapina-natalia/</loc></url><url><loc>https://azmednsk.ru/team/lubaeva-alena/</loc></url><url><loc>https://azmednsk.ru/team/mamontova-lubava/</loc></url><url><loc>https://azmednsk.ru/team/movseyan-babken/</loc></url><url><loc>https://azmednsk.ru/team/nazirov-uktamjon/</loc></url><url><loc>https://azmednsk.ru/team/pavlova-anna/</loc></url><url><loc>https://azmednsk.ru/team/rumyantseva-maria/</loc></url><url><loc>https://azmednsk.ru/team/starostenko-vadim/</loc></url><url><loc>https://azmednsk.ru/team/tproduct/338106745633-palunin-vladislav-andreevich/</loc></url><url><loc>https://azmednsk.ru/team/tproduct/392688125713-mozharova-ekaterina-sergeevna/</loc></url><url><loc>https://azmednsk.ru/team/tproduct/834140634503-kazantsev-leonid-evgenevich/</loc></url><url><loc>https://azmednsk.ru/team/zubachev-roman/</loc></url><url><loc>https://azmednsk.ru/uslugi/craniodontic/</loc></url><url><loc>https://azmednsk.ru/uslugi/diers-diagnostica/</loc></url><url><loc>https://azmednsk.ru/uslugi/diers_research/</loc></url><url><loc>https://azmednsk.ru/uslugi/doc_educate/</loc></url><url><loc>https://azmednsk.ru/uslugi/functional_dentistry/</loc></url><url><loc>https://azmednsk.ru/uslugi/gastroenterologiya/</loc></url><url><loc>https://azmednsk.ru/uslugi/hygiene_prevention/</loc></url><url><loc>https://azmednsk.ru/uslugi/hygiene_prevention/otbelivanie_zoom4/</loc></url><url><loc>https://azmednsk.ru/uslugi/iggt-terapiya/</loc></url><url><loc>https://azmednsk.ru/uslugi/khirurgiya/implantaciya/</loc></url><url><loc>https://azmednsk.ru/uslugi/khirurgiya/</loc></url><url><loc>https://azmednsk.ru/uslugi/konsultatiya-stomatolog/</loc></url><url><loc>https://azmednsk.ru/uslugi/lechenie-zubov/esteticheskaya_restavraciya/</loc></url><url><loc>https://azmednsk.ru/uslugi/lechenie-zubov/</loc></url><url><loc>https://azmednsk.ru/uslugi/lechenie-zubov/karies/</loc></url><url><loc>https://azmednsk.ru/uslugi/lechenie-zubov/kista/</loc></url><url><loc>https://azmednsk.ru/uslugi/lechenie-zubov/periodontit/</loc></url><url><loc>https://azmednsk.ru/uslugi/lechenie-zubov/pulpit/</loc></url><url><loc>https://azmednsk.ru/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/</loc></url><url><loc>https://azmednsk.ru/uslugi/lechenie-zubov/zuby-mudrosti/</loc></url><url><loc>https://azmednsk.ru/uslugi/miofascialnaya-terapia/</loc></url><url><loc>https://azmednsk.ru/uslugi/miofascialnyy-massazh/</loc></url><url><loc>https://azmednsk.ru/uslugi/miofunkcionalnaya-terapiya/</loc></url><url><loc>https://azmednsk.ru/uslugi/neyropsihologia/</loc></url><url><loc>https://azmednsk.ru/uslugi/nutriciologiya/</loc></url><url><loc>https://azmednsk.ru/uslugi/orthodontics/</loc></url><url><loc>https://azmednsk.ru/uslugi/ortopedicheskie-stelki/</loc></url><url><loc>https://azmednsk.ru/uslugi/osteopatiya/</loc></url><url><loc>https://azmednsk.ru/uslugi/preventivnaya-medicina/</loc></url><url><loc>https://azmednsk.ru/uslugi/prosthetics/</loc></url><url><loc>https://azmednsk.ru/uslugi/prosthetics/koronki/</loc></url><url><loc>https://azmednsk.ru/uslugi/prosthetics/koronki/keramicheskie/</loc></url><url><loc>https://azmednsk.ru/uslugi/prosthetics/koronki/kompozitnye/</loc></url><url><loc>https://azmednsk.ru/uslugi/prosthetics/mostovidnyy-protez/</loc></url><url><loc>https://azmednsk.ru/uslugi/prosthetics/viniry/</loc></url><url><loc>https://azmednsk.ru/uslugi/terapia/</loc></url><url><loc>https://azmednsk.ru/uslygi/</loc></url></urlset>\n"
+    }
+  },
+  "protected": {
+    "thank/index.html": "2bcb231d73d3d8547b8796a9a16331047d638e6bed5e9f69bf37f1d91536c12b"
+  }
+}
