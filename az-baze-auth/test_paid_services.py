@@ -269,7 +269,7 @@ class PaidServicesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Нарушен баланс"):
             paid_services.parse_bytes(raw, "bad.xlsx")
 
-    def test_multi_month_report_requires_selected_period(self):
+    def test_multi_month_report_uses_dates_inside_file_without_manual_period(self):
         raw = self.workbook_bytes([
             ["Итого", None, None, None, 0, 200, 200, 0],
             ["Услуги", None, None, None, 0, 200, 200, 0],
@@ -280,8 +280,9 @@ class PaidServicesTests(unittest.TestCase):
             ["Счет №2 от 01.10.2026 12:00:00", None, None, None, "-", 100, 100, 0],
             ["Терапия", "01.10.2026 12:00", "Услуга", 1, "-", 100, 100, 0],
         ])
-        with self.assertRaisesRegex(ValueError, "Укажите период"):
-            paid_services.parse_bytes(raw, "two-months.xlsx")
+        detected = paid_services.parse_bytes(raw, "two-months.xlsx")
+        self.assertEqual(detected["period_start"], "2026-09-30")
+        self.assertEqual(detected["period_end"], "2026-10-01")
         parsed = paid_services.parse_bytes(
             raw, "two-months.xlsx", period_start="2026-09-01", period_end="2026-10-01",
         )
