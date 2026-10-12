@@ -71,7 +71,7 @@ function harness(previewPayload, commitPayload = { status: 'imported', message: 
     const type = attrs.match(/\btype="([^"]+)"/)?.[1] || 'text';
     return { name, type, value: type === 'file' ? file : '', disabled: false };
   }).filter(input => input.name);
-  for (const [name, value] of Object.entries({ csrf: 'form-csrf', period_start: '2026-01-01', period_end: '2026-06-30' })) {
+  for (const [name, value] of Object.entries({ csrf: 'form-csrf' })) {
     const input = form.inputs.find(item => item.name === name);
     assert.ok(input, `${name} must be an actual form input.`);
     input.value = value;
@@ -113,14 +113,16 @@ function harness(previewPayload, commitPayload = { status: 'imported', message: 
 function preview(overrides = {}) {
   return {
     status: 'preview', period: { from: '2026-01-01', to: '2026-06-30' },
-    revision: 'new', counts: { new: 1, identical: 0, conflict: 0 },
-    requires_choice: false, requires_provider_mapping: false, unknown_providers: [], can_replace: true,
+    revision: 'new', overlap_revision: 'o'.repeat(64),
+    counts: { new: 1, identical: 0, conflict: 0, overlap: 0 },
+    overlaps: [], requires_choice: false, requires_review: false,
+    requires_provider_mapping: false, unknown_providers: [], can_replace: true,
     summary: { paid: 260, dent: 260, structure: 0, lab: 0, opening: 100, closing: 40 },
     ...overrides,
   };
 }
 
-function verifyTransmission(test, decision, revision) {
+function verifyTransmission(test, decision, revision, overlapRevision = 'o'.repeat(64)) {
   assert.equal(test.calls.length, 2, 'One preview and one commit are expected.');
   assert.equal(test.calls[0].url, '/api/uploads/paid-services/preview');
   assert.equal(test.calls[1].url, '/api/uploads/paid-services/commit');
@@ -128,12 +130,13 @@ function verifyTransmission(test, decision, revision) {
     assert.equal(call.options.method, 'POST');
     assert.equal(call.options.credentials, 'same-origin');
     assert.equal(call.body.get('paid_services'), test.file, 'The selected file must survive preview → commit.');
-    assert.equal(call.body.get('period_start'), '2026-01-01');
-    assert.equal(call.body.get('period_end'), '2026-06-30');
+    assert.equal(call.body.has('period_start'), false, 'The form must not ask for a period already present in the file.');
+    assert.equal(call.body.has('period_end'), false, 'The form must not ask for a period already present in the file.');
     assert.equal(call.body.get('csrf'), 'form-csrf');
   }
   assert.equal(test.calls[1].body.get('decision'), decision);
   assert.equal(test.calls[1].body.get('expected_revision'), revision);
+  assert.equal(test.calls[1].body.get('expected_overlap_revision'), overlapRevision);
 }
 
 async function autoCommit() {
@@ -145,14 +148,19 @@ async function autoCommit() {
 }
 
 async function confirmedReplacement() {
-  const revision = 'a'.repeat(64);
-  const test = harness(preview({ revision, requires_choice: true, counts: { conflict: 1 } }));
+  const revision = 'a'.repeat(64), overlapRevision = 'x'.repeat(64);
+  const test = harness(preview({
+    revision, overlap_revision: overlapRevision, requires_choice: true, requires_review: true,
+    changes_detected: true, counts: { conflict: 1, overlap: 0 },
+    overlaps: [{from:'2026-01-01',to:'2026-06-30',relation:'exact',same_payload:false,source_filename:'old.xlsx'}],
+  }));
   await test.form.dispatch('submit');
   assert.equal(test.calls.length, 1, 'A conflict must wait for the selected choice.');
   assert.equal(test.ids.reconcileOverlay.classList.contains('hidden'), false);
   assert.match(test.ids.reconcileMessage.innerHTML, /2026-01-01.*2026-06-30/);
   await test.ids.reconcileNew.dispatch('click');
-  verifyTransmission(test, 'use_new', revision);
+  verifyTransmission(test, 'use_new', revision, overlapRevision);
+  assert.match(test.ids.reconcileMessage.innerHTML, /данные внутри периода изменились/);
 }
 
 async function keepOldWithoutClassificationPermission() {
@@ -173,6 +181,23 @@ async function keepOldWithoutClassificationPermission() {
   assert.equal(test.ids.paidClientResult.textContent, 'Сохранены старые данные.');
 }
 
+async function overlapReview() {
+  const overlapRevision = 'z'.repeat(64);
+  const test = harness(preview({
+    overlap_revision: overlapRevision,
+    requires_review: true,
+    counts: {new:1, identical:0, conflict:0, overlap:1},
+    overlaps: [{from:'2026-01-01',to:'2026-03-31',relation:'partial',same_payload:null,source_filename:'q1.xlsx'}],
+  }));
+  await test.form.dispatch('submit');
+  assert.equal(test.calls.length, 1, 'An overlapping period must be shown before any write.');
+  assert.equal(test.ids.reconcileOverlay.classList.contains('hidden'), false);
+  assert.match(test.ids.reconcileMessage.innerHTML, /Найдены наложения/);
+  assert.match(test.ids.reconcileMessage.innerHTML, /частичное пересечение/);
+  await test.ids.reconcileContinue.dispatch('click');
+  verifyTransmission(test, 'append', 'new', overlapRevision);
+}
+
 async function invalidClassificationStaysInDialog() {
   const test = harness(preview({ requires_provider_mapping: true, unknown_providers: ['Unknown U.'] }));
   await test.form.dispatch('submit');
@@ -190,11 +215,11 @@ async function invalidClassificationStaysInDialog() {
 }
 
 (async () => {
-  for (const test of [autoCommit, confirmedReplacement, keepOldWithoutClassificationPermission, invalidClassificationStaysInDialog]) {
+  for (const test of [autoCommit, confirmedReplacement, keepOldWithoutClassificationPermission, overlapReview, invalidClassificationStaysInDialog]) {
     await test();
     console.log(`${test.name}: PASS`);
   }
-  console.log('PAID_UPLOAD_PERIOD_FORM: PASS (4 scenarios, actual template script)');
+  console.log('PAID_UPLOAD_PERIOD_FORM: PASS (5 scenarios, actual template script)');
 })().catch(error => {
   console.error(error.stack || error);
   process.exitCode = 1;
