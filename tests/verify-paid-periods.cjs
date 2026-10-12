@@ -20,6 +20,10 @@ for (const [start, end, expected] of [
   ['function aggregate(rows){', 'function renderPeriod(', '88456e5235077731634f22462f2983144871ac421c7691b7210d75056f92fc46'],
   ['function collectRecord(){', 'function refreshAutos(', 'f512bdf6430e1be0f520d3bbc9178d557613271e1c197464a9c7466dea5d6396'],
 ]) assert.equal(createHash('sha256').update(part(html, start, end)).digest('hex'), expected, `${start} must remain unchanged`);
+for (const [start, end, expected] of [
+  ['  function periodData(def,year){', '  function doctorPeriodData(', '55d442c0ae415edfd250e9ec3587b4390274aee149f53337434e9e204fea6305'],
+  ['  function addDateMetric(', '  function addDateDoctorMetric(', '1963e92a0001c721a7319a5eaf3c201bb65dba1fd0cd6457bd496a6e5e68f34d'],
+]) assert.equal(createHash('sha256').update(part(view, start, end)).digest('hex'), expected, `${start} must retain its original contract`);
 assert(html.includes('./period-view.js?v=20261012-paid-periods-1'), 'Updated script cache key');
 
 const freeze = value => {
