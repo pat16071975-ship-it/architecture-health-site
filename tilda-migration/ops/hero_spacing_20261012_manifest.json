@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "files": {
+    "index.html": {
+      "before": "3e8fe59b5359f6953359a423fe8ec98a6d26b0a7c14437c0194e90b431631e03",
+      "after": "83cb824e9e664aaac7aadec496cb1d785c20f222d73ef1d56515cf60bf9a38f7",
+      "replacements": [
+        [
+          "</head>",
+          "<style id=\"az-home-hero-spacing-20261012\">\n/* Keep the description and both actions inside the home hero. */\n@media (min-width:1200px){\n #visual-2488705671-1784635266210000001{left:max(20px,calc(50% - 688px));width:min(571px,calc(50% - 40px))}\n #visual-2488705671-1784635438553000002{left:max(20px,calc(50% - 688px))}\n #visual-2488705671-1784635533568000003{left:calc(max(20px,calc(50% - 688px)) + 231px)}\n}\n@media (min-width:960px) and (max-width:1199px){\n #layout-2488705671{--az-hero-left:max(20px,calc(50% - 492px));--az-hero-button:min(200px,calc((50vw - 111px)/2))}\n #visual-2488705671-1784635266210000001{left:var(--az-hero-left);width:min(421px,calc(50% - 91px))}\n #visual-2488705671-1784635438553000002{left:var(--az-hero-left);width:var(--az-hero-button)}\n #visual-2488705671-1784635533568000003{left:calc(var(--az-hero-left) + var(--az-hero-button) + 20px);width:var(--az-hero-button)}\n}\n@media (max-width:479px){\n #visual-2488705671-1784635266210000001{width:min(310px,calc(50% + 140px))}\n}\n</style>\n</head>"
+        ]
+      ]
+    }
+  },
+  "protected": {
+    "team/tproduct/338106745633-palunin-vladislav-andreevich/index.html": "7d659f2883a0a841cb81a44c2f9e1c92c2be74b8f4ad19e364e23f7edb7ff560",
+    "team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html": "acd1fbc01cd46949a126af6461bf0f3fd4de4ec9f4eeb1b8a2b3c20b2e9e6872",
+    "team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html": "82546b20061db470fb23d42dc539772e32b035d5e604d7bbf873c2ab6a7e5912",
+    "layouts.css": "66d78398182263a458236c439c1a098fc8390539c7d45511d9240bd54f1a3a71",
+    "robots.txt": "9a93da66b2f7b9bc05ad7429409692dff442b3bf8f988f2937ae21ad9cf6744f",
+    "sitemap.xml": "74ffc28b998df2bc8425c17f6b3369cf15484b9398a17dc48aef497dd87b8ba4"
+  }
+}
