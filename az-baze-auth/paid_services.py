@@ -13,6 +13,12 @@ STAFF_HEADER_RE = re.compile(
 )
 INVOICE_RE = re.compile(r"^Счет №(\d+) от (\d{2}\.\d{2}\.\d{4})(?:\s+\d{1,2}:\d{2}:\d{2})?$")
 DATE_TIME_FORMATS = ("%d.%m.%Y %H:%M", "%d.%m.%Y %H:%M:%S", "%d.%m.%Y")
+PERIOD_RANGE_RE = re.compile(
+    r"(?P<start>\d{1,2}\.\d{1,2}\.\d{4})\s*(?:—|–|-|по|до)\s*"
+    r"(?P<end>\d{1,2}\.\d{1,2}\.\d{4})",
+    re.IGNORECASE,
+)
+DATE_TOKEN_RE = re.compile(r"\b\d{1,2}\.\d{1,2}\.\d{4}\b")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS service_payment_snapshots (
@@ -213,6 +219,53 @@ def _validate_period(period_start, period_end):
     return start, end
 
 
+def _date_token_iso(value):
+    text = _text(value)
+    match = DATE_TOKEN_RE.search(text)
+    if not match:
+        return None
+    try:
+        return datetime.strptime(match.group(0), "%d.%m.%Y").strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def _detect_period_from_sheet(ws):
+    """Read an explicit report interval from the workbook itself when present."""
+    rows_scanned = 0
+    for row in ws.iter_rows(values_only=True):
+        rows_scanned += 1
+        values = list(row)
+        texts = [_text(value) for value in values if _text(value)]
+        joined = " ".join(texts)
+
+        # Preferred form used by MIS exports and also robust to dashes / «по».
+        match = PERIOD_RANGE_RE.search(joined)
+        if match:
+            try:
+                start = datetime.strptime(match.group("start"), "%d.%m.%Y").strftime("%Y-%m-%d")
+                end = datetime.strptime(match.group("end"), "%d.%m.%Y").strftime("%Y-%m-%d")
+                return _validate_period(start, end)
+            except ValueError:
+                pass
+
+        # Some exports put «Период», start and end into separate cells.
+        if "период" in joined.lower():
+            dates = []
+            for value in values:
+                parsed = _date_token_iso(value)
+                if parsed and parsed not in dates:
+                    dates.append(parsed)
+            if len(dates) >= 2:
+                return _validate_period(dates[0], dates[1])
+
+        # The report's «Услуги» summary starts the data section. Period metadata,
+        # when present, is above it; do not confuse invoice/service dates with it.
+        if _text(values[0] if values else None) == "Услуги" or rows_scanned >= 40:
+            break
+    return None
+
+
 def report_period(report):
     month = str(report.get("month") or "")
     return _validate_period(
@@ -233,8 +286,9 @@ def parse_bytes(raw, filename="", known_staff=None, period_start=None, period_en
         raise ValueError("Размер файла «Выручка по направлениям» превышает 25 МБ.")
 
     explicit_period = bool(str(period_start or "").strip() or str(period_end or "").strip())
+    requested_period = None
     if explicit_period:
-        period_start, period_end = _validate_period(period_start, period_end)
+        requested_period = _validate_period(period_start, period_end)
 
     try:
         wb = load_workbook(BytesIO(raw), read_only=True, data_only=True)
@@ -243,6 +297,7 @@ def parse_bytes(raw, filename="", known_staff=None, period_start=None, period_en
 
     try:
         ws = _find_sheet(wb)
+        detected_period = _detect_period_from_sheet(ws)
         section_found = False
         section_totals = None
         providers = {}
@@ -342,25 +397,34 @@ def parse_bytes(raw, filename="", known_staff=None, period_start=None, period_en
             raise ValueError("В новом отчёте не найден раздел «Услуги».")
         if not providers:
             raise ValueError("В новом отчёте не найдены строки врачей/исполнителей.")
-        if not items and not explicit_period:
-            raise ValueError("В новом отчёте не найдены строки услуг выбранного периода.")
-
         service_dates = sorted({str(item["date"]) for item in items if item.get("date")})
-        if explicit_period:
-            if service_dates and (service_dates[0] < period_start or service_dates[-1] > period_end):
-                raise ValueError(
-                    "Даты услуг в файле выходят за указанный период. "
-                    "Проверьте даты, за которые сформирован отчёт."
-                )
-        else:
+        if requested_period:
+            # Backward-compatible API fallback. The production form no longer
+            # asks a person to duplicate dates that are already in the workbook.
+            period_start, period_end = requested_period
+        elif detected_period:
+            period_start, period_end = detected_period
+        elif service_dates:
             months = sorted({value[:7] for value in service_dates})
-            if len(months) != 1:
-                raise ValueError(
-                    "Файл содержит услуги за несколько месяцев. "
-                    "Укажите период, за который сформирован отчёт."
-                )
-            period_start = months[0] + "-01"
-            period_end = service_dates[-1]
+            if len(months) == 1:
+                # Preserve the established monthly snapshot contract.
+                period_start = months[0] + "-01"
+                period_end = service_dates[-1]
+            else:
+                # A long export can be processed directly from its own dated
+                # service rows even when the MIS omitted a separate period label.
+                period_start = service_dates[0]
+                period_end = service_dates[-1]
+        else:
+            raise ValueError(
+                "В новом отчёте не найдены даты периода или строки услуг, "
+                "по которым можно определить период."
+            )
+
+        if service_dates and (service_dates[0] < period_start or service_dates[-1] > period_end):
+            raise ValueError(
+                "Даты услуг в файле выходят за период, указанный в самом отчёте."
+            )
         month = period_end[:7] if period_start == period_end[:7] + "-01" else ""
 
         provider_sum = {
@@ -547,6 +611,65 @@ def existing_report(conn, report):
         "SELECT * FROM service_payment_periods WHERE period_start=? AND period_end=?",
         (period_start, period_end),
     ).fetchone()
+
+
+def overlapping_reports(conn, report):
+    """Return every saved paid-report interval that intersects the incoming one."""
+    init_schema(conn)
+    period_start, period_end = report_period(report)
+    incoming = compact_report(report)
+    rows = []
+    rows.extend(
+        conn.execute(
+            """
+            SELECT period_start,period_end,payload_json,source_filename,source_sha256,imported_at,'period'
+            FROM service_payment_periods
+            WHERE period_start<=? AND period_end>=?
+            """,
+            (period_end, period_start),
+        ).fetchall()
+    )
+    rows.extend(
+        conn.execute(
+            """
+            SELECT month || '-01',as_of_date,payload_json,source_filename,source_sha256,imported_at,'snapshot'
+            FROM service_payment_snapshots
+            WHERE (month || '-01')<=? AND as_of_date>=?
+            """,
+            (period_end, period_start),
+        ).fetchall()
+    )
+
+    result = []
+    for row in rows:
+        values = tuple(row)
+        saved_start, saved_end, payload_json, source_filename, source_sha256, imported_at, source_kind = values
+        if saved_start == period_start and saved_end == period_end:
+            relation = "exact"
+        elif period_start <= saved_start and period_end >= saved_end:
+            relation = "new_contains_saved"
+        elif saved_start <= period_start and saved_end >= period_end:
+            relation = "saved_contains_new"
+        else:
+            relation = "partial"
+        result.append(
+            {
+                "from": str(saved_start),
+                "to": str(saved_end),
+                "relation": relation,
+                "source_kind": source_kind,
+                "source_filename": str(source_filename or ""),
+                "source_sha256": str(source_sha256 or ""),
+                "imported_at": str(imported_at or ""),
+                "same_payload": (
+                    _same_payload(payload_json, incoming)
+                    if relation == "exact"
+                    else None
+                ),
+                "revision": hashlib.sha256(str(payload_json).encode("utf-8")).hexdigest(),
+            }
+        )
+    return sorted(result, key=lambda item: (item["from"], item["to"], item["source_kind"]))
 
 
 def _same_payload(raw, incoming):
