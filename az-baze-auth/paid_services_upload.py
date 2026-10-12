@@ -20,23 +20,40 @@ def _file_from_request():
     return file_storage.filename, raw
 
 
-def _ignored_provider_names(conn):
-    clinical = (
-        set(ident_import.DENTISTS)
-        | set(ident_import.STRUCTURE_DOCTORS)
-        | set(ident_import.LAB_DOCTORS)
-    )
-    nonclinical_known = set(ident_import.KNOWN_STAFF) - clinical
-    return upload_reconcile.provider_names_by_direction(conn, "ignore") | nonclinical_known
+def _provider_mappings(conn):
+    # Read the registry without helper schema-init: this is also used inside
+    # the transaction that stores the selected classifications and the report.
+    maps = {
+        "dent": dict(ident_import.DENTISTS),
+        "structure": dict(ident_import.STRUCTURE_DOCTORS),
+        "lab": dict(ident_import.LAB_DOCTORS),
+    }
+    ignored = set(ident_import.KNOWN_STAFF)
+    for names in maps.values():
+        ignored.difference_update(names)
+    for source, display, direction in conn.execute(
+        "SELECT source_name,display_name,direction FROM provider_registry "
+        "WHERE direction<>'pending' ORDER BY source_name"
+    ):
+        for names in maps.values():
+            names.pop(source, None)
+        ignored.discard(source)
+        if direction in maps:
+            maps[direction][source] = display
+        elif direction == "ignore":
+            ignored.add(source)
+    maps["ignore"] = ignored
+    return maps
 
 
 def _summary(report, conn):
+    maps = _provider_mappings(conn)
     values = paid_services.direction_summary(
         report,
-        ident_import.DENTISTS,
-        ident_import.STRUCTURE_DOCTORS,
-        ident_import.LAB_DOCTORS,
-        ignored=_ignored_provider_names(conn),
+        maps["dent"],
+        maps["structure"],
+        maps["lab"],
+        ignored=maps["ignore"],
     )
     totals = report.get("totals") or {}
     return {
@@ -54,34 +71,22 @@ def _summary(report, conn):
     }
 
 
-def _existing_state(conn, report, source_sha):
-    paid_services.init_schema(conn)
-    row = conn.execute(
-        """
-        SELECT payload_json,source_sha256
-        FROM service_payment_snapshots
-        WHERE as_of_date=?
-        """,
-        (str(report.get("period_end") or ""),),
-    ).fetchone()
+def _state_and_revision(conn, report):
+    row = paid_services.existing_report(conn, report)
     if not row:
-        return "new"
+        return "new", "new"
+    revision = hashlib.sha256(str(row[2]).encode("utf-8")).hexdigest()
+    if paid_services._same_payload(row[2], paid_services.compact_report(report)):
+        return "identical", revision
+    return "conflict", revision
 
-    incoming = json.dumps(
-        paid_services.compact_report(report),
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-    existing_payload = str(row["payload_json"] if hasattr(row, "keys") else row[0])
-    if json.dumps(
-        json.loads(existing_payload),
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ) == incoming:
-        return "identical"
-    return "conflict"
+
+def _existing_state(conn, report, source_sha):
+    return _state_and_revision(conn, report)[0]
+
+
+def _existing_revision(conn, report):
+    return _state_and_revision(conn, report)[1]
 
 
 def _provider_decisions():
@@ -95,6 +100,55 @@ def _provider_decisions():
     if not isinstance(value, dict):
         raise ValueError("Некорректная классификация новых сотрудников.")
     return value
+
+
+def _save_provider_decisions(conn, decisions, required, actor_id, now):
+    """Classify only the unresolved names in this file, in the caller's transaction."""
+    if not required:
+        return False
+    missing = [name for name in required if name not in decisions]
+    if missing:
+        raise ValueError("Не выбрано направление для новых сотрудников: " + ", ".join(missing))
+    clean = {}
+    for source_name in required:
+        source = str(source_name or "").strip()
+        raw = decisions[source_name]
+        if isinstance(raw, dict):
+            direction = str(raw.get("direction") or "").strip()
+            display = str(raw.get("display_name") or source).strip() or source
+        else:
+            direction = str(raw or "").strip()
+            display = source
+        if not source or direction not in {"dent", "structure", "lab", "ignore"}:
+            raise ValueError(f"Для врача «{source}» не выбрано допустимое направление.")
+        clean[source] = (direction, display)
+
+    for source, (direction, display) in clean.items():
+        row = conn.execute(
+            "SELECT direction FROM provider_registry WHERE source_name=?", (source,),
+        ).fetchone()
+        if row:
+            if row[0] != "pending":
+                raise ValueError("Классификация сотрудника уже изменилась. Повторите проверку файла.")
+            conn.execute(
+                """
+                UPDATE provider_registry
+                SET display_name=?,direction=?,last_seen_at=?,confirmed_by=?,confirmed_at=?
+                WHERE source_name=? AND direction='pending'
+                """,
+                (display, direction, now, actor_id, now, source),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO provider_registry(
+                    source_name,display_name,direction,source_filename,
+                    first_seen_at,last_seen_at,confirmed_by,confirmed_at
+                ) VALUES(?,?,?,NULL,?,?,?,?)
+                """,
+                (source, display, direction, now, now, actor_id, now),
+            )
+    return bool(clean)
 
 
 def _prepare():
@@ -112,6 +166,8 @@ def _prepare():
         raw,
         filename,
         known_staff=ident_import.KNOWN_STAFF,
+        period_start=request.form.get("period_start"),
+        period_end=request.form.get("period_end"),
     )
     source_sha = hashlib.sha256(raw).hexdigest()
     summary = _summary(report, conn)
@@ -121,23 +177,17 @@ def _prepare():
 
 def _preview():
     perms, conn, filename, _raw, report, _source_sha, summary, state = _prepare()
+    state, revision = _state_and_revision(conn, report)
     unknown = summary["unknown_providers"]
-    if unknown:
-        upload_reconcile.record_pending_providers(
-            conn,
-            unknown,
-            filename,
-            actor_id=g.user["id"],
-        )
-        conn.commit()
 
     return {
         "status": "preview",
         "period": {
-            "from": f"{report['month']}-01",
+            "from": report["period_start"],
             "to": report["period_end"],
         },
         "month": report["month"],
+        "revision": revision,
         "counts": {
             "new": 1 if state == "new" else 0,
             "identical": 1 if state == "identical" else 0,
@@ -155,58 +205,54 @@ def _preview():
 
 def _commit(decision=None):
     perms, conn, filename, _raw, report, source_sha, summary, state = _prepare()
-
+    initial_revision = _existing_revision(conn, report)
+    expected_revision = request.form.get("expected_revision")
     decisions = _provider_decisions()
-    if summary["unknown_providers"]:
-        if not decisions:
-            raise ValueError("Сначала классифицируйте новых сотрудников из нового отчёта МИС.")
-        if "upload_replace" not in perms:
-            abort(403)
-        missing = [name for name in summary["unknown_providers"] if name not in decisions]
-        if missing:
-            raise ValueError(
-                "Не выбрано направление для новых сотрудников: " + ", ".join(missing)
-            )
-        upload_reconcile.resolve_providers(conn, decisions, g.user["id"])
-        conn.commit()
-        upload_reconcile.refresh_runtime(conn, ident_import, cash_payments)
-        summary = _summary(report, conn)
-        if summary["unknown_providers"]:
-            raise ValueError("Не для всех новых сотрудников выбрано направление.")
-
-    if state == "conflict" and decision not in {"keep_old", "use_new"}:
-        raise ValueError(
-            "За эту дату уже сохранена другая версия нового отчёта МИС. "
-            "Выберите «Сохранить старые» или «Загрузить новые»."
-        )
     if decision == "use_new" and "upload_replace" not in perms:
         abort(403)
-
-    if state == "identical":
-        return {
-            "status": "duplicate",
-            "message": "Новый отчёт МИС совпадает с сохранённым; ничего не изменено.",
-            "summary": summary,
-        }
-    if state == "conflict" and decision == "keep_old":
-        return {
-            "status": "duplicate",
-            "message": "Сохранена ранее загруженная версия нового отчёта МИС.",
-            "summary": summary,
-        }
-
     backup = None
-    if state == "conflict" and decision == "use_new":
-        backup = upload_reconcile.create_db_backup("paid-services-reimport")
-
     now = iso_now()
-    # Transitional storage-only mode: new MIS reports cannot replace the approved
-    # clinical/service analytics or any management/visit/laboratory figures.
-    # Activation requires a separate owner decision and a separately reviewed PR.
-    analytics_updated = False
-    updated = 0
-    conn.execute("BEGIN")
+    providers_changed = False
+    conn.execute("BEGIN IMMEDIATE")
     try:
+        # Recheck after taking the write lock, including the version the user
+        # actually saw in preview. A concurrent import must never be overwritten.
+        revision = _existing_revision(conn, report)
+        if revision != (expected_revision or initial_revision):
+            raise ValueError("Сохранённый отчёт уже изменился. Повторите проверку файла.")
+        state = _existing_state(conn, report, source_sha)
+        summary = _summary(report, conn)
+        if state == "identical" or (state == "conflict" and decision == "keep_old"):
+            conn.rollback()
+            return {
+                "status": "duplicate",
+                "message": (
+                    "Новый отчёт МИС совпадает с сохранённым; ничего не изменено."
+                    if state == "identical" else
+                    "Сохранена ранее загруженная версия нового отчёта МИС."
+                ),
+                "summary": summary,
+            }
+        if state == "conflict":
+            if decision != "use_new":
+                raise ValueError(
+                    "За этот период уже сохранена другая версия нового отчёта МИС. "
+                    "Выберите «Сохранить старые» или «Загрузить новые»."
+                )
+            if not expected_revision:
+                raise ValueError("Перед заменой сохранённого отчёта повторите проверку файла.")
+            # No writes have occurred yet. The separate read-only connection
+            # backs up the version protected by our write lock.
+            backup = upload_reconcile.create_db_backup("paid-services-reimport")
+        if summary["unknown_providers"]:
+            if "upload_replace" not in perms:
+                abort(403)
+            providers_changed = _save_provider_decisions(
+                conn, decisions, summary["unknown_providers"], g.user["id"], now,
+            )
+            summary = _summary(report, conn)
+            if summary["unknown_providers"]:
+                raise ValueError("Не для всех новых сотрудников выбрано направление.")
         status = paid_services.store_snapshot(
             conn,
             report,
@@ -221,25 +267,29 @@ def _commit(decision=None):
         conn.rollback()
         raise
 
+    if providers_changed:
+        upload_reconcile.refresh_runtime(conn, ident_import, cash_payments)
+
     audit(
         "paid_services_stored",
         target_user_id=g.user["id"],
         details=(
-            f"file={filename}; month={report['month']}; as_of={report['period_end']}; "
+            f"file={filename}; period_start={report['period_start']}; period_end={report['period_end']}; "
+            f"source_sha256={source_sha}; "
             f"decision={decision or 'append'}; status={status}; "
-            f"paid={summary['paid']}; reports={updated}; "
-            f"analytics_updated={int(analytics_updated)}; backup={backup or ''}"
+            f"paid={summary['paid']}; reports=0; analytics_updated=0; backup={backup or ''}"
         ),
     )
     return {
         "status": "replaced" if status == "replaced" else "imported",
         "message": (
-            "Новый отчёт МИС сохранён отдельно для проверки. "
-            "Действующие управленческие показатели, приёмы, лаборатория, "
-            "«Аналитика услуг», кассовый Факт и ООО/ИП не изменены."
+            "Отчёт МИС за " + ".".join(reversed(report["period_start"].split("-"))) +
+            " — " + ".".join(reversed(report["period_end"].split("-"))) +
+            " сохранён. Суммы врачей взяты из графы «Оплачено»."
         ),
+        "period": {"from": report["period_start"], "to": report["period_end"]},
         "summary": summary,
-        "rows": updated,
+        "rows": 0,
         "backup": backup,
     }
 
