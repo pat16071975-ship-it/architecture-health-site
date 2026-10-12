@@ -21,7 +21,7 @@ esac
 
 [ "$(id -u)" -eq 0 ] || { echo "STOP: ROOT_REQUIRED"; exit 1; }
 [ "$(hostname -s)" = "az-server" ] || { echo "STOP: WRONG_HOST"; exit 1; }
-for dep in curl git systemctl python3 flock stat readlink sha256sum; do command -v "$dep" >/dev/null; done
+for dep in curl git systemctl python3 flock stat readlink sha256sum install; do command -v "$dep" >/dev/null; done
 
 if [ "$MODE" = "--apply" ]; then
   exec 9>"$LOCK_FILE"
@@ -170,8 +170,15 @@ echo "DB_BACKUP_VERIFY=PASS"
 
 INSTALL_STARTED=1
 while IFS='|' read -r rel base target; do
-  cp --preserve=mode,ownership,timestamps -- "$STAGE/$rel" "$APP_ROOT/$rel"
-  [ "$(blob "$APP_ROOT/$rel")" = "$target" ]
+  live="$APP_ROOT/$rel"
+  uid="$(stat -c %u "$live")"
+  gid="$(stat -c %g "$live")"
+  mode="$(stat -c %a "$live")"
+  tmp="$(mktemp "$(dirname "$live")/.paid-period-auto-overlap.XXXXXX")"
+  install -o "$uid" -g "$gid" -m "$mode" "$STAGE/$rel" "$tmp"
+  mv -f -- "$tmp" "$live"
+  [ "$(blob "$live")" = "$target" ]
+  [ "$(stat -c '%u:%g:%a' "$live")" = "$uid:$gid:$mode" ]
 done <"$MANIFEST"
 echo "ATOMIC_INSTALL=PASS"
 live_matches target
