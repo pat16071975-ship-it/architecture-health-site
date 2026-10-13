@@ -222,6 +222,35 @@ def register(app):
             return jsonify(status="error", message=str(exc)), 503
         return jsonify(status="ok", entries=count)
 
+    @app.get("/knowledge-library/")
+    @permission_required("knowledge")
+    def knowledge_library():
+        conn = db()
+        init_schema(conn)
+        parent = request.args.get("path", "").strip().strip("/")
+        rows = conn.execute(
+            """
+            SELECT id,relative_path,parent_path,name,entry_type,extension,media_kind,
+                   size_bytes,modified_at
+            FROM knowledge_entries
+            WHERE parent_path=? AND hidden=0
+            ORDER BY entry_type DESC, name COLLATE NOCASE
+            """,
+            (parent,),
+        ).fetchall()
+        parent_path = ""
+        if parent:
+            parent_path = str(Path(parent).parent.as_posix())
+            if parent_path == ".":
+                parent_path = ""
+        return render_template(
+            "knowledge_library.html",
+            current_path=parent,
+            parent_path=parent_path,
+            entries=rows,
+            root_available=KNOWLEDGE_ROOT.is_dir(),
+        )
+
     @app.get("/knowledge-view/<entry_id>")
     @permission_required("knowledge")
     def knowledge_view(entry_id):
@@ -254,7 +283,6 @@ def register(app):
             etag=True,
             max_age=0,
         )
-        response.headers["Content-Disposition"] = f'inline; filename="{row["name"].replace(chr(34), "")}"'
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response
