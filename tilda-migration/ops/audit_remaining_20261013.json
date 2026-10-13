@@ -1,0 +1,1005 @@
+{
+  "html_count": 79,
+  "robots_counts": {
+    "index,follow": 77,
+    "": 1,
+    "noindex,nofollow": 1
+  },
+  "missing_canonical": [
+    "/404.html",
+    "/team/tproduct/338106745633-palunin-vladislav-andreevich/",
+    "/team/tproduct/392688125713-mozharova-ekaterina-sergeevna/",
+    "/team/tproduct/834140634503-kazantsev-leonid-evgenevich/"
+  ],
+  "canonical_not_final": [
+    {
+      "page": "/contacts/",
+      "canonical": [
+        "https://azmednsk.ru/contacts"
+      ]
+    },
+    {
+      "page": "/lab/",
+      "canonical": [
+        "https://azmednsk.ru/lab"
+      ]
+    },
+    {
+      "page": "/thank/",
+      "canonical": [
+        "https://azmednsk.ru/thank"
+      ]
+    },
+    {
+      "page": "/cookie/",
+      "canonical": [
+        "https://azmednsk.ru/cookie"
+      ]
+    },
+    {
+      "page": "/rassrochka/",
+      "canonical": [
+        "https://azmednsk.ru/rassrochka"
+      ]
+    },
+    {
+      "page": "/o_nas/",
+      "canonical": [
+        "https://azmednsk.ru/o_nas"
+      ]
+    },
+    {
+      "page": "/patient/",
+      "canonical": [
+        "https://azmednsk.ru/patient"
+      ]
+    },
+    {
+      "page": "/uslygi/",
+      "canonical": [
+        "https://azmednsk.ru/uslygi"
+      ]
+    },
+    {
+      "page": "/politica/",
+      "canonical": [
+        "https://azmednsk.ru/politica"
+      ]
+    },
+    {
+      "page": "/team/",
+      "canonical": [
+        "https://azmednsk.ru/team"
+      ]
+    },
+    {
+      "page": "/politica-site/",
+      "canonical": [
+        "https://azmednsk.ru/politica-site"
+      ]
+    },
+    {
+      "page": "/kompleks-uslugi/",
+      "canonical": [
+        "https://azmednsk.ru/kompleks-uslugi"
+      ]
+    },
+    {
+      "page": "/otziv/",
+      "canonical": [
+        "https://azmednsk.ru/otziv"
+      ]
+    },
+    {
+      "page": "/patient/supervision/",
+      "canonical": [
+        "https://azmednsk.ru/patient/supervision"
+      ]
+    },
+    {
+      "page": "/patient/patient-pravila/",
+      "canonical": [
+        "https://azmednsk.ru/patient/patient-pravila"
+      ]
+    },
+    {
+      "page": "/patient/zhaloba/",
+      "canonical": [
+        "https://azmednsk.ru/patient/zhaloba"
+      ]
+    },
+    {
+      "page": "/patient/licens/",
+      "canonical": [
+        "https://azmednsk.ru/patient/licens"
+      ]
+    },
+    {
+      "page": "/patient/gosgarantii/",
+      "canonical": [
+        "https://azmednsk.ru/patient/gosgarantii"
+      ]
+    },
+    {
+      "page": "/patient/priem-patientov/",
+      "canonical": [
+        "https://azmednsk.ru/patient/priem-patientov"
+      ]
+    },
+    {
+      "page": "/patient/patient-rules/",
+      "canonical": [
+        "https://azmednsk.ru/patient/patient-rules"
+      ]
+    },
+    {
+      "page": "/patient/dogovor/",
+      "canonical": [
+        "https://azmednsk.ru/patient/dogovor"
+      ]
+    },
+    {
+      "page": "/team/lubaeva-alena/",
+      "canonical": [
+        "https://azmednsk.ru/team/lubaeva-alena"
+      ]
+    },
+    {
+      "page": "/team/nazirov-uktamjon/",
+      "canonical": [
+        "https://azmednsk.ru/team/nazirov-uktamjon"
+      ]
+    },
+    {
+      "page": "/team/rumyantseva-maria/",
+      "canonical": [
+        "https://azmednsk.ru/team/rumyantseva-maria"
+      ]
+    },
+    {
+      "page": "/team/lapina-natalia/",
+      "canonical": [
+        "https://azmednsk.ru/team/lapina-natalia"
+      ]
+    },
+    {
+      "page": "/team/holodtseva-valeria/",
+      "canonical": [
+        "https://azmednsk.ru/team/holodtseva-valeria"
+      ]
+    },
+    {
+      "page": "/team/bosak-yana/",
+      "canonical": [
+        "https://azmednsk.ru/team/bosak-yana"
+      ]
+    },
+    {
+      "page": "/team/dimitrenko-anna/",
+      "canonical": [
+        "https://azmednsk.ru/team/dimitrenko-anna"
+      ]
+    },
+    {
+      "page": "/team/starostenko-vadim/",
+      "canonical": [
+        "https://azmednsk.ru/team/starostenko-vadim"
+      ]
+    },
+    {
+      "page": "/team/movseyan-babken/",
+      "canonical": [
+        "https://azmednsk.ru/team/movseyan-babken"
+      ]
+    },
+    {
+      "page": "/team/pavlova-anna/",
+      "canonical": [
+        "https://azmednsk.ru/team/pavlova-anna"
+      ]
+    },
+    {
+      "page": "/team/zubachev-roman/",
+      "canonical": [
+        "https://azmednsk.ru/team/zubachev-roman"
+      ]
+    },
+    {
+      "page": "/team/mamontova-lubava/",
+      "canonical": [
+        "https://azmednsk.ru/team/mamontova-lubava"
+      ]
+    },
+    {
+      "page": "/team/chirkov-maxim/",
+      "canonical": [
+        "https://azmednsk.ru/team/chirkov-maxim"
+      ]
+    },
+    {
+      "page": "/team/golishenkov-vladislav/",
+      "canonical": [
+        "https://azmednsk.ru/team/golishenkov-vladislav"
+      ]
+    },
+    {
+      "page": "/kompleks-uslugi/korrekciya-vnimaniya-deti/",
+      "canonical": [
+        "https://azmednsk.ru/kompleks-uslugi/korrekciya-vnimaniya-deti"
+      ]
+    },
+    {
+      "page": "/kompleks-uslugi/arhitektura-zdorovya/",
+      "canonical": [
+        "https://azmednsk.ru/kompleks-uslugi/arhitektura-zdorovya"
+      ]
+    },
+    {
+      "page": "/kompleks-uslugi/zdorovaya-spina/",
+      "canonical": [
+        "https://azmednsk.ru/kompleks-uslugi/zdorovaya-spina"
+      ]
+    },
+    {
+      "page": "/uslugi/diers-diagnostica/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/diers-diagnostica"
+      ]
+    },
+    {
+      "page": "/uslugi/iggt-terapiya/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/iggt-terapiya"
+      ]
+    },
+    {
+      "page": "/uslugi/orthodontics/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/orthodontics"
+      ]
+    },
+    {
+      "page": "/uslugi/neyropsihologia/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/neyropsihologia"
+      ]
+    },
+    {
+      "page": "/uslugi/ortopedicheskie-stelki/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/ortopedicheskie-stelki"
+      ]
+    },
+    {
+      "page": "/uslugi/diers_research/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/diers_research"
+      ]
+    },
+    {
+      "page": "/uslugi/miofascialnyy-massazh/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/miofascialnyy-massazh"
+      ]
+    },
+    {
+      "page": "/uslugi/lechenie-zubov/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov"
+      ]
+    },
+    {
+      "page": "/uslugi/doc_educate/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/doc_educate"
+      ]
+    },
+    {
+      "page": "/uslugi/preventivnaya-medicina/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/preventivnaya-medicina"
+      ]
+    },
+    {
+      "page": "/uslugi/miofascialnaya-terapia/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/miofascialnaya-terapia"
+      ]
+    },
+    {
+      "page": "/uslugi/osteopatiya/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/osteopatiya"
+      ]
+    },
+    {
+      "page": "/uslugi/konsultatiya-stomatolog/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/konsultatiya-stomatolog"
+      ]
+    },
+    {
+      "page": "/uslugi/khirurgiya/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/khirurgiya"
+      ]
+    },
+    {
+      "page": "/uslugi/gastroenterologiya/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/gastroenterologiya"
+      ]
+    },
+    {
+      "page": "/uslugi/hygiene_prevention/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/hygiene_prevention"
+      ]
+    },
+    {
+      "page": "/uslugi/craniodontic/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/craniodontic"
+      ]
+    },
+    {
+      "page": "/uslugi/nutriciologiya/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/nutriciologiya"
+      ]
+    },
+    {
+      "page": "/uslugi/miofunkcionalnaya-terapiya/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/miofunkcionalnaya-terapiya"
+      ]
+    },
+    {
+      "page": "/uslugi/terapia/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/terapia"
+      ]
+    },
+    {
+      "page": "/uslugi/functional_dentistry/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/functional_dentistry"
+      ]
+    },
+    {
+      "page": "/uslugi/lechenie-zubov/zuby-mudrosti/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/zuby-mudrosti"
+      ]
+    },
+    {
+      "page": "/uslugi/lechenie-zubov/pulpit/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/pulpit"
+      ]
+    },
+    {
+      "page": "/uslugi/lechenie-zubov/periodontit/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/periodontit"
+      ]
+    },
+    {
+      "page": "/uslugi/lechenie-zubov/karies/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/karies"
+      ]
+    },
+    {
+      "page": "/uslugi/lechenie-zubov/kista/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/kista"
+      ]
+    },
+    {
+      "page": "/uslugi/lechenie-zubov/esteticheskaya_restavraciya/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/esteticheskaya_restavraciya"
+      ]
+    },
+    {
+      "page": "/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya"
+      ]
+    },
+    {
+      "page": "/uslugi/khirurgiya/implantaciya/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/khirurgiya/implantaciya"
+      ]
+    },
+    {
+      "page": "/uslugi/hygiene_prevention/otbelivanie_zoom4/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/hygiene_prevention/otbelivanie_zoom4"
+      ]
+    },
+    {
+      "page": "/uslugi/prosthetics/viniry/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/prosthetics/viniry"
+      ]
+    },
+    {
+      "page": "/uslugi/prosthetics/mostovidnyy-protez/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/prosthetics/mostovidnyy-protez"
+      ]
+    },
+    {
+      "page": "/uslugi/prosthetics/koronki/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/prosthetics/koronki"
+      ]
+    },
+    {
+      "page": "/uslugi/prosthetics/koronki/keramicheskie/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/prosthetics/koronki/keramicheskie"
+      ]
+    },
+    {
+      "page": "/uslugi/prosthetics/koronki/kompozitnye/",
+      "canonical": [
+        "https://azmednsk.ru/uslugi/prosthetics/koronki/kompozitnye"
+      ]
+    }
+  ],
+  "reachable_count": 47,
+  "unreachable_services": [
+    "/uslugi/diers-diagnostica/",
+    "/uslugi/iggt-terapiya/",
+    "/uslugi/orthodontics/",
+    "/uslugi/neyropsihologia/",
+    "/uslugi/ortopedicheskie-stelki/",
+    "/uslugi/diers_research/",
+    "/uslugi/miofascialnyy-massazh/",
+    "/uslugi/lechenie-zubov/",
+    "/uslugi/doc_educate/",
+    "/uslugi/konsultatiya-stomatolog/",
+    "/uslugi/khirurgiya/",
+    "/uslugi/hygiene_prevention/",
+    "/uslugi/craniodontic/",
+    "/uslugi/miofunkcionalnaya-terapiya/",
+    "/uslugi/prosthetics/",
+    "/uslugi/terapia/",
+    "/uslugi/lechenie-zubov/zuby-mudrosti/",
+    "/uslugi/lechenie-zubov/pulpit/",
+    "/uslugi/lechenie-zubov/periodontit/",
+    "/uslugi/lechenie-zubov/karies/",
+    "/uslugi/lechenie-zubov/kista/",
+    "/uslugi/lechenie-zubov/esteticheskaya_restavraciya/",
+    "/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/",
+    "/uslugi/khirurgiya/implantaciya/",
+    "/uslugi/hygiene_prevention/otbelivanie_zoom4/",
+    "/uslugi/prosthetics/viniry/",
+    "/uslugi/prosthetics/mostovidnyy-protez/",
+    "/uslugi/prosthetics/koronki/",
+    "/uslugi/prosthetics/koronki/keramicheskie/",
+    "/uslugi/prosthetics/koronki/kompozitnye/"
+  ],
+  "http_inventory": {
+    "index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/",
+      "sha256": "eb5aec377bd33e2cf705e54dac96af5c31b436b98c59adda24d7d8bbee5839f2",
+      "bytes": 35136
+    },
+    "404.html": {
+      "status": 404,
+      "url": "https://azmednsk.ru/404.html",
+      "sha256": "3fbe5b62b98d38eb325d3b99d47a42fd9d90fdda29ba4ae2002ceab128cab21d",
+      "bytes": 1469
+    },
+    "contacts/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/contacts/",
+      "sha256": "277420eb303de673d5c7aafb3ecfd54b9f16369d7cc5ca3a0314865d6f67959e",
+      "bytes": 12275
+    },
+    "lab/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/lab/",
+      "sha256": "6cfc3416a0977aab8de512be3ac6c3fe60dfe5dc8057153f5ad5327357b07f56",
+      "bytes": 22878
+    },
+    "thank/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/thank/",
+      "sha256": "8e3f8ba685ad7997b44ce64643ba9fbf8ffb7e5bc286c9bfafce162a8b58464b",
+      "bytes": 8917
+    },
+    "cookie/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/cookie/",
+      "sha256": "cf216b7bc42d0d76b3520a102a1f24d1c660222e6e6c2f1e2a47175dacd7af61",
+      "bytes": 13950
+    },
+    "rassrochka/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/rassrochka/",
+      "sha256": "1593ab795a71cad1d71771e09210658e25643682375ceae24c66af256d6f479d",
+      "bytes": 12487
+    },
+    "o_nas/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/o_nas/",
+      "sha256": "74480a415155dcc14f93a810e8c7fe97b861f9936d3dbc80869e91112cf79b43",
+      "bytes": 37482
+    },
+    "patient/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/patient/",
+      "sha256": "d95e0b6a1c4bc69d307b36d9c63ac69b9d1c5ce0fbc276ceb57fd8a2e325a62a",
+      "bytes": 10239
+    },
+    "uslygi/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslygi/",
+      "sha256": "13f8bbb5f8e55bcc0a1fbd3d79b21aab1eb0e333940d2d960677d1c4df6de627",
+      "bytes": 9451
+    },
+    "politica/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/politica/",
+      "sha256": "532b407516ba069d49fe040c8acbce4dfbf359c1f293d5512e14ccfa15dbc1a6",
+      "bytes": 14672
+    },
+    "team/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/",
+      "sha256": "f037902b4303c130145092956179b53f4d7028269f492d00e73282297841e724",
+      "bytes": 20136
+    },
+    "politica-site/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/politica-site/",
+      "sha256": "e321015e38c4eddf1e0d8ef177432e5468e950419ad29e62b2c1f05a7e364c88",
+      "bytes": 49327
+    },
+    "kompleks-uslugi/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/kompleks-uslugi/",
+      "sha256": "bc569d6103ddb5eb7a07dc425095a7f96c21f3e670574e84de5e5c90e36f74da",
+      "bytes": 15902
+    },
+    "otziv/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/otziv/",
+      "sha256": "6f4e5cb747a1f99a37407e98f576491c85a30e3d64c163c04aa07eed55603acf",
+      "bytes": 11844
+    },
+    "patient/supervision/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/patient/supervision/",
+      "sha256": "8eaf1d41ac6d7b7c21c4da2ffe185aca7c37e25a6bb142a93ac5bb2fdb96b393",
+      "bytes": 10749
+    },
+    "patient/patient-pravila/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/patient/patient-pravila/",
+      "sha256": "b4203f987cc35afe075e88b458a96a76b4867d7a3183b4427ebe9c643e0f3a4a",
+      "bytes": 57406
+    },
+    "patient/zhaloba/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/patient/zhaloba/",
+      "sha256": "1fc04d63790bd7f72ee0675eab0141c7d72c3bae5c28616f4ff9c767122f602f",
+      "bytes": 9091
+    },
+    "patient/licens/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/patient/licens/",
+      "sha256": "f44711ba98d5753a0fdef013bb07e5ca3ac832e6c1b6358d46f5fcb4dafea74b",
+      "bytes": 8943
+    },
+    "patient/gosgarantii/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/patient/gosgarantii/",
+      "sha256": "6b6b565dc661046aba770003628532b501483dcb36adf942570b0fd4a93f30a3",
+      "bytes": 9229
+    },
+    "patient/priem-patientov/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/patient/priem-patientov/",
+      "sha256": "77fed2fa0696aa56e9445a6aae32586a51804c979a3e96b5bf9462809a76a5c9",
+      "bytes": 11652
+    },
+    "patient/patient-rules/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/patient/patient-rules/",
+      "sha256": "cc35ffef33edbcec3d9fa914c8933a66a2c16036b5a90b1bd60f608f0cad666c",
+      "bytes": 37891
+    },
+    "patient/dogovor/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/patient/dogovor/",
+      "sha256": "facd9e67a23d404879b38002f46fcb330ec5876f6c22d5d865a08595344cb242",
+      "bytes": 9326
+    },
+    "team/lubaeva-alena/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/lubaeva-alena/",
+      "sha256": "8f511e0e5c3bc134eaf629a68dcdbf6a7a06314f5c1534a8bc67eae619a25ac7",
+      "bytes": 14620
+    },
+    "team/nazirov-uktamjon/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/nazirov-uktamjon/",
+      "sha256": "3f4656b163ffc3882395356dd4c5b76e64e7825e5baab338b56f51fe2ad89a48",
+      "bytes": 13896
+    },
+    "team/rumyantseva-maria/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/rumyantseva-maria/",
+      "sha256": "ddd655ad2c854afa21e347c45fc5ec32fb3e697e35c2f363083f307744db31aa",
+      "bytes": 13489
+    },
+    "team/lapina-natalia/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/lapina-natalia/",
+      "sha256": "366755b74de799d61e776ab9535db18fa68d907fe46d7b376b9fc3fafacc200c",
+      "bytes": 16926
+    },
+    "team/holodtseva-valeria/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/holodtseva-valeria/",
+      "sha256": "518d569648810aebcd99f73ac786cc89aefa2fa561cdaa4826cb1bb4f8000c8a",
+      "bytes": 14234
+    },
+    "team/bosak-yana/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/bosak-yana/",
+      "sha256": "bbeb754f1a93dc3d5552e279bf6418e6c407cccdeef43deff2b497b611f73c43",
+      "bytes": 12790
+    },
+    "team/dimitrenko-anna/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/dimitrenko-anna/",
+      "sha256": "d1e56ecb3bdf75829fc7f443c3dac07424749202fb28284976e2d9700ab062bf",
+      "bytes": 13776
+    },
+    "team/starostenko-vadim/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/starostenko-vadim/",
+      "sha256": "3d21e9539c50c512d5b096c75d8b5eac8b26b163593b10e65926e39e505a590c",
+      "bytes": 15075
+    },
+    "team/movseyan-babken/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/movseyan-babken/",
+      "sha256": "4740b265d5684b46f6c09dce723ce82fa5e13603bded493d44699d3005b4a4f6",
+      "bytes": 13470
+    },
+    "team/pavlova-anna/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/pavlova-anna/",
+      "sha256": "6c1806d52c3da6a880079e353c10501946896be63ef67d5ccdef185add958ffb",
+      "bytes": 15057
+    },
+    "team/zubachev-roman/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/zubachev-roman/",
+      "sha256": "01f895efe4ea1389006ebae8ae30f328237f44515beeeeb83da2ac2c884d20cc",
+      "bytes": 12351
+    },
+    "team/mamontova-lubava/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/mamontova-lubava/",
+      "sha256": "5f9c931f887bd5943b0cbe3ce1caf5fa8e67245a0cd0298c47c4713cab742793",
+      "bytes": 13095
+    },
+    "team/chirkov-maxim/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/chirkov-maxim/",
+      "sha256": "cb0519f195ff8392c146bcae585f82b088ca4e19ec84ba593b0f808260d74b8c",
+      "bytes": 13538
+    },
+    "team/golishenkov-vladislav/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/golishenkov-vladislav/",
+      "sha256": "9a9e66d85071b28e500ca095535759aa0836ad67e22c48968bdbefd2b950b7f1",
+      "bytes": 13580
+    },
+    "team/tproduct/338106745633-palunin-vladislav-andreevich/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/tproduct/338106745633-palunin-vladislav-andreevich/",
+      "sha256": "7d659f2883a0a841cb81a44c2f9e1c92c2be74b8f4ad19e364e23f7edb7ff560",
+      "bytes": 5770
+    },
+    "team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/tproduct/392688125713-mozharova-ekaterina-sergeevna/",
+      "sha256": "ef7c52403034ae0a871c396608caf9ce1ba7813a5d13343e22a3aab59a3e652e",
+      "bytes": 5804
+    },
+    "team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/team/tproduct/834140634503-kazantsev-leonid-evgenevich/",
+      "sha256": "d7f32468b6bf4ec1aab639cd78e1975c0460022f5222401704c2f2ca28881aa0",
+      "bytes": 5881
+    },
+    "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/kompleks-uslugi/korrekciya-vnimaniya-deti/",
+      "sha256": "e789573fafb3873fb98306eaf45b06719c6b88e5f603e6362169db7c5d9002eb",
+      "bytes": 16826
+    },
+    "kompleks-uslugi/arhitektura-zdorovya/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/kompleks-uslugi/arhitektura-zdorovya/",
+      "sha256": "bc303b87373a41f4342eaf0bdad7f6d7a80c1fad20393925a0fd8159fbe2c0db",
+      "bytes": 19079
+    },
+    "kompleks-uslugi/zdorovaya-spina/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/kompleks-uslugi/zdorovaya-spina/",
+      "sha256": "0a5afc89a13ddf3ab54db21977bfe6e6a9ae40d0d11bd27457f704608c7b6f4d",
+      "bytes": 17798
+    },
+    "uslugi/diers-diagnostica/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/diers-diagnostica/",
+      "sha256": "3350214d030745f07aed5c0ed7e2186600f8b733b572415bf4b855f33dc67840",
+      "bytes": 12238
+    },
+    "uslugi/iggt-terapiya/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/iggt-terapiya/",
+      "sha256": "63396b338520549642c6dee9962ae9722022bd6191cb8a2a9df702ec68f505eb",
+      "bytes": 13617
+    },
+    "uslugi/orthodontics/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/orthodontics/",
+      "sha256": "8e7f096dea93b1b254afaf53dabb825335594626c101c7268acd9905873682dc",
+      "bytes": 14936
+    },
+    "uslugi/neyropsihologia/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/neyropsihologia/",
+      "sha256": "e405ca48d30b034f5e003e4e0d6186b7fc840ecc830cf1f2e177b058945f63aa",
+      "bytes": 12160
+    },
+    "uslugi/ortopedicheskie-stelki/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/ortopedicheskie-stelki/",
+      "sha256": "299490f7bc517b8912fb2767500ff43c6377ef7e8b3a39d26b6cf39e12870ad8",
+      "bytes": 12660
+    },
+    "uslugi/diers_research/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/diers_research/",
+      "sha256": "c1531e23d22b02217121d48e14c8cb4fbb8ae8c206dfe4f34337e0c81d79ab88",
+      "bytes": 13388
+    },
+    "uslugi/miofascialnyy-massazh/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/miofascialnyy-massazh/",
+      "sha256": "1e9063ac785c403b619e5369caba34e8d00e4fd624edc6dbd1cd5c204b6ec01a",
+      "bytes": 18233
+    },
+    "uslugi/lechenie-zubov/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/",
+      "sha256": "258c194ec28aae51a8e24f12e196c9a84226a70d14c1957ef4d348a9489ec8e0",
+      "bytes": 16338
+    },
+    "uslugi/doc_educate/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/doc_educate/",
+      "sha256": "73875246a009240e7f223395eec6f93f4f6b85bc6ae796209b9093edbbd807d0",
+      "bytes": 10313
+    },
+    "uslugi/preventivnaya-medicina/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/preventivnaya-medicina/",
+      "sha256": "9067aa3eea706dfd835fb6a244d1c66edca7e0a8d40893d9c8e42b9c6629bc52",
+      "bytes": 14409
+    },
+    "uslugi/miofascialnaya-terapia/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/miofascialnaya-terapia/",
+      "sha256": "8dbd05bc2df48b2bec8240aa1ec143a42744f2dae761ab27992321cc532a8236",
+      "bytes": 24839
+    },
+    "uslugi/osteopatiya/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/osteopatiya/",
+      "sha256": "e76a6e99a6bcfc087cebe6b70ae6c55753822935ac7941b69837aede4042f6e8",
+      "bytes": 22726
+    },
+    "uslugi/konsultatiya-stomatolog/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/konsultatiya-stomatolog/",
+      "sha256": "10f3cef040e9692bbac8f41e28adecd2bec683ceaa8fcac0e3a44d7c78149f76",
+      "bytes": 13094
+    },
+    "uslugi/khirurgiya/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/khirurgiya/",
+      "sha256": "19fa0f4f3273741f6505b99b7cbf470d2ea00986ee6ab4c97a2c5a1220c74cb7",
+      "bytes": 15339
+    },
+    "uslugi/gastroenterologiya/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/gastroenterologiya/",
+      "sha256": "eb2db95c0099e3eec9606000c6875dd80f7da44887354646f3298a19eb1ce501",
+      "bytes": 24252
+    },
+    "uslugi/hygiene_prevention/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/hygiene_prevention/",
+      "sha256": "8628a73f2d109dd1af4286326a161034865f1f84e7e124193dbbf53f4c2eae7e",
+      "bytes": 16372
+    },
+    "uslugi/craniodontic/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/craniodontic/",
+      "sha256": "3c7f4fea9f2695b8e785b2ebd9c02d76dfe8f6be60ed5137ec41b0d0945ddc58",
+      "bytes": 11124
+    },
+    "uslugi/nutriciologiya/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/nutriciologiya/",
+      "sha256": "dcb6ddec52bd8fd6ae3718ae693eb913a7ac5e88b3f3f9d4b9ecfbe5eb70c9a8",
+      "bytes": 14881
+    },
+    "uslugi/miofunkcionalnaya-terapiya/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/miofunkcionalnaya-terapiya/",
+      "sha256": "e91d302c17be4f9b36f29c5a993620cf717d5b8dea4c2e61a47fd4926f6b369a",
+      "bytes": 12475
+    },
+    "uslugi/prosthetics/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/prosthetics/",
+      "sha256": "8aabe28c7cb897af0bac539f7472fe15efdfb3e25103c50fa9b43397bbbeb3e3",
+      "bytes": 16036
+    },
+    "uslugi/terapia/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/terapia/",
+      "sha256": "91d8e1913f1068b23270c5dcf39ba0af1724286e5711be27b41da8c805622525",
+      "bytes": 12257
+    },
+    "uslugi/functional_dentistry/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/functional_dentistry/",
+      "sha256": "bde0d435c3dbc9b378b257793219ad223b14e29ea6ceb1137d3d153d7bbb055d",
+      "bytes": 24648
+    },
+    "uslugi/lechenie-zubov/zuby-mudrosti/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/zuby-mudrosti/",
+      "sha256": "6aead5dd7ba05ff16d3be9d5ba0df1964e2f48565b5485637d98092dbfb6a115",
+      "bytes": 18901
+    },
+    "uslugi/lechenie-zubov/pulpit/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/pulpit/",
+      "sha256": "aedd5e577bb54ec365839757e33694163a78165d58e6deda9e6c0f358c5a2bae",
+      "bytes": 13548
+    },
+    "uslugi/lechenie-zubov/periodontit/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/periodontit/",
+      "sha256": "068f853016c25b68c5add9f3181f41c1f766102be23cb927cafe924269cfca0f",
+      "bytes": 12161
+    },
+    "uslugi/lechenie-zubov/karies/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/karies/",
+      "sha256": "23390fa41cdfa245f71d01d7dcab7bfc434cdabb147dd4fc8cd4cba42947af8e",
+      "bytes": 12089
+    },
+    "uslugi/lechenie-zubov/kista/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/kista/",
+      "sha256": "df62f1406db0fb26d539d9f69dfbe8dc1908ed391b04d3a922256b72cf7d7aa3",
+      "bytes": 14373
+    },
+    "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/esteticheskaya_restavraciya/",
+      "sha256": "129f1475e4a54575df25c0df967c6758f48ea2a8654b7da18278c92c2524d9eb",
+      "bytes": 12913
+    },
+    "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/",
+      "sha256": "338512933e484427ca8938e0a0e681f12a8a29a3daac9e0eca93d71f5899c259",
+      "bytes": 23804
+    },
+    "uslugi/khirurgiya/implantaciya/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/khirurgiya/implantaciya/",
+      "sha256": "3d0d8aacd1de6e8628cea9d9def0b148511102a81f5f30f6aae8d7b00e4beb2d",
+      "bytes": 29323
+    },
+    "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/hygiene_prevention/otbelivanie_zoom4/",
+      "sha256": "e51bf6cb6a4ea3e45d75900a0a344d6abe7a05988b57699a142dee5cb977ff93",
+      "bytes": 18596
+    },
+    "uslugi/prosthetics/viniry/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/prosthetics/viniry/",
+      "sha256": "deddbf4bbf9577b16953fc7c6432c7c44b7bc40569a5da2c9a8aae6bda0aa2ab",
+      "bytes": 29014
+    },
+    "uslugi/prosthetics/mostovidnyy-protez/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/prosthetics/mostovidnyy-protez/",
+      "sha256": "97d5c4d917c411ab320e2aeaf6e12fbba5f24de7be8fe9405f1cd4e05eb87ad8",
+      "bytes": 17203
+    },
+    "uslugi/prosthetics/koronki/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/prosthetics/koronki/",
+      "sha256": "c903d8f16864b2c2080cb0596d558c14b59430deacd28c1a53fbb6432ea9c0af",
+      "bytes": 27479
+    },
+    "uslugi/prosthetics/koronki/keramicheskie/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/prosthetics/koronki/keramicheskie/",
+      "sha256": "1ea2c7794f76ce25b74f9437f3d9d264d631b7e370ca2f9028332b6de9075b80",
+      "bytes": 18526
+    },
+    "uslugi/prosthetics/koronki/kompozitnye/index.html": {
+      "status": 200,
+      "url": "https://azmednsk.ru/uslugi/prosthetics/koronki/kompozitnye/",
+      "sha256": "4804eb4856dd695be3056459c8dc708eb92afec2364f532c9381de1cd5e05560",
+      "bytes": 21417
+    },
+    "site.css": {
+      "status": 200,
+      "url": "https://azmednsk.ru/site.css",
+      "sha256": "bb0e025c9e291ccdb24da8b9e80cfac3c85d998c1387aed24fa645cfa0fe7320",
+      "bytes": 6780
+    },
+    "site.js": {
+      "status": 200,
+      "url": "https://azmednsk.ru/site.js",
+      "sha256": "190dba2936bc2def347a43e94b81e6fe226ee77ae38220db9e4790a17c355361",
+      "bytes": 1834
+    },
+    "layouts.css": {
+      "status": 200,
+      "url": "https://azmednsk.ru/layouts.css",
+      "sha256": "66d78398182263a458236c439c1a098fc8390539c7d45511d9240bd54f1a3a71",
+      "bytes": 696234
+    },
+    "robots.txt": {
+      "status": 200,
+      "url": "https://azmednsk.ru/robots.txt",
+      "sha256": "9a93da66b2f7b9bc05ad7429409692dff442b3bf8f988f2937ae21ad9cf6744f",
+      "bytes": 65
+    },
+    "sitemap.xml": {
+      "status": 200,
+      "url": "https://azmednsk.ru/sitemap.xml",
+      "sha256": "74ffc28b998df2bc8425c17f6b3369cf15484b9398a17dc48aef497dd87b8ba4",
+      "bytes": 5203
+    },
+    "assets/az-doctor-cards-20261013.css": {
+      "status": 200,
+      "url": "https://azmednsk.ru/assets/az-doctor-cards-20261013.css",
+      "sha256": "5813a1e65ce1ececfddb2d11dc6669cff3f61e16390b1b01cf870a512b3e62a0",
+      "bytes": 386
+    },
+    "assets/az-mozharova-approved-20261013.jpg": {
+      "status": 200,
+      "url": "https://azmednsk.ru/assets/az-mozharova-approved-20261013.jpg",
+      "sha256": "621542c5ea7b609752813c546548d270d4f1848370eb1901387d48882fa98e4c",
+      "bytes": 29742
+    }
+  }
+}
