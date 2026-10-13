@@ -56,6 +56,10 @@ body{min-height:100vh}
   outline:none;
 }
 .audience-card[data-role="manager"]{border-color:rgba(181,150,98,.55)}
+.secondary-links{margin:22px 0 0;padding:18px 20px;border-top:1px solid #e3dacd;display:grid;gap:10px}
+.secondary-links-title{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#7a817b}
+.secondary-links ul{margin:0;padding-left:20px;display:grid;gap:8px}
+.secondary-links li{font-size:14px;line-height:1.4}
 .note{margin-top:20px;text-align:center;color:#6c746d;font-size:11px;line-height:1.55}
 @media(max-width:700px){
   .shell{padding-top:20px}
@@ -85,11 +89,19 @@ body{min-height:100vh}
     </div>
 
     <nav class="audience-grid" aria-label="Разделы базы знаний">
-      <a class="audience-card" href="/knowledge/?audience=doctor" data-role="doctor">Врачу</a>
+      <a class="audience-card" href="/knowledge/doctor/" data-role="doctor">Врачу</a>
       <a class="audience-card" href="/knowledge/?audience=assistant" data-role="assistant">Ассистенту</a>
       <a class="audience-card" href="/knowledge/?audience=administrator" data-role="administrator">Администратору</a>
       <a class="audience-card" href="/knowledge/?audience=manager" data-role="manager">Руководителю</a>
     </nav>
+
+    <section class="secondary-links" aria-label="Общие материалы">
+      <div class="secondary-links-title">Отдельные разделы</div>
+      <ul>
+        <li>Круглые столы клиники</li>
+        <li>Siberian holistic</li>
+      </ul>
+    </section>
 
     <div class="note">Один материал может быть доступен сразу в нескольких разделах — без дублирования файла в хранилище.</div>
   </main>
