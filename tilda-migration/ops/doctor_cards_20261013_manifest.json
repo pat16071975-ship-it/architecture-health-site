@@ -1,0 +1,192 @@
+{
+  "version": 1,
+  "files": {
+    "assets/az-doctor-cards-20261013.css": {
+      "before": null,
+      "after": "5813a1e65ce1ececfddb2d11dc6669cff3f61e16390b1b01cf870a512b3e62a0",
+      "content": "/* Keep experience at the bottom of each equal-height grid card. */\n.doctors .doctor > a {\n  display: flex;\n  flex-direction: column;\n  height: 100%;\n}\n.doctors .doctor > a > img {\n  flex: 0 0 auto;\n}\n.doctors .doctor-copy {\n  display: flex;\n  flex-direction: column;\n  flex: 1 0 auto;\n  min-width: 0;\n}\n.doctors .doctor .doctor-experience {\n  margin: auto 0 0;\n  padding-top: 1.5em;\n}\n"
+    },
+    "index.html": {
+      "before": "d022f1a321b0946a73f9a4ab17627506c26d68435cf0203a519ffef2f6dc28bf",
+      "after": "eb5aec377bd33e2cf705e54dac96af5c31b436b98c59adda24d7d8bbee5839f2",
+      "replacements": [
+        [
+          "<div class=\"doctor-copy\"><h3>Зубачев Роман Николаевич</h3><strong style=\"color:rgb(32, 128, 196)\">Директор, стоматолог-хирург</strong><br><br>Стаж 21 год</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Зубачев Роман Николаевич</h3><strong style=\"color:rgb(32, 128, 196)\">Директор, стоматолог-хирург</strong></div><p class=\"doctor-experience\">Стаж 21 год</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Чирков Максим Сергеевич</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-терапевт, заведующий отделением терапевтической стоматологии</strong></p><br><p style=\"text-align:left\">Стаж 20 лет</p></div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Чирков Максим Сергеевич</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-терапевт, заведующий отделением терапевтической стоматологии</strong></p></div><p class=\"doctor-experience\">Стаж 21 год</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Павлова Алла Викторовна</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Нутрициолог</strong></p><br><p style=\"text-align:left\">Стаж 9 лет</p></div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Павлова Алла Викторовна</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Нутрициолог</strong></p></div><p class=\"doctor-experience\">Стаж 9 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Босак Яна Сергеевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-ортодонт</strong><br><br>Стаж 2 года</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Босак Яна Сергеевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-ортодонт</strong></div><p class=\"doctor-experience\">Стаж 2 года</p></div>"
+        ],
+        [
+          "</head>",
+          "<link rel=\"stylesheet\" href=\"/assets/az-doctor-cards-20261013.css\"></head>"
+        ]
+      ]
+    },
+    "o_nas/index.html": {
+      "before": "b0f623deef819cc9378a32572f36ff3a94660acd57eef2aac95359b07fd953a5",
+      "after": "8bcdf14238445b654974d3ffb89a482f42aad5ef41a6fbb4e42aa89b046e1a08",
+      "replacements": [
+        [
+          "<div class=\"doctor-copy\"><h3>Зубачев Роман Николаевич</h3><strong style=\"color:rgb(32, 128, 196)\">Директор, стоматолог-хирург</strong><br><br>Стаж 21 год</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Зубачев Роман Николаевич</h3><strong style=\"color:rgb(32, 128, 196)\">Директор, стоматолог-хирург</strong></div><p class=\"doctor-experience\">Стаж 21 год</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Чирков Максим Сергеевич</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-терапевт, заведующий отделением терапевтической стоматологии</strong></p><br><p style=\"text-align:left\">Стаж 20 лет</p></div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Чирков Максим Сергеевич</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-терапевт, заведующий отделением терапевтической стоматологии</strong></p></div><p class=\"doctor-experience\">Стаж 21 год</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Павлова Алла Викторовна</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Нутрициолог</strong></p><br><p style=\"text-align:left\">Стаж 9 лет</p></div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Павлова Алла Викторовна</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Нутрициолог</strong></p></div><p class=\"doctor-experience\">Стаж 9 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Босак Яна Сергеевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-ортодонт</strong><br><br>Стаж 2 года</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Босак Яна Сергеевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-ортодонт</strong></div><p class=\"doctor-experience\">Стаж 2 года</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Назыров Уктамжон Жумавоевич</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-ортопед, Врач-стоматолог общей практики, гнатолог</strong><br><br>Стаж 6 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Назыров Уктамжон Жумавоевич</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-ортопед, Врач-стоматолог общей практики, гнатолог</strong></div><p class=\"doctor-experience\">Стаж 6 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Румянцева Мария Павловна</h3><strong style=\"color:rgb(32, 128, 196)\">Стоматолог-терапевт, детский врач-стоматолог</strong><br><br>Стаж 14 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Румянцева Мария Павловна</h3><strong style=\"color:rgb(32, 128, 196)\">Стоматолог-терапевт, детский врач-стоматолог</strong></div><p class=\"doctor-experience\">Стаж 14 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Мовсесян Бабкен Ашотович</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-терапевт</strong><br><br>Стаж 3 года</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Мовсесян Бабкен Ашотович</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-терапевт</strong></div><p class=\"doctor-experience\">Стаж 3 года</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Голышенков Владислав Александрович</h3><strong style=\"color:rgb(32, 128, 196)\">Врач стоматолог хирург</strong><br><br>Стаж 10 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Голышенков Владислав Александрович</h3><strong style=\"color:rgb(32, 128, 196)\">Врач стоматолог хирург</strong></div><p class=\"doctor-experience\">Стаж 10 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Старостенко Вадим Анатольевич</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-остеопат, заведующий отделением структуры</strong><br><br>Стаж 13 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Старостенко Вадим Анатольевич</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-остеопат, заведующий отделением структуры</strong></div><p class=\"doctor-experience\">Стаж 13 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Димитренко Анна Яковлевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-остеопат</strong><br><br>Стаж 5 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Димитренко Анна Яковлевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-остеопат</strong></div><p class=\"doctor-experience\">Стаж 5 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Мамонтова Любава Геннадьевна</h3><strong style=\"color:rgb(32, 128, 196)\">Медицинская сестра по массажу</strong><br><br>Стаж 4 года</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Мамонтова Любава Геннадьевна</h3><strong style=\"color:rgb(32, 128, 196)\">Медицинская сестра по массажу</strong></div><p class=\"doctor-experience\">Стаж 4 года</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Лапина Наталья Сергеевна</h3><strong style=\"color:rgb(32, 128, 196)\">Миофункциональный терапевт, немедицинский специалист</strong><br><br>Стаж 6 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Лапина Наталья Сергеевна</h3><strong style=\"color:rgb(32, 128, 196)\">Миофункциональный терапевт, немедицинский специалист</strong></div><p class=\"doctor-experience\">Стаж 6 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Холодцева Валерия Евгеньевна</h3><strong style=\"color:rgb(32, 128, 196)\">Миофункциональный терапевт, немедицинский специалист</strong><br><br>Стаж 5 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Холодцева Валерия Евгеньевна</h3><strong style=\"color:rgb(32, 128, 196)\">Миофункциональный терапевт, немедицинский специалист</strong></div><p class=\"doctor-experience\">Стаж 5 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Любаева Алена Юрьевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-терапевт превентивной и антивозрастной медицины, врач-гастроэнтеролог</strong><br><br>Стаж 17 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Любаева Алена Юрьевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-терапевт превентивной и антивозрастной медицины, врач-гастроэнтеролог</strong></div><p class=\"doctor-experience\">Стаж 17 лет</p></div>"
+        ],
+        [
+          "</head>",
+          "<link rel=\"stylesheet\" href=\"/assets/az-doctor-cards-20261013.css\"></head>"
+        ]
+      ]
+    },
+    "team/index.html": {
+      "before": "29235b58f14028b0d3bd556d0c6f9bdab8875a9b3047bc8513d4e5300d7ab6ac",
+      "after": "216bb1243adc4d21a6c3b60dfe2b9bdc0324f2376ce6f2829e9e04e037c3eb39",
+      "replacements": [
+        [
+          "<div class=\"doctor-copy\"><h3>Зубачев Роман Николаевич</h3><strong style=\"color:rgb(32, 128, 196)\">Директор, стоматолог-хирург</strong><br><br>Стаж 21 год</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Зубачев Роман Николаевич</h3><strong style=\"color:rgb(32, 128, 196)\">Директор, стоматолог-хирург</strong></div><p class=\"doctor-experience\">Стаж 21 год</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Чирков Максим Сергеевич</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-терапевт, заведующий отделением терапевтической стоматологии</strong></p><br><p style=\"text-align:left\">Стаж 20 лет</p></div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Чирков Максим Сергеевич</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-терапевт, заведующий отделением терапевтической стоматологии</strong></p></div><p class=\"doctor-experience\">Стаж 21 год</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Павлова Алла Викторовна</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Нутрициолог</strong></p><br><p style=\"text-align:left\">Стаж 9 лет</p></div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Павлова Алла Викторовна</h3><p style=\"text-align:left\"><strong style=\"color:rgb(32, 128, 196)\">Нутрициолог</strong></p></div><p class=\"doctor-experience\">Стаж 9 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Босак Яна Сергеевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-ортодонт</strong><br><br>Стаж 2 года</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Босак Яна Сергеевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-ортодонт</strong></div><p class=\"doctor-experience\">Стаж 2 года</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Назыров Уктамжон Жумавоевич</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-ортопед, Врач-стоматолог общей практики, гнатолог</strong><br><br>Стаж 6 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Назыров Уктамжон Жумавоевич</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-ортопед, Врач-стоматолог общей практики, гнатолог</strong></div><p class=\"doctor-experience\">Стаж 6 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Румянцева Мария Павловна</h3><strong style=\"color:rgb(32, 128, 196)\">Стоматолог-терапевт, детский врач-стоматолог</strong><br><br>Стаж 14 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Румянцева Мария Павловна</h3><strong style=\"color:rgb(32, 128, 196)\">Стоматолог-терапевт, детский врач-стоматолог</strong></div><p class=\"doctor-experience\">Стаж 14 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Мовсесян Бабкен Ашотович</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-терапевт</strong><br><br>Стаж 3 года</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Мовсесян Бабкен Ашотович</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-стоматолог-терапевт</strong></div><p class=\"doctor-experience\">Стаж 3 года</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Голышенков Владислав Александрович</h3><strong style=\"color:rgb(32, 128, 196)\">Врач стоматолог хирург</strong><br><br>Стаж 10 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Голышенков Владислав Александрович</h3><strong style=\"color:rgb(32, 128, 196)\">Врач стоматолог хирург</strong></div><p class=\"doctor-experience\">Стаж 10 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Старостенко Вадим Анатольевич</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-остеопат, заведующий отделением структуры</strong><br><br>Стаж 13 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Старостенко Вадим Анатольевич</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-остеопат, заведующий отделением структуры</strong></div><p class=\"doctor-experience\">Стаж 13 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Димитренко Анна Яковлевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-остеопат</strong><br><br>Стаж 5 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Димитренко Анна Яковлевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-остеопат</strong></div><p class=\"doctor-experience\">Стаж 5 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Мамонтова Любава Геннадьевна</h3><strong style=\"color:rgb(32, 128, 196)\">Медицинская сестра по массажу</strong><br><br>Стаж 4 года</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Мамонтова Любава Геннадьевна</h3><strong style=\"color:rgb(32, 128, 196)\">Медицинская сестра по массажу</strong></div><p class=\"doctor-experience\">Стаж 4 года</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Лапина Наталья Сергеевна</h3><strong style=\"color:rgb(32, 128, 196)\">Миофункциональный терапевт, немедицинский специалист</strong><br><br>Стаж 6 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Лапина Наталья Сергеевна</h3><strong style=\"color:rgb(32, 128, 196)\">Миофункциональный терапевт, немедицинский специалист</strong></div><p class=\"doctor-experience\">Стаж 6 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Холодцева Валерия Евгеньевна</h3><strong style=\"color:rgb(32, 128, 196)\">Миофункциональный терапевт, немедицинский специалист</strong><br><br>Стаж 5 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Холодцева Валерия Евгеньевна</h3><strong style=\"color:rgb(32, 128, 196)\">Миофункциональный терапевт, немедицинский специалист</strong></div><p class=\"doctor-experience\">Стаж 5 лет</p></div>"
+        ],
+        [
+          "<div class=\"doctor-copy\"><h3>Любаева Алена Юрьевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-терапевт превентивной и антивозрастной медицины, врач-гастроэнтеролог</strong><br><br>Стаж 17 лет</div>",
+          "<div class=\"doctor-copy\"><div class=\"doctor-details\"><h3>Любаева Алена Юрьевна</h3><strong style=\"color:rgb(32, 128, 196)\">Врач-терапевт превентивной и антивозрастной медицины, врач-гастроэнтеролог</strong></div><p class=\"doctor-experience\">Стаж 17 лет</p></div>"
+        ],
+        [
+          "</head>",
+          "<link rel=\"stylesheet\" href=\"/assets/az-doctor-cards-20261013.css\"></head>"
+        ]
+      ]
+    },
+    "team/chirkov-maxim/index.html": {
+      "before": "f88f25c71c7c31ba25c083e6df51bbc8827c0a132cd6413505a0db486ca64987",
+      "after": "cb0519f195ff8392c146bcae585f82b088ca4e19ec84ba593b0f808260d74b8c",
+      "replacements": [
+        [
+          "<span style=\"font-weight:300\">20 лет</span>",
+          "<span style=\"font-weight:300\">21 год</span>"
+        ]
+      ]
+    }
+  },
+  "protected": {
+    "thank/index.html": "8e3f8ba685ad7997b44ce64643ba9fbf8ffb7e5bc286c9bfafce162a8b58464b",
+    "patient/patient-pravila/index.html": "b4203f987cc35afe075e88b458a96a76b4867d7a3183b4427ebe9c643e0f3a4a",
+    "team/pavlova-anna/index.html": "6c1806d52c3da6a880079e353c10501946896be63ef67d5ccdef185add958ffb",
+    "team/zubachev-roman/index.html": "01f895efe4ea1389006ebae8ae30f328237f44515beeeeb83da2ac2c884d20cc",
+    "team/starostenko-vadim/index.html": "3d21e9539c50c512d5b096c75d8b5eac8b26b163593b10e65926e39e505a590c",
+    "team/dimitrenko-anna/index.html": "d1e56ecb3bdf75829fc7f443c3dac07424749202fb28284976e2d9700ab062bf",
+    "team/mamontova-lubava/index.html": "5f9c931f887bd5943b0cbe3ce1caf5fa8e67245a0cd0298c47c4713cab742793",
+    "team/lubaeva-alena/index.html": "8f511e0e5c3bc134eaf629a68dcdbf6a7a06314f5c1534a8bc67eae619a25ac7",
+    "uslugi/ortopedicheskie-stelki/index.html": "299490f7bc517b8912fb2767500ff43c6377ef7e8b3a39d26b6cf39e12870ad8",
+    "site.css": "bb0e025c9e291ccdb24da8b9e80cfac3c85d998c1387aed24fa645cfa0fe7320",
+    "layouts.css": "66d78398182263a458236c439c1a098fc8390539c7d45511d9240bd54f1a3a71",
+    "site.js": "190dba2936bc2def347a43e94b81e6fe226ee77ae38220db9e4790a17c355361"
+  }
+}
