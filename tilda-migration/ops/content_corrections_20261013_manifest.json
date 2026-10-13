@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "files": {
+    "o_nas/index.html": {
+      "before": "dc36731be8469ab181ad2efc7f59dfdbd20f96f7ff3d5922eb37d6bc9b923e18",
+      "after": "b0f623deef819cc9378a32572f36ff3a94660acd57eef2aac95359b07fd953a5",
+      "replacements": [
+        [
+          "антивозраствной",
+          "антивозрастной",
+          1
+        ]
+      ]
+    },
+    "team/index.html": {
+      "before": "8269b166b69c4e68a0001cb7e2ae6199a83e35caa329ddfb2ef2447ae7049c58",
+      "after": "29235b58f14028b0d3bd556d0c6f9bdab8875a9b3047bc8513d4e5300d7ab6ac",
+      "replacements": [
+        [
+          "антивозраствной",
+          "антивозрастной",
+          1
+        ]
+      ]
+    },
+    "team/lubaeva-alena/index.html": {
+      "before": "828ca92a5e855983b0950110a22062b44c68968a6d639be65967a83b17fce520",
+      "after": "8f511e0e5c3bc134eaf629a68dcdbf6a7a06314f5c1534a8bc67eae619a25ac7",
+      "replacements": [
+        [
+          "антивозраствной",
+          "антивозрастной",
+          3
+        ]
+      ]
+    },
+    "uslugi/ortopedicheskie-stelki/index.html": {
+      "before": "d596fa88dd286a5483ab2fa929af5b6bd276eaa49ade907d49a8a52fdae849d1",
+      "after": "299490f7bc517b8912fb2767500ff43c6377ef7e8b3a39d26b6cf39e12870ad8",
+      "replacements": [
+        [
+          "Коррекция и доработка стелек — бесплатно в течение первого месяца.",
+          "Коррекция и доработка стелек в течение первого месяца.",
+          1
+        ]
+      ]
+    }
+  },
+  "protected": {
+    "index.html": "d022f1a321b0946a73f9a4ab17627506c26d68435cf0203a519ffef2f6dc28bf",
+    "thank/index.html": "8e3f8ba685ad7997b44ce64643ba9fbf8ffb7e5bc286c9bfafce162a8b58464b",
+    "patient/patient-pravila/index.html": "b4203f987cc35afe075e88b458a96a76b4867d7a3183b4427ebe9c643e0f3a4a",
+    "team/pavlova-anna/index.html": "6c1806d52c3da6a880079e353c10501946896be63ef67d5ccdef185add958ffb",
+    "team/zubachev-roman/index.html": "01f895efe4ea1389006ebae8ae30f328237f44515beeeeb83da2ac2c884d20cc",
+    "team/starostenko-vadim/index.html": "3d21e9539c50c512d5b096c75d8b5eac8b26b163593b10e65926e39e505a590c",
+    "team/dimitrenko-anna/index.html": "d1e56ecb3bdf75829fc7f443c3dac07424749202fb28284976e2d9700ab062bf",
+    "team/mamontova-lubava/index.html": "5f9c931f887bd5943b0cbe3ce1caf5fa8e67245a0cd0298c47c4713cab742793"
+  }
+}
