@@ -1,0 +1,22 @@
+/* Keep experience at the bottom of each equal-height grid card. */
+.doctors .doctor > a {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.doctors .doctor > a > img {
+  flex: 0 0 auto;
+}
+.doctors .doctor-copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  min-width: 0;
+  /* Break a long word only when it cannot fit the card. */
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+.doctors .doctor .doctor-experience {
+  margin: auto 0 0;
+  padding-top: 1.5em;
+}
