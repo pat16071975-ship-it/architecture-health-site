@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="row between" style="margin-bottom:18px">
+    <a class="btn" href="/knowledge/">← База знаний</a>
+    {% if allow_download %}
+      <a class="btn" href="/knowledge-download/{{ entry['id'] }}">Скачать</a>
+    {% endif %}
+  </div>
+
+  <h2 class="section-title">{{ entry['name'] }}</h2>
+
+  {% if entry['media_kind'] == 'video' %}
+    <video
+      src="/knowledge-media/{{ entry['id'] }}"
+      controls
+      controlsList="nodownload"
+      preload="metadata"
+      style="width:100%;max-height:72vh;border-radius:12px;background:#111"
+      oncontextmenu="return false"
+    ></video>
+  {% elif entry['media_kind'] == 'audio' %}
+    <audio
+      src="/knowledge-media/{{ entry['id'] }}"
+      controls
+      controlsList="nodownload"
+      preload="metadata"
+      style="width:100%"
+      oncontextmenu="return false"
+    ></audio>
+  {% elif entry['media_kind'] == 'pdf' %}
+    <iframe
+      src="/knowledge-media/{{ entry['id'] }}#toolbar=0"
+      title="{{ entry['name'] }}"
+      style="width:100%;height:74vh;border:1px solid #d8cdbb;border-radius:12px;background:#fff"
+    ></iframe>
+  {% elif entry['media_kind'] == 'image' %}
+    <img
+      src="/knowledge-media/{{ entry['id'] }}"
+      alt="{{ entry['name'] }}"
+      draggable="false"
+      style="display:block;max-width:100%;max-height:74vh;margin:0 auto;border-radius:12px"
+      oncontextmenu="return false"
+    >
+  {% else %}
+    <div class="muted">
+      Для этого типа файла встроенный просмотр пока не подготовлен.
+      Оригинал не выдаётся пользователю, если скачивание не разрешено политикой материала.
+    </div>
+  {% endif %}
+
+  <div class="muted" style="margin-top:16px">
+    Источник: QNAP. Прямой сетевой путь пользователю не раскрывается.
+  </div>
+</div>
+{% endblock %}
