@@ -1,0 +1,1110 @@
+{
+  "counts": {
+    "updated": 72,
+    "added": 3,
+    "already_correct": 2
+  },
+  "pages": [
+    {
+      "file": "contacts/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/contacts"
+      ],
+      "canonical": "https://azmednsk.ru/contacts/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/contacts",
+          "to": "https://azmednsk.ru/contacts/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "cookie/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/cookie"
+      ],
+      "canonical": "https://azmednsk.ru/cookie/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/cookie",
+          "to": "https://azmednsk.ru/cookie/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "kompleks-uslugi/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/kompleks-uslugi"
+      ],
+      "canonical": "https://azmednsk.ru/kompleks-uslugi/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/kompleks-uslugi",
+          "to": "https://azmednsk.ru/kompleks-uslugi/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "kompleks-uslugi/arhitektura-zdorovya/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/kompleks-uslugi/arhitektura-zdorovya"
+      ],
+      "canonical": "https://azmednsk.ru/kompleks-uslugi/arhitektura-zdorovya/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/kompleks-uslugi/arhitektura-zdorovya",
+          "to": "https://azmednsk.ru/kompleks-uslugi/arhitektura-zdorovya/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/kompleks-uslugi/korrekciya-vnimaniya-deti"
+      ],
+      "canonical": "https://azmednsk.ru/kompleks-uslugi/korrekciya-vnimaniya-deti/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/kompleks-uslugi/korrekciya-vnimaniya-deti",
+          "to": "https://azmednsk.ru/kompleks-uslugi/korrekciya-vnimaniya-deti/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "kompleks-uslugi/zdorovaya-spina/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/kompleks-uslugi/zdorovaya-spina"
+      ],
+      "canonical": "https://azmednsk.ru/kompleks-uslugi/zdorovaya-spina/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/kompleks-uslugi/zdorovaya-spina",
+          "to": "https://azmednsk.ru/kompleks-uslugi/zdorovaya-spina/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "lab/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/lab"
+      ],
+      "canonical": "https://azmednsk.ru/lab/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/lab",
+          "to": "https://azmednsk.ru/lab/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "o_nas/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/o_nas"
+      ],
+      "canonical": "https://azmednsk.ru/o_nas/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/o_nas",
+          "to": "https://azmednsk.ru/o_nas/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "otziv/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/otziv"
+      ],
+      "canonical": "https://azmednsk.ru/otziv/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/otziv",
+          "to": "https://azmednsk.ru/otziv/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "patient/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/patient"
+      ],
+      "canonical": "https://azmednsk.ru/patient/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/patient",
+          "to": "https://azmednsk.ru/patient/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "patient/dogovor/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/patient/dogovor"
+      ],
+      "canonical": "https://azmednsk.ru/patient/dogovor/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/patient/dogovor",
+          "to": "https://azmednsk.ru/patient/dogovor/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "patient/gosgarantii/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/patient/gosgarantii"
+      ],
+      "canonical": "https://azmednsk.ru/patient/gosgarantii/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/patient/gosgarantii",
+          "to": "https://azmednsk.ru/patient/gosgarantii/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "patient/licens/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/patient/licens"
+      ],
+      "canonical": "https://azmednsk.ru/patient/licens/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/patient/licens",
+          "to": "https://azmednsk.ru/patient/licens/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "patient/patient-pravila/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/patient/patient-pravila"
+      ],
+      "canonical": "https://azmednsk.ru/patient/patient-pravila/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/patient/patient-pravila",
+          "to": "https://azmednsk.ru/patient/patient-pravila/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "patient/patient-rules/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/patient/patient-rules"
+      ],
+      "canonical": "https://azmednsk.ru/patient/patient-rules/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/patient/patient-rules",
+          "to": "https://azmednsk.ru/patient/patient-rules/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "patient/priem-patientov/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/patient/priem-patientov"
+      ],
+      "canonical": "https://azmednsk.ru/patient/priem-patientov/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/patient/priem-patientov",
+          "to": "https://azmednsk.ru/patient/priem-patientov/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "patient/supervision/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/patient/supervision"
+      ],
+      "canonical": "https://azmednsk.ru/patient/supervision/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/patient/supervision",
+          "to": "https://azmednsk.ru/patient/supervision/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "patient/zhaloba/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/patient/zhaloba"
+      ],
+      "canonical": "https://azmednsk.ru/patient/zhaloba/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/patient/zhaloba",
+          "to": "https://azmednsk.ru/patient/zhaloba/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "politica-site/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/politica-site"
+      ],
+      "canonical": "https://azmednsk.ru/politica-site/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/politica-site",
+          "to": "https://azmednsk.ru/politica-site/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "politica/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/politica"
+      ],
+      "canonical": "https://azmednsk.ru/politica/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/politica",
+          "to": "https://azmednsk.ru/politica/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "rassrochka/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/rassrochka"
+      ],
+      "canonical": "https://azmednsk.ru/rassrochka/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/rassrochka",
+          "to": "https://azmednsk.ru/rassrochka/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team"
+      ],
+      "canonical": "https://azmednsk.ru/team/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team",
+          "to": "https://azmednsk.ru/team/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/bosak-yana/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/bosak-yana"
+      ],
+      "canonical": "https://azmednsk.ru/team/bosak-yana/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/bosak-yana",
+          "to": "https://azmednsk.ru/team/bosak-yana/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/chirkov-maxim/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/chirkov-maxim"
+      ],
+      "canonical": "https://azmednsk.ru/team/chirkov-maxim/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/chirkov-maxim",
+          "to": "https://azmednsk.ru/team/chirkov-maxim/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/dimitrenko-anna/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/dimitrenko-anna"
+      ],
+      "canonical": "https://azmednsk.ru/team/dimitrenko-anna/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/dimitrenko-anna",
+          "to": "https://azmednsk.ru/team/dimitrenko-anna/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/golishenkov-vladislav/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/golishenkov-vladislav"
+      ],
+      "canonical": "https://azmednsk.ru/team/golishenkov-vladislav/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/golishenkov-vladislav",
+          "to": "https://azmednsk.ru/team/golishenkov-vladislav/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/holodtseva-valeria/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/holodtseva-valeria"
+      ],
+      "canonical": "https://azmednsk.ru/team/holodtseva-valeria/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/holodtseva-valeria",
+          "to": "https://azmednsk.ru/team/holodtseva-valeria/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/lapina-natalia/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/lapina-natalia"
+      ],
+      "canonical": "https://azmednsk.ru/team/lapina-natalia/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/lapina-natalia",
+          "to": "https://azmednsk.ru/team/lapina-natalia/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/lubaeva-alena/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/lubaeva-alena"
+      ],
+      "canonical": "https://azmednsk.ru/team/lubaeva-alena/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/lubaeva-alena",
+          "to": "https://azmednsk.ru/team/lubaeva-alena/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/mamontova-lubava/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/mamontova-lubava"
+      ],
+      "canonical": "https://azmednsk.ru/team/mamontova-lubava/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/mamontova-lubava",
+          "to": "https://azmednsk.ru/team/mamontova-lubava/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/movseyan-babken/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/movseyan-babken"
+      ],
+      "canonical": "https://azmednsk.ru/team/movseyan-babken/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/movseyan-babken",
+          "to": "https://azmednsk.ru/team/movseyan-babken/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/nazirov-uktamjon/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/nazirov-uktamjon"
+      ],
+      "canonical": "https://azmednsk.ru/team/nazirov-uktamjon/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/nazirov-uktamjon",
+          "to": "https://azmednsk.ru/team/nazirov-uktamjon/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/pavlova-anna/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/pavlova-anna"
+      ],
+      "canonical": "https://azmednsk.ru/team/pavlova-anna/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/pavlova-anna",
+          "to": "https://azmednsk.ru/team/pavlova-anna/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/rumyantseva-maria/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/rumyantseva-maria"
+      ],
+      "canonical": "https://azmednsk.ru/team/rumyantseva-maria/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/rumyantseva-maria",
+          "to": "https://azmednsk.ru/team/rumyantseva-maria/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/starostenko-vadim/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/starostenko-vadim"
+      ],
+      "canonical": "https://azmednsk.ru/team/starostenko-vadim/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/starostenko-vadim",
+          "to": "https://azmednsk.ru/team/starostenko-vadim/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/tproduct/338106745633-palunin-vladislav-andreevich/index.html",
+      "previous_canonical": [],
+      "canonical": "https://azmednsk.ru/team/tproduct/338106745633-palunin-vladislav-andreevich/",
+      "redirects": [],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html",
+      "previous_canonical": [],
+      "canonical": "https://azmednsk.ru/team/tproduct/392688125713-mozharova-ekaterina-sergeevna/",
+      "redirects": [],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html",
+      "previous_canonical": [],
+      "canonical": "https://azmednsk.ru/team/tproduct/834140634503-kazantsev-leonid-evgenevich/",
+      "redirects": [],
+      "final_http_status": 200
+    },
+    {
+      "file": "team/zubachev-roman/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/team/zubachev-roman"
+      ],
+      "canonical": "https://azmednsk.ru/team/zubachev-roman/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/team/zubachev-roman",
+          "to": "https://azmednsk.ru/team/zubachev-roman/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/craniodontic/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/craniodontic"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/craniodontic/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/craniodontic",
+          "to": "https://azmednsk.ru/uslugi/craniodontic/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/diers-diagnostica/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/diers-diagnostica"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/diers-diagnostica/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/diers-diagnostica",
+          "to": "https://azmednsk.ru/uslugi/diers-diagnostica/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/diers_research/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/diers_research"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/diers_research/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/diers_research",
+          "to": "https://azmednsk.ru/uslugi/diers_research/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/doc_educate/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/doc_educate"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/doc_educate/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/doc_educate",
+          "to": "https://azmednsk.ru/uslugi/doc_educate/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/functional_dentistry/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/functional_dentistry"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/functional_dentistry/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/functional_dentistry",
+          "to": "https://azmednsk.ru/uslugi/functional_dentistry/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/gastroenterologiya/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/gastroenterologiya"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/gastroenterologiya/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/gastroenterologiya",
+          "to": "https://azmednsk.ru/uslugi/gastroenterologiya/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/hygiene_prevention/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/hygiene_prevention"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/hygiene_prevention/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/hygiene_prevention",
+          "to": "https://azmednsk.ru/uslugi/hygiene_prevention/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/hygiene_prevention/otbelivanie_zoom4"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/hygiene_prevention/otbelivanie_zoom4/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/hygiene_prevention/otbelivanie_zoom4",
+          "to": "https://azmednsk.ru/uslugi/hygiene_prevention/otbelivanie_zoom4/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/iggt-terapiya/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/iggt-terapiya"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/iggt-terapiya/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/iggt-terapiya",
+          "to": "https://azmednsk.ru/uslugi/iggt-terapiya/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/khirurgiya/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/khirurgiya"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/khirurgiya/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/khirurgiya",
+          "to": "https://azmednsk.ru/uslugi/khirurgiya/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/khirurgiya/implantaciya/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/khirurgiya/implantaciya"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/khirurgiya/implantaciya/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/khirurgiya/implantaciya",
+          "to": "https://azmednsk.ru/uslugi/khirurgiya/implantaciya/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/konsultatiya-stomatolog/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/konsultatiya-stomatolog"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/konsultatiya-stomatolog/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/konsultatiya-stomatolog",
+          "to": "https://azmednsk.ru/uslugi/konsultatiya-stomatolog/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/lechenie-zubov/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/lechenie-zubov/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/lechenie-zubov",
+          "to": "https://azmednsk.ru/uslugi/lechenie-zubov/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/esteticheskaya_restavraciya"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/lechenie-zubov/esteticheskaya_restavraciya/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/lechenie-zubov/esteticheskaya_restavraciya",
+          "to": "https://azmednsk.ru/uslugi/lechenie-zubov/esteticheskaya_restavraciya/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/lechenie-zubov/karies/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/karies"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/lechenie-zubov/karies/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/lechenie-zubov/karies",
+          "to": "https://azmednsk.ru/uslugi/lechenie-zubov/karies/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/lechenie-zubov/kista/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/kista"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/lechenie-zubov/kista/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/lechenie-zubov/kista",
+          "to": "https://azmednsk.ru/uslugi/lechenie-zubov/kista/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/lechenie-zubov/periodontit/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/periodontit"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/lechenie-zubov/periodontit/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/lechenie-zubov/periodontit",
+          "to": "https://azmednsk.ru/uslugi/lechenie-zubov/periodontit/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/lechenie-zubov/pulpit/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/pulpit"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/lechenie-zubov/pulpit/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/lechenie-zubov/pulpit",
+          "to": "https://azmednsk.ru/uslugi/lechenie-zubov/pulpit/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya",
+          "to": "https://azmednsk.ru/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/lechenie-zubov/zuby-mudrosti/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/lechenie-zubov/zuby-mudrosti"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/lechenie-zubov/zuby-mudrosti/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/lechenie-zubov/zuby-mudrosti",
+          "to": "https://azmednsk.ru/uslugi/lechenie-zubov/zuby-mudrosti/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/miofascialnaya-terapia/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/miofascialnaya-terapia"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/miofascialnaya-terapia/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/miofascialnaya-terapia",
+          "to": "https://azmednsk.ru/uslugi/miofascialnaya-terapia/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/miofascialnyy-massazh/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/miofascialnyy-massazh"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/miofascialnyy-massazh/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/miofascialnyy-massazh",
+          "to": "https://azmednsk.ru/uslugi/miofascialnyy-massazh/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/miofunkcionalnaya-terapiya/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/miofunkcionalnaya-terapiya"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/miofunkcionalnaya-terapiya/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/miofunkcionalnaya-terapiya",
+          "to": "https://azmednsk.ru/uslugi/miofunkcionalnaya-terapiya/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/neyropsihologia/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/neyropsihologia"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/neyropsihologia/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/neyropsihologia",
+          "to": "https://azmednsk.ru/uslugi/neyropsihologia/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/nutriciologiya/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/nutriciologiya"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/nutriciologiya/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/nutriciologiya",
+          "to": "https://azmednsk.ru/uslugi/nutriciologiya/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/orthodontics/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/orthodontics"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/orthodontics/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/orthodontics",
+          "to": "https://azmednsk.ru/uslugi/orthodontics/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/ortopedicheskie-stelki/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/ortopedicheskie-stelki"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/ortopedicheskie-stelki/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/ortopedicheskie-stelki",
+          "to": "https://azmednsk.ru/uslugi/ortopedicheskie-stelki/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/osteopatiya/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/osteopatiya"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/osteopatiya/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/osteopatiya",
+          "to": "https://azmednsk.ru/uslugi/osteopatiya/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/preventivnaya-medicina/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/preventivnaya-medicina"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/preventivnaya-medicina/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/preventivnaya-medicina",
+          "to": "https://azmednsk.ru/uslugi/preventivnaya-medicina/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/prosthetics/koronki/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/prosthetics/koronki"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/prosthetics/koronki/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/prosthetics/koronki",
+          "to": "https://azmednsk.ru/uslugi/prosthetics/koronki/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/prosthetics/koronki/keramicheskie/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/prosthetics/koronki/keramicheskie"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/prosthetics/koronki/keramicheskie/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/prosthetics/koronki/keramicheskie",
+          "to": "https://azmednsk.ru/uslugi/prosthetics/koronki/keramicheskie/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/prosthetics/koronki/kompozitnye/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/prosthetics/koronki/kompozitnye"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/prosthetics/koronki/kompozitnye/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/prosthetics/koronki/kompozitnye",
+          "to": "https://azmednsk.ru/uslugi/prosthetics/koronki/kompozitnye/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/prosthetics/mostovidnyy-protez/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/prosthetics/mostovidnyy-protez"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/prosthetics/mostovidnyy-protez/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/prosthetics/mostovidnyy-protez",
+          "to": "https://azmednsk.ru/uslugi/prosthetics/mostovidnyy-protez/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/prosthetics/viniry/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/prosthetics/viniry"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/prosthetics/viniry/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/prosthetics/viniry",
+          "to": "https://azmednsk.ru/uslugi/prosthetics/viniry/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslugi/terapia/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslugi/terapia"
+      ],
+      "canonical": "https://azmednsk.ru/uslugi/terapia/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslugi/terapia",
+          "to": "https://azmednsk.ru/uslugi/terapia/"
+        }
+      ],
+      "final_http_status": 200
+    },
+    {
+      "file": "uslygi/index.html",
+      "previous_canonical": [
+        "https://azmednsk.ru/uslygi"
+      ],
+      "canonical": "https://azmednsk.ru/uslygi/",
+      "redirects": [
+        {
+          "status": 301,
+          "from": "https://azmednsk.ru/uslygi",
+          "to": "https://azmednsk.ru/uslygi/"
+        }
+      ],
+      "final_http_status": 200
+    }
+  ]
+}
