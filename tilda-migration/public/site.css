@@ -6,3 +6,8 @@
 /* Editorial headings retain the existing canvas typography. */
 .visual-inner.semantic-heading{margin:0;font-family:inherit}
 .editorial-section .prose,.editorial-intro{max-width:900px;line-height:1.7}
+
+/* Approved narrow-screen booking-button fit; desktop rules stay unchanged. */
+@media(max-width:479px){
+ .site-header>.header-book{min-width:0;white-space:normal;overflow-wrap:anywhere;margin-left:0}
+}
