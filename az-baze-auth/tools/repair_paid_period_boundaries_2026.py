@@ -274,7 +274,11 @@ def main():
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
 
-    conn = sqlite3.connect(args.db)
+    if args.apply:
+        conn = sqlite3.connect(args.db)
+    else:
+        db_path = Path(args.db).resolve()
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     try:
         plan = analyze_snapshots(conn, args.start_date)
