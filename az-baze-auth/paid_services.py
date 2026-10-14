@@ -405,16 +405,14 @@ def parse_bytes(raw, filename="", known_staff=None, period_start=None, period_en
         elif detected_period:
             period_start, period_end = detected_period
         elif service_dates:
-            months = sorted({value[:7] for value in service_dates})
-            if len(months) == 1:
-                # Preserve the established monthly snapshot contract.
-                period_start = months[0] + "-01"
-                period_end = service_dates[-1]
-            else:
-                # A long export can be processed directly from its own dated
-                # service rows even when the MIS omitted a separate period label.
-                period_start = service_dates[0]
-                period_end = service_dates[-1]
+            # When the workbook does not carry an explicit report interval,
+            # never manufacture the first day of the month. The MIS can export
+            # a later incremental slice (for example 12–13 October); treating
+            # that slice as 1–13 October replaces, rather than extends, the
+            # earlier 1–11 October paid totals. Use only dates that are actually
+            # present in the source rows.
+            period_start = service_dates[0]
+            period_end = service_dates[-1]
         else:
             raise ValueError(
                 "В новом отчёте не найдены даты периода или строки услуг, "

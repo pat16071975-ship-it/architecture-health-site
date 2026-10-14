@@ -60,7 +60,8 @@ class PaidServicesTests(unittest.TestCase):
         parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
         self.assertEqual(parsed["source_type"], "paid_services_v1")
         self.assertEqual(parsed["sheet"], "Выручка по направлениям")
-        self.assertEqual(parsed["month"], "2026-09")
+        self.assertEqual(parsed["month"], "")
+        self.assertEqual(parsed["period_start"], "2026-09-10")
         self.assertEqual(parsed["period_end"], "2026-09-30")
         self.assertEqual(parsed["totals"]["paid"], 372)
         self.assertEqual(parsed["providers"]["Dent D."]["paid"], 225)
@@ -74,7 +75,7 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(parsed["items"][0]["paid_amount"], 225)
         self.assertEqual(parsed["items"][0]["invoice"], "100")
 
-    def test_compact_snapshot_keeps_service_analytics_without_patient_names(self):
+    def test_compact_period_keeps_service_analytics_without_patient_names(self):
         parsed = paid_services.parse_bytes(
             self.reference_report(),
             "paid.xlsx",
@@ -82,7 +83,9 @@ class PaidServicesTests(unittest.TestCase):
         )
         compact = paid_services.compact_report(parsed)
         serialized = json.dumps(compact, ensure_ascii=False)
-        self.assertEqual(compact["version"], 2)
+        self.assertEqual(compact["version"], 3)
+        self.assertEqual(compact["period_start"], "2026-09-10")
+        self.assertEqual(compact["period_end"], "2026-09-30")
         self.assertNotIn("Пациент Один", serialized)
         self.assertNotIn("Пациент Два", serialized)
         self.assertTrue(compact["service_items"])
@@ -268,6 +271,26 @@ class PaidServicesTests(unittest.TestCase):
         ])
         with self.assertRaisesRegex(ValueError, "Нарушен баланс"):
             paid_services.parse_bytes(raw, "bad.xlsx")
+
+    def test_same_month_incremental_slice_does_not_become_month_to_date(self):
+        raw = self.workbook_bytes([
+            ["Итого", None, None, None, 0, 3000, 92610, -89610],
+            ["Услуги", None, None, None, 0, 3000, 92610, -89610],
+            ["Назыров У. Ж.", None, None, None, 0, 3000, 92610, -89610],
+            ["Пациент", None, None, None, 0, 3000, 92610, -89610],
+            ["Счет №1 от 12.10.2026 12:00:00", None, None, None, "-", 1000, 30000, -29000],
+            ["Терапия", "12.10.2026 12:00", "Услуга", 1, "-", 1000, 30000, -29000],
+            ["Счет №2 от 13.10.2026 12:00:00", None, None, None, "-", 2000, 62610, -60610],
+            ["Терапия", "13.10.2026 12:00", "Услуга", 1, "-", 2000, 62610, -60610],
+        ])
+        parsed = paid_services.parse_bytes(raw, "12-13.xlsx", known_staff=["Назыров У. Ж."])
+        self.assertEqual(parsed["period_start"], "2026-10-12")
+        self.assertEqual(parsed["period_end"], "2026-10-13")
+        compact = paid_services.compact_report(parsed)
+        self.assertEqual(compact["version"], 3)
+        self.assertEqual(compact["period_start"], "2026-10-12")
+        self.assertEqual(compact["period_end"], "2026-10-13")
+        self.assertNotIn("as_of_date", compact)
 
     def test_multi_month_report_uses_dates_inside_file_without_manual_period(self):
         raw = self.workbook_bytes([
