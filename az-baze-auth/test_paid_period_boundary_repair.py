@@ -120,6 +120,44 @@ class PaidPeriodBoundaryRepairTests(unittest.TestCase):
         )
         self.assertGreater(path.stat().st_size, 0)
 
+    def test_saved_periods_are_included_in_year_preflight(self):
+        conn, _path, _backup = self.make_db()
+        payload = {
+            "version": 3,
+            "period_start": "2026-01-05",
+            "period_end": "2026-06-30",
+            "totals": {"opening": 0, "billed": 100, "paid": 100, "closing": 0},
+            "providers": {
+                "Назыров У. Ж.": {"opening": 0, "billed": 100, "paid": 100, "closing": 0},
+            },
+            "provider_residual": {"opening": 0, "billed": 0, "paid": 0, "closing": 0},
+            "service_items": [],
+            "visit_links": {
+                "2026-01-05|a": ["Назыров У. Ж."],
+                "2026-06-30|b": ["Назыров У. Ж."],
+            },
+            "invoices": [],
+        }
+        conn.execute(
+            """
+            INSERT INTO service_payment_periods(
+                period_start,period_end,payload_json,source_filename,source_sha256,
+                imported_by,imported_at
+            ) VALUES(?,?,?,?,?,?,?)
+            """,
+            (
+                "2026-01-05", "2026-06-30",
+                json.dumps(payload, ensure_ascii=False),
+                "jan-jun.xlsx", "sha-period", 1, "2026-10-13T00:00:00",
+            ),
+        )
+        conn.commit()
+        periods = repair.analyze_periods(conn)
+        self.assertEqual(len(periods), 1)
+        self.assertEqual(periods[0]["status"], "keep_period")
+        self.assertEqual(periods[0]["event_start"], "2026-01-05")
+        self.assertEqual(periods[0]["event_end"], "2026-06-30")
+
     def test_gap_is_fail_closed_for_apply(self):
         conn, _path, backup_dir = self.make_db()
         self.insert_snapshot(conn, "2026-08-10", 100, ["2026-08-01", "2026-08-10"], "a.xlsx")
