@@ -14,6 +14,7 @@ HIDDEN_EXTENSIONS = {
     ".lrf", ".загружено", ".yandex_disk_download",
     ".ini", ".ini[1]", ".css", ".dat", ".exe",
 }
+SPECIALIZED_EXTENSIONS = {".dcm", ".stl", ".dentalcad"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".mpeg"}
 AUDIO_EXTENSIONS = {".m4a", ".mp3", ".wav", ".aac"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
@@ -82,6 +83,8 @@ def _hidden(relative_path, entry_type):
     if name.startswith("._"):
         return True
     if entry_type == "file" and path.suffix.lower() in HIDDEN_EXTENSIONS:
+        return True
+    if entry_type == "file" and path.suffix.lower() in SPECIALIZED_EXTENSIONS:
         return True
     return False
 
