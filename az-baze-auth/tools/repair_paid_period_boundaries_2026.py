@@ -132,6 +132,53 @@ def analyze_snapshots(conn, start_date="2026-01-01"):
     return result
 
 
+def analyze_periods(conn, start_date="2026-01-01"):
+    rows = conn.execute(
+        """
+        SELECT period_start,period_end,payload_json,source_filename,source_sha256,
+               imported_by,imported_at
+        FROM service_payment_periods
+        WHERE period_end>=?
+        ORDER BY period_start,period_end
+        """,
+        (start_date,),
+    ).fetchall()
+    result = []
+    for row in rows:
+        start = str(row["period_start"] or "")
+        end = str(row["period_end"] or "")
+        payload = _payload(row["payload_json"])
+        dates = payload_event_dates(payload or {})
+        status = "keep_period"
+        reason = "stored as explicit source interval"
+        if not _valid_date(start) or not _valid_date(end) or start > end:
+            status = "invalid_period"
+            reason = "invalid saved period boundary"
+        elif not payload or payload.get("version") != 3:
+            status = "invalid_period"
+            reason = "period payload is not version 3"
+        elif payload.get("period_start") != start or payload.get("period_end") != end:
+            status = "invalid_period"
+            reason = "payload boundaries differ from row boundaries"
+        elif dates and (dates[0] < start or dates[-1] > end):
+            status = "invalid_period"
+            reason = "preserved event dates fall outside saved interval"
+        result.append({
+            "period_start": start,
+            "period_end": end,
+            "source_filename": str(row["source_filename"] or ""),
+            "source_sha256": str(row["source_sha256"] or ""),
+            "imported_by": row["imported_by"],
+            "imported_at": str(row["imported_at"] or ""),
+            "payload": payload,
+            "event_start": dates[0] if dates else None,
+            "event_end": dates[-1] if dates else None,
+            "status": status,
+            "reason": reason,
+        })
+    return result
+
+
 def compact_period_payload(snapshot, start, end):
     value = dict(snapshot)
     value["version"] = 3
@@ -250,13 +297,22 @@ def apply_repairs(conn, plan, backup_dir):
         raise
 
 
-def print_plan(plan):
+def print_plan(plan, periods):
     counts = defaultdict(int)
     print("=== PAID PERIOD BOUNDARY PREFLIGHT ===")
+    print("--- SNAPSHOTS ---")
     for row in plan:
         counts[row["status"]] += 1
         print(
             f"{row['as_of']} | {row['status']} | prev={row['previous_as_of'] or '-'} | "
+            f"events={row['event_start'] or '-'}..{row['event_end'] or '-'} | "
+            f"file={row['source_filename']}"
+        )
+    print("--- SAVED PERIODS ---")
+    for row in periods:
+        counts[row["status"]] += 1
+        print(
+            f"{row['period_start']}..{row['period_end']} | {row['status']} | "
             f"events={row['event_start'] or '-'}..{row['event_end'] or '-'} | "
             f"file={row['source_filename']}"
         )
@@ -282,9 +338,17 @@ def main():
     conn.row_factory = sqlite3.Row
     try:
         plan = analyze_snapshots(conn, args.start_date)
-        print_plan(plan)
+        periods = analyze_periods(conn, args.start_date)
+        print_plan(plan, periods)
         if not args.apply:
             return
+        invalid_periods = [row for row in periods if row["status"] != "keep_period"]
+        if invalid_periods:
+            labels = ", ".join(
+                f"{row['period_start']}..{row['period_end']}:{row['status']}"
+                for row in invalid_periods
+            )
+            raise RuntimeError("Refusing apply while unsafe saved periods exist: " + labels)
         backup, converted = apply_repairs(conn, plan, args.backup_dir)
         print("=== APPLY ===")
         print(f"BACKUP={backup}")
