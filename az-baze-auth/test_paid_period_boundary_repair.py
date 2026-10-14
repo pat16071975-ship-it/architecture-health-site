@@ -94,7 +94,8 @@ class PaidPeriodBoundaryRepairTests(unittest.TestCase):
             ["2026-10-12", "2026-10-13"], "oct-12-13.xlsx",
         )
         plan = repair.analyze_snapshots(conn)
-        backup, converted = repair.apply_repairs(conn, plan, backup_dir)
+        periods = repair.analyze_periods(conn)
+        backup, converted = repair.apply_repairs(conn, plan, periods, backup_dir)
         self.assertTrue(Path(backup).exists())
         self.assertEqual(converted, [("2026-10-12", "2026-10-13", "oct-12-13.xlsx")])
         self.assertIsNotNone(conn.execute(
@@ -165,7 +166,7 @@ class PaidPeriodBoundaryRepairTests(unittest.TestCase):
         plan = repair.analyze_snapshots(conn)
         self.assertEqual(plan[1]["status"], "ambiguous_gap")
         with self.assertRaisesRegex(RuntimeError, "unsafe rows"):
-            repair.apply_repairs(conn, plan, backup_dir)
+            repair.apply_repairs(conn, plan, repair.analyze_periods(conn), backup_dir)
 
 
 if __name__ == "__main__":
