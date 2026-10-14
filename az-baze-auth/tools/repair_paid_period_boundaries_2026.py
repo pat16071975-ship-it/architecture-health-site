@@ -196,17 +196,44 @@ def _canonical(value):
 def backup_database(conn, backup_dir):
     root = Path(backup_dir)
     root.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    stamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
     target = root / f"paid-period-boundary-repair-{stamp}.db"
     destination = sqlite3.connect(target)
     try:
         conn.backup(destination)
     finally:
         destination.close()
+    check = sqlite3.connect(f"file:{target.resolve()}?mode=ro", uri=True)
+    try:
+        integrity = check.execute("PRAGMA integrity_check").fetchone()[0]
+    finally:
+        check.close()
+    if integrity != "ok":
+        raise RuntimeError("Backup integrity_check failed: " + str(integrity))
     return target
 
 
-def apply_repairs(conn, plan, backup_dir):
+def _snapshot_plan_signature(plan):
+    return [
+        (
+            row["as_of"], row["month"], row["source_sha256"], row["event_start"],
+            row["event_end"], row["previous_as_of"], row["status"],
+        )
+        for row in plan
+    ]
+
+
+def _period_plan_signature(periods):
+    return [
+        (
+            row["period_start"], row["period_end"], row["source_sha256"],
+            row["event_start"], row["event_end"], row["status"],
+        )
+        for row in periods
+    ]
+
+
+def apply_repairs(conn, plan, periods, backup_dir):
     ambiguous = [
         row for row in plan
         if row["status"] in {"invalid", "ambiguous_no_dates", "ambiguous_gap"}
@@ -215,22 +242,32 @@ def apply_repairs(conn, plan, backup_dir):
         labels = ", ".join(f"{row['as_of']}:{row['status']}" for row in ambiguous)
         raise RuntimeError("Refusing apply while unsafe rows exist: " + labels)
 
+    invalid_periods = [row for row in periods if row["status"] != "keep_period"]
+    if invalid_periods:
+        labels = ", ".join(
+            f"{row['period_start']}..{row['period_end']}:{row['status']}"
+            for row in invalid_periods
+        )
+        raise RuntimeError("Refusing apply while unsafe saved periods exist: " + labels)
+
     candidates = [row for row in plan if row["status"] == "convert_incremental"]
+
+    # SQLite backup must be taken before BEGIN IMMEDIATE on the source
+    # connection; backing up from the same connection while it owns a write
+    # transaction can block indefinitely. We then lock and recheck the entire
+    # preflight state. If anything changed between backup and lock, no write is
+    # made and the operator must rerun preflight.
+    backup = backup_database(conn, backup_dir)
     conn.execute("BEGIN IMMEDIATE")
     try:
         locked_plan = analyze_snapshots(conn)
-        locked_keys = {
-            (row["as_of"], row["source_sha256"], row["event_start"], row["status"])
-            for row in locked_plan if row["status"] == "convert_incremental"
-        }
-        expected_keys = {
-            (row["as_of"], row["source_sha256"], row["event_start"], row["status"])
-            for row in candidates
-        }
-        if locked_keys != expected_keys:
-            raise RuntimeError("Paid-services state changed after preflight; rerun preflight.")
+        locked_periods = analyze_periods(conn)
+        if (
+            _snapshot_plan_signature(locked_plan) != _snapshot_plan_signature(plan)
+            or _period_plan_signature(locked_periods) != _period_plan_signature(periods)
+        ):
+            raise RuntimeError("Paid-services state changed after backup; rerun preflight.")
 
-        backup = backup_database(conn, backup_dir)
         converted = []
         for row in candidates:
             start, end = row["event_start"], row["as_of"]
@@ -342,14 +379,7 @@ def main():
         print_plan(plan, periods)
         if not args.apply:
             return
-        invalid_periods = [row for row in periods if row["status"] != "keep_period"]
-        if invalid_periods:
-            labels = ", ".join(
-                f"{row['period_start']}..{row['period_end']}:{row['status']}"
-                for row in invalid_periods
-            )
-            raise RuntimeError("Refusing apply while unsafe saved periods exist: " + labels)
-        backup, converted = apply_repairs(conn, plan, args.backup_dir)
+        backup, converted = apply_repairs(conn, plan, periods, args.backup_dir)
         print("=== APPLY ===")
         print(f"BACKUP={backup}")
         for start, end, filename in converted:
