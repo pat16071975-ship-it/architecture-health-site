@@ -29,6 +29,9 @@ class KnowledgeCatalogTests(unittest.TestCase):
         dot = self.write("Для ассистентов/ОБУЧЕНИЕ DIERS/._1.MP4", b"meta")
         recycle = self.write("@Recycle/deleted.mp4", b"deleted")
         pdf = self.write("Общая медицина/SEST/Методичка.pdf", b"%PDF")
+        dicom = self.write("Стоматология и миотерапия/КТ/scan.dcm", b"dicom")
+        stl = self.write("Стоматология и миотерапия/Модели/model.stl", b"stl")
+        dentalcad = self.write("Стоматология и миотерапия/Модели/case.dentalcad", b"cad")
 
         with patch.object(knowledge_catalog, "KNOWLEDGE_ROOT", self.root):
             count = knowledge_catalog.reindex(self.conn)
@@ -45,12 +48,18 @@ class KnowledgeCatalogTests(unittest.TestCase):
         self.assertNotIn("Для ассистентов/ОБУЧЕНИЕ DIERS/1.LRF", visible)
         self.assertNotIn("Для ассистентов/ОБУЧЕНИЕ DIERS/._1.MP4", visible)
         self.assertNotIn("@Recycle/deleted.mp4", visible)
+        self.assertNotIn("Стоматология и миотерапия/КТ/scan.dcm", visible)
+        self.assertNotIn("Стоматология и миотерапия/Модели/model.stl", visible)
+        self.assertNotIn("Стоматология и миотерапия/Модели/case.dentalcad", visible)
 
         self.assertTrue(video.exists())
         self.assertTrue(lrf.exists())
         self.assertTrue(dot.exists())
         self.assertTrue(recycle.exists())
         self.assertTrue(pdf.exists())
+        self.assertTrue(dicom.exists())
+        self.assertTrue(stl.exists())
+        self.assertTrue(dentalcad.exists())
 
     def test_root_sklyarov_is_hidden_but_management_sklyarov_is_visible(self):
         root_legacy = self.write("Скляров/2 день 3 часть.MP4", b"legacy")
