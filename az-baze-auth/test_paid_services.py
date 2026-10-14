@@ -60,7 +60,8 @@ class PaidServicesTests(unittest.TestCase):
         parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
         self.assertEqual(parsed["source_type"], "paid_services_v1")
         self.assertEqual(parsed["sheet"], "Выручка по направлениям")
-        self.assertEqual(parsed["month"], "2026-09")
+        self.assertEqual(parsed["month"], "")
+        self.assertEqual(parsed["period_start"], "2026-09-10")
         self.assertEqual(parsed["period_end"], "2026-09-30")
         self.assertEqual(parsed["totals"]["paid"], 372)
         self.assertEqual(parsed["providers"]["Dent D."]["paid"], 225)
@@ -74,7 +75,7 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(parsed["items"][0]["paid_amount"], 225)
         self.assertEqual(parsed["items"][0]["invoice"], "100")
 
-    def test_compact_snapshot_keeps_service_analytics_without_patient_names(self):
+    def test_compact_period_keeps_service_analytics_without_patient_names(self):
         parsed = paid_services.parse_bytes(
             self.reference_report(),
             "paid.xlsx",
@@ -82,7 +83,9 @@ class PaidServicesTests(unittest.TestCase):
         )
         compact = paid_services.compact_report(parsed)
         serialized = json.dumps(compact, ensure_ascii=False)
-        self.assertEqual(compact["version"], 2)
+        self.assertEqual(compact["version"], 3)
+        self.assertEqual(compact["period_start"], "2026-09-10")
+        self.assertEqual(compact["period_end"], "2026-09-30")
         self.assertNotIn("Пациент Один", serialized)
         self.assertNotIn("Пациент Два", serialized)
         self.assertTrue(compact["service_items"])
