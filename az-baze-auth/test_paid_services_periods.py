@@ -105,14 +105,17 @@ class PaidPeriodParserTests(unittest.TestCase):
                 self.assertFalse(paid_services.is_monthly_report(parsed))
                 self.assertEqual(paid_services.compact_report(parsed)["version"], 3)
 
-    def test_monthly_payload_is_identical_with_explicit_or_legacy_dates(self):
-        raw = report_bytes(("05.07.2026", "31.07.2026"))
-        legacy = paid_services.compact_report(paid_services.parse_bytes(raw, "july.xlsx"))
+    def test_same_month_without_period_label_keeps_actual_source_dates(self):
+        raw = report_bytes(("05.07.2026", "31.07.2026"), period=False)
+        inferred = paid_services.compact_report(paid_services.parse_bytes(raw, "july-slice.xlsx"))
         explicit = paid_services.compact_report(parse_period(raw, "2026-07-01", "2026-07-31"))
-        self.assertEqual(json.dumps(legacy, ensure_ascii=False), json.dumps(explicit, ensure_ascii=False))
-        self.assertEqual(legacy["version"], 2)
-        self.assertEqual(legacy["month"], "2026-07")
-        self.assertNotIn("period_start", legacy)
+        self.assertEqual(inferred["version"], 3)
+        self.assertEqual(inferred["period_start"], "2026-07-05")
+        self.assertEqual(inferred["period_end"], "2026-07-31")
+        self.assertNotIn("month", inferred)
+        self.assertEqual(explicit["version"], 2)
+        self.assertEqual(explicit["month"], "2026-07")
+        self.assertNotIn("period_start", explicit)
 
     def test_explicit_end_can_include_days_without_services(self):
         parsed = parse_period(report_bytes(("05.06.2026", "27.06.2026")), "2026-06-01", "2026-06-30")
