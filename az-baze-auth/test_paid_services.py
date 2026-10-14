@@ -269,6 +269,26 @@ class PaidServicesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Нарушен баланс"):
             paid_services.parse_bytes(raw, "bad.xlsx")
 
+    def test_same_month_incremental_slice_does_not_become_month_to_date(self):
+        raw = self.workbook_bytes([
+            ["Итого", None, None, None, 0, 3000, 92610, -89610],
+            ["Услуги", None, None, None, 0, 3000, 92610, -89610],
+            ["Назыров У. Ж.", None, None, None, 0, 3000, 92610, -89610],
+            ["Пациент", None, None, None, 0, 3000, 92610, -89610],
+            ["Счет №1 от 12.10.2026 12:00:00", None, None, None, "-", 1000, 30000, -29000],
+            ["Терапия", "12.10.2026 12:00", "Услуга", 1, "-", 1000, 30000, -29000],
+            ["Счет №2 от 13.10.2026 12:00:00", None, None, None, "-", 2000, 62610, -60610],
+            ["Терапия", "13.10.2026 12:00", "Услуга", 1, "-", 2000, 62610, -60610],
+        ])
+        parsed = paid_services.parse_bytes(raw, "12-13.xlsx", known_staff=["Назыров У. Ж."])
+        self.assertEqual(parsed["period_start"], "2026-10-12")
+        self.assertEqual(parsed["period_end"], "2026-10-13")
+        compact = paid_services.compact_report(parsed)
+        self.assertEqual(compact["version"], 3)
+        self.assertEqual(compact["period_start"], "2026-10-12")
+        self.assertEqual(compact["period_end"], "2026-10-13")
+        self.assertNotIn("as_of_date", compact)
+
     def test_multi_month_report_uses_dates_inside_file_without_manual_period(self):
         raw = self.workbook_bytes([
             ["Итого", None, None, None, 0, 200, 200, 0],
