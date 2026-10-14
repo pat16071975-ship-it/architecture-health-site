@@ -52,6 +52,24 @@ class KnowledgeCatalogTests(unittest.TestCase):
         self.assertTrue(recycle.exists())
         self.assertTrue(pdf.exists())
 
+    def test_root_sklyarov_is_hidden_but_management_sklyarov_is_visible(self):
+        root_legacy = self.write("Скляров/2 день 3 часть.MP4", b"legacy")
+        canonical = self.write("Управление и сервис/Скляров/2 день 3 часть.MP4", b"canonical")
+
+        with patch.object(knowledge_catalog, "KNOWLEDGE_ROOT", self.root):
+            knowledge_catalog.reindex(self.conn)
+
+        visible = {
+            row["relative_path"]
+            for row in self.conn.execute(
+                "SELECT relative_path FROM knowledge_entries WHERE hidden=0 AND entry_type='file'"
+            )
+        }
+        self.assertNotIn("Скляров/2 день 3 часть.MP4", visible)
+        self.assertIn("Управление и сервис/Скляров/2 день 3 часть.MP4", visible)
+        self.assertTrue(root_legacy.exists())
+        self.assertTrue(canonical.exists())
+
     def test_ids_are_stable_and_default_policy_forbids_download(self):
         self.write("Круглые столы клиники/Круглый стол 04.2026.MP4", b"video")
         with patch.object(knowledge_catalog, "KNOWLEDGE_ROOT", self.root):
