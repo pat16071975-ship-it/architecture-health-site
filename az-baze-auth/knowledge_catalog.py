@@ -9,7 +9,7 @@ from app import admin_required, db, iso_now, permission_required, require_csrf
 
 
 KNOWLEDGE_ROOT = Path(os.environ.get("AZBAZE_KNOWLEDGE_ROOT", "/mnt/qnap-obuchenie"))
-HIDDEN_TOP_LEVEL = {"@Recycle"}
+HIDDEN_TOP_LEVEL = {"@Recycle", "Скляров"}
 HIDDEN_EXTENSIONS = {
     ".lrf", ".загружено", ".yandex_disk_download",
     ".ini", ".ini[1]", ".css", ".dat", ".exe",
@@ -103,7 +103,10 @@ def _scan_rows():
     for current, dirs, files in os.walk(KNOWLEDGE_ROOT):
         current_path = Path(current)
         rel_current = current_path.relative_to(KNOWLEDGE_ROOT)
-        dirs[:] = [name for name in dirs if name not in HIDDEN_TOP_LEVEL]
+        # Only root-level folders are governed by HIDDEN_TOP_LEVEL.
+        # Nested «Управление и сервис/Скляров» is authoritative and must stay visible.
+        if str(rel_current) == ".":
+            dirs[:] = [name for name in dirs if name not in HIDDEN_TOP_LEVEL]
 
         for name in dirs:
             relative = str((rel_current / name).as_posix())
