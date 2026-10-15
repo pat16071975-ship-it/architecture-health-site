@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import knowledge_catalog
+import app as app_core
 
 
 class KnowledgeCatalogTests(unittest.TestCase):
@@ -101,6 +102,29 @@ class KnowledgeCatalogTests(unittest.TestCase):
         self.assertIn("Управление и сервис/Скляров Управление клиникой/2 день 3 часть.MP4", visible)
         self.assertTrue(root_legacy.exists())
         self.assertTrue(canonical.exists())
+
+    def test_static_knowledge_html_is_readable_by_shared_after_request(self):
+        site = Path(self.tmp.name) / "site"
+        (site / "knowledge" / "doctor").mkdir(parents=True)
+        (site / "knowledge" / "index.html").write_text(
+            "<!doctype html><html><head></head><body>ROOT</body></html>",
+            encoding="utf-8",
+        )
+        (site / "knowledge" / "doctor" / "index.html").write_text(
+            "<!doctype html><html><head></head><body>DOCTOR</body></html>",
+            encoding="utf-8",
+        )
+
+        with patch.object(app_core, "SITE_ROOT", site):
+            with app_core.app.test_request_context("/knowledge/"):
+                response = app_core.app.view_functions["knowledge_index"].__wrapped__()
+                self.assertFalse(response.direct_passthrough)
+                self.assertIn("ROOT", response.get_data(as_text=True))
+
+            with app_core.app.test_request_context("/knowledge/doctor/"):
+                response = app_core.app.view_functions["knowledge_file"].__wrapped__("doctor/")
+                self.assertFalse(response.direct_passthrough)
+                self.assertIn("DOCTOR", response.get_data(as_text=True))
 
     def test_ids_are_stable_and_default_policy_forbids_download(self):
         self.write("Круглые столы клиники/Круглый стол 04.2026.MP4", b"video")
