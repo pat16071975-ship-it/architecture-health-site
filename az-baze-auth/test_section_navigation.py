@@ -42,7 +42,7 @@ class SectionNavigationTests(unittest.TestCase):
         for path in ("/knowledge-library/", "/knowledge-view/abc123"):
             with self.subTest(path=path):
                 rendered = nav.render_navigation(path)
-                self.assertIn('aria-current="page">База знаний</span>', rendered)
+                self.assertIn('href="/knowledge/">База знаний</a>', rendered)
                 self.assertIn('href="/">На главную</a>', rendered)
 
     def test_services_shared_navigation_targets_top_window(self):
