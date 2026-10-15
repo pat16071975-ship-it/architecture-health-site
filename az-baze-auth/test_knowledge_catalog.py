@@ -211,6 +211,48 @@ class KnowledgeCatalogTests(unittest.TestCase):
 
         self.assertTrue(video.exists())
 
+    def test_protected_h264_compatibility_route_uses_local_test_clip(self):
+        source = self.write(
+            "Управление и сервис/Скляров Управление клиникой/1 день 1 часть.MP4",
+            b"hevc-source",
+        )
+        test_root = Path(self.tmp.name) / "knowledge-test"
+        test_root.mkdir()
+
+        with patch.object(knowledge_catalog, "KNOWLEDGE_ROOT", self.root):
+            knowledge_catalog.reindex(self.conn)
+            row = self.conn.execute(
+                "SELECT id FROM knowledge_entries WHERE relative_path=?",
+                ("Управление и сервис/Скляров Управление клиникой/1 день 1 часть.MP4",),
+            ).fetchone()
+
+        clip = test_root / f"{row['id']}.mp4"
+        clip.write_bytes(b"0123456789" * 20)
+
+        test_app = Flask("knowledge-test-route")
+        test_app.template_folder = str(Path(__file__).resolve().parent / "templates")
+        knowledge_catalog.register(test_app)
+
+        with patch.object(knowledge_catalog, "KNOWLEDGE_TEST_ROOT", test_root):
+            with patch.object(knowledge_catalog, "db", lambda: self.conn):
+                with test_app.test_request_context(f"/knowledge-test/{row['id']}"):
+                    html = test_app.view_functions["knowledge_test"].__wrapped__(row["id"])
+                    self.assertIn("Тест совместимости", html)
+                    self.assertIn(f"/knowledge-test-media/{row['id']}", html)
+
+                with test_app.test_request_context(
+                    f"/knowledge-test-media/{row['id']}",
+                    headers={"Range": "bytes=0-9"},
+                ):
+                    response = test_app.view_functions["knowledge_test_media"].__wrapped__(row["id"])
+                    self.assertEqual(response.status_code, 206)
+                    self.assertEqual(response.headers.get("Content-Range"), "bytes 0-9/200")
+                    self.assertEqual(response.headers.get("Accept-Ranges"), "bytes")
+                    response.close()
+
+        self.assertTrue(source.exists())
+        self.assertTrue(clip.exists())
+
     def test_live_catalog_uses_card_ui_not_legacy_table_links(self):
         repo_root = Path(__file__).resolve().parent.parent
         template = (repo_root / "az-baze-auth/templates/knowledge_library.html").read_text(encoding="utf-8")
@@ -226,6 +268,7 @@ class KnowledgeCatalogTests(unittest.TestCase):
         self.assertIn(">{{ speed }}×</button>", template)
         self.assertIn("video.playbackRate = rate", template)
         self.assertIn("data-playback-rate", template)
+        self.assertIn('<source src="{{ media_url }}"', template)
 
     def test_ids_are_stable_and_default_policy_forbids_download(self):
         self.write("Круглые столы клиники/Круглый стол 04.2026.MP4", b"video")
