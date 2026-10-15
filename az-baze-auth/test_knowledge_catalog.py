@@ -219,6 +219,14 @@ class KnowledgeCatalogTests(unittest.TestCase):
         self.assertIn("Смотреть →", template)
         self.assertNotIn('<table class="table">', template)
 
+    def test_viewer_has_playback_speed_controls(self):
+        repo_root = Path(__file__).resolve().parent.parent
+        template = (repo_root / "az-baze-auth/templates/knowledge_view.html").read_text(encoding="utf-8")
+        for speed in ("0.75×", "1×", "1.25×", "1.5×", "1.75×", "2×"):
+            self.assertIn(speed, template)
+        self.assertIn("video.playbackRate = rate", template)
+        self.assertIn("data-playback-rate", template)
+
     def test_ids_are_stable_and_default_policy_forbids_download(self):
         self.write("Круглые столы клиники/Круглый стол 04.2026.MP4", b"video")
         with patch.object(knowledge_catalog, "KNOWLEDGE_ROOT", self.root):
