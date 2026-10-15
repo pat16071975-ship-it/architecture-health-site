@@ -9,6 +9,7 @@ from app import admin_required, db, iso_now, permission_required, require_csrf
 
 
 KNOWLEDGE_ROOT = Path(os.environ.get("AZBAZE_KNOWLEDGE_ROOT", "/mnt/qnap-obuchenie"))
+KNOWLEDGE_TEST_ROOT = Path(os.environ.get("AZBAZE_KNOWLEDGE_TEST_ROOT", "/var/lib/az-baze/knowledge-test"))
 HIDDEN_TOP_LEVEL = {"@Recycle", "Скляров"}
 HIDDEN_EXTENSIONS = {
     ".lrf", ".загружено", ".yandex_disk_download",
@@ -97,6 +98,12 @@ def _safe_root_path(relative_path):
     if target != root and root not in target.parents:
         abort(404)
     return target
+
+
+def _test_media_path(entry_id):
+    if not entry_id or any(ch not in "0123456789abcdef" for ch in entry_id.lower()):
+        abort(404)
+    return KNOWLEDGE_TEST_ROOT / f"{entry_id}.mp4"
 
 
 def _scan_rows():
@@ -303,7 +310,53 @@ def register(app):
             entry=row,
             allow_download=_policy(conn, row["relative_path"]),
             media_mimetype=media_mimetype,
+            media_url=f"/knowledge-media/{entry_id}",
+            test_mode=False,
         )
+
+    @app.get("/knowledge-test/<entry_id>")
+    @permission_required("knowledge")
+    def knowledge_test(entry_id):
+        conn = db()
+        row = _entry(conn, entry_id)
+        if not row or row["entry_type"] != "file" or row["media_kind"] != "video":
+            abort(404)
+        path = _test_media_path(entry_id)
+        if not path.is_file():
+            abort(404)
+        return render_template(
+            "knowledge_view.html",
+            entry=row,
+            allow_download=False,
+            media_mimetype="video/mp4",
+            media_url=f"/knowledge-test-media/{entry_id}",
+            test_mode=True,
+        )
+
+    @app.get("/knowledge-test-media/<entry_id>")
+    @permission_required("knowledge")
+    def knowledge_test_media(entry_id):
+        conn = db()
+        row = _entry(conn, entry_id)
+        if not row or row["entry_type"] != "file" or row["media_kind"] != "video":
+            abort(404)
+        path = _test_media_path(entry_id)
+        if not path.is_file():
+            abort(404)
+        response = send_file(
+            path,
+            mimetype="video/mp4",
+            as_attachment=False,
+            download_name=f"{entry_id}.mp4",
+            conditional=True,
+            etag=True,
+            max_age=0,
+        )
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Accept-Ranges"] = "bytes"
+        response.headers["X-Accel-Buffering"] = "no"
+        return response
 
     @app.get("/knowledge-media/<entry_id>")
     @permission_required("knowledge")
