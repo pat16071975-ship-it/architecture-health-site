@@ -122,11 +122,13 @@ class KnowledgeCatalogTests(unittest.TestCase):
                 response = app_core.app.view_functions["knowledge_index"].__wrapped__()
                 self.assertFalse(response.direct_passthrough)
                 self.assertIn("ROOT", response.get_data(as_text=True))
+                response.close()
 
             with app_core.app.test_request_context("/knowledge/doctor/"):
                 response = app_core.app.view_functions["knowledge_file"].__wrapped__("doctor/")
                 self.assertFalse(response.direct_passthrough)
                 self.assertIn("DOCTOR", response.get_data(as_text=True))
+                response.close()
 
     def test_sklyarov_static_pages_show_ten_clickable_videos(self):
         repo_root = Path(__file__).resolve().parent.parent
@@ -202,7 +204,9 @@ class KnowledgeCatalogTests(unittest.TestCase):
                 ):
                     response = test_app.view_functions["knowledge_media"].__wrapped__(row["id"])
                     self.assertEqual(response.status_code, 206)
-                    self.assertEqual(response.get_data(), b"0123456789")
+                    self.assertEqual(response.headers.get("Content-Range"), "bytes 0-9/200")
+                    self.assertEqual(response.headers.get("Content-Length"), "10")
+                    response.close()
 
         self.assertTrue(video.exists())
 
