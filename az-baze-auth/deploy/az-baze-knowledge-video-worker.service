@@ -1,0 +1,28 @@
+[Unit]
+Description=AZ-BAZE knowledge video compatibility worker
+After=network-online.target az-baze-auth.service
+Wants=network-online.target
+RequiresMountsFor=/mnt/qnap-obuchenie
+
+[Service]
+Type=simple
+User=azadmin
+Group=www-data
+WorkingDirectory=/opt/az-baze-auth
+EnvironmentFile=/etc/az-baze/auth.env
+ExecStart=/opt/az-baze-auth/venv/bin/python /opt/az-baze-auth/knowledge_video_compat.py --worker
+Restart=always
+RestartSec=5
+Nice=10
+CPUQuota=180%
+MemoryMax=1400M
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/az-baze
+
+[Install]
+WantedBy=multi-user.target
