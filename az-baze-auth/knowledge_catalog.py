@@ -15,9 +15,9 @@ HIDDEN_EXTENSIONS = {
     ".ini", ".ini[1]", ".css", ".dat", ".exe",
 }
 SPECIALIZED_EXTENSIONS = {".dcm", ".stl", ".dentalcad"}
-VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".mpeg"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".mpeg", ".mts"}
 AUDIO_EXTENSIONS = {".m4a", ".mp3", ".wav", ".aac"}
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 DOCUMENT_EXTENSIONS = {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt", ".fb2"}
 ARCHIVE_EXTENSIONS = {".zip", ".rar", ".7z"}
 
@@ -86,6 +86,8 @@ def _hidden(relative_path, entry_type):
         return True
     if entry_type == "file" and path.suffix.lower() in SPECIALIZED_EXTENSIONS:
         return True
+    if entry_type == "file" and _kind(path.suffix.lower()) == "other":
+        return True
     return False
 
 
@@ -102,40 +104,71 @@ def _scan_rows():
         raise RuntimeError(f"QNAP knowledge root is unavailable: {KNOWLEDGE_ROOT}")
 
     indexed_at = iso_now()
-    rows = []
+    file_rows = []
+    directory_paths = set()
+
     for current, dirs, files in os.walk(KNOWLEDGE_ROOT):
         current_path = Path(current)
         rel_current = current_path.relative_to(KNOWLEDGE_ROOT)
-        # Only root-level folders are governed by HIDDEN_TOP_LEVEL.
-        # Nested «Управление и сервис/Скляров» is authoritative and must stay visible.
-        if str(rel_current) == ".":
-            dirs[:] = [name for name in dirs if name not in HIDDEN_TOP_LEVEL]
 
-        for name in dirs:
-            relative = str((rel_current / name).as_posix())
-            rows.append((
-                _stable_id(relative), relative,
-                str(rel_current.as_posix()) if str(rel_current) != "." else "",
-                name, "directory", "", "directory", 0, None,
-                1 if _hidden(relative, "directory") else 0, indexed_at,
-            ))
+        # Legacy top-level areas are not part of the knowledge catalog.
+        # A nested folder may have the same word in its name and must remain available.
+        if str(rel_current) == ".":
+            dirs[:] = [
+                name for name in dirs
+                if name not in HIDDEN_TOP_LEVEL and not name.startswith("._")
+            ]
 
         for name in files:
-            relative = str((rel_current / name).as_posix())
+            relative_path = rel_current / name
+            relative = str(relative_path.as_posix())
+
+            # Reject technical/runtime/specialized files before stat().
+            # This keeps large software bundles from bloating the catalog and
+            # avoids unnecessary SMB metadata calls for unsupported files.
+            if _hidden(relative, "file"):
+                continue
+
             path = current_path / name
             try:
                 stat = path.stat()
             except OSError:
                 continue
+
             ext = path.suffix.lower()
-            rows.append((
-                _stable_id(relative), relative,
-                str(rel_current.as_posix()) if str(rel_current) != "." else "",
+            parent = relative_path.parent
+            parent_text = "" if str(parent) == "." else str(parent.as_posix())
+
+            file_rows.append((
+                _stable_id(relative), relative, parent_text,
                 name, "file", ext, _kind(ext), int(stat.st_size),
-                str(int(stat.st_mtime)),
-                1 if _hidden(relative, "file") else 0, indexed_at,
+                str(int(stat.st_mtime)), 0, indexed_at,
             ))
-    return rows
+
+            # Only directories leading to at least one supported material are
+            # indexed. Empty software/runtime directory trees stay invisible.
+            while str(parent) not in ("", "."):
+                parent_relative = str(parent.as_posix())
+                if _hidden(parent_relative, "directory"):
+                    break
+                directory_paths.add(parent_relative)
+                parent = parent.parent
+
+    directory_rows = []
+    for relative in sorted(
+        directory_paths,
+        key=lambda value: (value.count("/"), value.casefold()),
+    ):
+        path = Path(relative)
+        parent = path.parent
+        parent_text = "" if str(parent) == "." else str(parent.as_posix())
+        directory_rows.append((
+            _stable_id(relative), relative, parent_text,
+            path.name, "directory", "", "directory", 0, None,
+            0, indexed_at,
+        ))
+
+    return directory_rows + file_rows
 
 
 def reindex(conn):
