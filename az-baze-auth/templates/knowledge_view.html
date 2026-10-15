@@ -18,6 +18,11 @@
 .viewer-status{margin-top:12px;color:#6c746d;font-size:11px;line-height:1.5}
 .viewer-error{display:none;margin-top:12px;padding:12px 14px;border:1px solid #c98d89;border-radius:10px;background:#fff7f6;color:#7e3d39;font-size:12px;line-height:1.5}
 .viewer-error.visible{display:block}
+.viewer-preparing{padding:28px;border:1px solid #d8cdbb;border-radius:16px;background:#fbf8f2;color:#354039}
+.viewer-preparing-title{font-size:18px;font-weight:600}
+.viewer-preparing-text{margin-top:8px;color:#6c746d;font-size:12px;line-height:1.55}
+.viewer-preparing-dot{display:inline-block;width:10px;height:10px;margin-right:8px;border-radius:50%;background:#44634f;animation:knowledgePulse 1.2s ease-in-out infinite alternate}
+@keyframes knowledgePulse{from{opacity:.3}to{opacity:1}}
 .viewer-unsupported{padding:26px;background:#fff;color:#5c655e;font-size:13px;line-height:1.6}
 @media(max-width:650px){.viewer-card{padding:18px}.viewer-title{font-size:20px}.viewer-stage iframe{height:68vh}}
 </style>
@@ -36,7 +41,7 @@
     <div class="viewer-test-note">Тест совместимости: показан короткий фрагмент в H.264. Оригинал на QNAP не изменён.</div>
   {% endif %}
 
-  {% if entry['media_kind'] == 'video' %}
+  {% if entry['media_kind'] == 'video' and media_url %}
     <div class="viewer-stage">
       <video
         id="knowledgeVideo"
@@ -63,7 +68,7 @@
     </div>
     <div id="videoStatus" class="viewer-status">Видео загружается с защищённого хранилища.</div>
     <div id="videoError" class="viewer-error">
-      Видео не удалось начать воспроизводить. Страница передаст точную причину в журнал браузера; исходный файл при этом не изменяется.
+      Видео не удалось начать воспроизводить. Исходный файл при этом не изменяется.
     </div>
     <script>
     (() => {
@@ -104,6 +109,58 @@
       });
     })();
     </script>
+  {% elif entry['media_kind'] == 'video' %}
+    <div class="viewer-preparing">
+      <div class="viewer-preparing-title"><span class="viewer-preparing-dot"></span>Готовим видео для браузера</div>
+      <div id="compatStatusText" class="viewer-preparing-text">
+        {% if video_status == 'converting' %}
+          Создаётся совместимая версия H.264. Оригинал на QNAP не изменяется. Страницу можно закрыть и открыть позже.
+        {% elif video_status == 'probing' %}
+          Проверяем формат видео.
+        {% elif video_status == 'error' %}
+          Совместимую версию подготовить не удалось. Повторная попытка будет доступна после проверки журнала.
+        {% else %}
+          Видео поставлено в очередь. После подготовки страница автоматически обновится.
+        {% endif %}
+      </div>
+    </div>
+    {% if video_status != 'error' %}
+    <script>
+    (() => {
+      const statusUrl = {{ video_status_url|tojson }};
+      const text = document.getElementById('compatStatusText');
+      if (!statusUrl || !text) return;
+      let stopped = false;
+      const poll = async () => {
+        if (stopped) return;
+        try {
+          const response = await fetch(statusUrl, {credentials: 'same-origin', cache: 'no-store'});
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          const data = await response.json();
+          if (data.ready) {
+            window.location.reload();
+            return;
+          }
+          if (data.status === 'converting') {
+            text.textContent = 'Создаётся совместимая версия H.264. Оригинал на QNAP не изменяется. Страницу можно закрыть и открыть позже.';
+          } else if (data.status === 'probing') {
+            text.textContent = 'Проверяем формат видео.';
+          } else if (data.status === 'pending') {
+            text.textContent = 'Видео в очереди на подготовку.';
+          } else if (data.status === 'error') {
+            stopped = true;
+            text.textContent = 'Совместимую версию подготовить не удалось. Требуется проверка журнала.';
+            return;
+          }
+        } catch (_error) {
+          text.textContent = 'Ждём ответ сервера подготовки видео…';
+        }
+        setTimeout(poll, 5000);
+      };
+      setTimeout(poll, 2500);
+    })();
+    </script>
+    {% endif %}
   {% elif entry['media_kind'] == 'audio' %}
     <div class="viewer-stage">
       <audio controls controlsList="nodownload" preload="metadata" oncontextmenu="return false">
