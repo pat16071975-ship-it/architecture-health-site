@@ -15,6 +15,8 @@ class SectionNavigationTests(unittest.TestCase):
             "/uploads/": ("Загрузка данных", "/uploads/"),
             "/admin/users/2/edit": ("Управление доступом", "/admin"),
             "/knowledge/article.html": ("База знаний", "/knowledge/"),
+            "/knowledge-library/?path=Управление": ("База знаний", "/knowledge/"),
+            "/knowledge-view/abc123": ("База знаний", "/knowledge/"),
         }
         for path, expected in cases.items():
             with self.subTest(path=path):
@@ -35,6 +37,13 @@ class SectionNavigationTests(unittest.TestCase):
         self.assertEqual(rendered.count("az-section-nav-style"), 1)
         self.assertEqual(rendered.count("На главную"), 1)
         self.assertEqual(rendered.count("Отчёты"), 1)
+
+    def test_dynamic_knowledge_pages_have_approved_navigation(self):
+        for path in ("/knowledge-library/", "/knowledge-view/abc123"):
+            with self.subTest(path=path):
+                rendered = nav.render_navigation(path)
+                self.assertIn('aria-current="page">База знаний</span>', rendered)
+                self.assertIn('href="/">На главную</a>', rendered)
 
     def test_services_shared_navigation_targets_top_window(self):
         rendered = nav.render_navigation("/reports/services-base.html")
