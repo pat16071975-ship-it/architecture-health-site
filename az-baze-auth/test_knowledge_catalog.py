@@ -126,6 +126,38 @@ class KnowledgeCatalogTests(unittest.TestCase):
                 self.assertFalse(response.direct_passthrough)
                 self.assertIn("DOCTOR", response.get_data(as_text=True))
 
+    def test_sklyarov_static_pages_show_ten_clickable_videos(self):
+        repo_root = Path(__file__).resolve().parent.parent
+        pages = [
+            repo_root / "knowledge/manager/management-service/index.html",
+            repo_root / "knowledge/administrator/management-service/index.html",
+            repo_root / "knowledge/manager/management-service/sklyarov/index.html",
+            repo_root / "knowledge/administrator/management-service/sklyarov/index.html",
+        ]
+
+        for page in pages[:2]:
+            text = page.read_text(encoding="utf-8")
+            self.assertIn('<span class="count">10 видео</span>', text)
+            self.assertNotIn('<span class="count">2 видео</span>', text)
+
+        expected_ids = {
+            "dabc14c01621ee1cf5eafc309c3704c3",
+            "6eb3d2d8406c340d8cfe272c8c47d1fb",
+            "b87063b8fbc19c9fd00fd977d7f7f155",
+            "6930d5d05c83b55433830ea3ccc4e6b2",
+            "510362fa60f1f97e47d09a3c38a3a27b",
+            "43877ab18b7b492982b59060e3a04df9",
+            "54ca70018990d388a39bd56bbc3c9860",
+            "86ef0b211df409c3561fd9c4bb470d97",
+            "75b3a5d317f5e04b756e63763a71b6ff",
+            "bda2085e71f82e2bcc7e69ce59e888fd",
+        }
+        for page in pages[2:]:
+            text = page.read_text(encoding="utf-8")
+            for entry_id in expected_ids:
+                self.assertIn(f'href="/knowledge-view/{entry_id}"', text)
+            self.assertEqual(text.count('href="/knowledge-view/'), 10)
+
     def test_ids_are_stable_and_default_policy_forbids_download(self):
         self.write("Круглые столы клиники/Круглый стол 04.2026.MP4", b"video")
         with patch.object(knowledge_catalog, "KNOWLEDGE_ROOT", self.root):
