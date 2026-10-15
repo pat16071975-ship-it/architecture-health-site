@@ -297,10 +297,12 @@ def register(app):
         row = _entry(conn, entry_id)
         if not row or row["entry_type"] != "file":
             abort(404)
+        media_mimetype = mimetypes.guess_type(row["name"])[0] or "application/octet-stream"
         return render_template(
             "knowledge_view.html",
             entry=row,
             allow_download=_policy(conn, row["relative_path"]),
+            media_mimetype=media_mimetype,
         )
 
     @app.get("/knowledge-media/<entry_id>")
@@ -324,6 +326,8 @@ def register(app):
         )
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Accept-Ranges"] = "bytes"
+        response.headers["X-Accel-Buffering"] = "no"
         return response
 
     @app.get("/knowledge-download/<entry_id>")
