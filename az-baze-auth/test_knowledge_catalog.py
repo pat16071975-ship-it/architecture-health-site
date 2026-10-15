@@ -32,6 +32,11 @@ class KnowledgeCatalogTests(unittest.TestCase):
         dicom = self.write("Стоматология и миотерапия/КТ/scan.dcm", b"dicom")
         stl = self.write("Стоматология и миотерапия/Модели/model.stl", b"stl")
         dentalcad = self.write("Стоматология и миотерапия/Модели/case.dentalcad", b"cad")
+        dll = self.write("Стоматология и миотерапия/ОБУЧЕНИЯ/runtime/tool.dll", b"dll")
+        jar = self.write("Стоматология и миотерапия/ОБУЧЕНИЯ/runtime/tool.jar", b"jar")
+        noext = self.write("Стоматология и миотерапия/ОБУЧЕНИЯ/runtime/LICENSE", b"text")
+        mts = self.write("Стоматология и миотерапия/ОБУЧЕНИЯ/lecture.MTS", b"video")
+        gif = self.write("Стоматология и миотерапия/ОБУЧЕНИЯ/slides.gif", b"image")
 
         with patch.object(knowledge_catalog, "KNOWLEDGE_ROOT", self.root):
             count = knowledge_catalog.reindex(self.conn)
@@ -51,6 +56,19 @@ class KnowledgeCatalogTests(unittest.TestCase):
         self.assertNotIn("Стоматология и миотерапия/КТ/scan.dcm", visible)
         self.assertNotIn("Стоматология и миотерапия/Модели/model.stl", visible)
         self.assertNotIn("Стоматология и миотерапия/Модели/case.dentalcad", visible)
+        self.assertNotIn("Стоматология и миотерапия/ОБУЧЕНИЯ/runtime/tool.dll", visible)
+        self.assertNotIn("Стоматология и миотерапия/ОБУЧЕНИЯ/runtime/tool.jar", visible)
+        self.assertNotIn("Стоматология и миотерапия/ОБУЧЕНИЯ/runtime/LICENSE", visible)
+        self.assertIn("Стоматология и миотерапия/ОБУЧЕНИЯ/lecture.MTS", visible)
+        self.assertIn("Стоматология и миотерапия/ОБУЧЕНИЯ/slides.gif", visible)
+
+        visible_dirs = {
+            row["relative_path"]
+            for row in self.conn.execute(
+                "SELECT relative_path FROM knowledge_entries WHERE hidden=0 AND entry_type='directory'"
+            )
+        }
+        self.assertNotIn("Стоматология и миотерапия/ОБУЧЕНИЯ/runtime", visible_dirs)
 
         self.assertTrue(video.exists())
         self.assertTrue(lrf.exists())
@@ -60,10 +78,15 @@ class KnowledgeCatalogTests(unittest.TestCase):
         self.assertTrue(dicom.exists())
         self.assertTrue(stl.exists())
         self.assertTrue(dentalcad.exists())
+        self.assertTrue(dll.exists())
+        self.assertTrue(jar.exists())
+        self.assertTrue(noext.exists())
+        self.assertTrue(mts.exists())
+        self.assertTrue(gif.exists())
 
     def test_root_sklyarov_is_hidden_but_management_sklyarov_is_visible(self):
         root_legacy = self.write("Скляров/2 день 3 часть.MP4", b"legacy")
-        canonical = self.write("Управление и сервис/Скляров/2 день 3 часть.MP4", b"canonical")
+        canonical = self.write("Управление и сервис/Скляров Управление клиникой/2 день 3 часть.MP4", b"canonical")
 
         with patch.object(knowledge_catalog, "KNOWLEDGE_ROOT", self.root):
             knowledge_catalog.reindex(self.conn)
@@ -75,7 +98,7 @@ class KnowledgeCatalogTests(unittest.TestCase):
             )
         }
         self.assertNotIn("Скляров/2 день 3 часть.MP4", visible)
-        self.assertIn("Управление и сервис/Скляров/2 день 3 часть.MP4", visible)
+        self.assertIn("Управление и сервис/Скляров Управление клиникой/2 день 3 часть.MP4", visible)
         self.assertTrue(root_legacy.exists())
         self.assertTrue(canonical.exists())
 
