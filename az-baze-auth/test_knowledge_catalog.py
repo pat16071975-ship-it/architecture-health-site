@@ -222,8 +222,8 @@ class KnowledgeCatalogTests(unittest.TestCase):
     def test_viewer_has_playback_speed_controls(self):
         repo_root = Path(__file__).resolve().parent.parent
         template = (repo_root / "az-baze-auth/templates/knowledge_view.html").read_text(encoding="utf-8")
-        for speed in ("0.75×", "1×", "1.25×", "1.5×", "1.75×", "2×"):
-            self.assertIn(speed, template)
+        self.assertIn("{% for speed in [0.75, 1, 1.25, 1.5, 1.75, 2] %}", template)
+        self.assertIn(">{{ speed }}×</button>", template)
         self.assertIn("video.playbackRate = rate", template)
         self.assertIn("data-playback-rate", template)
 
