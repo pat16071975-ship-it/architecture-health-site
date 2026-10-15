@@ -6,6 +6,7 @@ from pathlib import Path
 from flask import abort, g, jsonify, render_template, request, send_file
 
 from app import admin_required, db, iso_now, permission_required, require_csrf
+import knowledge_video_compat as video_compat
 
 
 KNOWLEDGE_ROOT = Path(os.environ.get("AZBAZE_KNOWLEDGE_ROOT", "/mnt/qnap-obuchenie"))
@@ -52,6 +53,7 @@ def init_schema(conn):
     for statement in SCHEMA.split(";"):
         if statement.strip():
             conn.execute(statement)
+    video_compat.init_schema(conn)
 
 
 def _stable_id(relative_path):
@@ -304,14 +306,31 @@ def register(app):
         row = _entry(conn, entry_id)
         if not row or row["entry_type"] != "file":
             abort(404)
+
         media_mimetype = mimetypes.guess_type(row["name"])[0] or "application/octet-stream"
+        media_url = f"/knowledge-media/{entry_id}"
+        video_status = None
+
+        if row["media_kind"] == "video":
+            state = video_compat.request_video(conn, row)
+            video_status = state["status"]
+            if video_status == "ready":
+                media_url = f"/knowledge-compatible-media/{entry_id}"
+                media_mimetype = "video/mp4"
+            elif video_status == "source_ok":
+                media_url = f"/knowledge-media/{entry_id}"
+            else:
+                media_url = None
+
         return render_template(
             "knowledge_view.html",
             entry=row,
             allow_download=_policy(conn, row["relative_path"]),
             media_mimetype=media_mimetype,
-            media_url=f"/knowledge-media/{entry_id}",
+            media_url=media_url,
             test_mode=False,
+            video_status=video_status,
+            video_status_url=f"/api/knowledge-video-status/{entry_id}",
         )
 
     @app.get("/knowledge-test/<entry_id>")
@@ -343,6 +362,67 @@ def register(app):
         path = _test_media_path(entry_id)
         if not path.is_file():
             abort(404)
+        response = send_file(
+            path,
+            mimetype="video/mp4",
+            as_attachment=False,
+            download_name=f"{entry_id}.mp4",
+            conditional=True,
+            etag=True,
+            max_age=0,
+        )
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Accept-Ranges"] = "bytes"
+        response.headers["X-Accel-Buffering"] = "no"
+        return response
+
+    @app.get("/api/knowledge-video-status/<entry_id>")
+    @permission_required("knowledge")
+    def knowledge_video_status(entry_id):
+        conn = db()
+        row = _entry(conn, entry_id)
+        if not row or row["entry_type"] != "file" or row["media_kind"] != "video":
+            abort(404)
+        state = video_compat.request_video(conn, row)
+        status = state["status"]
+        payload = {
+            "status": status,
+            "ready": status in ("ready", "source_ok"),
+            "error": state["error"] if status == "error" else None,
+        }
+        if status == "ready":
+            payload["media_url"] = f"/knowledge-compatible-media/{entry_id}"
+        elif status == "source_ok":
+            payload["media_url"] = f"/knowledge-media/{entry_id}"
+        return jsonify(payload)
+
+    @app.post("/api/knowledge-video-retry/<entry_id>")
+    @permission_required("knowledge")
+    def knowledge_video_retry(entry_id):
+        require_csrf()
+        conn = db()
+        row = _entry(conn, entry_id)
+        if not row or row["entry_type"] != "file" or row["media_kind"] != "video":
+            abort(404)
+        video_compat.retry_video(conn, entry_id)
+        return jsonify(status="pending")
+
+    @app.get("/knowledge-compatible-media/<entry_id>")
+    @permission_required("knowledge")
+    def knowledge_compatible_media(entry_id):
+        conn = db()
+        row = _entry(conn, entry_id)
+        if not row or row["entry_type"] != "file" or row["media_kind"] != "video":
+            abort(404)
+        state = conn.execute(
+            "SELECT * FROM knowledge_video_compat WHERE entry_id=?",
+            (entry_id,),
+        ).fetchone()
+        path = video_compat.cache_path(entry_id)
+        if not state or state["status"] != "ready" or not path.is_file():
+            abort(404)
+        video_compat.mark_accessed(conn, entry_id)
         response = send_file(
             path,
             mimetype="video/mp4",
