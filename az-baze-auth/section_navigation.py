@@ -13,6 +13,7 @@ SECTION_RULES = (
     ("/admin", "Управление доступом", "/admin"),
     ("/knowledge-library/", "База знаний", "/knowledge/"),
     ("/knowledge-view/", "База знаний", "/knowledge/"),
+    ("/knowledge-test/", "База знаний", "/knowledge/"),
     ("/knowledge/", "База знаний", "/knowledge/"),
 )
 
