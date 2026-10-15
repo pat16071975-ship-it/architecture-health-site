@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS knowledge_video_compat (
     source_size INTEGER NOT NULL,
     source_mtime TEXT,
     status TEXT NOT NULL CHECK(status IN (
-        'pending','probing','source_ok','converting','ready','error'
+        'pending','probing','source_ok','converting','ready','evicted','error'
     )),
     requested_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -76,6 +76,8 @@ def request_video(conn, entry):
     elif not _signature_matches(state, entry):
         needs_reset = True
     elif state["status"] == "ready" and not cache_path(entry["id"]).is_file():
+        needs_reset = True
+    elif state["status"] == "evicted":
         needs_reset = True
 
     if needs_reset:
@@ -242,7 +244,7 @@ def _evict_one(conn, exclude_entry_id):
     conn.execute(
         """
         UPDATE knowledge_video_compat
-        SET status='pending',output_size=NULL,error=NULL,updated_at=?
+        SET status='evicted',output_size=NULL,error=NULL,updated_at=?
         WHERE entry_id=?
         """,
         (utc_now(), row["entry_id"]),
