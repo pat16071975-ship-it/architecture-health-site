@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from flask import Flask
+
 import knowledge_catalog
 import app as app_core
 
@@ -157,6 +159,52 @@ class KnowledgeCatalogTests(unittest.TestCase):
             for entry_id in expected_ids:
                 self.assertIn(f'href="/knowledge-view/{entry_id}"', text)
             self.assertEqual(text.count('href="/knowledge-view/'), 10)
+
+    def test_primary_role_pages_open_live_indexed_materials(self):
+        repo_root = Path(__file__).resolve().parent.parent
+
+        doctor = (repo_root / "knowledge/doctor/index.html").read_text(encoding="utf-8")
+        assistant = (repo_root / "knowledge/assistant/index.html").read_text(encoding="utf-8")
+        administrator = (repo_root / "knowledge/administrator/index.html").read_text(encoding="utf-8")
+        manager = (repo_root / "knowledge/manager/index.html").read_text(encoding="utf-8")
+        root = (repo_root / "knowledge/index.html").read_text(encoding="utf-8")
+
+        self.assertIn("/knowledge-library/?path=", doctor)
+        self.assertEqual(doctor.count("/knowledge-library/?path="), 3)
+        self.assertIn("/knowledge-library/?path=", assistant)
+        self.assertIn("/knowledge-library/?path=", administrator)
+        self.assertIn("/knowledge-library/?path=", manager)
+        self.assertEqual(root.count("/knowledge-library/?path="), 2)
+
+        self.assertNotIn('href="/knowledge/assistant/diers/"', assistant)
+        self.assertNotIn('href="/knowledge/administrator/management-service/"', administrator)
+        self.assertNotIn('href="/knowledge/manager/management-service/"', manager)
+
+    def test_video_media_route_supports_range_playback(self):
+        video = self.write(
+            "Управление и сервис/Скляров Управление клиникой/1 день 1 часть.MP4",
+            b"0123456789" * 20,
+        )
+        with patch.object(knowledge_catalog, "KNOWLEDGE_ROOT", self.root):
+            knowledge_catalog.reindex(self.conn)
+            row = self.conn.execute(
+                "SELECT id FROM knowledge_entries WHERE relative_path=?",
+                ("Управление и сервис/Скляров Управление клиникой/1 день 1 часть.MP4",),
+            ).fetchone()
+
+            test_app = Flask("knowledge-media-test")
+            knowledge_catalog.register(test_app)
+
+            with patch.object(knowledge_catalog, "db", lambda: self.conn):
+                with test_app.test_request_context(
+                    f"/knowledge-media/{row['id']}",
+                    headers={"Range": "bytes=0-9"},
+                ):
+                    response = test_app.view_functions["knowledge_media"].__wrapped__(row["id"])
+                    self.assertEqual(response.status_code, 206)
+                    self.assertEqual(response.get_data(), b"0123456789")
+
+        self.assertTrue(video.exists())
 
     def test_ids_are_stable_and_default_policy_forbids_download(self):
         self.write("Круглые столы клиники/Круглый стол 04.2026.MP4", b"video")
