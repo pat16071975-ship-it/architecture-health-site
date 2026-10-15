@@ -1,62 +1,99 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+.knowledge-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}
+.knowledge-path{max-width:72%;color:#7a817b;font-size:11px;line-height:1.45;text-align:right;word-break:break-word}
+.knowledge-title{margin:0 0 18px;font-size:26px;font-weight:500;letter-spacing:-.025em}
+.knowledge-grid{display:grid;gap:12px}
+.knowledge-item{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;
+  min-height:74px;padding:16px 18px;border:1px solid #ded3c2;border-radius:14px;
+  background:#fff;color:#2d342f;text-decoration:none;
+  box-shadow:0 5px 16px rgba(69,55,35,.035);
+  transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+.knowledge-item:hover,.knowledge-item:focus-visible{
+  transform:translateY(-1px);border-color:rgba(68,99,79,.55);background:#fbf8f2;
+  box-shadow:0 10px 24px rgba(69,55,35,.08);outline:none;
+}
+.knowledge-main{min-width:0}
+.knowledge-name{font-size:15px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.knowledge-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:7px}
+.knowledge-pill{
+  display:inline-flex;align-items:center;min-height:25px;padding:4px 8px;border-radius:999px;
+  border:1px solid #ddd3c4;background:#f8f4ed;color:#6b736c;font-size:9.5px;font-weight:600;
+  letter-spacing:.045em;text-transform:uppercase;
+}
+.knowledge-action{color:#44634f;font-size:12px;font-weight:600;white-space:nowrap}
+.knowledge-empty{padding:22px;border:1px dashed #d8cdbb;border-radius:12px;color:#6c746d;font-size:12px}
+@media(max-width:650px){
+  .knowledge-head{align-items:flex-start}
+  .knowledge-path{max-width:58%;font-size:10px}
+  .knowledge-title{font-size:22px}
+  .knowledge-item{grid-template-columns:1fr;gap:10px;padding:14px}
+  .knowledge-action{justify-self:start}
+}
+</style>
+
 <div class="card">
-  <div class="row between" style="margin-bottom:18px">
+  <div class="knowledge-head">
     {% if current_path %}
       <a class="btn" href="/knowledge-library/?path={{ parent_path | urlencode }}">← Назад</a>
     {% else %}
       <a class="btn" href="/knowledge/">← База знаний</a>
     {% endif %}
-    <span class="muted">{{ current_path or 'Корень индекса' }}</span>
+    <div class="knowledge-path">{{ current_path or 'Все материалы' }}</div>
   </div>
 
-  <h2 class="section-title">Материалы</h2>
+  <h2 class="knowledge-title">Материалы</h2>
 
   {% if not root_available %}
-    <div class="error">Хранилище QNAP сейчас недоступно серверу. Индекс можно просматривать, но открытие файлов недоступно.</div>
+    <div class="error">Хранилище материалов сейчас недоступно серверу. Список виден, но открытие файлов временно недоступно.</div>
   {% endif %}
 
   {% if entries %}
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Название</th>
-            <th>Тип</th>
-            <th>Размер</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in entries %}
-            <tr>
-              <td>
-                {% if item['entry_type'] == 'directory' %}
-                  <a href="/knowledge-library/?path={{ item['relative_path'] | urlencode }}">{{ item['name'] }}</a>
+    <div class="knowledge-grid">
+      {% for item in entries %}
+        {% if item['entry_type'] == 'directory' %}
+          <a class="knowledge-item" href="/knowledge-library/?path={{ item['relative_path'] | urlencode }}">
+            <div class="knowledge-main">
+              <div class="knowledge-name">{{ item['name'] }}</div>
+              <div class="knowledge-meta">
+                <span class="knowledge-pill">Раздел</span>
+              </div>
+            </div>
+            <div class="knowledge-action">Открыть →</div>
+          </a>
+        {% else %}
+          <a class="knowledge-item" href="/knowledge-view/{{ item['id'] }}">
+            <div class="knowledge-main">
+              <div class="knowledge-name">{{ item['name'] }}</div>
+              <div class="knowledge-meta">
+                {% if item['media_kind'] == 'video' %}
+                  <span class="knowledge-pill">Видео</span>
+                {% elif item['media_kind'] == 'audio' %}
+                  <span class="knowledge-pill">Аудио</span>
+                {% elif item['media_kind'] == 'pdf' %}
+                  <span class="knowledge-pill">PDF</span>
+                {% elif item['media_kind'] == 'image' %}
+                  <span class="knowledge-pill">Изображение</span>
+                {% elif item['media_kind'] == 'document' %}
+                  <span class="knowledge-pill">Документ</span>
+                {% elif item['media_kind'] == 'archive' %}
+                  <span class="knowledge-pill">Архив</span>
                 {% else %}
-                  <a href="/knowledge-view/{{ item['id'] }}">{{ item['name'] }}</a>
+                  <span class="knowledge-pill">Файл</span>
                 {% endif %}
-              </td>
-              <td>
-                {% if item['entry_type'] == 'directory' %}
-                  Папка
-                {% else %}
-                  {{ item['media_kind'] or item['extension'] or 'Файл' }}
-                {% endif %}
-              </td>
-              <td>
-                {% if item['entry_type'] == 'file' %}
-                  {{ '%.1f'|format(item['size_bytes'] / 1048576) }} МБ
-                {% else %}
-                  —
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+                <span class="knowledge-pill">{{ '%.1f'|format(item['size_bytes'] / 1048576) }} МБ</span>
+              </div>
+            </div>
+            <div class="knowledge-action">Смотреть →</div>
+          </a>
+        {% endif %}
+      {% endfor %}
     </div>
   {% else %}
-    <div class="muted">В этом разделе пока нет проиндексированных пользовательских материалов.</div>
+    <div class="knowledge-empty">В этом разделе пока нет материалов.</div>
   {% endif %}
 </div>
 {% endblock %}
