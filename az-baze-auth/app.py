@@ -377,18 +377,26 @@ def create_app():
     def reports_file(filename):
         return send_from_directory(SITE_ROOT / "reports", filename)
 
+    def knowledge_static_response(filename):
+        root = SITE_ROOT / "knowledge"
+        target = filename + "index.html" if filename.endswith("/") else filename
+        response = send_from_directory(root, target)
+        if response.mimetype == "text/html":
+            response.direct_passthrough = False
+        return response
+
     @app.get("/knowledge/")
     @permission_required("knowledge")
     def knowledge_index():
         root = SITE_ROOT / "knowledge"
         if not (root / "index.html").exists():
             return "Раздел «База знаний» пока готовится.", 200
-        return send_from_directory(root, "index.html")
+        return knowledge_static_response("index.html")
 
     @app.get("/knowledge/<path:filename>")
     @permission_required("knowledge")
     def knowledge_file(filename):
-        return send_from_directory(SITE_ROOT / "knowledge", filename)
+        return knowledge_static_response(filename)
 
     @app.get("/section3/")
     @permission_required("section3")

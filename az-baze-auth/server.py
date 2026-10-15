@@ -20,6 +20,7 @@ import surveys
 import terminology
 import upload_integrity
 import upload_reconcile
+import knowledge_catalog
 
 # «Раздел 3» был старым местом для рабочих контактов и больше не используется.
 # Убираем его из действующей модели прав, не затрагивая новый раздел «Доступы и контакты».
@@ -75,6 +76,7 @@ paid_services_upload.register_paid_services_upload(app)
 credentials_store.register_credentials(app)
 access_contacts_ext.register(app)
 clinic_structure_settings.register(app)
+knowledge_catalog.register(app)
 
 
 @app.context_processor

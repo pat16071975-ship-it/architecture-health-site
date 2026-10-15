@@ -11,6 +11,9 @@ SECTION_RULES = (
     ("/uploads/", "Загрузка данных", "/uploads/"),
     ("/structure/clinics/", "Настройка клиник", "/structure/clinics/"),
     ("/admin", "Управление доступом", "/admin"),
+    ("/knowledge-library/", "База знаний", "/knowledge/"),
+    ("/knowledge-view/", "База знаний", "/knowledge/"),
+    ("/knowledge-test/", "База знаний", "/knowledge/"),
     ("/knowledge/", "База знаний", "/knowledge/"),
 )
 
