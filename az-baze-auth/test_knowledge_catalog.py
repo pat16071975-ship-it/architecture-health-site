@@ -132,17 +132,12 @@ class KnowledgeCatalogTests(unittest.TestCase):
 
     def test_sklyarov_static_pages_show_ten_clickable_videos(self):
         repo_root = Path(__file__).resolve().parent.parent
-        pages = [
-            repo_root / "knowledge/manager/management-service/index.html",
-            repo_root / "knowledge/administrator/management-service/index.html",
-            repo_root / "knowledge/manager/management-service/sklyarov/index.html",
-            repo_root / "knowledge/administrator/management-service/sklyarov/index.html",
-        ]
+        management = repo_root / "knowledge/manager/management-service/index.html"
+        viewer_page = repo_root / "knowledge/manager/management-service/sklyarov/index.html"
 
-        for page in pages[:2]:
-            text = page.read_text(encoding="utf-8")
-            self.assertIn('<span class="count">10 видео</span>', text)
-            self.assertNotIn('<span class="count">2 видео</span>', text)
+        text = management.read_text(encoding="utf-8")
+        self.assertIn('<span class="count">10 видео</span>', text)
+        self.assertNotIn('<span class="count">2 видео</span>', text)
 
         expected_ids = {
             "dabc14c01621ee1cf5eafc309c3704c3",
@@ -156,11 +151,14 @@ class KnowledgeCatalogTests(unittest.TestCase):
             "75b3a5d317f5e04b756e63763a71b6ff",
             "bda2085e71f82e2bcc7e69ce59e888fd",
         }
-        for page in pages[2:]:
-            text = page.read_text(encoding="utf-8")
-            for entry_id in expected_ids:
-                self.assertIn(f'href="/knowledge-view/{entry_id}"', text)
-            self.assertEqual(text.count('href="/knowledge-view/'), 10)
+        text = viewer_page.read_text(encoding="utf-8")
+        for entry_id in expected_ids:
+            self.assertIn(f'href="/knowledge-view/{entry_id}"', text)
+        self.assertEqual(text.count('href="/knowledge-view/'), 10)
+
+        self.assertFalse((repo_root / "knowledge/administrator/management-service/index.html").exists())
+        self.assertFalse((repo_root / "knowledge/administrator/management-service/sklyarov/index.html").exists())
+
 
     def test_primary_role_pages_open_live_indexed_materials(self):
         repo_root = Path(__file__).resolve().parent.parent
@@ -174,12 +172,13 @@ class KnowledgeCatalogTests(unittest.TestCase):
         self.assertIn("/knowledge-library/?path=", doctor)
         self.assertEqual(doctor.count("/knowledge-library/?path="), 3)
         self.assertIn("/knowledge-library/?path=", assistant)
-        self.assertIn("/knowledge-library/?path=", administrator)
+        self.assertNotIn("/knowledge-library/?path=", administrator)
+        self.assertIn("Материалы в этот раздел пока не назначены владельцем", administrator)
         self.assertIn("/knowledge-library/?path=", manager)
         self.assertEqual(root.count("/knowledge-library/?path="), 2)
 
         self.assertNotIn('href="/knowledge/assistant/diers/"', assistant)
-        self.assertNotIn('href="/knowledge/administrator/management-service/"', administrator)
+        self.assertNotIn('management-service', administrator)
         self.assertNotIn('href="/knowledge/manager/management-service/"', manager)
 
     def test_video_media_route_supports_range_playback(self):
@@ -206,9 +205,19 @@ class KnowledgeCatalogTests(unittest.TestCase):
                     self.assertEqual(response.status_code, 206)
                     self.assertEqual(response.headers.get("Content-Range"), "bytes 0-9/200")
                     self.assertEqual(response.headers.get("Content-Length"), "10")
+                    self.assertEqual(response.headers.get("Accept-Ranges"), "bytes")
+                    self.assertEqual(response.headers.get("X-Accel-Buffering"), "no")
                     response.close()
 
         self.assertTrue(video.exists())
+
+    def test_live_catalog_uses_card_ui_not_legacy_table_links(self):
+        repo_root = Path(__file__).resolve().parent.parent
+        template = (repo_root / "az-baze-auth/templates/knowledge_library.html").read_text(encoding="utf-8")
+        self.assertIn("knowledge-grid", template)
+        self.assertIn("knowledge-item", template)
+        self.assertIn("Смотреть →", template)
+        self.assertNotIn('<table class="table">', template)
 
     def test_ids_are_stable_and_default_policy_forbids_download(self):
         self.write("Круглые столы клиники/Круглый стол 04.2026.MP4", b"video")
