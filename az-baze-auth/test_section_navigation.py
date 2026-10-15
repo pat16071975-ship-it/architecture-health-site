@@ -17,6 +17,7 @@ class SectionNavigationTests(unittest.TestCase):
             "/knowledge/article.html": ("База знаний", "/knowledge/"),
             "/knowledge-library/?path=Управление": ("База знаний", "/knowledge/"),
             "/knowledge-view/abc123": ("База знаний", "/knowledge/"),
+            "/knowledge-test/abc123": ("База знаний", "/knowledge/"),
         }
         for path, expected in cases.items():
             with self.subTest(path=path):
@@ -39,7 +40,7 @@ class SectionNavigationTests(unittest.TestCase):
         self.assertEqual(rendered.count("Отчёты"), 1)
 
     def test_dynamic_knowledge_pages_have_approved_navigation(self):
-        for path in ("/knowledge-library/", "/knowledge-view/abc123"):
+        for path in ("/knowledge-library/", "/knowledge-view/abc123", "/knowledge-test/abc123"):
             with self.subTest(path=path):
                 rendered = nav.render_navigation(path)
                 self.assertIn('href="/knowledge/">База знаний</a>', rendered)
