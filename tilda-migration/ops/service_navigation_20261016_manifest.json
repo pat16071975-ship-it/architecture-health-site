@@ -1,0 +1,901 @@
+{
+  "version": 1,
+  "purpose": "Link the seven approved patient service pages through eight contextual links and the existing Therapy footer label",
+  "approved_at": "2026-10-16T23:31:55+07:00",
+  "files": {
+    "contacts/index.html": {
+      "before": "f5be4321ec54d7dbc68b42eb36ed8a5ffda7e3205fb7ec7bb1d96ad1ae3babb9",
+      "after": "fabf3273fe71a644df5d827e1c73932f9bc71bacdd012bf683725c27cb56736e",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "cookie/index.html": {
+      "before": "e067bd1ed3ac26f992e2c7c43614ce6e35b6ee116c4c1e8e1b8d2d0cd54c3966",
+      "after": "c760353f5b5d1c80c58640b6099562ce8c079e1c7e8669d48c804993baf530d4",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "index.html": {
+      "before": "66b8b75d7c829990ca6f7d8b4dfef0d07f8017b03025a97c8b7cc18782474c57",
+      "after": "600d2bc8ccc02a893322c5e1a5b39450a45accd2023385fb313d03f0597bfa33",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/arhitektura-zdorovya/index.html": {
+      "before": "26568faaa21b31564e2c8020132b7d1b79ef590059300942de5863f6c41ccd97",
+      "after": "8892cddaf963015e2d4bc4cf6d060d74d067d67601fbd1102fb2a839cffa1505",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/index.html": {
+      "before": "811def5e26da5a7fd3c201cf7d6f91d85f5b5ac590e92cb257ca9bdf3bcbbcb2",
+      "after": "181c82e0a840f2c669a2418fd175138669a3e6af58e24af58df6218c6777df8e",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html": {
+      "before": "ef7379a855bb44f0ed2f197cb6b5980c9032fee723dfec791a522c72dde326e3",
+      "after": "5ff5bfee3df751606feb666575f7b0bb8d32f3f3e9c8f42faff8fe172a1cf6d8",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ],
+        [
+          "\">Записаться</a></div><div id=\"visual-2503293881-1781525730399000002\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Получить консультацию</a></div></section>",
+          "\">Записаться</a></div><div id=\"visual-2503293881-1781525730399000002\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Получить консультацию</a></div></section><nav class=\"container content-section az-service-links\" aria-label=\"Подробнее об услугах\"><h2>Подробнее об услугах</h2><div class=\"link-list prose\"><a href=\"/uslugi/neyropsihologia/\" style=\"text-decoration:underline\">Нейропсихолог для детей</a></div></nav>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/zdorovaya-spina/index.html": {
+      "before": "186a92c26ef71fa94e36461676c0438fde84f9c040e273cde9abef30710dc095",
+      "after": "7969f4c86ca73922534196980bf932802d5de2fe7dc1eb08f34b97f4ee0fdc3b",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ],
+        [
+          "\">Записаться</a></div><div id=\"visual-2503292941-1781525730399000002\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Получить консультацию</a></div></section>",
+          "\">Записаться</a></div><div id=\"visual-2503292941-1781525730399000002\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Получить консультацию</a></div></section><nav class=\"container content-section az-service-links\" aria-label=\"Подробнее об услугах\"><h2>Подробнее об услугах</h2><div class=\"link-list prose\"><a href=\"/uslugi/diers-diagnostica/\" style=\"text-decoration:underline\">DIERS-диагностика осанки</a><a href=\"/uslugi/miofascialnyy-massazh/\" style=\"text-decoration:underline\">Миофасциальный массаж</a><a href=\"/uslugi/ortopedicheskie-stelki/\" style=\"text-decoration:underline\">Индивидуальные стельки Formthotics</a></div></nav>",
+          1
+        ]
+      ]
+    },
+    "lab/index.html": {
+      "before": "b42e65305f0ebae1d6f133b7f3eb0774ced11eb4ef5fb17a7a29c05d7e36e65e",
+      "after": "95f96e3f0b9b460d5cffcf197c62b5399b4237158385afd3614a8337ae06ea14",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "o_nas/index.html": {
+      "before": "159c28098fe6da939776b92ba9b385fcc95c51b9ba164bcaaacdce80d7936163",
+      "after": "ad48d44eadaa3fea7dbec387b3f28d04136d0010b766beb66ebedfa98c9684e5",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "otziv/index.html": {
+      "before": "95ae1fdcb02a3b0d962e612f89987f0cedb84fcf694b90c6bb4bb91160ba849d",
+      "after": "dae9dbadf4e47dde45bd710362a36532e08152ba1c6edae44e36b290580e490c",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/dogovor/index.html": {
+      "before": "be0151bc61852580d38d4ccf69b3ddfffe8a23d5eb1e99de5d07501ee2482863",
+      "after": "6be73702a53dc21f4f78ccb674438f738376d632c2a790b70e9ef63f5d0eacc0",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/gosgarantii/index.html": {
+      "before": "d5770cca2cfe0b7c1de6ddcf6b43f68f4f61007e505f9afb39b043c0034d5092",
+      "after": "2c93b3eb3ebdaa7956ef422adf9839addde58698cab39b9a3756bd17fc088fc2",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/index.html": {
+      "before": "88bf06daa723c17f52d96f7125af6b294032a91a01bb6e879d88cbfad32c6e03",
+      "after": "f5dbb8437f81596c5f179c1e5319eb4302a367c40a4189a5226271618c492ec9",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/licens/index.html": {
+      "before": "ed2f84cd98dfeebf70d0e00f73831f858b523ac7b59af9b619a11601f79af408",
+      "after": "a2e66ee0155c3dcb810db71d274ae38e734a68782ebbcbeceaeca68fda385588",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/patient-pravila/index.html": {
+      "before": "80ef9aff2f2cd8e42189552e6bc6e3cf30dfed9f06e78470feaa8eb6f3993917",
+      "after": "3c27b8b24796fceae1de2138d12bad8e4c1b894bcfbc252fc2fe60082bee11c6",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/patient-rules/index.html": {
+      "before": "ab0ed22c8a0970f22f1a4b906dc7f0c0cf296efe1d0d41c467efb4dbc560dba9",
+      "after": "f8aa17dedf8fc6ac4e84fd12d920ce5c4e3e611985194192d2c190d1939d598c",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/priem-patientov/index.html": {
+      "before": "a1c5b22dd18fbb9c37f88c3b8d9c00d7f1f350e8a4ccc32875a10205597136dd",
+      "after": "2e862feaec378642a679bb54727dd2580b75278d3805b765852b740d9b21f87d",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/supervision/index.html": {
+      "before": "ff81069318b01ace91922baeacfa26d5932423e4cae2e40e95bc4a32451ec2b9",
+      "after": "7acafd5dba4c4ee4f7893919bf66c47fd8870b34ad457c72e931f9c886819056",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/zhaloba/index.html": {
+      "before": "cef2008b5e7b1784285983e8dd7c5c091eb8bbb5fbb6771386d285e5515c89dd",
+      "after": "8f9c5de9d865a9f354efced2f3c8c022c360e17ae27386321da274ac7c5dc158",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "politica-site/index.html": {
+      "before": "a45923ebe3003372f3d60e21ffc28cf1c32f9e702443aaad3adca1206033b26c",
+      "after": "4f045caa1009f89a59d7557b1ce7dd3ef3ba86c724e832579e49160caad8095f",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "politica/index.html": {
+      "before": "0d5e9d0702054092b7f11b3edd46688c4bd6648afd62ecd113e9ae1652de13eb",
+      "after": "f5950dc15209df0993f164687e6cb8d1b871e67c93bef0da3849c4475c1d8144",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "rassrochka/index.html": {
+      "before": "5cc512db21a2120d8eebc969dd876f699c0ff7b9b2e408b11d8ad91024f3b7d1",
+      "after": "398ea1a2ab04512d73d384da502cfd1d27ccffaa97444e329cbaa3ed7d0aadba",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/bosak-yana/index.html": {
+      "before": "a1d48480a7e4149f3e867be8ad88bddd45e579b3f48e595a231ff0c3ad84b5d9",
+      "after": "2cac1e5b5bbb2daf038efbd14e907c84c8076b5d3d65c6e73c1bdaa9620a8767",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/chirkov-maxim/index.html": {
+      "before": "e1a9caa494f378c62e965f91260f122a40298cd777ed31163efa901c6c634534",
+      "after": "133ac7b96482c72ccfec714ddd5438d5a48ec4b71a69e2117d0fcd38afb7dfcd",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/dimitrenko-anna/index.html": {
+      "before": "ebd3b1bd7c04214f7a4affe4977a9179b576d3fc1027868044e710a2975dff01",
+      "after": "24415803378e5a1d15bcb329edc3da06e7b824ceccda85d6511e1c57c3337806",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/golishenkov-vladislav/index.html": {
+      "before": "42d3a468d4298f1cf41f906a60be00af88f928c9980a9519b80da94246ad5576",
+      "after": "949adfcf28886a24629da60c175bf600ff69c0ed8e9d5f2ea6ca1a76ae6f7592",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/holodtseva-valeria/index.html": {
+      "before": "23b9195b8a69c04bcfb59b28f712ca44c5d58075921a6f67e7c4ae11fec890f7",
+      "after": "3eb74e1eab216d65fdcfa69ca33a780edbf69128ea0f2caf5965c56d8138e6ab",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/index.html": {
+      "before": "1098ce959de2da2598ae42d11f64ef32e18023cb4acd8237069c23bc5831a155",
+      "after": "f33fedfde771b075c7181adddadb00a3adf32e49e7cbcb1ad78b38a6cee15d7f",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/lapina-natalia/index.html": {
+      "before": "9f93dfe0137a3e627d1f0ff190e10bcb7569b259f9f9deb02a28682b0b7b2c8a",
+      "after": "4a043baf83ee7fe497466c90ff53b56779fe832e4e4ce9e15f89bac55c754e2d",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/lubaeva-alena/index.html": {
+      "before": "35ef0669b6f65ddec95fe9a4755f4c7a58967bbad84bc25a2f27823f57643a5a",
+      "after": "0f041c7c96efd911bbf7c69254dc374065910449d33fddb4db7041d2c06b7172",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/mamontova-lubava/index.html": {
+      "before": "931dc0a34d83105887417b921e7c02df24329b31f61c9f5d7261aed294242fb0",
+      "after": "d66c0f39a7b0f1c5740f1c67ca109d17ff1f5a99218dabe0b3507655727a79c5",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/movseyan-babken/index.html": {
+      "before": "6f1b75e0ef4a61ee069a5b8fdbbabb8e70276fab9f32b257c154adfdbf740928",
+      "after": "6c3fd0efc5175bc18050d74cc1c87b15b64b440dc3a3b5cdd87bfb44827129ec",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/nazirov-uktamjon/index.html": {
+      "before": "ef60331a1dbcf50b8e48de5caf716d6a7ec94691c3b5038eef21589be5e8e8f7",
+      "after": "7ad6d72f55e825b191621f4c1cdd048659943ffc7092c63c971e1c60fd81cc33",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/pavlova-anna/index.html": {
+      "before": "89f414d249e740c42da4347fe31e2241e1272dd88c2df2c39b34089ae61f623b",
+      "after": "858ac0f2ed6ce748de522599877cc8594d2eb922dc10f8c060abbc5153e7a95d",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/rumyantseva-maria/index.html": {
+      "before": "39b910bcba8bc132430c1f4d20e67a26826489c066125c19b829747f08248937",
+      "after": "7c509a2bd2a4631996f4b4b1594ce398f6c59d093726352f2a12adcae1d4c54e",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/starostenko-vadim/index.html": {
+      "before": "7467c8f97c49bdaac803e96c7b66d899421d42ca7a143cd9628162dcc631f5a1",
+      "after": "29de9bb3c078ad30d1d356f7cfe201a447c422568f3262cf61f7694f0b0ff408",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/zubachev-roman/index.html": {
+      "before": "3f183edffef0714aff3f3c1297a592d00bb9750cfa63c130acef45cc09264468",
+      "after": "b069dc46613be5dc6d41d843db1adc2153f45118ed0b927fef873a7527c1a681",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "thank/index.html": {
+      "before": "69312974cbf6c69ad8ca3576db01c13232e90bc30c2c95c18bce613d007a381e",
+      "after": "da6fdd5003cc17bc37fce2595a56afebe94eacc72a3b38d31ff5253791cb92be",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/craniodontic/index.html": {
+      "before": "9a0e4a54c291ce6246dfb5d5f4fa4ed6d7ac22f7e43b872732e139cdcd762e2c",
+      "after": "acbafffad6be055c1dae333017ee4efa4dbfb9509bd5aa5bd580fb4a41e7ce23",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/diers-diagnostica/index.html": {
+      "before": "2f851b641b8c99644b42dd30abbb94effbd696d65013aaca96f4cb5bbb0bfcbb",
+      "after": "14127566e4bc13c69cb8e8ac0938e4dc976d3acfcbc2b17fd35df0381e609eb7",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ],
+        [
+          "деляет специалист.</div></div><div id=\"visual-2785155201-1623214447275\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Записаться на приём</a></div></section>",
+          "деляет специалист.</div></div><div id=\"visual-2785155201-1623214447275\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Записаться на приём</a></div></section><nav class=\"container content-section az-service-links\" aria-label=\"Подробнее об услугах\"><h2>Подробнее об услугах</h2><div class=\"link-list prose\"><a href=\"/uslugi/diers_research/\" style=\"text-decoration:underline\">Исследование DIERS 4D motion</a></div></nav>",
+          1
+        ]
+      ]
+    },
+    "uslugi/diers_research/index.html": {
+      "before": "49e35b5a3bf3e4f04b2297b2d244ec818f1e2b9b13ce86312692415143a57d25",
+      "after": "f4c3d0c6f3ced4196b7da2d187def060c3fb3b1e0bb3d4dde273792f0f67b22c",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/doc_educate/index.html": {
+      "before": "5262725279954b582eab9e55ab258f1d11ba041ff592513d834b010d02086b40",
+      "after": "a287b63e0136355c429414ab49b05c54b473ad977e60e6e21cea55a949f7c238",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/functional_dentistry/index.html": {
+      "before": "f2fbd9bdf0824e51cb8ffd1b06f3e049eaeaa5afd138439424bb1b227ec2c9d8",
+      "after": "c943a7fddd2ce7c1e1f63b5815bb2ef1ddcfcae58a012eceaa397a50e000a77e",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/gastroenterologiya/index.html": {
+      "before": "ca171ef98f978ef17ec2a40564daf9293846163f57e3f10f3a4e25b0bdab11c9",
+      "after": "33968bca6a1ad6ab71404795b47a9b76be8901151b1e31a8684d7c367ea7f831",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/hygiene_prevention/index.html": {
+      "before": "16ba34c6533cb8f29a3d7506aa2f6c40dafd23233365ec05c4aea1f102a85601",
+      "after": "0bd54f87748ea8c20aae1acc9cec17b3d1699c7e06fa5cc57d62e9e07c7a0b99",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html": {
+      "before": "997d6ba19714a7ef3b49ed93162faccd043031bf0ac2b7e00bebe69c81287248",
+      "after": "46f3deaef969d1093b2549213b3f4187489b5dfc34e06759ff3cdac2b0da01ef",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/iggt-terapiya/index.html": {
+      "before": "2390e84e763e862300365681118d5e6b19ce41ce68984802eaa3d5e18e81a7ec",
+      "after": "980ba61133a68ac8641249830484509cc8c4b87365d9ee90387e45d94753d28f",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/khirurgiya/implantaciya/index.html": {
+      "before": "6d301766e2be75d7bfc58618df58cde8998498ae6e495c3f45089a1795a16f75",
+      "after": "d13bc6ab9579e61fd40b6f6dc44d65eda268d327eec99d9828f6a8c1089fd460",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/khirurgiya/index.html": {
+      "before": "f561eff39ecfca9523c8647f8fac028ae36065ebe9754b2f36a51194529b9708",
+      "after": "01db125c69601047549e996eeeda4a22ca5d4c241b9330fd539e549ce7e6132f",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/konsultatiya-stomatolog/index.html": {
+      "before": "85a012718f55ab4959e3381cffedc70a37447a3e31985add45b68a49629f1967",
+      "after": "5d24f29d87e75cbf8fbf13c0f92b62493ce8c2b1049bbd4e0ab814590618c9ba",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html": {
+      "before": "4143cffe3bca996370b673af9dce119f027ee1ff6fbf7bca79b471a2f7bd8de1",
+      "after": "3676b83d500e4f310a262d6dae545228ef040a3acf239fe319a9dbfd1bd7ad2a",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/index.html": {
+      "before": "af3e46e62815aca20b3c947593d4183c2b732c03914636c4b5e34459e6da6bbc",
+      "after": "e39165ba064fa91351d59257b371f35b5c611dd1a5f56806c1ca8c2db624b390",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/karies/index.html": {
+      "before": "abb66e5d1d30dd059f1d9a351524875569d3e2e354a4e56deb454c0e6414d46e",
+      "after": "73089ae007ccd3eed7fee214b7c8e7ba541005fb04e03980c515d532191342d1",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/kista/index.html": {
+      "before": "47a7113fe5c3889fee4fd0d1883477f314b6d9ebcea0e5634c570f41015a3220",
+      "after": "08a8646f1b7ef333ab1c5e2f3f5d40fdef045fd91d399fe3155650d4e5e0ca74",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/periodontit/index.html": {
+      "before": "e9db42615f514734afdbc62fd66c2e6e6b81c04c2edc1f25b0b5b7e6cb63cb7f",
+      "after": "c5eb0d921b470d57435ce30c03bd72c2ebd78cce0c04de923f3c6187548ff6bb",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/pulpit/index.html": {
+      "before": "fa34c1003d492bb8269caf450b98b92970aa719eef77fa3c7e0d498dcdb7b252",
+      "after": "7c5377f2c04d5e1d9484ba5e7139a760425aaf1702314a128110b822a898b438",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html": {
+      "before": "5996cecb459af9bcfa57ba5d9dd867bac4baa0a54b8f864a5098b123fcf9876a",
+      "after": "a0d06a6b854efb8f094a8fa1a83aaca03f4e5783b44d6aa143e47cc3cdfe0f67",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/zuby-mudrosti/index.html": {
+      "before": "3936fbf97d74744746e6cfcb4ff3e0369d4df6bff7e42b595da380a7a96499f7",
+      "after": "9ab83357a86a6cca12cf1117390db5767305d49058c41eee91c98f7132b0bd3c",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/miofascialnaya-terapia/index.html": {
+      "before": "2e8e8f11c268ce95580abc1386c9b90c3840d1221f5775b30d2b9d2180d00c71",
+      "after": "3ba313421db95e0ddff1fbb3b89f3c77a9421586b553540ed2eafaa8fce7b341",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ],
+        [
+          "лан работы.</div></div><div id=\"visual-3710603101-1623214447275\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Записаться на консультацию</a></div></section>",
+          "лан работы.</div></div><div id=\"visual-3710603101-1623214447275\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Записаться на консультацию</a></div></section><nav class=\"container content-section az-service-links\" aria-label=\"Подробнее об услугах\"><h2>Подробнее об услугах</h2><div class=\"link-list prose\"><a href=\"/uslugi/miofascialnyy-massazh/\" style=\"text-decoration:underline\">Миофасциальный массаж</a></div></nav>",
+          1
+        ]
+      ]
+    },
+    "uslugi/miofascialnyy-massazh/index.html": {
+      "before": "e46c1456616d5b66789c7c8548f4c75e6ce2d4834a53b4b26f5aa3d8b011c381",
+      "after": "ec86621946b3a088be009f3d876364b15fa06e07dc74b4823d798fe1702ec3ca",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/miofunkcionalnaya-terapiya/index.html": {
+      "before": "3de41838576263b3e98b3553657d12e8e0d86c8fc3b3113559fffc3e811be6ae",
+      "after": "7345bf0108eb6fc5d6cab42d056ad3717c88f9d9550a01a625ea67b4b87318f3",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/neyropsihologia/index.html": {
+      "before": "bac303e1c2c0d1b0cd40ce494b2abd85f4816be790b59546b34dd7fc281d711e",
+      "after": "cf371b7bea38f1764f30cc6e4ac34540db8b71ec4baa252cdab74dda912d029f",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/nutriciologiya/index.html": {
+      "before": "acf57151da6a079f860d8edf15fb5b9096bb346fec6ecd91903ee8847da9be03",
+      "after": "8a2e54dd5963036ec0ea6ced51b7bf4d0cdaf8cf764096da39d04cb63fae7496",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/orthodontics/index.html": {
+      "before": "77450135b0c0ce7086f53dc353b25d9696898bb387666d436b3fece9302d8d9e",
+      "after": "145496b1239b20e45f3054aa713d592f497b92d73851870602831db380dd052f",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/ortopedicheskie-stelki/index.html": {
+      "before": "50bc36431fc74727d54f12929662d2a4b3285d639ab02b8f9dfef36e0106acc5",
+      "after": "7e28a529c76024e395a575ffe93f213a4c0093977a12fdac8f53c826add5fd0c",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/osteopatiya/index.html": {
+      "before": "adfdeb0b13f2ade3aa99b035edce2d034478639448610be3b50cb97515b484e3",
+      "after": "b25b1051ce51300e066033ad2ca17bc655a655dd9c9d48d0097b21910d72c07d",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ],
+        [
+          "нсультации.</div></div><div id=\"visual-2788165601-1623214447275\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Записаться на консультацию</a></div></section>",
+          "нсультации.</div></div><div id=\"visual-2788165601-1623214447275\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Записаться на консультацию</a></div></section><nav class=\"container content-section az-service-links\" aria-label=\"Подробнее об услугах\"><h2>Подробнее об услугах</h2><div class=\"link-list prose\"><a href=\"/uslugi/ortopedicheskie-stelki/\" style=\"text-decoration:underline\">Индивидуальные стельки Formthotics</a></div></nav>",
+          1
+        ]
+      ]
+    },
+    "uslugi/preventivnaya-medicina/index.html": {
+      "before": "ef7da23f780cc40343bcdc941340553cd77e2bb359fb4ab30fae6fd95c1b7eea",
+      "after": "97040d39762f205f2041e46fc023eb3fcf129b67c956bdfaf36901253a961242",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ],
+        [
+          "ейшего наблюдения.</div></div><div id=\"visual-2789450901-1623214447275\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Записаться на приём</a></div></section>",
+          "ейшего наблюдения.</div></div><div id=\"visual-2789450901-1623214447275\" class=\"visual visual-button\"><a class=\"visual-inner\" href=\"#booking\">Записаться на приём</a></div></section><nav class=\"container content-section az-service-links\" aria-label=\"Подробнее об услугах\"><h2>Подробнее об услугах</h2><div class=\"link-list prose\"><a href=\"/uslugi/iggt-terapiya/\" style=\"text-decoration:underline\">ИГГТ — интервальная гипокси-гиперокси терапия</a></div></nav>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/index.html": {
+      "before": "eb42534af08c3fb306bd94b0d8d83101686d676cf3ecf5298833d5589e53c2d3",
+      "after": "e130a00989af70801a6c02bc94b16e3c88c021b17ca2a3fd896c782d9a303b13",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/index.html": {
+      "before": "293840cd3843950e7a662a22a24453354ef6249bedee9f6e6953d7b0e5171a20",
+      "after": "003b20068edca112e1b81e35b1b218c0e9470accae2ae57539b3ceb2bd1f00b4",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/keramicheskie/index.html": {
+      "before": "9c7a83f8b2dac596cad48e03c1d342e2cf07fbde38e172a83e6de06c7179a41a",
+      "after": "b50e8cb1f30bc1d94d3eff215e052cc97fd6220c8a71993a0642235ae0d70812",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/kompozitnye/index.html": {
+      "before": "df918b073020e18abdaab7ce3bbf7dfc82a3e70ea2b3ebe056f089c407dc97bd",
+      "after": "2c314555683061474509f543d1301b270627fababf7da5b55f471d644aa61f28",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/mostovidnyy-protez/index.html": {
+      "before": "5eefe0c7a19466735ea9cfa9dd92fa251b99416682cc2f983248fa7ac7d75c28",
+      "after": "5e39d69ced23d5c33c39c26750f3303350c102d2de1a7aff5ed2691fbd485af2",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/viniry/index.html": {
+      "before": "4195cc63941c8e8976d71685b1799765ab5c5f9a76200dcb6f359b2b196defc3",
+      "after": "dbb48eb05b9c39b9105402e7e675aefc1daea50efde2d62fbe85215a9d6be832",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/terapia/index.html": {
+      "before": "6f802df703751bdbe6aaa3f5cfa2818618bf163309745a1ce63ad712cdc80425",
+      "after": "f335689d8af73beed2f473eee56341eb3b7c539e5804908ca2e6a42744a4790d",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslygi/index.html": {
+      "before": "bf41bdca30e185d3620d18b0d4450b48750eacf014a766d3594ba1569ab9329b",
+      "after": "17544ca552e9d39478354064140976fd5a3692bd9e62c96a6cc616cfc700973f",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\">Терапия</div></div>",
+          "<div id=\"visual-2489767221-1648032798215\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/terapia/\" style=\"color:inherit\">Терапия</a></div></div>",
+          1
+        ]
+      ]
+    }
+  },
+  "protected": {
+    "sitemap.xml": "7d25e8f24835ef0772c360356f8ee9c350921cb602b155d836713e00b05b40a2",
+    "fonts.css": "3d16ea7238b58a5cf0904098ad236aa6be0b3facccf3a53009af08fcceedce6c",
+    "robots.txt": "9a93da66b2f7b9bc05ad7429409692dff442b3bf8f988f2937ae21ad9cf6744f",
+    "site.js": "190dba2936bc2def347a43e94b81e6fe226ee77ae38220db9e4790a17c355361",
+    "404.html": "3fbe5b62b98d38eb325d3b99d47a42fd9d90fdda29ba4ae2002ceab128cab21d",
+    "assets/az-doctor-cards-20261013.css": "5813a1e65ce1ececfddb2d11dc6669cff3f61e16390b1b01cf870a512b3e62a0",
+    "assets/az-doctor-cards-wrap-20261013.css": "b3504521129c394bb669fbc4e420ed6e86c4ed9193b1390a1ee3315dadeeec9a",
+    "assets/az-mozharova-approved-20261013.jpg": "621542c5ea7b609752813c546548d270d4f1848370eb1901387d48882fa98e4c",
+    "layouts.css": "66d78398182263a458236c439c1a098fc8390539c7d45511d9240bd54f1a3a71",
+    "assets/4d67d8e3617de3463719.jpg": "173ab0e4c1ad9b2f86af7545077bdcf1bde17ec73b5d46ad46253cfc3559928f",
+    "assets/ae539bb9ce3fbc525200.png": "79fb247028b4667e1da2316b9618a512e482bab6ea917507162658cae913f464",
+    "site.css": "8b2adf1b395ce968f1f116fac27b9a559d7d42265d1686737ec21dc4590406c9",
+    "assets/2eb303492fc4afc1e2bc.png": "fad27a52d50d0e7bb74f40ca28841adf1e3525421d111f197afd5599fc03f29c",
+    "assets/70329c1fef56d8a8eb37.png": "cbfd46c34d4b110a1e4fcbb69375eb4dcb970d35dd994ad8d6cd57e6a6da91d7",
+    "patient/dogovor/AZ_Contract_Sample_Approval_20261015.pdf": "9d89e03a3137a305199181faaaf115bc48c9ce43d689142da624e29fcd7fa356",
+    "assets/30299ba903fd9c7517b3.svg": "56b0d23f22779f58462a2d639983c9872fd25281547a7fcff8b83fecefdf3cd5",
+    "assets/15e2d44f0157a515db97.svg": "fbbcd0ecb6b712770fefb1a7c1148662c71eaadbacb118da0805a050a020a15a",
+    "assets/6ee884df24e48ba85fdd.svg": "834198bf9e56cedf3e8d35fd3346bb6051c2ad33fb981dc2922a9d0a29d600a5",
+    "assets/b060acc3dfeea870ab98.svg": "bacb9ce503c878b6f001e2ec319531d90f4c22f5b6c8ac5ab95c64bcf1878848",
+    "assets/2fa5dbdfb4f891fa7d4a.svg": "1aed8ef96c5e9bc929f7987a5880c0717bd7b3331ddf8badafb6aa8a645c89a3",
+    "assets/8bd7d0a7b055a94ef022.svg": "b825c938f7432396bb281ce9b5af3e223f7b2d560f4ec9b780b1adfb6ed85981"
+  },
+  "absent": [
+    "team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html",
+    "team/tproduct/338106745633-palunin-vladislav-andreevich/index.html",
+    "team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html"
+  ],
+  "redirects": [
+    "/team/tproduct/834140634503-kazantsev-leonid-evgenevich",
+    "/team/tproduct/834140634503-kazantsev-leonid-evgenevich/",
+    "/team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html",
+    "/team/tproduct/338106745633-palunin-vladislav-andreevich",
+    "/team/tproduct/338106745633-palunin-vladislav-andreevich/",
+    "/team/tproduct/338106745633-palunin-vladislav-andreevich/index.html",
+    "/team/tproduct/392688125713-mozharova-ekaterina-sergeevna",
+    "/team/tproduct/392688125713-mozharova-ekaterina-sergeevna/",
+    "/team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html"
+  ]
+}
