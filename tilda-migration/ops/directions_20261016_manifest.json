@@ -1,0 +1,1255 @@
+{
+  "version": 1,
+  "purpose": "Publish six approved directions and catalog navigation",
+  "files": {
+    "contacts/index.html": {
+      "before": "cf3fc4eb22e08f1fd216cbe0ebe2d9ba574f95df7d21c041d35972f3b0484482",
+      "after": "f5be4321ec54d7dbc68b42eb36ed8a5ffda7e3205fb7ec7bb1d96ad1ae3babb9",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "cookie/index.html": {
+      "before": "125ee4ce22527cfd1583a4ac2c1be8062c90f7d2e3875b12765d0704d22862be",
+      "after": "e067bd1ed3ac26f992e2c7c43614ce6e35b6ee116c4c1e8e1b8d2d0cd54c3966",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "index.html": {
+      "before": "007efaa9e9c916719f2a00da15eb31163a48230c1b0f923240418c3fb209bdad",
+      "after": "66b8b75d7c829990ca6f7d8b4dfef0d07f8017b03025a97c8b7cc18782474c57",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/arhitektura-zdorovya/index.html": {
+      "before": "027cd6ef3cd58ff51add53851c5d480a6ce57a788a829cd415556bf048c5b8be",
+      "after": "26568faaa21b31564e2c8020132b7d1b79ef590059300942de5863f6c41ccd97",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/index.html": {
+      "before": "7e071ac4c2b495d7b037b314291b297b8825e07096eb479e58fc5aeedb6d64e0",
+      "after": "811def5e26da5a7fd3c201cf7d6f91d85f5b5ac590e92cb257ca9bdf3bcbbcb2",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html": {
+      "before": "c5e25c047f784801b008e4c21449ce12976297537f312b6b1ae3823a7a3f7313",
+      "after": "ef7379a855bb44f0ed2f197cb6b5980c9032fee723dfec791a522c72dde326e3",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/zdorovaya-spina/index.html": {
+      "before": "7fb838327ff607d12a83b86eeeecd7d1d2231d5ad4cd0d5086ff87cc83be7bd9",
+      "after": "186a92c26ef71fa94e36461676c0438fde84f9c040e273cde9abef30710dc095",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "lab/index.html": {
+      "before": "7141f19fb79d053b5d969d574507f4069c5ca47955469e08a17541f4b7da81f7",
+      "after": "b42e65305f0ebae1d6f133b7f3eb0774ced11eb4ef5fb17a7a29c05d7e36e65e",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "o_nas/index.html": {
+      "before": "dfcad7e8623fd4ddc4eb890cc777122e3fac469ea7d7fd7013c932560cc74989",
+      "after": "159c28098fe6da939776b92ba9b385fcc95c51b9ba164bcaaacdce80d7936163",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "otziv/index.html": {
+      "before": "9cb829586bba2698f5d7912afdf07de9c913ed713e46e7dd24cf591206b4fa14",
+      "after": "95ae1fdcb02a3b0d962e612f89987f0cedb84fcf694b90c6bb4bb91160ba849d",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/dogovor/index.html": {
+      "before": "6962c2fbde2dda4830301d203510526f4b9e7377e8b20bd9cf3076f677b0f057",
+      "after": "be0151bc61852580d38d4ccf69b3ddfffe8a23d5eb1e99de5d07501ee2482863",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/gosgarantii/index.html": {
+      "before": "2ac18c94abd2107994b54293effddee713c4276fdcbb0ef3ed6161a132618f5c",
+      "after": "d5770cca2cfe0b7c1de6ddcf6b43f68f4f61007e505f9afb39b043c0034d5092",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/index.html": {
+      "before": "4ed7481063c5ba302b0c7ded41e5416c2963a9178273c1ed5ee48f762ea41392",
+      "after": "88bf06daa723c17f52d96f7125af6b294032a91a01bb6e879d88cbfad32c6e03",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/licens/index.html": {
+      "before": "5d5f004d6907e396a788115ebdb0cda51096c0f0c6f3a3efb7503fbde410bd29",
+      "after": "ed2f84cd98dfeebf70d0e00f73831f858b523ac7b59af9b619a11601f79af408",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/patient-pravila/index.html": {
+      "before": "c4388f98ad8e872bf9e8ebf73dafe526def2b8b8dae617347896599ccce84ebe",
+      "after": "80ef9aff2f2cd8e42189552e6bc6e3cf30dfed9f06e78470feaa8eb6f3993917",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/patient-rules/index.html": {
+      "before": "87886ae82f56fff99fa6e21b155141d51342035dcdf2cfae653049b27ac6cbb5",
+      "after": "ab0ed22c8a0970f22f1a4b906dc7f0c0cf296efe1d0d41c467efb4dbc560dba9",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/priem-patientov/index.html": {
+      "before": "4c00b848f562ec248f2b754a89f3585c459e4b8077a383132b5f1d99446be0fe",
+      "after": "a1c5b22dd18fbb9c37f88c3b8d9c00d7f1f350e8a4ccc32875a10205597136dd",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/supervision/index.html": {
+      "before": "42b2ccb99f3349a4ad7cab6b69fd11ea55458742f0ce2573e74e3e31b1c73f9d",
+      "after": "ff81069318b01ace91922baeacfa26d5932423e4cae2e40e95bc4a32451ec2b9",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/zhaloba/index.html": {
+      "before": "c7b85ac36acad2880b11ce3db484e229f7c2ef3e2f8e3644447d9960f20b969a",
+      "after": "cef2008b5e7b1784285983e8dd7c5c091eb8bbb5fbb6771386d285e5515c89dd",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "politica/index.html": {
+      "before": "60b77160795fc7c09e528fdac7278ff5c4183d460bd8096c3d4a7c19aa517d69",
+      "after": "0d5e9d0702054092b7f11b3edd46688c4bd6648afd62ecd113e9ae1652de13eb",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "politica-site/index.html": {
+      "before": "c062a969535a89b7c494089d618c61055678b926af3fadfc7cffe044673aacad",
+      "after": "a45923ebe3003372f3d60e21ffc28cf1c32f9e702443aaad3adca1206033b26c",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "rassrochka/index.html": {
+      "before": "332270b17faffc1bee9767dcfd51e1b6366da94ecd17ed96392bddb327c1cc76",
+      "after": "5cc512db21a2120d8eebc969dd876f699c0ff7b9b2e408b11d8ad91024f3b7d1",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/bosak-yana/index.html": {
+      "before": "6d5714355218d2e86f8e9baf170be820ecdaf961ac588b2ef854960722338323",
+      "after": "a1d48480a7e4149f3e867be8ad88bddd45e579b3f48e595a231ff0c3ad84b5d9",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/chirkov-maxim/index.html": {
+      "before": "8a7c9689d7eb4db5603d9750d620b895e0abc53ec4fde37442d763fb04139239",
+      "after": "e1a9caa494f378c62e965f91260f122a40298cd777ed31163efa901c6c634534",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/dimitrenko-anna/index.html": {
+      "before": "a9e7c53b2e9f26b4ab4f7f72fc804b8b2696ef909617ec2152a176bb7c2dad48",
+      "after": "ebd3b1bd7c04214f7a4affe4977a9179b576d3fc1027868044e710a2975dff01",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/golishenkov-vladislav/index.html": {
+      "before": "c79f02e990a3166622cdefdff7bebb60e9f2f97c88d816cdf5b516c99aeae23a",
+      "after": "42d3a468d4298f1cf41f906a60be00af88f928c9980a9519b80da94246ad5576",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/holodtseva-valeria/index.html": {
+      "before": "c014ecc5b9c448d87ad6982dffde953185dcdf4c859e28feec5390f4226847a8",
+      "after": "23b9195b8a69c04bcfb59b28f712ca44c5d58075921a6f67e7c4ae11fec890f7",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/index.html": {
+      "before": "cc9dc9916161471a8339ab7a240febfbe68cf4dde4fa5c7c75e8e36898416875",
+      "after": "1098ce959de2da2598ae42d11f64ef32e18023cb4acd8237069c23bc5831a155",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/lapina-natalia/index.html": {
+      "before": "8381d7f9a9261aea06ff05c1f21e4b3498def6d5ed7a7c162acc3c282e23b5ca",
+      "after": "9f93dfe0137a3e627d1f0ff190e10bcb7569b259f9f9deb02a28682b0b7b2c8a",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/lubaeva-alena/index.html": {
+      "before": "77b9596695ac44c2286df5ee5b93edec4d54ff5c4f72556bdb92e9ea40d48c10",
+      "after": "35ef0669b6f65ddec95fe9a4755f4c7a58967bbad84bc25a2f27823f57643a5a",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/mamontova-lubava/index.html": {
+      "before": "ec72a48c31ca151019a712d9db2b3aea932971a3291a2eaa1c5aacf49bd94632",
+      "after": "931dc0a34d83105887417b921e7c02df24329b31f61c9f5d7261aed294242fb0",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/movseyan-babken/index.html": {
+      "before": "6c08997b30422c9ff2bc6834d27fd8198aab3385839c2aee034b58ac74ffeb98",
+      "after": "6f1b75e0ef4a61ee069a5b8fdbbabb8e70276fab9f32b257c154adfdbf740928",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/nazirov-uktamjon/index.html": {
+      "before": "c3290de2b4ef3eb133baa1cebbe1e2671155ff33b701c54c252ebe5561251923",
+      "after": "ef60331a1dbcf50b8e48de5caf716d6a7ec94691c3b5038eef21589be5e8e8f7",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/pavlova-anna/index.html": {
+      "before": "522da417bb6f25f2aeb308db4142ce43ab636fb1c1ccfa9ba376dd6624b4a69a",
+      "after": "89f414d249e740c42da4347fe31e2241e1272dd88c2df2c39b34089ae61f623b",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/rumyantseva-maria/index.html": {
+      "before": "ad0a9773b436a3a12f50855a9eb6514d3f0565bbfb496d240c8c08c09967d3ce",
+      "after": "39b910bcba8bc132430c1f4d20e67a26826489c066125c19b829747f08248937",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/starostenko-vadim/index.html": {
+      "before": "955b5970d3751664194abe30b464bc780e8a2d791bb87b0bf610ce10bfe85b54",
+      "after": "7467c8f97c49bdaac803e96c7b66d899421d42ca7a143cd9628162dcc631f5a1",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/zubachev-roman/index.html": {
+      "before": "c912eaa6c00944af303c218dae33e462e3959265f97dc0c823b3c5afeebdfbda",
+      "after": "3f183edffef0714aff3f3c1297a592d00bb9750cfa63c130acef45cc09264468",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "thank/index.html": {
+      "before": "d51c95c429319c2ebbb57558486f0384854629032752e246a37d77e585d76d14",
+      "after": "69312974cbf6c69ad8ca3576db01c13232e90bc30c2c95c18bce613d007a381e",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/craniodontic/index.html": {
+      "before": "858bf51ccf3282e2f030949001111bc7f09e4483d16d561f3614d337780bdc6b",
+      "after": "9a0e4a54c291ce6246dfb5d5f4fa4ed6d7ac22f7e43b872732e139cdcd762e2c",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/diers-diagnostica/index.html": {
+      "before": "47f1fe7b12893b27fb8814a7a5e540ee266eba068f413ff82c23911ed0340250",
+      "after": "2f851b641b8c99644b42dd30abbb94effbd696d65013aaca96f4cb5bbb0bfcbb",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/diers_research/index.html": {
+      "before": "2ead703e7dde6d4b6e206a6e54733f3124a64aeae3bc6af17212a4e28c2f74cf",
+      "after": "49e35b5a3bf3e4f04b2297b2d244ec818f1e2b9b13ce86312692415143a57d25",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/doc_educate/index.html": {
+      "before": "f8f1f6fef35bd58aec700f775cfca1421df93a024f182a1cd79741b41afe07f4",
+      "after": "5262725279954b582eab9e55ab258f1d11ba041ff592513d834b010d02086b40",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/functional_dentistry/index.html": {
+      "before": "4e9a2bfb8322d5b11ee4c649786402af6f8e8af602d330254dca176f8a43117f",
+      "after": "26071fc5e1758f9afdbc981565f622fe717e14139e22b92d68250cd034d463d1",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/gastroenterologiya/index.html": {
+      "before": "e550b97c5bd9a3b9ff56c61fd1ee94103dd7389cb305b494b0ecd0238b4f1950",
+      "after": "ca171ef98f978ef17ec2a40564daf9293846163f57e3f10f3a4e25b0bdab11c9",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/hygiene_prevention/index.html": {
+      "before": "d26e8ce0cc9bc99091edede3a95a06fd99b3f275a258b5ac6608442068ef935b",
+      "after": "cf059314437baf6dda41fe675acf9915d8cc39d865cf2f3373d2c031592451a7",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html": {
+      "before": "3f2aa545e0a7fe9b1d938d7a2b64cd1981f7e43b994c9dc7174571ce779f7dff",
+      "after": "997d6ba19714a7ef3b49ed93162faccd043031bf0ac2b7e00bebe69c81287248",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/iggt-terapiya/index.html": {
+      "before": "7c5f3e250bc3ded087ac69bbe341d2964cd22ec2f2f3ccb4e1a7955f8d2daf8b",
+      "after": "2390e84e763e862300365681118d5e6b19ce41ce68984802eaa3d5e18e81a7ec",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/khirurgiya/implantaciya/index.html": {
+      "before": "ff3b8a97ab0f867d52e3bb4fb7528cd606e4c4aff5715561dca45da3b51b61e2",
+      "after": "6d301766e2be75d7bfc58618df58cde8998498ae6e495c3f45089a1795a16f75",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/khirurgiya/index.html": {
+      "before": "871befcc05ba2667c22fa034f891b9ab32a944b7068e55645e881cb421deb259",
+      "after": "2cb4b3160604fce07b13b03a2c82029cecee0515c966a4d8eba35623de098d8f",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/konsultatiya-stomatolog/index.html": {
+      "before": "5c88f98c12b717365d136af84a9b208e44e1b762f5f01ca5421114695fc87271",
+      "after": "85a012718f55ab4959e3381cffedc70a37447a3e31985add45b68a49629f1967",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html": {
+      "before": "09522be368e92973437ad20d861b6417342c56b4808af629347dfe3c73bcf5f5",
+      "after": "4143cffe3bca996370b673af9dce119f027ee1ff6fbf7bca79b471a2f7bd8de1",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/index.html": {
+      "before": "5e72fc43e7d1956153238325b3dd551016b506a14b0b4599f83228aa40f250d2",
+      "after": "e8f1be338cb811c469b0231c238a3120796a31899d495b3a3520a652d9325528",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/karies/index.html": {
+      "before": "dfaeee39bcfb8a066dc2871e069b69155b3706b57711eaf658551f1b13e8228f",
+      "after": "abb66e5d1d30dd059f1d9a351524875569d3e2e354a4e56deb454c0e6414d46e",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/kista/index.html": {
+      "before": "20cd75c9ca0803f39a82b58c94540bba53d2a3a670feff4cff69f48479e83e4c",
+      "after": "47a7113fe5c3889fee4fd0d1883477f314b6d9ebcea0e5634c570f41015a3220",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/periodontit/index.html": {
+      "before": "a5432f64388ea727a25afc8154fbedc1c3bbf88c27ce6fb512b8c6269a45c82f",
+      "after": "e9db42615f514734afdbc62fd66c2e6e6b81c04c2edc1f25b0b5b7e6cb63cb7f",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/pulpit/index.html": {
+      "before": "ea728e829c6b92acd51b1c625cf3c273720b812f3763fd922e9b3e049c3359f8",
+      "after": "fa34c1003d492bb8269caf450b98b92970aa719eef77fa3c7e0d498dcdb7b252",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html": {
+      "before": "88fe6b9193583b5155438f9ae2b1e324728f860ce074625dcb9d896b322d40f1",
+      "after": "5996cecb459af9bcfa57ba5d9dd867bac4baa0a54b8f864a5098b123fcf9876a",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/zuby-mudrosti/index.html": {
+      "before": "8305ae9e4266bfd74f17758720aa20890f6393befb027d255d1c7a5ae1a95cff",
+      "after": "3936fbf97d74744746e6cfcb4ff3e0369d4df6bff7e42b595da380a7a96499f7",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/miofascialnaya-terapia/index.html": {
+      "before": "6dcdf4587a10268462955ef14512a848757559ae22b74282d47a8b1e28712ffe",
+      "after": "2e8e8f11c268ce95580abc1386c9b90c3840d1221f5775b30d2b9d2180d00c71",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/miofascialnyy-massazh/index.html": {
+      "before": "59d1b25b856895d77f1b99d2686288c56e708352c430b72e8646e5c522c46010",
+      "after": "e46c1456616d5b66789c7c8548f4c75e6ce2d4834a53b4b26f5aa3d8b011c381",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/miofunkcionalnaya-terapiya/index.html": {
+      "before": "f2a7cf5c396059fc0242f47b3eb658dd7cd29a1c346b2beeac45f26041fa7d95",
+      "after": "3de41838576263b3e98b3553657d12e8e0d86c8fc3b3113559fffc3e811be6ae",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/neyropsihologia/index.html": {
+      "before": "b1090f55c07881a26702c44e60809c1864057df460de585a0adc9aec67d6f611",
+      "after": "bac303e1c2c0d1b0cd40ce494b2abd85f4816be790b59546b34dd7fc281d711e",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/nutriciologiya/index.html": {
+      "before": "ad6664f5547857d09a9523b04096678f7e58ee09f52facab0ef3b672ece6f5a0",
+      "after": "acf57151da6a079f860d8edf15fb5b9096bb346fec6ecd91903ee8847da9be03",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/orthodontics/index.html": {
+      "before": "a0bdcebce6259c4f32ab0da660a2e9971794b95e5b50781323ea5baddbee2dd7",
+      "after": "77450135b0c0ce7086f53dc353b25d9696898bb387666d436b3fece9302d8d9e",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/ortopedicheskie-stelki/index.html": {
+      "before": "8f2806c4535bf50f39d60db625923ffb427f71e0a6954c9016278d4124bca9e5",
+      "after": "50bc36431fc74727d54f12929662d2a4b3285d639ab02b8f9dfef36e0106acc5",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/osteopatiya/index.html": {
+      "before": "bb432540fe6eaf818db7490d24b21ea47cc92fcd7b32cb775c0913420df03a41",
+      "after": "adfdeb0b13f2ade3aa99b035edce2d034478639448610be3b50cb97515b484e3",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/preventivnaya-medicina/index.html": {
+      "before": "3699cf630d6cb0741765d311422fecf7376e12bb47081548bc9006e5dd1637d6",
+      "after": "ef7da23f780cc40343bcdc941340553cd77e2bb359fb4ab30fae6fd95c1b7eea",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/index.html": {
+      "before": "eab5037b87b2e74aabaaa1784861b39f42950f35e0c335fd8312fbd671515d31",
+      "after": "7c0492e3666319acd8aaea96bc6af8aa162a7cf918ff4b8e3e55c0a154615385",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/index.html": {
+      "before": "540fb62fd67dc7f7c8fecdb5a2dd2d9b829181192e47439fc9bf95a37b8ae1d0",
+      "after": "9e61b36725b776092db80d3ce9448b14cde20949b7bde265d29aebe9625f85cf",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/keramicheskie/index.html": {
+      "before": "15de93d9b9abfa4373f6373077603655b0f74cd6ab4f776594cf1e72ed4012fc",
+      "after": "9c7a83f8b2dac596cad48e03c1d342e2cf07fbde38e172a83e6de06c7179a41a",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/kompozitnye/index.html": {
+      "before": "f132439d5aaf949641601d228a12b9b980f68d9fb96bfcf13d5c0b7d192a5c6e",
+      "after": "df918b073020e18abdaab7ce3bbf7dfc82a3e70ea2b3ebe056f089c407dc97bd",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/mostovidnyy-protez/index.html": {
+      "before": "480e1a1457426f7767377a0aa9041c585990c50cccabed5a03acd9a7063dcd73",
+      "after": "5eefe0c7a19466735ea9cfa9dd92fa251b99416682cc2f983248fa7ac7d75c28",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/viniry/index.html": {
+      "before": "639a06a6d35e8be7d79dbae2f2870d933e3239b48c0fde46c53ff6bfea4b943b",
+      "after": "4195cc63941c8e8976d71685b1799765ab5c5f9a76200dcb6f359b2b196defc3",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/terapia/index.html": {
+      "before": "d00e1af2017a3d196b52fb4bd2f5fbea4efa93dcc077d5478069aca5dd056515",
+      "after": "6f802df703751bdbe6aaa3f5cfa2818618bf163309745a1ce63ad712cdc80425",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslygi/index.html": {
+      "before": "db27399d3a266209162451c3b8314c5b46abf170ebe0e872f748a33da806e867",
+      "after": "90d4aae5c279704d485c35a930825a0fab41a795b98adf555b1040b0de5f8832",
+      "replacements": [
+        [
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a></div></details>",
+          "<a href=\"/uslugi/preventivnaya-medicina\">Превентивная медицина</a><a href=\"/uslygi/\">Все направления</a></div></details>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\">Направления</div></div>",
+          "<div id=\"visual-2489767221-1648032612904\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslygi/\" style=\"color:inherit\">Направления</a></div></div>",
+          1
+        ],
+        [
+          "</head>",
+          "<style id=\"az-directions-catalog-style\">\n.az-directions-catalog{padding-bottom:60px}\n.az-directions-catalog ul{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;list-style:none;margin:0;padding:0}\n.az-directions-catalog li{min-width:0}\n.az-directions-catalog .az-direction-card{display:flex;align-items:center;gap:20px;min-height:150px;height:100%;padding:24px;border:1px solid #dce8f2;border-radius:10px;background:#fff;box-shadow:0 2px 8px #000b3026}\n.az-directions-catalog .az-direction-card:hover{border-color:#2080c4;background:#f2f8fd}\n.az-directions-catalog img{display:block;width:48px;height:48px;flex:none;object-fit:contain}\n.az-directions-catalog h2{min-width:0;font-size:20px;font-weight:600;line-height:1.35;margin:0;overflow-wrap:anywhere}\n@media(max-width:959px){.az-directions-catalog ul{grid-template-columns:repeat(2,minmax(0,1fr))}}\n@media(max-width:639px){.az-directions-catalog ul{grid-template-columns:minmax(0,1fr);gap:14px}.az-directions-catalog .az-direction-card{min-height:120px;padding:20px;gap:16px}.az-directions-catalog img{width:40px;height:40px}.az-directions-catalog h2{font-size:18px}}\n</style></head>",
+          1
+        ],
+        [
+          "<section class=\"container content-section\"></section><section class=\"container content-section\"></section>",
+          "<section class=\"container content-section az-directions-catalog\" aria-label=\"Направления клиники\"><ul><li><a class=\"az-direction-card\" href=\"/uslugi/functional_dentistry/\"><img src=\"/assets/30299ba903fd9c7517b3.svg\" alt=\"\" width=\"48\" height=\"48\"><h2>Функциональная стоматология</h2></a></li><li><a class=\"az-direction-card\" href=\"/uslugi/osteopatiya/\"><img src=\"/assets/15e2d44f0157a515db97.svg\" alt=\"\" width=\"48\" height=\"48\"><h2>Остеопатия</h2></a></li><li><a class=\"az-direction-card\" href=\"/uslugi/miofascialnaya-terapia/\"><img src=\"/assets/6ee884df24e48ba85fdd.svg\" alt=\"\" width=\"48\" height=\"48\"><h2>Миофасциальная терапия</h2></a></li><li><a class=\"az-direction-card\" href=\"/uslugi/gastroenterologiya/\"><img src=\"/assets/b060acc3dfeea870ab98.svg\" alt=\"\" width=\"48\" height=\"48\"><h2>Гастроэнтерология</h2></a></li><li><a class=\"az-direction-card\" href=\"/uslugi/nutriciologiya/\"><img src=\"/assets/2fa5dbdfb4f891fa7d4a.svg\" alt=\"\" width=\"48\" height=\"48\"><h2>Клиническая нутрициология и генетика</h2></a></li><li><a class=\"az-direction-card\" href=\"/uslugi/preventivnaya-medicina/\"><img src=\"/assets/8bd7d0a7b055a94ef022.svg\" alt=\"\" width=\"48\" height=\"48\"><h2>Превентивная медицина</h2></a></li></ul></section>",
+          1
+        ]
+      ]
+    }
+  },
+  "protected": {
+    "sitemap.xml": "7d25e8f24835ef0772c360356f8ee9c350921cb602b155d836713e00b05b40a2",
+    "fonts.css": "3d16ea7238b58a5cf0904098ad236aa6be0b3facccf3a53009af08fcceedce6c",
+    "robots.txt": "9a93da66b2f7b9bc05ad7429409692dff442b3bf8f988f2937ae21ad9cf6744f",
+    "site.js": "190dba2936bc2def347a43e94b81e6fe226ee77ae38220db9e4790a17c355361",
+    "404.html": "3fbe5b62b98d38eb325d3b99d47a42fd9d90fdda29ba4ae2002ceab128cab21d",
+    "assets/az-doctor-cards-20261013.css": "5813a1e65ce1ececfddb2d11dc6669cff3f61e16390b1b01cf870a512b3e62a0",
+    "assets/az-doctor-cards-wrap-20261013.css": "b3504521129c394bb669fbc4e420ed6e86c4ed9193b1390a1ee3315dadeeec9a",
+    "assets/az-mozharova-approved-20261013.jpg": "621542c5ea7b609752813c546548d270d4f1848370eb1901387d48882fa98e4c",
+    "layouts.css": "66d78398182263a458236c439c1a098fc8390539c7d45511d9240bd54f1a3a71",
+    "assets/4d67d8e3617de3463719.jpg": "173ab0e4c1ad9b2f86af7545077bdcf1bde17ec73b5d46ad46253cfc3559928f",
+    "assets/ae539bb9ce3fbc525200.png": "79fb247028b4667e1da2316b9618a512e482bab6ea917507162658cae913f464",
+    "site.css": "8b2adf1b395ce968f1f116fac27b9a559d7d42265d1686737ec21dc4590406c9",
+    "assets/2eb303492fc4afc1e2bc.png": "fad27a52d50d0e7bb74f40ca28841adf1e3525421d111f197afd5599fc03f29c",
+    "assets/70329c1fef56d8a8eb37.png": "cbfd46c34d4b110a1e4fcbb69375eb4dcb970d35dd994ad8d6cd57e6a6da91d7",
+    "patient/dogovor/AZ_Contract_Sample_Approval_20261015.pdf": "9d89e03a3137a305199181faaaf115bc48c9ce43d689142da624e29fcd7fa356",
+    "assets/30299ba903fd9c7517b3.svg": "56b0d23f22779f58462a2d639983c9872fd25281547a7fcff8b83fecefdf3cd5",
+    "assets/15e2d44f0157a515db97.svg": "fbbcd0ecb6b712770fefb1a7c1148662c71eaadbacb118da0805a050a020a15a",
+    "assets/6ee884df24e48ba85fdd.svg": "834198bf9e56cedf3e8d35fd3346bb6051c2ad33fb981dc2922a9d0a29d600a5",
+    "assets/b060acc3dfeea870ab98.svg": "bacb9ce503c878b6f001e2ec319531d90f4c22f5b6c8ac5ab95c64bcf1878848",
+    "assets/2fa5dbdfb4f891fa7d4a.svg": "1aed8ef96c5e9bc929f7987a5880c0717bd7b3331ddf8badafb6aa8a645c89a3",
+    "assets/8bd7d0a7b055a94ef022.svg": "b825c938f7432396bb281ce9b5af3e223f7b2d560f4ec9b780b1adfb6ed85981"
+  },
+  "absent": [
+    "team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html",
+    "team/tproduct/338106745633-palunin-vladislav-andreevich/index.html",
+    "team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html"
+  ],
+  "redirects": [
+    "/team/tproduct/834140634503-kazantsev-leonid-evgenevich",
+    "/team/tproduct/834140634503-kazantsev-leonid-evgenevich/",
+    "/team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html",
+    "/team/tproduct/338106745633-palunin-vladislav-andreevich",
+    "/team/tproduct/338106745633-palunin-vladislav-andreevich/",
+    "/team/tproduct/338106745633-palunin-vladislav-andreevich/index.html",
+    "/team/tproduct/392688125713-mozharova-ekaterina-sergeevna",
+    "/team/tproduct/392688125713-mozharova-ekaterina-sergeevna/",
+    "/team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html"
+  ]
+}
