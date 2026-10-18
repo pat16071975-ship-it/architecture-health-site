@@ -1,0 +1,19 @@
+{
+  "checks": [
+    "success:PASS",
+    "file-drift:PASS",
+    "protected-drift:PASS",
+    "https-failure:PASS",
+    "redirect-failure:PASS",
+    "source-and-live-content-preservation:PASS"
+  ],
+  "scope": {
+    "changed_html": 5,
+    "protected": 105,
+    "redirects": 9
+  },
+  "limitations": [
+    "HTTPS callbacks are simulated here; installer checks real server HTTPS.",
+    "Four runtime-only legacy photos use fixture bytes here; installer snapshots actual server bytes."
+  ]
+}
