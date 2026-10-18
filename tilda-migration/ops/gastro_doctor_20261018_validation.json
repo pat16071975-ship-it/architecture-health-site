@@ -15,5 +15,47 @@
   "limitations": [
     "HTTPS callbacks are simulated here; installer checks real server HTTPS.",
     "Four runtime-only legacy photos use fixture bytes here; installer snapshots actual server bytes."
+  ],
+  "external_before": {
+    "resources_pass": 109,
+    "resources_total": 109,
+    "redirects_pass": 9,
+    "image_dependency_sha256": "cec69637b64ce2575359edd8820f3775e38519eeafc20aa20832c8107f77effd"
+  },
+  "browser_preview": {
+    "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/50eb6054d4057c83d661058eeeb22fea5e426101/tilda-migration/ops/previews/gastro-doctor-20261018.html",
+    "actual_widths": [
+      320,
+      390,
+      430,
+      640,
+      900,
+      1280
+    ],
+    "client_widths": [
+      305,
+      375,
+      415,
+      625,
+      885,
+      1265
+    ],
+    "horizontal_overflow": false,
+    "card_text_overflow": false,
+    "card_overlap": false,
+    "body_font_px": 16,
+    "booking_button_height_px": 48.796875,
+    "price": "4 500 ₽",
+    "visual_check_mobile_390": "PASS",
+    "profile_click": "PASS: actual Lyubaeva profile with 4500 RUB",
+    "booking_click": "PASS: new tab with Medflex clinic list; Lyubaeva gastroenterologist 4500 RUB visible",
+    "appointments_submitted": 0,
+    "production_acceptance": "PENDING_OWNER_INSTALL"
+  },
+  "preservation": [
+    "Only one live HTML changes",
+    "Existing HTML restored exactly by inverse replacements",
+    "Two page-specific consultation links lead to the new doctor block",
+    "Existing header modal, prices, original media, documents, contacts, canonical, shared CSS/JS and server configuration unchanged"
   ]
 }
