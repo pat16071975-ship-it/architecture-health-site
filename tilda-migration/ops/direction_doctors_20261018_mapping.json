@@ -1,0 +1,230 @@
+{
+  "profiles": {
+    "zubachev-roman": [
+      "Зубачев Роман Николаевич",
+      "Функциональный стоматолог, ортодонт, ортопед",
+      "Прикус и сложные патологии ВНЧС; детская ортодонтия.",
+      "Первичный приём",
+      "от 12 000 ₽",
+      true
+    ],
+    "nazirov-uktamjon": [
+      "Назыров Уктамжон Жумавоевич",
+      "Врач-стоматолог-ортопед, гнатолог",
+      "Нарушения прикуса, дисфункция ВНЧС, протезирование зубов.",
+      null,
+      null,
+      true
+    ],
+    "bosak-yana": [
+      "Босак Яна Сергеевна",
+      "Врач-стоматолог-ортодонт",
+      "Исправление прикуса у детей и взрослых; брекеты, элайнеры и функциональные аппараты.",
+      "Приём",
+      "от 3 000 ₽",
+      true
+    ],
+    "chirkov-maxim": [
+      "Чирков Максим Сергеевич",
+      "Врач-стоматолог-терапевт",
+      "Лечение зубов, реставрации, эндодонтия и профессиональная гигиена.",
+      null,
+      null,
+      false
+    ],
+    "movseyan-babken": [
+      "Мовсесян Бабкен Ашотович",
+      "Врач-стоматолог-терапевт",
+      "Терапевтическая стоматология, лечение зубов под микроскопом.",
+      null,
+      null,
+      true
+    ],
+    "rumyantseva-maria": [
+      "Румянцева Мария Павловна",
+      "Стоматолог-терапевт, детский врач-стоматолог",
+      "Терапевтическая стоматология, профессиональная гигиена и реставрации.",
+      null,
+      null,
+      false
+    ],
+    "golishenkov-vladislav": [
+      "Голышенков Владислав Александрович",
+      "Врач-стоматолог-хирург",
+      "Удаление зубов, имплантация, костная и мягкотканная пластика.",
+      null,
+      null,
+      true
+    ],
+    "lapina-natalia": [
+      "Лапина Наталья Сергеевна",
+      "Миофункциональный терапевт, немедицинский специалист",
+      "Логопедия и миофункциональная коррекция.",
+      null,
+      null,
+      true
+    ],
+    "holodtseva-valeria": [
+      "Холодцева Валерия Евгеньевна",
+      "Миофункциональный терапевт, немедицинский специалист",
+      "Речевые и миофункциональные нарушения: глотание, жевание и дыхание.",
+      null,
+      null,
+      false
+    ],
+    "starostenko-vadim": [
+      "Старостенко Вадим Анатольевич",
+      "Врач-остеопат, заведующий отделением структуры",
+      "Остеопатия и мануальная медицина для взрослых и детей.",
+      "Первичный приём",
+      "7 500 ₽",
+      true
+    ],
+    "dimitrenko-anna": [
+      "Димитренко Анна Яковлевна",
+      "Врач-остеопат",
+      "Остеопатия, подиатрия и мануальная терапия.",
+      "Первичный приём",
+      "6 000 ₽",
+      true
+    ],
+    "mamontova-lubava": [
+      "Мамонтова Любава Геннадьевна",
+      "Медицинская сестра по массажу",
+      "Миофасциальный массаж тела, лица и головы.",
+      "Первичный приём",
+      "4 500 ₽",
+      true
+    ],
+    "pavlova-anna": [
+      "Павлова Алла Викторовна",
+      "Научный консультант по метаболизму, немедицинский специалист",
+      "Анализ питания, биохимических и генетических исследований; рекомендации по питанию и образу жизни.",
+      "Первичная консультация, 1,5 часа",
+      "25 000 ₽",
+      true
+    ],
+    "lubaeva-alena": [
+      "Любаева Алена Юрьевна",
+      "Врач-терапевт превентивной и антивозрастной медицины, врач-гастроэнтеролог",
+      "Консультация терапевта и индивидуальные рекомендации.",
+      "Первичный приём терапевта",
+      "4 500 ₽",
+      true
+    ]
+  },
+  "pages": {
+    "functional_dentistry": {
+      "title": "Функциональная стоматология",
+      "heading": "Врачи и специалисты направления",
+      "groups": [
+        [
+          "Прикус и ВНЧС",
+          [
+            "zubachev-roman",
+            "nazirov-uktamjon",
+            "bosak-yana"
+          ]
+        ],
+        [
+          "Лечение и восстановление зубов",
+          [
+            "chirkov-maxim",
+            "movseyan-babken",
+            "rumyantseva-maria",
+            "golishenkov-vladislav"
+          ]
+        ],
+        [
+          "Миофункциональная коррекция",
+          [
+            "lapina-natalia",
+            "holodtseva-valeria"
+          ]
+        ]
+      ],
+      "anchor": "<nav class=\"container content-section az-dental-links\""
+    },
+    "osteopatiya": {
+      "title": "Остеопатия",
+      "heading": "Врачи и стоимость приёма",
+      "groups": [
+        [
+          "",
+          [
+            "starostenko-vadim",
+            "dimitrenko-anna"
+          ]
+        ]
+      ],
+      "anchor": "<nav class=\"container content-section az-service-links\""
+    },
+    "miofascialnaya-terapia": {
+      "title": "Миофасциальная терапия",
+      "heading": "Специалист и стоимость приёма",
+      "groups": [
+        [
+          "",
+          [
+            "mamontova-lubava"
+          ]
+        ]
+      ],
+      "anchor": "<nav class=\"container content-section az-service-links\""
+    },
+    "nutriciologiya": {
+      "title": "Клиническая нутрициология и генетика",
+      "heading": "Специалист и стоимость консультации",
+      "groups": [
+        [
+          "",
+          [
+            "pavlova-anna"
+          ]
+        ]
+      ],
+      "anchor": "<section class=\"container content-section\"><div class=\"prose\"><ul><li>Сбор анамнеза"
+    },
+    "preventivnaya-medicina": {
+      "title": "Превентивная медицина",
+      "heading": "Врач и консультант направления",
+      "groups": [
+        [
+          "",
+          [
+            "lubaeva-alena",
+            "pavlova-anna"
+          ]
+        ]
+      ],
+      "anchor": "<nav class=\"container content-section az-service-links\""
+    }
+  },
+  "source_hashes": {
+    "uslugi/functional_dentistry/index.html": {
+      "before": "be5209da4fac76b8a3e80119d862e34b14c35fcf3846b3073998822415188020",
+      "after": "f7ca002eee6189bffac1947517051fce515040c35f4eb735721f9083e499b0a1"
+    },
+    "uslugi/osteopatiya/index.html": {
+      "before": "01b2199e5f9170393dfe3e4fdf8e71325d4d116910be7e147237681589d2a5df",
+      "after": "08403aba19a951a3ca3691bd32b6d24178c57a17f01f2aabd9744760648ab745"
+    },
+    "uslugi/miofascialnaya-terapia/index.html": {
+      "before": "16bc0d1ee9be7fbf7898d98a9d3fd6beebdde61303942a31661faf8b56abe2f9",
+      "after": "e6f92a8a450ef49a3f20f1438ab1124bfb15fc03dfaf09e44c51a92a9231e3c3"
+    },
+    "uslugi/nutriciologiya/index.html": {
+      "before": "29ca4f5124b3befae276c501e45479accd4d854e64b9af4982d5820a20b61f29",
+      "after": "e61a45e09214d57c6939e4ac93bbe848d73eff66b15877e14b26ba113cdb7360"
+    },
+    "uslugi/preventivnaya-medicina/index.html": {
+      "before": "d21b8f125e979696774b61cb7bbc338b30fc4647417785e09df02ddf7e07da92",
+      "after": "99695fd8f01f5324379d5e3c52d2ee61a1c7fe85f3771e66592053ec360dedfa"
+    }
+  },
+  "numeric_price_cards": 8,
+  "price_profile_links": 7,
+  "scope": "Five main directions only. Existing profile prices, photos, text and all other content preserved.",
+  "price_rule": "For seven dental/myofunctional profiles whose promotional amount is not reconciled with booking, show a direct link to existing profile prices instead of inventing or changing a numeric price.",
+  "booking_rule": "Existing general Medflex list, explicit selection hint and clinic phone fallback. Three specialists absent from current list have phone booking."
+}
