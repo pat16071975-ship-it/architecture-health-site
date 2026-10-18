@@ -15,5 +15,113 @@
   "limitations": [
     "HTTPS callbacks are simulated here; installer checks real server HTTPS.",
     "Four runtime-only legacy photos use fixture bytes here; installer snapshots actual server bytes."
-  ]
+  ],
+  "page_checks": [
+    {
+      "page": "functional_dentistry",
+      "cards": 9,
+      "header_images_scripts_canonical_preserved": true,
+      "profile_and_booking_targets": true,
+      "exact_inverse_transform": true
+    },
+    {
+      "page": "osteopatiya",
+      "cards": 2,
+      "header_images_scripts_canonical_preserved": true,
+      "profile_and_booking_targets": true,
+      "exact_inverse_transform": true
+    },
+    {
+      "page": "miofascialnaya-terapia",
+      "cards": 1,
+      "header_images_scripts_canonical_preserved": true,
+      "profile_and_booking_targets": true,
+      "exact_inverse_transform": true
+    },
+    {
+      "page": "nutriciologiya",
+      "cards": 1,
+      "header_images_scripts_canonical_preserved": true,
+      "profile_and_booking_targets": true,
+      "exact_inverse_transform": true
+    },
+    {
+      "page": "preventivnaya-medicina",
+      "cards": 2,
+      "header_images_scripts_canonical_preserved": true,
+      "profile_and_booking_targets": true,
+      "exact_inverse_transform": true
+    }
+  ],
+  "baseline": {
+    "resources_pass": 110,
+    "redirects_pass": 9,
+    "source": "fresh external read 2026-10-18 after PR127"
+  },
+  "browser": {
+    "preview_commit": "1448aa4eb5b168c2fc0d94d48f1f20c837cbd7b4",
+    "widths": {
+      "functional_dentistry": [
+        320,
+        360,
+        390,
+        430,
+        640,
+        900,
+        1280
+      ],
+      "osteopatiya": [
+        320,
+        390,
+        640,
+        900,
+        1280
+      ],
+      "miofascialnaya-terapia": [
+        320,
+        390,
+        640,
+        900,
+        1280
+      ],
+      "nutriciologiya": [
+        320,
+        390,
+        640,
+        900,
+        1280
+      ],
+      "preventivnaya-medicina": [
+        320,
+        390,
+        640,
+        900,
+        1280
+      ]
+    },
+    "content_font_px": 16,
+    "minimum_button_height_px": 48.796875,
+    "card_and_neighbor_overlap": false,
+    "page_horizontal_scroll": false,
+    "narrow_group_heading_fix": {
+      "commit": "3f0ed42e570977bf6ac19ebc3202c47bda581b93",
+      "rechecked_width": 320,
+      "client_scroll_width": 305,
+      "element_overflow": []
+    },
+    "visual_review": [
+      "functional_dentistry 320",
+      "functional_dentistry 1280",
+      "preventivnaya-medicina 390"
+    ],
+    "live_acceptance": "pending owner installation",
+    "interaction_checks": {
+      "profile_click": "https://azmednsk.ru/team/nazirov-uktamjon/",
+      "profile_name_and_price_visible": true,
+      "booking_click_new_tab": "https://booking.medflex.ru/?user=e0c452bf7c5bc897e8b8c0782bcb16cb",
+      "booking_tab_title": "Онлайн-запись",
+      "phone_hrefs": "tel:+73832842421; validated, calls not placed",
+      "appointment_created": false
+    }
+  }
 }
