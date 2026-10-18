@@ -203,23 +203,23 @@
   "source_hashes": {
     "uslugi/functional_dentistry/index.html": {
       "before": "be5209da4fac76b8a3e80119d862e34b14c35fcf3846b3073998822415188020",
-      "after": "e5380c07b4a07854915e5fdbc0c156d632b0c293ed5f93705bff66e768bb960b"
+      "after": "f7ca002eee6189bffac1947517051fce515040c35f4eb735721f9083e499b0a1"
     },
     "uslugi/osteopatiya/index.html": {
       "before": "01b2199e5f9170393dfe3e4fdf8e71325d4d116910be7e147237681589d2a5df",
-      "after": "53ffd487fdf346294315d600f907b24c376862bc4d1c728f1062d7463eb394fe"
+      "after": "08403aba19a951a3ca3691bd32b6d24178c57a17f01f2aabd9744760648ab745"
     },
     "uslugi/miofascialnaya-terapia/index.html": {
       "before": "16bc0d1ee9be7fbf7898d98a9d3fd6beebdde61303942a31661faf8b56abe2f9",
-      "after": "f570f6244bd6e7b2a86cee884d46cfc128ac2be2da483086d1a355ff9eb3e02e"
+      "after": "e6f92a8a450ef49a3f20f1438ab1124bfb15fc03dfaf09e44c51a92a9231e3c3"
     },
     "uslugi/nutriciologiya/index.html": {
       "before": "29ca4f5124b3befae276c501e45479accd4d854e64b9af4982d5820a20b61f29",
-      "after": "b2f7982e8872df1fda065d898373d9b780715b33621d7ebf34c95beca520072e"
+      "after": "e61a45e09214d57c6939e4ac93bbe848d73eff66b15877e14b26ba113cdb7360"
     },
     "uslugi/preventivnaya-medicina/index.html": {
       "before": "d21b8f125e979696774b61cb7bbc338b30fc4647417785e09df02ddf7e07da92",
-      "after": "05ba66eee9ab6bd1cb48242166e914d9a25f0979b4c7658636149a73c50614cf"
+      "after": "99695fd8f01f5324379d5e3c52d2ee61a1c7fe85f3771e66592053ec360dedfa"
     }
   },
   "numeric_price_cards": 8,
