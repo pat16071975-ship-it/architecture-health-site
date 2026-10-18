@@ -5,7 +5,7 @@
   "files": {
     "uslugi/functional_dentistry/index.html": {
       "before": "c943a7fddd2ce7c1e1f63b5815bb2ef1ddcfcae58a012eceaa397a50e000a77e",
-      "after": "e4e4d86f4552541cba2aeba182d151179db9f673ce01b5b2753d53ea22bc9bc8",
+      "after": "3fed676c56a99b36deb6f94ed7a37d229d82819bd47349b00f6a57fa3e320113",
       "replacements": [
         [
           "</head>",
@@ -21,17 +21,12 @@
           "href=\"#booking\">Записаться на консультацию</a>",
           "href=\"#az-direction-doctors\">Записаться на консультацию</a>",
           2
-        ],
-        [
-          "href=\"#booking\">Записаться на приём</a>",
-          "href=\"#az-direction-doctors\">Записаться на приём</a>",
-          1
         ]
       ]
     },
     "uslugi/osteopatiya/index.html": {
       "before": "b25b1051ce51300e066033ad2ca17bc655a655dd9c9d48d0097b21910d72c07d",
-      "after": "e6cb1856995874c9ab5829c915aa0fb3c840401cf6ab6cbf15db95dc552e58b3",
+      "after": "b0b18f79e2fab1f9a396eb41575d6d01bcd95ba23b99455a6419963d612eed66",
       "replacements": [
         [
           "</head>",
@@ -47,17 +42,12 @@
           "href=\"#booking\">Записаться на консультацию</a>",
           "href=\"#az-direction-doctors\">Записаться на консультацию</a>",
           2
-        ],
-        [
-          "href=\"#booking\">Записаться на приём</a>",
-          "href=\"#az-direction-doctors\">Записаться на приём</a>",
-          1
         ]
       ]
     },
     "uslugi/miofascialnaya-terapia/index.html": {
       "before": "3ba313421db95e0ddff1fbb3b89f3c77a9421586b553540ed2eafaa8fce7b341",
-      "after": "b82d01e21b74feea866eefb6e852160da8b816921672b3fc1f83f76f63d7f34a",
+      "after": "f7605bc0dbd4a7bcbf5b4327da287a1f1c417b2c7ff8697cc211b248751abbfe",
       "replacements": [
         [
           "</head>",
@@ -73,17 +63,12 @@
           "href=\"#booking\">Записаться на консультацию</a>",
           "href=\"#az-direction-doctors\">Записаться на консультацию</a>",
           2
-        ],
-        [
-          "href=\"#booking\">Записаться на приём</a>",
-          "href=\"#az-direction-doctors\">Записаться на приём</a>",
-          1
         ]
       ]
     },
     "uslugi/nutriciologiya/index.html": {
       "before": "8a2e54dd5963036ec0ea6ced51b7bf4d0cdaf8cf764096da39d04cb63fae7496",
-      "after": "bdc98ebfeb108258f1e43bf52903c17a8815e156131d9a3fe46487c91b1ef96c",
+      "after": "3c2b63d12b42cca816a1c87f55f82a8ba13428366adbd1d58b6468f8c3c56bcc",
       "replacements": [
         [
           "</head>",
@@ -96,15 +81,15 @@
           1
         ],
         [
-          "href=\"#booking\">Записаться на приём</a>",
-          "href=\"#az-direction-doctors\">Записаться на приём</a>",
-          2
+          "<a class=\"visual-inner\" href=\"#booking\">Записаться на приём</a>",
+          "<a class=\"visual-inner\" href=\"#az-direction-doctors\">Записаться на приём</a>",
+          1
         ]
       ]
     },
     "uslugi/preventivnaya-medicina/index.html": {
       "before": "97040d39762f205f2041e46fc023eb3fcf129b67c956bdfaf36901253a961242",
-      "after": "afc7c925a6bce0883dd92eb848bffb62493b8bef21a8163944a5a2422ecb9255",
+      "after": "6c40dd84d98e758e2233e452e679016dfe91a7627287725aa49d0d87428065b9",
       "replacements": [
         [
           "</head>",
@@ -117,9 +102,9 @@
           1
         ],
         [
-          "href=\"#booking\">Записаться на приём</a>",
-          "href=\"#az-direction-doctors\">Записаться на приём</a>",
-          2
+          "<a class=\"visual-inner\" href=\"#booking\">Записаться на приём</a>",
+          "<a class=\"visual-inner\" href=\"#az-direction-doctors\">Записаться на приём</a>",
+          1
         ]
       ]
     }
