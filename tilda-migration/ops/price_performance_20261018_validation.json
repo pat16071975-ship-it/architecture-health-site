@@ -1,0 +1,15 @@
+{
+  "checks": [
+    "success:PASS",
+    "hash-drift:PASS",
+    "nginx-test-failure:PASS",
+    "reload-failure:PASS",
+    "gzip-failure:PASS",
+    "https-failure:PASS",
+    "nginx-scope-existing-directives-idempotence:PASS",
+    "reversible-source-and-live-edits:PASS"
+  ],
+  "photos_note": "Seven real images compared separately; four runtime-only legacy photos use test fixture bytes. HTTPS and nginx process calls simulated in installer rehearsal. Production checks run on install.",
+  "html_changed": 8,
+  "protected": 94
+}
