@@ -1,0 +1,38 @@
+{
+  "checks": [
+    "success:PASS",
+    "hash-drift:PASS",
+    "nginx-test-failure:PASS",
+    "reload-failure:PASS",
+    "gzip-failure:PASS",
+    "https-failure:PASS",
+    "nginx-scope-existing-directives-idempotence:PASS",
+    "reversible-source-and-live-edits:PASS"
+  ],
+  "photos_note": "Seven real images compared separately; four runtime-only legacy photos use test fixture bytes. HTTPS and nginx process calls simulated in installer rehearsal. Production checks run on install.",
+  "html_changed": 8,
+  "protected": 94,
+  "browser_preview": {
+    "source_commit": "0f62f632abf19fc480f55686ca38cbb21232bbc6",
+    "preview_only": true,
+    "widths": [
+      320,
+      390,
+      430,
+      639,
+      640,
+      1316
+    ],
+    "mobile_font_px": 16,
+    "mobile_hero_overlap": false,
+    "horizontal_scroll": false,
+    "text_overflow": false,
+    "tablet_desktop_rules_inactive": true,
+    "note": "Actual wide iframe was capped at 1316px by the browser viewport. This is not production acceptance. Production booking script disabled in preview."
+  },
+  "image_pixels": "All seven decoded RGBA buffers and ICC profiles match; originals kept byte-for-byte.",
+  "image_original_bytes": 11091309,
+  "image_variant_bytes": 7425706,
+  "css_original_bytes": 696234,
+  "css_local_gzip_level6_bytes": 46513
+}
