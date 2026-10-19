@@ -1,0 +1,30 @@
+{
+  "team/index.html": {
+    "before": "63c758fab4ed72f52b4e26cf36f0af583f7576ea86fa711f388739063c1b7eb0",
+    "after": "d67c375fe177776d13dc25ed00fe6d04da0e1762919c4ed0cfc8fd0e305b4ae5"
+  },
+  "o_nas/index.html": {
+    "before": "29d696a79361ed3978156d4565e297f22a6a631ccc2fe7647b1c2a4f23bf78a9",
+    "after": "4529aeabd1ab4f4c6241e7dd5ae8186ac11093562a1c21c4bec2732e957ded23"
+  },
+  "uslugi/functional_dentistry/index.html": {
+    "before": "2ed3f761f762bb30e578467faf70b4148c397e0c4a207773ee4a61d030222dff",
+    "after": "8d8fa5ea4cec2e1816250cc160bc08bb90e6adef7f176d93e5b281071ea19b87"
+  },
+  "uslugi/hygiene_prevention/index.html": {
+    "before": "2d20e3c063d85488a99ee89df347ac2c781ec32d1693c3575921764cea60fbc8",
+    "after": "896a11eaaaf8efa215a6264cc4b5cc717a67a75deeecd2d6644748876da95b4b"
+  },
+  "sitemap.xml": {
+    "before": "7d25e8f24835ef0772c360356f8ee9c350921cb602b155d836713e00b05b40a2",
+    "after": "d267dbd99836b85d05c57f577f20b87ec1806418d1bbdffdc800a710a3364b35"
+  },
+  "team/besedina-maria/index.html": {
+    "before": null,
+    "after": "d955a197a295005816230ae37d592ac4a53548ff4d19a2edff847100ce7595ad"
+  },
+  "team/rumyantseva-maria/index.html": {
+    "before": "d279cefa69b7046a864452a513760a46a926f57a165dd79ad5cf7f6f921bef3e",
+    "after": "67496cc66d38fd6d47b77c9e64545f2bc7d41249dbc1974e25e274301775967f"
+  }
+}
