@@ -1,0 +1,35 @@
+name: AZ knowledge same-path batch adoption
+on:
+  push:
+    branches: ['fix/az-knowledge-batch-adopt-*']
+    paths:
+      - 'az-baze-auth/deploy/knowledge_adopt_batch_item.py'
+      - 'az-baze-auth/deploy/test_knowledge_adopt_batch_item.py'
+      - '.github/workflows/az-knowledge-batch-adopt.yml'
+permissions:
+  contents: read
+jobs:
+  adopt-one:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Synthetic media test dependency
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+      - name: Syntax and isolated tests (no skipped tests)
+        working-directory: az-baze-auth/deploy
+        run: |
+          python -m py_compile knowledge_adopt_batch_item.py test_knowledge_adopt_batch_item.py
+          python - <<'PY'
+          import unittest
+          suite = unittest.TestLoader().loadTestsFromName('test_knowledge_adopt_batch_item')
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful() or result.skipped:
+              raise SystemExit(1)
+          print(f'ADOPTION_TESTS=PASS; TESTS={result.testsRun}; SKIPPED=0')
+          PY
