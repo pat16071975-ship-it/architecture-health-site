@@ -1,0 +1,34 @@
+name: AZ knowledge pilot batch export
+on:
+  push:
+    branches: ['feature/az-knowledge-batch-export-*']
+    paths:
+      - 'az-baze-auth/deploy/knowledge_export_batch.py'
+      - 'az-baze-auth/deploy/test_knowledge_export_batch.py'
+      - '.github/workflows/az-knowledge-export-batch.yml'
+permissions:
+  contents: read
+jobs:
+  export-batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Media test dependency
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+      - name: Syntax and all export tests (no skips)
+        working-directory: az-baze-auth/deploy
+        run: |
+          python -m py_compile knowledge_export_batch.py test_knowledge_export_batch.py
+          python - <<'PY'
+          import unittest
+          result = unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_knowledge_export_batch'))
+          if not result.wasSuccessful() or result.skipped:
+              raise SystemExit(1)
+          print(f'BATCH_EXPORT_TESTS=PASS; TESTS={result.testsRun}; SKIPPED=0')
+          PY
