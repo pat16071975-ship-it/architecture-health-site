@@ -1,0 +1,1283 @@
+{
+  "version": 1,
+  "purpose": "Compact existing lab gallery, activate two footer links and clarify the all-specialists filter",
+  "approved_at": "2026-10-19T09:53:56+07:00",
+  "files": {
+    "contacts/index.html": {
+      "before": "fabf3273fe71a644df5d827e1c73932f9bc71bacdd012bf683725c27cb56736e",
+      "after": "8291baa2b4f2e67a535a15638d86d153498c96c7b093307bed851898efbc715c",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "cookie/index.html": {
+      "before": "c760353f5b5d1c80c58640b6099562ce8c079e1c7e8669d48c804993baf530d4",
+      "after": "77b3d984be4db6e182a4dc17780ca3bae040d977c08505f74b9f7973e6abf833",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "index.html": {
+      "before": "7e78dc4a3f6b8a3c829915d4346c3b8ee227b7b4fa2db6386d696b2c5449e68a",
+      "after": "ebb2b6240dffc8f9f522883992bfbdf4ae890990dce40dff2faa80b61912cbf8",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/arhitektura-zdorovya/index.html": {
+      "before": "76ca2ceaedd80cd343d953ea1f9ffcddab0114b3f254bf7e1aaea67d38b60e13",
+      "after": "63c3e1c5c3f13d961684a68f6fa1685f363814635737e556f12b83efd3fd241e",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/index.html": {
+      "before": "b3143fffbaedcc51724a7d983f00312ceb5837e92833c4146667178353e470db",
+      "after": "897426df18b5590e112b31860d3b51f16907cc58a2a283831383d26c0eaf8cb8",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html": {
+      "before": "80006890a5a98c72b76799c993e0d0248043a096f2f924a5422ec50fc7ce69be",
+      "after": "fad6dba339f07dafb82c1913d98dcb376902ff5d14e85c7e84a3c50d4daab0fc",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "kompleks-uslugi/zdorovaya-spina/index.html": {
+      "before": "b54d2164c51ccae65f21d838ecbcadde07bc8ea7120b08b8d5cebbf84693c6c2",
+      "after": "5a174d880a0533944259993e33f21461c673773088cd8191d0fdd0cfb2b8ce41",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "lab/index.html": {
+      "before": "d6a5f36d3dcd334cf1cf97e6e123a2a513ef2d339e36fba1efae8d78dc705c03",
+      "after": "c26e75a7d2093fa837db8ea73a49b783e3ae131a8894238c4810d309f014ff10",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ],
+        [
+          "<section class=\"container content-section\"><h2> <strong>Аппараты, которые изготавливает лаборатория</strong> </h2><div class=\"prose\">PiPS</div><div class=\"prose\">PiPC</div><div class=\"prose\">SN-1</div><div class=\"prose\">SN-2</div><div class=\"prose\">SN-3</div><div class=\"prose\">SN-6</div><div class=\"prose\">SN-7</div><div class=\"prose\">SN-20</div><div class=\"prose\">SN-24</div><div class=\"prose\">RFA-2</div><div class=\"prose\">RFA-3</div><div class=\"prose\">RFA-4</div><div class=\"prose\">Bimler A</div><div class=\"prose\">PiPE</div><div class=\"prose\">Bracco</div><figure><img src=\"/assets/627a6678da217a070668.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/884ae21117bb3fae3c12.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/8a49e9c79c7db36e1c55.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/92986ac92e972699807a.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/82211b6490e811258c56.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/fa4721a6ab0226617eec.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/7ee1d062b54f725d8146.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/76c409ae3c329155a623.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/d7a79805c8ac1ddbda90.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/808ff83ece59202792de.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/9a0d120e4c54b991ed9b.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/6a25e20fe1bac69df899.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/8e9c6df311b2492e98d0.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/e3f8322ba1e45088cbb4.png\" alt=\"\" loading=\"lazy\"></figure><figure><img src=\"/assets/1a7a5bfae2f3b455f78a.png\" alt=\"\" loading=\"lazy\"></figure></section>",
+          "<section id=\"az-lab-gallery\" class=\"container content-section\" aria-labelledby=\"az-lab-gallery-title\"><h2 id=\"az-lab-gallery-title\">Аппараты, которые изготавливает лаборатория</h2><ul class=\"az-lab-models\"><li>PiPS</li><li>PiPC</li><li>SN-1</li><li>SN-2</li><li>SN-3</li><li>SN-6</li><li>SN-7</li><li>SN-20</li><li>SN-24</li><li>RFA-2</li><li>RFA-3</li><li>RFA-4</li><li>Bimler A</li><li>PiPE</li><li>Bracco</li></ul><p class=\"az-lab-gallery-hint\">Нажмите на изображение, чтобы рассмотреть аппарат в полном размере.</p><div class=\"az-lab-images\"><figure><a href=\"/assets/627a6678da217a070668.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 1 в полном размере\"><img src=\"/assets/627a6678da217a070668.png\" alt=\"Пример аппарата лаборатории Dental Lab — 1\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/884ae21117bb3fae3c12.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 2 в полном размере\"><img src=\"/assets/884ae21117bb3fae3c12.png\" alt=\"Пример аппарата лаборатории Dental Lab — 2\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/8a49e9c79c7db36e1c55.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 3 в полном размере\"><img src=\"/assets/8a49e9c79c7db36e1c55.png\" alt=\"Пример аппарата лаборатории Dental Lab — 3\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/92986ac92e972699807a.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 4 в полном размере\"><img src=\"/assets/92986ac92e972699807a.png\" alt=\"Пример аппарата лаборатории Dental Lab — 4\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/82211b6490e811258c56.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 5 в полном размере\"><img src=\"/assets/82211b6490e811258c56.png\" alt=\"Пример аппарата лаборатории Dental Lab — 5\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/fa4721a6ab0226617eec.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 6 в полном размере\"><img src=\"/assets/fa4721a6ab0226617eec.png\" alt=\"Пример аппарата лаборатории Dental Lab — 6\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/7ee1d062b54f725d8146.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 7 в полном размере\"><img src=\"/assets/7ee1d062b54f725d8146.png\" alt=\"Пример аппарата лаборатории Dental Lab — 7\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/76c409ae3c329155a623.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 8 в полном размере\"><img src=\"/assets/76c409ae3c329155a623.png\" alt=\"Пример аппарата лаборатории Dental Lab — 8\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/d7a79805c8ac1ddbda90.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 9 в полном размере\"><img src=\"/assets/d7a79805c8ac1ddbda90.png\" alt=\"Пример аппарата лаборатории Dental Lab — 9\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/808ff83ece59202792de.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 10 в полном размере\"><img src=\"/assets/808ff83ece59202792de.png\" alt=\"Пример аппарата лаборатории Dental Lab — 10\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/9a0d120e4c54b991ed9b.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 11 в полном размере\"><img src=\"/assets/9a0d120e4c54b991ed9b.png\" alt=\"Пример аппарата лаборатории Dental Lab — 11\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/6a25e20fe1bac69df899.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 12 в полном размере\"><img src=\"/assets/6a25e20fe1bac69df899.png\" alt=\"Пример аппарата лаборатории Dental Lab — 12\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/8e9c6df311b2492e98d0.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 13 в полном размере\"><img src=\"/assets/8e9c6df311b2492e98d0.png\" alt=\"Пример аппарата лаборатории Dental Lab — 13\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/e3f8322ba1e45088cbb4.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 14 в полном размере\"><img src=\"/assets/e3f8322ba1e45088cbb4.png\" alt=\"Пример аппарата лаборатории Dental Lab — 14\" loading=\"lazy\"></a></figure><figure><a href=\"/assets/1a7a5bfae2f3b455f78a.png\" target=\"_blank\" rel=\"noopener\" aria-label=\"Открыть изображение аппарата 15 в полном размере\"><img src=\"/assets/1a7a5bfae2f3b455f78a.png\" alt=\"Пример аппарата лаборатории Dental Lab — 15\" loading=\"lazy\"></a></figure></div></section>",
+          1
+        ],
+        [
+          "</head>",
+          "<style id=\"az-lab-gallery-20261019\">\n#az-lab-gallery{padding-block:28px 36px}\n#az-lab-gallery h2{font-size:clamp(24px,3vw,34px);line-height:1.25;overflow-wrap:break-word}\n#az-lab-gallery .az-lab-models{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0;margin:16px 0}\n#az-lab-gallery .az-lab-models li{font-size:16px;line-height:1.5;padding:5px 12px;border:1px solid #dce8f2;border-radius:6px;background:#f2f8fd}\n#az-lab-gallery .az-lab-gallery-hint{margin:0 0 16px;font-size:16px;line-height:1.5;color:#445462}\n#az-lab-gallery .az-lab-images{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}\n#az-lab-gallery figure{min-width:0;margin:0;border:1px solid #dce8f2;border-radius:10px;overflow:hidden;background:#fff}\n#az-lab-gallery figure a{display:flex;align-items:center;justify-content:center;padding:12px;aspect-ratio:4/3}\n#az-lab-gallery figure a:focus-visible{outline:3px solid #17699f;outline-offset:-3px}\n#az-lab-gallery figure img{display:block;width:100%;height:100%;object-fit:contain;margin:0}\n@media(max-width:639px){#az-lab-gallery .az-lab-images{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#az-lab-gallery figure a{padding:8px}#az-lab-gallery .az-lab-models{gap:6px}#az-lab-gallery .az-lab-models li{padding:4px 9px}}\n</style></head>",
+          1
+        ]
+      ]
+    },
+    "o_nas/index.html": {
+      "before": "ad48d44eadaa3fea7dbec387b3f28d04136d0010b766beb66ebedfa98c9684e5",
+      "after": "434042466ea9fc8731286962d15e1c6e59545ceb2ffbea005eca142869628d9e",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "otziv/index.html": {
+      "before": "efa1dc8a905f9c55cc7199f764ac197184d5fb7a64e11f34a30d433511ae4753",
+      "after": "c1b865f2a26ca09ec6f6cc245f301a1b9f2e828ff2b7d11f6a6d79ea17a40dfd",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/dogovor/index.html": {
+      "before": "6be73702a53dc21f4f78ccb674438f738376d632c2a790b70e9ef63f5d0eacc0",
+      "after": "847002317ea36b565cb8b23b5a5d8d0238bd98d067bf2c2c73aaef1d6f9b6b35",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/gosgarantii/index.html": {
+      "before": "2c93b3eb3ebdaa7956ef422adf9839addde58698cab39b9a3756bd17fc088fc2",
+      "after": "e6baebaab46aa849a3261bfbe870fccef93db14bdf1c4e54c57b352888278003",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/index.html": {
+      "before": "f5dbb8437f81596c5f179c1e5319eb4302a367c40a4189a5226271618c492ec9",
+      "after": "dac4ffafc4fafbf9a60f4e65108e3bfe03d2c74bb8b8bee30641b9ec2a1f54d4",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/licens/index.html": {
+      "before": "a2e66ee0155c3dcb810db71d274ae38e734a68782ebbcbeceaeca68fda385588",
+      "after": "6ded356d614678c7655ba86e1c95f0f24af194d7478112207939f3c48e8a6ced",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/patient-pravila/index.html": {
+      "before": "3c27b8b24796fceae1de2138d12bad8e4c1b894bcfbc252fc2fe60082bee11c6",
+      "after": "baf8e8e708cf13aafb8ff11876b761811b219098257c93382cb6732e6271a839",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/patient-rules/index.html": {
+      "before": "f8aa17dedf8fc6ac4e84fd12d920ce5c4e3e611985194192d2c190d1939d598c",
+      "after": "e1aec3bdd4b1af7c65b7bcb4e742e89662f016b529263ace4259474f529eb064",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/priem-patientov/index.html": {
+      "before": "2e862feaec378642a679bb54727dd2580b75278d3805b765852b740d9b21f87d",
+      "after": "06758bac2905503790308ebfb64e2a4a8779bcf1bb983620c3c9a55f72eddbaf",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/supervision/index.html": {
+      "before": "7acafd5dba4c4ee4f7893919bf66c47fd8870b34ad457c72e931f9c886819056",
+      "after": "246bc4d01b08ac7ea601f688fd93d13990d864a521ece34e8beddc3d5362df7e",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "patient/zhaloba/index.html": {
+      "before": "8f9c5de9d865a9f354efced2f3c8c022c360e17ae27386321da274ac7c5dc158",
+      "after": "230cf94cc6788858e962974d98531df6ddd1d87f68d94bac1aa8dc89acfb4b0f",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "politica/index.html": {
+      "before": "f5950dc15209df0993f164687e6cb8d1b871e67c93bef0da3849c4475c1d8144",
+      "after": "230d4472dde904b5c0e59b74832ccf8c3d8826261721ccca56c61ea9782d0982",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "politica-site/index.html": {
+      "before": "4f045caa1009f89a59d7557b1ce7dd3ef3ba86c724e832579e49160caad8095f",
+      "after": "3f1b38fa00a9f3ba6d733bab01345b4f71a7dfe46f288295f78d237b3c2cfcaa",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "rassrochka/index.html": {
+      "before": "398ea1a2ab04512d73d384da502cfd1d27ccffaa97444e329cbaa3ed7d0aadba",
+      "after": "085575ab217a751412c928e2b6c42ad132cddff8781334e46946fe5d60c68078",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/bosak-yana/index.html": {
+      "before": "2cac1e5b5bbb2daf038efbd14e907c84c8076b5d3d65c6e73c1bdaa9620a8767",
+      "after": "0e4b643f028404e134bf8c42c596f1d1d02a0b87fb4e844d907d31c1d02e367d",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/chirkov-maxim/index.html": {
+      "before": "133ac7b96482c72ccfec714ddd5438d5a48ec4b71a69e2117d0fcd38afb7dfcd",
+      "after": "529c5838f2ede42c4000c15cdacc5e103c468e3749755b4bbaf096227f725f85",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/dimitrenko-anna/index.html": {
+      "before": "24415803378e5a1d15bcb329edc3da06e7b824ceccda85d6511e1c57c3337806",
+      "after": "05709387383c4768aecd2d385420ff891eb48e8924bb003816e71924d0fd0f4a",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/golishenkov-vladislav/index.html": {
+      "before": "949adfcf28886a24629da60c175bf600ff69c0ed8e9d5f2ea6ca1a76ae6f7592",
+      "after": "52db58b389497ba59a2762828686924cf96dbfbeabff401adc6d87ac0a8ab129",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/holodtseva-valeria/index.html": {
+      "before": "3eb74e1eab216d65fdcfa69ca33a780edbf69128ea0f2caf5965c56d8138e6ab",
+      "after": "995a2c7a5f587f652c243e822b9e8a88e8021518091ddf8fa2650818d9ebe5bb",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/index.html": {
+      "before": "f33fedfde771b075c7181adddadb00a3adf32e49e7cbcb1ad78b38a6cee15d7f",
+      "after": "5750a7afd79bca21ff4772f6db9b80157588e4f8fef9a3b34be7d75f54113ad0",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ],
+        [
+          "aria-label=\"Направление врача\"",
+          "aria-label=\"Направление специалиста\"",
+          1
+        ],
+        [
+          "data-part=\"411967534983\" aria-pressed=\"true\">Врачи</button>",
+          "data-part=\"411967534983\" aria-pressed=\"true\">Все специалисты</button>",
+          1
+        ]
+      ]
+    },
+    "team/lapina-natalia/index.html": {
+      "before": "4a043baf83ee7fe497466c90ff53b56779fe832e4e4ce9e15f89bac55c754e2d",
+      "after": "266f8bf33a8ed0cc5c2d51134a5c76f6fcd480d9bc24905643d386e41fd704e2",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/lubaeva-alena/index.html": {
+      "before": "a6118277c9707fa9563cc4fbf1b5630a54b33fcb7834034de60d6a273bd46f2f",
+      "after": "b9f6d239d97246701a6be4600d7bea5e050ccc1ab7141a7bb8590cef23f7a0fd",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/mamontova-lubava/index.html": {
+      "before": "d66c0f39a7b0f1c5740f1c67ca109d17ff1f5a99218dabe0b3507655727a79c5",
+      "after": "77cde9d472051512a26d267576156d5ed0c7047a0e1ab153d1638f82ab9863cc",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/movseyan-babken/index.html": {
+      "before": "6c3fd0efc5175bc18050d74cc1c87b15b64b440dc3a3b5cdd87bfb44827129ec",
+      "after": "e89378398d22997f7fb6e864b614f663d572149aee2c5288d5f5070fdf30d2c3",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/nazirov-uktamjon/index.html": {
+      "before": "7ad6d72f55e825b191621f4c1cdd048659943ffc7092c63c971e1c60fd81cc33",
+      "after": "52b095a6c9f35bc9d130dcdeed1d3e544b7d62914e0740b3d90c2e117852a789",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/pavlova-anna/index.html": {
+      "before": "858ac0f2ed6ce748de522599877cc8594d2eb922dc10f8c060abbc5153e7a95d",
+      "after": "c45d5c9ea4c6e6899445d667db70f49b8745fd391c40eb5b820c1f9c4a3d4702",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/rumyantseva-maria/index.html": {
+      "before": "7c509a2bd2a4631996f4b4b1594ce398f6c59d093726352f2a12adcae1d4c54e",
+      "after": "8a4342734bb6048d020aeba3b6bb5379171b4c553a432f75c2255926bd057c22",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/starostenko-vadim/index.html": {
+      "before": "29de9bb3c078ad30d1d356f7cfe201a447c422568f3262cf61f7694f0b0ff408",
+      "after": "eaff676dcdbbc2436012b10a73bb18e18c9ad56d115ec4c2b9473a3e19df428d",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "team/zubachev-roman/index.html": {
+      "before": "b069dc46613be5dc6d41d843db1adc2153f45118ed0b927fef873a7527c1a681",
+      "after": "ec99d403ab68401336ebd407114cc605b85f73cd30b2fc4bfeabd97a0871cf5d",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "thank/index.html": {
+      "before": "da6fdd5003cc17bc37fce2595a56afebe94eacc72a3b38d31ff5253791cb92be",
+      "after": "74f01c6f290e54fc611f71cefae1c5682bf9987b05b141664989f1e3c1418d28",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/craniodontic/index.html": {
+      "before": "acbafffad6be055c1dae333017ee4efa4dbfb9509bd5aa5bd580fb4a41e7ce23",
+      "after": "d236b6301b3fc4d340b30547a3186d13c89ba766912d12726a597a93257799cb",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/diers-diagnostica/index.html": {
+      "before": "14127566e4bc13c69cb8e8ac0938e4dc976d3acfcbc2b17fd35df0381e609eb7",
+      "after": "3861ca5622482924eab4753d3d9ad2befc017399249376630cb34b85c4359bba",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/diers_research/index.html": {
+      "before": "0dca5c60ece0fad648ee2451ae115cfb9442cedb7e097daa59f7b6a4772a5af2",
+      "after": "9496effbfcde5d8c0760d23ef26ff5a1c60287b696f2259991d4c87f7338cd9b",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/doc_educate/index.html": {
+      "before": "a287b63e0136355c429414ab49b05c54b473ad977e60e6e21cea55a949f7c238",
+      "after": "3e299579cab2a9a674cccb949dab3d5e0c84418fcf3ee511c326c8e385ff8c3a",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/functional_dentistry/index.html": {
+      "before": "f83341c4c390ec88ee7b22f70516c23355e966de97bce43655152f16c123be4b",
+      "after": "d05559e374aa76fdfbe4821072bda0b01438c5d4057ffb2a9623326c9ebd1dd2",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/gastroenterologiya/index.html": {
+      "before": "766f6bd33e282c09888fe0899d6aace2a9b2f15ef3842538a00414e9090b0c4b",
+      "after": "8c4e15a2c9c91614d7b7dee68500071a8be58e4e82b56608b341a646fa4dd166",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/hygiene_prevention/index.html": {
+      "before": "f49f22612fd9d289c0dfdf5d8eca2101994eb373036abfc43b760d89dd91a109",
+      "after": "11b57a921047c29b3a19471444ddfdcab1851fba44f6c041143273d585dee15d",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html": {
+      "before": "46f3deaef969d1093b2549213b3f4187489b5dfc34e06759ff3cdac2b0da01ef",
+      "after": "63596682665523b041a9559afb3ae7056b27c38a9e2c35ae2689bd9042a0f5dd",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/iggt-terapiya/index.html": {
+      "before": "980ba61133a68ac8641249830484509cc8c4b87365d9ee90387e45d94753d28f",
+      "after": "5220982ef58d751a3b8459659da3972dd53797af9df2ec51505fa2956fe05bee",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/khirurgiya/implantaciya/index.html": {
+      "before": "d13bc6ab9579e61fd40b6f6dc44d65eda268d327eec99d9828f6a8c1089fd460",
+      "after": "e26bc93718434cdf9f2e440a1d8c9ae0cf101dbc0b5874e8dfe853d9015f1f9c",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/khirurgiya/index.html": {
+      "before": "78679f39cb5db408785c526dbda83fdee16862596fae3c02482b1eadec310e84",
+      "after": "a2cd8d92aa822b16a74a4d3bf23a9defe8bf15242711840d1f51b0b5fa1c2fd4",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/konsultatiya-stomatolog/index.html": {
+      "before": "5d24f29d87e75cbf8fbf13c0f92b62493ce8c2b1049bbd4e0ab814590618c9ba",
+      "after": "bc4e934c0c73474e14a8e96d976163966d9eeaa1a427f9f82ea2ec7f9cb21ddd",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html": {
+      "before": "3676b83d500e4f310a262d6dae545228ef040a3acf239fe319a9dbfd1bd7ad2a",
+      "after": "fa303c5818d84f765fded764d9e099af006b8f14f5e146652dce71041d1e69a2",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/index.html": {
+      "before": "615f8fb23f0e7f0e316b640100b811f0bf9675cf0ad89a087987d2a146d7caf1",
+      "after": "8fa8fe6f2ba53218cbee1c830b521ee445ebff19a10174e790e3e2d62346e8fb",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/karies/index.html": {
+      "before": "73089ae007ccd3eed7fee214b7c8e7ba541005fb04e03980c515d532191342d1",
+      "after": "8bf8a5bbd810a5cbeb4ab3d51955f0ab1280c759fb24692775b02d4cc34fafd2",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/kista/index.html": {
+      "before": "08a8646f1b7ef333ab1c5e2f3f5d40fdef045fd91d399fe3155650d4e5e0ca74",
+      "after": "2deea37ac9e79757afb692adb698fb1ca63d00be55fc68a2b9d5da9efebac4c2",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/periodontit/index.html": {
+      "before": "c5eb0d921b470d57435ce30c03bd72c2ebd78cce0c04de923f3c6187548ff6bb",
+      "after": "5812abce78f76300016fcd5b1bfe352b49778da6ed1171499bae709775e500d9",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/pulpit/index.html": {
+      "before": "7c5377f2c04d5e1d9484ba5e7139a760425aaf1702314a128110b822a898b438",
+      "after": "43ea42b9ae767a7c5f2e89a26259b57904770c62cecb7c3592bedd691cdb345a",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html": {
+      "before": "a0d06a6b854efb8f094a8fa1a83aaca03f4e5783b44d6aa143e47cc3cdfe0f67",
+      "after": "bcb76f0ff983d0637f5ddfbc637eceb4590a6790610869fc5dc575e11327bdb7",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/lechenie-zubov/zuby-mudrosti/index.html": {
+      "before": "9ab83357a86a6cca12cf1117390db5767305d49058c41eee91c98f7132b0bd3c",
+      "after": "a8a930f478d010ab7ab853460b645e620270c5e7ec56f4a2694e4f1aad8bf6cc",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/miofascialnaya-terapia/index.html": {
+      "before": "cfd55b28494ccc68ddc70456f8efb9850ff896057e04bab85423ead462ec143a",
+      "after": "70bcec320b49bc0c2730282bb92b76d52eb650486aef8c42c4a8d68624a92494",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/miofascialnyy-massazh/index.html": {
+      "before": "9a7fc4ac21bb1ac33967f20900e6d4c539389f557975c1c8b3a8af6f872ff820",
+      "after": "54bfaf882d683fdc4ce05acf49115747c763d18607add20c0d39d51a81ab3a61",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/miofunkcionalnaya-terapiya/index.html": {
+      "before": "7345bf0108eb6fc5d6cab42d056ad3717c88f9d9550a01a625ea67b4b87318f3",
+      "after": "c9ab2ab7315885b98c9554acb18821640dee2db342909223ebfef66f6a8f2699",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/neyropsihologia/index.html": {
+      "before": "cf371b7bea38f1764f30cc6e4ac34540db8b71ec4baa252cdab74dda912d029f",
+      "after": "04de60c98984b6de8b6b9f7a490c38fcc3b5935a110097b5e7a7e82b8544936a",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/nutriciologiya/index.html": {
+      "before": "5765e9294ce354195a8d9018d5510fc2762beca575d22a1f1a4549f783548973",
+      "after": "3f2e6d7dcae8470141038e2c16e0d7e994fa4a119013673352834b09247c7ea2",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/orthodontics/index.html": {
+      "before": "145496b1239b20e45f3054aa713d592f497b92d73851870602831db380dd052f",
+      "after": "3c23e42c61543dd2cfe1cbcaf89a32fc1957a2dd713f7022dc72a5becd40ae5e",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/ortopedicheskie-stelki/index.html": {
+      "before": "7e28a529c76024e395a575ffe93f213a4c0093977a12fdac8f53c826add5fd0c",
+      "after": "84d421df0d7ce15eca42f94b13c70aa4e74f4bfb210cd63eb3e12d9f76d26745",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/osteopatiya/index.html": {
+      "before": "4e7c6de83afa8258d68dd38666196f8624da960ceaae537a41c3ec66563ea802",
+      "after": "6bcdf755f73849d8feda37eb8f274a80bc22ffb4e7e0818cfb26117f626d8a63",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/preventivnaya-medicina/index.html": {
+      "before": "91931bac72693da2d9eca21bc5d38526b7287152d9ba5a11104a1a6013a82d21",
+      "after": "a4463e665019f945502098b70d92685e58bf02c19dd736c7c4ec01ee7c55d8d7",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/index.html": {
+      "before": "e130a00989af70801a6c02bc94b16e3c88c021b17ca2a3fd896c782d9a303b13",
+      "after": "8afda2eb809f5dcf849efff7d2548adf3a600555c39432ff987dbccc8f217508",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/index.html": {
+      "before": "003b20068edca112e1b81e35b1b218c0e9470accae2ae57539b3ceb2bd1f00b4",
+      "after": "b346677b601b2cfdd04260b5cd87f606fbc0050ac9e236868bb57efe1817eb6c",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/keramicheskie/index.html": {
+      "before": "b50e8cb1f30bc1d94d3eff215e052cc97fd6220c8a71993a0642235ae0d70812",
+      "after": "0ac338dae9b56a60ebd3bf9a54d4ad6485f31abd2e0ae643ed5251b645f18673",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/koronki/kompozitnye/index.html": {
+      "before": "2c314555683061474509f543d1301b270627fababf7da5b55f471d644aa61f28",
+      "after": "97fc8b0824f63b7acc8d3b4402b9023f11e53fbc0a54797ac98971e60973ac4a",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/mostovidnyy-protez/index.html": {
+      "before": "5e39d69ced23d5c33c39c26750f3303350c102d2de1a7aff5ed2691fbd485af2",
+      "after": "a8e8959ac39d2157dfdec316d43b66f672d6045417dadf020a21ffd78d992d9b",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/prosthetics/viniry/index.html": {
+      "before": "dbb48eb05b9c39b9105402e7e675aefc1daea50efde2d62fbe85215a9d6be832",
+      "after": "7668b35b2b996e77e94370a1711b26d0510ed4809beb3abc7e0417c526ba97d3",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslugi/terapia/index.html": {
+      "before": "f335689d8af73beed2f473eee56341eb3b7c539e5804908ca2e6a42744a4790d",
+      "after": "ff610becb5ed24a6f6260ac5853d9a1082d9102eb510dc1f71b5caa73d9363f8",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    },
+    "uslygi/index.html": {
+      "before": "17544ca552e9d39478354064140976fd5a3692bd9e62c96a6cc616cfc700973f",
+      "after": "3e1490374ea49fbd0e1c1c1ecdd069643eaff8ae63e620815b2baf5ace440459",
+      "replacements": [
+        [
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\">Стоматология</div></div>",
+          "<div id=\"visual-2489767221-1648032796764\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"/uslugi/functional_dentistry/\" style=\"color:inherit\">Стоматология</a></div></div>",
+          1
+        ],
+        [
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\">Консультация</div></div>",
+          "<div id=\"visual-2489767221-1648032799132\" class=\"visual visual-text\"><div class=\"visual-inner\"><a href=\"#booking\" style=\"color:inherit\">Консультация</a></div></div>",
+          1
+        ]
+      ]
+    }
+  },
+  "protected": {
+    "sitemap.xml": "7d25e8f24835ef0772c360356f8ee9c350921cb602b155d836713e00b05b40a2",
+    "fonts.css": "3d16ea7238b58a5cf0904098ad236aa6be0b3facccf3a53009af08fcceedce6c",
+    "robots.txt": "9a93da66b2f7b9bc05ad7429409692dff442b3bf8f988f2937ae21ad9cf6744f",
+    "site.js": "190dba2936bc2def347a43e94b81e6fe226ee77ae38220db9e4790a17c355361",
+    "404.html": "3fbe5b62b98d38eb325d3b99d47a42fd9d90fdda29ba4ae2002ceab128cab21d",
+    "assets/az-doctor-cards-20261013.css": "5813a1e65ce1ececfddb2d11dc6669cff3f61e16390b1b01cf870a512b3e62a0",
+    "assets/az-doctor-cards-wrap-20261013.css": "b3504521129c394bb669fbc4e420ed6e86c4ed9193b1390a1ee3315dadeeec9a",
+    "assets/az-mozharova-approved-20261013.jpg": "621542c5ea7b609752813c546548d270d4f1848370eb1901387d48882fa98e4c",
+    "layouts.css": "66d78398182263a458236c439c1a098fc8390539c7d45511d9240bd54f1a3a71",
+    "assets/4d67d8e3617de3463719.jpg": "173ab0e4c1ad9b2f86af7545077bdcf1bde17ec73b5d46ad46253cfc3559928f",
+    "assets/ae539bb9ce3fbc525200.png": "79fb247028b4667e1da2316b9618a512e482bab6ea917507162658cae913f464",
+    "site.css": "8b2adf1b395ce968f1f116fac27b9a559d7d42265d1686737ec21dc4590406c9",
+    "assets/2eb303492fc4afc1e2bc.png": "fad27a52d50d0e7bb74f40ca28841adf1e3525421d111f197afd5599fc03f29c",
+    "assets/70329c1fef56d8a8eb37.png": "cbfd46c34d4b110a1e4fcbb69375eb4dcb970d35dd994ad8d6cd57e6a6da91d7",
+    "patient/dogovor/AZ_Contract_Sample_Approval_20261015.pdf": "9d89e03a3137a305199181faaaf115bc48c9ce43d689142da624e29fcd7fa356",
+    "assets/30299ba903fd9c7517b3.svg": "56b0d23f22779f58462a2d639983c9872fd25281547a7fcff8b83fecefdf3cd5",
+    "assets/15e2d44f0157a515db97.svg": "fbbcd0ecb6b712770fefb1a7c1148662c71eaadbacb118da0805a050a020a15a",
+    "assets/6ee884df24e48ba85fdd.svg": "834198bf9e56cedf3e8d35fd3346bb6051c2ad33fb981dc2922a9d0a29d600a5",
+    "assets/b060acc3dfeea870ab98.svg": "bacb9ce503c878b6f001e2ec319531d90f4c22f5b6c8ac5ab95c64bcf1878848",
+    "assets/2fa5dbdfb4f891fa7d4a.svg": "1aed8ef96c5e9bc929f7987a5880c0717bd7b3331ddf8badafb6aa8a645c89a3",
+    "assets/8bd7d0a7b055a94ef022.svg": "b825c938f7432396bb281ce9b5af3e223f7b2d560f4ec9b780b1adfb6ed85981",
+    "assets/66c2653085791a4fa9d8.png": "5a4a6d9213d1f25c32c0306e28aad0702ccdea1e58dc32d3d76323b10c9c50c9",
+    "assets/10d1def5a0107a7e496b.png": "756f561dca7841ccd2d31f97dc90ad56e98afd5d0950406c49762b2b1f811e9a",
+    "assets/65e14760056ea4acc6f9.png": "17d3fd58eb917a60421e16ce32012db2b9004efd53de982aae8e85220aa50e28",
+    "assets/32ed8370d11f1baeceaa.png": "fbaa72f02f3e6733d398196c2560827c78c309c024ec7badbc144d6bb4c0d157",
+    "assets/b8e7a530af57ecf75bc2.png": "008c42674dddec10eaabb6e052b736abde7a4cbef68813b8e8ad3990eb939b6e",
+    "assets/2116a70379b63013e71b.png": "0c4fb243f8fa53d7c82f409d946078c4e9d7ab86c837faef766a03c195b4e133",
+    "assets/66c2653085791a4fa9d8-lossless-20261018.webp": "6aa6704b9f0057db4d6c2bbfee693ab1eb4b879222ebe8f964eb5d2e70ece720",
+    "assets/10d1def5a0107a7e496b-lossless-20261018.webp": "926b3acbbc996cd54f5d563e1c0930f9dace598ab97d69e5982adaf2dba001e8",
+    "assets/65e14760056ea4acc6f9-lossless-20261018.webp": "a9f60d7b30ebe555bf8518d3334792c367268051988ce4e642b1b878f4f78a13",
+    "assets/32ed8370d11f1baeceaa-lossless-20261018.webp": "9d18476756b3b3bb222fe87da6c5c02a08d7934d173836d05fb2c7d7c8804f56",
+    "assets/b8e7a530af57ecf75bc2-lossless-20261018.webp": "b23826746a9908ed32dda432b2e58844e41c94432a03339a3c5296e423d9ae1a",
+    "assets/2116a70379b63013e71b-lossless-20261018.webp": "b31ab720bcd3e2a612db38d3cbe0f13c04692a9a01f8c9dd9d1817ffe72b08ec",
+    "assets/ae539bb9ce3fbc525200-lossless-20261018.webp": "26c161bb8826f5934c7f9873e7b37da1be72723d448fa402bbb95f85a6101ab3",
+    "assets/a77a625fc72b6b568fd8.png": "cec69637b64ce2575359edd8820f3775e38519eeafc20aa20832c8107f77effd"
+  },
+  "absent": [
+    "team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html",
+    "team/tproduct/338106745633-palunin-vladislav-andreevich/index.html",
+    "team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html"
+  ],
+  "redirects": [
+    "/team/tproduct/834140634503-kazantsev-leonid-evgenevich",
+    "/team/tproduct/834140634503-kazantsev-leonid-evgenevich/",
+    "/team/tproduct/834140634503-kazantsev-leonid-evgenevich/index.html",
+    "/team/tproduct/338106745633-palunin-vladislav-andreevich",
+    "/team/tproduct/338106745633-palunin-vladislav-andreevich/",
+    "/team/tproduct/338106745633-palunin-vladislav-andreevich/index.html",
+    "/team/tproduct/392688125713-mozharova-ekaterina-sergeevna",
+    "/team/tproduct/392688125713-mozharova-ekaterina-sergeevna/",
+    "/team/tproduct/392688125713-mozharova-ekaterina-sergeevna/index.html"
+  ],
+  "public_checks": [
+    "patient/dogovor/AZ_Contract_Sample_Approval_20261015.pdf"
+  ]
+}
