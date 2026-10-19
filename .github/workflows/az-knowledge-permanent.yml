@@ -1,0 +1,39 @@
+name: AZ Knowledge Permanent Library
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/knowledge_permanent.py'
+      - 'az-baze-auth/knowledge_permanent_wsgi.py'
+      - 'az-baze-auth/test_knowledge_permanent.py'
+      - 'az-baze-auth/test_knowledge_preflight.py'
+      - 'az-baze-auth/deploy/knowledge-permanent-preflight.py'
+      - 'az-baze-auth/server.py'
+      - '.github/workflows/az-knowledge-permanent.yml'
+permissions:
+  contents: read
+jobs:
+  permanent-library:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          python -m pip install Flask==3.1.2
+      - name: Syntax and all tests (skips are failures)
+        working-directory: az-baze-auth
+        run: |
+          python -m py_compile knowledge_permanent.py deploy/knowledge-permanent-preflight.py knowledge_permanent_wsgi.py
+          python - <<'PY'
+          import unittest
+          suite = unittest.TestLoader().loadTestsFromNames(['test_knowledge_permanent','test_knowledge_preflight'])
+          result = unittest.TextTestRunner(verbosity=2).run(suite)
+          if not result.wasSuccessful() or result.skipped:
+              raise SystemExit(1)
+          print(f'PERMANENT_LIBRARY_TESTS=PASS; TESTS={result.testsRun}; SKIPPED=0')
+          PY
