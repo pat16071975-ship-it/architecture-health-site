@@ -1,0 +1,302 @@
+{
+  "contacts/index.html": {
+    "before": "47567fe9e39dd8be35a81b6d08ad68e6a9ff720864501041acad9279652cbe71",
+    "after": "df37c618cf6ac3d1a9046d93ee219fcccb2536ecca3f176c8caf1c083f333c16"
+  },
+  "cookie/index.html": {
+    "before": "28ee6ecdc37db01b675d759c86be76517d96ad8adc9124c1269f0b2638835415",
+    "after": "8bec2eb99ec01c9dd27069c258b74a000af91d4484779c5efa5e90005e581349"
+  },
+  "index.html": {
+    "before": "a253b83dd0e3db51df6ea530815fa9fdd15d00ad63ba467e866c73966d530126",
+    "after": "6a53a5063104bc0351b4892106ab10e4f01ee7f5769df9f14937a41379bf7b08"
+  },
+  "kompleks-uslugi/arhitektura-zdorovya/index.html": {
+    "before": "57cadd99d3155cc6f722e5f23563ebac88082eb3ea1eb95cd8826172ba2c388d",
+    "after": "ec87c10d50d5e5da7a2fbf37338dc24cbeeb0e7c2f47b624f8bedee8adf0589d"
+  },
+  "kompleks-uslugi/index.html": {
+    "before": "57ec51ffaad4d7c8a39520b3ee1f6ec624916ae6fa9a065b28a4e40770329e05",
+    "after": "a7c79ae87baed03a7eeb559d0c8bb806ba77798a882f200e1ead755826aa9a0b"
+  },
+  "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html": {
+    "before": "a52eb33f52dcfe4a1ca8f91d35c2a0e5ff33a8506375d978f6a7f1d7e8e32392",
+    "after": "cb156ef3550da272a28ffb44bcc67b683725ecf6a3f42784ef4fbd5cf8f594c1"
+  },
+  "kompleks-uslugi/zdorovaya-spina/index.html": {
+    "before": "a9179c21269f16647ccdc10a3a1a46ee979d6c42c292ce96fd8538bf00273431",
+    "after": "88c1b6f3d580236c09c6c499ab5e32fb416524389f509c7b3969f740f9ecd791"
+  },
+  "lab/index.html": {
+    "before": "f0b8341cccc2d80a46428a53c512de64669394599b3301d098d0890f7cfeaa33",
+    "after": "1a5dfbf015d5f669af921e91aabae9283a70a79c7cae63ff349a389979b61fca"
+  },
+  "o_nas/index.html": {
+    "before": "969634125e290de58ad9e421d7e40302c6361faaf949acaebcb5b1e26bbb0a1c",
+    "after": "29d696a79361ed3978156d4565e297f22a6a631ccc2fe7647b1c2a4f23bf78a9"
+  },
+  "otziv/index.html": {
+    "before": "25f40f3e0fe1f22c7d97a70b9d6f3490f54ad1bda9ff7959d79b88fd6d8db7bb",
+    "after": "02df5c97ccc8ed36e4de652442213e5560dcc6bf85c4b889630314aa4a889e18"
+  },
+  "patient/dogovor/index.html": {
+    "before": "da688cbc48d39942922896a78375493e9382073966d0637817799ed26c86165f",
+    "after": "03109d95ab7384ca15531919a97b058ac97212e8693c7d0948114d8c74badf8f"
+  },
+  "patient/gosgarantii/index.html": {
+    "before": "d635b50c92fe08a7d994a50642f5e2534cee3330cc397b21a2ec030575055905",
+    "after": "9d6b0b388e4915413a1a0de307b80ac2825445a0a01829b5fb32308b30d1ea9f"
+  },
+  "patient/index.html": {
+    "before": "cc257ca089edb60209d584c723b0cad95dc35f2aeee4965ed774f2c2bdb35061",
+    "after": "68b6469ba52945c23e07c355cd28bc9b956af4a77843f3612265480c7bb6f35d"
+  },
+  "patient/licens/index.html": {
+    "before": "9785387e30822836dd531391b1e01ce80a8a32c1b56e2fc5195acace78bd0ef7",
+    "after": "aebb17f9c826e2c4470b18b7a18de5daabe67c31f988b732a55edcbb27e69b9c"
+  },
+  "patient/patient-pravila/index.html": {
+    "before": "8f5479f07ebaa09ca3dfbeffc40b5a87ebdb2633509190e136421c031f952564",
+    "after": "d7d14fe5635d2df2eb39de7d0f602bd2aba6f907fb91f54392efdebb863506b7"
+  },
+  "patient/patient-rules/index.html": {
+    "before": "b87f36caf91b5b9ab6628fcdee63519a4653e922fdb1d4b20e93d3f09c00236d",
+    "after": "de50b985ce412b96002dce4420ba5906471bddb2c96bd8dc8cebb6d4888b45d0"
+  },
+  "patient/priem-patientov/index.html": {
+    "before": "39b5133c620eb34a59e0e54ef4528f0f341268aacd98d4bf3f34745e738712c3",
+    "after": "aef0cfcfd7e2931dadce85f6cbef4ddf78ed6bd9362f2ba07bc59ed3fa06737e"
+  },
+  "patient/supervision/index.html": {
+    "before": "bab305e1f7b25a3b7db149545ea46f7724d993f1a490e2349ba0be848a5e9e26",
+    "after": "e23bf37a59e3398cb3d80876befb546132607f5bfe2eb40660b30b707164b0d8"
+  },
+  "patient/zhaloba/index.html": {
+    "before": "8b707c9ec58eed7a147cf4b59ea98fa6b4dfcf4a6552c68314e92d107a17efea",
+    "after": "3d9e76aa42083581a7c8482c8c787499361b7bef8a2a4b19d4eb755fdadc4361"
+  },
+  "politica/index.html": {
+    "before": "9fe378a7ac417fedaad2b18a89c00c6612f11a7d3fce4b83667ce25a418d71f4",
+    "after": "7d3883d37d564904159edcb7690bbb338cb2af2e8b94189b78f0d39f2783f420"
+  },
+  "politica-site/index.html": {
+    "before": "134686c86790327942306618f9b2fc243709f90c06c40d28d22e10483891035a",
+    "after": "e34d26b9a493fc653aff500413146b3f003df5aeb86af654cbbdd0ad931348cf"
+  },
+  "rassrochka/index.html": {
+    "before": "9169038c93edf58c521beb5cfeebf6233b629671c0f8d4500858760220fb2b96",
+    "after": "4f3b9ae25775e78350929d8aa1c6c54358970c88278ac9bd5a2f984c6d8f8e70"
+  },
+  "team/bosak-yana/index.html": {
+    "before": "bb67b0b8ebe18189b95e8b4590161750b147e75aeb4e2c05a01139d7a9fdff22",
+    "after": "516db848902223fb1d515cb1ec4d47ee5b958dd27b55a0ecaf5792c911ed7424"
+  },
+  "team/chirkov-maxim/index.html": {
+    "before": "30bca315f4b4194c64463defb40712d27be0234c8f32f45a804bf38030b80f5c",
+    "after": "58e180e1f063daffc561aae104df81f6da432da43cda7b99e49791864cb9b94f"
+  },
+  "team/dimitrenko-anna/index.html": {
+    "before": "8da1e0e647117fdfa7794f54b041c09ea7344173570b1264388c623243536480",
+    "after": "7f254e3b42a4393621ffad4d428ae69e92ebbfa63838eaa189704a02596385de"
+  },
+  "team/golishenkov-vladislav/index.html": {
+    "before": "a82ddb44504c0a6baedbd56e619454ede3acb404c6d5c171326b835dd4bc8cdd",
+    "after": "172d75e2551184f3f4a7a7b80d563d53ef4d850ba7787b08f078f33a699e9a71"
+  },
+  "team/holodtseva-valeria/index.html": {
+    "before": "71189e5f1b6a725c14d5a8a08496d53b4dd8e9763d97138ff09c2528c37fc07a",
+    "after": "96255b41328d7952127228d3df1a4e9e23bbf31deeee35dbeff459d6836b1e99"
+  },
+  "team/index.html": {
+    "before": "06a2b6d11dfa71ea0dc093e4bed230baf4a35ebeac0e00b679600451685bf65f",
+    "after": "63c758fab4ed72f52b4e26cf36f0af583f7576ea86fa711f388739063c1b7eb0"
+  },
+  "team/lapina-natalia/index.html": {
+    "before": "1693013c4c5148b9484042a6d0e99ad3c63d4946775a07ed48652d40c6bbfe04",
+    "after": "f90e0e1e715744efeef3310ec6a2f0d096a861304f6d85979fa7fe9b596c0197"
+  },
+  "team/lubaeva-alena/index.html": {
+    "before": "5306e7914a6d29906210060228e661d473d574ded2a81b32c0132b915530d42b",
+    "after": "7bef5fec83965e54d845b663843f4bb35b788ae5011a5c85f0bb1ae9682dcc6e"
+  },
+  "team/mamontova-lubava/index.html": {
+    "before": "79f936b1f4a908be28c4a8b6fa069361924c40cf1419350598a7d875d60bc406",
+    "after": "d2ea9c31759de7dffce3e99dc52d00606ccac7a3695dfc08cd24f278ac7ca40e"
+  },
+  "team/movseyan-babken/index.html": {
+    "before": "24e4b9664b3ba3b2b1a40315e6b7b1cbdb8d4deeeaf885759ec0eab3913f8548",
+    "after": "d154ce2cf74ede5cbd9dcc4ffdaedfa227141da39fb538eefc8e06a90445f140"
+  },
+  "team/nazirov-uktamjon/index.html": {
+    "before": "206cacdb590f5b1173d13861dd9a838f413e04a9f614a763d436e872fdb54767",
+    "after": "276b2ff809c8a1d0be2a972f3995e2c3b0ed89ac386f73bd7ad387b5cc8372f6"
+  },
+  "team/pavlova-anna/index.html": {
+    "before": "97109a124815b3f0e36d0f7c4a7306a0ac856e311a6c6d87faa04a8cafc2f3de",
+    "after": "9a237b8e5dc8d11280f95378aad92e5ff0005adc897f3f0afcf24a947564b84d"
+  },
+  "team/rumyantseva-maria/index.html": {
+    "before": "539230a470a6910cbe44b9d17051e4a60359d4d01234c50afd87779cb2e8df2a",
+    "after": "d279cefa69b7046a864452a513760a46a926f57a165dd79ad5cf7f6f921bef3e"
+  },
+  "team/starostenko-vadim/index.html": {
+    "before": "8897193994c7c478e5ba474df30efd6452a21e06a5aac21899cdbd14d2a7b6f8",
+    "after": "167ca2cf786fa72eaa10ef1b2569a8e8c97139d45540e4b6de2722c45528d74b"
+  },
+  "team/zubachev-roman/index.html": {
+    "before": "ed72aa52b2f46da70aafd592f65392cea911ce0a05811a4fb87dfa6734c45c0a",
+    "after": "17d8adaa0e30c8fce7042fe6a6aa9815c086d2eb29e6855dbb4ea8bb0eca2238"
+  },
+  "thank/index.html": {
+    "before": "ba0c4351af08dc8224b87978d7c589650fe79acb869ffed0748c17d8ac900f0b",
+    "after": "af24ea275c8d8d2d5885453cd7c6459045e6756fdaab43aabe32294a832d526a"
+  },
+  "uslugi/craniodontic/index.html": {
+    "before": "7dc7da50d2955279f8ad181a9fd0dc7d5294af93b6917dc968ec398870ee6ad8",
+    "after": "2254dc291664c01b3024a1f179b65aa8fefd8780d560ac50b6aa54fe402655c7"
+  },
+  "uslugi/diers-diagnostica/index.html": {
+    "before": "ba8d6ab83b8b963e0eb69e9d51396eab706528c595b1e5fbc0eacb3d6c3e220f",
+    "after": "233538c30ce51499f83faae5d98d17c6fac7f79c8fe82279172e8ff94a345a8a"
+  },
+  "uslugi/diers_research/index.html": {
+    "before": "cb9709d1c9be07eb9f684a85c1eea085c1b0f037448975b8234e6f1e2c8a1655",
+    "after": "7d05952cceb8db6544180b394777a8becf9fb0cf95fde8d63f5d4b4b84237a47"
+  },
+  "uslugi/doc_educate/index.html": {
+    "before": "e8011bf6f906820e1252a58ac00c0dc00e5d747a15a14c085e2b200e86c73c6e",
+    "after": "7c5662e1d29e31cec7d8b02790c3579cc58075a0dfc1a0575af08550ffadaf0e"
+  },
+  "uslugi/functional_dentistry/index.html": {
+    "before": "f7ca002eee6189bffac1947517051fce515040c35f4eb735721f9083e499b0a1",
+    "after": "2ed3f761f762bb30e578467faf70b4148c397e0c4a207773ee4a61d030222dff"
+  },
+  "uslugi/gastroenterologiya/index.html": {
+    "before": "b9d44ccc860d6cdb4aa9f564a61025796ab8a21464d882faf99fad8d648b9803",
+    "after": "1e6a98b4ac747820c9b1ef207a107a7346153f84bd5ba51494ae4bf86a3f7108"
+  },
+  "uslugi/hygiene_prevention/index.html": {
+    "before": "0e313b47115c5a578f58341a1531408a1d1522a81532183d601e40a1a0f81e06",
+    "after": "2d20e3c063d85488a99ee89df347ac2c781ec32d1693c3575921764cea60fbc8"
+  },
+  "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html": {
+    "before": "6de629c9c20af22cd66697efa1822830a76abbd20e14d9974d803446c8dec9a2",
+    "after": "fcb1833d3eb14244999690ad8876aa63d44799dac2334b4ef9ab978fced8b97e"
+  },
+  "uslugi/iggt-terapiya/index.html": {
+    "before": "dba2ea8f042cd3062f4c83e31650bbac9f28be702cefa107b9b70af6efc3c9a4",
+    "after": "cf321252c4876ab557169e9a79ec09cc711faa5fcc68eae19438e73617497fbd"
+  },
+  "uslugi/khirurgiya/implantaciya/index.html": {
+    "before": "20b8ad8eee10d43762fc29eb72bba36ddc359ba21092079994e163023c47cb5f",
+    "after": "864ae98a920dc1db6ab0ae13ce219d078c635189867d8b7c668de1aae2b75696"
+  },
+  "uslugi/khirurgiya/index.html": {
+    "before": "5ce1cb83073b23ea886205fa8ac47f916851baaf264df036e6ab12e003b1b358",
+    "after": "0c56f7d71631e60e42dcfe929f20a981c8f92bb6c1064afe64e911f6b877617c"
+  },
+  "uslugi/konsultatiya-stomatolog/index.html": {
+    "before": "fbabf5fec8fb3ccd74534a0dbb3429a1734e36c0a3bd5be8d053b512e011bb1d",
+    "after": "d28104185aadfad7aa6ed43150c23bb66e66390feee67c333e09ee8ad6f53245"
+  },
+  "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html": {
+    "before": "6742237399752ebe93bad9bb1cf5c087e4a662c3d96e6673875b026f2507c554",
+    "after": "4e31ff7c5fcbf056fcca4aabe080f609aabae9b80001880f0b7927d81036afca"
+  },
+  "uslugi/lechenie-zubov/index.html": {
+    "before": "ef3ed62aa849353ba35c5689eb1d236220caa8022abb5e7abb5d773efc6433d5",
+    "after": "c8dd8f61f4731cb9d39ed9071595ecc04845dbe89baa579abe120035bd848c9a"
+  },
+  "uslugi/lechenie-zubov/karies/index.html": {
+    "before": "dd0a8e4a8581c148b6ace799da43075f277840b23b08cae49dad2c4c74f9dd2c",
+    "after": "81b6805e31832440b199f3f5a041f90275f5afa7cf9cc15617128a45d8cf2ffa"
+  },
+  "uslugi/lechenie-zubov/kista/index.html": {
+    "before": "6bd9c788212469f5cb7af6c1a345e1bf73891c68aa9249bad6e59e9c92bfbce6",
+    "after": "8d5624e69cad1787ec94c8b1e32259bb54d4ea998b759e7f30b49719dd59cf22"
+  },
+  "uslugi/lechenie-zubov/periodontit/index.html": {
+    "before": "37186ead1bdc54c62f2b3a7825f55b9cf85b3206d5e7c4aa4cb6fd71cded1365",
+    "after": "239283cf4f8a77773e2f80829aa702fa362149f40143ea0e0ef607f8df362322"
+  },
+  "uslugi/lechenie-zubov/pulpit/index.html": {
+    "before": "bdaef9c9ea5c9f6a07e601d87d99bff553aa86648d3825547f79267928a224d8",
+    "after": "8e7c6c2a72ea5cc87ca482defba14e67ac417e48c86d7a057bcf4f528565daeb"
+  },
+  "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html": {
+    "before": "abc1c7ffafc67c08965147e0c4df3649aeffe7aeff426316e1a54d411c4e9469",
+    "after": "12fdf665480e43c9881fc890c920bb0565f98b51132e00e8cd4fd08ab898552a"
+  },
+  "uslugi/lechenie-zubov/zuby-mudrosti/index.html": {
+    "before": "e0acf458361d41d00bbd27915a141be74a98dec1222da1246dd2ebdb33918510",
+    "after": "0584bac976bae47b04afb8fbeeaf05c3d1a8590694814d44abac0ad8c677df7a"
+  },
+  "uslugi/miofascialnaya-terapia/index.html": {
+    "before": "e6f92a8a450ef49a3f20f1438ab1124bfb15fc03dfaf09e44c51a92a9231e3c3",
+    "after": "34b35ec4fd2a3621a5597cd573a0685daedefac0d18df52061b7dd3bb79e4152"
+  },
+  "uslugi/miofascialnyy-massazh/index.html": {
+    "before": "39c64431037b1f49e4b6c0d20aeb7c9e20a4afd7e199970f290ce3d975f801a0",
+    "after": "db3af7f2a5a49e2c64e10dd4412c954d9e97fcddad82a2868d620136ace75b79"
+  },
+  "uslugi/miofunkcionalnaya-terapiya/index.html": {
+    "before": "22c8731deb60ef1098f29e41d0456056e3fc004c847b63034b0c70ca24ce78c5",
+    "after": "10ff84dc707459257f57cbd59e704500a6e156b174a97212328402fc8073eb5f"
+  },
+  "uslugi/neyropsihologia/index.html": {
+    "before": "e6e2d2c71799c99f445210455e2f3d3a1e388b024696593403e8ca129736c47d",
+    "after": "0d5b997b62eed11683acd617756610f4bf47e2f8a390cd48402903997369cb20"
+  },
+  "uslugi/nutriciologiya/index.html": {
+    "before": "e61a45e09214d57c6939e4ac93bbe848d73eff66b15877e14b26ba113cdb7360",
+    "after": "92a3865ef02d98118f42a4ee6ca83b178b323e5f25fdb1899da038cb79866bd6"
+  },
+  "uslugi/orthodontics/index.html": {
+    "before": "6eb0ad1eb9d9e5c25af51d7d9b51ebc3a6d3a790f4326b296309e4ce18b0d582",
+    "after": "b4be69f0aa15869e5f5527559d36224e4fa154366bc2ffb0ea5e2d3c5acfae41"
+  },
+  "uslugi/ortopedicheskie-stelki/index.html": {
+    "before": "cabef55ff9d4d953c0de9687d3010751bb8f926be49554d9e637d20ad0ddd0f9",
+    "after": "417369384788ded3c4e047407fff67dda259f61a68591b2395a15e1a026d14fc"
+  },
+  "uslugi/osteopatiya/index.html": {
+    "before": "08403aba19a951a3ca3691bd32b6d24178c57a17f01f2aabd9744760648ab745",
+    "after": "612c553ad99ce3fc0a0f9d4cb527459880d73a2584f113c2e8da26ed277921cb"
+  },
+  "uslugi/preventivnaya-medicina/index.html": {
+    "before": "99695fd8f01f5324379d5e3c52d2ee61a1c7fe85f3771e66592053ec360dedfa",
+    "after": "c3c1448c032cd6f4860b8970e091bb9a433451f0a6a46f76da1fae5bd7a6b9db"
+  },
+  "uslugi/prosthetics/index.html": {
+    "before": "8bfeddf9bf993ac33efdea95595f42b2af535a7ff76a389f361a19a70728669f",
+    "after": "d2cdf29a6d9b42723bc66b2ad8f247ca9ebc8ef44bed1e336f6baf5b241e0ae5"
+  },
+  "uslugi/prosthetics/koronki/index.html": {
+    "before": "f76d374166723c940223c9766e8623d01652ee4e03514c5e9bc93c6ec200fc7c",
+    "after": "c01bd3380eef168e0f6e06c57ee5f3bc96f11143e41270373f027e9adf51b21a"
+  },
+  "uslugi/prosthetics/koronki/keramicheskie/index.html": {
+    "before": "24b993029b4bba6c711eb61a229ef29a99ad9cd6ad5f9251ae1c661d18f094f7",
+    "after": "e9ffbbffb5cb3835d4dd5a8199d449320f7943b7f77416d350acb1e36bce3f3c"
+  },
+  "uslugi/prosthetics/koronki/kompozitnye/index.html": {
+    "before": "7a4dffc8859ed98d4b0b3bd719f282c2690e9ca32d1fbf711e39c8c00b6e0f6f",
+    "after": "abf9d083ee8094f24bdc14a2f88030671bd2b0900d337483f786da40acaa5cc7"
+  },
+  "uslugi/prosthetics/mostovidnyy-protez/index.html": {
+    "before": "8260a25ccd9ae78608e17aeb890efe8b5636428cede32e23f40ee3166ff189b6",
+    "after": "06bbbb03af916d1d48e62584fef665c679312f1a3b4891d5cfd288251d1255bb"
+  },
+  "uslugi/prosthetics/viniry/index.html": {
+    "before": "055d7d1252d6d0dcfcb68172f9170874a6c796686609519677ee853ee0f14845",
+    "after": "37fbe1eb62798ca03857a90ce052b5950667576ad34c306c2fe1010c6033e553"
+  },
+  "uslugi/terapia/index.html": {
+    "before": "d162bc6a21a837f05d906fda1ccb687e5b2aac5136ccddfbcdf932eea2869f46",
+    "after": "79f1ce90ad4269e6c2d64cd6a10a5394ab15c14501e921fb91aebbc00bad4afd"
+  },
+  "uslygi/index.html": {
+    "before": "fce33fe210f80dfc706b676672f8a04a27cf0cce4b31d3c8877ab6968c230bbb",
+    "after": "d47dcbdfebc6d59617f430933a429c54363b9c7d3cba93d8edb75c1541868406"
+  }
+}
