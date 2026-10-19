@@ -1,0 +1,14 @@
+{
+  "kompleks-uslugi/arhitektura-zdorovya/index.html": {
+    "before": "ec87c10d50d5e5da7a2fbf37338dc24cbeeb0e7c2f47b624f8bedee8adf0589d",
+    "after": "a3c2e6bb6bb7b15dae0de5f89b9cce3958b13ef39fcc3ecd3a13ecc4cb7829fd"
+  },
+  "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html": {
+    "before": "cb156ef3550da272a28ffb44bcc67b683725ecf6a3f42784ef4fbd5cf8f594c1",
+    "after": "9b4d4a77d5ad3efb936b5f3cdfa4eada184ec3c0ea3e5a184b2046dc9a3bf572"
+  },
+  "kompleks-uslugi/zdorovaya-spina/index.html": {
+    "before": "88c1b6f3d580236c09c6c499ab5e32fb416524389f509c7b3969f740f9ecd791",
+    "after": "02349f2675b3c4fba10d2bad435ea4732644941de2b15aa5f4ba46069664eaed"
+  }
+}
