@@ -1,0 +1,23 @@
+{
+  "checks": [
+    "success:PASS",
+    "file-drift:PASS",
+    "protected-drift:PASS",
+    "parent-symlink-drift:PASS",
+    "https-failure:PASS",
+    "redirect-failure:PASS",
+    "source-and-live-content-preservation:PASS",
+    "all-12-icons-bounded-and-content-links-image-order-preserved:PASS"
+  ],
+  "scope": {
+    "changed_html": 3,
+    "icons": 12,
+    "icon_size_px": 64,
+    "protected": 117,
+    "redirects": 9
+  },
+  "limitations": [
+    "HTTPS callbacks are simulated here; installer checks real server HTTPS.",
+    "Four runtime-only legacy photos use fixture bytes here; installer snapshots actual server bytes."
+  ]
+}
