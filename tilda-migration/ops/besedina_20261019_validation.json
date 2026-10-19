@@ -1,0 +1,31 @@
+{
+  "checks": [
+    "success:PASS",
+    "file-drift:PASS",
+    "protected-drift:PASS",
+    "new-file-drift:PASS",
+    "https-failure:PASS",
+    "redirect-failure:PASS",
+    "symlink-parent:PASS",
+    "exact-source-and-live-replacements:PASS",
+    "approved-photo-exact-bytes:PASS",
+    "profile-approved-facts-and-existing-shell:PASS",
+    "team-order-filters-other-16-specialists:PASS",
+    "no-stale-public-rumyantseva-content:PASS",
+    "all-12-program-icons-unchanged:PASS",
+    "old-profile-retired-and-sitemap-replaced:PASS"
+  ],
+  "scope": {
+    "files": 8,
+    "html": 6,
+    "protected": 104,
+    "old_redirects": 9,
+    "new_profile": 1,
+    "approved_photo": 1
+  },
+  "limitations": [
+    "HTTPS callbacks simulated; installer performs real HTTPS checks on server.",
+    "Runtime-only four legacy photos represented by fixture bytes; actual originals snapshotted on server.",
+    "Live visual acceptance follows owner installation; no claim of a rendered predeployment browser preview."
+  ]
+}
