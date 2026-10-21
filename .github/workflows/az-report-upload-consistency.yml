@@ -1,0 +1,50 @@
+name: AZ report-upload consistency
+on:
+  push:
+    branches: ['fix/az-report-upload-consistency-20261021']
+permissions:
+  contents: read
+jobs:
+  source-baselines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1853eb6e074a524b0904396ad7a0519dbac6c709
+          path: baseline
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 1d5f3d7dd48631da79b681b447c77f2e782041fa
+          path: staged
+          persist-credentials: false
+      - name: Export only repository code and tests, no runtime data
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,zipfile
+          from pathlib import Path
+          Path('delivery').mkdir()
+          manifest=[]
+          with zipfile.ZipFile('delivery/baselines.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for label in ('baseline','staged'):
+                  root=Path(label)
+                  files=set()
+                  for folder in ('az-baze-auth','reports','.github/workflows'):
+                      for p in (root/folder).rglob('*'):
+                          if p.is_file() and not p.is_symlink() and (p.suffix in ('.py','.html','.js','.css','.yml') or p.name=='requirements.txt'):
+                              files.add(p)
+                  for p in sorted(files):
+                      raw=p.read_bytes(); path=p.as_posix()
+                      manifest.append({'path':path,'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),'blob':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()})
+                      z.writestr(path,raw)
+              z.writestr('MANIFEST.json',json.dumps(manifest,indent=2))
+          print('BASELINE_SOURCE_FILES='+str(len(manifest)))
+          print('LIVE_ACCESS=NONE; BUSINESS_DATA=NONE; DEPLOY=NONE')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: az-report-consistency-baselines
+          path: delivery/baselines.zip
+          retention-days: 3
+          if-no-files-found: error
