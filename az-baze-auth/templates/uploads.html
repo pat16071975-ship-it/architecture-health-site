@@ -163,10 +163,10 @@
     {% for row in history %}
       <tr>
         <td>{{ row['created_at'][:19].replace('T',' ') }}</td>
-        <td>{{ row['data_date'] or '—' }}</td>
+        <td>{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class="muted">{{ row['period_label'] }}</span>{% endif %}</td>
         <td>{{ row['user_name'] or 'система' }}</td>
-        <td class="state-{{ row['status'] }}">{% if row['status']=='imported' %}Загружено{% elif row['status']=='replaced' %}Заменено{% elif row['status']=='duplicate' %}Дубль — без изменений{% elif row['status']=='denied_replace' %}Замена запрещена{% else %}{{ row['status'] }}{% endif %}</td>
-        <td>{{ row['completed_filename'] or '' }}{% if row['completed_filename'] and row['services_filename'] %}<br>{% endif %}{{ row['services_filename'] or '' }}</td>
+        <td class="state-{{ row['status'] }}">{% if row['status_text'] %}{{ row['status_text'] }}{% elif row['status']=='imported' %}Загружено{% elif row['status']=='replaced' %}Заменено{% elif row['status']=='duplicate' %}Дубль — без изменений{% elif row['status']=='denied_replace' %}Замена запрещена{% else %}{{ row['status'] }}{% endif %}</td>
+        <td>{% if row['source_label'] %}<span class="muted">{{ row['source_label'] }}</span><br>{% endif %}{{ row['completed_filename'] or '' }}{% if row['completed_filename'] and row['services_filename'] %}<br>{% endif %}{{ row['services_filename'] or '' }}</td>
       </tr>
     {% else %}<tr><td colspan="5" class="muted">Журнал пока пуст.</td></tr>{% endfor %}
     </tbody>

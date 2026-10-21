@@ -1,23 +1,30 @@
-name: AZ report-upload consistency candidate
+name: AZ report-upload consistency
 on:
   push:
     branches: ['fix/az-report-upload-consistency-20261021']
+  pull_request:
+    paths:
+      - 'az-baze-auth/upload_history.py'
+      - 'az-baze-auth/daily_upload_core.py'
+      - 'az-baze-auth/templates/uploads.html'
+      - 'az-baze-auth/test_upload_history.py'
+      - 'az-baze-auth/test_manual_entry_consistency.py'
+      - 'az-baze-auth/test_upload_consistency_atomic.py'
+      - 'az-baze-auth/deploy/report_consistency_preflight.py'
+      - 'az-baze-auth/deploy/test_report_consistency_preflight.py'
+      - 'reports/index.html'
+      - 'reports/period-view.js'
+      - 'tests/verify-paid-periods.cjs'
+      - '.github/workflows/az-report-upload-consistency.yml'
 permissions:
   contents: read
 jobs:
-  candidate:
+  consistency:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          ref: 1d5f3d7dd48631da79b681b447c77f2e782041fa
-          path: donor
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -25,51 +32,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Assemble only reviewed source deltas, preserving PR80
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import hashlib,json
-          expected={
-            'az-baze-auth/daily_upload_core.py':('c0c2faee2474d8b8a2f678898bbe0ec7053cfa37','7a58de237753dff1d5e72a11c14744d68c39a324'),
-            'az-baze-auth/templates/uploads.html':('d3aaaa2b5a9cc7e4b0a6ccc656384d5c9f2aae94','49dc46b0f655f419dd9e412646d6e4ab7bdac644'),
-            'reports/index.html':('a6febb1769603e02e1433fac1402d9796e4b9632','ebf7ae4d4e5e121f20cff2302206e9a5fc25e350'),
-            'reports/period-view.js':('042d6574edc26fecc5c42893684175e858f0d59b','a3075abb77f562e8eddbde11364049c4362261e2'),
-          }
-          def blob(raw):return hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
-          for name,(old,new) in expected.items():assert blob(Path(name).read_bytes())==old,name
-          p=Path('az-baze-auth/daily_upload_core.py');t=p.read_text()
-          a=t.index('def _history():');b=t.index('\n\ndef register_daily_upload(',a)
-          t=t[:a]+'def _history():\n    from upload_history import recent_uploads\n    return recent_uploads(db())\n'+t[b:];p.write_text(t)
-          p=Path('az-baze-auth/templates/uploads.html');t=p.read_text()
-          changes=[
-            ("<td>{{ row['data_date'] or '—' }}</td>","<td>{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}</td>"),
-            ("<td class=\"state-{{ row['status'] }}\">{% if row['status']=='imported' %}","<td class=\"state-{{ row['status'] }}\">{% if row['status_text'] %}{{ row['status_text'] }}{% elif row['status']=='imported' %}"),
-            ("<td>{{ row['completed_filename'] or '' }}", "<td>{% if row['source_label'] %}<span class=\"muted\">{{ row['source_label'] }}</span><br>{% endif %}{{ row['completed_filename'] or '' }}"),
-          ]
-          for old,new in changes:
-              assert t.count(old)==1
-              t=t.replace(old,new)
-          p.write_text(t)
-          p=Path('reports/index.html');t=p.read_text();old='period-view.js?v=20261012-paid-periods-1'
-          assert t.count(old)==1;p.write_text(t.replace(old,'period-view.js?v=20261021-save-entry-1'))
-          p=Path('reports/period-view.js');t=p.read_text();d=Path('donor/reports/period-view.js').read_text()
-          a=t.index('  function saveEntry(){');b=t.index('\n  function renderMismatchNote(',a)
-          x=d.index('  async function saveEntry(){');y=d.index('\n  function renderMismatchNote(',x)
-          p.write_text(t[:a]+d[x:y]+t[b:])
-          for name,(_,new) in expected.items():assert blob(Path(name).read_bytes())==new,name
-          mapping={k:v[1] for k,v in expected.items()}
-          p=Path('tests/verify-paid-periods.cjs');t=p.read_text()
-          old='period-view.js?v=20261012-paid-periods-1'
-          assert t.count(old)==1
-          p.write_text(t.replace(old,'period-view.js?v=20261021-save-entry-1'))
-          mapping[str(p)]=blob(p.read_bytes())
-          Path('candidate-map.json').write_text(json.dumps(mapping,indent=2))
-          print('EXACT_LOCAL_CANDIDATE_MATCH=PASS; RUNTIME_DELTAS=4; TEST_ASSERTION_UPDATE=1')
-          PY
-      - name: Install test dependencies
+      - name: Install isolated test dependencies
         run: python -m pip install -r az-baze-auth/requirements.txt
-      - name: Existing and new regressions, no skipped tests
+      - name: Full report-upload regressions, no skips
         env:
           AZBAZE_SECRET_KEY: synthetic-consistency-test
           AZBAZE_DB: /tmp/az-consistency-test.db
@@ -83,32 +48,18 @@ jobs:
           if not result.wasSuccessful() or result.skipped:raise SystemExit(1)
           print(f'CONSISTENCY_TESTS=PASS; TESTS={result.testsRun}; SKIPPED=0')
           PY
-      - name: Existing JavaScript period behavior and syntax
+      - name: Read-only delivery inspection tests
+        working-directory: az-baze-auth/deploy
+        run: |
+          python - <<'PY'
+          import unittest
+          result=unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_report_consistency_preflight'))
+          if not result.wasSuccessful() or result.skipped:raise SystemExit(1)
+          print(f'PREFLIGHT_TESTS=PASS; TESTS={result.testsRun}; SKIPPED=0')
+          PY
+      - name: Retained JavaScript financial behavior and syntax
         run: |
           node --check reports/period-view.js
           node tests/verify-paid-periods.cjs
           node tests/verify-paid-upload-periods.cjs
-          python -m py_compile az-baze-auth/upload_history.py az-baze-auth/daily_upload_core.py
-      - name: Store only verified code blobs for explicit commit assembly
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64,json,os,subprocess
-          mapping=json.loads(Path('candidate-map.json').read_text())
-          for name,expected in mapping.items():
-              payload=json.dumps({'content':base64.b64encode(Path(name).read_bytes()).decode(),'encoding':'base64'})
-              result=subprocess.run(['gh','api','repos/'+os.environ['GH_REPO']+'/git/blobs','--method','POST','--input','-'],input=payload,text=True,capture_output=True,check=True)
-              actual=json.loads(result.stdout)['sha']
-              assert actual==expected,name
-              print(name+' '+actual)
-          print('CODE_BLOBS=PASS; BRANCH_WRITES=NONE; LIVE_ACCESS=NONE; DEPLOY=NONE')
-          PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: az-consistency-candidate-map
-          path: candidate-map.json
-          retention-days: 3
-          if-no-files-found: error
+          python -m py_compile az-baze-auth/upload_history.py az-baze-auth/daily_upload_core.py az-baze-auth/deploy/report_consistency_preflight.py
