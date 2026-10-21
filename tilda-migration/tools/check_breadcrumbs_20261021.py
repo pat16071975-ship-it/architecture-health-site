@@ -17,6 +17,8 @@ for n,r in m['files'].items():
  current=nav.xpath('./span[@aria-current="page"]');assert len(current)==1,n
  data=json.loads(d.xpath('string(//script[@id="az-breadcrumb-schema"])'));items=data['itemListElement']
  els=nav.xpath('./a|./span')
+ assert len({x['item'] for x in items})==len(items),n
+ if n.startswith('team/') and n!='team/index.html':assert current[0].text_content()==' '.join(' '.join(d.xpath('//h1//text()')).split()),n
  assert [x['position'] for x in items]==list(range(1,len(items)+1))
  assert [x['name'] for x in items]==[x.text_content() for x in els]
  assert items[-1]['item']==d.xpath('string(//link[@rel="canonical"]/@href)'),n
