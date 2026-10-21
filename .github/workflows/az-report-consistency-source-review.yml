@@ -1,0 +1,50 @@
+name: AZ consistency pinned source review
+on:
+  push:
+    branches: ['fix/az-report-upload-consistency-20261021']
+    paths: ['.github/workflows/az-report-consistency-source-review.yml']
+permissions:
+  contents: read
+jobs:
+  source-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 2f44fbd9630f4ceec86dcb6418f4a95d00c2fd22
+          path: proposed
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 8720cd235430212b2c904c906b1d6979ef16d6a1
+          path: installed-source
+          persist-credentials: false
+      - name: Package only repository source, never runtime data
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,json,zipfile
+          pins={'proposed':'2f44fbd9630f4ceec86dcb6418f4a95d00c2fd22','installed-source':'8720cd235430212b2c904c906b1d6979ef16d6a1'}
+          manifest=[]
+          with zipfile.ZipFile('source-review.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for label,ref in pins.items():
+                  root=Path(label)
+                  files=set((root/'az-baze-auth').rglob('*.py'))|set((root/'az-baze-auth/templates').glob('*.html'))|set((root/'reports').glob('*.html'))|set((root/'reports').glob('*.js'))|set((root/'tests').glob('*.cjs'))|set((root/'.github/workflows').glob('*.yml'))
+                  files.add(root/'az-baze-auth/requirements.txt')
+                  for p in sorted(files):
+                      assert p.is_file() and not p.is_symlink()
+                      raw=p.read_bytes(); name=p.as_posix()
+                      manifest.append({'path':name,'ref':ref,'size':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),'blob':hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()})
+                      z.writestr(name,raw)
+              z.writestr('MANIFEST.json',json.dumps(manifest,ensure_ascii=False,indent=2))
+          print('SOURCE_REVIEW_FILES='+str(len(manifest)))
+          print('SHA256='+hashlib.sha256(Path('source-review.zip').read_bytes()).hexdigest())
+          print('LIVE_ACCESS=NONE; DATA=NONE; DEPLOY=NONE')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: az-consistency-source-review-8720
+          path: source-review.zip
+          retention-days: 3
+          if-no-files-found: error
