@@ -1,0 +1,16 @@
+{
+  "passed": [
+    "success",
+    "drift",
+    "protected-drift",
+    "new-file-drift",
+    "symlink",
+    "https-fail",
+    "partial-write",
+    "other-cards-unchanged",
+    "portrait-original",
+    "metadata-and-price",
+    "old-profile-removed"
+  ],
+  "http_in_rehearsal": "mocked; live origin checks run by installer"
+}
