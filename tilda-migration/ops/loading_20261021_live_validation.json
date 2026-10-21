@@ -1,0 +1,13 @@
+{
+  "checked_at_utc": "2026-10-21T11:01:14Z",
+  "status": "PASS",
+  "http_hash_mime_checks": 294,
+  "html": 75,
+  "assets": 217,
+  "redirects": 9,
+  "errors": [],
+  "backup": "/var/backups/azmednsk/loading-20261021T105709225053Z",
+  "limitations": [
+    "No production speed benchmark."
+  ]
+}
