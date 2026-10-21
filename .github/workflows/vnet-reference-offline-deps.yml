@@ -1,0 +1,33 @@
+name: VN-KZ offline replay dependencies only
+on:
+  push:
+    branches: ['ops/vnet-kz-transfer-package-20261021']
+    paths: ['.github/workflows/vnet-reference-offline-deps.yml']
+permissions:
+  contents: read
+jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Download pinned public wheels only
+        run: |
+          mkdir wheels
+          python -m pip download --only-binary=:all: --no-deps --dest wheels Flask==3.1.2 Werkzeug==3.1.8 xlrd==2.0.1 blinker==1.9.0
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          root=Path('wheels')
+          rows=[{'name':p.name,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(root.glob('*.whl'))]
+          (root/'CHECKSUMS.json').write_text(json.dumps(rows,indent=2)+'\n')
+          print('PUBLIC_DEPENDENCIES_ONLY=YES; DATA_ACCESS=NONE; DEPLOY=NONE')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vnet-offline-reference-wheels
+          path: wheels/*
+          retention-days: 2
+          if-no-files-found: error
