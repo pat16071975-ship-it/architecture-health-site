@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Assemble only four exact source deltas, preserving PR80
+      - name: Assemble only reviewed source deltas, preserving PR80
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -58,8 +58,14 @@ jobs:
           x=d.index('  async function saveEntry(){');y=d.index('\n  function renderMismatchNote(',x)
           p.write_text(t[:a]+d[x:y]+t[b:])
           for name,(_,new) in expected.items():assert blob(Path(name).read_bytes())==new,name
-          Path('candidate-map.json').write_text(json.dumps({k:v[1] for k,v in expected.items()},indent=2))
-          print('EXACT_LOCAL_CANDIDATE_MATCH=PASS; RUNTIME_DELTAS=4')
+          mapping={k:v[1] for k,v in expected.items()}
+          p=Path('tests/verify-paid-periods.cjs');t=p.read_text()
+          old='period-view.js?v=20261012-paid-periods-1'
+          assert t.count(old)==1
+          p.write_text(t.replace(old,'period-view.js?v=20261021-save-entry-1'))
+          mapping[str(p)]=blob(p.read_bytes())
+          Path('candidate-map.json').write_text(json.dumps(mapping,indent=2))
+          print('EXACT_LOCAL_CANDIDATE_MATCH=PASS; RUNTIME_DELTAS=4; TEST_ASSERTION_UPDATE=1')
           PY
       - name: Install test dependencies
         run: python -m pip install -r az-baze-auth/requirements.txt
