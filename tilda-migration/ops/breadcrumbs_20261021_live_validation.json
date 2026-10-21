@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-10-21T11:54:32.568252+00:00",
+  "status": "PASS",
+  "pages": 73,
+  "redirects": 9,
+  "checks": [
+    "HTTPS200",
+    "exact installed SHA256",
+    "one breadcrumb nav",
+    "visible/schema labels match"
+  ],
+  "errors": [],
+  "backup": "/var/backups/azmednsk/breadcrumbs-20261021T115312539338Z"
+}

@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "pages": 73,
+  "checks": [
+    "before/after hashes",
+    "exact content preserved outside breadcrumb and new schema",
+    "one current-page label",
+    "matching visible/schema names and URLs",
+    "sequential positions",
+    "all parent targets exist",
+    "exact Git-base reversibility"
+  ]
+}
