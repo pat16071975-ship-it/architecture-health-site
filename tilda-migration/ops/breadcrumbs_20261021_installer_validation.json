@@ -1,0 +1,15 @@
+{
+  "checks": [
+    "success:PASS",
+    "file-drift:PASS",
+    "protected-drift:PASS",
+    "parent-symlink-drift:PASS",
+    "https-failure:PASS",
+    "redirect-failure:PASS",
+    "partial-write:PASS"
+  ],
+  "limitations": [
+    "HTTPS callbacks simulated; real server HTTPS verified by installer.",
+    "Runtime photos use fixture placeholders."
+  ]
+}

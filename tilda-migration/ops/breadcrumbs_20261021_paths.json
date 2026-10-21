@@ -1,0 +1,886 @@
+[
+  {
+    "path": "/contacts/",
+    "trail": [
+      "Главная",
+      "Контакты"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/cookie/",
+    "trail": [
+      "Главная",
+      "Согласие на обработку файлов cookie"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/kompleks-uslugi/arhitektura-zdorovya/",
+    "trail": [
+      "Главная",
+      "Комплексные услуги",
+      "Программа «Архитектура здоровья»"
+    ],
+    "links": [
+      "/",
+      "/kompleks-uslugi/"
+    ]
+  },
+  {
+    "path": "/kompleks-uslugi/",
+    "trail": [
+      "Главная",
+      "Комплексные услуги"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/kompleks-uslugi/korrekciya-vnimaniya-deti/",
+    "trail": [
+      "Главная",
+      "Комплексные услуги",
+      "Коррекция внимания и саморегуляции у детей"
+    ],
+    "links": [
+      "/",
+      "/kompleks-uslugi/"
+    ]
+  },
+  {
+    "path": "/kompleks-uslugi/zdorovaya-spina/",
+    "trail": [
+      "Главная",
+      "Комплексные услуги",
+      "Программа «Здоровая спина и осанка»"
+    ],
+    "links": [
+      "/",
+      "/kompleks-uslugi/"
+    ]
+  },
+  {
+    "path": "/lab/",
+    "trail": [
+      "Главная",
+      "Лаборатория"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/o_nas/",
+    "trail": [
+      "Главная",
+      "О клинике"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/otziv/",
+    "trail": [
+      "Главная",
+      "Отзывы пациентов"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/patient/dogovor/",
+    "trail": [
+      "Главная",
+      "Пациенту",
+      "Договор на оказание платных медицинских услуг"
+    ],
+    "links": [
+      "/",
+      "/patient/"
+    ]
+  },
+  {
+    "path": "/patient/gosgarantii/",
+    "trail": [
+      "Главная",
+      "Пациенту",
+      "Программа государственных гарантий"
+    ],
+    "links": [
+      "/",
+      "/patient/"
+    ]
+  },
+  {
+    "path": "/patient/",
+    "trail": [
+      "Главная",
+      "Пациенту"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/patient/licens/",
+    "trail": [
+      "Главная",
+      "Пациенту",
+      "Лицензия клиники"
+    ],
+    "links": [
+      "/",
+      "/patient/"
+    ]
+  },
+  {
+    "path": "/patient/patient-pravila/",
+    "trail": [
+      "Главная",
+      "Пациенту",
+      "Права и обязанности пациентов"
+    ],
+    "links": [
+      "/",
+      "/patient/"
+    ]
+  },
+  {
+    "path": "/patient/patient-rules/",
+    "trail": [
+      "Главная",
+      "Пациенту",
+      "Правила внутреннего распорядка для пациентов"
+    ],
+    "links": [
+      "/",
+      "/patient/"
+    ]
+  },
+  {
+    "path": "/patient/priem-patientov/",
+    "trail": [
+      "Главная",
+      "Пациенту",
+      "Порядок приёма первичных пациентов"
+    ],
+    "links": [
+      "/",
+      "/patient/"
+    ]
+  },
+  {
+    "path": "/patient/supervision/",
+    "trail": [
+      "Главная",
+      "Пациенту",
+      "Вышестоящие и контролирующие органы"
+    ],
+    "links": [
+      "/",
+      "/patient/"
+    ]
+  },
+  {
+    "path": "/patient/zhaloba/",
+    "trail": [
+      "Главная",
+      "Пациенту",
+      "Обращения пациентов"
+    ],
+    "links": [
+      "/",
+      "/patient/"
+    ]
+  },
+  {
+    "path": "/politica-site/",
+    "trail": [
+      "Главная",
+      "Политика обработки персональных данных"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/politica/",
+    "trail": [
+      "Главная",
+      "Политика конфиденциальности"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/rassrochka/",
+    "trail": [
+      "Главная",
+      "Рассрочка на услуги клиники"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/team/bosak-yana/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Босак Яна Сергеевна"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/chirkov-maxim/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Чирков Максим Сергеевич"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/dimitrenko-anna/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Димитренко Анна Яковлевна"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/golishenkov-vladislav/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Голышенков Владислав Александрович"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/holodtseva-valeria/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Холодцева Валерия Евгеньевна"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/",
+    "trail": [
+      "Главная",
+      "Команда"
+    ],
+    "links": [
+      "/"
+    ]
+  },
+  {
+    "path": "/team/lapina-natalia/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Лапина Наталья Сергеевна"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/lubaeva-alena/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Любаева Алена Юрьевна"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/mamontova-lubava/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Мамонтова Любава Геннадьевна"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/movseyan-babken/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Мовсесян Бабкен Ашотович"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/nazirov-uktamjon/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Назыров Уктамжон Жумавоевич"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/pavlova-anna/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Павлова Алла Викторовна"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/besedina-maria/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Беседина Мария Юрьевна"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/starostenko-vadim/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Старостенко Вадим Анатольевич"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/team/zubachev-roman/",
+    "trail": [
+      "Главная",
+      "Команда",
+      "Зубачев Роман Николаевич"
+    ],
+    "links": [
+      "/",
+      "/team/"
+    ]
+  },
+  {
+    "path": "/uslugi/craniodontic/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Ортокраниодонтия"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/diers-diagnostica/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "DIERS-диагностика осанки"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/diers_research/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Исследование DIERS 4D motion"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/doc_educate/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Обучение врачей функциональной стоматологии"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/functional_dentistry/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Функциональная стоматология"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/gastroenterologiya/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Гастроэнтеролог"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/hygiene_prevention/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Профессиональная гигиена и отбеливание зубов"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/hygiene_prevention/otbelivanie_zoom4/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Чистка и отбеливание зубов",
+      "Отбеливание зубов Zoom 4"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/hygiene_prevention/"
+    ]
+  },
+  {
+    "path": "/uslugi/iggt-terapiya/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "ИГГТ — интервальная гипокси-гиперокси терапия"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/khirurgiya/implantaciya/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Хирургия и имплантация",
+      "Имплантация зубов"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/khirurgiya/"
+    ]
+  },
+  {
+    "path": "/uslugi/khirurgiya/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Стоматологическая хирургия и имплантация"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/konsultatiya-stomatolog/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Консультация стоматолога"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/lechenie-zubov/esteticheskaya_restavraciya/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Лечение зубов",
+      "Эстетическая реставрация зубов"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/lechenie-zubov/"
+    ]
+  },
+  {
+    "path": "/uslugi/lechenie-zubov/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Лечение зубов под микроскопом"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/lechenie-zubov/karies/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Лечение зубов",
+      "Лечение кариеса"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/lechenie-zubov/"
+    ]
+  },
+  {
+    "path": "/uslugi/lechenie-zubov/kista/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Лечение зубов",
+      "Лечение кисты зуба"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/lechenie-zubov/"
+    ]
+  },
+  {
+    "path": "/uslugi/lechenie-zubov/periodontit/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Лечение зубов",
+      "Лечение периодонтита"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/lechenie-zubov/"
+    ]
+  },
+  {
+    "path": "/uslugi/lechenie-zubov/pulpit/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Лечение зубов",
+      "Лечение пульпита"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/lechenie-zubov/"
+    ]
+  },
+  {
+    "path": "/uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Лечение зубов",
+      "Удаление зубного камня"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/lechenie-zubov/"
+    ]
+  },
+  {
+    "path": "/uslugi/lechenie-zubov/zuby-mudrosti/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Лечение зубов",
+      "Лечение зубов мудрости"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/lechenie-zubov/"
+    ]
+  },
+  {
+    "path": "/uslugi/miofascialnaya-terapia/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Миофасциальная терапия"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/miofascialnyy-massazh/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Миофасциальный массаж"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/miofunkcionalnaya-terapiya/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Миофункциональная терапия"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/neyropsihologia/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Нейропсихолог для детей"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/nutriciologiya/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Консультация нутрициолога"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/orthodontics/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Консультация ортодонта и исправление прикуса"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/ortopedicheskie-stelki/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Индивидуальные стельки Formthotics"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/osteopatiya/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Остеопатия"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/preventivnaya-medicina/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Превентивная медицина"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/prosthetics/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Протезирование зубов"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslugi/prosthetics/koronki/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Протезирование зубов",
+      "Зубные коронки"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/prosthetics/"
+    ]
+  },
+  {
+    "path": "/uslugi/prosthetics/koronki/keramicheskie/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Протезирование зубов",
+      "Установка коронок",
+      "Керамические коронки"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/prosthetics/",
+      "/uslugi/prosthetics/koronki/"
+    ]
+  },
+  {
+    "path": "/uslugi/prosthetics/koronki/kompozitnye/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Протезирование зубов",
+      "Установка коронок",
+      "Композитные коронки"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/prosthetics/",
+      "/uslugi/prosthetics/koronki/"
+    ]
+  },
+  {
+    "path": "/uslugi/prosthetics/mostovidnyy-protez/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Протезирование зубов",
+      "Мостовидные зубные протезы"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/prosthetics/"
+    ]
+  },
+  {
+    "path": "/uslugi/prosthetics/viniry/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Протезирование зубов",
+      "Установка виниров"
+    ],
+    "links": [
+      "/",
+      "/uslygi/",
+      "/uslugi/prosthetics/"
+    ]
+  },
+  {
+    "path": "/uslugi/terapia/",
+    "trail": [
+      "Главная",
+      "Направления",
+      "Приём врача-терапевта"
+    ],
+    "links": [
+      "/",
+      "/uslygi/"
+    ]
+  },
+  {
+    "path": "/uslygi/",
+    "trail": [
+      "Главная",
+      "Направления"
+    ],
+    "links": [
+      "/"
+    ]
+  }
+]
