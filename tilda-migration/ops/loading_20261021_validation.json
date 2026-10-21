@@ -1,0 +1,11 @@
+{
+  "status": "PASS STATIC/MEDIA",
+  "html_checked": 75,
+  "assets_checked": 217,
+  "text_links_scripts_original_img_sources": "unchanged",
+  "source_delta": "exact reversible",
+  "image_decoding": "dimensions and RGBA checksums verified",
+  "browser_visual": "NOT CHECKED",
+  "live_deployed": false,
+  "cache": "Existing downloaded response headers have no explicit Cache-Control for photo assets. Server cache configuration not changed."
+}

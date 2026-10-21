@@ -1,0 +1,377 @@
+{
+  "contacts/index.html": {
+    "before": "df37c618cf6ac3d1a9046d93ee219fcccb2536ecca3f176c8caf1c083f333c16",
+    "after": "23e43c64e75c8987b2362529d44512e8551377d343fdc494a2078d272ad3e801",
+    "same_patch_as_live": true
+  },
+  "cookie/index.html": {
+    "before": "8bec2eb99ec01c9dd27069c258b74a000af91d4484779c5efa5e90005e581349",
+    "after": "1b5ce4f50f51c05eae441c853c13beae832476b8658cbd74be44e0c8da362ed5",
+    "same_patch_as_live": true
+  },
+  "index.html": {
+    "before": "6a53a5063104bc0351b4892106ab10e4f01ee7f5769df9f14937a41379bf7b08",
+    "after": "b6138c847722c2a09761057edf6bc8704dd4fa047883f6d326fc45a91f84e59f",
+    "same_patch_as_live": true
+  },
+  "kompleks-uslugi/arhitektura-zdorovya/index.html": {
+    "before": "a3c2e6bb6bb7b15dae0de5f89b9cce3958b13ef39fcc3ecd3a13ecc4cb7829fd",
+    "after": "ae2024db455c67ced69ba8a0af6277a6b4a841e81a43120d452b1f93b98e1a4f",
+    "same_patch_as_live": true
+  },
+  "kompleks-uslugi/index.html": {
+    "before": "a7c79ae87baed03a7eeb559d0c8bb806ba77798a882f200e1ead755826aa9a0b",
+    "after": "2c6d97561ddcc3e88f835a01a6b4779e1ee0ca80e46ca754da712dcaa4704ac8",
+    "same_patch_as_live": true
+  },
+  "kompleks-uslugi/korrekciya-vnimaniya-deti/index.html": {
+    "before": "9b4d4a77d5ad3efb936b5f3cdfa4eada184ec3c0ea3e5a184b2046dc9a3bf572",
+    "after": "a6600447db4a37867c082a635d62b46704b247c76a351ba7d9eeba43779868a8",
+    "same_patch_as_live": true
+  },
+  "kompleks-uslugi/zdorovaya-spina/index.html": {
+    "before": "02349f2675b3c4fba10d2bad435ea4732644941de2b15aa5f4ba46069664eaed",
+    "after": "24e274cf4fbfa38f2af3e4e8312a84244357c552412667eaf1fc3acccc278fde",
+    "same_patch_as_live": true
+  },
+  "lab/index.html": {
+    "before": "e26019d98e88c2eef99edbe6b905391600874bda79c70dab60a8d8ccb1446bb9",
+    "after": "0313add6cadc67faf3396824525d23b1c451c5cd082aa875041b486c2f576f36",
+    "same_patch_as_live": true
+  },
+  "o_nas/index.html": {
+    "before": "4529aeabd1ab4f4c6241e7dd5ae8186ac11093562a1c21c4bec2732e957ded23",
+    "after": "242405c9a4c4b6557cf57c8a61ab9b1e7c19b511dc062cf4516bd1e2e2b223e2",
+    "same_patch_as_live": true
+  },
+  "otziv/index.html": {
+    "before": "02df5c97ccc8ed36e4de652442213e5560dcc6bf85c4b889630314aa4a889e18",
+    "after": "b8b2e8290632130b456fb4c80f298b35d38a1300eda0b8b382f9e854ecaf5836",
+    "same_patch_as_live": true
+  },
+  "patient/dogovor/index.html": {
+    "before": "03109d95ab7384ca15531919a97b058ac97212e8693c7d0948114d8c74badf8f",
+    "after": "16597f9bf5ff2690504b49922bb15dc73bce4523197a21d09131a1961b79c59d",
+    "same_patch_as_live": true
+  },
+  "patient/gosgarantii/index.html": {
+    "before": "9d6b0b388e4915413a1a0de307b80ac2825445a0a01829b5fb32308b30d1ea9f",
+    "after": "5f8d486ececc4e4c67eea6dc82f9a5c4c214a9ef705e69a7a07735dab652943d",
+    "same_patch_as_live": true
+  },
+  "patient/index.html": {
+    "before": "68b6469ba52945c23e07c355cd28bc9b956af4a77843f3612265480c7bb6f35d",
+    "after": "8809207af03cba762aa45e49c10539ba90f33937cde4db92ce0286a8f24fd73d",
+    "same_patch_as_live": true
+  },
+  "patient/licens/index.html": {
+    "before": "aebb17f9c826e2c4470b18b7a18de5daabe67c31f988b732a55edcbb27e69b9c",
+    "after": "910405e0279823a59157c9e47f442a9358dc007379361f5054e1dc963eaccda9",
+    "same_patch_as_live": true
+  },
+  "patient/patient-pravila/index.html": {
+    "before": "d7d14fe5635d2df2eb39de7d0f602bd2aba6f907fb91f54392efdebb863506b7",
+    "after": "38eb881d69cb95d899c0be5c469ae9cb8138c7731e6f7f30aee9d61ff204c3aa",
+    "same_patch_as_live": true
+  },
+  "patient/patient-rules/index.html": {
+    "before": "de50b985ce412b96002dce4420ba5906471bddb2c96bd8dc8cebb6d4888b45d0",
+    "after": "ebef9c7644266290110359292b382b1cb389c9511fbb1707756b86fb15118a0c",
+    "same_patch_as_live": true
+  },
+  "patient/priem-patientov/index.html": {
+    "before": "aef0cfcfd7e2931dadce85f6cbef4ddf78ed6bd9362f2ba07bc59ed3fa06737e",
+    "after": "43dd1ac7501c50d5f137581ec8f2112fec4dd8a9e9e9d75cdbad8db157eb86a8",
+    "same_patch_as_live": true
+  },
+  "patient/supervision/index.html": {
+    "before": "e23bf37a59e3398cb3d80876befb546132607f5bfe2eb40660b30b707164b0d8",
+    "after": "1d43c9a05c7245dae51e73de448f74a02a5f93aef8771094defcef2611ad3e71",
+    "same_patch_as_live": true
+  },
+  "patient/zhaloba/index.html": {
+    "before": "3d9e76aa42083581a7c8482c8c787499361b7bef8a2a4b19d4eb755fdadc4361",
+    "after": "de59e799fa3edb0c25db86bb1ad4f00e1b7d718560d8be28a4af25eb06121724",
+    "same_patch_as_live": true
+  },
+  "politica/index.html": {
+    "before": "7d3883d37d564904159edcb7690bbb338cb2af2e8b94189b78f0d39f2783f420",
+    "after": "d2bbd82d7f8c9617ef085ec8f97f10527adbb4d2da3467ba17a843e94772e6ba",
+    "same_patch_as_live": true
+  },
+  "politica-site/index.html": {
+    "before": "e34d26b9a493fc653aff500413146b3f003df5aeb86af654cbbdd0ad931348cf",
+    "after": "b3ce5b25d0d747e9f877a17d8243ee91d0f6d9a663521db2fac281ed90fd792f",
+    "same_patch_as_live": true
+  },
+  "rassrochka/index.html": {
+    "before": "4f3b9ae25775e78350929d8aa1c6c54358970c88278ac9bd5a2f984c6d8f8e70",
+    "after": "1792d9d8b49cd58f037e7855a07b4c6b6f7ee880924286dec332164f4712acdc",
+    "same_patch_as_live": true
+  },
+  "team/besedina-maria/index.html": {
+    "before": "d955a197a295005816230ae37d592ac4a53548ff4d19a2edff847100ce7595ad",
+    "after": "051ed3b69b682163818976f36d81d7a9b74968b4ef0ddf54025cf07871989b6a",
+    "same_patch_as_live": true
+  },
+  "team/bosak-yana/index.html": {
+    "before": "516db848902223fb1d515cb1ec4d47ee5b958dd27b55a0ecaf5792c911ed7424",
+    "after": "68f7c4b69b7c938251578eb411a8a1f38b633c09006f2b55cb94b198891d66f6",
+    "same_patch_as_live": true
+  },
+  "team/chirkov-maxim/index.html": {
+    "before": "58e180e1f063daffc561aae104df81f6da432da43cda7b99e49791864cb9b94f",
+    "after": "51a66048fc0058a15fc139c245afb9a871c3a3c606b13de3edbb9415907b75bb",
+    "same_patch_as_live": true
+  },
+  "team/dimitrenko-anna/index.html": {
+    "before": "7f254e3b42a4393621ffad4d428ae69e92ebbfa63838eaa189704a02596385de",
+    "after": "253ada24465bff31f49ab90bfe80b384d38a37fb87e58d434e185041b9cc40bc",
+    "same_patch_as_live": true
+  },
+  "team/golishenkov-vladislav/index.html": {
+    "before": "172d75e2551184f3f4a7a7b80d563d53ef4d850ba7787b08f078f33a699e9a71",
+    "after": "cbeb68e42a9a415d2c11ae708162b8f86c40171f541d5b0b0d8527c2b23a0c40",
+    "same_patch_as_live": true
+  },
+  "team/holodtseva-valeria/index.html": {
+    "before": "96255b41328d7952127228d3df1a4e9e23bbf31deeee35dbeff459d6836b1e99",
+    "after": "321fe1b269515475c6444fc09dd50c968dff66ccdfccece680260c3b0a2a9ddb",
+    "same_patch_as_live": true
+  },
+  "team/index.html": {
+    "before": "d67c375fe177776d13dc25ed00fe6d04da0e1762919c4ed0cfc8fd0e305b4ae5",
+    "after": "fbab411424f11c4c445cfd7cb0d6333bec9f3e41bdb4ce2fcd6ab6d7e80c30a4",
+    "same_patch_as_live": true
+  },
+  "team/lapina-natalia/index.html": {
+    "before": "f90e0e1e715744efeef3310ec6a2f0d096a861304f6d85979fa7fe9b596c0197",
+    "after": "33b9fd8355afcf7e6294ad5c423df3c1be9bee52c120921ab42981a12f1d7f92",
+    "same_patch_as_live": true
+  },
+  "team/lubaeva-alena/index.html": {
+    "before": "7bef5fec83965e54d845b663843f4bb35b788ae5011a5c85f0bb1ae9682dcc6e",
+    "after": "1c20ef4319919453fbc84840eacaccf14d8e0459f60c054233a0b03cdf9f79e8",
+    "same_patch_as_live": true
+  },
+  "team/mamontova-lubava/index.html": {
+    "before": "d2ea9c31759de7dffce3e99dc52d00606ccac7a3695dfc08cd24f278ac7ca40e",
+    "after": "023d42edb357a826c43f606a2da1dd20ed077bae26bee3d152daaa536f685b95",
+    "same_patch_as_live": true
+  },
+  "team/movseyan-babken/index.html": {
+    "before": "d154ce2cf74ede5cbd9dcc4ffdaedfa227141da39fb538eefc8e06a90445f140",
+    "after": "cb9b0ed244da777e609721306fb457dad1e60444180c9fd2f799e37f38af7345",
+    "same_patch_as_live": true
+  },
+  "team/nazirov-uktamjon/index.html": {
+    "before": "276b2ff809c8a1d0be2a972f3995e2c3b0ed89ac386f73bd7ad387b5cc8372f6",
+    "after": "6edd210e7e37ff26187503a422b1b71bdd7beb43bb1b59606ba90afeed454df4",
+    "same_patch_as_live": true
+  },
+  "team/pavlova-anna/index.html": {
+    "before": "9a237b8e5dc8d11280f95378aad92e5ff0005adc897f3f0afcf24a947564b84d",
+    "after": "e2c518868877392e7a261b67da30fb5f47256ec6e17fdf0e806899f9ed6e778e",
+    "same_patch_as_live": true
+  },
+  "team/starostenko-vadim/index.html": {
+    "before": "167ca2cf786fa72eaa10ef1b2569a8e8c97139d45540e4b6de2722c45528d74b",
+    "after": "32a5816d9f9ca78a1fd41300385af2fc7b206779462f411bc69092fa8580ceb9",
+    "same_patch_as_live": true
+  },
+  "team/zubachev-roman/index.html": {
+    "before": "17d8adaa0e30c8fce7042fe6a6aa9815c086d2eb29e6855dbb4ea8bb0eca2238",
+    "after": "eea473d859a57f649806bd2c9fbbe7d37776b32a73b911753c4312391eba9983",
+    "same_patch_as_live": true
+  },
+  "thank/index.html": {
+    "before": "af24ea275c8d8d2d5885453cd7c6459045e6756fdaab43aabe32294a832d526a",
+    "after": "3184bb573b20ed7e52b28e8f437426bdaf520a3511ef05960339aa25436c7675",
+    "same_patch_as_live": true
+  },
+  "uslugi/craniodontic/index.html": {
+    "before": "2254dc291664c01b3024a1f179b65aa8fefd8780d560ac50b6aa54fe402655c7",
+    "after": "d79d0c438b665d68804cd6160334370879ac5c5572c409b1b78a00cfb0419833",
+    "same_patch_as_live": true
+  },
+  "uslugi/diers-diagnostica/index.html": {
+    "before": "233538c30ce51499f83faae5d98d17c6fac7f79c8fe82279172e8ff94a345a8a",
+    "after": "4dc97243d5d43e64035d68b8ab15ea672ca607bf2dad94f555537f0f39e3ae83",
+    "same_patch_as_live": true
+  },
+  "uslugi/diers_research/index.html": {
+    "before": "7d05952cceb8db6544180b394777a8becf9fb0cf95fde8d63f5d4b4b84237a47",
+    "after": "16b886ad318bc426ce4cf6b94b09ca9d4b6e0dea59d121c25e9c7cc09d48c146",
+    "same_patch_as_live": true
+  },
+  "uslugi/doc_educate/index.html": {
+    "before": "7c5662e1d29e31cec7d8b02790c3579cc58075a0dfc1a0575af08550ffadaf0e",
+    "after": "888ccc9e25e4e067536b339715f22318c0305532045e74a19255375001039b3b",
+    "same_patch_as_live": true
+  },
+  "uslugi/functional_dentistry/index.html": {
+    "before": "8d8fa5ea4cec2e1816250cc160bc08bb90e6adef7f176d93e5b281071ea19b87",
+    "after": "3a24475858598be1965d9612669c5ed97f4e45e96fa5169a52c5611441a92fc6",
+    "same_patch_as_live": true
+  },
+  "uslugi/gastroenterologiya/index.html": {
+    "before": "1e6a98b4ac747820c9b1ef207a107a7346153f84bd5ba51494ae4bf86a3f7108",
+    "after": "090e7ec05e15495c0caac5d694a62186885e1a9507adc0dd7399ab43b9740558",
+    "same_patch_as_live": true
+  },
+  "uslugi/hygiene_prevention/index.html": {
+    "before": "896a11eaaaf8efa215a6264cc4b5cc717a67a75deeecd2d6644748876da95b4b",
+    "after": "e21a1766745e6b99b31dae8623d6d9ab83b1f4dc45a1a480ff39803d648204f7",
+    "same_patch_as_live": true
+  },
+  "uslugi/hygiene_prevention/otbelivanie_zoom4/index.html": {
+    "before": "fcb1833d3eb14244999690ad8876aa63d44799dac2334b4ef9ab978fced8b97e",
+    "after": "a6d94da53be0d566aa712e488cbc7502027b77d450507c9e6d700ab19a3db5b1",
+    "same_patch_as_live": true
+  },
+  "uslugi/iggt-terapiya/index.html": {
+    "before": "cf321252c4876ab557169e9a79ec09cc711faa5fcc68eae19438e73617497fbd",
+    "after": "5585dd68cb16aaa898d497c9de00bc884b405aee6b92514c397a170776ee2807",
+    "same_patch_as_live": true
+  },
+  "uslugi/khirurgiya/implantaciya/index.html": {
+    "before": "864ae98a920dc1db6ab0ae13ce219d078c635189867d8b7c668de1aae2b75696",
+    "after": "53155be4cfbf5930dff3bdc81108891dc483729efb1e938bf2add2e58d5c8e68",
+    "same_patch_as_live": true
+  },
+  "uslugi/khirurgiya/index.html": {
+    "before": "0c56f7d71631e60e42dcfe929f20a981c8f92bb6c1064afe64e911f6b877617c",
+    "after": "5d97af43c0a0bec40ea1bedc0114ce82a5ca02b2ef260a6a383ad1a11aa76baf",
+    "same_patch_as_live": true
+  },
+  "uslugi/konsultatiya-stomatolog/index.html": {
+    "before": "d28104185aadfad7aa6ed43150c23bb66e66390feee67c333e09ee8ad6f53245",
+    "after": "ad22f9f64c90237a4fca6cf75b3b00a6a6c2e83fa20c6e5c8aab4541267a85e9",
+    "same_patch_as_live": true
+  },
+  "uslugi/lechenie-zubov/esteticheskaya_restavraciya/index.html": {
+    "before": "4e31ff7c5fcbf056fcca4aabe080f609aabae9b80001880f0b7927d81036afca",
+    "after": "b26496df74645c64ea3aa6a3a846d467dbc7d89a7507f70750c518e061e15d7e",
+    "same_patch_as_live": true
+  },
+  "uslugi/lechenie-zubov/index.html": {
+    "before": "c8dd8f61f4731cb9d39ed9071595ecc04845dbe89baa579abe120035bd848c9a",
+    "after": "27ead4cfe632f2b84492a7d6c5477042c2328591e2c70d947ccf4a4afdfc0f47",
+    "same_patch_as_live": true
+  },
+  "uslugi/lechenie-zubov/karies/index.html": {
+    "before": "81b6805e31832440b199f3f5a041f90275f5afa7cf9cc15617128a45d8cf2ffa",
+    "after": "50508285c3c7fffdf998c7a4ffcd4b1c1cd4ea459c4204dc2d869492331f6e70",
+    "same_patch_as_live": true
+  },
+  "uslugi/lechenie-zubov/kista/index.html": {
+    "before": "8d5624e69cad1787ec94c8b1e32259bb54d4ea998b759e7f30b49719dd59cf22",
+    "after": "1efcd2b0cbb0a2027cc5f60569159c10fee7898108734f54b2127a257ddb4d92",
+    "same_patch_as_live": true
+  },
+  "uslugi/lechenie-zubov/periodontit/index.html": {
+    "before": "239283cf4f8a77773e2f80829aa702fa362149f40143ea0e0ef607f8df362322",
+    "after": "42bff3be41bd08ed252aa9d81b5719262764735f41fec6b2ab2039876c3d283c",
+    "same_patch_as_live": true
+  },
+  "uslugi/lechenie-zubov/pulpit/index.html": {
+    "before": "8e7c6c2a72ea5cc87ca482defba14e67ac417e48c86d7a057bcf4f528565daeb",
+    "after": "4ed680092b021e76726614ec972a188ec41ae6f472074c66432fe11f2be14f61",
+    "same_patch_as_live": true
+  },
+  "uslugi/lechenie-zubov/udalenie_zubnogo_kamnya/index.html": {
+    "before": "12fdf665480e43c9881fc890c920bb0565f98b51132e00e8cd4fd08ab898552a",
+    "after": "654095b5ac22eb65228891774960618d5c40fc4b5ab17a631771c669b3bc2e50",
+    "same_patch_as_live": true
+  },
+  "uslugi/lechenie-zubov/zuby-mudrosti/index.html": {
+    "before": "0584bac976bae47b04afb8fbeeaf05c3d1a8590694814d44abac0ad8c677df7a",
+    "after": "3c03fb271c24ecde6a034080056c8873fe11aa78b775075235b66c2c4bde7381",
+    "same_patch_as_live": true
+  },
+  "uslugi/miofascialnaya-terapia/index.html": {
+    "before": "34b35ec4fd2a3621a5597cd573a0685daedefac0d18df52061b7dd3bb79e4152",
+    "after": "b797b116ab51442a5c8c900e5f15d07f77cd8321e912708b0db5bedd5ad7b301",
+    "same_patch_as_live": true
+  },
+  "uslugi/miofascialnyy-massazh/index.html": {
+    "before": "db3af7f2a5a49e2c64e10dd4412c954d9e97fcddad82a2868d620136ace75b79",
+    "after": "4f44ef4b40f0fc46e08a919715ee123a525726b08b385a703c8a82d4829c1026",
+    "same_patch_as_live": true
+  },
+  "uslugi/miofunkcionalnaya-terapiya/index.html": {
+    "before": "10ff84dc707459257f57cbd59e704500a6e156b174a97212328402fc8073eb5f",
+    "after": "7d71fbf933a2ca97720969ab8a517ed08b8db4d3d1c7dd0f13e56fa1383589cd",
+    "same_patch_as_live": true
+  },
+  "uslugi/neyropsihologia/index.html": {
+    "before": "0d5b997b62eed11683acd617756610f4bf47e2f8a390cd48402903997369cb20",
+    "after": "78cbae329139dceb116c7d0735a57c7847cbb2ad7cc089d0ccc87208218ff330",
+    "same_patch_as_live": true
+  },
+  "uslugi/nutriciologiya/index.html": {
+    "before": "92a3865ef02d98118f42a4ee6ca83b178b323e5f25fdb1899da038cb79866bd6",
+    "after": "90d23f106c10d38984c02be1c68723725e93a1b6e4ef9b1fb168db50bb4ce6a5",
+    "same_patch_as_live": true
+  },
+  "uslugi/orthodontics/index.html": {
+    "before": "b4be69f0aa15869e5f5527559d36224e4fa154366bc2ffb0ea5e2d3c5acfae41",
+    "after": "1a6f38b82779cd4d240944af602c500b30e52cfc9b258a9420649294ae1b7f28",
+    "same_patch_as_live": true
+  },
+  "uslugi/ortopedicheskie-stelki/index.html": {
+    "before": "417369384788ded3c4e047407fff67dda259f61a68591b2395a15e1a026d14fc",
+    "after": "c346103f92bd17dbd8e808f70037147c9a6fe1e2aefad4cc786e86501d7b96f0",
+    "same_patch_as_live": true
+  },
+  "uslugi/osteopatiya/index.html": {
+    "before": "612c553ad99ce3fc0a0f9d4cb527459880d73a2584f113c2e8da26ed277921cb",
+    "after": "57c55efbc9fd6b08cbb0a8a50a51d6fef68cc90fc63d1ba8127bb155f8eff0d8",
+    "same_patch_as_live": true
+  },
+  "uslugi/preventivnaya-medicina/index.html": {
+    "before": "c3c1448c032cd6f4860b8970e091bb9a433451f0a6a46f76da1fae5bd7a6b9db",
+    "after": "6337bf10469680d67319807a526a7418d98af40902cdf8587d9f72c3e52d366d",
+    "same_patch_as_live": true
+  },
+  "uslugi/prosthetics/index.html": {
+    "before": "d2cdf29a6d9b42723bc66b2ad8f247ca9ebc8ef44bed1e336f6baf5b241e0ae5",
+    "after": "7ca9ce5934e78b7e8fa3d19c95385911c9547d90a032408c46dfe1d804054e97",
+    "same_patch_as_live": true
+  },
+  "uslugi/prosthetics/koronki/index.html": {
+    "before": "c01bd3380eef168e0f6e06c57ee5f3bc96f11143e41270373f027e9adf51b21a",
+    "after": "3c8ff9e4ca5af27ded058cc28b7114ff0a46018607cff4a109c9b110d13a5d67",
+    "same_patch_as_live": true
+  },
+  "uslugi/prosthetics/koronki/keramicheskie/index.html": {
+    "before": "e9ffbbffb5cb3835d4dd5a8199d449320f7943b7f77416d350acb1e36bce3f3c",
+    "after": "c8dbdf90872160c4cb62dcde297cde2278b6e2aa0639f00c4f23a05c87a08a07",
+    "same_patch_as_live": true
+  },
+  "uslugi/prosthetics/koronki/kompozitnye/index.html": {
+    "before": "abf9d083ee8094f24bdc14a2f88030671bd2b0900d337483f786da40acaa5cc7",
+    "after": "578379c6c185bf9a3676846c85c29774a415f0e3de54df5ffde018f11cd445ff",
+    "same_patch_as_live": true
+  },
+  "uslugi/prosthetics/mostovidnyy-protez/index.html": {
+    "before": "06bbbb03af916d1d48e62584fef665c679312f1a3b4891d5cfd288251d1255bb",
+    "after": "4b649bb238fdeee40c466d4a365eb10e5f1ca5d3880356ed5ade0b74dccdc523",
+    "same_patch_as_live": true
+  },
+  "uslugi/prosthetics/viniry/index.html": {
+    "before": "37fbe1eb62798ca03857a90ce052b5950667576ad34c306c2fe1010c6033e553",
+    "after": "7ca216d9f3c197f0d2098aa7c1b655e1eb85a07da544a0b6572f3acce85a1e61",
+    "same_patch_as_live": true
+  },
+  "uslugi/terapia/index.html": {
+    "before": "79f1ce90ad4269e6c2d64cd6a10a5394ab15c14501e921fb91aebbc00bad4afd",
+    "after": "27674edb8259fbb7a365c129324545baca83eeda82aa5f3555aa6a06729e2a5c",
+    "same_patch_as_live": true
+  },
+  "uslygi/index.html": {
+    "before": "d47dcbdfebc6d59617f430933a429c54363b9c7d3cba93d8edb75c1541868406",
+    "after": "cbb952baeba0dc75c62e4cb268e6ebca26fc532d3651582705b9f2fe77087a86",
+    "same_patch_as_live": true
+  }
+}
