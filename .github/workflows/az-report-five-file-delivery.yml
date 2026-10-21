@@ -1,0 +1,52 @@
+name: AZ five-file controlled delivery
+on:
+  push:
+    branches: ['ops/az-report-consistency-install-20261021']
+permissions:
+  contents: read
+jobs:
+  delivery-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 8720cd235430212b2c904c906b1d6979ef16d6a1
+          path: baseline
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install Jinja2==3.1.6
+      - name: Isolated backup, install, rollback and no-write proofs
+        env:
+          AZ_INSTALL_APPROVED_ROOT: ${{ github.workspace }}
+          AZ_INSTALL_BASE_ROOT: ${{ github.workspace }}/baseline
+          PYTHONDONTWRITEBYTECODE: '1'
+        working-directory: az-baze-auth/deploy
+        run: |
+          python -B - <<'PY'
+          import hashlib
+          from pathlib import Path
+          import unittest
+          result=unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_report_consistency_install'))
+          if not result.wasSuccessful() or result.skipped:
+              raise SystemExit(1)
+          p=Path('report_consistency_install.py');raw=p.read_bytes()
+          compile(raw,str(p),'exec')
+          print(f'DELIVERY_TESTS=PASS; TESTS={result.testsRun}; SKIPPED=0')
+          print('INSTALLER_SHA256='+hashlib.sha256(raw).hexdigest())
+          print('INSTALLER_BLOB='+hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest())
+          print('PRODUCTION_ACCESS=NONE; SYSTEMD_HTTP=SIMULATED; DEPLOY=NONE')
+          PY
+      - name: Retained JavaScript period and upload behavior
+        run: |
+          node --check reports/period-view.js
+          node tests/verify-paid-periods.cjs
+          node tests/verify-paid-upload-periods.cjs
