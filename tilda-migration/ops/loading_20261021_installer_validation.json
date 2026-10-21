@@ -1,0 +1,19 @@
+{
+  "checks": [
+    "success:PASS",
+    "file-drift:PASS",
+    "protected-drift:PASS",
+    "parent-symlink:PASS",
+    "asset-drift:PASS",
+    "bad-download:PASS",
+    "https-failure:PASS",
+    "redirect-failure:PASS",
+    "partial-write:PASS"
+  ],
+  "html": 75,
+  "assets": 217,
+  "limitations": [
+    "HTTPS and downloads are injected local callbacks; real server HTTPS runs during installation.",
+    "Runtime-only photos use placeholders only when absent from baseline."
+  ]
+}

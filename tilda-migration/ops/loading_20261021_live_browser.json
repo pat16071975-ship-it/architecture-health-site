@@ -1,0 +1,17 @@
+{
+  "pages": [
+    "/",
+    "/team/besedina-maria/",
+    "/lab/"
+  ],
+  "viewport_width": 1363,
+  "fonts": "loaded on all three pages",
+  "horizontal_overflow": false,
+  "besedina": "loaded 480px WebP",
+  "lab_gallery": "15 of 15 loaded 480px WebP",
+  "screenshots": "home/profile/lab inspected",
+  "limitations": [
+    "Desktop smoke check only; mobile comparison was performed on pre-install preview.",
+    "No before/after production timing benchmark."
+  ]
+}

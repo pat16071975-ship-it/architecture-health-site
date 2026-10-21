@@ -1,0 +1,8065 @@
+{
+  "previewCommit": "3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58",
+  "sourceCommit": "f9d6a593fc5e2f87cf38412952bbaf2d9d05489d",
+  "results": [
+    {
+      "page": 0,
+      "version": "before",
+      "requestedWidth": "320",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 120,
+          "id": "",
+          "tag": "H1",
+          "w": 273,
+          "y": 115
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 1351.8125
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2985.15625
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2985.15625
+        },
+        {
+          "h": 298.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 3410.046875
+        },
+        {
+          "h": 298.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 3410.046875
+        },
+        {
+          "h": 70,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 4682.046875
+        }
+      ],
+      "height": 8336,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/az-logo-black-clean-20261012.svg",
+          "w": 65
+        },
+        {
+          "h": 186,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/4d67d8e3617de3463719.jpg",
+          "w": 305
+        },
+        {
+          "h": 32,
+          "loaded": false,
+          "src": "",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": false,
+          "src": "",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": false,
+          "src": "",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": false,
+          "src": "",
+          "w": 32
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 159,
+          "loaded": false,
+          "src": "",
+          "w": 300
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        }
+      ],
+      "scroll": 305,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-0.html",
+      "width": 305
+    },
+    {
+      "page": 0,
+      "version": "before",
+      "requestedWidth": "390",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96,
+          "id": "",
+          "tag": "H1",
+          "w": 343,
+          "y": 115
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 1211.0625
+        },
+        {
+          "h": 387.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2630.65625
+        },
+        {
+          "h": 387.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2630.65625
+        },
+        {
+          "h": 315.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 3037.75
+        },
+        {
+          "h": 315.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 3037.75
+        },
+        {
+          "h": 35,
+          "id": "",
+          "tag": "H2",
+          "w": 286.109375,
+          "y": 4326.75
+        }
+      ],
+      "height": 7646,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/az-logo-black-clean-20261012.svg",
+          "w": 65
+        },
+        {
+          "h": 186,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/4d67d8e3617de3463719.jpg",
+          "w": 320
+        },
+        {
+          "h": 32,
+          "loaded": false,
+          "src": "",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": false,
+          "src": "",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": false,
+          "src": "",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": false,
+          "src": "",
+          "w": 32
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 159,
+          "loaded": false,
+          "src": "",
+          "w": 300
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        }
+      ],
+      "scroll": 375,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-0.html",
+      "width": 375
+    },
+    {
+      "page": 0,
+      "version": "before",
+      "requestedWidth": "640",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 167,
+          "id": "",
+          "tag": "H1",
+          "w": 544,
+          "y": 99
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 1000
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2175.3125
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2175.3125
+        },
+        {
+          "h": 467.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2765.8125
+        },
+        {
+          "h": 467.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2765.8125
+        },
+        {
+          "h": 35,
+          "id": "",
+          "tag": "H2",
+          "w": 286.109375,
+          "y": 4141.203125
+        }
+      ],
+      "height": 6874,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/az-logo-black-clean-20261012.svg",
+          "w": 65
+        },
+        {
+          "h": 327,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/4d67d8e3617de3463719.jpg",
+          "w": 640
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 338,
+          "loaded": false,
+          "src": "",
+          "w": 619
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        }
+      ],
+      "scroll": 625,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-0.html",
+      "width": 625
+    },
+    {
+      "page": 0,
+      "version": "before",
+      "requestedWidth": "1366",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 302,
+          "id": "",
+          "tag": "H1",
+          "w": 509,
+          "y": 160
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 879
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2112.9375
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2112.9375
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2112.9375
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2112.9375
+        },
+        {
+          "h": 40,
+          "id": "",
+          "tag": "H2",
+          "w": 326.984375,
+          "y": 3223.828125
+        }
+      ],
+      "height": 4608,
+      "images": [
+        {
+          "h": 104,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/az-logo-black-clean-20261012.svg",
+          "w": 90
+        },
+        {
+          "h": 516,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/4d67d8e3617de3463719.jpg",
+          "w": 696
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 315,
+          "loaded": false,
+          "src": "",
+          "w": 560
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        }
+      ],
+      "scroll": 1351,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-0.html",
+      "width": 1351
+    },
+    {
+      "page": 0,
+      "version": "after",
+      "requestedWidth": "320",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 120,
+          "id": "",
+          "tag": "H1",
+          "w": 273,
+          "y": 115
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 1351.8125
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2985.15625
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2985.15625
+        },
+        {
+          "h": 298.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 3410.046875
+        },
+        {
+          "h": 298.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 3410.046875
+        },
+        {
+          "h": 70,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 4682.046875
+        }
+      ],
+      "height": 8336,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/az-logo-black-clean-20261012.svg",
+          "w": 65
+        },
+        {
+          "h": 186,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/4d67d8e3617de3463719.jpg",
+          "w": 305
+        },
+        {
+          "h": 32,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/079590525b90dc6e6bb9.svg",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/5e8fcfcb09dde52837d1.svg",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/ee04cabd7e90a031cbe9.svg",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/64372a6216d95f09432b.svg",
+          "w": 32
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 159,
+          "loaded": false,
+          "src": "",
+          "w": 300
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        }
+      ],
+      "scroll": 305,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-0.html",
+      "width": 305
+    },
+    {
+      "page": 0,
+      "version": "after",
+      "requestedWidth": "390",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96,
+          "id": "",
+          "tag": "H1",
+          "w": 343,
+          "y": 115
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 1211.0625
+        },
+        {
+          "h": 387.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2630.65625
+        },
+        {
+          "h": 387.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2630.65625
+        },
+        {
+          "h": 315.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 3037.75
+        },
+        {
+          "h": 315.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 3037.75
+        },
+        {
+          "h": 35,
+          "id": "",
+          "tag": "H2",
+          "w": 286.109375,
+          "y": 4326.75
+        }
+      ],
+      "height": 7646,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/az-logo-black-clean-20261012.svg",
+          "w": 65
+        },
+        {
+          "h": 186,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/4d67d8e3617de3463719.jpg",
+          "w": 320
+        },
+        {
+          "h": 32,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/079590525b90dc6e6bb9.svg",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/5e8fcfcb09dde52837d1.svg",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/ee04cabd7e90a031cbe9.svg",
+          "w": 32
+        },
+        {
+          "h": 32,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/64372a6216d95f09432b.svg",
+          "w": 32
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 25,
+          "loaded": false,
+          "src": "",
+          "w": 25
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 159,
+          "loaded": false,
+          "src": "",
+          "w": 300
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        }
+      ],
+      "scroll": 375,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-0.html",
+      "width": 375
+    },
+    {
+      "page": 0,
+      "version": "after",
+      "requestedWidth": "640",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 167,
+          "id": "",
+          "tag": "H1",
+          "w": 544,
+          "y": 99
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 1000
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2175.3125
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2175.3125
+        },
+        {
+          "h": 467.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2765.8125
+        },
+        {
+          "h": 467.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2765.8125
+        },
+        {
+          "h": 35,
+          "id": "",
+          "tag": "H2",
+          "w": 286.109375,
+          "y": 4141.203125
+        }
+      ],
+      "height": 6874,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/az-logo-black-clean-20261012.svg",
+          "w": 65
+        },
+        {
+          "h": 327,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/4d67d8e3617de3463719.jpg",
+          "w": 640
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 35,
+          "loaded": false,
+          "src": "",
+          "w": 35
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 338,
+          "loaded": false,
+          "src": "",
+          "w": 619
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        }
+      ],
+      "scroll": 625,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-0.html",
+      "width": 625
+    },
+    {
+      "page": 0,
+      "version": "after",
+      "requestedWidth": "1366",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 302,
+          "id": "",
+          "tag": "H1",
+          "w": 509,
+          "y": 160
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 879
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2112.9375
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2112.9375
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2112.9375
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2112.9375
+        },
+        {
+          "h": 40,
+          "id": "",
+          "tag": "H2",
+          "w": 326.984375,
+          "y": 3223.828125
+        }
+      ],
+      "height": 4608,
+      "images": [
+        {
+          "h": 104,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/az-logo-black-clean-20261012.svg",
+          "w": 90
+        },
+        {
+          "h": 516,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/4d67d8e3617de3463719.jpg",
+          "w": 696
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 315,
+          "loaded": false,
+          "src": "",
+          "w": 560
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        },
+        {
+          "h": 30,
+          "loaded": false,
+          "src": "",
+          "w": 30
+        }
+      ],
+      "scroll": 1351,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-0.html",
+      "width": 1351
+    },
+    {
+      "page": 1,
+      "version": "before",
+      "requestedWidth": "320",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.5625,
+          "id": "",
+          "tag": "H1",
+          "w": 275,
+          "y": 154
+        },
+        {
+          "h": 332.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 742.25
+        },
+        {
+          "h": 332.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 742.25
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1095.140625
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1095.140625
+        },
+        {
+          "h": 298.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1520.03125
+        },
+        {
+          "h": 298.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1520.03125
+        },
+        {
+          "h": 386.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1838.125
+        },
+        {
+          "h": 386.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1838.125
+        },
+        {
+          "h": 331.6875,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2245.015625
+        },
+        {
+          "h": 331.6875,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2245.015625
+        },
+        {
+          "h": 314.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2596.703125
+        },
+        {
+          "h": 314.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2596.703125
+        },
+        {
+          "h": 350.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2931.59375
+        },
+        {
+          "h": 350.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2931.59375
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 3302.484375
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 3302.484375
+        },
+        {
+          "h": 242.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 3727.375
+        }
+      ],
+      "height": 4980,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        }
+      ],
+      "scroll": 305,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-1.html",
+      "width": 305
+    },
+    {
+      "page": 1,
+      "version": "before",
+      "requestedWidth": "390",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 64.375,
+          "id": "",
+          "tag": "H1",
+          "w": 345,
+          "y": 154
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 655.6875
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 655.6875
+        },
+        {
+          "h": 387.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1043.578125
+        },
+        {
+          "h": 387.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1043.578125
+        },
+        {
+          "h": 315.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1450.671875
+        },
+        {
+          "h": 315.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1450.671875
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1785.765625
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1785.765625
+        },
+        {
+          "h": 331.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2173.65625
+        },
+        {
+          "h": 331.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2173.65625
+        },
+        {
+          "h": 331.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2525.546875
+        },
+        {
+          "h": 331.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2525.546875
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2877.4375
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2877.4375
+        },
+        {
+          "h": 369.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 3265.328125
+        },
+        {
+          "h": 369.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 3265.328125
+        },
+        {
+          "h": 277.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 3654.421875
+        }
+      ],
+      "height": 4942,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        }
+      ],
+      "scroll": 375,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-1.html",
+      "width": 375
+    },
+    {
+      "page": 1,
+      "version": "before",
+      "requestedWidth": "640",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.59375,
+          "id": "",
+          "tag": "H1",
+          "w": 585,
+          "y": 150
+        },
+        {
+          "h": 488.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 648.5625
+        },
+        {
+          "h": 488.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 648.5625
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 1197.0625
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 1197.0625
+        },
+        {
+          "h": 467.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 1787.5625
+        },
+        {
+          "h": 467.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 1787.5625
+        },
+        {
+          "h": 509.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2315.0625
+        },
+        {
+          "h": 509.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2315.0625
+        },
+        {
+          "h": 491.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2884.5625
+        },
+        {
+          "h": 491.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2884.5625
+        },
+        {
+          "h": 488.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 3436.0625
+        },
+        {
+          "h": 488.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 3436.0625
+        },
+        {
+          "h": 509.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 3984.5625
+        },
+        {
+          "h": 509.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 3984.5625
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 4554.0625
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 4554.0625
+        },
+        {
+          "h": 449.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 5144.5625
+        }
+      ],
+      "height": 6344,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        }
+      ],
+      "scroll": 625,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-1.html",
+      "width": 625
+    },
+    {
+      "page": 1,
+      "version": "before",
+      "requestedWidth": "1366",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 48.296875,
+          "id": "",
+          "tag": "H1",
+          "w": 1160,
+          "y": 179
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 568.078125
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 568.078125
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 568.078125
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 568.078125
+        },
+        {
+          "h": 502,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1151.078125
+        },
+        {
+          "h": 502,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1151.078125
+        },
+        {
+          "h": 502,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1151.078125
+        },
+        {
+          "h": 502,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1151.078125
+        },
+        {
+          "h": 484,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1713.078125
+        },
+        {
+          "h": 484,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1713.078125
+        },
+        {
+          "h": 484,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1713.078125
+        },
+        {
+          "h": 484,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1713.078125
+        },
+        {
+          "h": 544,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2257.078125
+        },
+        {
+          "h": 544,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2257.078125
+        },
+        {
+          "h": 544,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2257.078125
+        },
+        {
+          "h": 544,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2257.078125
+        },
+        {
+          "h": 442,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2861.078125
+        }
+      ],
+      "height": 3763,
+      "images": [
+        {
+          "h": 104,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 90
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        }
+      ],
+      "scroll": 1351,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-1.html",
+      "width": 1351
+    },
+    {
+      "page": 1,
+      "version": "after",
+      "requestedWidth": "320",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.5625,
+          "id": "",
+          "tag": "H1",
+          "w": 275,
+          "y": 154
+        },
+        {
+          "h": 332.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 742.25
+        },
+        {
+          "h": 332.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 742.25
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1095.140625
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1095.140625
+        },
+        {
+          "h": 298.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1520.03125
+        },
+        {
+          "h": 298.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1520.03125
+        },
+        {
+          "h": 386.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1838.125
+        },
+        {
+          "h": 386.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 1838.125
+        },
+        {
+          "h": 331.6875,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2245.015625
+        },
+        {
+          "h": 331.6875,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2245.015625
+        },
+        {
+          "h": 314.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2596.703125
+        },
+        {
+          "h": 314.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2596.703125
+        },
+        {
+          "h": 350.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2931.59375
+        },
+        {
+          "h": 350.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 2931.59375
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 3302.484375
+        },
+        {
+          "h": 404.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 3302.484375
+        },
+        {
+          "h": 242.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 132.5,
+          "y": 3727.375
+        }
+      ],
+      "height": 4980,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        },
+        {
+          "h": 130.5,
+          "loaded": false,
+          "src": "",
+          "w": 130.5
+        }
+      ],
+      "scroll": 305,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-1.html",
+      "width": 305
+    },
+    {
+      "page": 1,
+      "version": "after",
+      "requestedWidth": "390",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 64.375,
+          "id": "",
+          "tag": "H1",
+          "w": 345,
+          "y": 154
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 655.6875
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 655.6875
+        },
+        {
+          "h": 387.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1043.578125
+        },
+        {
+          "h": 387.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1043.578125
+        },
+        {
+          "h": 315.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1450.671875
+        },
+        {
+          "h": 315.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1450.671875
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1785.765625
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 1785.765625
+        },
+        {
+          "h": 331.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2173.65625
+        },
+        {
+          "h": 331.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2173.65625
+        },
+        {
+          "h": 331.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2525.546875
+        },
+        {
+          "h": 331.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2525.546875
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2877.4375
+        },
+        {
+          "h": 367.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 2877.4375
+        },
+        {
+          "h": 369.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 3265.328125
+        },
+        {
+          "h": 369.09375,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 3265.328125
+        },
+        {
+          "h": 277.890625,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 167.5,
+          "y": 3654.421875
+        }
+      ],
+      "height": 4942,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        },
+        {
+          "h": 165.5,
+          "loaded": false,
+          "src": "",
+          "w": 165.5
+        }
+      ],
+      "scroll": 375,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-1.html",
+      "width": 375
+    },
+    {
+      "page": 1,
+      "version": "after",
+      "requestedWidth": "640",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.59375,
+          "id": "",
+          "tag": "H1",
+          "w": 585,
+          "y": 150
+        },
+        {
+          "h": 488.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 648.5625
+        },
+        {
+          "h": 488.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 648.5625
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 1197.0625
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 1197.0625
+        },
+        {
+          "h": 467.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 1787.5625
+        },
+        {
+          "h": 467.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 1787.5625
+        },
+        {
+          "h": 509.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2315.0625
+        },
+        {
+          "h": 509.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2315.0625
+        },
+        {
+          "h": 491.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2884.5625
+        },
+        {
+          "h": 491.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 2884.5625
+        },
+        {
+          "h": 488.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 3436.0625
+        },
+        {
+          "h": 488.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 3436.0625
+        },
+        {
+          "h": 509.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 3984.5625
+        },
+        {
+          "h": 509.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 3984.5625
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 4554.0625
+        },
+        {
+          "h": 530.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 4554.0625
+        },
+        {
+          "h": 449.5,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 282.5,
+          "y": 5144.5625
+        }
+      ],
+      "height": 6344,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        },
+        {
+          "h": 280.5,
+          "loaded": false,
+          "src": "",
+          "w": 280.5
+        }
+      ],
+      "scroll": 625,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-1.html",
+      "width": 625
+    },
+    {
+      "page": 1,
+      "version": "after",
+      "requestedWidth": "1366",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 48.296875,
+          "id": "",
+          "tag": "H1",
+          "w": 1160,
+          "y": 179
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 568.078125
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 568.078125
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 568.078125
+        },
+        {
+          "h": 523,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 568.078125
+        },
+        {
+          "h": 502,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1151.078125
+        },
+        {
+          "h": 502,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1151.078125
+        },
+        {
+          "h": 502,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1151.078125
+        },
+        {
+          "h": 502,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1151.078125
+        },
+        {
+          "h": 484,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1713.078125
+        },
+        {
+          "h": 484,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1713.078125
+        },
+        {
+          "h": 484,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1713.078125
+        },
+        {
+          "h": 484,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 1713.078125
+        },
+        {
+          "h": 544,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2257.078125
+        },
+        {
+          "h": 544,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2257.078125
+        },
+        {
+          "h": 544,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2257.078125
+        },
+        {
+          "h": 544,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2257.078125
+        },
+        {
+          "h": 442,
+          "id": "",
+          "tag": "ARTICLE",
+          "w": 275,
+          "y": 2861.078125
+        }
+      ],
+      "height": 3763,
+      "images": [
+        {
+          "h": 104,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 90
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": true,
+          "src": "https://raw.githubusercontent.com/pat16071975-ship-it/architecture-health-site/f9d6a593fc5e2f87cf38412952bbaf2d9d05489d/tilda-migration/public/assets/az-loading-20261021/image-4cfc043399dd-w320-7c8442d0ecc2de87.webp",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        },
+        {
+          "h": 273,
+          "loaded": false,
+          "src": "",
+          "w": 273
+        }
+      ],
+      "scroll": 1351,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-1.html",
+      "width": 1351
+    },
+    {
+      "page": 2,
+      "version": "before",
+      "requestedWidth": "320",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 64.375,
+          "id": "az-besedina-name",
+          "tag": "H1",
+          "w": 275,
+          "y": 465.53125
+        }
+      ],
+      "height": 1670,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 278.53125,
+          "loaded": false,
+          "src": "",
+          "w": 275
+        }
+      ],
+      "scroll": 305,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-2.html",
+      "width": 305
+    },
+    {
+      "page": 2,
+      "version": "before",
+      "requestedWidth": "390",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 64.375,
+          "id": "az-besedina-name",
+          "tag": "H1",
+          "w": 345,
+          "y": 536.421875
+        }
+      ],
+      "height": 1741,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 349.421875,
+          "loaded": false,
+          "src": "",
+          "w": 345
+        }
+      ],
+      "scroll": 375,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-2.html",
+      "width": 375
+    },
+    {
+      "page": 2,
+      "version": "before",
+      "requestedWidth": "640",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 160.9375,
+          "id": "az-besedina-name",
+          "tag": "H1",
+          "w": 137,
+          "y": 171
+        }
+      ],
+      "height": 1322,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 405.125,
+          "loaded": false,
+          "src": "",
+          "w": 400
+        }
+      ],
+      "scroll": 625,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-2.html",
+      "width": 625
+    },
+    {
+      "page": 2,
+      "version": "before",
+      "requestedWidth": "1366",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 101.1875,
+          "id": "az-besedina-name",
+          "tag": "H1",
+          "w": 712,
+          "y": 200
+        }
+      ],
+      "height": 1061,
+      "images": [
+        {
+          "h": 104,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 90
+        },
+        {
+          "h": 405.125,
+          "loaded": false,
+          "src": "",
+          "w": 400
+        }
+      ],
+      "scroll": 1351,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-2.html",
+      "width": 1351
+    },
+    {
+      "page": 2,
+      "version": "after",
+      "requestedWidth": "320",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 64.375,
+          "id": "az-besedina-name",
+          "tag": "H1",
+          "w": 275,
+          "y": 465.4375
+        }
+      ],
+      "height": 1670,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 278.4375,
+          "loaded": true,
+          "src": "https://raw.githubusercontent.com/pat16071975-ship-it/architecture-health-site/f9d6a593fc5e2f87cf38412952bbaf2d9d05489d/tilda-migration/public/assets/az-loading-20261021/image-4cfc043399dd-w320-7c8442d0ecc2de87.webp",
+          "w": 275
+        }
+      ],
+      "scroll": 305,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-2.html",
+      "width": 305
+    },
+    {
+      "page": 2,
+      "version": "after",
+      "requestedWidth": "390",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 64.375,
+          "id": "az-besedina-name",
+          "tag": "H1",
+          "w": 345,
+          "y": 536.3125
+        }
+      ],
+      "height": 1741,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 349.3125,
+          "loaded": true,
+          "src": "https://raw.githubusercontent.com/pat16071975-ship-it/architecture-health-site/f9d6a593fc5e2f87cf38412952bbaf2d9d05489d/tilda-migration/public/assets/az-loading-20261021/image-4cfc043399dd-w480-f18456c721d18d7d.webp",
+          "w": 345
+        }
+      ],
+      "scroll": 375,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-2.html",
+      "width": 375
+    },
+    {
+      "page": 2,
+      "version": "after",
+      "requestedWidth": "640",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 160.9375,
+          "id": "az-besedina-name",
+          "tag": "H1",
+          "w": 137,
+          "y": 171
+        }
+      ],
+      "height": 1322,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 405,
+          "loaded": true,
+          "src": "https://raw.githubusercontent.com/pat16071975-ship-it/architecture-health-site/f9d6a593fc5e2f87cf38412952bbaf2d9d05489d/tilda-migration/public/assets/az-loading-20261021/image-4cfc043399dd-w480-f18456c721d18d7d.webp",
+          "w": 400
+        }
+      ],
+      "scroll": 625,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-2.html",
+      "width": 625
+    },
+    {
+      "page": 2,
+      "version": "after",
+      "requestedWidth": "1366",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 101.1875,
+          "id": "az-besedina-name",
+          "tag": "H1",
+          "w": 712,
+          "y": 200
+        }
+      ],
+      "height": 1061,
+      "images": [
+        {
+          "h": 104,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 90
+        },
+        {
+          "h": 405,
+          "loaded": true,
+          "src": "https://raw.githubusercontent.com/pat16071975-ship-it/architecture-health-site/f9d6a593fc5e2f87cf38412952bbaf2d9d05489d/tilda-migration/public/assets/az-loading-20261021/image-4cfc043399dd-w480-f18456c721d18d7d.webp",
+          "w": 400
+        }
+      ],
+      "scroll": 1351,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-2.html",
+      "width": 1351
+    },
+    {
+      "page": 3,
+      "version": "before",
+      "requestedWidth": "320",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.5625,
+          "id": "",
+          "tag": "H1",
+          "w": 275,
+          "y": 154
+        },
+        {
+          "h": 120,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 632.4375
+        },
+        {
+          "h": 90,
+          "id": "az-lab-gallery-title",
+          "tag": "H2",
+          "w": 275,
+          "y": 2690.8125
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3098.8125
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3098.8125
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3208.6875
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3208.6875
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3318.5625
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3318.5625
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3428.4375
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3428.4375
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3538.3125
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3538.3125
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3648.1875
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3648.1875
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3758.0625
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3758.0625
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3867.9375
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 4038.8125
+        }
+      ],
+      "height": 6401,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c2fbd2ba58a9350a5364.svg",
+          "w": 28
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/d13db62171f56458b979.svg",
+          "w": 28
+        }
+      ],
+      "scroll": 305,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-3.html",
+      "width": 305
+    },
+    {
+      "page": 3,
+      "version": "before",
+      "requestedWidth": "390",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.5625,
+          "id": "",
+          "tag": "H1",
+          "w": 345,
+          "y": 154
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 550.875
+        },
+        {
+          "h": 90,
+          "id": "az-lab-gallery-title",
+          "tag": "H2",
+          "w": 345,
+          "y": 2207.296875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2551.296875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2551.296875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2687.421875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2687.421875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2823.546875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2823.546875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2959.671875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2959.671875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3095.796875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3095.796875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3231.921875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3231.921875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3368.046875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3368.046875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3504.171875
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 3701.296875
+        }
+      ],
+      "height": 6063,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c2fbd2ba58a9350a5364.svg",
+          "w": 28
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/d13db62171f56458b979.svg",
+          "w": 28
+        }
+      ],
+      "scroll": 375,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-3.html",
+      "width": 375
+    },
+    {
+      "page": 3,
+      "version": "before",
+      "requestedWidth": "640",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.59375,
+          "id": "",
+          "tag": "H1",
+          "w": 585,
+          "y": 150
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 511.5625
+        },
+        {
+          "h": 60,
+          "id": "az-lab-gallery-title",
+          "tag": "H2",
+          "w": 585,
+          "y": 1802.40625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2042.40625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2042.40625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2042.40625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2197.140625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2197.140625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2197.140625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2351.875
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2351.875
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2351.875
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2506.609375
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2506.609375
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2506.609375
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2661.34375
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2661.34375
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2661.34375
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 2871.078125
+        }
+      ],
+      "height": 4534,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c2fbd2ba58a9350a5364.svg",
+          "w": 28
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/d13db62171f56458b979.svg",
+          "w": 28
+        }
+      ],
+      "scroll": 625,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-3.html",
+      "width": 625
+    },
+    {
+      "page": 3,
+      "version": "before",
+      "requestedWidth": "1366",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 48.296875,
+          "id": "",
+          "tag": "H1",
+          "w": 1160,
+          "y": 179
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 431.078125
+        },
+        {
+          "h": 42.5,
+          "id": "az-lab-gallery-title",
+          "tag": "H2",
+          "w": 1160,
+          "y": 1236.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1435.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1435.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1435.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1733.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1733.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1733.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2032.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2032.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2032.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2330.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2330.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2330.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2629.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2629.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2629.171875
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 2982.671875
+        }
+      ],
+      "height": 4206,
+      "images": [
+        {
+          "h": 104,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 90
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c2fbd2ba58a9350a5364.svg",
+          "w": 28
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/d13db62171f56458b979.svg",
+          "w": 28
+        }
+      ],
+      "scroll": 1351,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-3.html",
+      "width": 1351
+    },
+    {
+      "page": 3,
+      "version": "after",
+      "requestedWidth": "320",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.5625,
+          "id": "",
+          "tag": "H1",
+          "w": 275,
+          "y": 154
+        },
+        {
+          "h": 120,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 632.4375
+        },
+        {
+          "h": 90,
+          "id": "az-lab-gallery-title",
+          "tag": "H2",
+          "w": 275,
+          "y": 2690.8125
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3098.8125
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3098.8125
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3208.6875
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3208.6875
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3318.5625
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3318.5625
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3428.4375
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3428.4375
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3538.3125
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3538.3125
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3648.1875
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3648.1875
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3758.0625
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3758.0625
+        },
+        {
+          "h": 99.875,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 132.5,
+          "y": 3867.9375
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 4038.8125
+        }
+      ],
+      "height": 6401,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 81.875,
+          "loaded": false,
+          "src": "",
+          "w": 114.5
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c2fbd2ba58a9350a5364.svg",
+          "w": 28
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/d13db62171f56458b979.svg",
+          "w": 28
+        }
+      ],
+      "scroll": 305,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-3.html",
+      "width": 305
+    },
+    {
+      "page": 3,
+      "version": "after",
+      "requestedWidth": "390",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.5625,
+          "id": "",
+          "tag": "H1",
+          "w": 345,
+          "y": 154
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 550.875
+        },
+        {
+          "h": 90,
+          "id": "az-lab-gallery-title",
+          "tag": "H2",
+          "w": 345,
+          "y": 2207.296875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2551.296875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2551.296875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2687.421875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2687.421875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2823.546875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2823.546875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2959.671875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 2959.671875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3095.796875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3095.796875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3231.921875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3231.921875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3368.046875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3368.046875
+        },
+        {
+          "h": 126.125,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 167.5,
+          "y": 3504.171875
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 3701.296875
+        }
+      ],
+      "height": 6063,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 108.125,
+          "loaded": false,
+          "src": "",
+          "w": 149.5
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c2fbd2ba58a9350a5364.svg",
+          "w": 28
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/d13db62171f56458b979.svg",
+          "w": 28
+        }
+      ],
+      "scroll": 375,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-3.html",
+      "width": 375
+    },
+    {
+      "page": 3,
+      "version": "after",
+      "requestedWidth": "640",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.59375,
+          "id": "",
+          "tag": "H1",
+          "w": 585,
+          "y": 150
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 511.5625
+        },
+        {
+          "h": 60,
+          "id": "az-lab-gallery-title",
+          "tag": "H2",
+          "w": 585,
+          "y": 1802.40625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2042.40625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2042.40625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2042.40625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2197.140625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2197.140625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2197.140625
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2351.875
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2351.875
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2351.875
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2506.609375
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2506.609375
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2506.609375
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2661.34375
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2661.34375
+        },
+        {
+          "h": 138.734375,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 184.328125,
+          "y": 2661.34375
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 2871.078125
+        }
+      ],
+      "height": 4534,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 112.734375,
+          "loaded": false,
+          "src": "",
+          "w": 158.328125
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c2fbd2ba58a9350a5364.svg",
+          "w": 28
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/d13db62171f56458b979.svg",
+          "w": 28
+        }
+      ],
+      "scroll": 625,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-3.html",
+      "width": 625
+    },
+    {
+      "page": 3,
+      "version": "after",
+      "requestedWidth": "1366",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 48.296875,
+          "id": "",
+          "tag": "H1",
+          "w": 1160,
+          "y": 179
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 431.078125
+        },
+        {
+          "h": 42.5,
+          "id": "az-lab-gallery-title",
+          "tag": "H2",
+          "w": 1160,
+          "y": 1236.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1435.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1435.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1435.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1733.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1733.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 1733.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2032.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2032.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2032.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2330.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2330.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2330.671875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2629.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2629.171875
+        },
+        {
+          "h": 282.5,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 376,
+          "y": 2629.171875
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 2982.671875
+        }
+      ],
+      "height": 4206,
+      "images": [
+        {
+          "h": 104,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 90
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 256.5,
+          "loaded": false,
+          "src": "",
+          "w": 350
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 50,
+          "loaded": false,
+          "src": "",
+          "w": 50
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c2fbd2ba58a9350a5364.svg",
+          "w": 28
+        },
+        {
+          "h": 28,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/d13db62171f56458b979.svg",
+          "w": 28
+        }
+      ],
+      "scroll": 1351,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-3.html",
+      "width": 1351
+    },
+    {
+      "page": 4,
+      "version": "before",
+      "requestedWidth": "320",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 128.75,
+          "id": "",
+          "tag": "H1",
+          "w": 275,
+          "y": 154
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 964.75
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 1394.71875
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 1444.71875
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1689.90625
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 1781.90625
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1961.5
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 2053.5
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2279.484375
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 2371.484375
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2575.875
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 2733.875
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 2813.875
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 4281.75
+        },
+        {
+          "h": 120,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 6099.59375
+        }
+      ],
+      "height": 7368,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 167,
+          "loaded": false,
+          "src": "",
+          "w": 298
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        }
+      ],
+      "scroll": 305,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-4.html",
+      "width": 305
+    },
+    {
+      "page": 4,
+      "version": "before",
+      "requestedWidth": "390",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 128.75,
+          "id": "",
+          "tag": "H1",
+          "w": 345,
+          "y": 154
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 964.75
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 1339.921875
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 1389.921875
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1580.3125
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 1672.3125
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1851.90625
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 1943.90625
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2169.890625
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 2261.890625
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2411.484375
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 2569.484375
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 2619.484375
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 3858.984375
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 5498.046875
+        }
+      ],
+      "height": 6681,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 167,
+          "loaded": false,
+          "src": "",
+          "w": 298
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        }
+      ],
+      "scroll": 375,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-4.html",
+      "width": 375
+    },
+    {
+      "page": 4,
+      "version": "before",
+      "requestedWidth": "640",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 144.890625,
+          "id": "",
+          "tag": "H1",
+          "w": 585,
+          "y": 150
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 986.890625
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 1319.234375
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 1378.234375
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1595.90625
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 1691.90625
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1837.796875
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 1933.796875
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2184.25
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 2280.25
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2454.03125
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 2612.03125
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 2671.03125
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 3910.96875
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 5416.25
+        }
+      ],
+      "height": 6339,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 294,
+          "loaded": false,
+          "src": "",
+          "w": 620
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/5eb5728a4c1598900c55.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/a6204b599088bbb446fe.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        }
+      ],
+      "scroll": 625,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-4.html",
+      "width": 625
+    },
+    {
+      "page": 4,
+      "version": "before",
+      "requestedWidth": "1366",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.59375,
+          "id": "",
+          "tag": "H1",
+          "w": 1160,
+          "y": 179
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 817.59375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 1149.9375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 1208.9375
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1387.609375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 1483.609375
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1590.5
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 1686.5
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1936.953125
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 2032.953125
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2139.84375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 2297.84375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 2356.84375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 3568.890625
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 5018.390625
+        }
+      ],
+      "height": 5584,
+      "images": [
+        {
+          "h": 104,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 90
+        },
+        {
+          "h": 376,
+          "loaded": false,
+          "src": "",
+          "w": 584
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/5eb5728a4c1598900c55.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/a6204b599088bbb446fe.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        }
+      ],
+      "scroll": 1351,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/before-4.html",
+      "width": 1351
+    },
+    {
+      "page": 4,
+      "version": "after",
+      "requestedWidth": "320",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 128.75,
+          "id": "",
+          "tag": "H1",
+          "w": 275,
+          "y": 154
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 964.75
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 1394.71875
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 1444.71875
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1689.90625
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 1781.90625
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1961.5
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 2053.5
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2279.484375
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 2371.484375
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2575.875
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 2733.875
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 2813.875
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 4281.75
+        },
+        {
+          "h": 120,
+          "id": "",
+          "tag": "H2",
+          "w": 275,
+          "y": 6099.59375
+        }
+      ],
+      "height": 7368,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 167,
+          "loaded": false,
+          "src": "",
+          "w": 298
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/5eb5728a4c1598900c55.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/a6204b599088bbb446fe.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        }
+      ],
+      "scroll": 305,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-4.html",
+      "width": 305
+    },
+    {
+      "page": 4,
+      "version": "after",
+      "requestedWidth": "390",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 128.75,
+          "id": "",
+          "tag": "H1",
+          "w": 345,
+          "y": 154
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 964.75
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 1339.921875
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 1389.921875
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1580.3125
+        },
+        {
+          "h": 90,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 1672.3125
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1851.90625
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 1943.90625
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2169.890625
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 2261.890625
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2411.484375
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 2569.484375
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 2619.484375
+        },
+        {
+          "h": 30,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 3858.984375
+        },
+        {
+          "h": 60,
+          "id": "",
+          "tag": "H2",
+          "w": 345,
+          "y": 5498.046875
+        }
+      ],
+      "height": 6681,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 167,
+          "loaded": false,
+          "src": "",
+          "w": 298
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/5eb5728a4c1598900c55.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/a6204b599088bbb446fe.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        }
+      ],
+      "scroll": 375,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-4.html",
+      "width": 375
+    },
+    {
+      "page": 4,
+      "version": "after",
+      "requestedWidth": "640",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 144.890625,
+          "id": "",
+          "tag": "H1",
+          "w": 585,
+          "y": 150
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 986.890625
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 1319.234375
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 1378.234375
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1595.90625
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 1691.90625
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1837.796875
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 1933.796875
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2184.25
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 2280.25
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2454.03125
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 2612.03125
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 2671.03125
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 3910.96875
+        },
+        {
+          "h": 78,
+          "id": "",
+          "tag": "H2",
+          "w": 585,
+          "y": 5416.25
+        }
+      ],
+      "height": 6339,
+      "images": [
+        {
+          "h": 75,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 65
+        },
+        {
+          "h": 294,
+          "loaded": false,
+          "src": "",
+          "w": 620
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/5eb5728a4c1598900c55.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/a6204b599088bbb446fe.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        }
+      ],
+      "scroll": 625,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-4.html",
+      "width": 625
+    },
+    {
+      "page": 4,
+      "version": "after",
+      "requestedWidth": "1366",
+      "fontStatus": "loaded",
+      "geometry": [
+        {
+          "h": 96.59375,
+          "id": "",
+          "tag": "H1",
+          "w": 1160,
+          "y": 179
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 817.59375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 1149.9375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 1208.9375
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1387.609375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 1483.609375
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1590.5
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 1686.5
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 1936.953125
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 2032.953125
+        },
+        {
+          "h": 64,
+          "id": "",
+          "tag": "FIGURE",
+          "w": 64,
+          "y": 2139.84375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 2297.84375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 2356.84375
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 3568.890625
+        },
+        {
+          "h": 39,
+          "id": "",
+          "tag": "H2",
+          "w": 1160,
+          "y": 5018.390625
+        }
+      ],
+      "height": 5584,
+      "images": [
+        {
+          "h": 104,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/c3372b2cd448410e4453.svg",
+          "w": 90
+        },
+        {
+          "h": 376,
+          "loaded": false,
+          "src": "",
+          "w": 584
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/5eb5728a4c1598900c55.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": true,
+          "src": "https://azmednsk.ru/assets/a6204b599088bbb446fe.svg",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        },
+        {
+          "h": 64,
+          "loaded": false,
+          "src": "",
+          "w": 64
+        }
+      ],
+      "scroll": 1351,
+      "url": "https://raw.githack.com/pat16071975-ship-it/architecture-health-site/3fdf44a35e6eea2d6ac4a4cbf637e17cb3108f58/tilda-migration/ops/previews/loading-20261021/after-4.html",
+      "width": 1351
+    }
+  ],
+  "teamImages": {
+    "count": 17,
+    "loaded": 17
+  },
+  "labImagesLoaded": 15,
+  "limitations": [
+    "Preview uses iframe CSS widths; no physical phone or DPR2 emulation.",
+    "No production timings or server-cache verification.",
+    "Subpixel image ratio rounding <=0.11px observed for Besedina.",
+    "Not all 75 pages visually inspected."
+  ]
+}
