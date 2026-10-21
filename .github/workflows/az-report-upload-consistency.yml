@@ -10,6 +10,10 @@ on:
       - 'az-baze-auth/test_upload_history.py'
       - 'az-baze-auth/test_manual_entry_consistency.py'
       - 'az-baze-auth/test_upload_consistency_atomic.py'
+      - 'az-baze-auth/test_report_consistency_preservation.py'
+      - 'az-baze-auth/paid_services.py'
+      - 'az-baze-auth/paid_services_upload.py'
+      - 'tests/verify-paid-upload-periods.cjs'
       - 'az-baze-auth/deploy/report_consistency_preflight.py'
       - 'az-baze-auth/deploy/test_report_consistency_preflight.py'
       - 'reports/index.html'
@@ -43,7 +47,7 @@ jobs:
         run: |
           python - <<'PY'
           import unittest
-          names='test_cash_payments test_upload_integrity test_upload_reconcile test_paid_services test_paid_services_storage test_paid_services_periods test_paid_period_report test_economics_revenue_source test_completed_upload test_pr71_approved_restoration test_upload_history test_manual_entry_consistency test_upload_consistency_atomic'.split()
+          names='test_cash_payments test_upload_integrity test_upload_reconcile test_paid_services test_paid_services_storage test_paid_services_periods test_paid_period_report test_economics_revenue_source test_completed_upload test_pr71_approved_restoration test_upload_history test_manual_entry_consistency test_upload_consistency_atomic test_report_consistency_preservation'.split()
           result=unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromNames(names))
           if not result.wasSuccessful() or result.skipped:raise SystemExit(1)
           print(f'CONSISTENCY_TESTS=PASS; TESTS={result.testsRun}; SKIPPED=0')

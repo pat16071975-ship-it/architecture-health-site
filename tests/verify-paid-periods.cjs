@@ -205,6 +205,23 @@ check('midmonth sources require a complete window and preserve earlier as-of fal
   assert.equal(gap.dateDoctor('2026-02-15','dentists','D1',''),'');
 });
 
+check('October 1-11 snapshot plus 12-13 slice sums to MIS paid total',()=>{
+  const paid={'2026-10':[{
+    asOf:'2026-10-11',
+    dentists:{D1:1055490,D2:0},
+    clinicDocs:{C1:0,C2:0}
+  }]};
+  const h=setup({
+    paid,
+    periods:[period('2026-10-12','2026-10-13',92610)]
+  });
+  assert.equal(h.dateDoctor('2026-10-13','dentists','D1',0),1148100);
+  assert.equal(
+    h.doctor([], 'dentists','D1',bounds('2026-10-01','2026-10-13')),
+    1148100
+  );
+});
+
 check('zero paid is retained and absent sources remain empty',()=>{
   const h=setup({periods:[period('2026-01-01','2026-06-30',0,0)]});
   assert.equal(h.sum([],'dentists',h1Bounds),0);assert.equal(h.doctor([],'dentists','D2',h1Bounds),0);

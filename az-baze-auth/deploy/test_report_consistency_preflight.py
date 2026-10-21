@@ -61,4 +61,36 @@ class ReadOnlyPreflightTests(unittest.TestCase):
         self.assertFalse(p.exists())
 
 
+class SourceReconciliationGuardTests(unittest.TestCase):
+    def test_current_server_footprint_is_the_only_base(self):
+        self.assertEqual(m.TARGETS['templates/uploads.html'][0], 'be36446bbeaa82fc9c27769a8cabb24978ec0d36')
+        self.assertEqual(m.DEPENDENCIES['paid_services.py'], '76c1a33de8a711f85139a21aa5f66a48ea96910f')
+        self.assertEqual(m.DEPENDENCIES['paid_services_upload.py'], 'd2e682540f831d5adafd9b19e753a01d53749349')
+        self.assertEqual(m.validate_inspection(['BASE'] * 5, True, {'table': True}), 'BASE')
+
+    def test_old_template_is_not_whitelisted(self):
+        old, new = m.TARGETS['templates/uploads.html']
+        state = m.version_state('d3aaaa2b5a9cc7e4b0a6ccc656384d5c9f2aae94', old, new)
+        self.assertEqual(state, 'OTHER')
+        with self.assertRaises(ValueError):
+            m.validate_inspection(['BASE', state, 'BASE', 'BASE', 'BASE'], True, {'table': True})
+
+    def test_uniform_target_is_valid(self):
+        self.assertEqual(m.validate_inspection(['TARGET'] * 5, True, {'table': True}), 'TARGET')
+
+    def test_mixed_or_unknown_or_empty_targets_stop(self):
+        for states in (['BASE', 'TARGET'], ['OTHER'], []):
+            with self.subTest(states=states), self.assertRaises(ValueError):
+                m.validate_inspection(states, True, {'table': True})
+
+    def test_dependency_mismatch_still_stops(self):
+        with self.assertRaises(ValueError):
+            m.validate_inspection(['BASE'] * 5, False, {'table': True})
+
+    def test_missing_or_incomplete_schema_still_stops(self):
+        for schema in ({}, {'a': False}, {'a': True, 'b': False}):
+            with self.subTest(schema=schema), self.assertRaises(ValueError):
+                m.validate_inspection(['BASE'] * 5, True, schema)
+
+
 if __name__ == '__main__': unittest.main(verbosity=2)

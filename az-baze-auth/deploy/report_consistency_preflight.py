@@ -10,7 +10,7 @@ import subprocess
 
 TARGETS = {
     'daily_upload_core.py': ('c0c2faee2474d8b8a2f678898bbe0ec7053cfa37', '7a58de237753dff1d5e72a11c14744d68c39a324'),
-    'templates/uploads.html': ('d3aaaa2b5a9cc7e4b0a6ccc656384d5c9f2aae94', '49dc46b0f655f419dd9e412646d6e4ab7bdac644'),
+    'templates/uploads.html': ('be36446bbeaa82fc9c27769a8cabb24978ec0d36', 'fc7913c0ab812c6709a778aa706d969e438d3c93'),
     'upload_history.py': (None, '1709e9e984f0f521e081061b45b564a12d84f244'),
 }
 REPORTS = {
@@ -19,8 +19,8 @@ REPORTS = {
 }
 DEPENDENCIES = {
     'report_storage.py': '367592919431997255862ed179a5c6a4f93703ad',
-    'paid_services.py': 'e1f8cf945161c753775af9a39d1df47c1639df0e',
-    'paid_services_upload.py': '83abc5cb422887ba14f9d6d90755a25c8f6a9427',
+    'paid_services.py': '76c1a33de8a711f85139a21aa5f66a48ea96910f',
+    'paid_services_upload.py': 'd2e682540f831d5adafd9b19e753a01d53749349',
     'upload_reconcile.py': 'bce8384dbb8d4b6eacf98ad5d4d099705bf39914',
     'daily_upload.py': 'b767890804e1f61a247476f13f73c01e20628f39',
     'ident_import.py': 'e9950b781b0f4ebdfe044860b948813938a8089d',
@@ -74,6 +74,13 @@ def inspect_schema(path):
     return result
 
 
+def validate_inspection(states, dependencies_match, schemas):
+    if (not dependencies_match or not schemas or not all(schemas.values())
+            or not states or len(set(states)) != 1 or states[0] not in {'BASE', 'TARGET'}):
+        raise ValueError('Source/schema mismatch; do not install blindly')
+    return states[0]
+
+
 def service():
     result = subprocess.run(['systemctl', 'show', 'az-baze-auth', '-p', 'ActiveState', '-p', 'MainPID'],
                             capture_output=True, text=True, timeout=10, check=True)
@@ -118,9 +125,8 @@ def main():
         print('SCHEMA=' + name + '; REQUIRED_COLUMNS=' + ('PASS' if ok else 'MISSING'))
     if service() != pid:
         raise ValueError('Application restarted during inspection')
-    if not matched or not all(schemas.values()) or len(set(states)) != 1 or states[0] == 'OTHER':
-        raise ValueError('Source/schema mismatch; do not install blindly')
-    print('REPORT_CONSISTENCY_PREFLIGHT=PASS; SOURCE_STATE=' + states[0])
+    state = validate_inspection(states, matched, schemas)
+    print('REPORT_CONSISTENCY_PREFLIGHT=PASS; SOURCE_STATE=' + state)
     print('DB_WRITES=NONE; FILE_CHANGES=NONE; SERVICE_CHANGES=NONE; DEPLOY=NONE')
 
 
