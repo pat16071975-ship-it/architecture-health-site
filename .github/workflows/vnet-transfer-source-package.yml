@@ -1,0 +1,49 @@
+name: VN-KZ source-only transfer artifact
+on:
+  push:
+    branches: ['ops/vnet-kz-transfer-package-20261021']
+    paths: ['.github/workflows/vnet-transfer-source-package.yml']
+permissions:
+  contents: read
+jobs:
+  package-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f47e8a96b1d2d457fe4ae8267edfd880ea584948
+          persist-credentials: false
+      - name: Assemble whitelisted source, not clinical data
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import csv, hashlib, io, json, zipfile
+          ref='f47e8a96b1d2d457fe4ae8267edfd880ea584948'
+          root=Path('az-baze-auth')
+          files=set(root.glob('nn_*.py')) | set(root.glob('test_nn_*.py')) | set((root/'templates').glob('nn_*.html'))
+          files.update(root/x for x in ['app.py','server.py','section_navigation.py','requirements.txt','templates/base.html'])
+          files.add(Path('.github/workflows/az-baze-nn-foundation.yml'))
+          rows=[]
+          dest=Path('vnet-source-artifact');dest.mkdir()
+          with zipfile.ZipFile(dest/'VN_KZ_GITHUB_REFERENCE.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for p in sorted(files):
+                  assert p.is_file() and not p.is_symlink()
+                  raw=p.read_bytes()
+                  blob=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+                  rows.append({'path':p.as_posix(),'size':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),'git_blob_sha1':blob})
+                  z.writestr('source/github_reference/'+p.as_posix(),raw)
+              z.writestr('source/GITHUB_REFERENCE.json',json.dumps({'repository':'pat16071975-ship-it/architecture-health-site','ref':ref,'installed_runtime_verified':False,'contains_live_data':False,'files':rows},ensure_ascii=False,indent=2))
+              z.writestr('source/README_REFERENCE.txt','Pinned repository source only. Not proof of installed runtime. No live data, uploads, credentials, environment files or font files. Shared application files are code dependencies, not a runnable isolated VN-KZ application.\n')
+          sha=hashlib.sha256((dest/'VN_KZ_GITHUB_REFERENCE.zip').read_bytes()).hexdigest()
+          (dest/'VN_KZ_GITHUB_REFERENCE.zip.sha256').write_text(sha+'  VN_KZ_GITHUB_REFERENCE.zip\n')
+          print('SOURCE_ONLY_FILES='+str(len(files)))
+          print('SOURCE_ZIP_SHA256='+sha)
+          print('LIVE_DATA=NONE; RUNTIME_ACCESS=NONE; DEPLOY=NONE')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vnet-source-only-f47e8a96
+          path: vnet-source-artifact/*
+          retention-days: 7
+          if-no-files-found: error
