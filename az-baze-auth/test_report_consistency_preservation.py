@@ -1,0 +1,108 @@
+"""Protect the actual Oct 13/14 installed importer while fixing the journal/save UI.
+
+All database/XLSX examples below are synthetic and isolated. No live data,
+normalization or period-boundary repair is executed.
+"""
+import hashlib
+import json
+from pathlib import Path
+import sqlite3
+import unittest
+from unittest.mock import patch
+
+import app as app_core
+import paid_services_upload as uploads
+import test_paid_services_periods as fixtures
+import upload_history
+
+ROOT = Path(__file__).resolve().parent
+
+
+def git_blob(raw):
+    return hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+
+
+class InstalledSourcePreservationTests(unittest.TestCase):
+    def test_paid_sources_are_exact_live_versions_not_pr80_replacements(self):
+        expected = {'paid_services.py': '76c1a33de8a711f85139a21aa5f66a48ea96910f',
+                    'paid_services_upload.py': 'd2e682540f831d5adafd9b19e753a01d53749349'}
+        for name, sha in expected.items():
+            with self.subTest(name=name):
+                self.assertEqual(git_blob((ROOT / name).read_bytes()), sha)
+
+    def test_template_changes_only_the_three_existing_journal_cells(self):
+        text = (ROOT / 'templates/uploads.html').read_text(encoding='utf-8')
+        changes = [
+            ("{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}", "{{ row['data_date'] or '—' }}"),
+            ("{% if row['status_text'] %}{{ row['status_text'] }}{% elif row['status']=='imported' %}", "{% if row['status']=='imported' %}"),
+            ("{% if row['source_label'] %}<span class=\"muted\">{{ row['source_label'] }}</span><br>{% endif %}{{ row['completed_filename'] or '' }}", "{{ row['completed_filename'] or '' }}"),
+        ]
+        for before, after in changes:
+            self.assertEqual(text.count(before), 1)
+            text = text.replace(before, after)
+        self.assertEqual(git_blob(text.encode()), 'be36446bbeaa82fc9c27769a8cabb24978ec0d36')
+        self.assertNotIn('name="period_start"', text)
+        self.assertNotIn('name="period_end"', text)
+        self.assertIn('expected_overlap_revision', text)
+
+    def test_manual_save_candidate_is_unchanged_by_importer_reconciliation(self):
+        for name, sha in {'index.html': 'ebf7ae4d4e5e121f20cff2302206e9a5fc25e350',
+                          'period-view.js': 'a3075abb77f562e8eddbde11364049c4362261e2'}.items():
+            with self.subTest(name=name):
+                self.assertEqual(git_blob((ROOT.parent / 'reports' / name).read_bytes()), sha)
+
+
+class ActualDateImportJournalTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = fixtures.PaidPeriodUploadTests()
+        self.addCleanup(self.fixture.doCleanups)
+        self.fixture.setUp()
+        self.conn = self.fixture.conn
+        self.conn.executescript('''
+          CREATE TABLE users(id INTEGER PRIMARY KEY,full_name TEXT);
+          INSERT INTO users VALUES(7,'Synthetic operator');
+          CREATE TABLE audit_log(id INTEGER PRIMARY KEY,actor_user_id INTEGER,action TEXT,
+              target_user_id INTEGER,details TEXT,created_at TEXT);
+        ''')
+        for obj, attr, kwargs in [(uploads, 'audit', {'new': app_core.audit}),
+                                  (app_core, 'db', {'return_value': self.conn})]:
+            patcher = patch.object(obj, attr, **kwargs)
+            patcher.start(); self.addCleanup(patcher.stop)
+        raw = fixtures.report_bytes(('01.10.2026', '11.10.2026'), period=False)
+        response = self.fixture.post('commit', raw)
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.previous = tuple(self.conn.execute('SELECT * FROM service_payment_snapshots').fetchone())
+        self.raw = fixtures.report_bytes(('12.10.2026', '13.10.2026'), provider='Unknown U.', period=False)
+
+    def test_incremental_slice_keeps_dates_existing_snapshot_and_journal(self):
+        preview = self.fixture.post('preview', self.raw).get_json()
+        self.assertEqual(preview['period'], {'from': '2026-10-12', 'to': '2026-10-13'})
+        self.assertEqual(preview['overlaps'], [])
+        result = self.fixture.post('commit', self.raw, expected_revision=preview['revision'],
+             expected_overlap_revision=preview['overlap_revision'],
+             provider_decisions=json.dumps({'Unknown U.': 'dent'}))
+        self.assertEqual(result.status_code, 200, result.get_json())
+        self.assertEqual(result.get_json()['status'], 'imported')
+        self.assertEqual(self.previous, tuple(self.conn.execute('SELECT * FROM service_payment_snapshots').fetchone()))
+        row = self.conn.execute('SELECT period_start,period_end,payload_json FROM service_payment_periods').fetchone()
+        self.assertEqual(tuple(row[:2]), ('2026-10-12', '2026-10-13'))
+        self.assertEqual(json.loads(row[2])['providers']['Unknown U.']['paid'], 260)
+        periods = {row['data_date'] for row in upload_history.recent_uploads(self.conn)}
+        self.assertEqual(periods, {'2026-10-01 — 2026-10-11', '2026-10-12 — 2026-10-13'})
+        self.assertEqual(self.fixture.protected_state(), self.fixture.protected)
+
+    def test_incremental_storage_failure_reverts_decisions_and_no_false_history(self):
+        self.conn.execute("CREATE TRIGGER fail_slice AFTER INSERT ON service_payment_periods "
+                          "BEGIN SELECT RAISE(FAIL,'synthetic slice fault'); END")
+        self.conn.commit()
+        before = list(self.conn.iterdump())
+        history = upload_history.recent_uploads(self.conn)
+        with self.assertRaisesRegex(sqlite3.IntegrityError, 'synthetic slice fault'):
+            self.fixture.post('commit', self.raw, provider_decisions=json.dumps({'Unknown U.': 'dent'}))
+        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assertEqual(upload_history.recent_uploads(self.conn), history)
+        self.assertFalse(self.conn.in_transaction)
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

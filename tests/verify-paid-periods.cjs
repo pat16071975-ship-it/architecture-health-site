@@ -24,7 +24,7 @@ for (const [start, end, expected] of [
   ['  function periodData(def,year){', '  function doctorPeriodData(', '55d442c0ae415edfd250e9ec3587b4390274aee149f53337434e9e204fea6305'],
   ['  function addDateMetric(', '  function addDateDoctorMetric(', '1963e92a0001c721a7319a5eaf3c201bb65dba1fd0cd6457bd496a6e5e68f34d'],
 ]) assert.equal(createHash('sha256').update(part(view, start, end)).digest('hex'), expected, `${start} must retain its original contract`);
-assert(html.includes('./period-view.js?v=20261012-paid-periods-1'), 'Updated script cache key');
+assert(html.includes('./period-view.js?v=20261021-save-entry-1'), 'Updated script cache key');
 
 const freeze = value => {
   if (value && typeof value === 'object') {
@@ -203,6 +203,23 @@ check('midmonth sources require a complete window and preserve earlier as-of fal
   const gap=setup({periods:[period('2026-01-15','2026-02-15',900)]});
   assert.equal(gap.sum([],'dentists',h1Bounds),null);
   assert.equal(gap.dateDoctor('2026-02-15','dentists','D1',''),'');
+});
+
+check('October 1-11 snapshot plus 12-13 slice sums to MIS paid total',()=>{
+  const paid={'2026-10':[{
+    asOf:'2026-10-11',
+    dentists:{D1:1055490,D2:0},
+    clinicDocs:{C1:0,C2:0}
+  }]};
+  const h=setup({
+    paid,
+    periods:[period('2026-10-12','2026-10-13',92610)]
+  });
+  assert.equal(h.dateDoctor('2026-10-13','dentists','D1',0),1148100);
+  assert.equal(
+    h.doctor([], 'dentists','D1',bounds('2026-10-01','2026-10-13')),
+    1148100
+  );
 });
 
 check('zero paid is retained and absent sources remain empty',()=>{

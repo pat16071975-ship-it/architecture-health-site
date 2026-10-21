@@ -1,0 +1,69 @@
+name: AZ report-upload consistency
+on:
+  push:
+    branches: ['fix/az-report-upload-consistency-20261021']
+  pull_request:
+    paths:
+      - 'az-baze-auth/upload_history.py'
+      - 'az-baze-auth/daily_upload_core.py'
+      - 'az-baze-auth/templates/uploads.html'
+      - 'az-baze-auth/test_upload_history.py'
+      - 'az-baze-auth/test_manual_entry_consistency.py'
+      - 'az-baze-auth/test_upload_consistency_atomic.py'
+      - 'az-baze-auth/test_report_consistency_preservation.py'
+      - 'az-baze-auth/paid_services.py'
+      - 'az-baze-auth/paid_services_upload.py'
+      - 'tests/verify-paid-upload-periods.cjs'
+      - 'az-baze-auth/deploy/report_consistency_preflight.py'
+      - 'az-baze-auth/deploy/test_report_consistency_preflight.py'
+      - 'reports/index.html'
+      - 'reports/period-view.js'
+      - 'tests/verify-paid-periods.cjs'
+      - '.github/workflows/az-report-upload-consistency.yml'
+permissions:
+  contents: read
+jobs:
+  consistency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated test dependencies
+        run: python -m pip install -r az-baze-auth/requirements.txt
+      - name: Full report-upload regressions, no skips
+        env:
+          AZBAZE_SECRET_KEY: synthetic-consistency-test
+          AZBAZE_DB: /tmp/az-consistency-test.db
+          AZBAZE_SITE_ROOT: /tmp/az-consistency-site
+        working-directory: az-baze-auth
+        run: |
+          python - <<'PY'
+          import unittest
+          names='test_cash_payments test_upload_integrity test_upload_reconcile test_paid_services test_paid_services_storage test_paid_services_periods test_paid_period_report test_economics_revenue_source test_completed_upload test_pr71_approved_restoration test_upload_history test_manual_entry_consistency test_upload_consistency_atomic test_report_consistency_preservation'.split()
+          result=unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromNames(names))
+          if not result.wasSuccessful() or result.skipped:raise SystemExit(1)
+          print(f'CONSISTENCY_TESTS=PASS; TESTS={result.testsRun}; SKIPPED=0')
+          PY
+      - name: Read-only delivery inspection tests
+        working-directory: az-baze-auth/deploy
+        run: |
+          python - <<'PY'
+          import unittest
+          result=unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_report_consistency_preflight'))
+          if not result.wasSuccessful() or result.skipped:raise SystemExit(1)
+          print(f'PREFLIGHT_TESTS=PASS; TESTS={result.testsRun}; SKIPPED=0')
+          PY
+      - name: Retained JavaScript financial behavior and syntax
+        run: |
+          node --check reports/period-view.js
+          node tests/verify-paid-periods.cjs
+          node tests/verify-paid-upload-periods.cjs
+          python -m py_compile az-baze-auth/upload_history.py az-baze-auth/daily_upload_core.py az-baze-auth/deploy/report_consistency_preflight.py

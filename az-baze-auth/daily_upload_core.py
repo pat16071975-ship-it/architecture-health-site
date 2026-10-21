@@ -519,9 +519,8 @@ def _process_daily_upload(completed_file, services_file):
 
 
 def _history():
-    return db().execute(
-        "SELECT l.*,u.full_name AS user_name FROM upload_log l LEFT JOIN users u ON u.id=l.uploaded_by ORDER BY l.id DESC LIMIT 60"
-    ).fetchall()
+    from upload_history import recent_uploads
+    return recent_uploads(db())
 
 
 def register_daily_upload(app):

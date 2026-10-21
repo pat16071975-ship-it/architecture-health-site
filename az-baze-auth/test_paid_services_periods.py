@@ -16,18 +16,34 @@ with patch.dict(os.environ, {"AZBAZE_SECRET_KEY": "paid-period-tests-only"}):
     import paid_services_upload as uploads
 
 
-def report_bytes(dates=("05.01.2026", "27.06.2026"), paid=None, provider="Dent D."):
+def report_bytes(dates=("05.01.2026", "27.06.2026"), paid=None, provider="Dent D.", period=None):
     """Synthetic source: provider paid includes 60 paid against opening debt."""
     billed = 100 * len(dates)
     paid = billed + 60 if paid is None else paid
     closing = 100 + billed - paid
+    if period is None and dates:
+        parsed_dates = [__import__("datetime").datetime.strptime(value, "%d.%m.%Y") for value in dates]
+        first, last = min(parsed_dates), max(parsed_dates)
+        if first.year == last.year and first.month == last.month:
+            period = (first.replace(day=1), last)
+        else:
+            import calendar
+            period = (first.replace(day=1), last.replace(day=calendar.monthrange(last.year, last.month)[1]))
     wb = Workbook()
     ws = wb.active
     ws.title = "Выручка по направлениям"
+    period_label = ""
+    if period:
+        start, end = period
+        if not hasattr(start, "strftime"):
+            start = __import__("datetime").datetime.strptime(str(start), "%d.%m.%Y")
+        if not hasattr(end, "strftime"):
+            end = __import__("datetime").datetime.strptime(str(end), "%d.%m.%Y")
+        period_label = f"Период {start.strftime('%d.%m.%Y')} — {end.strftime('%d.%m.%Y')}"
     ws.append([
         "Группа услуг", "Услуги", None, None,
         "Задолженность на нач. периода", "Сумма со скидкой",
-        "Оплачено", "Задолженность на конец периода",
+        "Оплачено", "Задолженность на конец периода", period_label,
     ])
     ws.append(["Услуги", None, None, None, 100, billed, paid, closing])
     ws.append([provider, None, None, None, 100, billed, paid, closing])
@@ -89,28 +105,36 @@ class PaidPeriodParserTests(unittest.TestCase):
                 self.assertFalse(paid_services.is_monthly_report(parsed))
                 self.assertEqual(paid_services.compact_report(parsed)["version"], 3)
 
-    def test_monthly_payload_is_identical_with_explicit_or_legacy_dates(self):
-        raw = report_bytes(("05.07.2026", "31.07.2026"))
-        legacy = paid_services.compact_report(paid_services.parse_bytes(raw, "july.xlsx"))
+    def test_same_month_without_period_label_keeps_actual_source_dates(self):
+        raw = report_bytes(("05.07.2026", "31.07.2026"), period=False)
+        inferred = paid_services.compact_report(paid_services.parse_bytes(raw, "july-slice.xlsx"))
         explicit = paid_services.compact_report(parse_period(raw, "2026-07-01", "2026-07-31"))
-        self.assertEqual(json.dumps(legacy, ensure_ascii=False), json.dumps(explicit, ensure_ascii=False))
-        self.assertEqual(legacy["version"], 2)
-        self.assertEqual(legacy["month"], "2026-07")
-        self.assertNotIn("period_start", legacy)
+        self.assertEqual(inferred["version"], 3)
+        self.assertEqual(inferred["period_start"], "2026-07-05")
+        self.assertEqual(inferred["period_end"], "2026-07-31")
+        self.assertNotIn("month", inferred)
+        self.assertEqual(explicit["version"], 2)
+        self.assertEqual(explicit["month"], "2026-07")
+        self.assertNotIn("period_start", explicit)
 
     def test_explicit_end_can_include_days_without_services(self):
         parsed = parse_period(report_bytes(("05.06.2026", "27.06.2026")), "2026-06-01", "2026-06-30")
         self.assertEqual(parsed["period_end"], "2026-06-30")
         self.assertEqual(paid_services.compact_report(parsed)["as_of_date"], "2026-06-30")
 
-    def test_period_dates_are_required_for_multi_month_and_debt_only(self):
-        with self.assertRaisesRegex(ValueError, "Укажите период"):
-            paid_services.parse_bytes(report_bytes())
-        with self.assertRaisesRegex(ValueError, "не найдены строки услуг"):
+    def test_period_is_read_from_workbook_and_debt_only_needs_a_period_source(self):
+        parsed = paid_services.parse_bytes(report_bytes(), "half-year.xlsx")
+        self.assertEqual((parsed["period_start"], parsed["period_end"]), ("2026-01-01", "2026-06-30"))
+        with self.assertRaisesRegex(ValueError, "не найдены даты периода"):
             paid_services.parse_bytes(report_bytes(()))
         parsed = parse_period(report_bytes(()))
         self.assertEqual(parsed["items"], [])
         self.assertEqual(parsed["providers"]["Dent D."]["paid"], 60)
+
+    def test_multi_month_without_period_label_uses_dates_inside_file(self):
+        raw = report_bytes(period=False)
+        parsed = paid_services.parse_bytes(raw, "dated-rows-only.xlsx")
+        self.assertEqual((parsed["period_start"], parsed["period_end"]), ("2026-01-05", "2026-06-27"))
 
     def test_invalid_incomplete_reversed_or_incompatible_dates_are_rejected(self):
         cases = [
@@ -235,7 +259,6 @@ class PaidPeriodUploadTests(unittest.TestCase):
 
     def post(self, action, raw=None, **fields):
         data = {
-            "period_start": "2026-01-01", "period_end": "2026-06-30",
             **fields,
             "paid_services": (io.BytesIO(report_bytes() if raw is None else raw), "period.xlsx"),
         }
@@ -263,6 +286,9 @@ class PaidPeriodUploadTests(unittest.TestCase):
         changed = report_bytes(paid=270)
         preview = self.post("preview", changed).get_json()
         self.assertTrue(preview["requires_choice"])
+        self.assertTrue(preview["requires_review"])
+        self.assertTrue(preview["changes_detected"])
+        self.assertEqual(preview["overlaps"][0]["relation"], "exact")
         result = self.post("commit", changed, decision="use_new", expected_revision=preview["revision"])
         self.assertEqual(result.status_code, 200, result.get_json())
         payload = result.get_json()
@@ -274,6 +300,16 @@ class PaidPeriodUploadTests(unittest.TestCase):
             self.assertEqual(old["providers"]["Dent D."]["paid"], 260)
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM service_payment_period_versions").fetchone()[0], 1)
         self.assertEqual(self.protected_state(), self.protected)
+
+    def test_partial_overlap_is_reported_before_append(self):
+        self.import_first()
+        raw = report_bytes(("05.04.2026", "27.09.2026"))
+        preview = self.post("preview", raw).get_json()
+        self.assertFalse(preview["requires_choice"])
+        self.assertTrue(preview["requires_review"])
+        self.assertEqual(preview["counts"]["overlap"], 1)
+        self.assertEqual(preview["overlaps"][0]["relation"], "partial")
+        self.assertEqual(preview["period"], {"from": "2026-04-01", "to": "2026-09-30"})
 
     def test_stale_preview_cannot_overwrite_a_later_import(self):
         self.import_first()
@@ -331,8 +367,8 @@ class PaidPeriodUploadTests(unittest.TestCase):
         self.perms = {"upload_services"}
         before = list(self.conn.iterdump())
         self.assertEqual(self.post("commit", raw, decision="use_new", expected_revision=revision).status_code, 403)
-        self.assertEqual(self.post("commit", report_bytes(provider="Unknown U."),
-                                   period_end="2026-07-01", expected_revision="new",
+        self.assertEqual(self.post("commit", report_bytes(("05.07.2026", "31.07.2026"), provider="Unknown U."),
+                                   expected_revision="new",
                                    provider_decisions=json.dumps({"Unknown U.": "dent"})).status_code, 403)
         self.assertEqual(list(self.conn.iterdump()), before)
 

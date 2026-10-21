@@ -114,11 +114,7 @@
     </div>
     {% if 'upload_services' in perms %}
       <input type="file" name="paid_services" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
-      <div class="paid-period-fields">
-        <label>Период с<input type="date" name="period_start" aria-describedby="paidPeriodHint"></label>
-        <label>по<input type="date" name="period_end" aria-describedby="paidPeriodHint"></label>
-      </div>
-      <div class="hint" id="paidPeriodHint">Укажите те же даты, что выбраны в МИС. В файле они не записаны. Для привычной выгрузки с начала одного месяца оба поля можно оставить пустыми.</div>
+      <div class="hint" id="paidPeriodHint">Период определяется автоматически по датам внутри самого файла. Вручную даты дублировать не нужно.</div>
       <button class="btn primary" type="submit" style="margin-top:12px">Проверить и загрузить новый отчёт</button>
     {% else %}<div class="lock">Нет права на загрузку нового отчёта МИС.</div>{% endif %}
     <div id="paidClientResult" class="result hidden"></div>
@@ -163,10 +159,10 @@
     {% for row in history %}
       <tr>
         <td>{{ row['created_at'][:19].replace('T',' ') }}</td>
-        <td>{{ row['data_date'] or '—' }}</td>
+        <td>{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class="muted">{{ row['period_label'] }}</span>{% endif %}</td>
         <td>{{ row['user_name'] or 'система' }}</td>
-        <td class="state-{{ row['status'] }}">{% if row['status']=='imported' %}Загружено{% elif row['status']=='replaced' %}Заменено{% elif row['status']=='duplicate' %}Дубль — без изменений{% elif row['status']=='denied_replace' %}Замена запрещена{% else %}{{ row['status'] }}{% endif %}</td>
-        <td>{{ row['completed_filename'] or '' }}{% if row['completed_filename'] and row['services_filename'] %}<br>{% endif %}{{ row['services_filename'] or '' }}</td>
+        <td class="state-{{ row['status'] }}">{% if row['status_text'] %}{{ row['status_text'] }}{% elif row['status']=='imported' %}Загружено{% elif row['status']=='replaced' %}Заменено{% elif row['status']=='duplicate' %}Дубль — без изменений{% elif row['status']=='denied_replace' %}Замена запрещена{% else %}{{ row['status'] }}{% endif %}</td>
+        <td>{% if row['source_label'] %}<span class="muted">{{ row['source_label'] }}</span><br>{% endif %}{{ row['completed_filename'] or '' }}{% if row['completed_filename'] and row['services_filename'] %}<br>{% endif %}{{ row['services_filename'] or '' }}</td>
       </tr>
     {% else %}<tr><td colspan="5" class="muted">Журнал пока пуст.</td></tr>{% endfor %}
     </tbody>
@@ -330,11 +326,19 @@
     context={type,form,payload};
     title.textContent=type==='clinical'?'Проверка клинического периода':type==='cash'?'Проверка файла «Счета и оплаты»':'Проверка нового отчёта МИС';
     const c=payload.counts||{};
-    stats.innerHTML=
-      stat('Новые',c.new||0)+
-      stat('Совпадают',c.identical||0)+
-      stat('Отличаются',(c.conflict||0)+(c.historical||0))+
-      stat('Исчезли в новой версии',c.removed||0);
+    if(type==='paid'){
+      stats.innerHTML=
+        stat('Новые',c.new||0)+
+        stat('Совпадают',c.identical||0)+
+        stat('Изменены',c.conflict||0)+
+        stat('Наложения',c.overlap||0);
+    }else{
+      stats.innerHTML=
+        stat('Новые',c.new||0)+
+        stat('Совпадают',c.identical||0)+
+        stat('Отличаются',(c.conflict||0)+(c.historical||0))+
+        stat('Исчезли в новой версии',c.removed||0);
+    }
 
     if(type==='cash'&&payload.reconciliation){
       const r=payload.reconciliation;
@@ -343,13 +347,32 @@
         ' = ООО '+money(r.ooo)+' + ИП '+money(r.ip)+'.';
     }else if(type==='paid'&&payload.summary){
       const r=payload.summary;
-      message.innerHTML='Период <strong>'+esc(payload.period.from)+' — '+esc(payload.period.to)+'</strong>.'+
+      message.innerHTML='Период из файла <strong>'+esc(payload.period.from)+' — '+esc(payload.period.to)+'</strong>.'+
         '<br>Оплачено по услугам: '+money(r.paid)+
         '; стоматология '+money(r.dent)+
         '; отделение структуры '+money(r.structure)+
         '; лаборатория '+money(r.lab)+
         (r.unknown_paid?'; требует классификации '+money(r.unknown_paid):'')+'.'+
         '<br>Задолженность: начало '+money(r.opening)+' → конец '+money(r.closing)+'.';
+      const overlaps=payload.overlaps||[];
+      if(overlaps.length){
+        const labels={
+          exact:'тот же период',
+          new_contains_saved:'новый период включает ранее загруженный',
+          saved_contains_new:'ранее загруженный период включает новый',
+          partial:'частичное пересечение'
+        };
+        message.innerHTML+='<br><strong>Найдены наложения с уже загруженными данными:</strong>'+
+          overlaps.map(item=>'<br>• '+esc(item.from)+' — '+esc(item.to)+' ('+esc(labels[item.relation]||item.relation)+')'+
+            (item.source_filename?' — '+esc(item.source_filename):'')).join('');
+      }
+      if(payload.changes_detected){
+        message.innerHTML+='<br><strong>За точно такой же период уже загружена другая версия: данные внутри периода изменились.</strong>';
+      }else if(overlaps.some(item=>item.relation==='exact'&&item.same_payload===true)){
+        message.innerHTML+='<br><strong>Точно такой же период уже загружен и данные совпадают.</strong>';
+      }else if(overlaps.length){
+        message.innerHTML+='<br><strong>Загрузка не будет выполнена молча: сначала подтвердите продолжение после этого предупреждения.</strong>';
+      }
     }else{
       message.innerHTML='Период <strong>'+esc(payload.period.from)+' — '+esc(payload.period.to)+'</strong>.'+
         (payload.requires_choice?'<br>В существующих данных есть отличия. Один выбранный вариант будет применён ко всему пересекающемуся периоду.':'<br>Конфликтов с существующими данными нет.');
@@ -399,7 +422,10 @@
   async function commit(choice){
     if(!context)return;
     const extra={decision:choice||'append'};
-    if(context.type==='paid')extra.expected_revision=context.payload.revision;
+    if(context.type==='paid'){
+      extra.expected_revision=context.payload.revision;
+      extra.expected_overlap_revision=context.payload.overlap_revision;
+    }
     const url=context.type==='clinical'?'/api/uploads/clinical/commit':context.type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit';
     try{
       if(context.type==='clinical'||(context.type==='paid'&&choice!=='keep_old')){
@@ -425,7 +451,7 @@
     const url=type==='clinical'?'/api/uploads/clinical/preview':type==='cash'?'/api/uploads/cash/preview':'/api/uploads/paid-services/preview';
     try{
       const out=await send(url,form);
-      const needs=out.requires_choice||out.requires_provider_mapping;
+      const needs=out.requires_choice||out.requires_provider_mapping||out.requires_review;
       if(needs){
         resultBox(type,'Обнаружены данные, требующие подтверждения.',true);
         openPreview(type,form,out);
@@ -433,7 +459,11 @@
         const committed=await send(
           type==='clinical'?'/api/uploads/clinical/commit':type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit',
           form,
-          type==='paid'?{decision:'append',expected_revision:out.revision}:{decision:'append'}
+          type==='paid'?{
+            decision:'append',
+            expected_revision:out.revision,
+            expected_overlap_revision:out.overlap_revision
+          }:{decision:'append'}
         );
         resultBox(type,committed.message||'Загрузка завершена.',true);
         setTimeout(()=>location.reload(),900);
