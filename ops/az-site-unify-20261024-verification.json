@@ -1,0 +1,8 @@
+{
+  "html_updated": 74,
+  "protected_files": 91,
+  "content_checks": "media URLs, all main links and price values/order preserved",
+  "browser_checks": 148,
+  "horizontal_overflows": 0,
+  "apply_idempotency_rollback": "PASS"
+}
