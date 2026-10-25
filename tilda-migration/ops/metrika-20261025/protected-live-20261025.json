@@ -1,0 +1,112 @@
+{
+  "site.js": {
+    "sha256": "190dba2936bc2def347a43e94b81e6fe226ee77ae38220db9e4790a17c355361",
+    "size": 1834,
+    "match": true
+  },
+  "site.css": {
+    "sha256": "8b2adf1b395ce968f1f116fac27b9a559d7d42265d1686737ec21dc4590406c9",
+    "size": 6983,
+    "match": true
+  },
+  "layouts.css": {
+    "sha256": "66d78398182263a458236c439c1a098fc8390539c7d45511d9240bd54f1a3a71",
+    "size": 696234,
+    "match": false
+  },
+  "assets/az-home-20261022.css": {
+    "sha256": "e3e5e8335161cb3f5bdc0a1e0b3512ad64e2bb29513bb508247d175c6ffecdfa",
+    "size": 13074,
+    "match": true
+  },
+  "assets/az-team-system-20261023.css": {
+    "sha256": "20ee91c579a29c1ebeb89a397947e7b653641a4101c1c5e33c2739646352393b",
+    "size": 8241,
+    "match": true
+  },
+  "assets/az-home-team-20261022.css": {
+    "sha256": "8271048cbd198f24cf5afbdbc63de75e5a84c0829678adb7464a35d39a7bb082",
+    "size": 3849,
+    "match": true
+  },
+  "assets/az-team-mapping-20261023.css": {
+    "sha256": "851e5611e88dd6cfa4f411ee3d27c42eaa0e607696db68119797749558256561",
+    "size": 8628,
+    "match": true
+  },
+  "assets/az-team-portraits-20261024.css": {
+    "sha256": "3c13bf59f1b232e8f38fe6931c615f4c1ad4fd1310df3cda83129b40be422a0f",
+    "size": 10126,
+    "match": true
+  },
+  "assets/az-articles-expanded-20261024.css": {
+    "sha256": "525ca9012a539f8f0e38596d96551a05024b638acdb1130d3a154f36a3082b43",
+    "size": 3967,
+    "match": true
+  },
+  "assets/az-routes-20261022.css": {
+    "sha256": "fb328aab6d165c5b2c22a38565b6511ea39e6413c46e8e7227886b6e2a30c019",
+    "size": 3120,
+    "match": true
+  },
+  "assets/az-about-polish-20261024.css": {
+    "sha256": "9c5f151d8d5746978734e61b30141a535b6c78008b2da60903c80f7860902ca5",
+    "size": 14556,
+    "match": true
+  },
+  "assets/az-conditions-system-20261024.css": {
+    "sha256": "8c21a5402d3a6c3ad4f6c7571c1d6d4624787a664c067ded118b53796407b7f8",
+    "size": 22161,
+    "match": true
+  },
+  "assets/az-methods-20261025.css": {
+    "sha256": "dc2ea8d67b80f5fbf37e4835eac9261f2e4bc3a3de69292dfddd24179cd3f200",
+    "size": 3351,
+    "match": true
+  },
+  "assets/az-doctor-cards-20261013.css": {
+    "sha256": "5813a1e65ce1ececfddb2d11dc6669cff3f61e16390b1b01cf870a512b3e62a0",
+    "size": 386,
+    "match": true
+  },
+  "assets/az-doctor-cards-wrap-20261013.css": {
+    "sha256": "b3504521129c394bb669fbc4e420ed6e86c4ed9193b1390a1ee3315dadeeec9a",
+    "size": 498,
+    "match": true
+  },
+  "assets/az-about-system-20261024.css": {
+    "sha256": "205fa8f83e3425110a57dcd8b58831719c3d2e2ab6e38c610234bd1c33b889f8",
+    "size": 13437,
+    "match": true
+  },
+  "assets/az-site-unify-20261024.css": {
+    "sha256": "7f1af8345e5f6aa50772025f02a1629234176ef88060bba2bcd3165178e6d427",
+    "size": 9766,
+    "match": true
+  },
+  "assets/az-about-scroll-20261024.css": {
+    "sha256": "b8c9024c9c6e59ffce39164d766284f264589833b59ee73ca00464252d88b38c",
+    "size": 14267,
+    "match": true
+  },
+  "assets/az-routes-style-20261024.css": {
+    "sha256": "ea596f814af98b240ce1cb3744f8a5232442472a410467f36d9227bbf528704c",
+    "size": 1880,
+    "match": true
+  },
+  "assets/az-team-compact-20261024.css": {
+    "sha256": "1508a6e8b8b7565dca0490f9831fec04308d31237661e4390037ba3b0153e2c1",
+    "size": 9768,
+    "match": true
+  },
+  "assets/az-team-polish-20261024.css": {
+    "sha256": "e86534370263fb74f936d6e39c916a9491e6de060dcfeca95b5a0b5e1b97e941",
+    "size": 10300,
+    "match": true
+  },
+  "assets/az-team-order-20261024.css": {
+    "sha256": "5f275de50f5155afe08eecb71104acf1eedd285e5d5f68d8b5b7189e925c1c61",
+    "size": 10153,
+    "match": true
+  }
+}
