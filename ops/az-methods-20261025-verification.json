@@ -1,0 +1,10 @@
+{
+  "html_updated": 7,
+  "reports_added": 2,
+  "source_live_matches": true,
+  "browser_layout_checks": 14,
+  "overflow": 0,
+  "mobile_modal_zoom_close": "PASS",
+  "apply_idempotency_rollback": "PASS",
+  "protected_files": 160
+}
