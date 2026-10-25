@@ -1,0 +1,43 @@
+{
+  "files": {
+    "sitemap.xml": {
+      "before": "8670d9645663f4f9a8b7abdfd09d96c6a30b8fdd79699c7eb16d3f25403b6125",
+      "after": "5427e21785fcf42853042a401e554fd5bdd3d655f32f3621b6a171ef8f7ce5a0"
+    },
+    "index.html": {
+      "before": "0f9f68c3336f34404580af766226c1060c1c010bba072244ff98c350fb09bcb9",
+      "after": "49203bc48a8e36c65c37240c6ab41838ed462deda7b973c611c73f7828c8f309"
+    },
+    "chto-my-lechim/index.html": {
+      "before": null,
+      "after": "03c410a327b5e770065a8fc4ba2f8d573b653d5b1467adcfe81eda3e8403136c"
+    },
+    "assets/az-routes-20261022.css": {
+      "before": null,
+      "after": "fb328aab6d165c5b2c22a38565b6511ea39e6413c46e8e7227886b6e2a30c019"
+    },
+    "assets/az-home-20261022.css": {
+      "before": null,
+      "after": "e3e5e8335161cb3f5bdc0a1e0b3512ad64e2bb29513bb508247d175c6ffecdfa"
+    },
+    "marshruty/obmen-i-profilaktika/index.html": {
+      "before": null,
+      "after": "7c5536ae6c00b14d104207c2fc49a8a02b4591cb270dc2cb6487774526e9459b"
+    },
+    "marshruty/struktura-i-dvizhenie/index.html": {
+      "before": null,
+      "after": "4ac6fb4e96e15100276c9232bae4ff53a55e69f333313a0661d84945cb9f1383"
+    },
+    "marshruty/son-i-dyhanie/index.html": {
+      "before": null,
+      "after": "c6fc96f42b0cad99a944c97fdc412e9f15b77083d687cf3a0d940717aee0003f"
+    }
+  },
+  "protected": {
+    "site.css": "8b2adf1b395ce968f1f116fac27b9a559d7d42265d1686737ec21dc4590406c9",
+    "site.js": "190dba2936bc2def347a43e94b81e6fe226ee77ae38220db9e4790a17c355361",
+    "team/filatova-anna/index.html": "0f916f23255fffcd26b206a30ae028b37b8193a8f617d7ff9b6e8b6bc1837ce1",
+    "team/filatova-anna/certificates/index.html": "27ed641f3b3701119935d1d696500ca277886a861a57fa654d8faef189d70326",
+    "assets/4d67d8e3617de3463719.jpg": "173ab0e4c1ad9b2f86af7545077bdcf1bde17ec73b5d46ad46253cfc3559928f"
+  }
+}
