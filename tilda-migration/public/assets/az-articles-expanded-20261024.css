@@ -2,3 +2,6 @@
 h1{color:#2080c4}.doctor+.doctor{margin-top:16px}.doctor .price{gap:8px;flex-wrap:wrap}.doctor .price del{font-size:14px;color:#627b88}.cookie-banner{position:static!important;max-width:100%;margin:8px auto}.sources{overflow-wrap:anywhere}
 
 h1,.reading h2,.doctor h2{overflow-wrap:anywhere}
+
+/* Keep the full portrait; do not add letterbox bands. */
+.doctor img.portrait{height:auto!important;aspect-ratio:auto;max-height:none;background:transparent}
