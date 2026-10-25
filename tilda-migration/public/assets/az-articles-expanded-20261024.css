@@ -3,5 +3,10 @@ h1{color:#2080c4}.doctor+.doctor{margin-top:16px}.doctor .price{gap:8px;flex-wra
 
 h1,.reading h2,.doctor h2{overflow-wrap:anywhere}
 
-/* Keep the full portrait; do not add letterbox bands. */
-.doctor img.portrait{height:auto!important;aspect-ratio:auto;max-height:none;background:transparent}
+/* Uniform portrait frame: native proportions, top anchored, no letterboxing. */
+.doctor img.portrait{width:100%;height:auto!important;aspect-ratio:1/1;object-fit:cover;object-position:center top;max-height:none;background:transparent}
+.az-myo-team{align-items:stretch}
+.az-myo-team>.doctor{display:flex;flex-direction:column;height:100%;margin:0}
+.az-myo-team>.doctor .price{margin-top:auto}
+@media(min-width:701px){.az-myo-team>.doctor h2{min-height:60px}.az-myo-team>.doctor .role{min-height:45px}}
+@media(max-width:700px){.doctor img.portrait{width:100px;height:100px!important;aspect-ratio:1/1}.az-myo-team>.doctor{display:block;height:auto}}
