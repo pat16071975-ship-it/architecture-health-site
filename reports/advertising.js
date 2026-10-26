@@ -35,7 +35,7 @@ function moneyCards(){
 }
 function activity(){
   const a=payload.activity||{},items=[['Первичные',a.primary_visits,a.primary_paid],['Повторные',a.repeat_visits,a.repeat_paid],['Всего',a.total_visits,a.total_paid]];
-  $('#activity').innerHTML=items.map(x=>'<div class="activity-card"><div class="a-title">'+x[0]+'</div><strong>'+number(x[1])+' приёмов</strong><strong>'+money(x[2])+'</strong></div>').join('')
+  $('#activity').innerHTML=items.map(x=>'<div class="activity-card"><div class="a-title">'+x[0]+'</div><div class="activity-values"><strong>'+number(x[1])+'</strong><strong>'+money(x[2])+'</strong></div></div>').join('')
 }
 
 function lineChart(){
@@ -43,8 +43,8 @@ function lineChart(){
   if(!vals.length){box.innerHTML='<div class="empty">Нет данных за выбранный период</div>';$('#trendLegend').innerHTML='';return}
   const w=1000,H=210,p=28,max=Math.max(...vals,1),x=i=>p+i*(w-2*p)/Math.max(cur.length-1,1),y=v=>H-p-v*(H-2*p)/max;
   const path=arr=>arr.map((d,i)=>d.value==null?null:[i,d.value]).filter(Boolean).map((a,j)=>(j?'L':'M')+x(a[0]).toFixed(1)+','+y(a[1]).toFixed(1)).join(' ');
-  box.innerHTML='<svg viewBox="0 0 '+w+' '+H+'" preserveAspectRatio="none"><line x1="'+p+'" y1="'+(H-p)+'" x2="'+(w-p)+'" y2="'+(H-p)+'" stroke="#dce8f2"/><path d="'+path(cmp)+'" fill="none" stroke="#debc19" stroke-width="3"/><path d="'+path(cur)+'" fill="none" stroke="#2080c4" stroke-width="3"/></svg>';
-  $('#trendLegend').innerHTML='<span><i style="background:#2080c4"></i>Выбранный период</span><span><i style="background:#debc19"></i>'+h(payload.compare.label)+'</span>'
+  box.innerHTML='<svg viewBox="0 0 '+w+' '+H+'" preserveAspectRatio="none"><line x1="'+p+'" y1="'+(H-p)+'" x2="'+(w-p)+'" y2="'+(H-p)+'" stroke="#ded4c4"/><path d="'+path(cmp)+'" fill="none" stroke="#b59662" stroke-width="3"/><path d="'+path(cur)+'" fill="none" stroke="#44634f" stroke-width="3"/></svg>';
+  $('#trendLegend').innerHTML='<span><i style="background:#44634f"></i>Выбранный период</span><span><i style="background:#b59662"></i>'+h(payload.compare.label)+'</span>'
 }
 
 const GROUP_ORDER={'Платная реклама':1,'Поиск':2,'Карты':3,'Прямые заходы':4,'Другие источники':5};
@@ -119,9 +119,9 @@ function moneyBarChart(){
   let bars='';
   data.forEach((r,i)=>{
     const x=p+i*slot+slot*.18,bw=slot*.25,sh=bh(r.spend||0),rh=bh(r.total_paid||0),label=h((r.campaign_name||r.source_name||'').slice(0,18));
-    bars+='<rect x="'+x+'" y="'+(H-28-sh)+'" width="'+bw+'" height="'+sh+'" fill="#debc19" rx="2"/><rect x="'+(x+bw+4)+'" y="'+(H-28-rh)+'" width="'+bw+'" height="'+rh+'" fill="#2080c4" rx="2"/><text x="'+x+'" y="'+(H-9)+'" font-size="9" fill="#426174">'+label+'</text>'
+    bars+='<rect x="'+x+'" y="'+(H-28-sh)+'" width="'+bw+'" height="'+sh+'" fill="#b59662" rx="2"/><rect x="'+(x+bw+4)+'" y="'+(H-28-rh)+'" width="'+bw+'" height="'+rh+'" fill="#44634f" rx="2"/><text x="'+x+'" y="'+(H-9)+'" font-size="9" fill="#4f5b53">'+label+'</text>'
   });
-  box.innerHTML='<svg viewBox="0 0 '+w+' '+H+'" preserveAspectRatio="none"><line x1="'+p+'" y1="'+(H-28)+'" x2="'+(w-p)+'" y2="'+(H-28)+'" stroke="#dce8f2"/>'+bars+'</svg>'
+  box.innerHTML='<svg viewBox="0 0 '+w+' '+H+'" preserveAspectRatio="none"><line x1="'+p+'" y1="'+(H-28)+'" x2="'+(w-p)+'" y2="'+(H-28)+'" stroke="#ded4c4"/>'+bars+'</svg>'
 }
 
 function freshness(){
