@@ -1,0 +1,1 @@
+(()=>{const q=matchMedia('(max-width:700px)');function sync(){document.querySelectorAll('.az-chat-qr').forEach(d=>d.open=!q.matches)}sync();q.addEventListener('change',sync);document.addEventListener('click',e=>{const a=e.target.closest('a[data-az-messenger]');if(a&&typeof window.ym==='function')window.ym(113776005,'reachGoal','messenger_'+a.dataset.azMessenger)})})();
