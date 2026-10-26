@@ -21,11 +21,11 @@ PREVIEW_SERVICE = "az-advertising-preview"
 PREVIEW_PORT = 8003
 PREVIEW_ROOT = Path("/opt/az-advertising-preview")
 PREVIEW_UNIT = Path("/etc/systemd/system/az-advertising-preview.service")
-SOURCE_HEAD = "546fcf0d8ae921a1248531fc9f7519722590089c"
+SOURCE_HEAD = "664c1a17fe71c9d801d587eb1ba6b8ab89916aad"
 APPLY_TOKEN = "ADVERTISING-PREVIEW-B2527918"
-UPDATE_TOKEN = "ADVERTISING-PREVIEW-UI2-546FCF0D"
-HTML_BLOB = "94b5b2d79267322992927852e5937054205f38fb"
-JS_BLOB = "6c75b7b7ea74b9cb98a85a2a7898f9c6982770d0"
+UPDATE_TOKEN = "ADVERTISING-PREVIEW-UI3-664C1A17"
+HTML_BLOB = "9256fe0f8dcb6a190f5b8f85839eca5766d32c1e"
+JS_BLOB = "e7d4ba225c0c194d3126fa9c2d5a5f75c906abc7"
 RAW_BASE = "https://raw.githubusercontent.com/pat16071975-ship-it/architecture-health-site/" + SOURCE_HEAD + "/reports/"
 HTML_PATH = PREVIEW_ROOT / "advertising.html"
 JS_PATH = PREVIEW_ROOT / "advertising.js"
@@ -402,7 +402,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(302); self.send_header("Location","/reports/advertising/"); self.end_headers(); return
         if parsed.path=="/reports/advertising/":
             html=HTML_PATH.read_text(encoding="utf-8")
-            banner='<div style="position:sticky;top:0;z-index:99999;background:#155b91;color:white;border-bottom:3px solid #debc19;padding:8px;text-align:center;font:700 11px Arial">ПРИВАТНЫЙ PREVIEW — только вымышленные данные, Production не затронут</div>'
+            banner='<div style="position:sticky;top:0;z-index:99999;background:#44634f;color:white;border-bottom:3px solid #b59662;padding:8px;text-align:center;font:700 11px Arial">ПРИВАТНЫЙ PREVIEW — только вымышленные данные, Production не затронут</div>'
             html=html.replace("<body>","<body>"+banner,1)
             return self.send_bytes(200,html.encode("utf-8"),"text/html; charset=utf-8")
         if parsed.path=="/reports/advertising.js":
