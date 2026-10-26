@@ -25,7 +25,7 @@ jobs:
           p=Path('az-baze-auth/deploy/advertising_preview_test.py')
           spec=importlib.util.spec_from_file_location('preview',p)
           m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-          assert m.SOURCE_HEAD == '546fcf0d8ae921a1248531fc9f7519722590089c'
+          assert m.SOURCE_HEAD == '664c1a17fe71c9d801d587eb1ba6b8ab89916aad'
           assert m.PREVIEW_PORT == 8003
           assert str(m.PREVIEW_ROOT) == '/opt/az-advertising-preview'
           assert str(m.PREVIEW_UNIT) == '/etc/systemd/system/az-advertising-preview.service'
@@ -47,7 +47,7 @@ jobs:
           forbidden=['/var/lib/az-baze/auth.db','/opt/az-baze-auth','/var/www/az-baze.ru']
           assert all(x not in text for x in forbidden)
           assert '127.0.0.1:8003' in text
-          assert m.UPDATE_TOKEN == 'ADVERTISING-PREVIEW-UI2-546FCF0D'
+          assert m.UPDATE_TOKEN == 'ADVERTISING-PREVIEW-UI3-664C1A17'
           assert 'IPAddressDeny=any' in text and 'IPAddressAllow=localhost' in text
           print('ADVERTISING_PREVIEW_CONTRACT=PASS')
           PY
