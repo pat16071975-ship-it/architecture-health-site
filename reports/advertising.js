@@ -31,7 +31,7 @@ function mainKpis(){
 function moneyCards(){
   const s=payload.summary||{},services=s.primary_services!=null&&s.primary_paid!=null&&Math.abs(s.primary_services-s.primary_paid)>.5?'Оказано услуг на '+money(s.primary_services):'';
   $('#primaryMoney').innerHTML='<div class="kpi-wrap"><div class="kpi"><div class="name">Выручка первичных приёмов — фактически получено</div><div class="value">'+money(s.primary_paid)+'</div><div class="extra">'+services+'</div></div>'+compareCard('primary_paid',money)+'</div>';
-  $('#cohortCard').innerHTML='<div class="name">Выручка новых пациентов за 30 дней</div><div class="value">'+money(s.new_patient_30d_paid)+'</div><div class="extra">Только фактически полученные деньги. Новых пациентов в выбранной когорте: <b>'+number(s.new_patients)+'</b></div>'
+  $('#cohortCard').innerHTML='<div class="name">Выручка новых пациентов за 30 дней</div><div class="value">'+money(s.new_patient_30d_paid)+'</div><div class="extra">Новых пациентов, впервые пришедших в клинику в выбранном периоде: <b>'+number(s.new_patients)+'</b><br>Учтены только фактически полученные от них деньги за первые 30 дней после первого визита.</div>'
 }
 function activity(){
   const a=payload.activity||{},items=[['Первичные',a.primary_visits,a.primary_paid],['Повторные',a.repeat_visits,a.repeat_paid],['Всего',a.total_visits,a.total_paid]];
