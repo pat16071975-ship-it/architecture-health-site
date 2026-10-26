@@ -109,7 +109,7 @@ WantedBy=multi-user.target
 """
 
 def cleanup():
-    run(["systemctl", "stop", PREVIEW_SERVICE], check=False)
+    run(["systemctl", "disable", "--now", PREVIEW_SERVICE], check=False)
     if PREVIEW_UNIT.exists():
         PREVIEW_UNIT.unlink(missing_ok=True)
         run(["systemctl", "daemon-reload"], check=False)
