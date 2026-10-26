@@ -21,10 +21,11 @@ PREVIEW_SERVICE = "az-advertising-preview"
 PREVIEW_PORT = 8003
 PREVIEW_ROOT = Path("/opt/az-advertising-preview")
 PREVIEW_UNIT = Path("/etc/systemd/system/az-advertising-preview.service")
-SOURCE_HEAD = "b25279188a243e70bb0361b0f9f0a5571f8adbe3"
+SOURCE_HEAD = "546fcf0d8ae921a1248531fc9f7519722590089c"
 APPLY_TOKEN = "ADVERTISING-PREVIEW-B2527918"
-HTML_BLOB = "8ea771c9c4852417852207f5f376b3344bd319ca"
-JS_BLOB = "993541689e834c2a0a0342d3f650f0d67be509d2"
+UPDATE_TOKEN = "ADVERTISING-PREVIEW-UI2-546FCF0D"
+HTML_BLOB = "94b5b2d79267322992927852e5937054205f38fb"
+JS_BLOB = "6c75b7b7ea74b9cb98a85a2a7898f9c6982770d0"
 RAW_BASE = "https://raw.githubusercontent.com/pat16071975-ship-it/architecture-health-site/" + SOURCE_HEAD + "/reports/"
 HTML_PATH = PREVIEW_ROOT / "advertising.html"
 JS_PATH = PREVIEW_ROOT / "advertising.js"
@@ -155,6 +156,75 @@ def apply():
         cleanup()
         raise
 
+
+def update_preflight():
+    if socket.gethostname().split(".")[0] != EXPECTED_HOST:
+        raise RuntimeError("STOP: WRONG_HOST")
+    if os.geteuid() != 0:
+        raise RuntimeError("STOP: ROOT_REQUIRED")
+    if not service_active(LIVE_SERVICE):
+        raise RuntimeError("STOP: LIVE_SERVICE_NOT_ACTIVE")
+    if not service_active(PREVIEW_SERVICE):
+        raise RuntimeError("STOP: PREVIEW_SERVICE_NOT_ACTIVE")
+    for path in (PREVIEW_ROOT, PREVIEW_UNIT, HTML_PATH, JS_PATH, SELF_PATH):
+        if not path.exists():
+            raise RuntimeError("STOP: PREVIEW_PATH_MISSING=" + str(path))
+    print("ADVERTISING_PREVIEW_UPDATE_PREFLIGHT=PASS")
+    print("SOURCE_HEAD=" + SOURCE_HEAD)
+    print("LIVE_SERVICE=active")
+    print("PREVIEW_SERVICE=active")
+    print("PRODUCTION_DB_WRITES=NONE; PRODUCTION_FILES=NONE; NGINX=NONE; DNS=NONE")
+
+def update():
+    update_preflight()
+    html = fetch_exact("advertising.html", HTML_BLOB)
+    js = fetch_exact("advertising.js", JS_BLOB)
+    backups = {
+        HTML_PATH: HTML_PATH.read_bytes(),
+        JS_PATH: JS_PATH.read_bytes(),
+        SELF_PATH: SELF_PATH.read_bytes(),
+        PREVIEW_UNIT: PREVIEW_UNIT.read_bytes(),
+    }
+    try:
+        run(["systemctl", "stop", PREVIEW_SERVICE])
+        HTML_PATH.write_bytes(html)
+        JS_PATH.write_bytes(js)
+        shutil.copy2(Path(__file__).resolve(), SELF_PATH)
+        PREVIEW_UNIT.write_text(render_unit(), encoding="utf-8")
+        for path in (HTML_PATH, JS_PATH, SELF_PATH):
+            os.chmod(path, 0o644)
+        os.chmod(PREVIEW_UNIT, 0o644)
+        run(["systemctl", "daemon-reload"])
+        run(["systemctl", "start", PREVIEW_SERVICE])
+        ok = False
+        for _ in range(30):
+            try:
+                with urllib.request.urlopen("http://127.0.0.1:%d/health" % PREVIEW_PORT, timeout=2) as r:
+                    ok = r.status == 200 and r.read().decode().strip() == "ok"
+            except Exception:
+                ok = False
+            if ok:
+                break
+            time.sleep(0.25)
+        if not ok:
+            raise RuntimeError("preview update health failed")
+        print("ADVERTISING_PREVIEW_UPDATE=PASS")
+        print("SOURCE_HEAD=" + SOURCE_HEAD)
+        print("HTML_BLOB=" + HTML_BLOB)
+        print("JS_BLOB=" + JS_BLOB)
+        print("SERVICE=" + PREVIEW_SERVICE + "; ACTIVE=YES")
+        print("DATA=SYNTHETIC_ONLY; PRODUCTION_DB_WRITES=NONE; PRODUCTION_FILES=NONE; NGINX=NONE; DNS=NONE")
+    except Exception:
+        run(["systemctl", "stop", PREVIEW_SERVICE], check=False)
+        for path, raw in backups.items():
+            path.write_bytes(raw)
+        os.chmod(PREVIEW_UNIT, 0o644)
+        for path in (HTML_PATH, JS_PATH, SELF_PATH):
+            os.chmod(path, 0o644)
+        run(["systemctl", "daemon-reload"], check=False)
+        run(["systemctl", "start", PREVIEW_SERVICE], check=False)
+        raise
+
 def scale(v, factor):
     if v is None:
         return None
@@ -207,17 +277,20 @@ PREV = {
 
 SOURCE_ROWS = [
     ("yandex_ads", "Реклама Яндекса", "Платная реклама", 412750, 3860, 3100, 76, 48, 55, 1350000, 1450000, 180, 750000, 42, 1820000),
-    ("organic", "Поиск Яндекса", "Поиск", None, None, 2400, 28, 19, 22, 620000, 655000, 160, 690000, 17, 820000),
-    ("maps", "Карты", "Карты", None, None, 1500, 20, 14, 16, 440000, 470000, 131, 590000, 13, 710000),
+    ("yandex_search", "Яндекс Поиск", "Поиск", None, None, 1700, 20, 14, 16, 440000, 465000, 110, 470000, 12, 570000),
+    ("google_search", "Google Поиск", "Поиск", None, None, 700, 8, 5, 6, 180000, 190000, 50, 220000, 5, 250000),
+    ("yandex_maps", "Яндекс Карты", "Карты", None, None, 850, 11, 8, 9, 260000, 280000, 75, 320000, 7, 390000),
+    ("2gis", "2ГИС", "Карты", None, None, 650, 9, 6, 7, 180000, 190000, 56, 270000, 6, 320000),
     ("direct", "Прямые заходы", "Прямые заходы", None, None, 820, 10, 6, 7, 198460, 210000, 90, 390000, 5, 350000),
-    ("other", "Другие источники", "Другие источники", None, None, 600, 8, 5, 5, 140000, 150000, 70, 343840, 4, 290000),
+    ("recommendations", "Рекомендации", "Другие источники", None, None, 360, 5, 3, 3, 150000, 158000, 70, 205000, 4, 270000),
+    ("referrals", "Переходы с других сайтов", "Другие источники", None, None, 240, 3, 2, 2, 90000, 92000, 50, 138840, 3, 200000),
 ]
 CAMPAIGNS = [
-    ("1", "Ортодонтия", 118000, 1180, 28, 18, 21, 510000, 690000),
-    ("2", "Стоматология", 96000, 860, 21, 14, 16, 420000, 520000),
-    ("3", "Миотерапия", 74000, 650, 13, 8, 9, 270000, 315000),
-    ("4", "Общая медицина", 68000, 610, 9, 5, 6, 110000, 140000),
-    ("5", "Брендовая", 56750, 560, 5, 3, 3, 40000, 75000),
+    ("1", "Ортодонтия", 118000, 1180, 28, 18, 21, 510000, 780000),
+    ("2", "Стоматология", 96000, 860, 21, 14, 16, 420000, 570000),
+    ("3", "Миотерапия", 74000, 650, 13, 8, 9, 270000, 360000),
+    ("4", "Общая медицина", 68000, 610, 9, 5, 6, 110000, 220000),
+    ("5", "Брендовая", 56750, 560, 5, 3, 3, 40000, 170000),
 ]
 
 def make_summary(src, factor):
@@ -329,7 +402,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(302); self.send_header("Location","/reports/advertising/"); self.end_headers(); return
         if parsed.path=="/reports/advertising/":
             html=HTML_PATH.read_text(encoding="utf-8")
-            banner='<div style="position:sticky;top:0;z-index:99999;background:#7b6038;color:white;padding:8px;text-align:center;font:700 11px Arial">ПРИВАТНЫЙ PREVIEW — только вымышленные данные, Production не затронут</div>'
+            banner='<div style="position:sticky;top:0;z-index:99999;background:#155b91;color:white;border-bottom:3px solid #debc19;padding:8px;text-align:center;font:700 11px Arial">ПРИВАТНЫЙ PREVIEW — только вымышленные данные, Production не затронут</div>'
             html=html.replace("<body>","<body>"+banner,1)
             return self.send_bytes(200,html.encode("utf-8"),"text/html; charset=utf-8")
         if parsed.path=="/reports/advertising.js":
@@ -350,6 +423,7 @@ def main():
     p.add_argument("--preflight",action="store_true")
     p.add_argument("--apply",default="")
     p.add_argument("--serve",action="store_true")
+    p.add_argument("--update",default="")
     args=p.parse_args()
     if args.serve:
         serve(); return 0
@@ -359,7 +433,11 @@ def main():
         if args.apply!=APPLY_TOKEN:
             raise RuntimeError("STOP: CONFIRM_TOKEN_MISMATCH")
         apply(); return 0
-    p.error("choose --preflight, --apply TOKEN or --serve")
+    if args.update:
+        if args.update!=UPDATE_TOKEN:
+            raise RuntimeError("STOP: UPDATE_TOKEN_MISMATCH")
+        update(); return 0
+    p.error("choose --preflight, --apply TOKEN, --update TOKEN or --serve")
 
 if __name__=="__main__":
     raise SystemExit(main())
