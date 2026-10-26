@@ -11,6 +11,7 @@ import cash_payments
 import ident_import
 import paid_services
 import upload_reconcile
+import advertising_report
 
 MANAGEMENT_KEY = "az-management-report-v1"
 REPORT_BLOB_KEYS = {
@@ -599,6 +600,7 @@ def _management_rows_from_backup(raw_value):
 
 def register_report_storage(app):
     _ensure_schema()
+    advertising_report.register_advertising_report(app)
 
     @app.before_request
     def serve_report_pages():
