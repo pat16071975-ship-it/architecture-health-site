@@ -1,0 +1,48 @@
+name: AZ advertising preview
+on:
+  push:
+    branches: ['ops/az-advertising-preview-20261026']
+    paths:
+      - 'az-baze-auth/deploy/advertising_preview_test.py'
+      - '.github/workflows/az-advertising-preview.yml'
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Syntax and isolated-preview contract
+        run: |
+          python -m py_compile az-baze-auth/deploy/advertising_preview_test.py
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          p=Path('az-baze-auth/deploy/advertising_preview_test.py')
+          spec=importlib.util.spec_from_file_location('preview',p)
+          m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+          assert m.SOURCE_HEAD == 'b25279188a243e70bb0361b0f9f0a5571f8adbe3'
+          assert m.PREVIEW_PORT == 8003
+          assert str(m.PREVIEW_ROOT) == '/opt/az-advertising-preview'
+          assert str(m.PREVIEW_UNIT) == '/etc/systemd/system/az-advertising-preview.service'
+          q={'from':['2026-10-01'],'to':['2026-10-26'],'compare':['previous_period'],'trend':['target_leads']}
+          out=m.build_payload(q)
+          assert out['preview'] is True
+          assert out['summary']['target_leads']==142
+          assert out['summary']['primary_visits']==108
+          assert out['summary']['primary_paid']==2848460
+          assert out['summary']['new_patient_30d_paid']==4170000
+          assert 'new_patient_30d_paid' not in out['compare']['delta_pct']
+          assert any(x['source_name']=='Реклама Яндекса' for x in out['sources'])
+          assert all(x['source_name'] for x in out['sources'])
+          text=p.read_text(encoding='utf-8')
+          forbidden=['/var/lib/az-baze/auth.db','/opt/az-baze-auth','/var/www/az-baze.ru']
+          assert all(x not in text for x in forbidden)
+          assert '127.0.0.1:8003' in text
+          assert 'IPAddressDeny=any' in text and 'IPAddressAllow=localhost' in text
+          print('ADVERTISING_PREVIEW_CONTRACT=PASS')
+          PY
