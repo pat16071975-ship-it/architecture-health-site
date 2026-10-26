@@ -1,0 +1,54 @@
+name: AZ advertising report
+on:
+  push:
+    branches: ['feature/az-advertising-report-v1-20261026']
+    paths:
+      - 'az-baze-auth/advertising_report.py'
+      - 'az-baze-auth/report_storage.py'
+      - 'az-baze-auth/test_advertising_report.py'
+      - 'reports/advertising.html'
+      - 'reports/advertising.js'
+      - 'reports/menu.html'
+      - '.github/workflows/az-advertising-report.yml'
+  pull_request:
+    paths:
+      - 'az-baze-auth/advertising_report.py'
+      - 'az-baze-auth/report_storage.py'
+      - 'az-baze-auth/test_advertising_report.py'
+      - 'reports/advertising.html'
+      - 'reports/advertising.js'
+      - 'reports/menu.html'
+      - '.github/workflows/az-advertising-report.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Python syntax and report tests
+        working-directory: az-baze-auth
+        run: |
+          python -m py_compile advertising_report.py report_storage.py
+          python -m unittest -v test_advertising_report.py
+      - name: JavaScript syntax
+        run: node --check reports/advertising.js
+      - name: Approved scope contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('reports/advertising.html').read_text(encoding='utf-8')+'\n'+Path('reports/advertising.js').read_text(encoding='utf-8')
+          required=['Рекламный отчёт','Расходы на рекламу','Целевые лиды','Состоявшиеся первичные приёмы','Выручка новых пациентов за 30 дней','Откуда пришли пациенты и деньги']
+          forbidden=['Устройства','Глубина просмотра','Отказы']
+          assert all(x in text for x in required)
+          assert all(x not in text for x in forbidden)
+          menu=Path('reports/menu.html').read_text(encoding='utf-8')
+          assert '/reports/advertising/' in menu
+          source=Path('az-baze-auth/report_storage.py').read_text(encoding='utf-8')
+          assert 'advertising_report.register_advertising_report(app)' in source
+          print('ADVERTISING_REPORT_SCOPE=PASS')
+          PY
