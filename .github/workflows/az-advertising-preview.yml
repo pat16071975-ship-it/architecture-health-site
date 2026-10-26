@@ -25,7 +25,7 @@ jobs:
           p=Path('az-baze-auth/deploy/advertising_preview_test.py')
           spec=importlib.util.spec_from_file_location('preview',p)
           m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-          assert m.SOURCE_HEAD == 'b25279188a243e70bb0361b0f9f0a5571f8adbe3'
+          assert m.SOURCE_HEAD == '546fcf0d8ae921a1248531fc9f7519722590089c'
           assert m.PREVIEW_PORT == 8003
           assert str(m.PREVIEW_ROOT) == '/opt/az-advertising-preview'
           assert str(m.PREVIEW_UNIT) == '/etc/systemd/system/az-advertising-preview.service'
@@ -38,11 +38,16 @@ jobs:
           assert out['summary']['new_patient_30d_paid']==4170000
           assert 'new_patient_30d_paid' not in out['compare']['delta_pct']
           assert any(x['source_name']=='Реклама Яндекса' for x in out['sources'])
+          assert any(x['source_name']=='Яндекс Карты' for x in out['sources'])
+          assert any(x['source_name']=='2ГИС' for x in out['sources'])
+          assert any(x['source_name']=='Яндекс Поиск' for x in out['sources'])
+          assert any(x['source_name']=='Google Поиск' for x in out['sources'])
           assert all(x['source_name'] for x in out['sources'])
           text=p.read_text(encoding='utf-8')
           forbidden=['/var/lib/az-baze/auth.db','/opt/az-baze-auth','/var/www/az-baze.ru']
           assert all(x not in text for x in forbidden)
           assert '127.0.0.1:8003' in text
+          assert m.UPDATE_TOKEN == 'ADVERTISING-PREVIEW-UI2-546FCF0D'
           assert 'IPAddressDeny=any' in text and 'IPAddressAllow=localhost' in text
           print('ADVERTISING_PREVIEW_CONTRACT=PASS')
           PY
