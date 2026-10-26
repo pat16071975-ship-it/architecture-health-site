@@ -1,0 +1,95 @@
+name: AZ advertising production deploy
+on:
+  push:
+    branches: ['ops/az-advertising-production-20261026']
+    paths:
+      - 'az-baze-auth/deploy/advertising-report-production-20261026.py'
+      - '.github/workflows/az-advertising-production-deploy.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Syntax and pinned blob contract
+        run: |
+          python -m py_compile az-baze-auth/deploy/advertising-report-production-20261026.py
+          python - <<'PY'
+          import importlib.util, subprocess
+          from pathlib import Path
+          p=Path('az-baze-auth/deploy/advertising-report-production-20261026.py')
+          spec=importlib.util.spec_from_file_location('deploy',p)
+          m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+          assert m.BASE_COMMIT=='16d4dd615b2b1ae3d830ca15910d737cf6e87ee2'
+          assert m.TARGET_COMMIT=='9127255f0e6287e086a18cf6812dc3dc1114c526'
+          assert m.TOKEN=='ADVERTISING-PRODUCTION-9127255F'
+          assert str(m.APP_ROOT)=='/opt/az-baze-auth'
+          assert str(m.REPORT_ROOT)=='/var/www/az-baze.ru/reports'
+          assert str(m.DB_PATH)=='/var/lib/az-baze/auth.db'
+          assert len(m.FILES)==5
+          def blob_at(ref,path):
+              raw=subprocess.check_output(['git','show',f'{ref}:{path}'])
+              return m.git_blob_bytes(raw)
+          for item in m.FILES:
+              assert blob_at(m.TARGET_COMMIT,item['repo'])==item['target'], item['repo']
+              if item['base'] is None:
+                  r=subprocess.run(['git','cat-file','-e',f"{m.BASE_COMMIT}:{item['repo']}"],capture_output=True)
+                  assert r.returncode!=0, item['repo']
+              else:
+                  assert blob_at(m.BASE_COMMIT,item['repo'])==item['base'], item['repo']
+          text=p.read_text(encoding='utf-8')
+          assert '/etc/nginx' not in text and 'nginx' not in text.lower()
+          assert 'git checkout' not in text
+          assert 'ADVERTISING_TABLES_EMPTY=PASS' in text
+          print('PINNED_DEPLOY_CONTRACT=PASS')
+          PY
+      - name: Advertising schema isolated rehearsal
+        run: |
+          python - <<'PY'
+          import ast, sqlite3, tempfile
+          from pathlib import Path
+          src=Path('az-baze-auth/advertising_report.py').read_text(encoding='utf-8')
+          tree=ast.parse(src)
+          schema=None
+          for node in tree.body:
+              if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='SCHEMA' for t in node.targets):
+                  schema=node.value.value
+                  break
+          assert schema
+          with tempfile.NamedTemporaryFile(suffix='.db') as f:
+              c=sqlite3.connect(f.name)
+              c.execute('CREATE TABLE sentinel(id INTEGER PRIMARY KEY, value TEXT)')
+              c.execute("INSERT INTO sentinel(value) VALUES('keep')")
+              c.commit()
+              c.executescript(schema); c.commit()
+              assert c.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+              expected={'advertising_traffic_daily','advertising_clinic_daily','advertising_cohort_daily','advertising_report_imports'}
+              found={r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'advertising_%'")}
+              assert found==expected
+              assert c.execute('SELECT value FROM sentinel').fetchone()[0]=='keep'
+              for t in expected:
+                  assert c.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]==0
+              c.close()
+          print('ISOLATED_SCHEMA_REHEARSAL=PASS')
+          PY
+      - name: Final UI contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          html=Path('reports/advertising.html').read_text(encoding='utf-8')
+          js=Path('reports/advertising.js').read_text(encoding='utf-8')
+          assert '#44634f' in html and '#b59662' in html and '#f7f3ec' in html
+          assert 'Новых пациентов, впервые пришедших в клинику в выбранном периоде' in js
+          assert 'Учтены только фактически полученные от них деньги за первые 30 дней после первого визита.' in js
+          assert "number(x[1])+' приёмов'" not in js
+          assert 'activity-values' in html and 'activity-values' in js
+          assert 'Яндекс Карты' not in js
+          print('FINAL_UI_CONTRACT=PASS')
+          PY
