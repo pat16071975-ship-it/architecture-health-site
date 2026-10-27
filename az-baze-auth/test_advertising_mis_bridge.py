@@ -129,6 +129,74 @@ class AdvertisingMisBridgeTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_exact_day_does_not_hide_cumulative_delta_for_other_line(self):
+        c = conn()
+        try:
+            add_day(
+                c,
+                "2026-10-27",
+                [{"date": "2026-10-27", "patient": "Иванов И. И.", "kind": "Первичные"}],
+            )
+            add_day(
+                c,
+                "2026-10-28",
+                [{"date": "2026-10-28", "patient": "Петров П. П.", "kind": "Повторные"}],
+            )
+            m.capture_paid_report(
+                c,
+                report(
+                    "2026-10-27",
+                    "2026-10-27",
+                    [item("Иванов И. И.", "Доктор А. А.", "1", "2026-10-27", 1000, 1000)],
+                ),
+                "27.xlsx",
+                "sha27",
+                "t27",
+            )
+            m.capture_paid_report(
+                c,
+                report(
+                    "2026-10-27",
+                    "2026-10-28",
+                    [
+                        item("Иванов И. И.", "Доктор А. А.", "1", "2026-10-27", 1000, 1300),
+                        item("Петров П. П.", "Доктор Б. Б.", "2", "2026-10-28", 700, 700),
+                    ],
+                    paid_total=2000,
+                ),
+                "27-28.xlsx",
+                "sha2728",
+                "t2728",
+            )
+            m.capture_paid_report(
+                c,
+                report(
+                    "2026-10-28",
+                    "2026-10-28",
+                    [item("Петров П. П.", "Доктор Б. Б.", "2", "2026-10-28", 700, 700)],
+                ),
+                "28.xlsx",
+                "sha28",
+                "t28",
+            )
+
+            events = m._payment_candidates(c)["2026-10-28"]["events"]
+            amounts = {
+                (row["patient_token"], row["service_date"]): row["paid_delta"]
+                for row in events
+            }
+            self.assertEqual(
+                amounts[(m.patient_token("Иванов И. И."), "2026-10-27")],
+                300,
+            )
+            self.assertEqual(
+                amounts[(m.patient_token("Петров П. П."), "2026-10-28")],
+                700,
+            )
+            self.assertEqual(sum(amounts.values()), 1000)
+        finally:
+            c.close()
+
     def test_multi_day_first_snapshot_does_not_invent_payment_date(self):
         c = conn()
         try:
