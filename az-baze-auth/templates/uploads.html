@@ -506,7 +506,7 @@
   newBtn?.addEventListener('click',()=>commit('use_new'));
   continueBtn?.addEventListener('click',()=>commit('append'));
   overlay?.addEventListener('click',event=>{if(event.target===overlay)closePreview()});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!overlay.classList.contains('hidden'))closePreview()});
+  document.addEventListener?.('keydown',event=>{if(event.key==='Escape'&&!overlay.classList.contains('hidden'))closePreview()});
 })();
 </script>
 
