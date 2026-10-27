@@ -1,0 +1,22 @@
+name: AZ advertising MIS production package
+
+on:
+  push:
+    branches: ['ops/az-advertising-mis-production-20261027']
+    paths:
+      - 'az-baze-auth/deploy/advertising-mis-production-20261027.sh'
+      - '.github/workflows/az-advertising-mis-production.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate package
+        run: |
+          bash -n az-baze-auth/deploy/advertising-mis-production-20261027.sh
+          python -m py_compile az-baze-auth/advertising_mis_bridge.py
+          echo PACKAGE_CHECK=PASS
