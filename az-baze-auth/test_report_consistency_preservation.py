@@ -15,6 +15,7 @@ import daily_upload
 import paid_services_upload as uploads
 import test_paid_services_periods as fixtures
 import upload_history
+import upload_reconcile
 
 ROOT = Path(__file__).resolve().parent
 
@@ -92,40 +93,71 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         self.assertIn("closeBtn?.addEventListener('click',closePreview)", text)
         self.assertIn("event.key==='Escape'", text)
         self.assertIn('.reconcile-close{width:44px;height:44px', text)
-        self.assertIn('Есть приёмы, для которых направление определить нельзя', text)
+        self.assertIn('Есть конкретные приёмы, для которых направление определить нельзя', text)
         self.assertIn('payload.unassigned_visits||[]', text)
-        self.assertIn('не будут самовольно отнесены к стоматологии или клинике', text)
+        self.assertIn('data-visit-direction', text)
+        self.assertIn('Оставить нераспределённым', text)
+        self.assertIn('visit_direction_decisions', text)
 
-    def test_clinical_preview_flags_unassigned_direction_visits(self):
+    def test_clinical_preview_builds_patient_level_direction_rows_and_persists_choice(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        self.addCleanup(conn.close)
+        upload_reconcile.init_schema(conn)
+
         period = [
-            {
-                "data_date": "2026-10-25",
-                "normalized": {
-                    "overall": {
-                        "2026-10-25": {
-                            "Повторные": 7,
-                            "Отконсультированные": 1,
-                        }
-                    },
-                    "doctors": {
-                        "2026-10-25": {
-                            "Повторные": {"Dent D.": 6, "Struct S.": 1},
-                            "Отконсультированные": {"Struct S.": 1},
-                        }
-                    },
-                },
-            },
             {
                 "data_date": "2026-10-26",
                 "normalized": {
                     "overall": {"2026-10-26": {"Повторные": 2}},
+                    "visits": [
+                        {"date": "2026-10-26", "patient": "Иванов И. И.", "kind": "Повторные"},
+                        {"date": "2026-10-26", "patient": "Петров П. П.", "kind": "Повторные"},
+                    ],
+                    "items": [],
                     "doctors": {"2026-10-26": {}},
                 },
-            },
+            }
         ]
+        rows = daily_upload._visit_direction_rows(period, conn)
+        self.assertEqual([row["patient"] for row in rows], ["Иванов И. И.", "Петров П. П."])
+        decisions = {
+            rows[0]["visit_id"]: "structure",
+            rows[1]["visit_id"]: "unassigned",
+        }
+        unresolved, resolved = daily_upload._apply_visit_direction_rows(
+            period, rows, decisions
+        )
+        self.assertEqual(unresolved, [])
+        self.assertEqual(resolved, decisions)
         self.assertEqual(
-            daily_upload._unassigned_visit_summary(period),
-            [{"date": "2026-10-26", "primary": 0, "repeat": 2, "total": 2}],
+            period[0]["normalized"]["manual_direction_counts"]["structure"]["Повторные"],
+            1,
+        )
+        upload_reconcile.save_visit_direction_overrides(
+            conn, decisions, rows, actor_id=7
+        )
+        conn.commit()
+        again = daily_upload._visit_direction_rows(
+            [
+                {
+                    "data_date": "2026-10-26",
+                    "normalized": {
+                        "overall": {"2026-10-26": {"Повторные": 2}},
+                        "visits": [
+                            {"date": "2026-10-26", "patient": "Иванов И. И.", "kind": "Повторные"},
+                            {"date": "2026-10-26", "patient": "Петров П. П.", "kind": "Повторные"},
+                        ],
+                        "items": [],
+                        "doctors": {"2026-10-26": {}},
+                    },
+                }
+            ],
+            conn,
+        )
+        self.assertEqual(
+            [row["saved_direction"] for row in again],
+            ["structure", "unassigned"],
         )
 
     def test_manual_save_candidate_is_unchanged_by_importer_reconciliation(self):
