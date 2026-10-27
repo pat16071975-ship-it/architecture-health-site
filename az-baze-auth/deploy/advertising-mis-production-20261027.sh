@@ -238,12 +238,12 @@ print("ISOLATED_SCHEMA_REHEARSAL=PASS")
 PY
 }
 
-assert_db_quiescent(){
+db_holders(){
   "$APP_ROOT/venv/bin/python" - "$DB" <<'PY'
 import os,sys
 db=os.path.realpath(sys.argv[1])
 targets={db,db+"-wal",db+"-shm",db+"-journal"}
-hits=[]
+hits={}
 for pid in os.listdir("/proc"):
     if not pid.isdigit(): continue
     fdroot=f"/proc/{pid}/fd"
@@ -252,10 +252,37 @@ for pid in os.listdir("/proc"):
     for fd in fds:
         try: target=os.path.realpath(f"{fdroot}/{fd}")
         except OSError: continue
-        if target in targets: hits.append((pid,fd,target))
-assert not hits,f"DB NOT QUIESCENT: {hits[:20]}"
-print("DB_QUIESCENCE=PASS")
+        if target in targets:
+            hits.setdefault(pid,{"fds":[],"cmd":""})
+            hits[pid]["fds"].append((fd,target))
+for pid in sorted(hits,key=lambda x:int(x)):
+    try:
+        raw=open(f"/proc/{pid}/cmdline","rb").read().replace(b"\0",b" ").decode("utf-8","replace").strip()
+    except Exception:
+        raw=""
+    hits[pid]["cmd"]=raw
+for pid,item in hits.items():
+    print(f"DB_HOLDER_PID={pid} CMD={item['cmd']} FDS={item['fds']}")
+if hits:
+    raise SystemExit(3)
 PY
+}
+
+wait_db_quiescent(){
+  local attempt=0
+  while [ "$attempt" -lt 30 ]; do
+    if db_holders >/tmp/az-ad-mis-db-holders.$ 2>&1; then
+      rm -f /tmp/az-ad-mis-db-holders.$
+      echo "DB_QUIESCENCE=PASS"
+      return 0
+    fi
+    attempt=$((attempt+1))
+    sleep 1
+  done
+  echo "STOP: DB_NOT_QUIESCENT_AFTER_30S"
+  cat /tmp/az-ad-mis-db-holders.$ || true
+  rm -f /tmp/az-ad-mis-db-holders.$
+  return 1
 }
 
 verify_live_target(){
@@ -325,7 +352,7 @@ restore_files(){
 
 restore_db_prestart(){
   systemctl stop "$SERVICE" || true
-  assert_db_quiescent
+  wait_db_quiescent
   rm -f "$DB-wal" "$DB-shm" "$DB-journal"
   install -o "$DB_UID" -g "$DB_GID" -m "$DB_MODE" "$BACKUP/db/auth.db" "$DB"
   echo "ROLLBACK_DB=PASS"
@@ -364,7 +391,7 @@ trap on_exit EXIT
 systemctl stop "$SERVICE"
 SERVICE_STOPPED=1
 if systemctl is-active --quiet "$SERVICE"; then echo "STOP: SERVICE_DID_NOT_STOP"; exit 1; fi
-assert_db_quiescent
+wait_db_quiescent
 
 mkdir -p "$BACKUP/files" "$BACKUP/db"
 chmod 700 "$BACKUP"
