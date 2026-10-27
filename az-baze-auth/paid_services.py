@@ -991,8 +991,9 @@ def apply_visit_attribution(
         # «Завершённые приёмы» остаются авторитетным источником общего
         # количества первичных/повторных. Новый MIS-отчёт распределяет только
         # ту часть визитов, которую удаётся надёжно связать с направлением.
-        record["primary"] = source_primary
-        record["repeat"] = source_repeat
+        # General primary/repeat totals belong to the completed-visits
+        # clinical rebuild. This paid-services layer may enrich department
+        # attribution, but must never overwrite the authoritative totals.
         record["dentPrimary"] = dent_primary
         record["dentRepeat"] = dent_repeat
         record["clinicPrimary"] = structure_primary
