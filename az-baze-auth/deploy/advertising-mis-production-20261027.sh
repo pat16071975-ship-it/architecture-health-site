@@ -270,9 +270,10 @@ PY
 
 wait_db_quiescent(){
   local attempt=0
+  local diag="/tmp/az-ad-mis-db-holders.$$"
   while [ "$attempt" -lt 30 ]; do
-    if db_holders >/tmp/az-ad-mis-db-holders.$ 2>&1; then
-      rm -f /tmp/az-ad-mis-db-holders.$
+    if db_holders >"$diag" 2>&1; then
+      rm -f "$diag"
       echo "DB_QUIESCENCE=PASS"
       return 0
     fi
@@ -280,9 +281,112 @@ wait_db_quiescent(){
     sleep 1
   done
   echo "STOP: DB_NOT_QUIESCENT_AFTER_30S"
-  cat /tmp/az-ad-mis-db-holders.$ || true
-  rm -f /tmp/az-ad-mis-db-holders.$
+  cat "$diag" || true
+  rm -f "$diag"
   return 1
+}
+
+WORKER_UNITS=()
+
+discover_and_stop_known_db_workers(){
+  local holder_file="/tmp/az-ad-mis-known-holders.$$"
+  "$APP_ROOT/venv/bin/python" - "$DB" >"$holder_file" <<'PY'
+import os,sys
+db=os.path.realpath(sys.argv[1])
+targets={db,db+"-wal",db+"-shm",db+"-journal"}
+hits=set()
+for pid in os.listdir("/proc"):
+    if not pid.isdigit():
+        continue
+    fdroot=f"/proc/{pid}/fd"
+    try:
+        fds=os.listdir(fdroot)
+    except (FileNotFoundError,PermissionError):
+        continue
+    for fd in fds:
+        try:
+            target=os.path.realpath(f"{fdroot}/{fd}")
+        except OSError:
+            continue
+        if target in targets:
+            hits.add(pid)
+            break
+for pid in sorted(hits,key=lambda x:int(x)):
+    try:
+        cmd=open(f"/proc/{pid}/cmdline","rb").read().replace(b"\0",b" ").decode("utf-8","replace").strip()
+    except Exception:
+        cmd=""
+    try:
+        cgroup=open(f"/proc/{pid}/cgroup","r",encoding="utf-8",errors="replace").read().strip().replace("\n",";")
+    except Exception:
+        cgroup=""
+    print(f"{pid}|{cmd}|{cgroup}")
+PY
+
+  if [ ! -s "$holder_file" ]; then
+    rm -f "$holder_file"
+    echo "KNOWN_DB_WORKERS=NONE"
+    return 0
+  fi
+
+  while IFS='|' read -r pid cmd cgroup; do
+    [ -n "$pid" ] || continue
+    case "$cmd" in
+      "$APP_ROOT/venv/bin/python $APP_ROOT/knowledge_video_compat.py --worker"|\
+      "$APP_ROOT/venv/bin/python3 $APP_ROOT/knowledge_video_compat.py --worker")
+        ;;
+      *)
+        echo "STOP: UNKNOWN_DB_HOLDER_PID=$pid CMD=$cmd"
+        echo "CGROUP=$cgroup"
+        rm -f "$holder_file"
+        return 1
+        ;;
+    esac
+
+    unit="$(printf '%s\n' "$cgroup" | tr ';' '\n' | sed -n 's#^0::/system.slice/\([^/]*\.service\)$#\1#p' | head -n1)"
+    [ -n "$unit" ] || {
+      echo "STOP: KNOWN_WORKER_WITHOUT_SYSTEMD_UNIT_PID=$pid"
+      echo "CMD=$cmd"
+      echo "CGROUP=$cgroup"
+      rm -f "$holder_file"
+      return 1
+    }
+
+    systemctl is-active --quiet "$unit" || {
+      echo "STOP: WORKER_UNIT_NOT_ACTIVE=$unit PID=$pid"
+      rm -f "$holder_file"
+      return 1
+    }
+
+    case " \${WORKER_UNITS[*]-} " in
+      *" $unit "*) ;;
+      *) WORKER_UNITS+=("$unit") ;;
+    esac
+  done < "$holder_file"
+  rm -f "$holder_file"
+
+  for unit in "\${WORKER_UNITS[@]}"; do
+    echo "STOPPING_DB_WORKER_UNIT=$unit"
+    systemctl stop "$unit"
+    if systemctl is-active --quiet "$unit"; then
+      echo "STOP: WORKER_UNIT_DID_NOT_STOP=$unit"
+      return 1
+    fi
+    echo "DB_WORKER_UNIT_STOPPED=$unit"
+  done
+}
+
+start_known_db_workers(){
+  for unit in "\${WORKER_UNITS[@]}"; do
+    echo "STARTING_DB_WORKER_UNIT=$unit"
+    systemctl start "$unit"
+    sleep 1
+    systemctl is-active --quiet "$unit" || {
+      echo "STOP: WORKER_UNIT_DID_NOT_START=$unit"
+      return 1
+    }
+    echo "DB_WORKER_UNIT_STARTED=$unit"
+  done
 }
 
 verify_live_target(){
@@ -352,6 +456,7 @@ restore_files(){
 
 restore_db_prestart(){
   systemctl stop "$SERVICE" || true
+  for unit in "${WORKER_UNITS[@]}"; do systemctl stop "$unit" || true; done
   wait_db_quiescent
   rm -f "$DB-wal" "$DB-shm" "$DB-journal"
   install -o "$DB_UID" -g "$DB_GID" -m "$DB_MODE" "$BACKUP/db/auth.db" "$DB"
@@ -375,6 +480,7 @@ on_exit(){
       fi
     fi
     systemctl start "$SERVICE" || true
+    start_known_db_workers || true
     sleep 2
     if systemctl is-active --quiet "$SERVICE" && [ "$(curl -fsS "$HEALTH_URL" 2>/dev/null)" = "ok" ]; then
       echo "ROLLBACK_SERVICE_HEALTH=PASS"
@@ -391,6 +497,7 @@ trap on_exit EXIT
 systemctl stop "$SERVICE"
 SERVICE_STOPPED=1
 if systemctl is-active --quiet "$SERVICE"; then echo "STOP: SERVICE_DID_NOT_STOP"; exit 1; fi
+discover_and_stop_known_db_workers
 wait_db_quiescent
 
 mkdir -p "$BACKUP/files" "$BACKUP/db"
@@ -466,6 +573,7 @@ systemctl start "$SERVICE"
 sleep 2
 systemctl is-active --quiet "$SERVICE"
 SERVICE_STOPPED=0
+start_known_db_workers
 [ "$(curl -fsS "$HEALTH_URL")" = "ok" ]
 echo "SERVICE_HEALTH_POST=PASS"
 verify_live_target
@@ -481,6 +589,7 @@ echo "SOURCE_HEAD=$SOURCE_HEAD"
 echo "BACKUP=$BACKUP"
 echo "SERVICE=active"
 echo "HEALTH=ok"
+echo "DB_WORKER_UNITS_RESTARTED=${#WORKER_UNITS[@]}"
 echo "CHANGED_RUNTIME_FILES=5"
 echo "LIVE_DB_SCHEMA_CHANGED=NO"
 echo "TRACKING_START=2026-10-27"
