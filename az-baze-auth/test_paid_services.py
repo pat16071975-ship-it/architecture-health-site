@@ -246,6 +246,38 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(record["_uploadControl"]["sourceRepeat"], 2)
         self.assertEqual(record["_uploadControl"]["unassignedRepeat"], 1)
 
+    def test_manual_direction_counts_survive_paid_attribution(self):
+        rows = [
+            {
+                "data_date": "2026-10-26",
+                "overall": {"2026-10-26": {"Повторные": 2}},
+                "visits": [
+                    {"date": "2026-10-26", "patient": "Alpha A.", "kind": "Повторные"},
+                    {"date": "2026-10-26", "patient": "Beta B.", "kind": "Повторные"},
+                ],
+                "manual_direction_counts": {
+                    "dent": {},
+                    "structure": {"Повторные": 1},
+                },
+            }
+        ]
+        snapshot = {"visit_links": {}, "invoices": []}
+        record = {"date": "2026-10-26", "primary": 49, "repeat": 355}
+        paid_services.apply_visit_attribution(
+            record,
+            snapshot,
+            rows,
+            {},
+            {"Struct S.": "Врач клиники"},
+            {},
+        )
+        self.assertEqual(record["primary"], 49)
+        self.assertEqual(record["repeat"], 355)
+        self.assertEqual(record["clinicRepeat"], 1)
+        self.assertEqual(record["_uploadControl"]["sourceRepeat"], 2)
+        self.assertEqual(record["_uploadControl"]["reportedRepeat"], 1)
+        self.assertEqual(record["_uploadControl"]["unassignedRepeat"], 1)
+
     def test_direction_summary_uses_paid_not_billed_and_keeps_unknown_separate(self):
         parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
         summary = paid_services.direction_summary(
