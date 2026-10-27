@@ -490,6 +490,43 @@ def _comparison_counts(comparison):
     }
 
 
+def _unassigned_visit_summary(period):
+    result = []
+    for row in period or []:
+        data_date = str(row.get("data_date") or "")
+        normalized = row.get("normalized") or {}
+        overall = (normalized.get("overall") or {}).get(data_date, {}) or {}
+        doctors = (normalized.get("doctors") or {}).get(data_date, {}) or {}
+
+        source_primary = int(overall.get("Первичные") or 0)
+        source_repeat = int(overall.get("Повторные") or 0)
+        source_repeat += int(overall.get("Отконсультированные") or 0)
+
+        assigned_primary = sum(
+            int(value or 0)
+            for value in (doctors.get("Первичные") or {}).values()
+        )
+        assigned_repeat = 0
+        for kind in ("Повторные", "Отконсультированные"):
+            assigned_repeat += sum(
+                int(value or 0)
+                for value in (doctors.get(kind) or {}).values()
+            )
+
+        unassigned_primary = max(0, source_primary - assigned_primary)
+        unassigned_repeat = max(0, source_repeat - assigned_repeat)
+        if unassigned_primary or unassigned_repeat:
+            result.append(
+                {
+                    "date": data_date,
+                    "primary": unassigned_primary,
+                    "repeat": unassigned_repeat,
+                    "total": unassigned_primary + unassigned_repeat,
+                }
+            )
+    return result
+
+
 def _period_preview(completed_file, services_file):
     perms = user_permissions(g.user)
     if "upload_completed" not in perms or "upload_services" not in perms:
@@ -525,6 +562,7 @@ def _period_preview(completed_file, services_file):
         conn.commit()
 
     counts = _comparison_counts(comparison)
+    unassigned_visits = _unassigned_visit_summary(prepared["period"])
     return {
         "status": "preview",
         "period": {
@@ -541,6 +579,8 @@ def _period_preview(completed_file, services_file):
         "source_gaps": prepared.get("source_gaps") or {"completed_only": [], "revenue_only": []},
         "requires_choice": _comparison_has_conflict(comparison),
         "requires_provider_mapping": bool(unknown),
+        "requires_review": bool(unassigned_visits),
+        "unassigned_visits": unassigned_visits,
         "can_replace": "upload_replace" in perms,
     }
 
