@@ -188,6 +188,16 @@ def _daily_delta(normalized):
                 dent_repeat += int(value or 0)
             elif staff_name in ident_import.STRUCTURE_DOCTORS:
                 structure_repeat += int(value or 0)
+
+    manual = normalized.get("manual_direction_counts") or {}
+    dent_manual = manual.get("dent") or {}
+    structure_manual = manual.get("structure") or {}
+    dent_primary += int(dent_manual.get("Первичные") or 0)
+    structure_primary += int(structure_manual.get("Первичные") or 0)
+    for kind in ("Повторные", "Отконсультированные"):
+        dent_repeat += int(dent_manual.get(kind) or 0)
+        structure_repeat += int(structure_manual.get(kind) or 0)
+
     lab_orders = len({(str(invoice), str(d)) for invoice, d in lab_invoices if str(d) == data_date})
     return {
         "factMedicine": round(total_revenue - lab_revenue, 2),
