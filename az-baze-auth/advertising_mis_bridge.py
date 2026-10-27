@@ -267,7 +267,12 @@ def _payment_candidates(conn):
     for row in _fetch_ingests(conn):
         groups[str(row["period_start"])].append(str(row["period_end"]))
 
-    candidates = {}
+    # Evidence is merged per payment date and per source line. A same-day report
+    # is stronger evidence for a line than a cumulative delta, but it must not
+    # hide cumulative deltas for other lines (for example a later payment on a
+    # service delivered on an earlier day).
+    evidence = defaultdict(dict)
+
     for period_start, ends in groups.items():
         ends = sorted(set(ends))
         previous = {}
@@ -277,12 +282,13 @@ def _payment_candidates(conn):
             event_date = period_end
             selected = None
             rank = None
+
             if period_start == period_end:
                 selected = {
                     key: max(0.0, round(_num(row.get("paid_amount")), 2))
                     for key, row in current.items()
                 }
-                rank = (2, period_start)
+                rank = 2
             elif previous_end:
                 expected = (date.fromisoformat(previous_end) + timedelta(days=1)).isoformat()
                 if expected == period_end:
@@ -297,41 +303,38 @@ def _payment_candidates(conn):
                         )
                         for key, row in current.items()
                     }
-                    rank = (1, period_start)
+                    rank = 1
 
             if selected is not None and event_date >= TRACKING_START:
-                old = candidates.get(event_date)
-                should_replace = (
-                    old is None
-                    or rank[0] > old["rank"][0]
-                    or (rank[0] == old["rank"][0] and rank[1] < old["rank"][1])
-                )
-                if should_replace:
-                    events = []
-                    for key, amount in selected.items():
-                        row = current.get(key)
-                        if row is None:
-                            continue
-                        events.append(
-                            {
-                                "line_key": key,
-                                "patient_token": str(row.get("patient_token") or ""),
-                                "staff": str(row.get("staff") or ""),
-                                "invoice": str(row.get("invoice") or ""),
-                                "service_date": str(row.get("service_date") or ""),
-                                "paid_delta": amount,
-                            }
-                        )
-                    candidates[event_date] = {
-                        "rank": rank,
-                        "events": events,
-                        "period_start": period_start,
-                        "period_end": period_end,
+                for key, amount in selected.items():
+                    row = current.get(key)
+                    if row is None:
+                        continue
+                    existing = evidence[event_date].get(key)
+                    candidate_rank = (rank, -date.fromisoformat(period_start).toordinal())
+                    if existing is not None and candidate_rank <= existing["rank"]:
+                        continue
+                    evidence[event_date][key] = {
+                        "rank": candidate_rank,
+                        "event": {
+                            "line_key": key,
+                            "patient_token": str(row.get("patient_token") or ""),
+                            "staff": str(row.get("staff") or ""),
+                            "invoice": str(row.get("invoice") or ""),
+                            "service_date": str(row.get("service_date") or ""),
+                            "paid_delta": amount,
+                        },
                     }
+
             previous = current
             previous_end = period_end
 
-    return candidates
+    result = {}
+    for event_date, by_line in evidence.items():
+        result[event_date] = {
+            "events": [item["event"] for item in by_line.values()],
+        }
+    return result
 
 
 def _latest_line_facts(conn):
