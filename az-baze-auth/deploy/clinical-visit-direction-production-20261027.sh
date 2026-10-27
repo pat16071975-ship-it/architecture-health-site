@@ -203,6 +203,10 @@ print("DB_BACKUP=PASS")
 PY
 echo "BACKUP=$BACKUP"
 
+DB_UID="$(stat -c %u "$DB")"
+DB_GID="$(stat -c %g "$DB")"
+DB_MODE="$(stat -c %a "$DB")"
+
 declare -A UID GID MODE
 for key in "${FILES[@]}"; do
   live="$APP_ROOT/${REL[$key]}"
@@ -219,7 +223,7 @@ rollback(){
     live="$APP_ROOT/${REL[$key]}"
     install -D -o "${UID[$key]}" -g "${GID[$key]}" -m "${MODE[$key]}"       "$BACKUP/files/${REL[$key]}" "$live"
   done
-  cp -a "$BACKUP/auth.db" "$DB"
+  install -o "$DB_UID" -g "$DB_GID" -m "$DB_MODE" "$BACKUP/auth.db" "$DB"
   systemctl start "$SERVICE" >/dev/null 2>&1
   sleep 2
   good=1
@@ -231,6 +235,10 @@ rollback(){
   if [ "$good" -eq 1 ]; then echo 'ROLLBACK=PASS'; else echo 'ROLLBACK=FAIL'; fi
 }
 trap 'rc=$?; if [ "$rc" -ne 0 ]; then rollback; fi; rm -rf "$STAGE"; exit "$rc"' EXIT
+
+systemctl stop "$SERVICE"
+systemctl is-active --quiet "$SERVICE" && { echo 'STOP: SERVICE_DID_NOT_STOP'; exit 1; } || true
+echo 'SERVICE_STOP_FOR_CONTROLLED_APPLY=PASS'
 
 for key in "${FILES[@]}"; do
   live="$APP_ROOT/${REL[$key]}"
@@ -312,7 +320,7 @@ finally:
     c.close()
 PY
 
-systemctl restart "$SERVICE"
+systemctl start "$SERVICE"
 sleep 2
 systemctl is-active --quiet "$SERVICE" || { echo 'STOP: SERVICE_RESTART_FAIL'; exit 1; }
 [ "$(curl -fsS "$HEALTH_URL")" = 'ok' ] || { echo 'STOP: HEALTH_POST_FAIL'; exit 1; }
