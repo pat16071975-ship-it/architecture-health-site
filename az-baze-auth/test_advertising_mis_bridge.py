@@ -227,6 +227,38 @@ class AdvertisingMisBridgeTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_pre_tracking_paid_history_excludes_existing_patient_from_new_cohort(self):
+        c = conn()
+        try:
+            add_day(
+                c,
+                "2026-10-27",
+                [{"date": "2026-10-27", "patient": "Старый С. С.", "kind": "Первичные"}],
+            )
+            m.capture_paid_report(
+                c,
+                report(
+                    "2026-01-01",
+                    "2026-10-27",
+                    [
+                        item("Старый С. С.", "Доктор А. А.", "old", "2026-06-01", 1000, 1000),
+                        item("Старый С. С.", "Доктор Б. Б.", "new", "2026-10-27", 500, 500),
+                    ],
+                    paid_total=1500,
+                ),
+                "history-through-27.xlsx",
+                "history",
+                "t",
+            )
+            m.rebuild(c, "t")
+            cohort = c.execute(
+                "SELECT new_patients FROM advertising_cohort_daily "
+                "WHERE provider='mis' AND cohort_date='2026-10-27'"
+            ).fetchone()
+            self.assertEqual(cohort["new_patients"], 0)
+        finally:
+            c.close()
+
     def test_report_before_tracking_start_is_ignored(self):
         c = conn()
         try:
