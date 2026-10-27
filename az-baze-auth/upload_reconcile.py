@@ -57,6 +57,20 @@ CREATE TABLE IF NOT EXISTS cash_receipt_versions (
 );
 CREATE INDEX IF NOT EXISTS idx_cash_receipt_versions_date
     ON cash_receipt_versions(data_date);
+
+CREATE TABLE IF NOT EXISTS clinical_visit_direction_overrides (
+    visit_id TEXT PRIMARY KEY,
+    data_date TEXT NOT NULL,
+    patient_token TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    occurrence INTEGER NOT NULL,
+    direction TEXT NOT NULL
+        CHECK (direction IN ('dent','structure','unassigned')),
+    confirmed_by INTEGER,
+    confirmed_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_clinical_visit_direction_date
+    ON clinical_visit_direction_overrides(data_date);
 """
 
 
@@ -163,6 +177,88 @@ def pending_provider_rows(conn):
         }
         for row in rows
     ]
+
+def visit_direction_overrides(conn, visit_ids=None):
+    init_schema(conn)
+    params = []
+    where = ""
+    if visit_ids is not None:
+        ids = sorted({str(value) for value in visit_ids if str(value)})
+        if not ids:
+            return {}
+        where = " WHERE visit_id IN (" + ",".join("?" for _ in ids) + ")"
+        params = ids
+    rows = conn.execute(
+        "SELECT visit_id,data_date,patient_token,kind,occurrence,direction "
+        "FROM clinical_visit_direction_overrides" + where,
+        params,
+    ).fetchall()
+    return {
+        str(row["visit_id"] if hasattr(row, "keys") else row[0]): {
+            "date": str(row["data_date"] if hasattr(row, "keys") else row[1]),
+            "patient_token": str(row["patient_token"] if hasattr(row, "keys") else row[2]),
+            "kind": str(row["kind"] if hasattr(row, "keys") else row[3]),
+            "occurrence": int(row["occurrence"] if hasattr(row, "keys") else row[4]),
+            "direction": str(row["direction"] if hasattr(row, "keys") else row[5]),
+        }
+        for row in rows
+    }
+
+
+def save_visit_direction_overrides(conn, decisions, visit_rows, actor_id):
+    # Schema is initialized before the caller starts its write transaction.
+    # Do not call executescript() here: it could implicitly commit that transaction.
+    allowed = {"dent", "structure", "unassigned"}
+    rows_by_id = {
+        str(row.get("visit_id") or ""): row
+        for row in (visit_rows or [])
+        if str(row.get("visit_id") or "")
+    }
+    clean = {}
+    for visit_id, raw_direction in (decisions or {}).items():
+        key = str(visit_id or "").strip()
+        direction = str(raw_direction or "").strip()
+        row = rows_by_id.get(key)
+        if not row:
+            raise ValueError("Неизвестный приём в решении о направлении.")
+        if direction not in allowed:
+            raise ValueError("Для каждого нераспределённого приёма выберите допустимое направление.")
+        clean[key] = direction
+
+    if set(clean) != set(rows_by_id):
+        raise ValueError("Для каждого нераспределённого приёма нужно выбрать направление.")
+
+    now = now_iso()
+    for visit_id, direction in clean.items():
+        row = rows_by_id[visit_id]
+        conn.execute(
+            """
+            INSERT INTO clinical_visit_direction_overrides(
+                visit_id,data_date,patient_token,kind,occurrence,
+                direction,confirmed_by,confirmed_at
+            ) VALUES(?,?,?,?,?,?,?,?)
+            ON CONFLICT(visit_id) DO UPDATE SET
+                data_date=excluded.data_date,
+                patient_token=excluded.patient_token,
+                kind=excluded.kind,
+                occurrence=excluded.occurrence,
+                direction=excluded.direction,
+                confirmed_by=excluded.confirmed_by,
+                confirmed_at=excluded.confirmed_at
+            """,
+            (
+                visit_id,
+                str(row.get("date") or ""),
+                str(row.get("patient_token") or ""),
+                str(row.get("kind") or ""),
+                int(row.get("occurrence") or 0),
+                direction,
+                actor_id,
+                now,
+            ),
+        )
+    return clean
+
 
 def provider_maps(conn):
     init_schema(conn)

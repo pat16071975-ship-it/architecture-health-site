@@ -60,7 +60,8 @@ class PaidServicesTests(unittest.TestCase):
         parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
         self.assertEqual(parsed["source_type"], "paid_services_v1")
         self.assertEqual(parsed["sheet"], "Выручка по направлениям")
-        self.assertEqual(parsed["month"], "2026-09")
+        self.assertEqual(parsed["month"], "")
+        self.assertEqual(parsed["period_start"], "2026-09-10")
         self.assertEqual(parsed["period_end"], "2026-09-30")
         self.assertEqual(parsed["totals"]["paid"], 372)
         self.assertEqual(parsed["providers"]["Dent D."]["paid"], 225)
@@ -74,7 +75,7 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(parsed["items"][0]["paid_amount"], 225)
         self.assertEqual(parsed["items"][0]["invoice"], "100")
 
-    def test_compact_snapshot_keeps_service_analytics_without_patient_names(self):
+    def test_compact_period_keeps_service_analytics_without_patient_names(self):
         parsed = paid_services.parse_bytes(
             self.reference_report(),
             "paid.xlsx",
@@ -82,7 +83,9 @@ class PaidServicesTests(unittest.TestCase):
         )
         compact = paid_services.compact_report(parsed)
         serialized = json.dumps(compact, ensure_ascii=False)
-        self.assertEqual(compact["version"], 2)
+        self.assertEqual(compact["version"], 3)
+        self.assertEqual(compact["period_start"], "2026-09-10")
+        self.assertEqual(compact["period_end"], "2026-09-30")
         self.assertNotIn("Пациент Один", serialized)
         self.assertNotIn("Пациент Два", serialized)
         self.assertTrue(compact["service_items"])
@@ -154,7 +157,7 @@ class PaidServicesTests(unittest.TestCase):
                 "visits": [{"date": "2026-09-02", "patient": p2, "kind": "Повторные"}],
             },
         ]
-        record = {"date": "2026-09-02"}
+        record = {"date": "2026-09-02", "primary": 1, "repeat": 1}
         paid_services.apply_visit_attribution(
             record,
             snapshot,
@@ -190,7 +193,7 @@ class PaidServicesTests(unittest.TestCase):
                 ],
             },
         ]
-        record = {"date": "2026-09-01"}
+        record = {"date": "2026-09-01", "primary": 2, "repeat": 0}
         paid_services.apply_visit_attribution(
             record,
             snapshot,
@@ -205,6 +208,75 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(record["paidVisitMatched"], 1)
         self.assertEqual(record["paidVisitUnmatched"], 1)
         self.assertEqual(record["_uploadControl"]["unassignedPrimary"], 1)
+
+    def test_paid_attribution_never_overwrites_general_completed_visit_totals(self):
+        patient = "Alpha A."
+        snapshot = {
+            "visit_links": {
+                "2026-10-26|" + paid_services._patient_token(patient): ["Struct S."],
+            },
+            "invoices": [],
+        }
+        rows = [
+            {
+                "data_date": "2026-10-26",
+                "overall": {"2026-10-26": {"Повторные": 2}},
+                "visits": [
+                    {"date": "2026-10-26", "patient": patient, "kind": "Повторные"},
+                    {"date": "2026-10-26", "patient": "Missing M.", "kind": "Повторные"},
+                ],
+            },
+        ]
+        record = {
+            "date": "2026-10-26",
+            "primary": 49,
+            "repeat": 355,
+        }
+        paid_services.apply_visit_attribution(
+            record,
+            snapshot,
+            rows,
+            {},
+            {"Struct S.": "Врач клиники"},
+            {},
+        )
+        self.assertEqual(record["primary"], 49)
+        self.assertEqual(record["repeat"], 355)
+        self.assertEqual(record["clinicRepeat"], 1)
+        self.assertEqual(record["_uploadControl"]["sourceRepeat"], 2)
+        self.assertEqual(record["_uploadControl"]["unassignedRepeat"], 1)
+
+    def test_manual_direction_counts_survive_paid_attribution(self):
+        rows = [
+            {
+                "data_date": "2026-10-26",
+                "overall": {"2026-10-26": {"Повторные": 2}},
+                "visits": [
+                    {"date": "2026-10-26", "patient": "Alpha A.", "kind": "Повторные"},
+                    {"date": "2026-10-26", "patient": "Beta B.", "kind": "Повторные"},
+                ],
+                "manual_direction_counts": {
+                    "dent": {},
+                    "structure": {"Повторные": 1},
+                },
+            }
+        ]
+        snapshot = {"visit_links": {}, "invoices": []}
+        record = {"date": "2026-10-26", "primary": 49, "repeat": 355}
+        paid_services.apply_visit_attribution(
+            record,
+            snapshot,
+            rows,
+            {},
+            {"Struct S.": "Врач клиники"},
+            {},
+        )
+        self.assertEqual(record["primary"], 49)
+        self.assertEqual(record["repeat"], 355)
+        self.assertEqual(record["clinicRepeat"], 1)
+        self.assertEqual(record["_uploadControl"]["sourceRepeat"], 2)
+        self.assertEqual(record["_uploadControl"]["reportedRepeat"], 1)
+        self.assertEqual(record["_uploadControl"]["unassignedRepeat"], 1)
 
     def test_direction_summary_uses_paid_not_billed_and_keeps_unknown_separate(self):
         parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
@@ -269,7 +341,27 @@ class PaidServicesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Нарушен баланс"):
             paid_services.parse_bytes(raw, "bad.xlsx")
 
-    def test_multi_month_report_requires_selected_period(self):
+    def test_same_month_incremental_slice_does_not_become_month_to_date(self):
+        raw = self.workbook_bytes([
+            ["Итого", None, None, None, 0, 3000, 92610, -89610],
+            ["Услуги", None, None, None, 0, 3000, 92610, -89610],
+            ["Назыров У. Ж.", None, None, None, 0, 3000, 92610, -89610],
+            ["Пациент", None, None, None, 0, 3000, 92610, -89610],
+            ["Счет №1 от 12.10.2026 12:00:00", None, None, None, "-", 1000, 30000, -29000],
+            ["Терапия", "12.10.2026 12:00", "Услуга", 1, "-", 1000, 30000, -29000],
+            ["Счет №2 от 13.10.2026 12:00:00", None, None, None, "-", 2000, 62610, -60610],
+            ["Терапия", "13.10.2026 12:00", "Услуга", 1, "-", 2000, 62610, -60610],
+        ])
+        parsed = paid_services.parse_bytes(raw, "12-13.xlsx", known_staff=["Назыров У. Ж."])
+        self.assertEqual(parsed["period_start"], "2026-10-12")
+        self.assertEqual(parsed["period_end"], "2026-10-13")
+        compact = paid_services.compact_report(parsed)
+        self.assertEqual(compact["version"], 3)
+        self.assertEqual(compact["period_start"], "2026-10-12")
+        self.assertEqual(compact["period_end"], "2026-10-13")
+        self.assertNotIn("as_of_date", compact)
+
+    def test_multi_month_report_uses_dates_inside_file_without_manual_period(self):
         raw = self.workbook_bytes([
             ["Итого", None, None, None, 0, 200, 200, 0],
             ["Услуги", None, None, None, 0, 200, 200, 0],
@@ -280,8 +372,9 @@ class PaidServicesTests(unittest.TestCase):
             ["Счет №2 от 01.10.2026 12:00:00", None, None, None, "-", 100, 100, 0],
             ["Терапия", "01.10.2026 12:00", "Услуга", 1, "-", 100, 100, 0],
         ])
-        with self.assertRaisesRegex(ValueError, "Укажите период"):
-            paid_services.parse_bytes(raw, "two-months.xlsx")
+        detected = paid_services.parse_bytes(raw, "two-months.xlsx")
+        self.assertEqual(detected["period_start"], "2026-09-30")
+        self.assertEqual(detected["period_end"], "2026-10-01")
         parsed = paid_services.parse_bytes(
             raw, "two-months.xlsx", period_start="2026-09-01", period_end="2026-10-01",
         )

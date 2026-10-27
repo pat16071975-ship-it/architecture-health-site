@@ -11,6 +11,7 @@ import cash_payments
 import ident_import
 import paid_services
 import upload_reconcile
+import advertising_report
 
 MANAGEMENT_KEY = "az-management-report-v1"
 REPORT_BLOB_KEYS = {
@@ -558,7 +559,7 @@ async function loadServerStore(){
     html = re.sub(r'<script src="\./secure-import\.js[^"]*"></script>', "", html)
 
     init_pattern = re.compile(r"function init\(\)\{.*?\}\ninit\(\);", re.S)
-    new_init = """async function init(){renderStructure();const ys=$('#year');const cy=new Date().getFullYear();for(let y=2025;y<=cy+3;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===cy)o.selected=true;ys.appendChild(o)}const today=new Date();$('#reportDate').value=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');document.addEventListener('input',e=>{if(e.target.matches('[data-key]:not([readonly]),[data-doctor]'))refreshAutos()});$('#reportDate').addEventListener('change',loadDate);$('#mode').addEventListener('change',switchMode);$('#quarter').addEventListener('change',renderPeriod);$('#half').addEventListener('change',renderPeriod);$('#year').addEventListener('change',()=>$('#mode').value==='date'?null:renderPeriod());$('#saveBtn').addEventListener('click',saveDate);$('#deleteBtn').addEventListener('click',deleteDate);$('#backupBtn').addEventListener('click',exportBackup);$('#restoreInput').addEventListener('change',e=>e.target.files[0]&&importBackup(e.target.files[0]));$('#logoutBtn').addEventListener('click',()=>location.href='/reports/');try{await loadServerStore();const dates=Object.keys(SERVER_STORE).sort();if(dates.length)$('#reportDate').value=dates[dates.length-1];loadDate()}catch(error){console.error(error);$('#status').textContent='Не удалось загрузить серверные данные. Обновите страницу.'}}
+    new_init = """async function init(){renderStructure();const ys=$('#year');const cy=new Date().getFullYear();for(let y=2025;y<=cy+3;y++){const o=document.createElement('option');o.value=y;o.textContent=y;if(y===cy)o.selected=true;ys.appendChild(o)}const today=new Date();$('#reportDate').value=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');document.addEventListener('input',e=>{if(e.target.matches('[data-key]:not([readonly]),[data-doctor]'))refreshAutos()});$('#reportDate').addEventListener('change',loadDate);$('#mode').addEventListener('change',switchMode);$('#quarter').addEventListener('change',renderPeriod);$('#half').addEventListener('change',renderPeriod);$('#year').addEventListener('change',()=>$('#mode').value==='date'?null:renderPeriod());$('#saveBtn').addEventListener('click',saveDate);$('#deleteBtn').addEventListener('click',deleteDate);$('#backupBtn').addEventListener('click',exportBackup);$('#restoreInput').addEventListener('change',e=>e.target.files[0]&&importBackup(e.target.files[0]));$('#logoutBtn').addEventListener('click',()=>location.href='/reports/');try{await loadServerStore();const dates=Object.keys(SERVER_STORE).sort();if(dates.length)$('#reportDate').value=dates[dates.length-1];$('#reportDate').dispatchEvent(new Event('change'))}catch(error){console.error(error);$('#status').textContent='Не удалось загрузить серверные данные. Обновите страницу.'}}
 init();"""
     html, count = init_pattern.subn(new_init, html, count=1)
     if count != 1:
@@ -599,6 +600,7 @@ def _management_rows_from_backup(raw_value):
 
 def register_report_storage(app):
     _ensure_schema()
+    advertising_report.register_advertising_report(app)
 
     @app.before_request
     def serve_report_pages():

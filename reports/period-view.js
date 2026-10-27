@@ -250,7 +250,7 @@
 
   const toolbar=document.querySelector('.toolbar'),actions=toolbar?.querySelector('.toolbar-actions'),saveBtn=document.getElementById('saveBtn');
   if(saveBtn)saveBtn.classList.add('hidden');
-  const dateViewField=document.createElement('div');dateViewField.className='field date-view-field';dateViewField.id='dateViewField';dateViewField.innerHTML='<label>Просмотр</label><select id="dateViewMode"><option value="single">Одна дата</option><option value="compare">На эту дату по месяцам</option></select>';
+  const dateViewField=document.createElement('div');dateViewField.className='field date-view-field';dateViewField.id='dateViewField';dateViewField.innerHTML='<label>Просмотр</label><select id="dateViewMode"><option value="single">Одна дата</option><option value="compare" selected>На эту дату по месяцам</option></select>';
   const compareRangeField=document.createElement('div');compareRangeField.className='field compare-range-field hidden';compareRangeField.id='compareRangeField';compareRangeField.innerHTML='<label>Период сравнения</label><select id="compareRange"><option value="ytd">С начала года</option><option value="q1">1 квартал</option><option value="q2">2 квартал</option><option value="q3">3 квартал</option><option value="q4">4 квартал</option><option value="h1">1 полугодие</option><option value="h2">2 полугодие</option><option value="year">Весь год</option></select>';
   if(toolbar&&actions){toolbar.insertBefore(dateViewField,actions);toolbar.insertBefore(compareRangeField,actions)}
   const entryBtn=document.createElement('button');entryBtn.id='entryBtn';entryBtn.className='btn primary entry-btn';entryBtn.textContent='Заполнить данные за день';
@@ -332,11 +332,37 @@
     updateEntryReconcile();overlay.classList.remove('hidden');document.body.style.overflow='hidden';
   }
   function closeEntry(){overlay.classList.add('hidden');document.body.style.overflow=''}
-  function saveEntry(){
+  async function saveEntry(){
     const date=document.getElementById('entryDate').value;if(!date)return;
+    const button=document.getElementById('entrySave');if(button?.disabled)return;
     const store=loadStore(),existing=store[date]||blankRecord(date),r={...existing,date};
     document.querySelectorAll('[data-entry-key]').forEach(i=>r[i.dataset.entryKey]=i.value.trim());
     r._doctorRevenueMismatch=false;r._doctorRevenueDelta=0;r._doctorRevenueTotal=0;
+    // In AZ-BAZE server mode, only the authorized PUT with CSRF persists an
+    // entry. Never report success or mutate the local source before it returns.
+    if(typeof reportApi==='function'&&typeof loadServerStore==='function'){
+      if(button)button.disabled=true;
+      try{
+        const result=await reportApi('/api/reports/data/'+encodeURIComponent(date),{method:'PUT',body:JSON.stringify(r)});
+        if(!result?.ok||!result.record)throw new Error('Сервер не подтвердил сохранение записи');
+        store[date]=result.record;saveStore(store);
+        let refreshFailed=false;
+        try{await loadServerStore()}catch(error){refreshFailed=true;console.error(error)}
+        const saved=(refreshFailed?result.record:loadStore()[date])||result.record;
+        document.getElementById('reportDate').value=date;fillRecord(saved);renderMismatchNote(saved);
+        document.getElementById('status').textContent=refreshFailed
+          ?'Сохранено на сервере, но не удалось обновить данные. Обновите страницу.'
+          :'Сохранено на сервере: '+new Date(date+'T12:00:00').toLocaleString('ru-RU');
+        closeEntry();
+        if(!refreshFailed&&document.getElementById('dateViewMode').value==='compare')renderDateComparison();
+      }catch(error){
+        console.error(error);
+        document.getElementById('status').textContent='Не удалось сохранить данные на сервере';
+        alert('Не удалось сохранить данные. Попробуйте ещё раз.');
+      }finally{if(button)button.disabled=false}
+      return;
+    }
+    // Preserve the original standalone/offline page behavior.
     store[date]=r;saveStore(store);document.getElementById('reportDate').value=date;fillRecord(r);renderMismatchNote(r);document.getElementById('status').textContent='Сохранено в этом браузере: '+new Date(date+'T12:00:00').toLocaleString('ru-RU');closeEntry();if(document.getElementById('dateViewMode').value==='compare')renderDateComparison();
   }
   function renderMismatchNote(_r){

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Рекламный отчёт — AZ-BAZE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --az-blue:#44634f;--az-blue-dark:#354039;--az-ink:#2d342f;--az-text:#4f5b53;
+  --az-muted:#667169;--az-yellow:#b59662;--az-line:#ded4c4;--az-line-strong:#cfbea3;
+  --az-soft:#f6f1e8;--az-soft2:#faf7f1;--az-bg:#f7f3ec;--white:#fffdf8;--bad:#9a4b48;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#fcfaf6 0,var(--az-bg) 68%,#efe8db 100%);color:var(--az-ink);font-family:Montserrat,Arial,sans-serif}
+button,input,select{font:inherit}
+.page{width:min(1240px,96vw);margin:0 auto;padding:18px 0 46px}
+.head{margin:4px 0 12px;padding-left:15px;border-left:4px solid var(--az-yellow)}
+.title{margin:0;color:var(--az-blue);font-size:32px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.subtitle{margin:6px 0 0;color:var(--az-muted);font-size:12px;line-height:1.45}
+.controls{background:var(--white);border:1px solid var(--az-line);border-radius:8px;padding:10px;box-shadow:0 7px 20px rgba(71,58,38,.07);display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:9px;align-items:end}
+.field{display:grid;gap:5px}
+.field label{font-size:12px;color:var(--az-text);font-weight:700;letter-spacing:.02em}
+.field input,.field select{height:36px;border:1px solid var(--az-line-strong);border-radius:5px;background:#fff;padding:0 10px;color:var(--az-ink);font-size:13.5px}
+.quick{grid-column:1/-1;display:flex;gap:7px;flex-wrap:wrap}
+.chip{border:1px solid var(--az-line-strong);background:#fff;border-radius:5px;padding:6px 11px;font-size:13px;color:var(--az-text);cursor:pointer}
+.chip:hover,.chip.active{border-color:var(--az-blue);color:var(--az-blue);background:var(--az-soft)}
+.section-title{margin:17px 0 8px;color:var(--az-blue);font-size:17px;font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.kpi-wrap{display:grid;gap:5px;min-width:0}
+.kpi{min-height:86px;background:#fff;border:1px solid var(--az-line);border-radius:7px;padding:10px 12px;box-shadow:0 5px 15px rgba(71,58,38,.055);display:flex;flex-direction:column;justify-content:space-between;min-width:0}
+.kpi .name{font-size:13.5px;color:var(--az-text);font-weight:600;line-height:1.3}
+.kpi .value{font-size:25px;line-height:1.05;font-weight:700;letter-spacing:-.035em;margin-top:7px;color:var(--az-ink)}
+.kpi .extra{margin-top:6px;font-size:12.5px;color:var(--az-muted);line-height:1.4}
+.compare-card{min-height:42px;background:var(--az-soft2);border:1px solid var(--az-line);border-left:3px solid var(--az-yellow);border-radius:5px;padding:6px 8px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 7px;align-items:center}
+.compare-card .clabel{grid-column:1/-1;font-size:11.5px;color:var(--az-muted);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.compare-card .cvalue{font-size:13.5px;font-weight:700;color:var(--az-ink)}
+.delta{font-size:12.5px;font-weight:700}.delta.good{color:var(--az-blue-dark)}.delta.bad{color:var(--bad)}.delta.neutral{color:var(--az-muted)}
+.money-grid{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:8px}
+.money-grid .kpi{min-height:92px}
+.cohort{background:var(--az-soft);border-color:var(--az-line-strong);border-left:4px solid var(--az-yellow)}
+.activity{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.activity-card{background:#fffdf8;border:1px solid var(--az-line);border-radius:7px;padding:10px 12px;display:grid;grid-template-columns:minmax(105px,.8fr) 1fr;gap:10px;align-items:center}
+.activity-card .a-title{font-size:13.5px;color:var(--az-text);font-weight:700}
+.activity-values{display:grid;gap:2px;text-align:right}
+.activity-values strong{font-size:17px;line-height:1.2;color:var(--az-ink);white-space:nowrap}
+.activity-values strong:last-child{font-size:16px;font-weight:600}
+.panel{background:#fff;border:1px solid var(--az-line);border-radius:8px;padding:12px;box-shadow:0 7px 20px rgba(71,58,38,.06);margin-top:10px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.panel-head h2{font-size:16px;color:var(--az-blue);margin:0;font-weight:600}
+.panel-head select{height:34px;border:1px solid var(--az-line-strong);border-radius:5px;background:#fff;padding:0 8px;font-size:13px;color:var(--az-ink)}
+.chart{width:100%;height:220px;background:#fff;border:1px solid var(--az-line);border-radius:6px;overflow:hidden}
+.chart svg{width:100%;height:100%;display:block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:7px;color:var(--az-muted);font-size:12px}
+.legend i{width:14px;height:3px;display:inline-block;border-radius:2px;margin-right:5px;vertical-align:middle}
+.table-wrap{overflow:auto;border:1px solid var(--az-line);border-radius:6px}
+.table{width:100%;border-collapse:collapse;min-width:960px;background:#fff}
+.table th,.table td{padding:8px 9px;border-bottom:1px solid var(--az-line);text-align:right;font-size:13px;white-space:nowrap}
+.table th:first-child,.table td:first-child{text-align:left}
+.table th{font-size:12px;color:var(--az-text);font-weight:700;background:var(--az-soft2);text-transform:none;letter-spacing:0}
+.group-row td{background:#fff;font-weight:600}
+.group-row:hover td{background:#fbfdff}
+.group-btn{border:0;background:none;padding:0;color:var(--az-blue-dark);font:700 13px Montserrat,Arial,sans-serif;cursor:pointer;text-align:left}
+.group-btn.no-children{cursor:default;color:var(--az-ink)}
+.child-row td{background:var(--az-soft2);color:var(--az-text)}
+.child-row td:first-child{padding-left:28px;position:relative;font-weight:600;color:var(--az-ink)}
+.child-row td:first-child:before{content:"";position:absolute;left:14px;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--az-yellow)}
+.freshness{margin-top:12px;color:var(--az-muted);font-size:12px;line-height:1.55}
+.empty{height:100%;display:grid;place-items:center;color:var(--az-muted);font-size:13px}.loading{opacity:.58}.error{color:var(--bad)}
+@media(max-width:1050px){.kpis{grid-template-columns:repeat(3,1fr)}.money-grid{grid-template-columns:1fr}.activity{grid-template-columns:1fr}}
+@media(max-width:760px){.controls{grid-template-columns:1fr 1fr}.controls .field:last-of-type{grid-column:1/-1}.kpis{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.page{width:94vw;padding-top:12px}.title{font-size:27px}.controls{grid-template-columns:1fr}.controls .field:last-of-type{grid-column:auto}.kpis{grid-template-columns:1fr}.kpi{min-height:78px}.kpi .value{font-size:23px}.activity-card{grid-template-columns:1fr 1fr}.chart{height:200px}}
+</style>
+</head>
+<body>
+<main class="page" id="page">
+  <header class="head">
+    <h1 class="title">Рекламный отчёт</h1>
+    <p class="subtitle">Реклама → целевые лиды → состоявшиеся первичные приёмы → фактически полученные деньги</p>
+  </header>
+
+  <section class="controls" aria-label="Период отчёта">
+    <div class="field"><label for="fromDate">Период с</label><input id="fromDate" type="date"></div>
+    <div class="field"><label for="toDate">По</label><input id="toDate" type="date"></div>
+    <div class="field"><label for="compareMode">Сравнить с</label><select id="compareMode"></select></div>
+    <div class="quick">
+      <button class="chip" data-range="month">Текущий месяц</button>
+      <button class="chip" data-range="prev-month">Прошлый месяц</button>
+      <button class="chip" data-range="quarter">Текущий квартал</button>
+      <button class="chip" data-range="year">Текущий год</button>
+    </div>
+  </section>
+
+  <h2 class="section-title">Главное за период</h2>
+  <section class="kpis" id="kpis"></section>
+
+  <section class="money-grid">
+    <div id="primaryMoney"></div>
+    <div class="kpi cohort" id="cohortCard"></div>
+  </section>
+
+  <h2 class="section-title">Работа клиники за период</h2>
+  <section class="activity" id="activity"></section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Динамика</h2>
+      <select id="trendMetric">
+        <option value="spend">Расходы</option>
+        <option value="visits">Посещения</option>
+        <option value="target_leads" selected>Целевые лиды</option>
+        <option value="primary_visits">Первичные приёмы</option>
+        <option value="total_paid">Фактически получено</option>
+      </select>
+    </div>
+    <div class="chart" id="trendChart"><div class="empty">Нет данных</div></div>
+    <div class="legend" id="trendLegend"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Потратили и получили</h2>
+      <select id="breakdown"><option value="source">Источники</option><option value="campaign">Кампании</option></select>
+    </div>
+    <div class="chart" id="moneyChart"><div class="empty">Нет данных</div></div>
+    <div class="legend"><span><i style="background:#b59662"></i>Потрачено на рекламу</span><span><i style="background:#44634f"></i>Фактически получено</span></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Откуда пришли пациенты и деньги</h2></div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr>
+          <th>Источник</th>
+          <th>Расходы</th>
+          <th>Посещения сайта</th>
+          <th>Целевые лиды</th>
+          <th>Первичные приёмы</th>
+          <th>Выручка первичных</th>
+          <th>Всего получено</th>
+        </tr></thead>
+        <tbody id="sourceRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="freshness" id="freshness"></div>
+</main>
+<script src="/reports/advertising.js?v=20261026-2"></script>
+</body>
+</html>
