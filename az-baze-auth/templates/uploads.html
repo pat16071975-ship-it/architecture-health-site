@@ -410,7 +410,7 @@
           return '<tr>'+
             '<td>'+esc(item.date)+'</td>'+
             '<td><span class="visit-direction-patient">'+esc(item.patient)+'</span></td>'+
-            '<td>'+esc(item.kind)+'</td>'+
+            '<td>'+esc(item.kind)+(Number(item.occurrence)>1?' · №'+esc(item.occurrence):'')+'</td>'+
             '<td class="visit-direction-hint">'+hint+'</td>'+
             '<td><select data-visit-direction="'+esc(item.visit_id)+'">'+
               '<option value="">Выберите</option>'+
