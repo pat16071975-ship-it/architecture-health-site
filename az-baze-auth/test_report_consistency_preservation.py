@@ -160,6 +160,39 @@ class InstalledSourcePreservationTests(unittest.TestCase):
             ["structure", "unassigned"],
         )
 
+    def test_visit_direction_override_rollback_is_atomic(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        self.addCleanup(conn.close)
+        upload_reconcile.init_schema(conn)
+        row = {
+            "visit_id": "synthetic-visit",
+            "date": "2026-10-26",
+            "patient_token": "token",
+            "kind": "Повторные",
+            "occurrence": 1,
+        }
+        conn.execute("BEGIN")
+        upload_reconcile.save_visit_direction_overrides(
+            conn,
+            {"synthetic-visit": "structure"},
+            [row],
+            actor_id=7,
+        )
+        self.assertEqual(
+            conn.execute(
+                "SELECT COUNT(*) FROM clinical_visit_direction_overrides"
+            ).fetchone()[0],
+            1,
+        )
+        conn.rollback()
+        self.assertEqual(
+            conn.execute(
+                "SELECT COUNT(*) FROM clinical_visit_direction_overrides"
+            ).fetchone()[0],
+            0,
+        )
+
     def test_manual_save_candidate_is_unchanged_by_importer_reconciliation(self):
         for name, sha in {'index.html': 'ea68923b8eaf5ac1354c807290fd97ab1a589b55',
                           'period-view.js': '68cd5606f0d4a82d378d66d470eb16ea76fbca42'}.items():
