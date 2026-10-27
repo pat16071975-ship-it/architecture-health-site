@@ -116,6 +116,7 @@ class ManagementDialogSaveRegressionTests(unittest.TestCase):
         self.assertNotIn('period-view.js?v=20260918-1',html)
         self.assertIn("async function reportApi(url,options={})",html)
         self.assertIn("async function loadServerStore()",html)
+        self.assertIn("$('#reportDate').dispatchEvent(new Event('change'))",html)
 
     def test_management_dialog_server_save_put_roundtrip_refresh_and_cash_preservation(self):
         actual=self.execute("success")
