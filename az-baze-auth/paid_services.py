@@ -938,6 +938,28 @@ def _source_visit_totals(normalized_rows, up_to_date):
     return primary, repeat
 
 
+def _manual_direction_totals(normalized_rows, up_to_date):
+    result = {
+        "dentPrimary": 0,
+        "dentRepeat": 0,
+        "clinicPrimary": 0,
+        "clinicRepeat": 0,
+    }
+    for normalized in normalized_rows or []:
+        data_date = str(normalized.get("data_date") or "")
+        if up_to_date and data_date and data_date > up_to_date:
+            continue
+        manual = normalized.get("manual_direction_counts") or {}
+        dent = manual.get("dent") or {}
+        structure = manual.get("structure") or {}
+        result["dentPrimary"] += int(dent.get("Первичные") or 0)
+        result["clinicPrimary"] += int(structure.get("Первичные") or 0)
+        for kind in ("Повторные", "Отконсультированные"):
+            result["dentRepeat"] += int(dent.get(kind) or 0)
+            result["clinicRepeat"] += int(structure.get(kind) or 0)
+    return result
+
+
 def apply_visit_attribution(
     record,
     snapshot,
@@ -980,6 +1002,12 @@ def apply_visit_attribution(
                     dent_repeat += int(value or 0)
                 elif source_name in structure_doctors:
                     structure_repeat += int(value or 0)
+
+    manual = _manual_direction_totals(rows, data_date)
+    dent_primary += manual["dentPrimary"]
+    dent_repeat += manual["dentRepeat"]
+    structure_primary += manual["clinicPrimary"]
+    structure_repeat += manual["clinicRepeat"]
 
     source_primary, source_repeat = _source_visit_totals(rows, data_date)
     primary = dent_primary + structure_primary
