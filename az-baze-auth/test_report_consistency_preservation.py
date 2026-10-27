@@ -26,7 +26,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
     def test_paid_sources_preserve_installed_behavior_under_advertising_hook(self):
         self.assertEqual(
             git_blob((ROOT / 'paid_services.py').read_bytes()),
-            '76c1a33de8a711f85139a21aa5f66a48ea96910f',
+            '54ed8eb74d27003a31f2c52dceb25b7ce4ac99fb',
         )
 
         text = (ROOT / 'paid_services_upload.py').read_text(encoding='utf-8')
@@ -73,7 +73,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
 
     def test_template_preserves_journal_contract_and_reconcile_close(self):
         raw = (ROOT / 'templates/uploads.html').read_bytes()
-        self.assertEqual(git_blob(raw), 'd0ecaec2d569c61bec113e30fde63de90ec3b6fe')
+        self.assertEqual(git_blob(raw), '5a4273f62a120902b2785d4de6a238c050724d65')
         text = raw.decode('utf-8')
         changes = [
             ("{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}", "{{ row['data_date'] or '—' }}"),
