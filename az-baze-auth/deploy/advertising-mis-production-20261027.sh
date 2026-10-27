@@ -288,6 +288,55 @@ wait_db_quiescent(){
 
 WORKER_UNITS=()
 
+validate_known_db_worker_units(){
+  local match_file="/tmp/az-ad-mis-worker-units.$"
+  "$APP_ROOT/venv/bin/python" - "$APP_ROOT" >"$match_file" <<'PY'
+import os,sys
+root=sys.argv[1]
+allowed={
+    f"{root}/venv/bin/python {root}/knowledge_video_compat.py --worker",
+    f"{root}/venv/bin/python3 {root}/knowledge_video_compat.py --worker",
+}
+for pid in sorted((p for p in os.listdir("/proc") if p.isdigit()),key=int):
+    try:
+        cmd=open(f"/proc/{pid}/cmdline","rb").read().replace(b"\0",b" ").decode("utf-8","replace").strip()
+    except Exception:
+        continue
+    if cmd not in allowed:
+        continue
+    try:
+        cgroup=open(f"/proc/{pid}/cgroup","r",encoding="utf-8",errors="replace").read().strip().replace("\n",";")
+    except Exception:
+        cgroup=""
+    print(f"{pid}|{cmd}|{cgroup}")
+PY
+
+  if [ ! -s "$match_file" ]; then
+    rm -f "$match_file"
+    echo "KNOWN_DB_WORKER_UNIT=NONE"
+    return 0
+  fi
+
+  while IFS='|' read -r pid cmd cgroup; do
+    unit="$(printf '%s\n' "$cgroup" | tr ';' '\n' | sed -n 's#^0::/system.slice/\([^/]*\.service\)$#\1#p' | head -n1)"
+    [ -n "$unit" ] || {
+      echo "STOP: KNOWN_WORKER_WITHOUT_SYSTEMD_UNIT_PID=$pid"
+      echo "CMD=$cmd"
+      echo "CGROUP=$cgroup"
+      rm -f "$match_file"
+      return 1
+    }
+    systemctl is-active --quiet "$unit" || {
+      echo "STOP: WORKER_UNIT_NOT_ACTIVE=$unit PID=$pid"
+      rm -f "$match_file"
+      return 1
+    }
+    echo "KNOWN_DB_WORKER_UNIT=$unit PID=$pid"
+  done < "$match_file"
+  rm -f "$match_file"
+  echo "KNOWN_DB_WORKER_PREFLIGHT=PASS"
+}
+
 discover_and_stop_known_db_workers(){
   local holder_file="/tmp/az-ad-mis-known-holders.$$"
   "$APP_ROOT/venv/bin/python" - "$DB" >"$holder_file" <<'PY'
@@ -417,6 +466,7 @@ verify_target_contract
 db_readonly_precheck
 capture_db_baseline
 isolated_schema_rehearsal
+validate_known_db_worker_units
 
 if [ "$MODE" = "--preflight" ]; then
   echo "=== FINAL ==="
