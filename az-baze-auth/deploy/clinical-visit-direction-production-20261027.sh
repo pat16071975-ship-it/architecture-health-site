@@ -207,12 +207,12 @@ DB_UID="$(stat -c %u "$DB")"
 DB_GID="$(stat -c %g "$DB")"
 DB_MODE="$(stat -c %a "$DB")"
 
-declare -A UID GID MODE
+declare -A FILE_UID FILE_GID FILE_MODE
 for key in "${FILES[@]}"; do
   live="$APP_ROOT/${REL[$key]}"
-  UID[$key]="$(stat -c %u "$live")"
-  GID[$key]="$(stat -c %g "$live")"
-  MODE[$key]="$(stat -c %a "$live")"
+  FILE_UID[$key]="$(stat -c %u "$live")"
+  FILE_GID[$key]="$(stat -c %g "$live")"
+  FILE_MODE[$key]="$(stat -c %a "$live")"
 done
 
 rollback(){
@@ -221,7 +221,7 @@ rollback(){
   systemctl stop "$SERVICE" >/dev/null 2>&1
   for key in "${FILES[@]}"; do
     live="$APP_ROOT/${REL[$key]}"
-    install -D -o "${UID[$key]}" -g "${GID[$key]}" -m "${MODE[$key]}"       "$BACKUP/files/${REL[$key]}" "$live"
+    install -D -o "${FILE_UID[$key]}" -g "${FILE_GID[$key]}" -m "${FILE_MODE[$key]}"       "$BACKUP/files/${REL[$key]}" "$live"
   done
   install -o "$DB_UID" -g "$DB_GID" -m "$DB_MODE" "$BACKUP/auth.db" "$DB"
   systemctl start "$SERVICE" >/dev/null 2>&1
@@ -242,7 +242,7 @@ echo 'SERVICE_STOP_FOR_CONTROLLED_APPLY=PASS'
 
 for key in "${FILES[@]}"; do
   live="$APP_ROOT/${REL[$key]}"
-  install -D -o "${UID[$key]}" -g "${GID[$key]}" -m "${MODE[$key]}" "$STAGE/$key" "$live"
+  install -D -o "${FILE_UID[$key]}" -g "${FILE_GID[$key]}" -m "${FILE_MODE[$key]}" "$STAGE/$key" "$live"
   [ "$(blob "$live")" = "${TARGET[$key]}" ] || { echo "STOP: LIVE_INSTALL_FAIL=$key"; exit 1; }
 done
 echo 'RUNTIME_FILES_INSTALL=PASS'
