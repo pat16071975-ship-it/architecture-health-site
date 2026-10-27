@@ -836,27 +836,6 @@ def _process_period_upload(
             + ", ".join(unknown)
         )
 
-    visit_rows = _visit_direction_rows(prepared["period"], conn)
-    visit_direction_decisions = visit_direction_decisions or {}
-    unknown_visit_ids = sorted(
-        set(visit_direction_decisions)
-        - {str(row.get("visit_id") or "") for row in visit_rows}
-    )
-    if unknown_visit_ids:
-        raise ValueError("В распределении приёмов есть неизвестная строка.")
-
-    unresolved_visits, resolved_visit_directions = _apply_visit_direction_rows(
-        prepared["period"],
-        visit_rows,
-        visit_direction_decisions,
-    )
-    if unresolved_visits:
-        raise ValueError(
-            "Есть приёмы, для которых направление не определено. "
-            "Для каждой строки выберите «Стоматология», «Клиника» "
-            "или «Оставить нераспределённым»."
-        )
-
     service_data = core.ident_import._load_blob("az-service-analytics-v1")
     if not service_data:
         raise ValueError("База «Аналитики услуг» ещё не подготовлена.")
@@ -909,6 +888,33 @@ def _process_period_upload(
             ),
             "data_date": dates[-1],
         }
+
+    visit_rows = _visit_direction_rows(prepared["period"], conn)
+    visit_direction_decisions = visit_direction_decisions or {}
+    all_visit_ids = {str(row.get("visit_id") or "") for row in visit_rows}
+    unknown_visit_ids = sorted(set(visit_direction_decisions) - all_visit_ids)
+    if unknown_visit_ids:
+        raise ValueError("В распределении приёмов есть неизвестная строка.")
+
+    applied_dates = {
+        str(row.get("data_date") or "")
+        for row, _action in changed_rows
+    }
+    effective_visit_rows = [
+        row for row in visit_rows
+        if str(row.get("date") or "") in applied_dates
+    ]
+    unresolved_visits, resolved_visit_directions = _apply_visit_direction_rows(
+        prepared["period"],
+        effective_visit_rows,
+        visit_direction_decisions,
+    )
+    if unresolved_visits:
+        raise ValueError(
+            "Есть приёмы, для которых направление не определено. "
+            "Для каждой строки выберите «Стоматология», «Клиника» "
+            "или «Оставить нераспределённым»."
+        )
 
     backup_path = None
     if apply_new and has_conflict:
@@ -980,7 +986,7 @@ def _process_period_upload(
     conn.execute("BEGIN")
     try:
         new_visit_rows = [
-            row for row in visit_rows
+            row for row in effective_visit_rows
             if str(row.get("visit_id") or "") in visit_direction_decisions
         ]
         if new_visit_rows:
