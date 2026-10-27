@@ -6,7 +6,7 @@
 .viewer-title{margin:0 0 18px;font-size:25px;font-weight:500;letter-spacing:-.02em;line-height:1.3;overflow-wrap:anywhere}
 .viewer-test-note{margin:0 0 16px;padding:11px 13px;border:1px solid #d8cdbb;border-radius:10px;background:#fbf8f2;color:#5f685f;font-size:11px;line-height:1.5}
 .viewer-stage{overflow:hidden;border:1px solid #d8cdbb;border-radius:16px;background:#111;box-shadow:0 10px 28px rgba(37,33,28,.10)}
-.viewer-stage video{display:block;width:100%;max-height:74vh;background:#111}
+.viewer-stage video{display:block;background:#111;transform-origin:center center;will-change:transform}
 .viewer-stage audio{display:block;width:100%;margin:0}
 .viewer-stage iframe{display:block;width:100%;height:74vh;border:0;background:#fff}
 .viewer-stage img{display:block;max-width:100%;max-height:74vh;margin:0 auto;background:#fff}
@@ -15,6 +15,8 @@
 .viewer-speed-btn{min-height:36px;padding:7px 10px;border:1px solid #d8cdbb;border-radius:9px;background:#fff;color:#354039;font:600 11px Montserrat,Arial,sans-serif;cursor:pointer}
 .viewer-speed-btn:hover,.viewer-speed-btn:focus-visible{outline:0;border-color:rgba(68,99,79,.55);background:#fbf8f2;color:#44634f}
 .viewer-speed-btn.active{border-color:#44634f;background:#44634f;color:#fff}
+.viewer-rotate-btn{min-height:36px;padding:7px 12px;border:1px solid #d8cdbb;border-radius:9px;background:#fff;color:#354039;font:600 11px Montserrat,Arial,sans-serif;cursor:pointer}
+.viewer-rotate-btn:hover,.viewer-rotate-btn:focus-visible{outline:0;border-color:rgba(68,99,79,.55);background:#fbf8f2;color:#44634f}
 .viewer-status{margin-top:12px;color:#6c746d;font-size:11px;line-height:1.5}
 .viewer-error{display:none;margin-top:12px;padding:12px 14px;border:1px solid #c98d89;border-radius:10px;background:#fff7f6;color:#7e3d39;font-size:12px;line-height:1.5}
 .viewer-error.visible{display:block}
@@ -65,6 +67,13 @@
           aria-pressed="{{ 'true' if speed == 1 else 'false' }}"
         >{{ speed }}×</button>
       {% endfor %}
+      <button
+        id="videoRotateButton"
+        class="viewer-rotate-btn"
+        type="button"
+        aria-label="Повернуть видео на 90 градусов"
+        title="Повернуть видео на 90°"
+      >↻ Повернуть</button>
     </div>
     <div id="videoStatus" class="viewer-status">Видео загружается с защищённого хранилища.</div>
     <div id="videoError" class="viewer-error">
@@ -76,7 +85,44 @@
       const status = document.getElementById('videoStatus');
       const error = document.getElementById('videoError');
       const speedButtons = Array.from(document.querySelectorAll('[data-playback-rate]'));
-      if (!video || !status || !error) return;
+      const rotateButton = document.getElementById('videoRotateButton');
+      const stage = video.closest('.viewer-stage');
+      let rotation = 0;
+
+      if (!video || !status || !error || !stage) return;
+
+      const fitVideo = () => {
+        if (!video.videoWidth || !video.videoHeight) return;
+        const quarterTurn = rotation % 180 !== 0;
+        const sourceWidth = quarterTurn ? video.videoHeight : video.videoWidth;
+        const sourceHeight = quarterTurn ? video.videoWidth : video.videoHeight;
+        const stageWidth = Math.max(1, stage.clientWidth);
+        const maxHeight = Math.max(220, Math.floor(window.innerHeight * 0.74));
+        const scale = Math.min(stageWidth / sourceWidth, maxHeight / sourceHeight);
+        const renderedWidth = Math.max(1, Math.floor(video.videoWidth * scale));
+        const renderedHeight = Math.max(1, Math.floor(video.videoHeight * scale));
+        const visualHeight = Math.max(1, Math.floor(sourceHeight * scale));
+
+        video.style.width = renderedWidth + 'px';
+        video.style.height = renderedHeight + 'px';
+        video.style.maxHeight = 'none';
+        video.style.transform = 'rotate(' + rotation + 'deg)';
+        stage.style.height = visualHeight + 'px';
+        stage.style.display = 'flex';
+        stage.style.alignItems = 'center';
+        stage.style.justifyContent = 'center';
+      };
+
+      if (rotateButton) {
+        rotateButton.addEventListener('click', () => {
+          rotation = (rotation + 90) % 360;
+          fitVideo();
+          rotateButton.setAttribute('aria-label', 'Повернуть видео на 90 градусов. Сейчас ' + rotation + ' градусов');
+          rotateButton.title = 'Текущий поворот: ' + rotation + '°';
+        });
+      }
+
+      window.addEventListener('resize', fitVideo);
 
       speedButtons.forEach((button) => {
         button.addEventListener('click', () => {
@@ -91,6 +137,7 @@
         });
       });
       video.addEventListener('loadedmetadata', () => {
+        fitVideo();
         status.textContent = 'Видео готово к просмотру.';
         error.classList.remove('visible');
       });
