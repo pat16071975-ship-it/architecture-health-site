@@ -18,8 +18,13 @@ on:
   pull_request:
     paths:
       - 'az-baze-auth/advertising_report.py'
+      - 'az-baze-auth/advertising_mis_bridge.py'
+      - 'az-baze-auth/paid_services_upload.py'
+      - 'az-baze-auth/daily_upload.py'
+      - 'az-baze-auth/completed_upload.py'
       - 'az-baze-auth/report_storage.py'
       - 'az-baze-auth/test_advertising_report.py'
+      - 'az-baze-auth/test_advertising_mis_bridge.py'
       - 'reports/advertising.html'
       - 'reports/advertising.js'
       - 'reports/menu.html'
@@ -35,11 +40,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+      - name: Install runtime test dependencies
+        run: python -m pip install -r az-baze-auth/requirements.txt
       - name: Python syntax and report tests
         working-directory: az-baze-auth
         run: |
           python -m py_compile advertising_report.py advertising_mis_bridge.py paid_services_upload.py daily_upload.py completed_upload.py report_storage.py
-          python -m unittest -v test_advertising_report.py test_advertising_mis_bridge.py test_paid_services.py test_paid_services_periods.py test_completed_upload.py test_upload_consistency_atomic.py
+          python -m unittest -v test_advertising_report.py
+          python -m unittest -v test_advertising_mis_bridge.py
+          python -m unittest -v test_paid_services.py test_paid_services_periods.py test_completed_upload.py test_upload_consistency_atomic.py
       - name: JavaScript syntax
         run: node --check reports/advertising.js
       - name: Approved scope contract
