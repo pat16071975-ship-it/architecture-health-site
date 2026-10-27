@@ -71,8 +71,10 @@ class InstalledSourcePreservationTests(unittest.TestCase):
             'd2e682540f831d5adafd9b19e753a01d53749349',
         )
 
-    def test_template_changes_only_the_three_existing_journal_cells(self):
-        text = (ROOT / 'templates/uploads.html').read_text(encoding='utf-8')
+    def test_template_preserves_journal_contract_and_reconcile_close(self):
+        raw = (ROOT / 'templates/uploads.html').read_bytes()
+        self.assertEqual(git_blob(raw), 'e010b267d7b56dca5122a24a13800b74efdf06fa')
+        text = raw.decode('utf-8')
         changes = [
             ("{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}", "{{ row['data_date'] or '—' }}"),
             ("{% if row['status_text'] %}{{ row['status_text'] }}{% elif row['status']=='imported' %}", "{% if row['status']=='imported' %}"),
@@ -81,10 +83,14 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         for before, after in changes:
             self.assertEqual(text.count(before), 1)
             text = text.replace(before, after)
-        self.assertEqual(git_blob(text.encode()), 'be36446bbeaa82fc9c27769a8cabb24978ec0d36')
         self.assertNotIn('name="period_start"', text)
         self.assertNotIn('name="period_end"', text)
         self.assertIn('expected_overlap_revision', text)
+        self.assertEqual(text.count('id="reconcileClose"'), 1)
+        self.assertIn('aria-label="Закрыть">×</button>', text)
+        self.assertIn("closeBtn?.addEventListener('click',closePreview)", text)
+        self.assertIn("event.key==='Escape'", text)
+        self.assertIn('.reconcile-close{width:44px;height:44px', text)
 
     def test_manual_save_candidate_is_unchanged_by_importer_reconciliation(self):
         for name, sha in {'index.html': 'ebf7ae4d4e5e121f20cff2302206e9a5fc25e350',
