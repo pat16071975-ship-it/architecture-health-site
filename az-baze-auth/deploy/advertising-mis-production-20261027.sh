@@ -358,14 +358,14 @@ PY
       return 1
     }
 
-    case " \${WORKER_UNITS[*]-} " in
+    case " ${WORKER_UNITS[*]-} " in
       *" $unit "*) ;;
       *) WORKER_UNITS+=("$unit") ;;
     esac
   done < "$holder_file"
   rm -f "$holder_file"
 
-  for unit in "\${WORKER_UNITS[@]}"; do
+  for unit in "${WORKER_UNITS[@]}"; do
     echo "STOPPING_DB_WORKER_UNIT=$unit"
     systemctl stop "$unit"
     if systemctl is-active --quiet "$unit"; then
@@ -377,7 +377,7 @@ PY
 }
 
 start_known_db_workers(){
-  for unit in "\${WORKER_UNITS[@]}"; do
+  for unit in "${WORKER_UNITS[@]}"; do
     echo "STARTING_DB_WORKER_UNIT=$unit"
     systemctl start "$unit"
     sleep 1
