@@ -367,6 +367,7 @@ def _load_completed(conn):
             "first_visit": {},
             "counts": {},
             "classification": {},
+            "seen_before_tracking": set(),
         }
 
     coverage = set()
@@ -407,6 +408,13 @@ def _load_completed(conn):
                     counts[visit_date]["repeat"] += 1
 
     latest_lines = _latest_line_facts(conn)
+    seen_before_tracking = {
+        str(row.get("patient_token") or "")
+        for row in latest_lines.values()
+        if str(row.get("patient_token") or "")
+        and str(row.get("service_date") or "")
+        and str(row.get("service_date") or "") < TRACKING_START
+    }
     staff_by_visit = defaultdict(set)
     for row in latest_lines.values():
         service_date = str(row.get("service_date") or "")
@@ -440,6 +448,7 @@ def _load_completed(conn):
         "first_visit": first_visit,
         "counts": dict(counts),
         "classification": classification,
+        "seen_before_tracking": seen_before_tracking,
     }
 
 
@@ -563,8 +572,9 @@ def rebuild(conn, updated_at):
         )
 
     new_by_date = defaultdict(set)
+    seen_before_tracking = completed.get("seen_before_tracking") or set()
     for token, first_date in completed["first_visit"].items():
-        if first_date >= TRACKING_START:
+        if first_date >= TRACKING_START and token not in seen_before_tracking:
             new_by_date[first_date].add(token)
 
     conn.execute(
