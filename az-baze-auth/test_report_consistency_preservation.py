@@ -23,12 +23,53 @@ def git_blob(raw):
 
 
 class InstalledSourcePreservationTests(unittest.TestCase):
-    def test_paid_sources_are_exact_live_versions_not_pr80_replacements(self):
-        expected = {'paid_services.py': '76c1a33de8a711f85139a21aa5f66a48ea96910f',
-                    'paid_services_upload.py': 'd2e682540f831d5adafd9b19e753a01d53749349'}
-        for name, sha in expected.items():
-            with self.subTest(name=name):
-                self.assertEqual(git_blob((ROOT / name).read_bytes()), sha)
+    def test_paid_sources_preserve_installed_behavior_under_advertising_hook(self):
+        self.assertEqual(
+            git_blob((ROOT / 'paid_services.py').read_bytes()),
+            '76c1a33de8a711f85139a21aa5f66a48ea96910f',
+        )
+
+        text = (ROOT / 'paid_services_upload.py').read_text(encoding='utf-8')
+        self.assertEqual(text.count('import advertising_mis_bridge\n'), 1)
+        text = text.replace('import advertising_mis_bridge\n', '', 1)
+
+        hook = '''    advertising_sync = {"status": "skipped"}
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        capture = advertising_mis_bridge.capture_paid_report(
+            conn,
+            report,
+            filename,
+            source_sha,
+            now,
+        )
+        sync = advertising_mis_bridge.rebuild(conn, now)
+        conn.commit()
+        advertising_sync = {"status": "ok", "capture": capture, "sync": sync}
+    except Exception as exc:
+        conn.rollback()
+        advertising_sync = {"status": "error", "error": type(exc).__name__}
+        audit(
+            "advertising_mis_sync_failed",
+            target_user_id=g.user["id"],
+            details=(
+                f"source=paid_services; period={report['period_start']}..{report['period_end']}; "
+                f"error={type(exc).__name__}"
+            ),
+        )
+
+'''
+        self.assertEqual(text.count(hook), 1)
+        text = text.replace(hook, '', 1)
+
+        response_field = '        "advertising_sync": advertising_sync,\n'
+        self.assertEqual(text.count(response_field), 1)
+        text = text.replace(response_field, '', 1)
+
+        self.assertEqual(
+            git_blob(text.encode()),
+            'd2e682540f831d5adafd9b19e753a01d53749349',
+        )
 
     def test_template_changes_only_the_three_existing_journal_cells(self):
         text = (ROOT / 'templates/uploads.html').read_text(encoding='utf-8')
