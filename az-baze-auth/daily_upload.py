@@ -395,28 +395,7 @@ def _split_period(overall, visits, items, lab_invoices):
 def _next_required_date(latest):
     basis = latest["data_date"] if latest else None
     if not basis:
-        visit_rows = _visit_direction_rows(prepared["period"], conn)
-    visit_direction_decisions = visit_direction_decisions or {}
-    unknown_visit_ids = sorted(
-        set(visit_direction_decisions)
-        - {str(row.get("visit_id") or "") for row in visit_rows}
-    )
-    if unknown_visit_ids:
-        raise ValueError("В распределении приёмов есть неизвестная строка.")
-
-    unresolved_visits, resolved_visit_directions = _apply_visit_direction_rows(
-        prepared["period"],
-        visit_rows,
-        visit_direction_decisions,
-    )
-    if unresolved_visits:
-        raise ValueError(
-            "Есть приёмы, для которых направление не определено. "
-            "Для каждой строки выберите «Стоматология», «Клиника» "
-            "или «Оставить нераспределённым»."
-        )
-
-    service_data = core.ident_import._load_blob("az-service-analytics-v1")
+        service_data = core.ident_import._load_blob("az-service-analytics-v1")
         if service_data:
             basis = core._service_through(service_data)
     if not basis:
@@ -855,6 +834,27 @@ def _process_period_upload(
         raise ValueError(
             "Обнаружены новые врачи. Сначала определите направление: "
             + ", ".join(unknown)
+        )
+
+    visit_rows = _visit_direction_rows(prepared["period"], conn)
+    visit_direction_decisions = visit_direction_decisions or {}
+    unknown_visit_ids = sorted(
+        set(visit_direction_decisions)
+        - {str(row.get("visit_id") or "") for row in visit_rows}
+    )
+    if unknown_visit_ids:
+        raise ValueError("В распределении приёмов есть неизвестная строка.")
+
+    unresolved_visits, resolved_visit_directions = _apply_visit_direction_rows(
+        prepared["period"],
+        visit_rows,
+        visit_direction_decisions,
+    )
+    if unresolved_visits:
+        raise ValueError(
+            "Есть приёмы, для которых направление не определено. "
+            "Для каждой строки выберите «Стоматология», «Клиника» "
+            "или «Оставить нераспределённым»."
         )
 
     service_data = core.ident_import._load_blob("az-service-analytics-v1")
