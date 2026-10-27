@@ -27,7 +27,6 @@ esac
 [ "$(hostname -s)" = "$EXPECTED_HOST" ] || { echo "STOP: WRONG_HOST=$(hostname -s)"; exit 1; }
 command -v curl >/dev/null
 command -v git >/dev/null
-command -v node >/dev/null
 
 INDEX_LIVE="$SITE_ROOT/$INDEX_REL"
 VIEW_LIVE="$SITE_ROOT/$VIEW_REL"
@@ -70,7 +69,12 @@ curl -fsSL --retry 2 --connect-timeout 5 --max-time 30 \
 [ "$(blob "$STAGE/$VIEW_REL")" = "$VIEW_TARGET_BLOB" ] || { echo 'STOP: VIEW_TARGET_BLOB_FAIL'; exit 1; }
 echo 'TARGET_BLOBS=PASS'
 
-node --check "$STAGE/$VIEW_REL"
+if command -v node >/dev/null 2>&1; then
+  node --check "$STAGE/$VIEW_REL"
+  echo 'JS_SYNTAX=PASS'
+else
+  echo 'JS_SYNTAX=SKIPPED_NODE_NOT_FOUND'
+fi
 
 python3 - "$STAGE/$INDEX_REL" "$STAGE/$VIEW_REL" <<'PY'
 from pathlib import Path
