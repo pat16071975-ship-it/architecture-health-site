@@ -280,20 +280,15 @@ def _doctor_attribution(visits, items):
         if not candidates:
             continue
 
-        representatives = []
-        seen_departments = set()
-        for department, staff in candidates:
-            if department in seen_departments:
-                continue
-            representatives.append((department, staff))
-            seen_departments.add(department)
+        directions = {department for department, _staff in candidates}
+        if len(directions) != 1:
+            # Several directions for the same patient/day are ambiguous.
+            # Never guess from row order; the operator resolves those visits.
+            continue
 
-        assignments = representatives[: len(kinds)]
-        while len(assignments) < len(kinds):
-            assignments.append(candidates[0])
-
+        staff = candidates[0][1]
         data_date = key[0]
-        for kind, (_department, staff) in zip(kinds, assignments):
+        for kind in kinds:
             doctors[data_date][kind][staff] += 1
 
     return doctors
@@ -490,6 +485,169 @@ def _comparison_counts(comparison):
     }
 
 
+def _patient_token(value):
+    key = _person_key(value)
+    if not key:
+        return ""
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def _visit_id(data_date, patient, kind, occurrence):
+    key = _person_key(patient)
+    raw = f"{data_date}|{key}|{kind}|{int(occurrence)}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _visit_direction_rows(period, conn):
+    overrides = upload_reconcile.visit_direction_overrides(conn)
+    self_direction = {}
+    for short, full in core.ident_import.DENTISTS.items():
+        self_direction[_person_key(short)] = "dent"
+        self_direction[_person_key(full)] = "dent"
+    for short, full in core.ident_import.STRUCTURE_DOCTORS.items():
+        self_direction[_person_key(short)] = "structure"
+        self_direction[_person_key(full)] = "structure"
+
+    result = []
+    for period_row in period or []:
+        data_date = str(period_row.get("data_date") or "")
+        normalized = period_row.get("normalized") or {}
+        items = normalized.get("items") or []
+        visits = normalized.get("visits") or []
+
+        evidence_by_patient = defaultdict(list)
+        directions_by_patient = defaultdict(set)
+        for item in items:
+            if str(item.get("date") or "") != data_date:
+                continue
+            key = _person_key(item.get("patient"))
+            if not key:
+                continue
+            staff = str(item.get("staff") or "")
+            direction = None
+            if staff in core.ident_import.DENTISTS:
+                direction = "dent"
+            elif staff in core.ident_import.STRUCTURE_DOCTORS:
+                direction = "structure"
+            if direction:
+                directions_by_patient[key].add(direction)
+
+            evidence = {
+                "staff": staff,
+                "service": str(item.get("service") or ""),
+                "amount": round(float(item.get("amount") or 0), 2),
+            }
+            if evidence not in evidence_by_patient[key]:
+                evidence_by_patient[key].append(evidence)
+
+        occurrences = defaultdict(int)
+        for visit in visits:
+            if str(visit.get("date") or "") != data_date:
+                continue
+            patient = str(visit.get("patient") or "").strip()
+            person_key = _person_key(patient)
+            kind = str(visit.get("kind") or "").strip()
+            if not person_key or not kind:
+                continue
+            occurrence_key = (person_key, kind)
+            occurrences[occurrence_key] += 1
+            occurrence = occurrences[occurrence_key]
+
+            directions = set(directions_by_patient.get(person_key) or set())
+            if not directions and person_key in self_direction:
+                directions.add(self_direction[person_key])
+
+            # Exactly one direction is safe and automatic. Zero or several
+            # directions require an explicit operator decision.
+            if len(directions) == 1:
+                continue
+
+            visit_id = _visit_id(data_date, patient, kind, occurrence)
+            saved = overrides.get(visit_id) or {}
+            result.append(
+                {
+                    "visit_id": visit_id,
+                    "date": data_date,
+                    "patient": patient,
+                    "patient_token": _patient_token(patient),
+                    "kind": kind,
+                    "occurrence": occurrence,
+                    "candidate_directions": sorted(directions),
+                    "evidence": evidence_by_patient.get(person_key, [])[:8],
+                    "saved_direction": str(saved.get("direction") or ""),
+                }
+            )
+    return result
+
+
+def _apply_visit_direction_rows(period, visit_rows, decisions=None):
+    decisions = decisions or {}
+    rows_by_date = {
+        str(row.get("data_date") or ""): row
+        for row in (period or [])
+    }
+    unresolved = []
+    resolved = {}
+
+    for period_row in period or []:
+        normalized = period_row.get("normalized") or {}
+        normalized["manual_direction_counts"] = {
+            "dent": {},
+            "structure": {},
+        }
+        normalized["manual_visit_directions"] = []
+
+    for row in visit_rows or []:
+        visit_id = str(row.get("visit_id") or "")
+        direction = str(decisions.get(visit_id) or row.get("saved_direction") or "")
+        if direction not in {"dent", "structure", "unassigned"}:
+            unresolved.append(row)
+            continue
+
+        resolved[visit_id] = direction
+        target = rows_by_date.get(str(row.get("date") or ""))
+        if not target:
+            raise ValueError("Не удалось сопоставить нераспределённый приём с датой.")
+        normalized = target.get("normalized") or {}
+        normalized.setdefault("manual_visit_directions", []).append(
+            {
+                "visit_id": visit_id,
+                "direction": direction,
+                "kind": str(row.get("kind") or ""),
+                "occurrence": int(row.get("occurrence") or 0),
+            }
+        )
+        if direction in {"dent", "structure"}:
+            counts = normalized.setdefault(
+                "manual_direction_counts",
+                {"dent": {}, "structure": {}},
+            ).setdefault(direction, {})
+            kind = str(row.get("kind") or "")
+            counts[kind] = int(counts.get(kind) or 0) + 1
+
+    return unresolved, resolved
+
+
+def _visit_direction_decisions_from_form():
+    raw = request.form.get("visit_direction_decisions", "").strip()
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Не удалось прочитать распределение приёмов по направлениям.") from exc
+    if not isinstance(value, dict):
+        raise ValueError("Некорректное распределение приёмов по направлениям.")
+    clean = {}
+    for visit_id, direction in value.items():
+        key = str(visit_id or "").strip()
+        choice = str(direction or "").strip()
+        if not key or choice not in {"dent", "structure", "unassigned"}:
+            raise ValueError("Для каждого нераспределённого приёма выберите направление.")
+        clean[key] = choice
+    return clean
+
+
 def _period_preview(completed_file, services_file):
     perms = user_permissions(g.user)
     if "upload_completed" not in perms or "upload_services" not in perms:
@@ -525,6 +683,11 @@ def _period_preview(completed_file, services_file):
         conn.commit()
 
     counts = _comparison_counts(comparison)
+    visit_rows = _visit_direction_rows(prepared["period"], conn)
+    unresolved_visits = [
+        row for row in visit_rows
+        if not row.get("saved_direction")
+    ]
     return {
         "status": "preview",
         "period": {
@@ -541,6 +704,8 @@ def _period_preview(completed_file, services_file):
         "source_gaps": prepared.get("source_gaps") or {"completed_only": [], "revenue_only": []},
         "requires_choice": _comparison_has_conflict(comparison),
         "requires_provider_mapping": bool(unknown),
+        "requires_review": bool(unresolved_visits),
+        "unassigned_visits": unresolved_visits,
         "can_replace": "upload_replace" in perms,
     }
 
@@ -613,7 +778,13 @@ def _archive_and_remove_missing_daily(conn, comparison, actor_id):
         conn.execute("DELETE FROM daily_uploads WHERE data_date=?", (data_date,))
 
 
-def _process_period_upload(completed_file, services_file, decision=None, provider_decisions=None):
+def _process_period_upload(
+    completed_file,
+    services_file,
+    decision=None,
+    provider_decisions=None,
+    visit_direction_decisions=None,
+):
     perms = user_permissions(g.user)
     if "upload_completed" not in perms or "upload_services" not in perms:
         abort(403)
@@ -718,6 +889,33 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
             "data_date": dates[-1],
         }
 
+    visit_rows = _visit_direction_rows(prepared["period"], conn)
+    visit_direction_decisions = visit_direction_decisions or {}
+    all_visit_ids = {str(row.get("visit_id") or "") for row in visit_rows}
+    unknown_visit_ids = sorted(set(visit_direction_decisions) - all_visit_ids)
+    if unknown_visit_ids:
+        raise ValueError("В распределении приёмов есть неизвестная строка.")
+
+    applied_dates = {
+        str(row.get("data_date") or "")
+        for row, _action in changed_rows
+    }
+    effective_visit_rows = [
+        row for row in visit_rows
+        if str(row.get("date") or "") in applied_dates
+    ]
+    unresolved_visits, resolved_visit_directions = _apply_visit_direction_rows(
+        prepared["period"],
+        effective_visit_rows,
+        visit_direction_decisions,
+    )
+    if unresolved_visits:
+        raise ValueError(
+            "Есть приёмы, для которых направление не определено. "
+            "Для каждой строки выберите «Стоматология», «Клиника» "
+            "или «Оставить нераспределённым»."
+        )
+
     backup_path = None
     if apply_new and has_conflict:
         backup_path = upload_reconcile.create_db_backup("clinical-reimport")
@@ -787,6 +985,24 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
     source = f"AZ-BAZE period: {services_name} + {completed_name}"
     conn.execute("BEGIN")
     try:
+        new_visit_rows = [
+            row for row in effective_visit_rows
+            if str(row.get("visit_id") or "") in visit_direction_decisions
+        ]
+        if new_visit_rows:
+            if "upload_replace" not in perms:
+                abort(403)
+            upload_reconcile.save_visit_direction_overrides(
+                conn,
+                {
+                    str(row.get("visit_id") or ""): resolved_visit_directions[
+                        str(row.get("visit_id") or "")
+                    ]
+                    for row in new_visit_rows
+                },
+                new_visit_rows,
+                g.user["id"],
+            )
         if historical_replace:
             old_rows = conn.execute(
                 """
@@ -1082,6 +1298,7 @@ def register_daily_upload(app):
                 services,
                 decision=request.form.get("decision") or None,
                 provider_decisions=_provider_decisions_from_form(),
+                visit_direction_decisions=_visit_direction_decisions_from_form(),
             )
             result["advertising_sync"] = _refresh_advertising_mis()
             return jsonify(result)

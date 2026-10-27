@@ -11,9 +11,11 @@ import unittest
 from unittest.mock import patch
 
 import app as app_core
+import daily_upload
 import paid_services_upload as uploads
 import test_paid_services_periods as fixtures
 import upload_history
+import upload_reconcile
 
 ROOT = Path(__file__).resolve().parent
 
@@ -26,7 +28,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
     def test_paid_sources_preserve_installed_behavior_under_advertising_hook(self):
         self.assertEqual(
             git_blob((ROOT / 'paid_services.py').read_bytes()),
-            '76c1a33de8a711f85139a21aa5f66a48ea96910f',
+            '6aadd5b5e1464d027425d163b4b47fe718ddd589',
         )
 
         text = (ROOT / 'paid_services_upload.py').read_text(encoding='utf-8')
@@ -73,7 +75,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
 
     def test_template_preserves_journal_contract_and_reconcile_close(self):
         raw = (ROOT / 'templates/uploads.html').read_bytes()
-        self.assertEqual(git_blob(raw), 'd0ecaec2d569c61bec113e30fde63de90ec3b6fe')
+        self.assertEqual(git_blob(raw), '63a7e261c71d8695649d7e8aa7d55e20edd0dd1c')
         text = raw.decode('utf-8')
         changes = [
             ("{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}", "{{ row['data_date'] or '—' }}"),
@@ -91,6 +93,105 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         self.assertIn("closeBtn?.addEventListener('click',closePreview)", text)
         self.assertIn("event.key==='Escape'", text)
         self.assertIn('.reconcile-close{width:44px;height:44px', text)
+        self.assertIn('Есть конкретные приёмы, для которых направление определить нельзя', text)
+        self.assertIn('payload.unassigned_visits||[]', text)
+        self.assertIn('data-visit-direction', text)
+        self.assertIn('Оставить нераспределённым', text)
+        self.assertIn('visit_direction_decisions', text)
+
+    def test_clinical_preview_builds_patient_level_direction_rows_and_persists_choice(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        self.addCleanup(conn.close)
+        upload_reconcile.init_schema(conn)
+
+        period = [
+            {
+                "data_date": "2026-10-26",
+                "normalized": {
+                    "overall": {"2026-10-26": {"Повторные": 2}},
+                    "visits": [
+                        {"date": "2026-10-26", "patient": "Иванов И. И.", "kind": "Повторные"},
+                        {"date": "2026-10-26", "patient": "Петров П. П.", "kind": "Повторные"},
+                    ],
+                    "items": [],
+                    "doctors": {"2026-10-26": {}},
+                },
+            }
+        ]
+        rows = daily_upload._visit_direction_rows(period, conn)
+        self.assertEqual([row["patient"] for row in rows], ["Иванов И. И.", "Петров П. П."])
+        decisions = {
+            rows[0]["visit_id"]: "structure",
+            rows[1]["visit_id"]: "unassigned",
+        }
+        unresolved, resolved = daily_upload._apply_visit_direction_rows(
+            period, rows, decisions
+        )
+        self.assertEqual(unresolved, [])
+        self.assertEqual(resolved, decisions)
+        self.assertEqual(
+            period[0]["normalized"]["manual_direction_counts"]["structure"]["Повторные"],
+            1,
+        )
+        upload_reconcile.save_visit_direction_overrides(
+            conn, decisions, rows, actor_id=7
+        )
+        conn.commit()
+        again = daily_upload._visit_direction_rows(
+            [
+                {
+                    "data_date": "2026-10-26",
+                    "normalized": {
+                        "overall": {"2026-10-26": {"Повторные": 2}},
+                        "visits": [
+                            {"date": "2026-10-26", "patient": "Иванов И. И.", "kind": "Повторные"},
+                            {"date": "2026-10-26", "patient": "Петров П. П.", "kind": "Повторные"},
+                        ],
+                        "items": [],
+                        "doctors": {"2026-10-26": {}},
+                    },
+                }
+            ],
+            conn,
+        )
+        self.assertEqual(
+            [row["saved_direction"] for row in again],
+            ["structure", "unassigned"],
+        )
+
+    def test_visit_direction_override_rollback_is_atomic(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        self.addCleanup(conn.close)
+        upload_reconcile.init_schema(conn)
+        row = {
+            "visit_id": "synthetic-visit",
+            "date": "2026-10-26",
+            "patient_token": "token",
+            "kind": "Повторные",
+            "occurrence": 1,
+        }
+        conn.execute("BEGIN")
+        upload_reconcile.save_visit_direction_overrides(
+            conn,
+            {"synthetic-visit": "structure"},
+            [row],
+            actor_id=7,
+        )
+        self.assertEqual(
+            conn.execute(
+                "SELECT COUNT(*) FROM clinical_visit_direction_overrides"
+            ).fetchone()[0],
+            1,
+        )
+        conn.rollback()
+        self.assertEqual(
+            conn.execute(
+                "SELECT COUNT(*) FROM clinical_visit_direction_overrides"
+            ).fetchone()[0],
+            0,
+        )
 
     def test_manual_save_candidate_is_unchanged_by_importer_reconciliation(self):
         for name, sha in {'index.html': 'ea68923b8eaf5ac1354c807290fd97ab1a589b55',
