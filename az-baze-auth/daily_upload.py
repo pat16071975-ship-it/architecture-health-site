@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from flask import abort, g, jsonify, redirect, render_template, request, url_for
 
 import daily_upload_core as core
+import advertising_mis_bridge
 import cash_payments
 import paid_services
 import upload_reconcile
@@ -997,6 +998,24 @@ def _process_period_upload(completed_file, services_file, decision=None, provide
         "backup": backup_path,
     }
 
+def _refresh_advertising_mis():
+    conn = core.db()
+    now = core.iso_now()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        result = advertising_mis_bridge.rebuild(conn, now)
+        conn.commit()
+        return {"status": "ok", "sync": result}
+    except Exception as exc:
+        conn.rollback()
+        core.audit(
+            "advertising_mis_sync_failed",
+            target_user_id=g.user["id"],
+            details=f"source=clinical; error={type(exc).__name__}",
+        )
+        return {"status": "error", "error": type(exc).__name__}
+
+
 def register_daily_upload(app):
     core._init_schema()
 
@@ -1064,6 +1083,7 @@ def register_daily_upload(app):
                 decision=request.form.get("decision") or None,
                 provider_decisions=_provider_decisions_from_form(),
             )
+            result["advertising_sync"] = _refresh_advertising_mis()
             return jsonify(result)
         except ValueError as exc:
             return jsonify({"status": "error", "message": str(exc)}), 409

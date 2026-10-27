@@ -2,6 +2,7 @@ import hashlib
 import json
 from flask import abort, g, jsonify, request
 
+import advertising_mis_bridge
 import cash_payments
 import daily_upload
 import daily_upload_core as core
@@ -438,6 +439,24 @@ def _commit(decision=None):
     }
 
 
+def _refresh_advertising_mis():
+    conn = db()
+    now = iso_now()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        result = advertising_mis_bridge.rebuild(conn, now)
+        conn.commit()
+        return {"status": "ok", "sync": result}
+    except Exception as exc:
+        conn.rollback()
+        audit(
+            "advertising_mis_sync_failed",
+            target_user_id=g.user["id"],
+            details=f"source=completed; error={type(exc).__name__}",
+        )
+        return {"status": "error", "error": type(exc).__name__}
+
+
 def register_completed_upload(app):
     @app.post("/api/uploads/completed/preview")
     @permission_required("section5")
@@ -453,6 +472,8 @@ def register_completed_upload(app):
     def completed_upload_commit():
         require_csrf()
         try:
-            return jsonify(_commit(request.form.get("decision") or None))
+            result = _commit(request.form.get("decision") or None)
+            result["advertising_sync"] = _refresh_advertising_mis()
+            return jsonify(result)
         except ValueError as exc:
             return jsonify({"status": "error", "message": str(exc)}), 409
