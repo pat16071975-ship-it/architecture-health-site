@@ -206,7 +206,8 @@ def visit_direction_overrides(conn, visit_ids=None):
 
 
 def save_visit_direction_overrides(conn, decisions, visit_rows, actor_id):
-    init_schema(conn)
+    # Schema is initialized before the caller starts its write transaction.
+    # Do not call executescript() here: it could implicitly commit that transaction.
     allowed = {"dent", "structure", "unassigned"}
     rows_by_id = {
         str(row.get("visit_id") or ""): row
