@@ -68,7 +68,7 @@ text=Path(sys.argv[1]).read_text(encoding='utf-8')
 needle="if(dates.length)$('#reportDate').value=dates[dates.length-1];$('#reportDate').dispatchEvent(new Event('change'))}catch(error)"
 assert text.count(needle)==1
 assert "SELECT date, payload FROM report_data ORDER BY date" in text
-assert "record["plan"] = monthly_plans[month]" in text
+assert 'record["plan"] = monthly_plans[month]' in text
 print('DATE_SYNC_CONTRACT=PASS')
 PY
 
