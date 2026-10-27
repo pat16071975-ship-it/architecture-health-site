@@ -3,6 +3,7 @@ import json
 
 from flask import abort, g, jsonify, request
 
+import advertising_mis_bridge
 import cash_payments
 import ident_import
 import paid_services
@@ -315,6 +316,31 @@ def _commit(decision=None):
     if providers_changed:
         upload_reconcile.refresh_runtime(conn, ident_import, cash_payments)
 
+    advertising_sync = {"status": "skipped"}
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        capture = advertising_mis_bridge.capture_paid_report(
+            conn,
+            report,
+            filename,
+            source_sha,
+            now,
+        )
+        sync = advertising_mis_bridge.rebuild(conn, now)
+        conn.commit()
+        advertising_sync = {"status": "ok", "capture": capture, "sync": sync}
+    except Exception as exc:
+        conn.rollback()
+        advertising_sync = {"status": "error", "error": type(exc).__name__}
+        audit(
+            "advertising_mis_sync_failed",
+            target_user_id=g.user["id"],
+            details=(
+                f"source=paid_services; period={report['period_start']}..{report['period_end']}; "
+                f"error={type(exc).__name__}"
+            ),
+        )
+
     audit(
         "paid_services_stored",
         target_user_id=g.user["id"],
@@ -336,6 +362,7 @@ def _commit(decision=None):
         "summary": summary,
         "rows": 0,
         "backup": backup,
+        "advertising_sync": advertising_sync,
     }
 
 
