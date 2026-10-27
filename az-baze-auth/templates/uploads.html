@@ -385,6 +385,11 @@
           if(revenueOnly.length)parts.push('только в «Выручке по направлениям»: '+revenueOnly.length);
           message.innerHTML+='<br><strong>Разница дат между источниками допустима:</strong> '+esc(parts.join('; '))+'. Для отсутствующего источника за такую дату используется 0.';
         }
+        const unassigned=payload.unassigned_visits||[];
+        if(unassigned.length){
+          message.innerHTML+='<br><strong>Есть приёмы, для которых направление определить нельзя. Общий счёт приёмов будет сохранён полностью, но эти визиты не будут самовольно отнесены к стоматологии или клинике:</strong>'+
+            unassigned.map(item=>'<br>• '+esc(item.date)+': первичных '+esc(item.primary||0)+', повторных '+esc(item.repeat||0)).join('');
+        }
       }
     }
 
