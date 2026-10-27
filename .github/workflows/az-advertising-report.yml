@@ -1,11 +1,16 @@
 name: AZ advertising report
 on:
   push:
-    branches: ['feature/az-advertising-report-v1-20261026']
+    branches: ['feature/az-advertising-report-v1-20261026', 'feature/az-advertising-mis-bridge-20261027']
     paths:
       - 'az-baze-auth/advertising_report.py'
+      - 'az-baze-auth/advertising_mis_bridge.py'
+      - 'az-baze-auth/paid_services_upload.py'
+      - 'az-baze-auth/daily_upload.py'
+      - 'az-baze-auth/completed_upload.py'
       - 'az-baze-auth/report_storage.py'
       - 'az-baze-auth/test_advertising_report.py'
+      - 'az-baze-auth/test_advertising_mis_bridge.py'
       - 'reports/advertising.html'
       - 'reports/advertising.js'
       - 'reports/menu.html'
@@ -33,8 +38,8 @@ jobs:
       - name: Python syntax and report tests
         working-directory: az-baze-auth
         run: |
-          python -m py_compile advertising_report.py report_storage.py
-          python -m unittest -v test_advertising_report.py
+          python -m py_compile advertising_report.py advertising_mis_bridge.py paid_services_upload.py daily_upload.py completed_upload.py report_storage.py
+          python -m unittest -v test_advertising_report.py test_advertising_mis_bridge.py test_paid_services.py test_paid_services_periods.py test_completed_upload.py test_upload_consistency_atomic.py
       - name: JavaScript syntax
         run: node --check reports/advertising.js
       - name: Approved scope contract
