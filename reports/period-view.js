@@ -250,7 +250,7 @@
 
   const toolbar=document.querySelector('.toolbar'),actions=toolbar?.querySelector('.toolbar-actions'),saveBtn=document.getElementById('saveBtn');
   if(saveBtn)saveBtn.classList.add('hidden');
-  const dateViewField=document.createElement('div');dateViewField.className='field date-view-field';dateViewField.id='dateViewField';dateViewField.innerHTML='<label>Просмотр</label><select id="dateViewMode"><option value="single">Одна дата</option><option value="compare">На эту дату по месяцам</option></select>';
+  const dateViewField=document.createElement('div');dateViewField.className='field date-view-field';dateViewField.id='dateViewField';dateViewField.innerHTML='<label>Просмотр</label><select id="dateViewMode"><option value="single">Одна дата</option><option value="compare" selected>На эту дату по месяцам</option></select>';
   const compareRangeField=document.createElement('div');compareRangeField.className='field compare-range-field hidden';compareRangeField.id='compareRangeField';compareRangeField.innerHTML='<label>Период сравнения</label><select id="compareRange"><option value="ytd">С начала года</option><option value="q1">1 квартал</option><option value="q2">2 квартал</option><option value="q3">3 квартал</option><option value="q4">4 квартал</option><option value="h1">1 полугодие</option><option value="h2">2 полугодие</option><option value="year">Весь год</option></select>';
   if(toolbar&&actions){toolbar.insertBefore(dateViewField,actions);toolbar.insertBefore(compareRangeField,actions)}
   const entryBtn=document.createElement('button');entryBtn.id='entryBtn';entryBtn.className='btn primary entry-btn';entryBtn.textContent='Заполнить данные за день';
