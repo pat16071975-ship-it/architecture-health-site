@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch
 
 import app as app_core
+import daily_upload
 import paid_services_upload as uploads
 import test_paid_services_periods as fixtures
 import upload_history
@@ -91,6 +92,41 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         self.assertIn("closeBtn?.addEventListener('click',closePreview)", text)
         self.assertIn("event.key==='Escape'", text)
         self.assertIn('.reconcile-close{width:44px;height:44px', text)
+        self.assertIn('Есть приёмы, для которых направление определить нельзя', text)
+        self.assertIn('payload.unassigned_visits||[]', text)
+        self.assertIn('не будут самовольно отнесены к стоматологии или клинике', text)
+
+    def test_clinical_preview_flags_unassigned_direction_visits(self):
+        period = [
+            {
+                "data_date": "2026-10-25",
+                "normalized": {
+                    "overall": {
+                        "2026-10-25": {
+                            "Повторные": 7,
+                            "Отконсультированные": 1,
+                        }
+                    },
+                    "doctors": {
+                        "2026-10-25": {
+                            "Повторные": {"Dent D.": 6, "Struct S.": 1},
+                            "Отконсультированные": {"Struct S.": 1},
+                        }
+                    },
+                },
+            },
+            {
+                "data_date": "2026-10-26",
+                "normalized": {
+                    "overall": {"2026-10-26": {"Повторные": 2}},
+                    "doctors": {"2026-10-26": {}},
+                },
+            },
+        ]
+        self.assertEqual(
+            daily_upload._unassigned_visit_summary(period),
+            [{"date": "2026-10-26", "primary": 0, "repeat": 2, "total": 2}],
+        )
 
     def test_manual_save_candidate_is_unchanged_by_importer_reconciliation(self):
         for name, sha in {'index.html': 'ea68923b8eaf5ac1354c807290fd97ab1a589b55',
