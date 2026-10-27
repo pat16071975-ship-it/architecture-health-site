@@ -157,7 +157,7 @@ class PaidServicesTests(unittest.TestCase):
                 "visits": [{"date": "2026-09-02", "patient": p2, "kind": "Повторные"}],
             },
         ]
-        record = {"date": "2026-09-02"}
+        record = {"date": "2026-09-02", "primary": 1, "repeat": 1}
         paid_services.apply_visit_attribution(
             record,
             snapshot,
@@ -193,7 +193,7 @@ class PaidServicesTests(unittest.TestCase):
                 ],
             },
         ]
-        record = {"date": "2026-09-01"}
+        record = {"date": "2026-09-01", "primary": 2, "repeat": 0}
         paid_services.apply_visit_attribution(
             record,
             snapshot,
@@ -208,6 +208,43 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(record["paidVisitMatched"], 1)
         self.assertEqual(record["paidVisitUnmatched"], 1)
         self.assertEqual(record["_uploadControl"]["unassignedPrimary"], 1)
+
+    def test_paid_attribution_never_overwrites_general_completed_visit_totals(self):
+        patient = "Alpha A."
+        snapshot = {
+            "visit_links": {
+                "2026-10-26|" + paid_services._patient_token(patient): ["Struct S."],
+            },
+            "invoices": [],
+        }
+        rows = [
+            {
+                "data_date": "2026-10-26",
+                "overall": {"2026-10-26": {"Повторные": 2}},
+                "visits": [
+                    {"date": "2026-10-26", "patient": patient, "kind": "Повторные"},
+                    {"date": "2026-10-26", "patient": "Missing M.", "kind": "Повторные"},
+                ],
+            },
+        ]
+        record = {
+            "date": "2026-10-26",
+            "primary": 49,
+            "repeat": 355,
+        }
+        paid_services.apply_visit_attribution(
+            record,
+            snapshot,
+            rows,
+            {},
+            {"Struct S.": "Врач клиники"},
+            {},
+        )
+        self.assertEqual(record["primary"], 49)
+        self.assertEqual(record["repeat"], 355)
+        self.assertEqual(record["clinicRepeat"], 1)
+        self.assertEqual(record["_uploadControl"]["sourceRepeat"], 2)
+        self.assertEqual(record["_uploadControl"]["unassignedRepeat"], 1)
 
     def test_direction_summary_uses_paid_not_billed_and_keeps_unknown_separate(self):
         parsed = paid_services.parse_bytes(self.reference_report(), "paid.xlsx", known_staff={"Старшийадминистратор -."})
