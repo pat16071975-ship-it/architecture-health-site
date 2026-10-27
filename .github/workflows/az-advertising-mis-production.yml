@@ -19,4 +19,15 @@ jobs:
         run: |
           bash -n az-baze-auth/deploy/advertising-mis-production-20261027.sh
           python -m py_compile az-baze-auth/advertising_mis_bridge.py
+          python - <<'PY'
+          from pathlib import Path
+          text=Path('az-baze-auth/deploy/advertising-mis-production-20261027.sh').read_text(encoding='utf-8')
+          assert r'\\${WORKER_UNITS' not in text
+          assert 'for unit in "${WORKER_UNITS[@]}"; do' in text
+          assert 'validate_known_db_worker_units' in text
+          assert 'KNOWN_DB_WORKER_PREFLIGHT=PASS' in text
+          assert 'UNKNOWN_DB_HOLDER_PID' in text
+          assert 'kill -9' not in text
+          print('WORKER_CONTROL_CONTRACT=PASS')
+          PY
           echo PACKAGE_CHECK=PASS
