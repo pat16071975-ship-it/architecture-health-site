@@ -17,7 +17,7 @@ button,input,select{font:inherit}.page{width:min(1240px,96vw);margin:0 auto;padd
 .quick{grid-column:1/-1;display:flex;gap:7px;flex-wrap:wrap}.chip{border:1px solid var(--line2);background:#fff;border-radius:5px;padding:6px 11px;font-size:13px;color:var(--text);cursor:pointer}
 .section-title{margin:17px 0 8px;color:var(--green);font-size:17px;font-weight:600}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px;box-shadow:0 6px 18px rgba(71,58,38,.055)}
 .card .name{font-size:13px;color:var(--text);font-weight:600;line-height:1.35}.card .value{margin-top:7px;font-size:27px;line-height:1;font-weight:700;letter-spacing:-.035em}.card .extra{margin-top:7px;color:var(--muted);font-size:11.5px;line-height:1.45}
-.crm-note{margin-top:9px;padding:13px 14px;border:1px solid #ddcfb6;border-left:4px solid var(--gold);border-radius:7px;background:#fffaf0;color:#5f503a;font-size:13px;line-height:1.5}
+.crm-missing{font-size:14px!important;line-height:1.35!important;letter-spacing:0!important;color:var(--warn);font-weight:600!important}
 .activity{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.activity .card{display:flex;align-items:center;justify-content:space-between;gap:14px}.activity .value{margin:0}.activity .money{font-size:14px;color:var(--muted);font-weight:600;text-align:right}
 .revenue-hero{border-left:5px solid var(--green);background:#fffdf8}.revenue-hero .value{font-size:38px;color:var(--green)}.revenue-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
 .revenue-note{margin-top:8px;padding:10px 12px;background:var(--soft2);border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:11.5px;line-height:1.5}
@@ -52,8 +52,8 @@ button,input,select{font:inherit}.page{width:min(1240px,96vw);margin:0 auto;padd
     <div class="card"><div class="name">Посещения сайта</div><div class="value" id="siteVisits">—</div><div class="extra">Тестовая UTM metrika_test исключается из рабочих KPI.</div></div>
     <div class="card"><div class="name">Визиты с открытием записи</div><div class="value" id="bookingOpen">—</div><div class="extra" id="bookingOpenExtra"></div></div>
     <div class="card"><div class="name">Визиты с переходом в Medflex</div><div class="value" id="medflexVisits">—</div><div class="extra" id="medflexExtra">Это действие на сайте, а не подтверждённый лид.</div></div>
+    <div class="card"><div class="name">Целевые лиды</div><div class="value crm-missing" id="targetLeads">—</div><div class="extra" id="targetLeadsExtra"></div></div>
   </section>
-  <div class="crm-note" id="crmNote">Не хватает данных CRM для построения отчёта.</div>
 
   <h2 class="section-title">Работа клиники за период</h2>
   <section class="activity" id="activity"></section>
@@ -91,6 +91,6 @@ button,input,select{font:inherit}.page{width:min(1240px,96vw);margin:0 auto;padd
 
   <div class="freshness" id="freshness"></div>
 </main>
-<script src="/reports/advertising.js?v=20261028-2"></script>
+<script src="/reports/advertising.js?v=20261028-3"></script>
 </body>
 </html>
