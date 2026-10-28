@@ -15,16 +15,21 @@ const part = (source, start, end) => {
 const inline = html.match(/<script>\s*([\s\S]*?)<\/script>/)[1].replace(/\ninit\(\);\s*$/, '');
 new vm.Script(inline);
 new vm.Script(view);
-for (const [start, end, expected] of [
-  ['function derive(r){', 'function inputMetric(', '72c475992e2afdd8e9f0631b0425929a9ddc33cb9ff33aafdb5d063003ffbd48'],
-  ['function aggregate(rows){', 'function renderPeriod(', '88456e5235077731634f22462f2983144871ac421c7691b7210d75056f92fc46'],
-  ['function collectRecord(){', 'function refreshAutos(', 'f512bdf6430e1be0f520d3bbc9178d557613271e1c197464a9c7466dea5d6396'],
-]) assert.equal(createHash('sha256').update(part(html, start, end)).digest('hex'), expected, `${start} must remain unchanged`);
+assert(html.includes('avgCheck:paidPatients?fm/paidPatients:null'), 'Medicine average check must use paid patients.');
+assert(html.includes('dentAvg:paidDentPatients?dentRev/paidDentPatients:null'), 'Dentistry average check must use paid patients.');
+assert(html.includes('clinicAvg:paidClinicPatients?clinicRev/paidClinicPatients:null'), 'Clinic average check must use paid patients.');
+assert(html.includes("'paidPatients','paidDentPatients','paidClinicPatients'"), 'Period aggregation must carry paid-patient counts.');
+assert(html.includes('out.paidPatientEvidenceComplete=rows.every'), 'Incomplete payer evidence must stay unavailable.');
+assert.equal(
+  createHash('sha256').update(part(html, 'function collectRecord(){', 'function refreshAutos(')).digest('hex'),
+  'f512bdf6430e1be0f520d3bbc9178d557613271e1c197464a9c7466dea5d6396',
+  'Manual input collection must remain unchanged'
+);
 for (const [start, end, expected] of [
   ['  function periodData(def,year){', '  function doctorPeriodData(', '55d442c0ae415edfd250e9ec3587b4390274aee149f53337434e9e204fea6305'],
   ['  function addDateMetric(', '  function addDateDoctorMetric(', '1963e92a0001c721a7319a5eaf3c201bb65dba1fd0cd6457bd496a6e5e68f34d'],
 ]) assert.equal(createHash('sha256').update(part(view, start, end)).digest('hex'), expected, `${start} must retain its original contract`);
-assert(html.includes('./period-view.js?v=20261027-default-compare-1'), 'Updated script cache key');
+assert(html.includes('./period-view.js?v=20261028-paid-patients-1'), 'Paid-patient script cache key');
 
 const freeze = value => {
   if (value && typeof value === 'object') {
@@ -35,7 +40,8 @@ const freeze = value => {
 };
 const record = date => ({date, plan:2000, factMedicine:400, factLab:50, cashTotal:1000, billedTotal:1200,
   cashOOO:600, cashIP:400, cashUnallocated:50, primary:8, repeat:9, dentPrimary:4, dentRepeat:5,
-  clinicPrimary:4, clinicRepeat:4, labOrders:2, labRevenue:50,
+  clinicPrimary:4, clinicRepeat:4, paidPatientEvidenceComplete:true, paidPatients:8, paidDentPatients:4,
+  paidClinicPatients:4, labOrders:2, labRevenue:50,
   dentists:{D1:100,D2:200}, clinicDocs:{C1:40,C2:60}, leadsDent:10, leadsClinic:8, leadsReserve:2});
 const period = (from, to, dent, clinic=0) => ({from,to,dentists:{D1:dent,D2:0},clinicDocs:{C1:clinic,C2:0}});
 const snapshots = freeze({
@@ -58,7 +64,7 @@ function setup({data={}, periods=[], paid={}, install=true}={}) {
   let store = freeze(data);
   const nodes = {}, node = id => nodes[id] || (nodes[id]=new Element());
   const metrics = ['dentRev','clinicRev','dentAvg','clinicAvg','cashTotal','labRevenue','labAvg','billedTotal',
-    'due','execution','primary','repeat','dentPrimary','clinicPrimary','plan','cashOOO','cashIP']
+    'due','execution','primary','repeat','dentPrimary','clinicPrimary','paidPatients','paidDentPatients','paidClinicPatients','plan','cashOOO','cashIP']
     .map(key=>Object.assign(new Element(),{dataset:{key,type:'money'}}));
   const doctors = ['dentists','clinicDocs'].flatMap(type=>(type==='dentists'?['D1','D2']:['C1','C2'])
     .map(name=>Object.assign(new Element(),{dataset:{doctorType:type,doctor:name}})));
@@ -138,7 +144,7 @@ check('one half-year file overrides its six months without making monthly paid f
   assert.equal(h.dateDoctor('2026-06-30','dentists','D1',100),100);
   assert.equal(h.doctor([], 'dentists','D1',bounds('2026-01-01','2026-01-31')),null);
   h.node('mode').value='half';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[600,null],[60,null]);
-  assert.deepEqual(cellValues(h.node('periodCompareBody'),'Средний чек стоматологии'),[h.money(75),empty]);
+  assert.deepEqual(cellValues(h.node('periodCompareBody'),'Средний чек стоматологии на оплатившего пациента'),[h.money(25),empty]);
   assert.deepEqual(cellValues(h.node('periodCompareBody'),'Факт'),[h.money(6000),empty]);
 });
 
@@ -165,7 +171,7 @@ check('half-year plus monthly snapshots and uncovered legacy month compose once'
   const sourceOnly=setup({periods:[h1],paid:snapshots});sourceOnly.node('mode').value='year';sourceOnly.run('renderPeriod()');
   assertDirections(sourceOnly,sourceOnly.node('periodCompareBody'),[760],[264]);
   assert.deepEqual(cellValues(sourceOnly.node('periodCompareBody'),'Факт'),[empty]);
-  assert.deepEqual(cellValues(sourceOnly.node('periodCompareBody'),'Средний чек стоматологии'),[empty]);
+  assert.deepEqual(cellValues(sourceOnly.node('periodCompareBody'),'Средний чек стоматологии на оплатившего пациента'),[empty]);
 });
 
 check('exact interval wins over smaller overlapping alternatives',()=>{
@@ -265,4 +271,4 @@ check('both API and helper load orders handle source-only dates',()=>{
   assert.equal(jsFirst.metrics[0].value,jsFirst.money(21));
 });
 
-console.log(JSON.stringify({status:'PASS',checks,source_data:'synthetic',raw_data_and_original_calculations:'unchanged'}));
+console.log(JSON.stringify({status:'PASS',checks,source_data:'synthetic',paid_patient_methodology:'verified'}));
