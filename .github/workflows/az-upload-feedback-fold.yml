@@ -1,0 +1,56 @@
+name: AZ upload feedback and doctor fold
+on:
+  push:
+    branches: ['feature/az-upload-confirm-doctor-fold-20261028']
+  pull_request:
+    paths:
+      - 'az-baze-auth/templates/base.html'
+      - 'az-baze-auth/templates/uploads.html'
+      - 'reports/period-view.js'
+      - 'reports/index.html'
+      - 'tests/test_ui_feedback_fold.py'
+      - '.github/workflows/az-upload-feedback-fold.yml'
+permissions:
+  contents: read
+jobs:
+  browser-and-preservation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Isolated test dependencies
+        run: |
+          python -m pip install -r az-baze-auth/requirements.txt playwright
+          python -m playwright install --with-deps chromium
+      - name: UI source scope and unchanged backend
+        run: |
+          python - <<'PY'
+          import subprocess
+          base='2a0301e28d01a7ebaeae81e1e96b9ce4362930b7'
+          allowed={'az-baze-auth/templates/base.html','az-baze-auth/templates/uploads.html','reports/period-view.js','reports/index.html','az-baze-auth/test_report_consistency_preservation.py','tests/verify-paid-periods.cjs','tests/test_ui_feedback_fold.py','.github/workflows/az-upload-feedback-fold.yml'}
+          changed=set(subprocess.check_output(['git','diff','--name-only',base,'HEAD'],text=True).splitlines())
+          assert changed <= allowed, changed-allowed
+          print('UI_ONLY_SCOPE=PASS; BACKEND_AND_FORMULAS_UNCHANGED_BY_SCOPE')
+          PY
+      - name: Retained financial and upload JavaScript tests
+        run: |
+          node --check reports/period-view.js
+          node tests/verify-paid-periods.cjs
+          node tests/verify-paid-upload-periods.cjs
+      - name: Real template browser scenarios on synthetic data
+        run: python tests/test_ui_feedback_fold.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: az-ui-feedback-fold-evidence
+          path: artifacts/az-ui-feedback-fold/
+          if-no-files-found: ignore
