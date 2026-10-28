@@ -13,10 +13,12 @@
 
   let observer = null;
   let scheduled = false;
+  let PAID_PATIENTS_MONTHLY = {};
   const importPromise = importSecureCost();
+  const paidPatientsPromise = loadPaidPatients();
 
   frame.addEventListener('load', async () => {
-    await importPromise;
+    await Promise.all([importPromise, paidPatientsPromise]);
     const w = frame.contentWindow;
     const d = frame.contentDocument;
     if (!w || !d) return;
@@ -60,6 +62,20 @@
 
     schedule(100);
   });
+
+  async function loadPaidPatients() {
+    try {
+      const response = await fetch('/api/reports/data', { credentials:'same-origin', cache:'no-store' });
+      if (!response.ok) throw Error('paid patients');
+      const payload = await response.json();
+      PAID_PATIENTS_MONTHLY = payload?.paidPatientsMonthly || {};
+      return true;
+    } catch (e) {
+      console.error('Paid-patient load failed', e);
+      PAID_PATIENTS_MONTHLY = {};
+      return false;
+    }
+  }
 
   async function importSecureCost() {
     const keyText = sessionStorage.getItem(IMPORT_KEY);
@@ -166,31 +182,34 @@
     const focus = d.getElementById('focusPeriod')?.value || 'all';
 
     let doctors = [];
-    let primarySeries = null;
-    let primaryLabel = '';
+    let payerSeries = null;
+    let payerLabel = '';
 
     if (doctorTab) {
       const doctor = d.getElementById('doctor')?.value;
       if (!doctor || doctor === 'all' || !dir.doctors?.[doctor]) return;
       doctors = [doctor];
-      primarySeries = doctorPrimarySeries(costData, direction, doctor);
-      primaryLabel = 'Первичные приёмы врача';
+      payerSeries = paidPatientSeries(costData, direction, doctor);
+      payerLabel = 'Оплатившие пациенты врача';
     } else {
       doctors = Object.keys(dir.doctors || {});
-      primarySeries = costData.primaryByDirection?.[direction] || null;
-      primaryLabel = 'Первичные приёмы направления';
+      payerSeries = paidPatientSeries(costData, direction);
+      payerLabel = 'Оплатившие пациенты направления';
     }
 
-    if (!Array.isArray(primarySeries)) return;
+    if (!Array.isArray(payerSeries) || payerSeries.every(value => value == null)) {
+      appendStatus(d, 'Нет полной исходной выгрузки для расчёта оплативших пациентов за этот период.');
+      return;
+    }
 
-    injectScopeRows(w, d, serviceData, costData, direction, doctors, primarySeries, primaryLabel, groups, focus);
+    injectScopeRows(w, d, serviceData, costData, direction, doctors, payerSeries, payerLabel, groups, focus);
 
     if (summaryTab) {
       renderWholeClinicPanel(w, d, serviceData, costData, groups, focus, clinicHost);
     }
   }
 
-  function injectScopeRows(w, d, serviceData, costData, direction, doctors, primarySeries, primaryLabel, groups, focus) {
+  function injectScopeRows(w, d, serviceData, costData, direction, doctors, payerSeries, payerLabel, groups, focus) {
     const tbody = d.querySelector('#content .table tbody');
     const totalRow = tbody?.querySelector('tr.total-row');
     if (!tbody || !totalRow) return;
@@ -201,16 +220,16 @@
     );
     let anchor = priorRows.length ? priorRows[priorRows.length - 1] : totalRow;
 
-    const metricFor = idx => scopeMetrics(w, serviceData, costData, direction, doctors, primarySeries, idx);
-    const grand = metricFor(availableIndexes(costData));
+    const metricFor = idx => scopeMetrics(w, serviceData, costData, direction, doctors, payerSeries, idx);
+    const grand = metricFor(availableIndexes(costData, payerSeries));
 
     const defs = [
-      { key:'primary', label:primaryLabel, type:'count', start:true,
-        note:'Используется существующий показатель первичных выбранного врача или направления; между врачами пациенты не дедуплицируются.' },
-      { key:'cost', label:'Общая стоимость первичного пациента клиники', type:'money',
-        note:'Единый месячный норматив по всей медицинской части клиники.' },
+      { key:'paidPatients', label:payerLabel, type:'count', start:true,
+        note:'Уникальные пациенты с фактической оплатой за месяц; повторные оплаты одного пациента не увеличивают количество.' },
+      { key:'cost', label:'Затраты на оплатившего пациента', type:'money',
+        note:'Общеклинические затраты месяца / уникальные оплатившие пациенты.' },
       { key:'load', label:'Расходная общеклиническая нагрузка', type:'money', load:true,
-        note:'Первичные × месячная общая стоимость первичного пациента.' },
+        note:'Оплатившие пациенты × затраты на оплатившего пациента.' },
       { key:'final', label:'Финансовый результат после выплат и расходной нагрузки', type:'money', color:true, result:true },
       { key:'margin', label:'Рентабельность после выплат и расходной нагрузки, %', type:'percent', color:true, margin:true }
     ];
@@ -235,20 +254,21 @@
 
   function renderWholeClinicPanel(w, d, serviceData, costData, groups, focus, host) {
     const allIdx = (serviceData.months || []).map((_, i) => i);
-    const costIdx = availableIndexes(costData);
+    const clinicPayerSeries = paidPatientSeries(costData, 'medicine');
+    const costIdx = availableIndexes(costData, clinicPayerSeries);
     const allMetrics = idx => wholeClinicMetrics(w, serviceData, costData, idx);
     const grandAll = allMetrics(allIdx);
     const grandCost = allMetrics(costIdx);
 
     const defs = [
-      { key:'primary', label:'Первичные пациенты клиники', type:'count', costBound:true },
+      { key:'paidPatients', label:'Оплатившие пациенты', type:'count', costBound:true },
       { key:'revenue', label:'Выручка медицинской части', type:'money' },
       { key:'salary', label:'Основная ЗП врачей', type:'money' },
       { key:'extras', label:'Прочие выплаты врачам', type:'money' },
       { key:'payouts', label:'Всего выплат врачам', type:'money', total:true },
       { key:'afterPayout', label:'Финансовый результат после выплат', type:'money', color:true },
       { key:'payoutMargin', label:'Маржинальность после выплат, %', type:'percent', color:true, margin:true },
-      { key:'cost', label:'Общая стоимость первичного пациента клиники', type:'money', costBound:true },
+      { key:'cost', label:'Затраты на оплатившего пациента', type:'money', costBound:true },
       { key:'load', label:'Расходная общеклиническая нагрузка', type:'money', costBound:true, load:true },
       { key:'final', label:'Финансовый результат после выплат и расходной нагрузки', type:'money', costBound:true, color:true, result:true },
       { key:'margin', label:'Рентабельность после выплат и расходной нагрузки, %', type:'percent', costBound:true, color:true, margin:true }
@@ -256,7 +276,7 @@
 
     let html = `<div class="panel">
       <h2>Экономика всей медицинской части клиники</h2>
-      <div class="panel-note">Лаборатория исключена. Показатели после выплат показываются за все месяцы, имеющиеся в аналитике услуг. Расходная нагрузка и итоговая рентабельность рассчитаны только по завершённой финмодели — январь–июль 2026.</div>
+      <div class="panel-note">Лаборатория исключена. Показатели после выплат показываются за все месяцы, имеющиеся в аналитике услуг. Расходная нагрузка и итоговая рентабельность считаются только за месяцы, где одновременно есть финмодель и полные данные об оплативших пациентах.</div>
       <div class="table-wrap"><table class="table"><thead><tr><th rowspan="2">Показатель</th>`;
 
     groups.forEach(g => {
@@ -291,18 +311,18 @@
     host.innerHTML = html;
   }
 
-  function scopeMetrics(w, serviceData, costData, direction, doctors, primarySeries, idx) {
-    if (!validCostIndexes(costData, idx) || idx.some(i => primarySeries[i] == null)) return null;
+  function scopeMetrics(w, serviceData, costData, direction, doctors, payerSeries, idx) {
+    if (!validCostIndexes(costData, payerSeries, idx)) return null;
 
-    const primary = sumIndexes(primarySeries, idx);
-    const cost = weightedCost(costData, idx);
-    const load = idx.reduce((sum, i) => sum + (+primarySeries[i] || 0) * monthlyCost(costData, i), 0);
+    const paidPatients = sumIndexes(payerSeries, idx);
+    const cost = weightedCost(costData, payerSeries, idx);
+    const load = idx.reduce((sum, i) => sum + (+payerSeries[i] || 0) * monthlyCost(costData, payerSeries, i), 0);
     const revenue = revenueForDoctors(serviceData?.directions?.[direction], doctors, idx);
     const payouts = payoutsForDoctors(w, direction, doctors, serviceData.months.length, idx);
     const final = revenue - payouts.total - load;
 
     return {
-      primary,
+      paidPatients,
       cost,
       load,
       final,
@@ -333,21 +353,22 @@
       payouts,
       afterPayout,
       payoutMargin: revenue ? afterPayout / revenue : null,
-      primary:null,
+      paidPatients:null,
       cost:null,
       load:null,
       final:null,
       margin:null
     };
 
-    if (!validCostIndexes(costData, idx)) return out;
+    const payerSeries = paidPatientSeries(costData, 'medicine');
+    if (!validCostIndexes(costData, payerSeries, idx)) return out;
 
-    const primary = sumIndexes(costData.primaryPatients || [], idx);
-    const cost = weightedCost(costData, idx);
-    const load = idx.reduce((sum, i) => sum + (+costData.primaryPatients?.[i] || 0) * monthlyCost(costData, i), 0);
+    const paidPatients = sumIndexes(payerSeries, idx);
+    const cost = weightedCost(costData, payerSeries, idx);
+    const load = idx.reduce((sum, i) => sum + (+payerSeries[i] || 0) * monthlyCost(costData, payerSeries, i), 0);
     const final = revenue - payouts - load;
 
-    out.primary = primary;
+    out.paidPatients = paidPatients;
     out.cost = cost;
     out.load = load;
     out.final = final;
@@ -405,51 +426,78 @@
     return { salary, extras, total:salary + extras };
   }
 
-  function doctorPrimarySeries(costData, direction, doctor) {
-    const surname = normalizeName(String(doctor || '').trim().split(/\s+/)[0]);
-    const entries = costData.primaryByDoctorSurname?.[direction] || {};
-    const key = Object.keys(entries).find(k => normalizeName(k) === surname);
-    return key ? entries[key] : null;
+  function costMonthKey(costData, i) {
+    const raw = String(costData?.months?.[i] || '').trim();
+    if (/^\d{4}-\d{2}$/.test(raw)) return raw;
+    const year = Number(costData?.year || 2026);
+    return year + '-' + String(i + 1).padStart(2, '0');
+  }
+
+  function normalizedDoctorKey(value) {
+    return normalizeName(String(value || '').trim().split(/\s+/)[0]);
+  }
+
+  function paidPatientSeries(costData, direction, doctor = '') {
+    const n = Array.isArray(costData?.months) ? costData.months.length : 0;
+    const doctorKey = normalizedDoctorKey(doctor);
+    return Array.from({length:n}, (_, i) => {
+      const month = PAID_PATIENTS_MONTHLY[costMonthKey(costData, i)];
+      if (!month) return null;
+      if (direction === 'medicine') return Number.isFinite(+month.medicine) ? +month.medicine : null;
+      if (direction === 'Стоматология') {
+        if (!doctor) return Number.isFinite(+month.dent) ? +month.dent : null;
+        const entries = month.dentists || {};
+        const key = Object.keys(entries).find(name => normalizedDoctorKey(name) === doctorKey);
+        return key && Number.isFinite(+entries[key]) ? +entries[key] : 0;
+      }
+      if (direction === 'Клиника') {
+        if (!doctor) return Number.isFinite(+month.structure) ? +month.structure : null;
+        const entries = month.clinicDocs || {};
+        const key = Object.keys(entries).find(name => normalizedDoctorKey(name) === doctorKey);
+        return key && Number.isFinite(+entries[key]) ? +entries[key] : 0;
+      }
+      return null;
+    });
   }
 
   function isCostDataReady(data) {
     return data?.version >= 2 &&
-      Array.isArray(data.primaryPatients) &&
-      data.primaryByDirection &&
-      data.primaryByDoctorSurname;
+      Array.isArray(data.months) &&
+      Array.isArray(data.numerator);
   }
 
-  function validCostIndexes(costData, idx) {
+  function validCostIndexes(costData, payerSeries, idx) {
     const max = Number(costData?.availableThroughMonthIndex);
-    return Array.isArray(idx) && idx.length > 0 &&
+    return Array.isArray(idx) && idx.length > 0 && Array.isArray(payerSeries) &&
       idx.every(i =>
         Number.isInteger(i) &&
         i >= 0 &&
         i <= max &&
         costData.numerator?.[i] != null &&
-        costData.primaryPatients?.[i] != null
+        payerSeries?.[i] != null
       );
   }
 
-  function availableIndexes(costData) {
+  function availableIndexes(costData, payerSeries) {
     const max = Math.min(
       Number(costData?.availableThroughMonthIndex),
       (costData?.numerator?.length || 0) - 1,
-      (costData?.primaryPatients?.length || 0) - 1
+      (payerSeries?.length || 0) - 1
     );
     if (!Number.isFinite(max) || max < 0) return [];
-    return Array.from({ length:max + 1 }, (_, i) => i);
+    return Array.from({ length:max + 1 }, (_, i) => i)
+      .filter(i => payerSeries?.[i] != null);
   }
 
-  function monthlyCost(costData, i) {
-    const primary = +costData.primaryPatients?.[i] || 0;
-    return primary ? (+costData.numerator?.[i] || 0) / primary : 0;
+  function monthlyCost(costData, payerSeries, i) {
+    const payers = +payerSeries?.[i] || 0;
+    return payers ? (+costData.numerator?.[i] || 0) / payers : 0;
   }
 
-  function weightedCost(costData, idx) {
+  function weightedCost(costData, payerSeries, idx) {
     const numerator = sumIndexes(costData.numerator || [], idx);
-    const primary = sumIndexes(costData.primaryPatients || [], idx);
-    return primary ? numerator / primary : null;
+    const payers = sumIndexes(payerSeries || [], idx);
+    return payers ? numerator / payers : null;
   }
 
   function sumIndexes(arr, idx) {
