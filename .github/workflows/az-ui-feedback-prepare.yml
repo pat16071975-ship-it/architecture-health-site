@@ -1,0 +1,71 @@
+name: AZ prepare approved UI source delta
+on:
+  push:
+    branches: ['ops/az-ui-feedback-source-20261028']
+    paths:
+      - 'tools/prepare_ui_feedback_20261028.py'
+      - 'tests/test_ui_feedback_20261028.py'
+      - '.github/workflows/az-ui-feedback.yml'
+      - '.github/workflows/az-ui-feedback-prepare.yml'
+permissions:
+  contents: write
+concurrency:
+  group: az-ui-feedback-source-preparation-20261028
+  cancel-in-progress: false
+jobs:
+  prepare-source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOURCE_BASE: 2a0301e28d01a7ebaeae81e1e96b9ce4362930b7
+      SOURCE_BRANCH: feature/az-ui-upload-confirmation-doctor-groups-20261028
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preserve approved builder and check out immutable source base
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = refs/heads/ops/az-ui-feedback-source-20261028
+          cp tools/prepare_ui_feedback_20261028.py "$RUNNER_TEMP/prepare-ui.py"
+          cp tests/test_ui_feedback_20261028.py "$RUNNER_TEMP/test-ui.py"
+          cp .github/workflows/az-ui-feedback.yml "$RUNNER_TEMP/source-ci.yml"
+          git fetch --depth=1 origin "$SOURCE_BASE"
+          git switch --detach "$SOURCE_BASE"
+          git switch -c "$SOURCE_BRANCH"
+          python "$RUNNER_TEMP/prepare-ui.py"
+          cp "$RUNNER_TEMP/test-ui.py" tests/test_ui_feedback_20261028.py
+          cp "$RUNNER_TEMP/source-ci.yml" .github/workflows/az-ui-feedback.yml
+          git diff --check
+      - name: Install isolated browser test dependencies
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Retained period and paid-import behavior
+        run: |
+          node --check reports/period-view.js
+          node tests/verify-paid-periods.cjs
+          node tests/verify-paid-upload-periods.cjs
+      - name: UI browser tests on exact modified source
+        run: python tests/test_ui_feedback_20261028.py
+      - name: Commit only approved UI delta to new feature branch
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_BASE"
+          existing="$(git ls-remote --heads origin "refs/heads/$SOURCE_BRANCH")"
+          test -z "$existing" || { echo 'STOP: SOURCE_BRANCH_ALREADY_EXISTS'; exit 1; }
+          git add az-baze-auth/templates/uploads.html reports/index.html reports/period-view.js az-baze-auth/test_report_consistency_preservation.py tests/verify-paid-upload-periods.cjs tests/test_ui_feedback_20261028.py .github/workflows/az-ui-feedback.yml
+          python - <<'PY'
+          import subprocess
+          expected={'.github/workflows/az-ui-feedback.yml','az-baze-auth/templates/uploads.html','az-baze-auth/test_report_consistency_preservation.py','reports/index.html','reports/period-view.js','tests/test_ui_feedback_20261028.py','tests/verify-paid-upload-periods.cjs'}
+          actual=set(subprocess.check_output(['git','diff','--cached','--name-only'],text=True).splitlines())
+          assert actual==expected,(actual,expected)
+          PY
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat(az): persistent upload result and bottom-group inactive doctor rows'
+          git push origin "HEAD:refs/heads/$SOURCE_BRANCH"
+          echo "SOURCE_HEAD=$(git rev-parse HEAD)"
+          echo 'SOURCE_ONLY=PASS; RUNTIME_FILES=3; MERGE=NONE; DEPLOY=NONE; DATABASE_ACCESS=NONE'
