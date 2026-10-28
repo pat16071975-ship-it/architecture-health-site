@@ -146,19 +146,47 @@ class AdvertisingReportTests(unittest.TestCase):
             finally:
                 c.close(); m.METRIKA_ARCHIVE_ROOT = old
 
-    def test_revenue_summary_puts_total_paid_first_and_keeps_gap_explicit(self):
+    def test_revenue_summary_puts_total_paid_first_and_reconciles_every_ruble_by_provider(self):
         c=conn()
         try:
             c.execute("CREATE TABLE advertising_mis_paid_ingests(period_start TEXT,period_end TEXT,source_filename TEXT,source_sha256 TEXT,imported_at TEXT,paid_total REAL,detailed_paid_total REAL,line_count INTEGER,PRIMARY KEY(period_start,period_end))")
             c.execute("CREATE TABLE cash_receipts_daily(data_date TEXT PRIMARY KEY,payload_json TEXT,source_filename TEXT,source_sha256 TEXT,imported_by INTEGER,imported_at TEXT)")
+            c.execute("CREATE TABLE service_payment_periods(period_start TEXT,period_end TEXT,payload_json TEXT,source_filename TEXT,source_sha256 TEXT,imported_by INTEGER,imported_at TEXT,PRIMARY KEY(period_start,period_end))")
+            c.execute("CREATE TABLE provider_registry(source_name TEXT PRIMARY KEY,display_name TEXT,direction TEXT)")
+            c.executemany(
+                "INSERT INTO provider_registry VALUES(?,?,?)",
+                [
+                    ("Dent A","Dent A","dent"),
+                    ("Structure A","Structure A","structure"),
+                    ("Lab A","Lab A","lab"),
+                ],
+            )
+            provider_payload=json.dumps({
+                "version":3,
+                "period_start":"2026-10-27",
+                "period_end":"2026-10-27",
+                "totals":{"paid":800900},
+                "providers":{
+                    "Dent A":{"paid":655540},
+                    "Structure A":{"paid":118260},
+                    "Lab A":{"paid":27100},
+                },
+                "provider_residual":{"paid":0},
+            },ensure_ascii=False)
+            c.execute("INSERT INTO service_payment_periods VALUES(?,?,?,?,?,?,?)",("2026-10-27","2026-10-27",provider_payload,"paid.xlsx","sha",1,"t"))
             c.execute("INSERT INTO advertising_mis_paid_ingests VALUES(?,?,?,?,?,?,?,?)",("2026-10-27","2026-10-27","paid.xlsx","sha","t",800900,535680,71))
             c.execute("INSERT INTO advertising_clinic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",("mis","2026-10-27","unknown","Неизвестно","Неизвестно","","",None,None,13,87100,90100,32,421480,"t","mis"))
             cash=json.dumps({"cashTotal":784400,"cashOOO":34600,"cashIP":749800,"cashUnallocated":245000})
             c.execute("INSERT INTO cash_receipts_daily VALUES(?,?,?,?,?,?)",("2026-10-27",cash,"cash.xlsx","sha",1,"t"))
             r=m._revenue_summary(c,date(2026,10,27),date(2026,10,27))
             self.assertEqual(r["clinic_paid_total"],800900)
+            self.assertEqual(r["provider_paid_total"],800900)
+            self.assertEqual(r["provider_residual"],0)
+            self.assertEqual(r["provider_balance_diff"],0)
+            self.assertEqual(r["direction_paid"],{"dent":655540.0,"structure":118260.0,"lab":27100.0,"other":0.0})
+            self.assertEqual(sum(row["paid"] for row in r["providers"]),800900)
             self.assertEqual(r["detailed_paid_total"],535680)
-            self.assertEqual(r["without_line_detail"],265220)
+            self.assertEqual(r["provider_known_without_patient_detail"],265220)
             self.assertEqual(r["unclassified_detailed"],27100)
             self.assertEqual(r["cash_total"],784400)
         finally:c.close()
@@ -169,9 +197,9 @@ class AdvertisingReportTests(unittest.TestCase):
         js=(root/"advertising.js").read_text(encoding="utf-8")
         uploads=(Path(__file__).parent/"templates"/"uploads.html").read_text(encoding="utf-8")
         text=html+"\n"+js
-        for label in ("Рекламный отчёт","Посещения сайта","Визиты с открытием записи","Визиты с переходом в Medflex","Работа клиники за период","Выручка клиники","Без построчной детализации в выгрузке МИС","Источники сайта","Не хватает данных CRM для построения отчёта"):
+        for label in ("Рекламный отчёт","Посещения сайта","Визиты с открытием записи","Визиты с переходом в Medflex","Работа клиники за период","Выручка клиники","Выручка по врачам / исполнителям","Вся сумма «Оплачено» распределена по врачам/исполнителям","Источники сайта","Не хватает данных CRM для построения отчёта"):
             self.assertIn(label,text)
-        for forbidden in ("Выручка новых пациентов за 30 дней","Новых пациентов, впервые пришедших","75 посещений → 13 первичных"):
+        for forbidden in ("Выручка новых пациентов за 30 дней","Новых пациентов, впервые пришедших","75 посещений → 13 первичных","Без построчной детализации в выгрузке МИС"):
             self.assertNotIn(forbidden,text)
         self.assertIn("5. Яндекс Метрика", uploads)
         self.assertIn('name="metrika_zip"', uploads)
