@@ -2,16 +2,16 @@
 set -Eeuo pipefail
 
 REPO='pat16071975-ship-it/architecture-health-site'
-TARGET_COMMIT='6e36e29e2dff276e42f26f679964de2384727f9b'
+TARGET_ARTIFACT_COMMIT='dcde02187b264bc2d26d8f2c55db548b6f873900'
 EXPECTED_HOST='az-server'
 APP_ROOT='/opt/az-baze-auth'
 SERVICE='az-baze-auth'
 HEALTH_URL='http://127.0.0.1:8001/health'
 BACKUP_ROOT='/var/lib/az-baze/backups'
 REL='app.py'
-BASE_BLOB='40cab9120d48993b8c0b774289756f376e13b6ea'
-TARGET_BLOB='ae5053a008ffb106f7286b73fc9218c7afdf7cde'
-CONFIRM_TOKEN='HIDE-MOBILE-LOGOUT-6E36E29E'
+BASE_BLOB='00b03487d6216faf9d222b83b67e2b32a811be89'
+TARGET_BLOB='9c11968405cf63a41613d06c5bc54af842c9bbb1'
+CONFIRM_TOKEN='HIDE-MOBILE-LOGOUT-LIVEBASE-00B03487'
 
 MODE="${1:---preflight}"
 CONFIRM="${2:-}"
@@ -57,7 +57,7 @@ STAGE="$(mktemp -d /tmp/az-hide-mobile-logout.XXXXXX)"
 trap 'rm -rf "$STAGE"' EXIT
 TARGET="$STAGE/app.py"
 
-curl -fsSL --retry 2 --connect-timeout 5 --max-time 30   "https://raw.githubusercontent.com/$REPO/$TARGET_COMMIT/az-baze-auth/$REL"   -o "$TARGET"
+curl -fsSL --retry 2 --connect-timeout 5 --max-time 30   "https://raw.githubusercontent.com/$REPO/$TARGET_ARTIFACT_COMMIT/az-baze-auth/deploy/targets/app-livebase-hide-mobile-logout-20261028.py"   -o "$TARGET"
 
 [ "$(blob "$TARGET")" = "$TARGET_BLOB" ] || { echo 'STOP: TARGET_BLOB_FAIL'; exit 1; }
 echo 'TARGET_APP_BLOB=PASS'
@@ -158,7 +158,7 @@ rm -rf "$STAGE"
 
 echo '=== FINAL ==='
 echo 'HIDE_MOBILE_LOGOUT_DEPLOY=PASS'
-echo "TARGET_COMMIT=$TARGET_COMMIT"
+echo "TARGET_ARTIFACT_COMMIT=$TARGET_ARTIFACT_COMMIT"
 echo "TARGET_BLOB=$TARGET_BLOB"
 echo "BACKUP=$BACKUP"
 echo 'CHANGED_RUNTIME_FILES=1'
