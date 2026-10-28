@@ -75,7 +75,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
 
     def test_template_preserves_journal_contract_and_reconcile_close(self):
         raw = (ROOT / 'templates/uploads.html').read_bytes()
-        self.assertEqual(git_blob(raw), 'd8ce43c88fa85e81643ab6ae5706aa618d9db96b')
+        self.assertEqual(git_blob(raw), '25983e1a40436910db0f7df91369629db75981cd')
         text = raw.decode('utf-8')
         changes = [
             ("{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}", "{{ row['data_date'] or '—' }}"),
@@ -101,8 +101,9 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         self.assertIn('Можно продолжить загрузку без выбора', text)
         self.assertIn("continueBtn.disabled=unknown.length>0&&!payload.can_replace", text)
         self.assertIn("if(select.value)result[select.dataset.visitDirection]=select.value", text)
-        self.assertIn("const needs=out.requires_choice||out.requires_provider_mapping;", text)
+        self.assertIn("const needs=out.requires_choice||out.requires_provider_mapping||(type!=='clinical'&&out.requires_review);", text)
         self.assertNotIn("out.requires_choice||out.requires_provider_mapping||out.requires_review", text)
+        self.assertIn("type!=='clinical'&&out.requires_review", text)
 
     def test_home_logout_is_hidden_only_on_mobile(self):
         source = (ROOT / 'app.py').read_text(encoding='utf-8')
