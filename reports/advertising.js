@@ -32,7 +32,17 @@ function renderSite(){
   $('#medflexVisits').textContent=number(s.medflex_visits);
   $('#medflexExtra').textContent=(s.medflex_reaches==null?'':'Срабатываний цели: '+number(s.medflex_reaches)+'. ')+'Это действие на сайте, а не подтверждённый лид.';
   const crm=payload?.crm||{};
-  $('#crmNote').textContent=crm.available?'Данные CRM подключены.':(crm.message||'Не хватает данных CRM для построения отчёта.');
+  const targetLeads=$('#targetLeads');
+  const targetLeadsExtra=$('#targetLeadsExtra');
+  if(crm.available&&s.target_leads!=null){
+    targetLeads.classList.remove('crm-missing');
+    targetLeads.textContent=number(s.target_leads);
+    targetLeadsExtra.textContent=s.lead_to_primary_pct==null?'':'Дошли до состоявшегося первичного приёма: '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(s.lead_to_primary_pct)+'%';
+  }else{
+    targetLeads.classList.add('crm-missing');
+    targetLeads.textContent=crm.message||'Не хватает данных CRM для построения отчёта';
+    targetLeadsExtra.textContent='';
+  }
 }
 
 function renderActivity(){
