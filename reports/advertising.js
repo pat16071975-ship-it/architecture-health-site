@@ -85,40 +85,32 @@ function renderRevenue(){
 }
 
 
-const GROUP_ORDER={'Платная реклама':1,'Поиск':2,'Карты':3,'Социальные сети':4,'Прямые заходы':5,'Другие источники':6};
-function sum(rows,key){const v=rows.map(r=>r?.[key]).filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0):null}
-function sourceGroups(){
-  const sources=payload?.sources||[];
-  const byChannel=new Map();
-  sources.forEach(row=>{
-    if(row.visits==null&&row.booking_open_visits==null&&row.medflex_visits==null)return;
-    const label=(row.channel_name||row.source_name||'Другие источники').trim()||'Другие источники';
-    if(!byChannel.has(label))byChannel.set(label,[]);
-    byChannel.get(label).push(row)
-  });
-  return [...byChannel.entries()].map(([label,rows])=>({
-    label,
-    summary:{visits:sum(rows,'visits'),booking_open_visits:sum(rows,'booking_open_visits'),medflex_visits:sum(rows,'medflex_visits')},
-    children:rows.length>1?rows:[]
-  })).sort((a,b)=>(GROUP_ORDER[a.label]||99)-(GROUP_ORDER[b.label]||99)||a.label.localeCompare(b.label,'ru'))
+function siteSourceRows(){
+  return (payload?.sources||[])
+    .filter(row=>row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null)
+    .sort((a,b)=>(Number(b.visits)||0)-(Number(a.visits)||0)||sourceName(a).localeCompare(sourceName(b),'ru'))
 }
-function sourceName(r){return (r.source_name||r.campaign_name||r.channel_name||'Источник не определён').trim()}
-function cells(r){return '<td>'+number(r.visits)+'</td><td>'+number(r.booking_open_visits)+'</td><td>'+number(r.medflex_visits)+'</td>'}
+function sourceName(row){
+  return (row.source_name||row.campaign_name||row.channel_name||'Источник не определён').trim()
+}
+function siteCells(row){
+  return '<td>'+number(row.visits)+'</td><td>'+number(row.booking_open_visits)+'</td><td>'+number(row.medflex_visits)+'</td>'
+}
 function renderSources(){
-  const groups=sourceGroups(),body=$('#sourceRows');
-  if(!groups.length){body.innerHTML='<tr><td colspan="4">Метрика за выбранный период ещё не загружена.</td></tr>';return}
-  let html='';
-  groups.forEach((g,i)=>{
-    const exp=g.children.length>0;
-    html+='<tr class="group-row"><td><button class="group-btn '+(exp?'':'no-children')+'" data-group="'+i+'" '+(exp?'':'disabled')+'>'+(exp?'▸ ':'')+h(g.label)+'</button></td>'+cells(g.summary)+'</tr>';
-    if(exp)g.children.forEach(r=>html+='<tr class="child-row child-'+i+'" hidden><td>'+h(sourceName(r))+'</td>'+cells(r)+'</tr>')
-  });
-  body.innerHTML=html;
-  $$('.group-btn:not(.no-children)').forEach(btn=>btn.addEventListener('click',()=>{
-    const rows=$$('.child-'+btn.dataset.group),open=rows.length&&!rows[0].hidden;
-    rows.forEach(r=>r.hidden=open);btn.textContent=(open?'▸ ':'▾ ')+groups[+btn.dataset.group].label
-  }))
+  const rows=siteSourceRows(),body=$('#sourceRows');
+  if(!rows.length){
+    body.innerHTML='<tr><td colspan="4">Метрика за выбранный период ещё не загружена.</td></tr>';
+    return
+  }
+  const s=payload?.summary||{};
+  const sourceHtml=rows.map(row=>
+    '<tr><td>'+h(sourceName(row))+'</td>'+siteCells(row)+'</tr>'
+  ).join('');
+  const totalHtml=
+    '<tr class="group-row"><td>Всего</td><td>'+number(s.visits)+'</td><td>'+number(s.booking_open_visits)+'</td><td>'+number(s.medflex_visits)+'</td></tr>';
+  body.innerHTML=sourceHtml+totalHtml
 }
+
 function renderFreshness(){
   const items=payload?.freshness||[];
   const spend=payload?.summary?.spend;
