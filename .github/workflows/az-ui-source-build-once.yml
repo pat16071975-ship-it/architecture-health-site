@@ -1,0 +1,78 @@
+name: AZ isolated UI source build
+on:
+  push:
+    branches: ['ops/az-ui-source-build-20261028']
+    paths: ['.github/workflows/az-ui-source-build-once.yml']
+permissions:
+  contents: write
+concurrency:
+  group: az-ui-source-build-20261028
+  cancel-in-progress: false
+jobs:
+  source-only:
+    if: github.repository == 'pat16071975-ship-it/architecture-health-site' && github.ref == 'refs/heads/ops/az-ui-source-build-20261028'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      BASE: 2a0301e28d01a7ebaeae81e1e96b9ce4362930b7
+      TARGET_BRANCH: feature/az-upload-confirm-doctor-fold-20261028
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Guard exact feature base and apply narrow source replacements
+        run: |
+          set -Eeuo pipefail
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$BASE"
+          python tools/az-ui-20261028-build.py
+          python tools/az-ui-20261028-test-adapter.py
+          node --check reports/period-view.js
+          node tests/verify-paid-periods.cjs
+          node tests/verify-paid-upload-periods.cjs
+      - name: Install isolated test dependencies
+        run: |
+          python -m pip install -r az-baze-auth/requirements.txt playwright
+          python -m playwright install --with-deps chromium
+      - name: Real-template browser tests on synthetic data
+        run: python tests/test_ui_feedback_fold.py
+      - name: Retained Python report and import regressions
+        working-directory: az-baze-auth
+        env:
+          AZBAZE_SECRET_KEY: synthetic-ui-source-test
+          AZBAZE_DB: /tmp/az-ui-source-test.db
+          AZBAZE_SITE_ROOT: /tmp/az-ui-source-test-site
+        run: |
+          python - <<'PY'
+          import unittest
+          names='test_cash_payments test_upload_integrity test_upload_reconcile test_paid_services test_paid_services_storage test_paid_services_periods test_paid_period_report test_economics_revenue_source test_completed_upload test_pr71_approved_restoration test_upload_history test_manual_entry_consistency test_upload_consistency_atomic test_report_consistency_preservation'.split()
+          result=unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromNames(names))
+          assert result.wasSuccessful() and not result.skipped
+          print(f'RETAINED_TESTS={result.testsRun}; SKIPPED=0; PASS')
+          PY
+      - name: Commit only allowed source and tests to the new feature branch
+        run: |
+          set -Eeuo pipefail
+          test "$(git ls-remote origin "refs/heads/$TARGET_BRANCH" | cut -f1)" = "$BASE"
+          git read-tree "$BASE"
+          git add -- az-baze-auth/templates/base.html az-baze-auth/templates/uploads.html reports/period-view.js reports/index.html az-baze-auth/test_report_consistency_preservation.py tests/verify-paid-periods.cjs tests/verify-paid-upload-periods.cjs tests/test_ui_feedback_fold.py .github/workflows/az-upload-feedback-fold.yml
+          test "$(git diff --cached --name-only "$BASE" | wc -l)" -eq 9
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          tree="$(git write-tree)"
+          commit="$(printf '%s\n' 'fix(az): persistent upload acknowledgement and two-month doctor folding' | git commit-tree "$tree" -p "$BASE")"
+          git diff --stat "$BASE" "$commit"
+          git push origin "$commit:refs/heads/$TARGET_BRANCH"
+          echo "SOURCE_HEAD=$commit"
+          echo 'SOURCE_ONLY=PASS; MERGE=NONE; DEPLOY=NONE; LIVE_ACCESS=NONE'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: az-ui-source-build-evidence
+          path: artifacts/az-ui-feedback-fold/
+          if-no-files-found: ignore
