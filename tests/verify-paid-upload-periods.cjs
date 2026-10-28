@@ -19,6 +19,7 @@ function element(id = '') {
   let html = '';
   const result = {
     id, disabled: false, value: '', dataset: {}, textContent: '', providerSelects: [], providerReads: 0,
+    open: false, showModal() { this.open = true; }, close() { this.open = false; }, focus() {},
     classList: {
       add: (...names) => names.forEach(name => classes.add(name)),
       remove: (...names) => names.forEach(name => classes.delete(name)),
@@ -44,6 +45,7 @@ function element(id = '') {
       return { prevented };
     },
     querySelectorAll(selector) {
+      if (selector === 'input[type="file"]') return (this.inputs || []).filter(input => input.type === 'file').map(input => ({files: [input.value]}));
       assert.equal(selector, '[data-provider]');
       this.providerReads += 1;
       return this.providerSelects;
@@ -79,9 +81,11 @@ function harness(previewPayload, commitPayload = { status: 'imported', message: 
   const ids = Object.fromEntries([
     'reconcileOverlay', 'reconcileTitle', 'reconcileMessage', 'reconcileStats', 'reconcileProviders',
     'reconcileKeep', 'reconcileNew', 'reconcileContinue', 'reconcileCancel', 'paidClientResult',
+    'uploadResultDialog', 'uploadResultTitle', 'uploadResultMessage', 'uploadResultFiles', 'uploadResultPeriod', 'uploadResultOk',
   ].map(id => [id, element(id)]));
   const calls = [];
   const timers = [];
+  const navigation = {reloads: 0};
   class FormData {
     constructor(source) {
       this.data = new Map((source?.inputs || []).filter(input => !input.disabled)
@@ -104,10 +108,10 @@ function harness(previewPayload, commitPayload = { status: 'imported', message: 
       return { ok: true, json: async () => calls.length === 1 ? previewPayload : commitPayload };
     },
     setTimeout: callback => { timers.push(callback); return timers.length; },
-    location: { reload() {}, replace() {} },
+    location: { reload() { navigation.reloads += 1; }, replace() {} },
   });
   vm.runInContext(scripts[0], context, { filename: 'uploads.html:reconcile', timeout: 1000 });
-  return { form, ids, calls, file, timers };
+  return { form, ids, calls, file, timers, navigation };
 }
 
 function preview(overrides = {}) {
@@ -144,7 +148,14 @@ async function autoCommit() {
   assert.equal((await test.form.dispatch('submit')).prevented, true);
   verifyTransmission(test, 'append', 'new');
   assert.equal(test.ids.paidClientResult.textContent, 'Сохранено.');
-  assert.equal(test.timers.length, 1);
+  assert.equal(test.timers.length, 0, 'No automatic reload before acknowledgement.');
+  assert.equal(test.ids.uploadResultDialog.open, true);
+  assert.equal(test.ids.uploadResultTitle.textContent, 'Данные загружены');
+  assert.equal(test.ids.uploadResultFiles.textContent, 'selected-period.xlsx');
+  assert.equal(test.navigation.reloads, 0);
+  await test.ids.uploadResultOk.dispatch('click');
+  assert.equal(test.ids.uploadResultDialog.open, false);
+  assert.equal(test.navigation.reloads, 1);
 }
 
 async function confirmedReplacement() {
@@ -179,6 +190,8 @@ async function keepOldWithoutClassificationPermission() {
   assert.equal(test.ids.reconcileProviders.providerReads, 0, 'Do not request classification for the rejected file.');
   assert.equal(test.calls[1].body.has('provider_decisions'), false);
   assert.equal(test.ids.paidClientResult.textContent, 'Сохранены старые данные.');
+  assert.equal(test.ids.uploadResultTitle.textContent, 'Данные не изменены');
+  assert.equal(test.timers.length, 0);
 }
 
 async function overlapReview() {

@@ -51,6 +51,10 @@
     .heat-cell{transition:background-color .2s ease}
     .period-compare .row-secondary td,.date-compare-table .row-secondary td{font-size:10px;font-weight:600}
     .period-compare .row-billed td,.date-compare-table .row-billed td{background:#fff!important}
+    .date-compare-table tr.az-inactive-doctor[hidden]{display:none!important}
+    .date-compare-table .az-inactive-doctors-toggle td{padding:4px 12px;text-align:left;background:#faf6ef}
+    .az-inactive-doctors-button{display:block;max-width:100%;min-height:44px;padding:6px 0;border:0;background:transparent;color:#44634f;font:600 12px/1.4 Inter,Arial,sans-serif;text-align:left;white-space:normal;cursor:pointer}
+    .az-inactive-doctors-button:focus-visible{outline:2px solid #44634f;outline-offset:2px;border-radius:4px}
     .cash-split{display:block;margin-top:3px;font:500 8.5px/1.2 Inter,sans-serif;color:#737970;white-space:normal;letter-spacing:0}
     @media(max-width:900px){.entry-columns{grid-template-columns:1fr 1fr}.entry-columns>.entry-stack:first-child{grid-column:1/-1}.date-compare-title{align-items:flex-start;flex-direction:column}.date-compare-title .muted{text-align:left}}
     @media(max-width:720px){.period-compare th,.period-compare td,.date-compare-table th,.date-compare-table td{padding:8px 9px}.period-compare thead th:first-child,.date-compare-table thead th:first-child{min-width:210px}.period-compare .group-row td,.date-compare-table .group-row td{font-size:16px}.entry-overlay{padding:0}.entry-dialog{width:100vw;max-height:100vh;height:100vh;border-radius:0}.entry-columns{grid-template-columns:1fr}.entry-columns>.entry-stack:first-child{grid-column:auto}.entry-top{grid-template-columns:1fr}.entry-grid{grid-template-columns:1fr 1fr}.entry-doctor{grid-template-columns:minmax(0,1fr) 115px}.entry-foot{position:sticky;bottom:0}.date-view-field,.compare-range-field{min-width:100%!important}}
@@ -404,6 +408,53 @@
     }).join('');
     tbody.appendChild(tr);
   }
+  // Presentation only. Move whole rows below active colleagues; retain every
+  // historical value. Use the last two displayed months, excluding future ones.
+  function groupInactiveDoctorRows(tbody, months, selectedDate){
+    const recent=months.filter(month=>month.target<=selectedDate).slice(-2);
+    if(recent.length!==2)return;
+    for(const [rowClass,type] of [['row-team-dent','dentists'],['row-team-clinic','clinicDocs']]){
+      const rows=[...tbody.querySelectorAll('tr.'+rowClass)];
+      if(!rows.length)continue;
+      const inactive=rows.filter(row=>{
+        const name=row.cells[0].textContent;
+        return recent.every(month=>{
+          const value=rawOrNull(doctorPaidValue(month.target,type,name,(month.r?.[type]||{})[name]));
+          return value===null||value===0;
+        });
+      });
+      if(!inactive.length)continue;
+      const afterGroup=rows[rows.length-1].nextSibling;
+      const toggleRow=document.createElement('tr');
+      toggleRow.className='az-inactive-doctors-toggle '+(type==='dentists'?'row-team-dent-toggle':'row-team-clinic-toggle');
+      const cell=document.createElement('td');
+      cell.colSpan=months.length+1;
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='az-inactive-doctors-button';
+      button.setAttribute('aria-expanded','false');
+      const label='Нули / нет данных за 2 месяца ('+inactive.length+')';
+      button.textContent='+ '+label;
+      cell.appendChild(button);
+      toggleRow.appendChild(cell);
+      tbody.insertBefore(toggleRow,afterGroup);
+      inactive.forEach((row,index)=>{
+        row.classList.add('az-inactive-doctor');
+        row.id='az-inactive-'+type+'-'+index;
+        row.hidden=true;
+        tbody.insertBefore(row,afterGroup);
+      });
+      button.setAttribute('aria-controls',inactive.map(row=>row.id).join(' '));
+      button.addEventListener('click',()=>{
+        const expanded=button.getAttribute('aria-expanded')!=='true';
+        button.setAttribute('aria-expanded',String(expanded));
+        button.textContent=(expanded?'− ':'+ ')+label;
+        inactive.forEach(row=>{row.hidden=!expanded});
+        queueDateStickyClone();
+      });
+    }
+  }
+
   function renderDateComparison(){
     const date=document.getElementById('reportDate').value;if(!date)return;const base=new Date(date+'T12:00:00'),year=base.getFullYear(),day=base.getDate(),selectedMonth=base.getMonth()+1,range=document.getElementById('compareRange').value,store=loadStore();
     const months=compareMonths(range,selectedMonth).map(month=>{const target=clampDate(year,month,day),r=store[target]||null,paid=doctorDatePaidParts(target);return {month,target,r,d:r?derive(r):null,paidParts:paid.length?paid:r?[r]:[]}});
@@ -416,6 +467,7 @@
     addGroup(tbody,'Клиника','group-clinic',cols);addSub(tbody,'Приёмы','sub-visits-clinic',cols);addDateMetric(tbody,'Первичные','row-visits-clinic',months,(d,r)=>rawOrNull(r.clinicPrimary),fmtCount,'clinicPrimary');addDateMetric(tbody,'Повторные','row-visits-clinic',months,(d,r)=>rawOrNull(r.clinicRepeat),fmtCount,'clinicRepeat');addDateMetric(tbody,'ПП в день','row-visits-clinic',months,d=>rawOrNull(d.clinicPPDay),fmtCount,'clinicPPDay');addSub(tbody,'Выручка и экономика','sub-money-clinic',cols);addDateMetric(tbody,'Оплатившие пациенты','row-money-clinic',months,d=>rawOrNull(d.paidClinicPatients),fmtCount,'paidClinicPatients');addDateDoctorMetric(tbody,'Выручка клиники','row-money-clinic',months,m=>rawOrNull(doctorPartsDirectionPaid(m.paidParts,'clinicDocs')),fmtMoney,'clinicRev',true);addDateDoctorMetric(tbody,'Средний чек клиники на оплатившего пациента','row-money-clinic',months,m=>m.d?.paidClinicPatients?doctorPartsDirectionPaid(m.paidParts,'clinicDocs')/m.d.paidClinicPatients:null,fmtMoney,'clinicAvg');addSub(tbody,'Выручка по специалистам','sub-team-clinic',cols);clinicDocs.forEach(name=>addDateDoctorMetric(tbody,name,'row-team-clinic',months,m=>rawOrNull(doctorPaidValue(m.target,'clinicDocs',name,(m.r?.clinicDocs||{})[name])),fmtMoney,'clinicDoctor'));
     addGroup(tbody,'Лаборатория','group-lab',cols);addSub(tbody,'Объём','sub-lab-volume',cols);addDateMetric(tbody,'Количество заказов','row-lab-volume',months,(d,r)=>rawOrNull(r.labOrders),fmtCount,'labOrders');addSub(tbody,'Выручка и экономика','sub-lab-money',cols);addDateMetric(tbody,'Выручка лаборатории','row-lab-money',months,(d,r)=>rawOrNull(r.labRevenue||r.factLab),fmtMoney,'labRevenue',true);addDateMetric(tbody,'Средний чек лаборатории','row-lab-money',months,d=>rawOrNull(d.labAvg),fmtMoney,'labAvg');
     addGroup(tbody,'Маркетинг','group-marketing',cols);addSub(tbody,'Лиды','sub-marketing-input',cols);addDateMetric(tbody,'Целевые лиды — стоматология','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsDent),fmtCount,'leadsDent');addDateMetric(tbody,'Отказ / мониторинг — стоматология','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsDentLost),fmtCount,'leadsDentLost');addDateMetric(tbody,'Целевые лиды — клиника','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsClinic),fmtCount,'leadsClinic');addDateMetric(tbody,'Резерв','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsReserve),fmtCount,'leadsReserve');addDateMetric(tbody,'Всего лидов','row-marketing-input',months,d=>rawOrNull(d.totalLeads),fmtCount,'totalLeads',true);addSub(tbody,'Конверсия','sub-marketing-conv',cols);addDateMetric(tbody,'Конверсия стоматология','row-marketing-conv',months,d=>rawOrNull(d.convDent),fmtPct,'convDent');addDateMetric(tbody,'Конверсия клиника','row-marketing-conv',months,d=>rawOrNull(d.convClinic),fmtPct,'convClinic');addDateMetric(tbody,'Общая конверсия','row-marketing-conv',months,d=>rawOrNull(d.totalConv),fmtPct,'totalConv',true);
+    groupInactiveDoctorRows(tbody,months,date);
     queueDateStickyClone();
   }
 

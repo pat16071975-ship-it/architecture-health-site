@@ -75,7 +75,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
 
     def test_template_preserves_journal_contract_and_reconcile_close(self):
         raw = (ROOT / 'templates/uploads.html').read_bytes()
-        self.assertEqual(git_blob(raw), 'c36b7393a90f72626425e92fac8b56b54c335cf6')
+        self.assertEqual(git_blob(raw), '13e649ff926f7f1c3f26d1ce0f5a5723a72760f9')
         text = raw.decode('utf-8')
         changes = [
             ("{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}", "{{ row['data_date'] or '—' }}"),
@@ -216,8 +216,8 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         )
 
     def test_manual_save_candidate_is_unchanged_by_importer_reconciliation(self):
-        for name, sha in {'index.html': '30d81dc254ad94d6def113b5f35a265d6f54949e',
-                          'period-view.js': '47b1f8d8d6b1ea55071badb57465b11cac07473a'}.items():
+        for name, sha in {'index.html': '7bdf8e1ff5603b0333a042f0374ddbf9c914780f',
+                          'period-view.js': 'b740c54b5172e3800eab812c0c9a292c2c6c28c7'}.items():
             with self.subTest(name=name):
                 self.assertEqual(git_blob((ROOT.parent / 'reports' / name).read_bytes()), sha)
 
