@@ -74,6 +74,13 @@ class PaidServicesTests(unittest.TestCase):
         self.assertEqual(parsed["items"][0]["amount"], 200)
         self.assertEqual(parsed["items"][0]["paid_amount"], 225)
         self.assertEqual(parsed["items"][0]["invoice"], "100")
+        paid_patients = {
+            (row["staff"], row["patient_token"], row["paid"])
+            for row in parsed["patients"]
+        }
+        self.assertIn(("Dent D.", paid_services._patient_token("Пациент Один"), 225.0), paid_patients)
+        self.assertIn(("Struct S.", paid_services._patient_token("Пациент Два"), 100.0), paid_patients)
+        self.assertIn(("Lab L.", paid_services._patient_token("Пациент Три"), 40.0), paid_patients)
 
     def test_compact_period_keeps_service_analytics_without_patient_names(self):
         parsed = paid_services.parse_bytes(
@@ -91,6 +98,38 @@ class PaidServicesTests(unittest.TestCase):
         self.assertTrue(compact["service_items"])
         self.assertTrue(compact["visit_links"])
         self.assertEqual(len(compact["invoices"]), 4)
+        self.assertTrue(compact["paid_patient_evidence_complete"])
+        self.assertEqual(
+            compact["paid_patients"]["Dent D."],
+            [paid_services._patient_token("Пациент Один")],
+        )
+        self.assertEqual(
+            compact["paid_patients"]["Struct S."],
+            [paid_services._patient_token("Пациент Два")],
+        )
+        self.assertNotIn("Пациент", json.dumps(compact["paid_patients"], ensure_ascii=False))
+
+    def test_paid_patient_evidence_counts_patient_once_per_provider_and_ignores_zero_paid(self):
+        raw = self.workbook_bytes([
+            ["Услуги", None, None, None, 0, 300, 200, 100],
+            ["Dent D.", None, None, None, 0, 300, 200, 100],
+            ["Пациент Один", None, None, None, 100, 200, 150, 150],
+            ["Счет №100 от 10.09.2026 10:00:00", None, None, None, "-", 100, 100, 0],
+            ["Терапия", "10.09.2026 10:00", "Услуга 1", 1, "-", 100, 100, 0],
+            ["Пациент Один", None, None, None, 50, 100, 50, 100],
+            ["Счет №101 от 11.09.2026 10:00:00", None, None, None, "-", 100, 50, 50],
+            ["Терапия", "11.09.2026 10:00", "Услуга 2", 1, "-", 100, 50, 50],
+            ["Пациент Ноль", None, None, None, 0, 100, 0, 100],
+            ["Счет №102 от 12.09.2026 10:00:00", None, None, None, "-", 100, 0, 100],
+            ["Терапия", "12.09.2026 10:00", "Услуга 3", 1, "-", 100, 0, 100],
+        ])
+        parsed = paid_services.parse_bytes(raw, "paid.xlsx")
+        compact = paid_services.compact_report(parsed)
+        self.assertEqual(
+            compact["paid_patients"]["Dent D."],
+            [paid_services._patient_token("Пациент Один")],
+        )
+        self.assertNotIn(paid_services._patient_token("Пациент Ноль"), compact["paid_patients"]["Dent D."])
 
     def test_visit_attribution_uses_hashed_patient_links(self):
         parsed = paid_services.parse_bytes(
