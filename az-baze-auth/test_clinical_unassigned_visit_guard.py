@@ -152,7 +152,7 @@ class ClinicalVisitDirectionTableTests(unittest.TestCase):
             "Можно продолжить загрузку без выбора",
             "continueBtn.disabled=unknown.length>0&&!payload.can_replace",
             "if(select.value)result[select.dataset.visitDirection]=select.value",
-            "const needs=out.requires_choice||out.requires_provider_mapping;",
+            "const needs=out.requires_choice||out.requires_provider_mapping||(type!=='clinical'&&out.requires_review);",
             'id="reconcileCloseText"',
             ">Закрыть</button>",
             ".reconcile-overlay{padding:0;place-items:stretch}",
@@ -164,6 +164,10 @@ class ClinicalVisitDirectionTableTests(unittest.TestCase):
             self.assertIn(text, html)
         self.assertNotIn(
             "out.requires_choice||out.requires_provider_mapping||out.requires_review",
+            html,
+        )
+        self.assertIn(
+            "type!=='clinical'&&out.requires_review",
             html,
         )
 
