@@ -95,6 +95,48 @@ class PaidPeriodReportTests(unittest.TestCase):
         self.assertNotIn("source_sha", response.get_data(as_text=True))
         self.assertNotIn("visit_links", response.get_data(as_text=True))
 
+    def test_paid_patient_counts_are_unique_by_month_direction_and_overall(self):
+        report = self.report("2026-01-01", "2026-01-31")
+        shared = paid_services._patient_token("Пациент Общий")
+        clinic_only = paid_services._patient_token("Пациент Клиника")
+        report["patients"] = [
+            {"staff": "Dent A.", "patient_token": shared, "paid": 100},
+            {"staff": "Dent A.", "patient_token": shared, "paid": 50},
+            {"staff": "Clinic B.", "patient_token": shared, "paid": 25},
+            {"staff": "Clinic B.", "patient_token": clinic_only, "paid": 30},
+            {"staff": "Clinic B.", "patient_token": paid_services._patient_token("Без оплаты"), "paid": 0},
+        ]
+        self.store(report)
+        self.conn.execute(
+            "INSERT INTO report_data(date,payload,updated_by,updated_at) VALUES(?,?,?,?)",
+            ("2026-01-31", json.dumps({"date":"2026-01-31","factMedicine":205}, ensure_ascii=False), 1, "t"),
+        )
+        self.conn.commit()
+
+        counts = report_storage._paid_patient_counts(self.conn, "2026-01-01", "2026-01-31")
+        self.assertEqual(counts["medicine"], 2)
+        self.assertEqual(counts["dent"], 1)
+        self.assertEqual(counts["structure"], 2)
+        self.assertEqual(counts["dentists"], {"Dent Doctor": 1})
+        self.assertEqual(counts["clinicDocs"], {"Clinic Doctor": 2})
+
+        response = self.client().get("/api/reports/data")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        record = payload["data"]["2026-01-31"]
+        self.assertTrue(record["paidPatientEvidenceComplete"])
+        self.assertEqual(record["paidPatients"], 2)
+        self.assertEqual(record["paidDentPatients"], 1)
+        self.assertEqual(record["paidClinicPatients"], 2)
+        self.assertEqual(payload["paidPatientsMonthly"]["2026-01"]["medicine"], 2)
+        self.assertNotIn(shared, response.get_data(as_text=True))
+        self.assertNotIn(clinic_only, response.get_data(as_text=True))
+
+    def test_old_compact_report_does_not_fake_paid_patient_count(self):
+        self.store(self.report("2026-01-01", "2026-01-31"))
+        self.assertIsNone(report_storage._paid_patient_counts(self.conn, "2026-01-01", "2026-01-31"))
+        self.assertEqual(report_storage._management_paid_patients_monthly(self.conn), {})
+
     def test_new_period_and_same_end_month_can_coexist(self):
         self.store(self.report())
         monthly = self.report("2026-06-01", "2026-06-30")
