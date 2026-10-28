@@ -64,6 +64,12 @@ jobs:
           forbidden=['Устройства','Глубина просмотра','Отказы','Первично записались','id="crmNote"','crm-note','Выручка по врачам / исполнителям','id="providerRevenueRows"']
           assert all(x in text for x in required)
           assert all(x not in text for x in forbidden)
+          js=Path('reports/advertising.js').read_text(encoding='utf-8')
+          assert 'function siteSourceRows()' in js
+          assert 'body.innerHTML=sourceHtml+totalHtml' in js
+          assert '<td>Всего</td>' in js
+          assert 'function sourceGroups()' not in js
+          assert 'group-btn' not in js
           menu=Path('reports/menu.html').read_text(encoding='utf-8')
           assert '/reports/advertising/' in menu
           uploads=Path('az-baze-auth/templates/uploads.html').read_text(encoding='utf-8')
