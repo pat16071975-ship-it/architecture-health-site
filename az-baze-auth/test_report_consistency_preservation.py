@@ -99,6 +99,19 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         self.assertIn('Оставить нераспределённым', text)
         self.assertIn('visit_direction_decisions', text)
 
+    def test_home_logout_is_hidden_only_on_mobile(self):
+        source = (ROOT / 'app.py').read_text(encoding='utf-8')
+        self.assertIn('class="az-home-logout"', source)
+        self.assertIn(
+            '@media(max-width:700px){.az-home-logout{display:none!important}}',
+            source,
+        )
+        self.assertIn(
+            'style="position:fixed;left:18px;bottom:18px;z-index:50"',
+            source,
+        )
+        self.assertIn('>Выйти</button></form>', source)
+
     def test_clinical_preview_builds_patient_level_direction_rows_and_persists_choice(self):
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
