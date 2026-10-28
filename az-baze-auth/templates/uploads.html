@@ -388,7 +388,7 @@
         }
         const unassigned=payload.unassigned_visits||[];
         if(unassigned.length){
-          message.innerHTML+='<br><strong>Есть конкретные приёмы, для которых направление определить нельзя.</strong> Общий счёт первичных/повторных будет сохранён полностью. Для каждой строки выберите направление или явно оставьте её нераспределённой.';
+          message.innerHTML+='<br><strong>Есть конкретные приёмы, для которых направление определить нельзя.</strong> Общий счёт первичных/повторных будет сохранён полностью. Можно продолжить загрузку без выбора: такие визиты останутся нераспределёнными и их можно разобрать позже.';
         }
       }
     }
@@ -438,14 +438,14 @@
     newBtn.classList.toggle('hidden',!payload.requires_choice);
     continueBtn.classList.toggle('hidden',payload.requires_choice);
     const visitsNeedDecision=visits.length>0;
-    keepBtn.disabled=type!=='paid'&&(unknown.length>0||visitsNeedDecision)&&!payload.can_replace;
+    keepBtn.disabled=type!=='paid'&&unknown.length>0&&!payload.can_replace;
     newBtn.disabled=!payload.can_replace;
-    continueBtn.disabled=(unknown.length>0||visitsNeedDecision)&&!payload.can_replace;
+    continueBtn.disabled=unknown.length>0&&!payload.can_replace;
     if(unknown.length&&!payload.can_replace){
       message.innerHTML+='<br><strong>Нового врача может классифицировать только пользователь с правом замены данных.</strong>';
     }
     if(visitsNeedDecision&&!payload.can_replace){
-      message.innerHTML+='<br><strong>Распределять неопределённые приёмы может только пользователь с правом замены данных.</strong>';
+      message.innerHTML+='<br><strong>Можно загрузить данные без распределения этих приёмов.</strong> Для ручного выбора направления позже потребуется право замены данных.';
     }
     overlay.classList.remove('hidden');
   }
@@ -462,8 +462,7 @@
   function visitDirectionDecisions(){
     const result={};
     providers.querySelectorAll('[data-visit-direction]').forEach(select=>{
-      if(!select.value)throw new Error('Для каждого нераспределённого приёма выберите направление или «Оставить нераспределённым».');
-      result[select.dataset.visitDirection]=select.value;
+      if(select.value)result[select.dataset.visitDirection]=select.value;
     });
     return result;
   }

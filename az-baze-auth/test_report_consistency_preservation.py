@@ -75,7 +75,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
 
     def test_template_preserves_journal_contract_and_reconcile_close(self):
         raw = (ROOT / 'templates/uploads.html').read_bytes()
-        self.assertEqual(git_blob(raw), '335f2dd2cf6da4e38cdfc4a4c0af9e1455d47352')
+        self.assertEqual(git_blob(raw), '1cccae398c664082294080e26cc0cca929877e26')
         text = raw.decode('utf-8')
         changes = [
             ("{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}", "{{ row['data_date'] or '—' }}"),
@@ -98,6 +98,9 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         self.assertIn('data-visit-direction', text)
         self.assertIn('Оставить нераспределённым', text)
         self.assertIn('visit_direction_decisions', text)
+        self.assertIn('Можно продолжить загрузку без выбора', text)
+        self.assertIn("continueBtn.disabled=unknown.length>0&&!payload.can_replace", text)
+        self.assertIn("if(select.value)result[select.dataset.visitDirection]=select.value", text)
 
     def test_home_logout_is_hidden_only_on_mobile(self):
         source = (ROOT / 'app.py').read_text(encoding='utf-8')

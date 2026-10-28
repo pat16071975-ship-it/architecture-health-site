@@ -115,6 +115,26 @@ class ClinicalVisitDirectionTableTests(unittest.TestCase):
             {"dent", "structure"},
         )
 
+    def test_unresolved_direction_is_optional_for_current_upload(self):
+        period = self.period_without_evidence()
+        rows = daily_upload._visit_direction_rows(period, self.conn)
+        unresolved, resolved = daily_upload._apply_visit_direction_rows(
+            period, rows, decisions={}
+        )
+        self.assertEqual(len(unresolved), 2)
+        self.assertEqual(resolved, {})
+        self.assertEqual(
+            period[0]["normalized"]["manual_direction_counts"],
+            {"dent": {}, "structure": {}},
+        )
+        source = (
+            Path(__file__).resolve().parent / "daily_upload.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn(
+            "Для каждой строки выберите «Стоматология», «Клиника»",
+            source,
+        )
+
     def test_upload_ui_renders_patient_visit_direction_table(self):
         html = (
             Path(__file__).resolve().parent / "templates" / "uploads.html"
@@ -129,6 +149,9 @@ class ClinicalVisitDirectionTableTests(unittest.TestCase):
             "Оставить нераспределённым",
             "data-visit-direction",
             "visit_direction_decisions",
+            "Можно продолжить загрузку без выбора",
+            "continueBtn.disabled=unknown.length>0&&!payload.can_replace",
+            "if(select.value)result[select.dataset.visitDirection]=select.value",
             'id="reconcileCloseText"',
             ">Закрыть</button>",
             ".reconcile-overlay{padding:0;place-items:stretch}",
