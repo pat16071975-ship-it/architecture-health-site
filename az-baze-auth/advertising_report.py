@@ -450,8 +450,12 @@ def _metrika_source(row):
     detail = str(row.get("source_detail") or "").strip()
     detail_id = str(row.get("source_detail_id") or "").strip()
     utm_source = str(row.get("utm_source") or "").strip().lower()
+    utm_campaign = str(row.get("utm_campaign") or "").strip().lower()
+    utm_content = str(row.get("utm_content") or "").strip().lower()
 
     if traffic_id == "ad":
+        if utm_source == "geoadv_direct":
+            return "yandex_business", "Яндекс Бизнес", "Платная реклама"
         return "yandex_ads", "Яндекс-реклама", "Платная реклама"
     if traffic_id == "direct":
         return "direct", "Прямые заходы", "Прямые заходы"
@@ -464,7 +468,11 @@ def _metrika_source(row):
         return "organic", detail or traffic_name or "Поиск", "Поиск"
     if traffic_id == "social":
         if "instagram" in (detail + " " + utm_source).lower() or utm_source == "ig":
-            return "instagram", "Instagram", "Социальные сети"
+            if utm_campaign == "starostenko":
+                return "instagram_starostenko", "Instagram — Старостенко", "Социальные сети"
+            if utm_content == "link_in_bio":
+                return "instagram_bio_unknown", "Instagram — ссылка в bio, профиль не определён", "Социальные сети"
+            return "instagram_other", "Instagram — профиль не определён", "Социальные сети"
         return "social", detail or traffic_name or "Социальные сети", "Социальные сети"
     if traffic_id == "internal":
         return "internal", "Внутренние переходы", "Другие источники"
@@ -481,7 +489,6 @@ def _metrika_source(row):
         return "referral", detail or traffic_name or "Переходы по ссылкам", "Другие источники"
     key = re.sub(r"[^a-z0-9а-я]+", "_", (traffic_id or detail or traffic_name).lower()).strip("_") or "other"
     return key[:120], detail or traffic_name or "Другие источники", "Другие источники"
-
 
 def _parse_metrika_zip(raw, filename=""):
     if not raw:
@@ -580,14 +587,80 @@ def _archive_metrika(raw, payload_sha256):
     return str(final)
 
 
+def _stored_metrika_matches(conn, parsed):
+    days = list(parsed.get("completed_days") or [])
+    if not days:
+        return False
+    placeholders = ",".join("?" for _ in days)
+
+    actual_traffic = {}
+    rows = conn.execute(
+        f"""
+        SELECT metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,visits
+        FROM advertising_traffic_daily
+        WHERE provider='metrika' AND metric_date IN ({placeholders})
+        """,
+        days,
+    ).fetchall()
+    for row in rows:
+        key = (
+            str(row["metric_date"]), str(row["source_key"]), str(row["source_name"]),
+            str(row["channel_name"] or ""), str(row["campaign_id"] or ""),
+            str(row["campaign_name"] or ""),
+        )
+        actual_traffic[key] = actual_traffic.get(key, 0) + int(row["visits"] or 0)
+
+    expected_traffic = {
+        key: int(values["visits"])
+        for key, values in (parsed.get("traffic_rows") or {}).items()
+    }
+    if actual_traffic != expected_traffic:
+        return False
+
+    actual_goals = {}
+    rows = conn.execute(
+        f"""
+        SELECT metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,
+               goal_key,goal_name,goal_visits,reaches
+        FROM advertising_metrika_goal_daily
+        WHERE provider='metrika' AND metric_date IN ({placeholders})
+        """,
+        days,
+    ).fetchall()
+    for row in rows:
+        key = (
+            str(row["metric_date"]), str(row["source_key"]), str(row["source_name"]),
+            str(row["channel_name"] or ""), str(row["campaign_id"] or ""),
+            str(row["campaign_name"] or ""), str(row["goal_key"]), str(row["goal_name"]),
+        )
+        actual_goals[key] = {
+            "goal_visits": int(row["goal_visits"] or 0),
+            "reaches": int(row["reaches"] or 0),
+        }
+
+    expected_goals = {
+        key: {
+            "goal_visits": int(values["goal_visits"]),
+            "reaches": int(values["reaches"]),
+        }
+        for key, values in (parsed.get("goal_rows") or {}).items()
+    }
+    return actual_goals == expected_goals
+
+
 def _store_metrika(conn, parsed, actor_user_id):
     sha = parsed["payload_sha256"]
-    row = conn.execute(
+    existing = conn.execute(
         "SELECT payload_sha256 FROM advertising_metrika_imports WHERE payload_sha256=?",
         (sha,),
     ).fetchone()
-    if row:
-        return {"reused": True, "completed_days": parsed["completed_days"], "payload_sha256": sha}
+    if existing and _stored_metrika_matches(conn, parsed):
+        return {
+            "reused": True,
+            "reclassified": False,
+            "completed_days": parsed["completed_days"],
+            "payload_sha256": sha,
+        }
 
     archive_path = _archive_metrika(parsed["raw"], sha)
     imported_at = iso_now()
@@ -624,30 +697,36 @@ def _store_metrika(conn, parsed, actor_user_id):
 
     meta = parsed["metadata"]
     start, end = parsed["completed_days"][0], parsed["completed_days"][-1]
-    conn.execute(
-        """
-        INSERT INTO advertising_metrika_imports(
-            payload_sha256,original_filename,period_start,period_end,completed_days_json,
-            generated_at,imported_at,actor_user_id,traffic_rows,goal_rows,archive_path
-        ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
-        """,
-        (sha, parsed["filename"], start, end, json.dumps(parsed["completed_days"]),
-         str(meta.get("fetched_at_utc") or ""), imported_at, actor_user_id,
-         len(parsed["traffic_rows"]), len(parsed["goal_rows"]), archive_path),
-    )
-    conn.execute(
-        """
-        INSERT OR REPLACE INTO advertising_report_imports(
-            payload_sha256,dataset,period_start,period_end,generated_at,timezone,currency,
-            vat_mode,attribution_model,imported_at,actor_user_id,row_count
-        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
-        """,
-        (sha, "metrika", start, end, str(meta.get("fetched_at_utc") or ""),
-         str(meta.get("source_timezone") or DEFAULT_TIMEZONE), "RUB", "",
-         str(meta.get("attribution") or ""), imported_at, actor_user_id, len(parsed["traffic_rows"])),
-    )
-    return {"reused": False, "completed_days": parsed["completed_days"], "payload_sha256": sha}
+    if not existing:
+        conn.execute(
+            """
+            INSERT INTO advertising_metrika_imports(
+                payload_sha256,original_filename,period_start,period_end,completed_days_json,
+                generated_at,imported_at,actor_user_id,traffic_rows,goal_rows,archive_path
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (sha, parsed["filename"], start, end, json.dumps(parsed["completed_days"]),
+             str(meta.get("fetched_at_utc") or ""), imported_at, actor_user_id,
+             len(parsed["traffic_rows"]), len(parsed["goal_rows"]), archive_path),
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO advertising_report_imports(
+                payload_sha256,dataset,period_start,period_end,generated_at,timezone,currency,
+                vat_mode,attribution_model,imported_at,actor_user_id,row_count
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (sha, "metrika", start, end, str(meta.get("fetched_at_utc") or ""),
+             str(meta.get("source_timezone") or DEFAULT_TIMEZONE), "RUB", "",
+             str(meta.get("attribution") or ""), imported_at, actor_user_id, len(parsed["traffic_rows"])),
+        )
 
+    return {
+        "reused": False,
+        "reclassified": bool(existing),
+        "completed_days": parsed["completed_days"],
+        "payload_sha256": sha,
+    }
 
 def _metrika_goal_summary(conn, start, end):
     try:
@@ -1192,11 +1271,23 @@ def register_advertising_report(app):
         audit(
             "advertising_metrika_imported",
             target_user_id=g.user["id"],
-            details="days=" + ",".join(result["completed_days"]) + "; reused=" + str(result["reused"]).lower(),
+            details=(
+                "days=" + ",".join(result["completed_days"])
+                + "; reused=" + str(result["reused"]).lower()
+                + "; reclassified=" + str(result.get("reclassified", False)).lower()
+            ),
         )
         return jsonify(
             status="ok",
-            message=("Метрика уже загружена." if result["reused"] else "Метрика загружена. В отчёт включены только завершённые дни."),
+            message=(
+                "Метрика уже загружена."
+                if result["reused"]
+                else (
+                    "Метрика пересобрана по обновлённой классификации источников."
+                    if result.get("reclassified")
+                    else "Метрика загружена. В отчёт включены только завершённые дни."
+                )
+            ),
             **result,
         )
 
