@@ -853,8 +853,6 @@ def register_report_storage(app):
                 record["paidClinicPatients"] = payer_counts["structure"]
                 record["paidDentPatientsByDoctor"] = payer_counts["dentists"]
                 record["paidClinicPatientsByDoctor"] = payer_counts["clinicDocs"]
-            else:
-                record["paidPatientEvidenceComplete"] = False
             data[row["date"]] = record
         return jsonify(
             data=data,
