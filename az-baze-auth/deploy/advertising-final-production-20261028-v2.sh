@@ -303,6 +303,7 @@ rollback(){
   install -D -o "${UID[base]}" -g "${GID[base]}" -m "${MODEBITS[base]}" "$BACKUP/files/base" "$LIVE_BASE"
   install -D -o "${UID[advertising_html]}" -g "${GID[advertising_html]}" -m "${MODEBITS[advertising_html]}" "$BACKUP/files/advertising_html" "$LIVE_HTML"
   install -D -o "${UID[advertising_js]}" -g "${GID[advertising_js]}" -m "${MODEBITS[advertising_js]}" "$BACKUP/files/advertising_js" "$LIVE_JS"
+  rm -f "$DB-wal" "$DB-shm"
   install -D -o "$DB_UID" -g "$DB_GID" -m "$DB_MODE" "$BACKUP/auth.db" "$DB"
   if [ "$ARCHIVE_CREATED" -eq 1 ]; then rmdir "$ARCHIVE_DIR" >/dev/null 2>&1 || true; fi
   systemctl start "$SERVICE" >/dev/null 2>&1
