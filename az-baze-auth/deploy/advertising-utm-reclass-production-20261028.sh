@@ -78,11 +78,24 @@ curl -fsSL --retry 2 --connect-timeout 5 --max-time 30   "https://raw.githubuser
 echo 'TARGET_RUNTIME=PASS'
 
 "$APP_ROOT/venv/bin/python" - "$APP_ROOT" "$STAGE/advertising_report.py" "$DB" <<'PY'
-import importlib.util, json, sqlite3, sys
+import importlib.util, json, sqlite3, sys, types
+from datetime import datetime, timezone
 from pathlib import Path
 
 app_root, target_path, db = sys.argv[1:4]
 sys.path.insert(0, app_root)
+
+fake_app = types.ModuleType("app")
+fake_app.DB_PATH = Path(db)
+fake_app.SITE_ROOT = Path("/var/www/az-baze.ru")
+fake_app.admin_required = lambda fn: fn
+fake_app.audit = lambda *a, **k: None
+fake_app.db = lambda: None
+fake_app.iso_now = lambda: datetime.now(timezone.utc).isoformat()
+fake_app.permission_required = lambda _key: (lambda fn: fn)
+fake_app.require_csrf = lambda: None
+sys.modules["app"] = fake_app
+
 spec = importlib.util.spec_from_file_location("advertising_report_target", target_path)
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
@@ -222,11 +235,24 @@ install -D -o "$FILE_UID" -g "$FILE_GID" -m "$FILE_MODE"   "$STAGE/advertising_r
 echo 'RUNTIME_INSTALL=PASS'
 
 "$APP_ROOT/venv/bin/python" - "$APP_ROOT" "$LIVE_PY" "$DB" <<'PY'
-import hashlib, importlib.util, json, sqlite3, sys
+import hashlib, importlib.util, json, sqlite3, sys, types
+from datetime import datetime, timezone
 from pathlib import Path
 
 app_root, target_path, db = sys.argv[1:4]
 sys.path.insert(0, app_root)
+
+fake_app = types.ModuleType("app")
+fake_app.DB_PATH = Path(db)
+fake_app.SITE_ROOT = Path("/var/www/az-baze.ru")
+fake_app.admin_required = lambda fn: fn
+fake_app.audit = lambda *a, **k: None
+fake_app.db = lambda: None
+fake_app.iso_now = lambda: datetime.now(timezone.utc).isoformat()
+fake_app.permission_required = lambda _key: (lambda fn: fn)
+fake_app.require_csrf = lambda: None
+sys.modules["app"] = fake_app
+
 spec = importlib.util.spec_from_file_location("advertising_report_target", target_path)
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
