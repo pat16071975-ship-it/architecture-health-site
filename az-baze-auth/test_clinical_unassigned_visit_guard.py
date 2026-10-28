@@ -129,6 +129,13 @@ class ClinicalVisitDirectionTableTests(unittest.TestCase):
             "Оставить нераспределённым",
             "data-visit-direction",
             "visit_direction_decisions",
+            'id="reconcileCloseText"',
+            ">Закрыть</button>",
+            ".reconcile-overlay{padding:0;place-items:stretch}",
+            "height:100dvh;max-height:100dvh",
+            ".reconcile-head{position:sticky;top:0",
+            ".reconcile-foot{position:sticky;bottom:0",
+            "closeTextBtn?.addEventListener('click',closePreview)",
         ):
             self.assertIn(text, html)
 

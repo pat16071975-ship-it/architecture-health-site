@@ -75,7 +75,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
 
     def test_template_preserves_journal_contract_and_reconcile_close(self):
         raw = (ROOT / 'templates/uploads.html').read_bytes()
-        self.assertEqual(git_blob(raw), '63a7e261c71d8695649d7e8aa7d55e20edd0dd1c')
+        self.assertEqual(git_blob(raw), '335f2dd2cf6da4e38cdfc4a4c0af9e1455d47352')
         text = raw.decode('utf-8')
         changes = [
             ("{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}", "{{ row['data_date'] or '—' }}"),
