@@ -303,6 +303,7 @@ def parse_bytes(raw, filename="", known_staff=None, period_start=None, period_en
         providers = {}
         items = []
         invoices = []
+        patients = []
         current_staff = None
         current_patient = ""
         current_invoice = None
@@ -360,9 +361,23 @@ def parse_bytes(raw, filename="", known_staff=None, period_start=None, period_en
                 )
                 continue
 
-            # Patient header between staff and invoice rows.
+            # Patient header between staff and invoice rows. The MIS patient row carries
+            # its own opening/billed/paid/closing totals. Preserve only a privacy-safe
+            # token plus provider and paid amount; never store the patient's name in
+            # the compact report. This is the authoritative denominator for
+            # «Оплатившие пациенты», including payments against opening debt.
             if first and not second and not service and qty is None:
                 current_patient = first
+                patient_summary = _money_row(values[4:8])
+                token = _patient_token(current_patient)
+                if token and current_staff:
+                    patients.append(
+                        {
+                            "staff": current_staff,
+                            "patient_token": token,
+                            "paid": round(_num(patient_summary.get("paid")), 2),
+                        }
+                    )
                 continue
 
             if not service or qty is None:
@@ -447,6 +462,7 @@ def parse_bytes(raw, filename="", known_staff=None, period_start=None, period_en
             "provider_residual": residual,
             "items": items,
             "invoices": invoices,
+            "patients": patients,
         }
     finally:
         wb.close()
@@ -557,6 +573,14 @@ def compact_report(report):
             seen_invoices.add(key)
             invoices.append({"staff": staff, "invoice": invoice, "date": data_date})
 
+    paid_patients = {}
+    for row in report.get("patients") or []:
+        staff = str(row.get("staff") or "").strip()
+        token = str(row.get("patient_token") or "").strip()
+        if not staff or not token or _num(row.get("paid")) <= 0:
+            continue
+        paid_patients.setdefault(staff, set()).add(token)
+
     payload = {
         "version": 2,
         "month": str(report.get("month") or ""),
@@ -567,6 +591,11 @@ def compact_report(report):
             for name, values in (report.get("providers") or {}).items()
         },
         "provider_residual": dict(report.get("provider_residual") or {}),
+        "paid_patient_evidence_complete": True,
+        "paid_patients": {
+            staff: sorted(tokens)
+            for staff, tokens in sorted(paid_patients.items())
+        },
         "service_items": sorted(
             service_totals.values(),
             key=lambda row: (row["staff"], row["group"], row["service"]),
