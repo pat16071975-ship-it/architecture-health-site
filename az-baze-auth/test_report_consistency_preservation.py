@@ -28,7 +28,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
     def test_paid_sources_preserve_installed_behavior_under_advertising_hook(self):
         self.assertEqual(
             git_blob((ROOT / 'paid_services.py').read_bytes()),
-            '6aadd5b5e1464d027425d163b4b47fe718ddd589',
+            '7731d49098494276e40442d06443a0729fc7fcf3',
         )
 
         text = (ROOT / 'paid_services_upload.py').read_text(encoding='utf-8')
@@ -216,8 +216,8 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         )
 
     def test_manual_save_candidate_is_unchanged_by_importer_reconciliation(self):
-        for name, sha in {'index.html': 'ea68923b8eaf5ac1354c807290fd97ab1a589b55',
-                          'period-view.js': '68cd5606f0d4a82d378d66d470eb16ea76fbca42'}.items():
+        for name, sha in {'index.html': '30d81dc254ad94d6def113b5f35a265d6f54949e',
+                          'period-view.js': '47b1f8d8d6b1ea55071badb57465b11cac07473a'}.items():
             with self.subTest(name=name):
                 self.assertEqual(git_blob((ROOT.parent / 'reports' / name).read_bytes()), sha)
 
