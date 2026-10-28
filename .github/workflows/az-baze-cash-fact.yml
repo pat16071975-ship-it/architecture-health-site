@@ -38,6 +38,8 @@ on:
       - "reports/period-view.js"
       - "reports/management-mobile-layout.js"
       - "reports/dashboard.html"
+      - "reports/services.html"
+      - "reports/services-primary-patient-cost.js"
       - "reports/forecast.html"
       - "reports/finrez.html"
       - ".github/workflows/az-baze-cash-fact.yml"
@@ -76,6 +78,8 @@ on:
       - "reports/period-view.js"
       - "reports/management-mobile-layout.js"
       - "reports/dashboard.html"
+      - "reports/services.html"
+      - "reports/services-primary-patient-cost.js"
       - "reports/forecast.html"
       - "reports/finrez.html"
       - ".github/workflows/az-baze-cash-fact.yml"
@@ -107,6 +111,7 @@ jobs:
       - name: JavaScript syntax
         run: |
           node --check reports/period-view.js
+          node --check reports/services-primary-patient-cost.js
           node --check reports/management-mobile-layout.js
 
       - name: Paid period import and report behavior
@@ -218,8 +223,11 @@ jobs:
           assert "paid_services.store_snapshot" in paid_upload
           assert "core.replace_service_month" not in paid_upload
           assert "paid_services.overlay_stored_month" not in paid_upload
-          assert "service_items" in Path("az-baze-auth/paid_services.py").read_text(encoding="utf-8")
-          assert "visit_links" in Path("az-baze-auth/paid_services.py").read_text(encoding="utf-8")
+          paid_source = Path("az-baze-auth/paid_services.py").read_text(encoding="utf-8")
+          assert "service_items" in paid_source
+          assert "visit_links" in paid_source
+          assert "paid_patient_evidence_complete" in paid_source
+          assert '"paid_patients"' in paid_source
           assert "paid_services.parse_bytes" not in daily
           assert "paid_services.store_snapshot" not in daily
           assert "paid_services.overlay_stored_month" not in daily
@@ -245,6 +253,9 @@ jobs:
           assert "Выручка стоматологии" in management
           assert "Выручка клиники" in management
           assert "Выручка лаборатории" in management
+          assert "Оплатившие пациенты" in management
+          assert "Средний чек на оплатившего пациента" in management
+          assert "avgCheck:paidPatients?fm/paidPatients:null" in management
 
           assert "ДС ООО" in period and "ДС ИП" in period
           assert "Нераспределённые ДС" not in period
@@ -253,12 +264,23 @@ jobs:
           assert "paidDataComplete===true" not in period
           assert "dentistsLegal" not in period
           assert "clinicDocsLegal" not in period
+          assert "Оплатившие пациенты" in period
+          assert "Средний чек стоматологии на оплатившего пациента" in period
+          assert "Средний чек клиники на оплатившего пациента" in period
 
           assert "r?.cashTotal" in dashboard
           assert "Нераспределённые ДС" not in dashboard
           assert "paidDentists" not in dashboard and "paidClinicDocs" not in dashboard
           assert "План месяца:" in dashboard
           assert "data.flatMap(x=>[x.plan,x.factTotal])" in dashboard
+          assert "Оплатившие пациенты" in dashboard
+          assert "Выручка медицины / оплатившие пациенты" in dashboard
+
+          cost_ui = Path("reports/services-primary-patient-cost.js").read_text(encoding="utf-8")
+          assert "Затраты на оплатившего пациента" in cost_ui
+          assert "Оплатившие пациенты × затраты на оплатившего пациента" in cost_ui
+          assert "primaryPatients" not in cost_ui
+          assert "primarySeries" not in cost_ui
 
           assert "r.cashTotal" in forecast
           assert "Нераспределённые ДС" not in forecast
