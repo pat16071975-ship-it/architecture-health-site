@@ -1,0 +1,55 @@
+{
+  "task": "Add missing myofunctional topics and expand existing tongue articles",
+  "date": "2026-10-28",
+  "live_deployed": false,
+  "html_files": 8,
+  "new_articles": 1,
+  "expanded_articles": 2,
+  "source_hash_preflight": "PASS",
+  "local_installer_tests": [
+    "apply",
+    "idempotence",
+    "rollback on simulated HTTPS failure",
+    "changed input rejected"
+  ],
+  "browser_widths": [
+    1440,
+    768,
+    390,
+    320
+  ],
+  "browser_checks": [
+    "all portraits loaded",
+    "equal photo heights",
+    "experience and booking rows aligned on desktop",
+    "mobile without horizontal overflow",
+    "specialist filter",
+    "search by each of the three topics",
+    "FAQ expansion",
+    "specialist anchor navigation"
+  ],
+  "preserved": [
+    "existing portrait source files",
+    "profile header blocks",
+    "prices",
+    "personal booking links",
+    "Metrika script",
+    "header/footer/messengers on existing pages",
+    "nginx"
+  ],
+  "new_page": "/chto-my-lechim/infantilnoe-glotanie/",
+  "existing_articles": [
+    "/detyam/korotkaya-uzdechka-yazyka/",
+    "/detyam/glotanie-i-polozhenie-yazyka/"
+  ],
+  "clinical_boundaries": [
+    "therapists labelled nonmedical specialists",
+    "no guarantee of anatomical frenulum lengthening",
+    "surgical decision belongs to physician",
+    "age-appropriate swallowing distinguished from disorder",
+    "dysphagia warning with medical referral",
+    "no promise of facial reshaping"
+  ],
+  "campaign_changed": false,
+  "installer_sha256": "518d938cf2578e44139b351b177076e97f346892375db8b0fc7ae25b34e1f457"
+}
