@@ -75,12 +75,6 @@ function renderRevenue(){
     ', повторные '+money(r.repeat_paid)+
     ', тип приёма не определён '+money(r.unclassified_detailed)+'.';
 
-  const labels={dent:'Стоматология',structure:'Клиника',lab:'Лаборатория',ignore:'Не учитывается',pending:'Не классифицировано'};
-  const providers=r.providers||[];
-  $('#providerRevenueRows').innerHTML=providers.length
-    ? providers.map(row=>'<tr><td>'+h(row.display_name||row.source_name)+'</td><td>'+h(labels[row.direction]||'Не классифицировано')+'</td><td>'+money(row.paid)+'</td></tr>').join('')
-    : '<tr><td colspan="3">Нет данных по врачам</td></tr>';
-
   const control=[
     ['Касса за период',r.cash_total],
     ['ООО',r.cash_ooo],
