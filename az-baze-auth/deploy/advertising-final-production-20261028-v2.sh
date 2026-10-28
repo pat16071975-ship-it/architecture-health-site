@@ -285,12 +285,12 @@ else
   echo 'METRIKA_ARCHIVE_DIR=EXISTS'
 fi
 
-declare -A UID GID MODEBITS
+declare -A FILE_UID FILE_GID MODEBITS
 for spec in   "advertising_report|$LIVE_AD"   "uploads|$LIVE_UPLOADS"   "base|$LIVE_BASE"   "advertising_html|$LIVE_HTML"   "advertising_js|$LIVE_JS"
 do
   IFS='|' read -r label file <<<"$spec"
-  UID[$label]="$(stat -c %u "$file")"
-  GID[$label]="$(stat -c %g "$file")"
+  FILE_UID[$label]="$(stat -c %u "$file")"
+  FILE_GID[$label]="$(stat -c %g "$file")"
   MODEBITS[$label]="$(stat -c %a "$file")"
 done
 
@@ -298,11 +298,11 @@ rollback(){
   set +e
   echo 'ROLLBACK=START'
   systemctl stop "$SERVICE" >/dev/null 2>&1
-  install -D -o "${UID[advertising_report]}" -g "${GID[advertising_report]}" -m "${MODEBITS[advertising_report]}" "$BACKUP/files/advertising_report" "$LIVE_AD"
-  install -D -o "${UID[uploads]}" -g "${GID[uploads]}" -m "${MODEBITS[uploads]}" "$BACKUP/files/uploads" "$LIVE_UPLOADS"
-  install -D -o "${UID[base]}" -g "${GID[base]}" -m "${MODEBITS[base]}" "$BACKUP/files/base" "$LIVE_BASE"
-  install -D -o "${UID[advertising_html]}" -g "${GID[advertising_html]}" -m "${MODEBITS[advertising_html]}" "$BACKUP/files/advertising_html" "$LIVE_HTML"
-  install -D -o "${UID[advertising_js]}" -g "${GID[advertising_js]}" -m "${MODEBITS[advertising_js]}" "$BACKUP/files/advertising_js" "$LIVE_JS"
+  install -D -o "${FILE_UID[advertising_report]}" -g "${FILE_GID[advertising_report]}" -m "${MODEBITS[advertising_report]}" "$BACKUP/files/advertising_report" "$LIVE_AD"
+  install -D -o "${FILE_UID[uploads]}" -g "${FILE_GID[uploads]}" -m "${MODEBITS[uploads]}" "$BACKUP/files/uploads" "$LIVE_UPLOADS"
+  install -D -o "${FILE_UID[base]}" -g "${FILE_GID[base]}" -m "${MODEBITS[base]}" "$BACKUP/files/base" "$LIVE_BASE"
+  install -D -o "${FILE_UID[advertising_html]}" -g "${FILE_GID[advertising_html]}" -m "${MODEBITS[advertising_html]}" "$BACKUP/files/advertising_html" "$LIVE_HTML"
+  install -D -o "${FILE_UID[advertising_js]}" -g "${FILE_GID[advertising_js]}" -m "${MODEBITS[advertising_js]}" "$BACKUP/files/advertising_js" "$LIVE_JS"
   rm -f "$DB-wal" "$DB-shm"
   install -D -o "$DB_UID" -g "$DB_GID" -m "$DB_MODE" "$BACKUP/auth.db" "$DB"
   if [ "$ARCHIVE_CREATED" -eq 1 ]; then rmdir "$ARCHIVE_DIR" >/dev/null 2>&1 || true; fi
@@ -320,11 +320,11 @@ systemctl stop "$SERVICE"
 if systemctl is-active --quiet "$SERVICE"; then echo 'STOP: SERVICE_DID_NOT_STOP'; exit 1; fi
 echo 'SERVICE_STOP_FOR_CONTROLLED_APPLY=PASS'
 
-install -D -o "${UID[advertising_report]}" -g "${GID[advertising_report]}" -m "${MODEBITS[advertising_report]}" "$STAGE/advertising_report.py" "$LIVE_AD"
-install -D -o "${UID[uploads]}" -g "${GID[uploads]}" -m "${MODEBITS[uploads]}" "$STAGE/uploads.html" "$LIVE_UPLOADS"
-install -D -o "${UID[base]}" -g "${GID[base]}" -m "${MODEBITS[base]}" "$STAGE/base.html" "$LIVE_BASE"
-install -D -o "${UID[advertising_html]}" -g "${GID[advertising_html]}" -m "${MODEBITS[advertising_html]}" "$STAGE/advertising.html" "$LIVE_HTML"
-install -D -o "${UID[advertising_js]}" -g "${GID[advertising_js]}" -m "${MODEBITS[advertising_js]}" "$STAGE/advertising.js" "$LIVE_JS"
+install -D -o "${FILE_UID[advertising_report]}" -g "${FILE_GID[advertising_report]}" -m "${MODEBITS[advertising_report]}" "$STAGE/advertising_report.py" "$LIVE_AD"
+install -D -o "${FILE_UID[uploads]}" -g "${FILE_GID[uploads]}" -m "${MODEBITS[uploads]}" "$STAGE/uploads.html" "$LIVE_UPLOADS"
+install -D -o "${FILE_UID[base]}" -g "${FILE_GID[base]}" -m "${MODEBITS[base]}" "$STAGE/base.html" "$LIVE_BASE"
+install -D -o "${FILE_UID[advertising_html]}" -g "${FILE_GID[advertising_html]}" -m "${MODEBITS[advertising_html]}" "$STAGE/advertising.html" "$LIVE_HTML"
+install -D -o "${FILE_UID[advertising_js]}" -g "${FILE_GID[advertising_js]}" -m "${MODEBITS[advertising_js]}" "$STAGE/advertising.js" "$LIVE_JS"
 
 [ "$(blob "$LIVE_AD")" = "$TARGET_AD" ] || { echo 'STOP: INSTALL_BLOB_FAIL=advertising_report'; exit 1; }
 [ "$(blob "$LIVE_UPLOADS")" = "$TARGET_UPLOADS" ] || { echo 'STOP: INSTALL_BLOB_FAIL=uploads'; exit 1; }
