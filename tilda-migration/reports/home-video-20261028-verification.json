@@ -1,0 +1,72 @@
+{
+  "issue": "Home page contains an inert video-placeholder image instead of the original player",
+  "source": "https://expert-stom.tilda.ws/",
+  "original_element": "t-video-lazyload[data-videolazy-type=rutube]",
+  "rutube_id": "10602175dc3212b46fdd1d764e1bfa42",
+  "original_cover": "https://static.tildacdn.com/tild6237-3837-4531-a664-313836313538/__2026-06-23_000939.png",
+  "current_cover": "https://azmednsk.ru/assets/ae539bb9ce3fbc525200-lossless-20261018.webp",
+  "covers_pixel_sha256": "540fe77aa7df1afaba740ed55a300ed565dadabfed3e4337945974f6c9dc7aa6",
+  "covers_identical": true,
+  "changed_files": [
+    "index.html"
+  ],
+  "existing_texts_photos_prices_booking_scripts_preserved": true,
+  "ui_checks": [
+    {
+      "width": 1440,
+      "frame": {
+        "w": 560,
+        "h": 315,
+        "x": 760
+      },
+      "keyboard_launch": true,
+      "one_correct_iframe": true,
+      "geometry_unchanged": true,
+      "actual_playback": "not_verified"
+    },
+    {
+      "width": 768,
+      "frame": {
+        "w": 619,
+        "h": 338,
+        "x": 74
+      },
+      "keyboard_launch": true,
+      "one_correct_iframe": true,
+      "geometry_unchanged": true,
+      "actual_playback": "not_verified"
+    },
+    {
+      "width": 390,
+      "frame": {
+        "w": 300,
+        "h": 159,
+        "x": 45
+      },
+      "keyboard_launch": true,
+      "one_correct_iframe": true,
+      "geometry_unchanged": true,
+      "actual_playback": "not_verified"
+    },
+    {
+      "width": 320,
+      "frame": {
+        "w": 300,
+        "h": 159,
+        "x": 10
+      },
+      "keyboard_launch": true,
+      "one_correct_iframe": true,
+      "geometry_unchanged": true,
+      "actual_playback": "not_verified"
+    }
+  ],
+  "installer_checks": [
+    "exact_preflight",
+    "apply",
+    "idempotent_apply",
+    "rollback_after_simulated_http_failure",
+    "reject_changed_source"
+  ],
+  "external_playback": "NOT VERIFIED: original RUTUBE embed returns Forbidden in cloud browser. Local integration test intercepts RUTUBE only to validate embed creation, not playback. Requires a real playback check after deployment."
+}
