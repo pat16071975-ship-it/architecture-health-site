@@ -62,16 +62,32 @@ def metrika_zip():
             "attribution": "cross_device_last_significant",
         },
         "metrica_traffic_day": [
-            {"row_id":"a","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"ad","traffic_source_name":"Переходы по рекламе","source_detail":"Яндекс Директ: Не определено","source_detail_id":"ad.direct","utm_source":"geoadv_direct","visits":25,"is_test_tag":False},
-            {"row_id":"b","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"social","traffic_source_name":"Переходы из социальных сетей","source_detail":"instagram.com","source_detail_id":"social.instagram","utm_source":"instagram","visits":8,"is_test_tag":False},
-            {"row_id":"t","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"messenger","traffic_source_name":"Telegram","utm_source":"metrika_test","visits":5,"is_test_tag":True},
-            {"row_id":"p","date":"2026-10-28","day_status":"partial","traffic_source_id":"direct","traffic_source_name":"Прямые заходы","visits":9,"is_test_tag":False},
+            {"row_id":"geo20","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"ad","traffic_source_name":"Переходы по рекламе","source_detail":"Яндекс Директ: Не определено","source_detail_id":"ad.Яндекс Директ: Не определено","utm_source":"geoadv_direct","utm_content":"1921754454131403552","visits":20,"is_test_tag":False},
+            {"row_id":"direct14","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"direct","traffic_source_name":"Прямые заходы","visits":14,"is_test_tag":False},
+            {"row_id":"google8","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"organic","traffic_source_name":"Переходы из поисковых систем","source_detail":"Google","source_detail_id":"organic.google","visits":8,"is_test_tag":False},
+            {"row_id":"igstar6","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"social","traffic_source_name":"Переходы из социальных сетей","source_detail":"instagram.com","source_detail_id":"social.instagram","utm_source":"instagram","utm_medium":"social","utm_campaign":"starostenko","utm_content":"profile","visits":6,"is_test_tag":False},
+            {"row_id":"2gis6","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"referral","traffic_source_name":"Переходы по ссылкам на сайтах","source_detail":"link.2gis.ru","source_detail_id":"referral.link.2gis.ru","visits":6,"is_test_tag":False},
+            {"row_id":"tap4","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"referral","traffic_source_name":"Переходы по ссылкам на сайтах","source_detail":"taplink.cc","source_detail_id":"referral.taplink.cc","visits":4,"is_test_tag":False},
+            {"row_id":"yandex4","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"organic","traffic_source_name":"Переходы из поисковых систем","source_detail":"Яндекс","source_detail_id":"organic.yandex","visits":4,"is_test_tag":False},
+            {"row_id":"internal3","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"internal","traffic_source_name":"Внутренние переходы","visits":3,"is_test_tag":False},
+            {"row_id":"geo3","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"ad","traffic_source_name":"Переходы по рекламе","source_detail":"Яндекс Директ: Не определено","source_detail_id":"ad.Яндекс Директ: Не определено","utm_source":"geoadv_direct","utm_content":"1923074738892725053","visits":3,"is_test_tag":False},
+            {"row_id":"nap2","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"referral","traffic_source_name":"Переходы по ссылкам на сайтах","utm_source":"napopravku","utm_medium":"referral","utm_campaign":"clinic_profile","visits":2,"is_test_tag":False},
+            {"row_id":"igbio2","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"social","traffic_source_name":"Переходы из социальных сетей","source_detail":"instagram.com","source_detail_id":"social.instagram","utm_source":"ig","utm_medium":"social","utm_content":"link_in_bio","visits":2,"is_test_tag":False},
+            {"row_id":"pro1","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"referral","traffic_source_name":"Переходы по ссылкам на сайтах","source_detail":"prodoctorov.ru","source_detail_id":"referral.prodoctorov.ru","utm_source":"prodoctorov","utm_medium":"referral","utm_campaign":"clinic_profile","visits":1,"is_test_tag":False},
+            {"row_id":"geo1a","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"ad","traffic_source_name":"Переходы по рекламе","source_detail":"Яндекс Директ: Не определено","source_detail_id":"ad.Яндекс Директ: Не определено","utm_source":"geoadv_direct","utm_content":"1923074738892725033","visits":1,"is_test_tag":False},
+            {"row_id":"geo1b","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"ad","traffic_source_name":"Переходы по рекламе","source_detail":"Яндекс Директ: Не определено","source_detail_id":"ad.Яндекс Директ: Не определено","utm_source":"geoadv_direct","utm_content":"1923074738892725037","visits":1,"is_test_tag":False},
+            {"row_id":"test5","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"messenger","traffic_source_name":"Telegram","utm_source":"telegram","utm_campaign":"metrika_test","visits":5,"is_test_tag":True},
+            {"row_id":"partial9","date":"2026-10-28","day_status":"partial","traffic_source_id":"direct","traffic_source_name":"Прямые заходы","visits":9,"is_test_tag":False},
         ],
         "metrica_goal_day": [
-            {"traffic_row_id":"b","date":"2026-10-27","goal_name":"Открытие окна записи","goal_visits":3,"reaches":6},
-            {"traffic_row_id":"b","date":"2026-10-27","goal_name":"Переход к записи в Medflex","goal_visits":2,"reaches":4},
-            {"traffic_row_id":"t","date":"2026-10-27","goal_name":"Переход к записи в Medflex","goal_visits":5,"reaches":10},
-            {"traffic_row_id":"p","date":"2026-10-28","goal_name":"Автоцель: переход в мессенджер","goal_visits":2,"reaches":2},
+            {"traffic_row_id":"igstar6","date":"2026-10-27","goal_name":"Открытие окна записи","goal_visits":2,"reaches":5},
+            {"traffic_row_id":"tap4","date":"2026-10-27","goal_name":"Открытие окна записи","goal_visits":1,"reaches":1},
+            {"traffic_row_id":"igstar6","date":"2026-10-27","goal_name":"Переход к записи в Medflex","goal_visits":2,"reaches":5},
+            {"traffic_row_id":"2gis6","date":"2026-10-27","goal_name":"Переход к записи в Medflex","goal_visits":1,"reaches":1},
+            {"traffic_row_id":"direct14","date":"2026-10-27","goal_name":"Переход к записи в Medflex","goal_visits":1,"reaches":1},
+            {"traffic_row_id":"tap4","date":"2026-10-27","goal_name":"Переход к записи в Medflex","goal_visits":1,"reaches":1},
+            {"traffic_row_id":"test5","date":"2026-10-27","goal_name":"Переход к записи в Medflex","goal_visits":5,"reaches":10},
+            {"traffic_row_id":"partial9","date":"2026-10-28","goal_name":"Автоцель: переход в мессенджер","goal_visits":2,"reaches":2},
         ],
     }
     raw = io.BytesIO()
@@ -125,11 +141,30 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(c.execute("SELECT spend FROM advertising_traffic_daily WHERE provider='direct'").fetchone()[0],1200)
         finally:c.close()
 
-    def test_metrika_zip_uses_completed_day_and_excludes_test_tag(self):
+    def test_metrika_zip_preserves_significant_utm_sources_and_goals(self):
         parsed = m._parse_metrika_zip(metrika_zip(), "batch.zip")
         self.assertEqual(parsed["completed_days"], ["2026-10-27"])
-        self.assertEqual(sum(v["visits"] for v in parsed["traffic_rows"].values()), 33)
-        self.assertEqual(sum(v["goal_visits"] for v in parsed["goal_rows"].values()), 5)
+        self.assertEqual(sum(v["visits"] for v in parsed["traffic_rows"].values()), 75)
+
+        by_name = {}
+        for key, values in parsed["traffic_rows"].items():
+            by_name[key[2]] = by_name.get(key[2], 0) + values["visits"]
+        self.assertEqual(by_name["Яндекс Бизнес"], 25)
+        self.assertEqual(by_name["Instagram — Старостенко"], 6)
+        self.assertEqual(by_name["Instagram — ссылка в bio, профиль не определён"], 2)
+        self.assertNotIn("Яндекс-реклама", by_name)
+
+        goals = {}
+        for key, values in parsed["goal_rows"].items():
+            source_name, goal_key = key[2], key[6]
+            goals[(source_name, goal_key)] = goals.get((source_name, goal_key), 0) + values["goal_visits"]
+        self.assertEqual(goals[("Instagram — Старостенко", "booking_open")], 2)
+        self.assertEqual(goals[("Instagram — Старостенко", "medflex")], 2)
+        self.assertEqual(goals[("Taplink", "booking_open")], 1)
+        self.assertEqual(goals[("Taplink", "medflex")], 1)
+        self.assertEqual(goals[("2ГИС", "medflex")], 1)
+        self.assertEqual(goals[("Прямые заходы", "medflex")], 1)
+
         with tempfile.TemporaryDirectory() as tmp:
             old = m.METRIKA_ARCHIVE_ROOT
             m.METRIKA_ARCHIVE_ROOT = Path(tmp)
@@ -137,14 +172,75 @@ class AdvertisingReportTests(unittest.TestCase):
             try:
                 stored = m._store_metrika(c, parsed, 1); c.commit()
                 self.assertFalse(stored["reused"])
+                self.assertFalse(stored["reclassified"])
+
                 summary = m._summary(c, date(2026,10,27), date(2026,10,27))
-                self.assertEqual(summary["visits"], 33)
+                self.assertEqual(summary["visits"], 75)
                 self.assertEqual(summary["booking_open_visits"], 3)
                 self.assertEqual(summary["booking_open_reaches"], 6)
-                self.assertEqual(summary["medflex_visits"], 2)
+                self.assertEqual(summary["medflex_visits"], 5)
+                self.assertEqual(summary["medflex_reaches"], 8)
                 self.assertEqual(c.execute("SELECT COUNT(*) FROM advertising_traffic_daily WHERE metric_date='2026-10-28'").fetchone()[0], 0)
+
+                sources = {
+                    row["source_name"]: row
+                    for row in m._group_breakdown(c, date(2026,10,27), date(2026,10,27), "source")
+                    if row["visits"] is not None
+                }
+                self.assertEqual(sum(row["visits"] for row in sources.values()), 75)
+                self.assertEqual(sources["Яндекс Бизнес"]["visits"], 25)
+                self.assertEqual(sources["Instagram — Старостенко"]["visits"], 6)
+                self.assertEqual(sources["Instagram — Старостенко"]["booking_open_visits"], 2)
+                self.assertEqual(sources["Instagram — Старостенко"]["medflex_visits"], 2)
+                self.assertEqual(sources["Instagram — ссылка в bio, профиль не определён"]["visits"], 2)
+
+                second = m._store_metrika(c, parsed, 1); c.commit()
+                self.assertTrue(second["reused"])
+                self.assertFalse(second["reclassified"])
             finally:
                 c.close(); m.METRIKA_ARCHIVE_ROOT = old
+
+    def test_existing_same_zip_is_reclassified_when_normalized_rows_changed(self):
+        parsed = m._parse_metrika_zip(metrika_zip(), "batch.zip")
+        with tempfile.TemporaryDirectory() as tmp:
+            old = m.METRIKA_ARCHIVE_ROOT
+            m.METRIKA_ARCHIVE_ROOT = Path(tmp)
+            c = conn()
+            try:
+                m._store_metrika(c, parsed, 1); c.commit()
+                c.execute(
+                    "UPDATE advertising_traffic_daily SET source_key='yandex_ads',source_name='Яндекс-реклама' "
+                    "WHERE provider='metrika' AND source_key='yandex_business'"
+                )
+                c.execute(
+                    "UPDATE advertising_metrika_goal_daily SET source_key='instagram',source_name='Instagram' "
+                    "WHERE provider='metrika' AND source_key='instagram_starostenko'"
+                )
+                c.execute(
+                    "UPDATE advertising_traffic_daily SET source_key='instagram',source_name='Instagram' "
+                    "WHERE provider='metrika' AND source_key IN ('instagram_starostenko','instagram_bio_unknown')"
+                )
+                c.commit()
+                self.assertFalse(m._stored_metrika_matches(c, parsed))
+
+                rebuilt = m._store_metrika(c, parsed, 1); c.commit()
+                self.assertFalse(rebuilt["reused"])
+                self.assertTrue(rebuilt["reclassified"])
+                self.assertTrue(m._stored_metrika_matches(c, parsed))
+
+                rows = c.execute(
+                    "SELECT source_name,SUM(visits) AS visits FROM advertising_traffic_daily "
+                    "WHERE provider='metrika' AND metric_date='2026-10-27' "
+                    "GROUP BY source_name ORDER BY source_name"
+                ).fetchall()
+                values = {row["source_name"]: row["visits"] for row in rows}
+                self.assertEqual(values["Яндекс Бизнес"], 25)
+                self.assertEqual(values["Instagram — Старостенко"], 6)
+                self.assertEqual(values["Instagram — ссылка в bio, профиль не определён"], 2)
+                self.assertNotIn("Яндекс-реклама", values)
+            finally:
+                c.close(); m.METRIKA_ARCHIVE_ROOT = old
+
 
     def test_revenue_summary_puts_total_paid_first_and_reconciles_every_ruble_by_provider(self):
         c=conn()
