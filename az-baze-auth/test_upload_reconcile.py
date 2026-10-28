@@ -190,11 +190,11 @@ class UploadReconcileTests(unittest.TestCase):
             Path(__file__).parent / "templates" / "base.html"
         ).read_text(encoding="utf-8")
         self.assertIn(
-            "form.matches('[data-az-upload-form],[data-az-cash-upload-form]')",
+            "form.matches('[data-az-upload-form],[data-az-cash-upload-form],[data-az-metrika-form]')",
             html,
         )
         self.assertIn(
-            "if (form.matches('[data-az-upload-form],[data-az-cash-upload-form]')) return;",
+            "if (form.matches('[data-az-upload-form],[data-az-cash-upload-form],[data-az-metrika-form]')) return;",
             html,
         )
 
@@ -238,6 +238,9 @@ class UploadReconcileTests(unittest.TestCase):
         self.assertIn("2. Выручка по направлениям", html)
         self.assertIn("3. Счета и оплаты", html)
         self.assertIn("4. Новый отчёт МИС «Выручка по направлениям»", html)
+        self.assertIn("5. Яндекс Метрика", html)
+        self.assertIn("data-az-metrika-form", html)
+        self.assertIn('name="metrika_zip"', html)
         self.assertIn("data-az-upload-form", html)
         self.assertIn("data-az-paid-upload-form", html)
         self.assertIn('name="completed"', html)

@@ -14,6 +14,8 @@ on:
       - 'reports/advertising.html'
       - 'reports/advertising.js'
       - 'reports/menu.html'
+      - 'az-baze-auth/templates/uploads.html'
+      - 'az-baze-auth/templates/base.html'
       - '.github/workflows/az-advertising-report.yml'
   pull_request:
     paths:
@@ -28,6 +30,8 @@ on:
       - 'reports/advertising.html'
       - 'reports/advertising.js'
       - 'reports/menu.html'
+      - 'az-baze-auth/templates/uploads.html'
+      - 'az-baze-auth/templates/base.html'
       - '.github/workflows/az-advertising-report.yml'
 permissions:
   contents: read
@@ -48,7 +52,7 @@ jobs:
           python -m py_compile advertising_report.py advertising_mis_bridge.py paid_services_upload.py daily_upload.py completed_upload.py report_storage.py
           python -m unittest -v test_advertising_report.py
           python -m unittest -v test_advertising_mis_bridge.py
-          python -m unittest -v test_paid_services.py test_paid_services_periods.py test_completed_upload.py test_upload_consistency_atomic.py
+          python -m unittest -v test_paid_services.py test_paid_services_periods.py test_completed_upload.py test_upload_consistency_atomic.py test_upload_reconcile.py
       - name: JavaScript syntax
         run: node --check reports/advertising.js
       - name: Approved scope contract
@@ -56,12 +60,15 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           text=Path('reports/advertising.html').read_text(encoding='utf-8')+'\n'+Path('reports/advertising.js').read_text(encoding='utf-8')
-          required=['Рекламный отчёт','Расходы на рекламу','Целевые лиды','Состоявшиеся первичные приёмы','Выручка новых пациентов за 30 дней','Откуда пришли пациенты и деньги']
+          required=['Рекламный отчёт','Посещения сайта','Визиты с открытием записи','Визиты с переходом в Medflex','Работа клиники за период','Выручка клиники','Без построчной детализации в выгрузке МИС','Источники сайта','Не хватает данных CRM для построения отчёта']
           forbidden=['Устройства','Глубина просмотра','Отказы']
           assert all(x in text for x in required)
           assert all(x not in text for x in forbidden)
           menu=Path('reports/menu.html').read_text(encoding='utf-8')
           assert '/reports/advertising/' in menu
+          uploads=Path('az-baze-auth/templates/uploads.html').read_text(encoding='utf-8')
+          assert '5. Яндекс Метрика' in uploads
+          assert 'name="metrika_zip"' in uploads
           source=Path('az-baze-auth/report_storage.py').read_text(encoding='utf-8')
           assert 'advertising_report.register_advertising_report(app)' in source
           print('ADVERTISING_REPORT_SCOPE=PASS')

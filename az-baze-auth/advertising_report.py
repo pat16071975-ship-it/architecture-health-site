@@ -1,10 +1,14 @@
 import calendar
 import hashlib
+import io
 import json
 import math
+import os
 import re
 import sqlite3
+import zipfile
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from flask import Response, abort, g, jsonify, request
@@ -15,6 +19,16 @@ from app import DB_PATH, SITE_ROOT, admin_required, audit, db, iso_now, permissi
 SCHEMA_VERSION = 1
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DEFAULT_TIMEZONE = "Asia/Novosibirsk"
+METRIKA_EXPORT_SCHEMA = "az_analytics_export_v1"
+METRIKA_COUNTER_ID = "113776005"
+METRIKA_ARCHIVE_ROOT = Path(os.environ.get("AZBAZE_METRIKA_ARCHIVE", "/var/lib/az-baze/advertising-metrika-archive"))
+METRIKA_GOALS = {
+    "Открытие окна записи": "booking_open",
+    "Переход к записи в Medflex": "medflex",
+    "Нажатие на телефон": "phone",
+    "Автоцель: клик по номеру телефона": "phone_auto",
+    "Автоцель: переход в мессенджер": "messenger",
+}
 DATASET_CONFIG = {
     "direct": ("advertising_traffic_daily", "metric_date"),
     "metrika": ("advertising_traffic_daily", "metric_date"),
@@ -25,6 +39,8 @@ METRIC_KEYS = (
     "spend", "clicks", "visits", "target_leads", "leads_with_primary",
     "primary_visits", "primary_paid", "primary_services", "repeat_visits",
     "repeat_paid", "new_patients", "new_patient_30d_paid",
+    "booking_open_visits", "booking_open_reaches", "medflex_visits", "medflex_reaches",
+    "phone_visits", "messenger_visits",
 )
 
 SCHEMA = """
@@ -94,6 +110,36 @@ CREATE TABLE IF NOT EXISTS advertising_report_imports (
 CREATE INDEX IF NOT EXISTS idx_ad_traffic_date ON advertising_traffic_daily(metric_date);
 CREATE INDEX IF NOT EXISTS idx_ad_clinic_date ON advertising_clinic_daily(metric_date);
 CREATE INDEX IF NOT EXISTS idx_ad_cohort_date ON advertising_cohort_daily(cohort_date);
+CREATE TABLE IF NOT EXISTS advertising_metrika_goal_daily (
+    provider TEXT NOT NULL,
+    metric_date TEXT NOT NULL,
+    source_key TEXT NOT NULL,
+    source_name TEXT NOT NULL,
+    channel_name TEXT,
+    campaign_id TEXT NOT NULL DEFAULT '',
+    campaign_name TEXT NOT NULL DEFAULT '',
+    goal_key TEXT NOT NULL,
+    goal_name TEXT NOT NULL,
+    goal_visits INTEGER NOT NULL,
+    reaches INTEGER NOT NULL,
+    updated_at TEXT NOT NULL,
+    import_id TEXT NOT NULL,
+    PRIMARY KEY(provider, metric_date, source_key, campaign_id, campaign_name, goal_key)
+);
+CREATE INDEX IF NOT EXISTS idx_ad_metrika_goal_date ON advertising_metrika_goal_daily(metric_date);
+CREATE TABLE IF NOT EXISTS advertising_metrika_imports (
+    payload_sha256 TEXT PRIMARY KEY,
+    original_filename TEXT NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    completed_days_json TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    imported_at TEXT NOT NULL,
+    actor_user_id INTEGER,
+    traffic_rows INTEGER NOT NULL,
+    goal_rows INTEGER NOT NULL,
+    archive_path TEXT NOT NULL
+);
 """
 
 
@@ -234,6 +280,7 @@ def _summary(conn, start, end):
     result["total_visits"] = None if result["primary_visits"] is None and result["repeat_visits"] is None else (result["primary_visits"] or 0) + (result["repeat_visits"] or 0)
     result["total_paid"] = _combine_money(result["primary_paid"], result["repeat_paid"])
     result["lead_to_primary_pct"] = result["leads_with_primary"] * 100.0 / result["target_leads"] if result["target_leads"] and result["leads_with_primary"] is not None else None
+    result.update(_metrika_goal_summary(conn, start, end))
     return result
 
 
@@ -323,6 +370,15 @@ def _group_breakdown(conn, start, end, level):
         "SELECT source_key,source_name,channel_name,campaign_id,campaign_name,new_patients,new_patient_30d_paid "
         "FROM advertising_cohort_daily WHERE cohort_date BETWEEN ? AND ?", (start_s, end_s)
     ).fetchall()
+    try:
+        goals = conn.execute(
+            "SELECT source_key,source_name,channel_name,campaign_id,campaign_name,goal_key,SUM(goal_visits) AS goal_visits "
+            "FROM advertising_metrika_goal_daily WHERE provider='metrika' AND metric_date BETWEEN ? AND ? "
+            "GROUP BY source_key,source_name,channel_name,campaign_id,campaign_name,goal_key",
+            (start_s, end_s),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        goals = []
     groups = {}
     def key_for(row):
         if level == "campaign":
@@ -354,6 +410,20 @@ def _group_breakdown(conn, start, end, level):
         add(row, ("target_leads", "leads_with_primary", "primary_visits", "primary_paid", "primary_services", "repeat_visits", "repeat_paid"))
     for row in cohort:
         add(row, ("new_patients", "new_patient_30d_paid"))
+    for row in goals:
+        key = key_for(row)
+        if key is None:
+            continue
+        target = ensure(row, key)
+        field = {
+            "booking_open": "booking_open_visits",
+            "medflex": "medflex_visits",
+            "phone": "phone_visits",
+            "phone_auto": "phone_visits",
+            "messenger": "messenger_visits",
+        }.get(str(row["goal_key"]))
+        if field:
+            target[field] = (target[field] or 0) + int(row["goal_visits"] or 0)
     result = []
     for item in groups.values():
         item["total_paid"] = _combine_money(item["primary_paid"], item["repeat_paid"])
@@ -371,6 +441,362 @@ def _freshness(conn):
     ).fetchall()
     labels = {"direct": "Реклама", "metrika": "Посещения сайта", "clinic": "CRM и клиника", "cohort": "Новые пациенты за 30 дней"}
     return [{"dataset": row["dataset"], "label": labels.get(row["dataset"], row["dataset"]), "generated_at": row["generated_at"], "imported_at": row["imported_at"]} for row in rows]
+
+
+
+def _metrika_source(row):
+    traffic_id = str(row.get("traffic_source_id") or "").strip()
+    traffic_name = str(row.get("traffic_source_name") or "").strip()
+    detail = str(row.get("source_detail") or "").strip()
+    detail_id = str(row.get("source_detail_id") or "").strip()
+    utm_source = str(row.get("utm_source") or "").strip().lower()
+
+    if traffic_id == "ad":
+        return "yandex_ads", "Яндекс-реклама", "Платная реклама"
+    if traffic_id == "direct":
+        return "direct", "Прямые заходы", "Прямые заходы"
+    if traffic_id == "organic":
+        probe = (detail_id + " " + detail).lower()
+        if "google" in probe:
+            return "google_organic", "Google органика", "Поиск"
+        if "яндекс" in probe or "yandex" in probe:
+            return "yandex_organic", "Яндекс органика", "Поиск"
+        return "organic", detail or traffic_name or "Поиск", "Поиск"
+    if traffic_id == "social":
+        if "instagram" in (detail + " " + utm_source).lower() or utm_source == "ig":
+            return "instagram", "Instagram", "Социальные сети"
+        return "social", detail or traffic_name or "Социальные сети", "Социальные сети"
+    if traffic_id == "internal":
+        return "internal", "Внутренние переходы", "Другие источники"
+    if traffic_id == "referral":
+        probe = (detail + " " + detail_id + " " + utm_source).lower()
+        if "2gis" in probe:
+            return "2gis", "2ГИС", "Карты"
+        if "taplink" in probe:
+            return "taplink", "Taplink", "Другие источники"
+        if "napopravku" in probe:
+            return "napopravku", "НаПоправку", "Другие источники"
+        if "prodoctorov" in probe:
+            return "prodoctorov", "ПроДокторов", "Другие источники"
+        return "referral", detail or traffic_name or "Переходы по ссылкам", "Другие источники"
+    key = re.sub(r"[^a-z0-9а-я]+", "_", (traffic_id or detail or traffic_name).lower()).strip("_") or "other"
+    return key[:120], detail or traffic_name or "Другие источники", "Другие источники"
+
+
+def _parse_metrika_zip(raw, filename=""):
+    if not raw:
+        raise ValueError("Пустой ZIP Яндекс Метрики.")
+    if len(raw) > 25 * 1024 * 1024:
+        raise ValueError("ZIP Яндекс Метрики превышает 25 МБ.")
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            names = archive.namelist()
+            if names.count("az_analytics.json") != 1:
+                raise ValueError("В ZIP должен быть ровно один az_analytics.json.")
+            if len(names) > 50:
+                raise ValueError("В ZIP слишком много файлов.")
+            payload = json.loads(archive.read("az_analytics.json").decode("utf-8"))
+    except (zipfile.BadZipFile, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("Не удалось прочитать ZIP Яндекс Метрики.") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError("Некорректный az_analytics.json.")
+    meta = payload.get("metadata") or {}
+    if meta.get("schema_version") != METRIKA_EXPORT_SCHEMA:
+        raise ValueError("Неизвестная версия выгрузки Яндекс Метрики.")
+    if str(meta.get("counter_id") or "") != METRIKA_COUNTER_ID:
+        raise ValueError("Выгрузка относится к другому счётчику Метрики.")
+    if str(meta.get("source_timezone") or "") != DEFAULT_TIMEZONE:
+        raise ValueError("Неверный часовой пояс выгрузки Метрики.")
+    if float(meta.get("sample_share") or 0) != 1.0:
+        raise ValueError("Выгрузка Метрики содержит семплирование.")
+    traffic = payload.get("metrica_traffic_day")
+    goals = payload.get("metrica_goal_day")
+    if not isinstance(traffic, list) or not isinstance(goals, list):
+        raise ValueError("В выгрузке Метрики нет обязательных таблиц.")
+
+    completed_days = sorted({
+        str(row.get("date") or "")
+        for row in traffic
+        if str(row.get("day_status") or "").startswith("completed_calendar_day")
+    })
+    if not completed_days:
+        raise ValueError("В ZIP нет завершённых календарных дней.")
+
+    traffic_by_id = {}
+    traffic_rows = {}
+    for row in traffic:
+        day = str(row.get("date") or "")
+        if day not in completed_days:
+            continue
+        traffic_by_id[str(row.get("row_id") or "")] = row
+        if bool(row.get("is_test_tag")):
+            continue
+        source_key, source_name, channel_name = _metrika_source(row)
+        campaign_id = str(row.get("direct_campaign_id") or "")
+        campaign_name = str(row.get("direct_campaign_name") or row.get("utm_campaign") or "")
+        key = (day, source_key, source_name, channel_name, campaign_id, campaign_name)
+        target = traffic_rows.setdefault(key, {"visits": 0})
+        target["visits"] += int(row.get("visits") or 0)
+
+    goal_rows = {}
+    for row in goals:
+        day = str(row.get("date") or "")
+        if day not in completed_days:
+            continue
+        traffic_row = traffic_by_id.get(str(row.get("traffic_row_id") or ""))
+        if not traffic_row or bool(traffic_row.get("is_test_tag")):
+            continue
+        goal_name = str(row.get("goal_name") or "")
+        goal_key = METRIKA_GOALS.get(goal_name)
+        if not goal_key:
+            continue
+        source_key, source_name, channel_name = _metrika_source(traffic_row)
+        campaign_id = str(traffic_row.get("direct_campaign_id") or "")
+        campaign_name = str(traffic_row.get("direct_campaign_name") or traffic_row.get("utm_campaign") or "")
+        key = (day, source_key, source_name, channel_name, campaign_id, campaign_name, goal_key, goal_name)
+        target = goal_rows.setdefault(key, {"goal_visits": 0, "reaches": 0})
+        target["goal_visits"] += int(row.get("goal_visits") or 0)
+        target["reaches"] += int(row.get("reaches") or 0)
+
+    return {
+        "metadata": meta,
+        "completed_days": completed_days,
+        "traffic_rows": traffic_rows,
+        "goal_rows": goal_rows,
+        "payload_sha256": hashlib.sha256(raw).hexdigest(),
+        "raw": raw,
+        "filename": filename or "metrika.zip",
+    }
+
+
+def _archive_metrika(raw, payload_sha256):
+    METRIKA_ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
+    final = METRIKA_ARCHIVE_ROOT / (payload_sha256 + ".zip")
+    if not final.exists():
+        tmp = METRIKA_ARCHIVE_ROOT / (payload_sha256 + ".zip.tmp")
+        tmp.write_bytes(raw)
+        os.replace(tmp, final)
+    return str(final)
+
+
+def _store_metrika(conn, parsed, actor_user_id):
+    sha = parsed["payload_sha256"]
+    row = conn.execute(
+        "SELECT payload_sha256 FROM advertising_metrika_imports WHERE payload_sha256=?",
+        (sha,),
+    ).fetchone()
+    if row:
+        return {"reused": True, "completed_days": parsed["completed_days"], "payload_sha256": sha}
+
+    archive_path = _archive_metrika(parsed["raw"], sha)
+    imported_at = iso_now()
+    import_id = "metrika-" + sha[:16]
+    for day in parsed["completed_days"]:
+        conn.execute("DELETE FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date=?", (day,))
+        conn.execute("DELETE FROM advertising_metrika_goal_daily WHERE provider='metrika' AND metric_date=?", (day,))
+
+    for key, values in parsed["traffic_rows"].items():
+        day, source_key, source_name, channel_name, campaign_id, campaign_name = key
+        conn.execute(
+            """
+            INSERT INTO advertising_traffic_daily(
+                provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,
+                spend,clicks,visits,updated_at,import_id
+            ) VALUES('metrika',?,?,?,?,?,?,NULL,NULL,?,?,?)
+            """,
+            (day, source_key, source_name, channel_name, campaign_id, campaign_name,
+             int(values["visits"]), imported_at, import_id),
+        )
+
+    for key, values in parsed["goal_rows"].items():
+        day, source_key, source_name, channel_name, campaign_id, campaign_name, goal_key, goal_name = key
+        conn.execute(
+            """
+            INSERT INTO advertising_metrika_goal_daily(
+                provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,
+                goal_key,goal_name,goal_visits,reaches,updated_at,import_id
+            ) VALUES('metrika',?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (day, source_key, source_name, channel_name, campaign_id, campaign_name,
+             goal_key, goal_name, int(values["goal_visits"]), int(values["reaches"]), imported_at, import_id),
+        )
+
+    meta = parsed["metadata"]
+    start, end = parsed["completed_days"][0], parsed["completed_days"][-1]
+    conn.execute(
+        """
+        INSERT INTO advertising_metrika_imports(
+            payload_sha256,original_filename,period_start,period_end,completed_days_json,
+            generated_at,imported_at,actor_user_id,traffic_rows,goal_rows,archive_path
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        (sha, parsed["filename"], start, end, json.dumps(parsed["completed_days"]),
+         str(meta.get("fetched_at_utc") or ""), imported_at, actor_user_id,
+         len(parsed["traffic_rows"]), len(parsed["goal_rows"]), archive_path),
+    )
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO advertising_report_imports(
+            payload_sha256,dataset,period_start,period_end,generated_at,timezone,currency,
+            vat_mode,attribution_model,imported_at,actor_user_id,row_count
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        (sha, "metrika", start, end, str(meta.get("fetched_at_utc") or ""),
+         str(meta.get("source_timezone") or DEFAULT_TIMEZONE), "RUB", "",
+         str(meta.get("attribution") or ""), imported_at, actor_user_id, len(parsed["traffic_rows"])),
+    )
+    return {"reused": False, "completed_days": parsed["completed_days"], "payload_sha256": sha}
+
+
+def _metrika_goal_summary(conn, start, end):
+    try:
+        rows = conn.execute(
+            """
+            SELECT goal_key,SUM(goal_visits) AS goal_visits,SUM(reaches) AS reaches
+            FROM advertising_metrika_goal_daily
+            WHERE provider='metrika' AND metric_date BETWEEN ? AND ?
+            GROUP BY goal_key
+            """,
+            (_iso(start), _iso(end)),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = []
+    result = {
+        "booking_open_visits": None, "booking_open_reaches": None,
+        "medflex_visits": None, "medflex_reaches": None,
+        "phone_visits": None, "messenger_visits": None,
+    }
+    for row in rows:
+        key = str(row["goal_key"])
+        if key == "booking_open":
+            result["booking_open_visits"] = int(row["goal_visits"] or 0)
+            result["booking_open_reaches"] = int(row["reaches"] or 0)
+        elif key == "medflex":
+            result["medflex_visits"] = int(row["goal_visits"] or 0)
+            result["medflex_reaches"] = int(row["reaches"] or 0)
+        elif key in {"phone", "phone_auto"}:
+            result["phone_visits"] = (result["phone_visits"] or 0) + int(row["goal_visits"] or 0)
+        elif key == "messenger":
+            result["messenger_visits"] = int(row["goal_visits"] or 0)
+    return result
+
+
+def _mis_revenue_daily(conn):
+    try:
+        rows = conn.execute(
+            """
+            SELECT period_start,period_end,paid_total,detailed_paid_total
+            FROM advertising_mis_paid_ingests
+            WHERE period_end>=?
+            ORDER BY period_start,period_end
+            """,
+            ("2026-10-27",),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(str(row["period_start"]), []).append(row)
+    evidence = {}
+    for period_start, items in grouped.items():
+        previous = None
+        previous_end = None
+        for row in items:
+            period_end = str(row["period_end"])
+            candidate = None
+            rank = None
+            if period_start == period_end:
+                candidate = (float(row["paid_total"] or 0), float(row["detailed_paid_total"] or 0))
+                rank = 2
+            elif previous is not None:
+                expected = (date.fromisoformat(previous_end) + timedelta(days=1)).isoformat()
+                if expected == period_end:
+                    candidate = (
+                        max(0.0, float(row["paid_total"] or 0) - float(previous["paid_total"] or 0)),
+                        max(0.0, float(row["detailed_paid_total"] or 0) - float(previous["detailed_paid_total"] or 0)),
+                    )
+                    rank = 1
+            if candidate is not None:
+                score = (rank, -date.fromisoformat(period_start).toordinal())
+                old = evidence.get(period_end)
+                if old is None or score > old["score"]:
+                    evidence[period_end] = {"score": score, "paid_total": round(candidate[0], 2), "detailed_paid_total": round(candidate[1], 2)}
+            previous = row
+            previous_end = period_end
+    return evidence
+
+
+def _revenue_summary(conn, start, end):
+    start_s, end_s = _iso(start), _iso(end)
+    daily = _mis_revenue_daily(conn)
+    selected = [v for day, v in daily.items() if start_s <= day <= end_s]
+    paid_total = round(sum(v["paid_total"] for v in selected), 2) if selected else None
+    detailed_total = round(sum(v["detailed_paid_total"] for v in selected), 2) if selected else None
+    try:
+        row = conn.execute(
+            """
+            SELECT SUM(primary_paid) AS primary_paid,SUM(repeat_paid) AS repeat_paid
+            FROM advertising_clinic_daily
+            WHERE provider='mis' AND metric_date BETWEEN ? AND ?
+            """,
+            (start_s, end_s),
+        ).fetchone()
+        primary_paid = row["primary_paid"] if row else None
+        repeat_paid = row["repeat_paid"] if row else None
+    except sqlite3.OperationalError:
+        primary_paid = repeat_paid = None
+    classified = None if primary_paid is None and repeat_paid is None else round(float(primary_paid or 0) + float(repeat_paid or 0), 2)
+    unclassified_detailed = None if detailed_total is None or classified is None else round(max(0.0, detailed_total - classified), 2)
+    without_line_detail = None if paid_total is None or detailed_total is None else round(max(0.0, paid_total - detailed_total), 2)
+
+    cash = {"cash_total": None, "cash_ooo": None, "cash_ip": None, "cash_unallocated": None}
+    try:
+        rows = conn.execute(
+            "SELECT payload_json FROM cash_receipts_daily WHERE data_date BETWEEN ? AND ?",
+            (start_s, end_s),
+        ).fetchall()
+        if rows:
+            totals = {k: 0.0 for k in cash}
+            for row in rows:
+                payload = json.loads(row["payload_json"])
+                totals["cash_total"] += float(payload.get("cashTotal") or 0)
+                totals["cash_ooo"] += float(payload.get("cashOOO") or 0)
+                totals["cash_ip"] += float(payload.get("cashIP") or 0)
+                totals["cash_unallocated"] += float(payload.get("cashUnallocated") or 0)
+            cash = {k: round(v, 2) for k, v in totals.items()}
+    except (sqlite3.OperationalError, TypeError, ValueError):
+        pass
+    return {
+        "clinic_paid_total": paid_total,
+        "detailed_paid_total": detailed_total,
+        "without_line_detail": without_line_detail,
+        "primary_paid": None if primary_paid is None else round(float(primary_paid), 2),
+        "repeat_paid": None if repeat_paid is None else round(float(repeat_paid), 2),
+        "unclassified_detailed": unclassified_detailed,
+        **cash,
+        "days_with_mis_revenue": len(selected),
+    }
+
+
+def _crm_status(conn, start, end):
+    try:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) AS n
+            FROM advertising_clinic_daily
+            WHERE provider='crm' AND metric_date BETWEEN ? AND ?
+              AND (target_leads IS NOT NULL OR leads_with_primary IS NOT NULL)
+            """,
+            (_iso(start), _iso(end)),
+        ).fetchone()
+        available = bool(row and row["n"])
+    except sqlite3.OperationalError:
+        available = False
+    return {
+        "available": available,
+        "message": "" if available else "Не хватает данных CRM для построения отчёта",
+    }
 
 
 def _clean_text(value, required=False, max_len=240):
@@ -517,6 +943,8 @@ def _report_payload(conn, start, end, compare_mode, trend_metric):
         "campaigns": _group_breakdown(conn, start, end, "campaign"),
         "trend": _trend(conn, start, end, trend_metric, ranges),
         "freshness": _freshness(conn),
+        "revenue": _revenue_summary(conn, start, end),
+        "crm": _crm_status(conn, start, end),
     }
 
 
@@ -551,6 +979,36 @@ def register_advertising_report(app):
         payload["today"] = _iso(today)
         payload["availableComparisons"] = ["previous_period", *(["previous_quarter_avg", "year_avg"] if _same_month(start, end) else []), "last_year"]
         return jsonify(payload)
+
+    @app.post("/api/reports/advertising/metrika/import")
+    @permission_required("section5")
+    def advertising_metrika_import():
+        require_csrf()
+        uploaded = request.files.get("metrika_zip")
+        if not uploaded or not uploaded.filename:
+            return jsonify(status="error", message="Выберите ZIP Яндекс Метрики."), 400
+        try:
+            parsed = _parse_metrika_zip(uploaded.read(), uploaded.filename)
+            conn = db()
+            conn.execute("BEGIN IMMEDIATE")
+            result = _store_metrika(conn, parsed, g.user["id"])
+            conn.commit()
+        except (ValueError, OSError, sqlite3.DatabaseError) as exc:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            return jsonify(status="error", message=str(exc) or "Не удалось загрузить Метрику."), 400
+        audit(
+            "advertising_metrika_imported",
+            target_user_id=g.user["id"],
+            details="days=" + ",".join(result["completed_days"]) + "; reused=" + str(result["reused"]).lower(),
+        )
+        return jsonify(
+            status="ok",
+            message=("Метрика уже загружена." if result["reused"] else "Метрика загружена. В отчёт включены только завершённые дни."),
+            **result,
+        )
 
     @app.post("/api/reports/advertising/import")
     @admin_required

@@ -1,8 +1,12 @@
 import importlib.util
+import io
+import json
 import sqlite3
 import sys
+import tempfile
 import types
 import unittest
+import zipfile
 from datetime import date
 from pathlib import Path
 
@@ -44,6 +48,37 @@ def sample():
         "clinic":{"period_start":"2026-10-01","period_end":"2026-10-01","rows":[{"date":"2026-10-01","source_key":"yandex_ads","source_name":"Реклама Яндекса","target_leads":20,"leads_with_primary":12,"primary_visits":15,"primary_paid":45000,"primary_services":50000,"repeat_visits":9,"repeat_paid":30000}]},
         "cohort":{"period_start":"2026-10-01","period_end":"2026-10-01","rows":[{"cohort_date":"2026-10-01","source_key":"yandex_ads","source_name":"Реклама Яндекса","new_patients":11,"new_patient_30d_paid":90000}]}
     }}
+
+def metrika_zip():
+    payload = {
+        "metadata": {
+            "schema_version": "az_analytics_export_v1",
+            "fetched_at_utc": "2026-10-28T02:48:32+00:00",
+            "period_from": "2026-10-27",
+            "period_to": "2026-10-28",
+            "source_timezone": "Asia/Novosibirsk",
+            "counter_id": "113776005",
+            "sample_share": 1.0,
+            "attribution": "cross_device_last_significant",
+        },
+        "metrica_traffic_day": [
+            {"row_id":"a","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"ad","traffic_source_name":"Переходы по рекламе","source_detail":"Яндекс Директ: Не определено","source_detail_id":"ad.direct","utm_source":"geoadv_direct","visits":25,"is_test_tag":False},
+            {"row_id":"b","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"social","traffic_source_name":"Переходы из социальных сетей","source_detail":"instagram.com","source_detail_id":"social.instagram","utm_source":"instagram","visits":8,"is_test_tag":False},
+            {"row_id":"t","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"messenger","traffic_source_name":"Telegram","utm_source":"metrika_test","visits":5,"is_test_tag":True},
+            {"row_id":"p","date":"2026-10-28","day_status":"partial","traffic_source_id":"direct","traffic_source_name":"Прямые заходы","visits":9,"is_test_tag":False},
+        ],
+        "metrica_goal_day": [
+            {"traffic_row_id":"b","date":"2026-10-27","goal_name":"Открытие окна записи","goal_visits":3,"reaches":6},
+            {"traffic_row_id":"b","date":"2026-10-27","goal_name":"Переход к записи в Medflex","goal_visits":2,"reaches":4},
+            {"traffic_row_id":"t","date":"2026-10-27","goal_name":"Переход к записи в Medflex","goal_visits":5,"reaches":10},
+            {"traffic_row_id":"p","date":"2026-10-28","goal_name":"Автоцель: переход в мессенджер","goal_visits":2,"reaches":2},
+        ],
+    }
+    raw = io.BytesIO()
+    with zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("az_analytics.json", json.dumps(payload, ensure_ascii=False))
+    return raw.getvalue()
+
 
 class AdvertisingReportTests(unittest.TestCase):
     def test_partial_month_comparison(self):
@@ -90,15 +125,58 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(c.execute("SELECT spend FROM advertising_traffic_daily WHERE provider='direct'").fetchone()[0],1200)
         finally:c.close()
 
+    def test_metrika_zip_uses_completed_day_and_excludes_test_tag(self):
+        parsed = m._parse_metrika_zip(metrika_zip(), "batch.zip")
+        self.assertEqual(parsed["completed_days"], ["2026-10-27"])
+        self.assertEqual(sum(v["visits"] for v in parsed["traffic_rows"].values()), 33)
+        self.assertEqual(sum(v["goal_visits"] for v in parsed["goal_rows"].values()), 5)
+        with tempfile.TemporaryDirectory() as tmp:
+            old = m.METRIKA_ARCHIVE_ROOT
+            m.METRIKA_ARCHIVE_ROOT = Path(tmp)
+            c = conn()
+            try:
+                stored = m._store_metrika(c, parsed, 1); c.commit()
+                self.assertFalse(stored["reused"])
+                summary = m._summary(c, date(2026,10,27), date(2026,10,27))
+                self.assertEqual(summary["visits"], 33)
+                self.assertEqual(summary["booking_open_visits"], 3)
+                self.assertEqual(summary["booking_open_reaches"], 6)
+                self.assertEqual(summary["medflex_visits"], 2)
+                self.assertEqual(c.execute("SELECT COUNT(*) FROM advertising_traffic_daily WHERE metric_date='2026-10-28'").fetchone()[0], 0)
+            finally:
+                c.close(); m.METRIKA_ARCHIVE_ROOT = old
+
+    def test_revenue_summary_puts_total_paid_first_and_keeps_gap_explicit(self):
+        c=conn()
+        try:
+            c.execute("CREATE TABLE advertising_mis_paid_ingests(period_start TEXT,period_end TEXT,source_filename TEXT,source_sha256 TEXT,imported_at TEXT,paid_total REAL,detailed_paid_total REAL,line_count INTEGER,PRIMARY KEY(period_start,period_end))")
+            c.execute("CREATE TABLE cash_receipts_daily(data_date TEXT PRIMARY KEY,payload_json TEXT,source_filename TEXT,source_sha256 TEXT,imported_by INTEGER,imported_at TEXT)")
+            c.execute("INSERT INTO advertising_mis_paid_ingests VALUES(?,?,?,?,?,?,?,?)",("2026-10-27","2026-10-27","paid.xlsx","sha","t",800900,535680,71))
+            c.execute("INSERT INTO advertising_clinic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",("mis","2026-10-27","unknown","Неизвестно","Неизвестно","","",None,None,13,87100,90100,32,421480,"t","mis"))
+            cash=json.dumps({"cashTotal":784400,"cashOOO":34600,"cashIP":749800,"cashUnallocated":245000})
+            c.execute("INSERT INTO cash_receipts_daily VALUES(?,?,?,?,?,?)",("2026-10-27",cash,"cash.xlsx","sha",1,"t"))
+            r=m._revenue_summary(c,date(2026,10,27),date(2026,10,27))
+            self.assertEqual(r["clinic_paid_total"],800900)
+            self.assertEqual(r["detailed_paid_total"],535680)
+            self.assertEqual(r["without_line_detail"],265220)
+            self.assertEqual(r["unclassified_detailed"],27100)
+            self.assertEqual(r["cash_total"],784400)
+        finally:c.close()
+
     def test_ui_contract(self):
         root=Path(__file__).parents[1]/"reports"
         html=(root/"advertising.html").read_text(encoding="utf-8")
         js=(root/"advertising.js").read_text(encoding="utf-8")
+        uploads=(Path(__file__).parent/"templates"/"uploads.html").read_text(encoding="utf-8")
         text=html+"\n"+js
-        for label in ("Рекламный отчёт","Расходы на рекламу","Клики по рекламе","Посещения сайта","Целевые лиды","Состоявшиеся первичные приёмы","Выручка первичных приёмов","Выручка новых пациентов за 30 дней","Первичные","Повторные","Всего"):
+        for label in ("Рекламный отчёт","Посещения сайта","Визиты с открытием записи","Визиты с переходом в Medflex","Работа клиники за период","Выручка клиники","Без построчной детализации в выгрузке МИС","Источники сайта","Не хватает данных CRM для построения отчёта"):
             self.assertIn(label,text)
-        for forbidden in ("Устройства","Глубина просмотра","Отказы"):
+        for forbidden in ("Выручка новых пациентов за 30 дней","Новых пациентов, впервые пришедших","75 посещений → 13 первичных"):
             self.assertNotIn(forbidden,text)
+        self.assertIn("5. Яндекс Метрика", uploads)
+        self.assertIn('name="metrika_zip"', uploads)
+        self.assertIn("/api/reports/advertising/metrika/import", uploads)
+
 
 if __name__=="__main__":
     unittest.main()
