@@ -33,13 +33,11 @@ jobs:
           test "$GITHUB_REF" = refs/heads/ops/az-ui-feedback-source-20261028
           cp tools/prepare_ui_feedback_20261028.py "$RUNNER_TEMP/prepare-ui.py"
           cp tests/test_ui_feedback_20261028.py "$RUNNER_TEMP/test-ui.py"
-          cp .github/workflows/az-ui-feedback.yml "$RUNNER_TEMP/source-ci.yml"
           git fetch --depth=1 origin "$SOURCE_BASE"
           git switch --detach "$SOURCE_BASE"
           git switch -c "$SOURCE_BRANCH"
           python "$RUNNER_TEMP/prepare-ui.py"
           cp "$RUNNER_TEMP/test-ui.py" tests/test_ui_feedback_20261028.py
-          cp "$RUNNER_TEMP/source-ci.yml" .github/workflows/az-ui-feedback.yml
           python - <<'PY'
           from pathlib import Path
           import hashlib
@@ -47,9 +45,15 @@ jobs:
           raw=p.read_bytes()
           assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()=='af2373f33dcf335a3372c144b46d761472431491'
           text=raw.decode()
-          old='./period-view.js?v=20261028-paid-patients-1'
-          assert text.count(old)==1
-          p.write_text(text.replace(old,'./period-view.js?v=20261028-upload-doctor-groups-1',1))
+          edits=[
+              ('./period-view.js?v=20261028-paid-patients-1','./period-view.js?v=20261028-upload-doctor-groups-1'),
+              ('  appendChild(value){this.children.push(value);}', '  appendChild(value){this.children.push(value);}\n  // Real row grouping is covered in browser tests; this financial fixture stores raw cell HTML.\n  querySelectorAll(){return [];}'),
+              ("part(view,'  function renderDateComparison(){','  let dateStickyRaf=')", "part(view,'  function groupInactiveDoctorRows(','  let dateStickyRaf=')"),
+          ]
+          for old,new in edits:
+              assert text.count(old)==1,old
+              text=text.replace(old,new,1)
+          p.write_text(text)
           PY
           git diff --check
       - name: Retained period and paid-import behavior
@@ -69,10 +73,10 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE_BASE"
           existing="$(git ls-remote --heads origin "refs/heads/$SOURCE_BRANCH")"
           test -z "$existing" || { echo 'STOP: SOURCE_BRANCH_ALREADY_EXISTS'; exit 1; }
-          git add az-baze-auth/templates/uploads.html reports/index.html reports/period-view.js az-baze-auth/test_report_consistency_preservation.py tests/verify-paid-upload-periods.cjs tests/verify-paid-periods.cjs tests/test_ui_feedback_20261028.py .github/workflows/az-ui-feedback.yml
+          git add az-baze-auth/templates/uploads.html reports/index.html reports/period-view.js az-baze-auth/test_report_consistency_preservation.py tests/verify-paid-upload-periods.cjs tests/verify-paid-periods.cjs tests/test_ui_feedback_20261028.py
           python - <<'PY'
           import subprocess
-          expected={'.github/workflows/az-ui-feedback.yml','az-baze-auth/templates/uploads.html','az-baze-auth/test_report_consistency_preservation.py','reports/index.html','reports/period-view.js','tests/test_ui_feedback_20261028.py','tests/verify-paid-upload-periods.cjs','tests/verify-paid-periods.cjs'}
+          expected={'az-baze-auth/templates/uploads.html','az-baze-auth/test_report_consistency_preservation.py','reports/index.html','reports/period-view.js','tests/test_ui_feedback_20261028.py','tests/verify-paid-upload-periods.cjs','tests/verify-paid-periods.cjs'}
           actual=set(subprocess.check_output(['git','diff','--cached','--name-only'],text=True).splitlines())
           assert actual==expected,(actual,expected)
           PY
