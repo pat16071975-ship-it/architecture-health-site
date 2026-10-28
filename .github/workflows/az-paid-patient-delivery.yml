@@ -1,0 +1,85 @@
+name: AZ paid patient delivery package
+on:
+  push:
+    branches: [ops/az-paid-patient-production-20261028]
+    paths:
+      - az-baze-auth/deploy/paid-patient-production-20261028.py
+      - az-baze-auth/deploy/test_paid_patient_deploy_20261028.py
+      - .github/workflows/az-paid-patient-delivery.yml
+permissions:
+  contents: read
+jobs:
+  delivery-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Exact base and target blobs; Python and JavaScript syntax
+        run: |
+          python3 -B - <<'PY'
+          import ast
+          import importlib.util
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import subprocess
+          script = Path('az-baze-auth/deploy/paid-patient-production-20261028.py')
+          ast.parse(script.read_text())
+          spec = importlib.util.spec_from_file_location('delivery', script)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          assert len(module.FILES) == 7
+          allowed = {x[0] for x in module.FILES} | {
+              '.github/workflows/az-baze-cash-fact.yml',
+              'az-baze-auth/test_manual_entry_consistency.py',
+              'az-baze-auth/test_paid_period_report.py',
+              'az-baze-auth/test_paid_services.py',
+              'az-baze-auth/test_report_consistency_preservation.py',
+              'tests/verify-paid-periods.cjs',
+          }
+          changed = set(subprocess.check_output(['git','diff','--name-only',module.BASE_COMMIT,module.TARGET_COMMIT],text=True).splitlines())
+          assert changed == allowed, changed ^ allowed
+          class Scripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.current = None
+                  self.parts = []
+              def handle_starttag(self, tag, attrs):
+                  if tag == 'script':
+                      attrs = dict(attrs)
+                      kind = attrs.get('type','text/javascript')
+                      if 'src' not in attrs and kind in ('text/javascript','application/javascript','module'):
+                          self.current = [kind, []]
+              def handle_data(self, data):
+                  if self.current is not None:
+                      self.current[1].append(data)
+              def handle_endtag(self, tag):
+                  if tag == 'script' and self.current is not None:
+                      self.parts.append((self.current[0], ''.join(self.current[1])))
+                      self.current = None
+          for rel, base, target in module.FILES:
+              old = subprocess.check_output(['git','show',module.BASE_COMMIT + ':' + rel])
+              new = subprocess.check_output(['git','show',module.TARGET_COMMIT + ':' + rel])
+              assert module.blob(old) == base, rel
+              assert module.blob(new) == target, rel
+              assert Path(rel).read_bytes() == new, rel
+              if rel.endswith('.py'):
+                  compile(new, rel, 'exec')
+              elif rel.endswith('.js'):
+                  subprocess.run(['node','--check',rel],check=True)
+              elif rel.endswith('.html'):
+                  parser = Scripts()
+                  parser.feed(new.decode('utf-8'))
+                  for kind, code in parser.parts:
+                      args = ['node','--check']
+                      if kind == 'module':
+                          args += ['--input-type=module']
+                      subprocess.run(args,input=code,text=True,check=True)
+          print('EXACT_SEVEN_RUNTIME_TARGETS=PASS')
+          print('BASE_AND_TARGET_PINS=PASS')
+          print('PYTHON_AND_INLINE_JAVASCRIPT_SYNTAX=PASS')
+          print('DEPLOYMENT_OR_PRODUCTION_CONNECTIONS=NONE')
+          PY
+      - name: Isolated delivery, backup, failure and file-only rollback tests
+        run: sudo python3 -B az-baze-auth/deploy/test_paid_patient_deploy_20261028.py
