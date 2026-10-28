@@ -197,13 +197,14 @@ class AdvertisingReportTests(unittest.TestCase):
         js=(root/"advertising.js").read_text(encoding="utf-8")
         uploads=(Path(__file__).parent/"templates"/"uploads.html").read_text(encoding="utf-8")
         text=html+"\n"+js
-        for label in ("Рекламный отчёт","Посещения сайта","Визиты с открытием записи","Визиты с переходом в Medflex","Целевые лиды","Работа клиники за период","Выручка клиники","Выручка по врачам / исполнителям","Вся сумма «Оплачено» распределена по врачам/исполнителям","Источники сайта","Не хватает данных CRM для построения отчёта"):
+        for label in ("Рекламный отчёт","Посещения сайта","Визиты с открытием записи","Визиты с переходом в Medflex","Целевые лиды","Работа клиники за период","Выручка клиники","Вся сумма «Оплачено» распределена по врачам/исполнителям","Источники сайта","Не хватает данных CRM для построения отчёта"):
             self.assertIn(label,text)
-        for forbidden in ("Выручка новых пациентов за 30 дней","Новых пациентов, впервые пришедших","75 посещений → 13 первичных","Без построчной детализации в выгрузке МИС","Первично записались",'id="crmNote"',"crm-note"):
+        for forbidden in ("Выручка новых пациентов за 30 дней","Новых пациентов, впервые пришедших","75 посещений → 13 первичных","Без построчной детализации в выгрузке МИС","Первично записались",'id="crmNote"',"crm-note","Выручка по врачам / исполнителям",'id="providerRevenueRows"'):
             self.assertNotIn(forbidden,text)
         self.assertIn('id="targetLeads"', html)
         self.assertIn("crm.message||'Не хватает данных CRM для построения отчёта'", js)
         self.assertIn("s.lead_to_primary_pct", js)
+        self.assertNotIn("providerRevenueRows", js)
         self.assertIn("5. Яндекс Метрика", uploads)
         self.assertIn('name="metrika_zip"', uploads)
         self.assertIn("/api/reports/advertising/metrika/import", uploads)
