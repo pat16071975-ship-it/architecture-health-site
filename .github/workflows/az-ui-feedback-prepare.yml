@@ -40,16 +40,27 @@ jobs:
           python "$RUNNER_TEMP/prepare-ui.py"
           cp "$RUNNER_TEMP/test-ui.py" tests/test_ui_feedback_20261028.py
           cp "$RUNNER_TEMP/source-ci.yml" .github/workflows/az-ui-feedback.yml
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('tests/verify-paid-periods.cjs')
+          raw=p.read_bytes()
+          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()=='af2373f33dcf335a3372c144b46d761472431491'
+          text=raw.decode()
+          old='./period-view.js?v=20261028-paid-patients-1'
+          assert text.count(old)==1
+          p.write_text(text.replace(old,'./period-view.js?v=20261028-upload-doctor-groups-1',1))
+          PY
           git diff --check
-      - name: Install isolated browser test dependencies
-        run: |
-          python -m pip install playwright
-          python -m playwright install --with-deps chromium
       - name: Retained period and paid-import behavior
         run: |
           node --check reports/period-view.js
           node tests/verify-paid-periods.cjs
           node tests/verify-paid-upload-periods.cjs
+      - name: Install isolated browser test dependencies
+        run: |
+          python -m pip install playwright
+          python -m playwright install chromium
       - name: UI browser tests on exact modified source
         run: python tests/test_ui_feedback_20261028.py
       - name: Commit only approved UI delta to new feature branch
@@ -58,10 +69,10 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SOURCE_BASE"
           existing="$(git ls-remote --heads origin "refs/heads/$SOURCE_BRANCH")"
           test -z "$existing" || { echo 'STOP: SOURCE_BRANCH_ALREADY_EXISTS'; exit 1; }
-          git add az-baze-auth/templates/uploads.html reports/index.html reports/period-view.js az-baze-auth/test_report_consistency_preservation.py tests/verify-paid-upload-periods.cjs tests/test_ui_feedback_20261028.py .github/workflows/az-ui-feedback.yml
+          git add az-baze-auth/templates/uploads.html reports/index.html reports/period-view.js az-baze-auth/test_report_consistency_preservation.py tests/verify-paid-upload-periods.cjs tests/verify-paid-periods.cjs tests/test_ui_feedback_20261028.py .github/workflows/az-ui-feedback.yml
           python - <<'PY'
           import subprocess
-          expected={'.github/workflows/az-ui-feedback.yml','az-baze-auth/templates/uploads.html','az-baze-auth/test_report_consistency_preservation.py','reports/index.html','reports/period-view.js','tests/test_ui_feedback_20261028.py','tests/verify-paid-upload-periods.cjs'}
+          expected={'.github/workflows/az-ui-feedback.yml','az-baze-auth/templates/uploads.html','az-baze-auth/test_report_consistency_preservation.py','reports/index.html','reports/period-view.js','tests/test_ui_feedback_20261028.py','tests/verify-paid-upload-periods.cjs','tests/verify-paid-periods.cjs'}
           actual=set(subprocess.check_output(['git','diff','--cached','--name-only'],text=True).splitlines())
           assert actual==expected,(actual,expected)
           PY
