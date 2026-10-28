@@ -573,6 +573,7 @@ def compact_report(report):
             seen_invoices.add(key)
             invoices.append({"staff": staff, "invoice": invoice, "date": data_date})
 
+    paid_patient_evidence_complete = isinstance(report.get("patients"), list)
     paid_patients = {}
     for row in report.get("patients") or []:
         staff = str(row.get("staff") or "").strip()
@@ -591,7 +592,7 @@ def compact_report(report):
             for name, values in (report.get("providers") or {}).items()
         },
         "provider_residual": dict(report.get("provider_residual") or {}),
-        "paid_patient_evidence_complete": True,
+        "paid_patient_evidence_complete": paid_patient_evidence_complete,
         "paid_patients": {
             staff: sorted(tokens)
             for staff, tokens in sorted(paid_patients.items())
