@@ -3,7 +3,7 @@ import math
 import re
 import secrets
 import sqlite3
-from datetime import date as calendar_date
+from datetime import date as calendar_date, timedelta
 from flask import Response, abort, g, jsonify, request, session
 
 from app import DB_PATH, SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, user_permissions
@@ -184,6 +184,198 @@ def _management_doctor_provider_mappings(conn):
                 ignored.add(source)
 
     return mappings, ignored
+
+
+def _paid_patient_interval(snapshot, start, end, mappings, ignored):
+    if (
+        not isinstance(snapshot, dict)
+        or snapshot.get("paid_patient_evidence_complete") is not True
+        or not isinstance(snapshot.get("paid_patients"), dict)
+    ):
+        return None
+
+    sets = {
+        "medicine": set(),
+        "dent": set(),
+        "structure": set(),
+        "dentists": {},
+        "clinicDocs": {},
+    }
+    unknown = set()
+    for source_name, raw_tokens in snapshot.get("paid_patients", {}).items():
+        source = str(source_name or "")
+        tokens = {
+            str(token)
+            for token in (raw_tokens or [])
+            if str(token or "").strip()
+        }
+        if not tokens:
+            continue
+        if source in mappings["dent"]:
+            display = mappings["dent"][source]
+            sets["dent"].update(tokens)
+            sets["medicine"].update(tokens)
+            sets["dentists"].setdefault(display, set()).update(tokens)
+        elif source in mappings["structure"]:
+            display = mappings["structure"][source]
+            sets["structure"].update(tokens)
+            sets["medicine"].update(tokens)
+            sets["clinicDocs"].setdefault(display, set()).update(tokens)
+        elif source in mappings["lab"] or source in ignored:
+            continue
+        else:
+            unknown.add(source)
+
+    if unknown:
+        return None
+    return {"from": start, "to": end, "sets": sets}
+
+
+def _paid_patient_intervals(conn):
+    mappings, ignored = _management_doctor_provider_mappings(conn)
+    intervals = []
+
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='service_payment_periods'"
+    ).fetchone():
+        for row in conn.execute(
+            "SELECT period_start,period_end,payload_json "
+            "FROM service_payment_periods ORDER BY period_start,period_end"
+        ):
+            start, end = str(row["period_start"] or ""), str(row["period_end"] or "")
+            if not DATE_RE.fullmatch(start) or not DATE_RE.fullmatch(end) or start > end:
+                continue
+            try:
+                snapshot = json.loads(row["payload_json"])
+            except (TypeError, ValueError):
+                continue
+            interval = _paid_patient_interval(snapshot, start, end, mappings, ignored)
+            if interval:
+                intervals.append(interval)
+
+    if conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='service_payment_snapshots'"
+    ).fetchone():
+        for row in conn.execute(
+            "SELECT month,as_of_date,payload_json "
+            "FROM service_payment_snapshots ORDER BY month,as_of_date"
+        ):
+            month, end = str(row["month"] or ""), str(row["as_of_date"] or "")
+            start = month + "-01"
+            if not DATE_RE.fullmatch(start) or not DATE_RE.fullmatch(end) or start > end:
+                continue
+            try:
+                snapshot = json.loads(row["payload_json"])
+            except (TypeError, ValueError):
+                continue
+            interval = _paid_patient_interval(snapshot, start, end, mappings, ignored)
+            if interval:
+                intervals.append(interval)
+
+    # Prefer period reports over legacy snapshots for identical boundaries.
+    unique = {}
+    for interval in intervals:
+        key = (interval["from"], interval["to"])
+        unique[key] = interval
+    return sorted(unique.values(), key=lambda x: (x["from"], x["to"]))
+
+
+def _cover_paid_patient_range(intervals, start, end):
+    exact = next(
+        (item for item in intervals if item["from"] == start and item["to"] == end),
+        None,
+    )
+    if exact:
+        return [exact]
+
+    by_start = {}
+    for item in intervals:
+        if item["from"] < start or item["to"] > end:
+            continue
+        by_start.setdefault(item["from"], []).append(item)
+    for items in by_start.values():
+        items.sort(key=lambda item: item["to"], reverse=True)
+
+    memo = {}
+    def cover(cursor):
+        if cursor > end:
+            return []
+        if cursor in memo:
+            return memo[cursor]
+        result = None
+        for item in by_start.get(cursor, []):
+            next_day = (calendar_date.fromisoformat(item["to"]) + timedelta(days=1)).isoformat()
+            tail = cover(next_day)
+            if tail is not None:
+                result = [item, *tail]
+                break
+        memo[cursor] = result
+        return result
+
+    return cover(start)
+
+
+def _combine_paid_patient_intervals(parts):
+    if not parts:
+        return None
+    combined = {
+        "medicine": set(),
+        "dent": set(),
+        "structure": set(),
+        "dentists": {},
+        "clinicDocs": {},
+    }
+    for part in parts:
+        sets = part["sets"]
+        for key in ("medicine", "dent", "structure"):
+            combined[key].update(sets[key])
+        for key in ("dentists", "clinicDocs"):
+            for name, tokens in sets[key].items():
+                combined[key].setdefault(name, set()).update(tokens)
+    return {
+        "medicine": len(combined["medicine"]),
+        "dent": len(combined["dent"]),
+        "structure": len(combined["structure"]),
+        "dentists": {name: len(tokens) for name, tokens in sorted(combined["dentists"].items())},
+        "clinicDocs": {name: len(tokens) for name, tokens in sorted(combined["clinicDocs"].items())},
+    }
+
+
+def _paid_patient_counts(conn, start, end, intervals=None):
+    if not DATE_RE.fullmatch(str(start or "")) or not DATE_RE.fullmatch(str(end or "")) or start > end:
+        return None
+    intervals = _paid_patient_intervals(conn) if intervals is None else intervals
+    parts = _cover_paid_patient_range(intervals, start, end)
+    return _combine_paid_patient_intervals(parts)
+
+
+def _management_paid_patients_monthly(conn):
+    intervals = _paid_patient_intervals(conn)
+    months = sorted({item["from"][:7] for item in intervals} | {item["to"][:7] for item in intervals})
+    result = {}
+    for month in months:
+        month_start = month + "-01"
+        month_end = (calendar_date.fromisoformat(month_start).replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        month_end_s = month_end.isoformat()
+        counts = _paid_patient_counts(conn, month_start, month_end_s, intervals)
+        as_of = month_end_s
+        if counts is None:
+            candidates = sorted(
+                {
+                    item["to"]
+                    for item in intervals
+                    if item["from"] == month_start and item["to"][:7] == month
+                },
+                reverse=True,
+            )
+            for candidate in candidates:
+                counts = _paid_patient_counts(conn, month_start, candidate, intervals)
+                if counts is not None:
+                    as_of = candidate
+                    break
+        if counts is not None:
+            result[month] = {"asOf": as_of, **counts}
+    return result
 
 
 def _management_doctor_paid_snapshots(conn):
@@ -650,11 +842,24 @@ def register_report_storage(app):
             month = str(row["date"] or "")[:7]
             if month in monthly_plans:
                 record["plan"] = monthly_plans[month]
+            record_date = str(row["date"])
+            month_start = record_date[:7] + "-01"
+            payer_counts = _paid_patient_counts(db(), month_start, record_date)
+            if payer_counts is not None:
+                record["paidPatientEvidenceComplete"] = True
+                record["paidPatients"] = payer_counts["medicine"]
+                record["paidDentPatients"] = payer_counts["dent"]
+                record["paidClinicPatients"] = payer_counts["structure"]
+                record["paidDentPatientsByDoctor"] = payer_counts["dentists"]
+                record["paidClinicPatientsByDoctor"] = payer_counts["clinicDocs"]
+            else:
+                record["paidPatientEvidenceComplete"] = False
             data[row["date"]] = record
         return jsonify(
             data=data,
             doctorPaidSnapshots=_management_doctor_paid_snapshots(db()),
             doctorPaidPeriods=_management_doctor_paid_periods(db()),
+            paidPatientsMonthly=_management_paid_patients_monthly(db()),
             csrf=csrf_token(),
         )
 
