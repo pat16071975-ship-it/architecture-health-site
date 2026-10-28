@@ -207,7 +207,7 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertNotIn("providerRevenueRows", js)
         self.assertIn("function siteSourceRows()", js)
         self.assertIn("body.innerHTML=sourceHtml+totalHtml", js)
-        self.assertIn("'<tr class=\"group-row\"><td>Всего</td>'", js)
+        self.assertIn('<tr class="group-row"><td>Всего</td>', js)
         self.assertNotIn("function sourceGroups()", js)
         self.assertNotIn("group-btn", js)
         self.assertIn("5. Яндекс Метрика", uploads)
