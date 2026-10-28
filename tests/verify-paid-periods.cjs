@@ -240,7 +240,7 @@ check('zero paid is retained and absent sources remain empty',()=>{
 check('doctor-only date comparison and single date do not fabricate other metrics',()=>{
   const h=setup({periods:[period('2026-07-01','2026-07-31',21,4)]});
   h.node('reportDate').value='2026-08-31';h.run('renderDateComparison()');assertDirections(h,h.node('dateCompareBody'),[21,null,null],[4,null,null]);
-  for(const label of ['Факт','ДС ООО','ДС ИП','Средний чек стоматологии'])assert.deepEqual(cellValues(h.node('dateCompareBody'),label),[empty,empty,empty]);
+  for(const label of ['Факт','ДС ООО','ДС ИП','Средний чек стоматологии на оплатившего пациента'])assert.deepEqual(cellValues(h.node('dateCompareBody'),label),[empty,empty,empty]);
   h.node('reportDate').value='2026-07-31';h.run('loadDate()');
   const values=Object.fromEntries(h.metrics.map(input=>[input.dataset.key,input.value]));
   assert.equal(values.dentRev,h.money(21));assert.equal(values.clinicRev,h.money(4));
