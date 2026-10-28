@@ -44,15 +44,33 @@ function renderActivity(){
 function renderRevenue(){
   const r=payload?.revenue||{};
   $('#clinicRevenue').textContent=money(r.clinic_paid_total);
+
+  const directions=r.direction_paid||{};
   const details=[
-    ['Построчно детализировано в МИС',r.detailed_paid_total],
-    ['Первичные',r.primary_paid],
-    ['Повторные',r.repeat_paid],
-    ['Детализировано, но тип приёма не определён',r.unclassified_detailed],
-    ['Без построчной детализации в выгрузке МИС',r.without_line_detail]
-  ];
+    ['Стоматология',directions.dent],
+    ['Клиника',directions.structure],
+    ['Лаборатория',directions.lab],
+    ['Другие / не классифицированные исполнители',directions.other]
+  ].filter(x=>x[1]!=null&&Math.abs(Number(x[1])||0)>.004);
   $('#revenueBreakdown').innerHTML=details.map(x=>'<div class="card"><div class="name">'+x[0]+'</div><div class="value">'+money(x[1])+'</div></div>').join('');
-  $('#revenueExplanation').innerHTML='Сумма <b>«Без построчной детализации в выгрузке МИС»</b> — это разница между общей суммой «Оплачено» и теми строками, где МИС дал пациент/услугу/врача. Это не потерянные деньги и не отдельный вид выручки; без дополнительного источника мы не относим её к первичным или повторным.';
+
+  const patientGap=r.provider_known_without_patient_detail;
+  $('#revenueExplanation').innerHTML=
+    '<b>Вся сумма «Оплачено» распределена по врачам/исполнителям.</b> '+
+    'Построчная детализация до пациента/услуги доступна на '+money(r.detailed_paid_total)+'. '+
+    (patientGap!=null&&patientGap>0
+      ? 'Ещё '+money(patientGap)+' имеют известного врача/направление, но в выгрузке нет строки пациента/услуги для этой части оплаты. '
+      : '')+
+    'Классификация детализированной части по типу приёма: первичные '+money(r.primary_paid)+
+    ', повторные '+money(r.repeat_paid)+
+    ', тип приёма не определён '+money(r.unclassified_detailed)+'.';
+
+  const labels={dent:'Стоматология',structure:'Клиника',lab:'Лаборатория',ignore:'Не учитывается',pending:'Не классифицировано'};
+  const providers=r.providers||[];
+  $('#providerRevenueRows').innerHTML=providers.length
+    ? providers.map(row=>'<tr><td>'+h(row.display_name||row.source_name)+'</td><td>'+h(labels[row.direction]||'Не классифицировано')+'</td><td>'+money(row.paid)+'</td></tr>').join('')
+    : '<tr><td colspan="3">Нет данных по врачам</td></tr>';
+
   const control=[
     ['Касса за период',r.cash_total],
     ['ООО',r.cash_ooo],
@@ -61,6 +79,7 @@ function renderRevenue(){
   ];
   $('#cashControl').innerHTML=control.map(x=>'<div class="control-item"><span>'+x[0]+'</span><strong>'+money(x[1])+'</strong></div>').join('')
 }
+
 
 const GROUP_ORDER={'Платная реклама':1,'Поиск':2,'Карты':3,'Социальные сети':4,'Прямые заходы':5,'Другие источники':6};
 function sum(rows,key){const v=rows.map(r=>r?.[key]).filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0):null}

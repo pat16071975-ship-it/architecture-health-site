@@ -721,10 +721,173 @@ def _mis_revenue_daily(conn):
                 score = (rank, -date.fromisoformat(period_start).toordinal())
                 old = evidence.get(period_end)
                 if old is None or score > old["score"]:
-                    evidence[period_end] = {"score": score, "paid_total": round(candidate[0], 2), "detailed_paid_total": round(candidate[1], 2)}
+                    evidence[period_end] = {
+                        "score": score,
+                        "paid_total": round(candidate[0], 2),
+                        "detailed_paid_total": round(candidate[1], 2),
+                    }
             previous = row
             previous_end = period_end
     return evidence
+
+
+def _provider_paid_daily(conn):
+    """Daily paid evidence from provider-level totals in the same MIS report.
+
+    Exact one-day reports are authoritative. For cumulative sequential reports,
+    use provider-by-provider deltas. These totals can attribute money to a
+    provider even when the export has no patient/service detail for that payment.
+    """
+    try:
+        rows = conn.execute(
+            """
+            SELECT period_start,period_end,payload_json
+            FROM service_payment_periods
+            WHERE period_end>=?
+            ORDER BY period_start,period_end
+            """,
+            ("2026-10-27",),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+
+    grouped = {}
+    for row in rows:
+        try:
+            payload = json.loads(row["payload_json"])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        grouped.setdefault(str(row["period_start"]), []).append(
+            (str(row["period_end"]), payload)
+        )
+
+    evidence = {}
+    for period_start, items in grouped.items():
+        previous = None
+        previous_end = None
+        for period_end, payload in items:
+            providers = {
+                str(name): float((values or {}).get("paid") or 0)
+                for name, values in (payload.get("providers") or {}).items()
+            }
+            residual = float((payload.get("provider_residual") or {}).get("paid") or 0)
+            selected = None
+            selected_residual = None
+            rank = None
+
+            if period_start == period_end:
+                selected = {name: max(0.0, round(value, 2)) for name, value in providers.items()}
+                selected_residual = max(0.0, round(residual, 2))
+                rank = 2
+            elif previous is not None:
+                expected = (date.fromisoformat(previous_end) + timedelta(days=1)).isoformat()
+                if expected == period_end:
+                    names = set(previous["providers"]) | set(providers)
+                    selected = {
+                        name: max(
+                            0.0,
+                            round(
+                                float(providers.get(name) or 0)
+                                - float(previous["providers"].get(name) or 0),
+                                2,
+                            ),
+                        )
+                        for name in names
+                    }
+                    selected_residual = max(
+                        0.0,
+                        round(residual - float(previous["residual"] or 0), 2),
+                    )
+                    rank = 1
+
+            if selected is not None:
+                score = (rank, -date.fromisoformat(period_start).toordinal())
+                old = evidence.get(period_end)
+                if old is None or score > old["score"]:
+                    evidence[period_end] = {
+                        "score": score,
+                        "providers": selected,
+                        "provider_residual": selected_residual,
+                    }
+
+            previous = {"providers": providers, "residual": residual}
+            previous_end = period_end
+
+    return evidence
+
+
+def _provider_registry(conn):
+    try:
+        rows = conn.execute(
+            """
+            SELECT source_name,display_name,direction
+            FROM provider_registry
+            ORDER BY source_name
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    return {
+        str(row["source_name"]): {
+            "display_name": str(row["display_name"] or row["source_name"]),
+            "direction": str(row["direction"] or "pending"),
+        }
+        for row in rows
+    }
+
+
+def _provider_revenue_summary(conn, start, end):
+    start_s, end_s = _iso(start), _iso(end)
+    daily = _provider_paid_daily(conn)
+    selected = [value for day, value in daily.items() if start_s <= day <= end_s]
+    if not selected:
+        return {
+            "provider_paid_total": None,
+            "provider_residual": None,
+            "provider_balance_diff": None,
+            "direction_paid": {"dent": None, "structure": None, "lab": None, "other": None},
+            "providers": [],
+        }
+
+    paid_by_provider = {}
+    provider_residual = 0.0
+    for item in selected:
+        provider_residual += float(item.get("provider_residual") or 0)
+        for name, amount in (item.get("providers") or {}).items():
+            paid_by_provider[name] = paid_by_provider.get(name, 0.0) + float(amount or 0)
+
+    registry = _provider_registry(conn)
+    direction_paid = {"dent": 0.0, "structure": 0.0, "lab": 0.0, "other": 0.0}
+    provider_rows = []
+    for source_name, amount in paid_by_provider.items():
+        amount = round(amount, 2)
+        meta = registry.get(source_name) or {}
+        direction = str(meta.get("direction") or "pending")
+        bucket = direction if direction in {"dent", "structure", "lab"} else "other"
+        direction_paid[bucket] += amount
+        provider_rows.append(
+            {
+                "source_name": source_name,
+                "display_name": str(meta.get("display_name") or source_name),
+                "direction": direction,
+                "paid": amount,
+            }
+        )
+
+    provider_rows.sort(key=lambda row: (-row["paid"], row["display_name"]))
+    direction_paid = {key: round(value, 2) for key, value in direction_paid.items()}
+    provider_paid_total = round(sum(paid_by_provider.values()), 2)
+    provider_residual = round(provider_residual, 2)
+
+    return {
+        "provider_paid_total": provider_paid_total,
+        "provider_residual": provider_residual,
+        "provider_balance_diff": None,
+        "direction_paid": direction_paid,
+        "providers": provider_rows,
+    }
 
 
 def _revenue_summary(conn, start, end):
@@ -733,6 +896,16 @@ def _revenue_summary(conn, start, end):
     selected = [v for day, v in daily.items() if start_s <= day <= end_s]
     paid_total = round(sum(v["paid_total"] for v in selected), 2) if selected else None
     detailed_total = round(sum(v["detailed_paid_total"] for v in selected), 2) if selected else None
+
+    provider = _provider_revenue_summary(conn, start, end)
+    if paid_total is not None and provider["provider_paid_total"] is not None:
+        provider["provider_balance_diff"] = round(
+            paid_total
+            - provider["provider_paid_total"]
+            - float(provider["provider_residual"] or 0),
+            2,
+        )
+
     try:
         row = conn.execute(
             """
@@ -746,9 +919,22 @@ def _revenue_summary(conn, start, end):
         repeat_paid = row["repeat_paid"] if row else None
     except sqlite3.OperationalError:
         primary_paid = repeat_paid = None
-    classified = None if primary_paid is None and repeat_paid is None else round(float(primary_paid or 0) + float(repeat_paid or 0), 2)
-    unclassified_detailed = None if detailed_total is None or classified is None else round(max(0.0, detailed_total - classified), 2)
-    without_line_detail = None if paid_total is None or detailed_total is None else round(max(0.0, paid_total - detailed_total), 2)
+
+    classified = (
+        None
+        if primary_paid is None and repeat_paid is None
+        else round(float(primary_paid or 0) + float(repeat_paid or 0), 2)
+    )
+    unclassified_detailed = (
+        None
+        if detailed_total is None or classified is None
+        else round(max(0.0, detailed_total - classified), 2)
+    )
+    provider_known_without_patient_detail = (
+        None
+        if paid_total is None or detailed_total is None
+        else round(max(0.0, paid_total - detailed_total), 2)
+    )
 
     cash = {"cash_total": None, "cash_ooo": None, "cash_ip": None, "cash_unallocated": None}
     try:
@@ -767,13 +953,17 @@ def _revenue_summary(conn, start, end):
             cash = {k: round(v, 2) for k, v in totals.items()}
     except (sqlite3.OperationalError, TypeError, ValueError):
         pass
+
     return {
         "clinic_paid_total": paid_total,
         "detailed_paid_total": detailed_total,
-        "without_line_detail": without_line_detail,
+        "provider_known_without_patient_detail": provider_known_without_patient_detail,
+        # Backward-compatible alias. UI must use the clearer field above.
+        "without_line_detail": provider_known_without_patient_detail,
         "primary_paid": None if primary_paid is None else round(float(primary_paid), 2),
         "repeat_paid": None if repeat_paid is None else round(float(repeat_paid), 2),
         "unclassified_detailed": unclassified_detailed,
+        **provider,
         **cash,
         "days_with_mis_revenue": len(selected),
     }
