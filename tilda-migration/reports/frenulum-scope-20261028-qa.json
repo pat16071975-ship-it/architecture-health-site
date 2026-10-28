@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-28",
+  "user_confirmed_clinic_scope": "The clinic does not perform lingual frenulum division or frenuloplasty. Patients requiring surgical assessment/intervention are referred to another clinic. Clinic myofunctional therapists provide functional work and coordinated preparation/recovery. Do not present an in-house surgeon as a provider for this service in articles or advertising.",
+  "scanned_pages": 129,
+  "updated_pages": 5,
+  "removed_card": "Golishenkov on the tongue-tie article only, including Clarify pediatric appointment CTA",
+  "remaining_article_specialists": [
+    "Lapina Natalia",
+    "Holodtseva Valeria"
+  ],
+  "checks": [
+    "personal booking links unchanged",
+    "profile hero markup unchanged",
+    "Metrika scripts unchanged",
+    "photos loaded in local browser preview",
+    "desktop experience and booking buttons aligned",
+    "mobile 390 without horizontal overflow",
+    "guarded installer payload matched expected output"
+  ],
+  "live_deployed": false,
+  "installer_sha256": "f25ea61e5c41d50420016897c975eb0ab4a709785299aa0f50d81d38ea6ac76c"
+}
