@@ -832,6 +832,7 @@ def register_report_storage(app):
         rows = db().execute("SELECT date, payload FROM report_data ORDER BY date").fetchall()
         monthly_plans = management_monthly_plans()
         data = {}
+        payer_intervals = _paid_patient_intervals(db())
         for row in rows:
             try:
                 record = json.loads(row["payload"])
@@ -844,7 +845,7 @@ def register_report_storage(app):
                 record["plan"] = monthly_plans[month]
             record_date = str(row["date"])
             month_start = record_date[:7] + "-01"
-            payer_counts = _paid_patient_counts(db(), month_start, record_date)
+            payer_counts = _paid_patient_counts(db(), month_start, record_date, payer_intervals)
             if payer_counts is not None:
                 record["paidPatientEvidenceComplete"] = True
                 record["paidPatients"] = payer_counts["medicine"]
