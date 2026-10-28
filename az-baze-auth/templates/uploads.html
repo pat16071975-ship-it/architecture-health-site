@@ -503,7 +503,7 @@
     const url=type==='clinical'?'/api/uploads/clinical/preview':type==='cash'?'/api/uploads/cash/preview':'/api/uploads/paid-services/preview';
     try{
       const out=await send(url,form);
-      const needs=out.requires_choice||out.requires_provider_mapping||out.requires_review;
+      const needs=out.requires_choice||out.requires_provider_mapping||(type!=='clinical'&&out.requires_review);
       if(needs){
         resultBox(type,'Обнаружены данные, требующие подтверждения.',true);
         openPreview(type,form,out);
