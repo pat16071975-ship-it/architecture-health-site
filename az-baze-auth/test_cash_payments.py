@@ -7,6 +7,7 @@ from pathlib import Path
 from openpyxl import Workbook
 
 import cash_payments
+import upload_reconcile
 
 cash_payments.configure_providers(
     {"Чирков М. С.": "Чирков Максим Сергеевич"},
@@ -335,6 +336,72 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(row31["cashUnallocated"], 2000)
         self.assertEqual(row31["primary"], 2)
 
+
+    def test_positive_receipt_captures_only_hashed_payer_evidence(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 5000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+            ["15 янв 2026\n11:00", "Петров Петр Петрович", "Внесение ДС",
+             0, 3000, "Основная", "", cash_payments.IP_KKM, "", "", "", ""],
+            ["15 янв 2026\n12:00", "Не платил", "№101 Чирков М. С.",
+             5000, 0, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        day = daily["2026-01-15"]
+        self.assertTrue(day["payerEvidenceComplete"])
+        self.assertEqual(day["payerEvidenceCoverageFrom"], "2026-01-01")
+        self.assertEqual(day["payerEvidenceCoverageTo"], "2026-01-15")
+        self.assertEqual(len(day["payerTokens"]), 2)
+        self.assertEqual(len(day["payerDirectionTokens"]["dent"]), 1)
+        self.assertEqual(len(day["payerDirectionTokens"]["unallocated"]), 1)
+        encoded = json.dumps(day, ensure_ascii=False)
+        self.assertNotIn("Иванов", encoded)
+        self.assertNotIn("Петров", encoded)
+
+    def test_existing_money_without_payers_is_evidence_only_not_cash_conflict(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 5000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cash_payments.init_schema(conn)
+        upload_reconcile.init_schema(conn)
+        old = cash_payments.financial_payload(daily["2026-01-15"])
+        conn.execute(
+            """INSERT INTO cash_receipts_daily(
+               data_date,payload_json,source_filename,source_sha256,imported_by,imported_at
+               ) VALUES(?,?,?,?,?,?)""",
+            ("2026-01-15", json.dumps(old), "old.xlsx", "oldsha", 1, "old"),
+        )
+        result = upload_reconcile.compare_cash(conn, daily)
+        self.assertEqual(result["evidence_only"], ["2026-01-15"])
+        self.assertEqual(result["conflict"], [])
+        conn.close()
+
+    def test_different_money_stays_a_conflict_even_when_payer_evidence_is_new(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 5000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cash_payments.init_schema(conn)
+        upload_reconcile.init_schema(conn)
+        old = cash_payments.financial_payload(daily["2026-01-15"])
+        old["cashTotal"] = 4999
+        conn.execute(
+            """INSERT INTO cash_receipts_daily(
+               data_date,payload_json,source_filename,source_sha256,imported_by,imported_at
+               ) VALUES(?,?,?,?,?,?)""",
+            ("2026-01-15", json.dumps(old), "old.xlsx", "oldsha", 1, "old"),
+        )
+        result = upload_reconcile.compare_cash(conn, daily)
+        self.assertEqual(result["evidence_only"], [])
+        self.assertEqual(result["conflict"], ["2026-01-15"])
+        conn.close()
 
 if __name__ == "__main__":
     unittest.main()
