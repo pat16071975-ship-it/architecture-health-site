@@ -109,8 +109,9 @@ test('switching monthly then compare then monthly has no stale values',()=>{
  h.nodes.dateViewMode.value='monthly';h.render();assert.equal(h.values('paidPatients')[0],2);
 });
 test('existing default date comparison and hidden entry button are retained',()=>{
- assert(period.includes('<option value="compare" selected>На эту дату по месяцам</option>'));
- assert(period.includes('<option value="monthly">Итоги месяцев</option>'));
+ assert(period.includes('<option value="compare" selected>Сравнение</option>'));
+ assert(!period.includes('<option value="monthly">Итоги месяцев</option>'));
+ assert(period.includes('<option value="single">На дату</option>'));
  assert(!period.includes("document.getElementById('dateViewMode').value==='compare'"));
  const css=fs.readFileSync(path.join(root,'reports/mobile-date-fix.css'),'utf8');
  assert(css.includes('#entryBtn{display:none!important}'));

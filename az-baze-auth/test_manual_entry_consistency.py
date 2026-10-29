@@ -112,7 +112,7 @@ class ManagementDialogSaveRegressionTests(unittest.TestCase):
             lambda filename: (REPORTS / filename).read_text(encoding="utf-8"),
         ):
             html=report_storage._render_server_reports()
-        self.assertIn('<script src="./period-view.js?v=20261029-paid-history-1"></script>',html)
+        self.assertIn('<script src="./period-view.js?v=20261029-two-views-1"></script>',html)
         self.assertNotIn('period-view.js?v=20260918-1',html)
         self.assertIn("async function reportApi(url,options={})",html)
         self.assertIn("async function loadServerStore()",html)

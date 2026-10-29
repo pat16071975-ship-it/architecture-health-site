@@ -29,7 +29,7 @@ for (const [start, end, expected] of [
   ['  function periodData(def,year){', '  function doctorPeriodData(', '55d442c0ae415edfd250e9ec3587b4390274aee149f53337434e9e204fea6305'],
   ['  function addDateMetric(', '  function addDateDoctorMetric(', '1963e92a0001c721a7319a5eaf3c201bb65dba1fd0cd6457bd496a6e5e68f34d'],
 ]) assert.equal(createHash('sha256').update(part(view, start, end)).digest('hex'), expected, `${start} must retain its original contract`);
-assert(html.includes('./period-view.js?v=20261029-paid-history-1'), 'Paid-patient script cache key');
+assert(html.includes('./period-view.js?v=20261029-two-views-1'), 'Paid-patient script cache key');
 
 const freeze = value => {
   if (value && typeof value === 'object') {
