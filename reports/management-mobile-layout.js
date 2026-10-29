@@ -219,9 +219,9 @@
 
   // УТВЕРЖДЁННЫЕ ФОРМУЛЫ НЕ ПЕРЕОПРЕДЕЛЯЕМ.
   // Основной derive() остаётся источником правил:
-  // средний чек медицины = factMedicine / primary;
-  // стоматология = dentRev / dentPrimary;
-  // клиника = clinicRev / clinicPrimary.
+  // средний чек медицины = factMedicine / paidPatients;
+  // стоматология = dentRev / paidDentPatients;
+  // клиника = clinicRev / paidClinicPatients.
 
   const nativeLoadStore = window.loadStore;
   if (typeof nativeLoadStore === 'function' && !window.__azManagementCompareStoreFix) {
@@ -243,7 +243,7 @@
             .sort()
             .pop();
           if (!latest) return undefined;
-          return {...target[latest], date: prop};
+          return {...target[latest], _reportSourceDate: latest, date: prop};
         }
       });
     };
@@ -254,7 +254,7 @@
     const hint = document.getElementById('dateCompareHint');
     const note = document.getElementById('dateSummaryNote');
     if (hint) hint.textContent = 'Каждый месяц: накопительный итог с 1-го числа по выбранный день включительно.';
-    if (note) note.textContent = 'Абсолютные показатели берутся накопительно с начала месяца. Средний чек: выручка / первичные приёмы соответствующего направления. ПП в день, выполнение и конверсии пересчитываются из накопительных итогов.';
+    if (note) note.textContent = 'Абсолютные показатели берутся накопительно с начала месяца. Средний чек: выручка / оплатившие пациенты соответствующего направления за тот же период. ПП в день, выполнение и конверсии пересчитываются из накопительных итогов.';
   }
 
   function refreshComparison() {

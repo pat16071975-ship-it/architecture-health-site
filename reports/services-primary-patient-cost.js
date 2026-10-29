@@ -312,11 +312,15 @@
   }
 
   function scopeMetrics(w, serviceData, costData, direction, doctors, payerSeries, idx) {
-    if (!validCostIndexes(costData, payerSeries, idx)) return null;
+    const clinicPayers = paidPatientSeries(costData, 'medicine');
+    if (!validCostIndexes(costData, payerSeries, idx) ||
+        !validCostIndexes(costData, clinicPayers, idx) ||
+        idx.some(i => clinicPayers[i] <= 0)) return null;
 
     const paidPatients = sumIndexes(payerSeries, idx);
-    const cost = weightedCost(costData, payerSeries, idx);
-    const load = idx.reduce((sum, i) => sum + (+payerSeries[i] || 0) * monthlyCost(costData, payerSeries, i), 0);
+    // The common expense pool is divided by ALL medical payers, not this scope.
+    const cost = weightedCost(costData, clinicPayers, idx);
+    const load = idx.reduce((sum, i) => sum + payerSeries[i] * monthlyCost(costData, clinicPayers, i), 0);
     const revenue = revenueForDoctors(serviceData?.directions?.[direction], doctors, idx);
     const payouts = payoutsForDoctors(w, direction, doctors, serviceData.months.length, idx);
     const final = revenue - payouts.total - load;
@@ -361,7 +365,7 @@
     };
 
     const payerSeries = paidPatientSeries(costData, 'medicine');
-    if (!validCostIndexes(costData, payerSeries, idx)) return out;
+    if (!validCostIndexes(costData, payerSeries, idx) || idx.some(i => payerSeries[i] <= 0)) return out;
 
     const paidPatients = sumIndexes(payerSeries, idx);
     const cost = weightedCost(costData, payerSeries, idx);
@@ -442,22 +446,38 @@
     const doctorKey = normalizedDoctorKey(doctor);
     return Array.from({length:n}, (_, i) => {
       const month = PAID_PATIENTS_MONTHLY[costMonthKey(costData, i)];
-      if (!month) return null;
-      if (direction === 'medicine') return Number.isFinite(+month.medicine) ? +month.medicine : null;
+      if (!month || !paidCostMonthComplete(month, costMonthKey(costData, i))) return null;
+      if (direction === 'medicine') return costPayerCount(month.medicine);
       if (direction === 'Стоматология') {
-        if (!doctor) return Number.isFinite(+month.dent) ? +month.dent : null;
+        if (!doctor) return costPayerCount(month.dent);
         const entries = month.dentists || {};
-        const key = Object.keys(entries).find(name => normalizedDoctorKey(name) === doctorKey);
-        return key && Number.isFinite(+entries[key]) ? +entries[key] : 0;
+        const keys = Object.keys(entries).filter(name => normalizedDoctorKey(name) === doctorKey);
+        const key = Object.hasOwn(entries, doctor) ? doctor : keys.length === 1 ? keys[0] : null;
+        return key !== null ? costPayerCount(entries[key]) : keys.length ? null : 0;
       }
       if (direction === 'Клиника') {
-        if (!doctor) return Number.isFinite(+month.structure) ? +month.structure : null;
+        if (!doctor) return costPayerCount(month.structure);
         const entries = month.clinicDocs || {};
-        const key = Object.keys(entries).find(name => normalizedDoctorKey(name) === doctorKey);
-        return key && Number.isFinite(+entries[key]) ? +entries[key] : 0;
+        const keys = Object.keys(entries).filter(name => normalizedDoctorKey(name) === doctorKey);
+        const key = Object.hasOwn(entries, doctor) ? doctor : keys.length === 1 ? keys[0] : null;
+        return key !== null ? costPayerCount(entries[key]) : keys.length ? null : 0;
       }
       return null;
     });
+  }
+
+  function costPayerCount(value) {
+    if (value == null || value === '' || typeof value === 'boolean') return null;
+    const n = Number(value);
+    return Number.isSafeInteger(n) && n >= 0 ? n : null;
+  }
+
+  function paidCostMonthComplete(source, month) {
+    if (!/^\d{4}-\d{2}$/.test(month) || !source || typeof source.asOf !== 'string') return false;
+    const year = +month.slice(0,4), m = +month.slice(5,7);
+    if (m < 1 || m > 12) return false;
+    const end = month + '-' + String(new Date(Date.UTC(year, m, 0)).getUTCDate()).padStart(2, '0');
+    return source.asOf === end;
   }
 
   function isCostDataReady(data) {
@@ -473,8 +493,9 @@
         Number.isInteger(i) &&
         i >= 0 &&
         i <= max &&
-        costData.numerator?.[i] != null &&
-        payerSeries?.[i] != null
+        costData.numerator?.[i] != null && costData.numerator[i] !== '' &&
+        typeof costData.numerator[i] !== 'boolean' && Number.isFinite(+costData.numerator[i]) &&
+        costPayerCount(payerSeries?.[i]) !== null
       );
   }
 
@@ -491,7 +512,7 @@
 
   function monthlyCost(costData, payerSeries, i) {
     const payers = +payerSeries?.[i] || 0;
-    return payers ? (+costData.numerator?.[i] || 0) / payers : 0;
+    return payers > 0 && validCostIndexes(costData, payerSeries, [i]) ? +costData.numerator[i] / payers : null;
   }
 
   function weightedCost(costData, payerSeries, idx) {
