@@ -13,11 +13,6 @@ class CashPaidTimelineTests(unittest.TestCase):
         self.f.setUp()
         self.addCleanup(self.f.tearDown)
         cash_payments.init_schema(self.f.conn)
-        cash_payments.configure_providers(
-            {"Dent A.": "Dent Doctor"},
-            {"Clinic B.": "Clinic Doctor"},
-            {},
-        )
 
     def _payload(self, tokens_by_direction, start="2026-01-01", end="2026-01-31"):
         payload = cash_payments._blank_day()
