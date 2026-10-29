@@ -95,7 +95,7 @@ test('comparison uses the same arbitrary selected day across months',()=>{
  );
  h.node('reportDate').value='2026-03-15';h.node('compareRange').value='q1';h.node('dateViewMode').value='compare';h.render();
  const row=h.node('dateCompareBody').children.find(r=>r.innerHTML.startsWith('<td>Оплатившие пациенты</td>'));assert(row);
- const values=[...row.innerHTML.matchAll(/<td[^>]*>(.*?)<\\/td>/g)].slice(1).map(m=>m[1]);
+ const values=[...row.innerHTML.matchAll(/<td[^>]*>(.*?)<\/td>/g)].slice(1).map(m=>m[1]);
  assert.deepEqual(values,[countString(4),countString(7),countString(9)]);
 });
 test('later month-end must never backfill an earlier arbitrary day',()=>{
