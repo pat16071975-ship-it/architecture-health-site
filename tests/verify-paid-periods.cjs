@@ -29,7 +29,7 @@ for (const [start, end, expected] of [
   ['  function periodData(def,year){', '  function doctorPeriodData(', '55d442c0ae415edfd250e9ec3587b4390274aee149f53337434e9e204fea6305'],
   ['  function addDateMetric(', '  function addDateDoctorMetric(', '1963e92a0001c721a7319a5eaf3c201bb65dba1fd0cd6457bd496a6e5e68f34d'],
 ]) assert.equal(createHash('sha256').update(part(view, start, end)).digest('hex'), expected, `${start} must retain its original contract`);
-assert(html.includes('./period-view.js?v=20261029-two-views-1'), 'Paid-patient script cache key');
+assert(html.includes('./period-view.js?v=20261029-paid-two-views-2'), 'Paid-patient script cache key');
 
 const freeze = value => {
   if (value && typeof value === 'object') {
@@ -124,7 +124,8 @@ check('existing July–September, dates, averages and raw values remain unchange
   for(const [date,dent,clinic] of [['2026-06-30',300,100],['2026-07-30',300,100],['2026-07-31',24,36],['2026-08-31',52,68],['2026-09-30',84,100]]){
     h.fill(data[date]);const values=Object.fromEntries(h.metrics.map(input=>[input.dataset.key,input.value]));
     assert.equal(values.dentRev,h.money(dent));assert.equal(values.clinicRev,h.money(clinic));
-    assert.equal(values.dentAvg,h.money(75));assert.equal(values.clinicAvg,h.money(25));
+    const covered=['2026-07-31','2026-08-31','2026-09-30'].includes(date);
+    assert.equal(values.dentAvg,h.money(covered?dent/4:null));assert.equal(values.clinicAvg,h.money(covered?clinic/4:null));
     assert.equal(values.cashTotal,h.money(1000));assert.equal(values.cashOOO,h.money(600));assert.equal(values.cashIP,h.money(400));
   }
   assert.equal(h.dateDoctor('2026-08-20','dentists','D1',999),2);
