@@ -106,15 +106,10 @@ function cellValues(table,label){
 const empty='<span class="empty">—</span>';
 const rendered=(h,values)=>values.map(value=>value===null?empty:h.money(value));
 function assertDirections(h,table,dent,clinic){
+  // Direction totals stay on cash. Individual doctor rows may intentionally use
+  // confirmed MIS «Оплачено», so they are not required to sum to the cash total.
   assert.deepEqual(cellValues(table,'Выручка стоматологии'),rendered(h,dent));
   assert.deepEqual(cellValues(table,'Выручка клиники'),rendered(h,clinic));
-  for(const [total,names] of [[dent,['D1','D2']],[clinic,['C1','C2']]]){
-    const doctors=names.map(name=>cellValues(table,name));
-    for(let index=0;index<total.length;index++){
-      const sum=doctors.reduce((sum,cells)=>sum+Number(cells[index].replace(/<[^>]*>|[^\d,.-]/g,'').replace(',','.')),0);
-      if(total[index]!==null)assert.equal(sum,total[index],`Visible doctor sum for column ${index}`);
-    }
-  }
 }
 let checks=0;
 function check(name,callback){callback();checks++;console.log('PASS '+name);}
@@ -137,15 +132,15 @@ check('existing July–September, dates, averages and raw values remain unchange
   assert.equal(JSON.stringify(data),before);
 });
 
-check('one half-year file overrides its six months without making monthly paid figures',()=>{
+check('half-year MIS doctor file does not override six months of cash direction totals',()=>{
   const data={};for(let month=1;month<=6;month++){const date=`2026-${String(month).padStart(2,'0')}-${new Date(2026,month,0).getDate()}`;data[date]=record(date);}
   const h=setup({data,periods:[h1]});
   assert.equal(h.sum(Object.values(data),'dentists',h1Bounds),600);
   assert.equal(h.doctor(Object.values(data),'dentists','D1',h1Bounds),500);
   assert.equal(h.dateDoctor('2026-06-30','dentists','D1',100),100);
   assert.equal(h.doctor([], 'dentists','D1',bounds('2026-01-01','2026-01-31')),null);
-  h.node('mode').value='half';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[600,null],[60,null]);
-  assert.deepEqual(cellValues(h.node('periodCompareBody'),'Средний чек стоматологии на оплатившего пациента'),[h.money(25),empty]);
+  h.node('mode').value='half';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[1800,null],[600,null]);
+  assert.deepEqual(cellValues(h.node('periodCompareBody'),'Средний чек стоматологии на оплатившего пациента'),[h.money(75),empty]);
   assert.deepEqual(cellValues(h.node('periodCompareBody'),'Факт'),[h.money(6000),empty]);
 });
 
@@ -168,9 +163,9 @@ check('legacy monthly snapshots cannot pass the raw month as-of date',()=>{
 check('half-year plus monthly snapshots and uncovered legacy month compose once',()=>{
   const data={};for(const date of ['2026-01-31','2026-06-30','2026-07-31','2026-08-31','2026-09-30','2026-10-31'])data[date]=record(date);
   const h=setup({data,periods:[h1],paid:snapshots});
-  h.node('mode').value='year';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[1060],[364]);
+  h.node('mode').value='year';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[1800],[600]);
   const sourceOnly=setup({periods:[h1],paid:snapshots});sourceOnly.node('mode').value='year';sourceOnly.run('renderPeriod()');
-  assertDirections(sourceOnly,sourceOnly.node('periodCompareBody'),[760],[264]);
+  assertDirections(sourceOnly,sourceOnly.node('periodCompareBody'),[null],[null]);
   assert.deepEqual(cellValues(sourceOnly.node('periodCompareBody'),'Факт'),[empty]);
   assert.deepEqual(cellValues(sourceOnly.node('periodCompareBody'),'Средний чек стоматологии на оплатившего пациента'),[empty]);
 });
@@ -232,19 +227,19 @@ check('October 1-11 snapshot plus 12-13 slice sums to MIS paid total',()=>{
 check('zero paid is retained and absent sources remain empty',()=>{
   const h=setup({periods:[period('2026-01-01','2026-06-30',0,0)]});
   assert.equal(h.sum([],'dentists',h1Bounds),0);assert.equal(h.doctor([],'dentists','D2',h1Bounds),0);
-  h.node('mode').value='half';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[0,null],[0,null]);
+  h.node('mode').value='half';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[null,null],[null,null]);
   const missing=setup();missing.node('mode').value='year';missing.run('renderPeriod()');
   assertDirections(missing,missing.node('periodCompareBody'),[null],[null]);
   assert.equal(missing.sum([],'dentists',yearBounds),null);
 });
 
-check('doctor-only date comparison and single date do not fabricate other metrics',()=>{
+check('doctor-only MIS source never fabricates cash direction totals',()=>{
   const h=setup({periods:[period('2026-07-01','2026-07-31',21,4)]});
-  h.node('reportDate').value='2026-08-31';h.run('renderDateComparison()');assertDirections(h,h.node('dateCompareBody'),[21,null,null],[4,null,null]);
+  h.node('reportDate').value='2026-08-31';h.run('renderDateComparison()');assertDirections(h,h.node('dateCompareBody'),[null,null,null],[null,null,null]);
   for(const label of ['Факт','ДС ООО','ДС ИП','Средний чек стоматологии на оплатившего пациента'])assert.deepEqual(cellValues(h.node('dateCompareBody'),label),[empty,empty,empty]);
   h.node('reportDate').value='2026-07-31';h.run('loadDate()');
   const values=Object.fromEntries(h.metrics.map(input=>[input.dataset.key,input.value]));
-  assert.equal(values.dentRev,h.money(21));assert.equal(values.clinicRev,h.money(4));
+  assert.equal(values.dentRev,h.money(0));assert.equal(values.clinicRev,h.money(0));
   for(const [key,value] of Object.entries(values))if(!['dentRev','clinicRev'].includes(key))assert.equal(value,'',key);
   const noMonth=setup({periods:[h1]});noMonth.node('reportDate').value='2026-06-30';noMonth.node('compareRange').value='h1';noMonth.run('renderDateComparison()');
   assertDirections(noMonth,noMonth.node('dateCompareBody'),Array(6).fill(null),Array(6).fill(null));
