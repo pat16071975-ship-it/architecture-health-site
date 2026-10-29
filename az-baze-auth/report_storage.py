@@ -321,32 +321,29 @@ def _paid_patient_counts(conn, start, end, intervals=None):
     return _combine_paid_patient_intervals(parts)
 
 
-def _management_paid_patients_monthly(conn):
-    intervals = _paid_patient_intervals(conn)
-    months = sorted({item["from"][:7] for item in intervals} | {item["to"][:7] for item in intervals})
+def _management_paid_patients_by_date(conn, intervals=None):
+    """Every provable MTD endpoint, not just the latest endpoint per month.
+
+    A completed monthly export cannot prove an earlier cutoff. Source intervals
+    and patient tokens stay private; only aggregate counts leave this function.
+    """
+    intervals = _paid_patient_intervals(conn) if intervals is None else intervals
     result = {}
-    for month in months:
-        month_start = month + "-01"
-        month_end = (calendar_date.fromisoformat(month_start).replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
-        month_end_s = month_end.isoformat()
-        counts = _paid_patient_counts(conn, month_start, month_end_s, intervals)
-        as_of = month_end_s
-        if counts is None:
-            candidates = sorted(
-                {
-                    item["to"]
-                    for item in intervals
-                    if item["from"] == month_start and item["to"][:7] == month
-                },
-                reverse=True,
-            )
-            for candidate in candidates:
-                counts = _paid_patient_counts(conn, month_start, candidate, intervals)
-                if counts is not None:
-                    as_of = candidate
-                    break
+    for end in sorted({part["to"] for part in intervals}):
+        start = end[:7] + "-01"
+        counts = _paid_patient_counts(conn, start, end, intervals)
         if counts is not None:
-            result[month] = {"asOf": as_of, **counts}
+            result[end] = {"from": start, "to": end, "asOf": end, **counts}
+    return result
+
+
+def _management_paid_patients_monthly(conn, intervals=None):
+    # A late incremental slice can extend an earlier MTD source. It need not
+    # itself begin on day 1; the complete covering is proven above.
+    result = {}
+    for end, row in _management_paid_patients_by_date(conn, intervals).items():
+        result[end[:7]] = {key: value for key, value in row.items()
+                          if key not in ("from", "to")}
     return result
 
 
@@ -627,7 +624,7 @@ def _render_server_reports():
 
     old_store = """function loadStore(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}}
 function saveStore(v){localStorage.setItem(STORAGE_KEY,JSON.stringify(v))}"""
-    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={},DOCTOR_PAID_PERIODS=[],PAID_PATIENTS_MONTHLY={};
+    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={},DOCTOR_PAID_PERIODS=[],PAID_PATIENTS_MONTHLY={},PAID_PATIENTS_BY_DATE={};
 function loadStore(){return SERVER_STORE}
 function saveStore(v){SERVER_STORE=v}
 async function reportApi(url,options={}){
@@ -647,6 +644,7 @@ async function loadServerStore(){
   DOCTOR_PAID_SNAPSHOTS=payload.doctorPaidSnapshots||{};
   DOCTOR_PAID_PERIODS=Array.isArray(payload.doctorPaidPeriods)?payload.doctorPaidPeriods:[];
   PAID_PATIENTS_MONTHLY=payload.paidPatientsMonthly||{};
+  PAID_PATIENTS_BY_DATE=payload.paidPatientsByDate||{};
   REPORT_CSRF=payload.csrf||'';
   if(typeof syncProviderNames==='function'){
     syncProviderNames(SERVER_STORE);
@@ -789,7 +787,8 @@ def register_report_storage(app):
             data=data,
             doctorPaidSnapshots=_management_doctor_paid_snapshots(db()),
             doctorPaidPeriods=_management_doctor_paid_periods(db()),
-            paidPatientsMonthly=_management_paid_patients_monthly(db()),
+            paidPatientsMonthly=_management_paid_patients_monthly(db(), payer_intervals),
+            paidPatientsByDate=_management_paid_patients_by_date(db(), payer_intervals),
             csrf=csrf_token(),
         )
 

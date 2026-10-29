@@ -217,6 +217,6 @@ class HistoricalPaidReportingTests(unittest.TestCase):
         self.assertIn('PAID_PATIENTS_MONTHLY={}',html)
         self.assertIn('payload.paidPatientsMonthly',html)
         self.assertIn('function loadStore(){return SERVER_STORE}',html)
-        self.assertIn('20261029-paid-two-views-2',html)
+        self.assertIn('20261029-paid-two-views-3',html)
 
 if __name__=='__main__': unittest.main()
