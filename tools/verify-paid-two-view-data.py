@@ -152,7 +152,9 @@ def matrix(conn, scope):
                                  'dent': ratio(dent, payer['dent']), 'structure': ratio(clinic, payer['structure'])},
                      'commonExpense': expense,
                      'expensePerMedicalPayer': ratio(expense, payer['medicine']),
-                     'exactDay27Available': month + '-27' in endpoints})
+                     'exactEvidenceDates': sorted(
+                         day for day in endpoints if day.startswith(month + '-')
+                     )})
     return rows
 
 
