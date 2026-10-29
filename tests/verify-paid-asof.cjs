@@ -81,6 +81,23 @@ test('arbitrary exact days 9 15 and 17 render in both approved views',()=>{
    assert.equal(h.cell('Оплатившие пациенты',0),countString(medicine),date+' compare patients');
  }
 });
+test('comparison uses the same arbitrary selected day across months',()=>{
+ const h=harness();h.add(1,31);h.add(2,28);h.add(3,31);
+ h.ctx.PAID_PATIENTS_BY_DATE={
+  '2026-01-15':{from:'2026-01-01',to:'2026-01-15',asOf:'2026-01-15',medicine:4,dent:2,structure:2},
+  '2026-02-15':{from:'2026-02-01',to:'2026-02-15',asOf:'2026-02-15',medicine:7,dent:3,structure:4},
+  '2026-03-15':{from:'2026-03-01',to:'2026-03-15',asOf:'2026-03-15',medicine:9,dent:4,structure:5},
+ };
+ h.ctx.DOCTOR_PAID_PERIODS.push(
+  {from:'2026-01-01',to:'2026-01-15',dentists:{D:20},clinicDocs:{C:20}},
+  {from:'2026-02-01',to:'2026-02-15',dentists:{D:30},clinicDocs:{C:40}},
+  {from:'2026-03-01',to:'2026-03-15',dentists:{D:40},clinicDocs:{C:50}},
+ );
+ h.node('reportDate').value='2026-03-15';h.node('compareRange').value='q1';h.node('dateViewMode').value='compare';h.render();
+ const row=h.node('dateCompareBody').children.find(r=>r.innerHTML.startsWith('<td>Оплатившие пациенты</td>'));assert(row);
+ const values=[...row.innerHTML.matchAll(/<td[^>]*>(.*?)<\\/td>/g)].slice(1).map(m=>m[1]);
+ assert.deepEqual(values,[countString(4),countString(7),countString(9)]);
+});
 test('later month-end must never backfill an earlier arbitrary day',()=>{
  const h=harness();h.add(1,31);
  h.ctx.PAID_PATIENTS_BY_DATE={'2026-01-31':{from:'2026-01-01',to:'2026-01-31',asOf:'2026-01-31',medicine:20,dent:10,structure:7}};
@@ -88,5 +105,5 @@ test('later month-end must never backfill an earlier arbitrary day',()=>{
     assert.equal(h.run("exactPayersForDate('"+date+"',null)"),null,date);
 });
 
-console.log('PAID_ASOF_AND_PERIOD=PASS; ADDITIONAL_SCENARIOS=10');
+console.log('PAID_ASOF_AND_PERIOD=PASS; ADDITIONAL_SCENARIOS=11');
 `,{require,__dirname,__filename,console,process});
