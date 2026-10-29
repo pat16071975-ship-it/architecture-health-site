@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/paid-history-pack-*.b64'
       - '.github/paid-history-source-build.py'
+      - '.github/paid-history-source-compat.py'
       - '.github/workflows/az-paid-history-source-build.yml'
 permissions:
   contents: write
@@ -31,12 +32,14 @@ jobs:
         with:
           node-version: '22'
       - name: Exact source bundle and baseline guards
-        run: python .github/paid-history-source-build.py
+        run: |
+          python .github/paid-history-source-build.py
+          python .github/paid-history-source-compat.py
       - name: Install test dependencies
         run: python -m pip install -r az-baze-auth/requirements.txt
       - name: Real SQLite and existing accounting regressions
         working-directory: az-baze-auth
-        run: python -m unittest -v test_paid_period_confirmation.py test_paid_history_reporting.py test_cash_payments.py test_upload_integrity.py test_upload_reconcile.py test_paid_services.py test_paid_services_storage.py test_paid_services_periods.py test_paid_period_report.py test_economics_revenue_source.py test_completed_upload.py test_pr71_approved_restoration.py
+        run: python -m unittest -v test_paid_period_confirmation.py test_paid_history_reporting.py test_cash_payments.py test_upload_integrity.py test_upload_reconcile.py test_paid_services.py test_paid_services_storage.py test_paid_services_periods.py test_paid_period_report.py test_economics_revenue_source.py test_completed_upload.py test_pr71_approved_restoration.py test_manual_entry_consistency.py
       - name: Actual report selectors and upload regressions
         run: |
           node --check reports/period-view.js
@@ -48,7 +51,7 @@ jobs:
         if: always()
         run: |
           mkdir -p /tmp/az-paid-history-evidence
-          tar --exclude='__pycache__' -czf /tmp/az-paid-history-evidence/source.tgz az-baze-auth/*.py az-baze-auth/requirements.txt reports/index.html reports/period-view.js reports/mobile-date-fix.css tests/verify-paid*.cjs tools/paid-history-confirmation-plan.py .github/workflows/az-paid-history.yml
+          tar --exclude='__pycache__' -czf /tmp/az-paid-history-evidence/source.tgz az-baze-auth/*.py az-baze-auth/requirements.txt az-baze-auth/templates/uploads.html reports/index.html reports/period-view.js reports/mobile-date-fix.css tests/verify-paid*.cjs tools/paid-history-confirmation-plan.py .github/workflows/az-paid-history.yml
           git diff > /tmp/az-paid-history-evidence/prepared.patch
       - uses: actions/upload-artifact@v4
         if: always()
@@ -68,17 +71,18 @@ jobs:
               'az-baze-auth/paid_period_confirmation.py','az-baze-auth/test_paid_period_confirmation.py',
               'az-baze-auth/test_paid_history_reporting.py','az-baze-auth/PAID-HISTORY-REPORTING.md',
               'tests/verify-paid-history.cjs','tools/paid-history-confirmation-plan.py',
-              '.github/workflows/az-paid-history.yml'}
+              '.github/workflows/az-paid-history.yml','tests/verify-paid-periods.cjs',
+              'az-baze-auth/test_manual_entry_consistency.py'}
           temporary=[f'.github/paid-history-pack-{i}.b64' for i in range(1,5)]+[
-              '.github/paid-history-source-build.py','.github/workflows/az-paid-history-source-build.yml',
-              'tools/prepare-paid-history.py']
+              '.github/paid-history-source-build.py','.github/paid-history-source-compat.py',
+              '.github/workflows/az-paid-history-source-build.yml','tools/prepare-paid-history.py']
           for name in temporary:
               Path(name).unlink()
-          subprocess.run(['git','add','-A','--',*sorted(allowed),*temporary],check=True)
+          subprocess.run(['git','add','-A','--','.github',*sorted(allowed)],check=True)
           changed=set(subprocess.check_output(['git','diff','--cached','--name-only',base],text=True).splitlines())
           if changed!=allowed:
               raise RuntimeError('FINAL_SOURCE_SCOPE_MISMATCH: '+repr(changed))
-          print('FINAL_SOURCE_SCOPE=PASS; FILES=10; LIVE_ACCESS=NONE')
+          print('FINAL_SOURCE_SCOPE=PASS; FILES=12; LIVE_ACCESS=NONE')
           PY
           actual="$(git ls-remote origin refs/heads/fix/az-paid-patient-history-20261029 | cut -f1)"
           test "$actual" = "$EXPECTED_HEAD"
