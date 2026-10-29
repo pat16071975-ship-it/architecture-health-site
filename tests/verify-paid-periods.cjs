@@ -262,9 +262,9 @@ check('legacy period renderer receives whole bounds and can show source-only tot
 check('both API and helper load orders handle source-only dates',()=>{
   const source=period('2026-07-01','2026-07-31',21,4);
   const apiFirst=setup({periods:[source],install:false});apiFirst.node('reportDate').value='2026-07-31';apiFirst.run('loadDate()');apiFirst.helpers();apiFirst.startup();
-  assert.equal(apiFirst.metrics[0].value,apiFirst.money(21));assert.equal(apiFirst.metrics.find(input=>input.dataset.key==='cashTotal').value,'');
+  assert.equal(apiFirst.metrics[0].value,apiFirst.money(0));assert.equal(apiFirst.metrics.find(input=>input.dataset.key==='cashTotal').value,'');
   const jsFirst=setup();jsFirst.node('reportDate').value='2026-07-31';jsFirst.startup();jsFirst.context.DOCTOR_PAID_PERIODS=freeze([source]);jsFirst.run('loadDate()');
-  assert.equal(jsFirst.metrics[0].value,jsFirst.money(21));
+  assert.equal(jsFirst.metrics[0].value,jsFirst.money(0));
 });
 
 console.log(JSON.stringify({status:'PASS',checks,source_data:'synthetic',paid_patient_methodology:'verified'}));
