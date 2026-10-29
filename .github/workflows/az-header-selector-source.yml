@@ -1,0 +1,36 @@
+name: AZ header selector source correction
+on:
+  push:
+    branches: [fix/az-two-view-paid-economics-20261029]
+    paths: ['.github/workflows/az-header-selector-source.yml']
+permissions:
+  contents: write
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Exact two-label test correction, no runtime changes
+        run: |
+          python3 - <<'PY'
+          import hashlib,subprocess
+          from pathlib import Path
+          p=Path('.github/scripts/az-report-header-browser-check.cjs')
+          raw=p.read_bytes()
+          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()=='c2838848cb23ee1cdafc00fee43ad61d5bb38908'
+          text=raw.decode()
+          assert text.count("'Выручка клиники'")==2
+          p.write_text(text.replace("'Выручка клиники'","'Выручка отделения структуры'"))
+          assert subprocess.check_output(['git','diff','--numstat'],text=True)=='2\t2\t'+str(p)+'\n'
+          PY
+          node --check .github/scripts/az-report-header-browser-check.cjs
+          test "$(git ls-remote origin refs/heads/fix/az-two-view-paid-economics-20261029 | cut -f1)" = '${{ github.sha }}'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/scripts/az-report-header-browser-check.cjs
+          git commit -m 'test: retain numerical assertions under established structure label'
+          git push origin HEAD:refs/heads/fix/az-two-view-paid-economics-20261029
+          echo "CORRECTED_TEST_SHA=$(git rev-parse HEAD)"
