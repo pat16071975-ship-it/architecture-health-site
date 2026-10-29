@@ -102,8 +102,9 @@ with sync_playwright() as pw:
             checks+=1
         page.locator('#reportDate').fill('2026-01-20');page.locator('#reportDate').dispatch_event('change')
         page.select_option('#dateViewMode','single')
-        page.wait_for_function("document.querySelector('#generalGrid [data-key=paidPatients]').value===''")
-        checks+=1
+        page.wait_for_function("document.querySelector('#generalGrid [data-key=paidPatients]').value==='2'")
+        assert page.locator('#dentSummary [data-key=dentAvg]').input_value()==''
+        checks+=2
         page.select_option('#mode','year')
         page.wait_for_function("document.querySelector('#periodCompareBody').children.length>10")
         def cell(label):
