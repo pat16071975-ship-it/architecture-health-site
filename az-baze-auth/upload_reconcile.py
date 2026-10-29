@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from app import DB_PATH
+import cash_payments
 
 
 DIRECTIONS = {"pending", "dent", "structure", "lab", "ignore"}
@@ -467,7 +468,7 @@ def compare_clinical(conn, period, service_through):
 
 def compare_cash(conn, daily):
     init_schema(conn)
-    result = {"new": [], "identical": [], "conflict": [], "removed": []}
+    result = {"new": [], "identical": [], "evidence_only": [], "conflict": [], "removed": []}
     incoming_dates = sorted(daily)
     incoming_set = set(incoming_dates)
     for data_date in incoming_dates:
@@ -484,8 +485,31 @@ def compare_cash(conn, daily):
             raise ValueError(
                 f"Нельзя безопасно проверить денежные данные за {data_date}: сохранённая версия повреждена."
             ) from exc
-        target = "identical" if canonical(old) == canonical(daily[data_date]) else "conflict"
-        result[target].append(data_date)
+
+        incoming = daily[data_date]
+        if canonical(cash_payments.financial_payload(old)) != canonical(cash_payments.financial_payload(incoming)):
+            result["conflict"].append(data_date)
+            continue
+
+        old_evidence = cash_payments.payer_evidence(old)
+        new_evidence = cash_payments.payer_evidence(incoming)
+        if canonical(old) == canonical(incoming):
+            result["identical"].append(data_date)
+        elif old_evidence is None and new_evidence is not None:
+            result["evidence_only"].append(data_date)
+        elif old_evidence is not None and new_evidence is None:
+            # Never erase previously captured payer evidence with an older-format file.
+            result["identical"].append(data_date)
+        elif old_evidence is not None and new_evidence is not None:
+            same_tokens = all(old_evidence[key] == new_evidence[key]
+                              for key in ("all", "dent", "structure", "lab", "unallocated"))
+            wider_coverage = (
+                new_evidence["coverageFrom"] <= old_evidence["coverageFrom"]
+                and new_evidence["coverageTo"] >= old_evidence["coverageTo"]
+            )
+            result["evidence_only" if same_tokens and wider_coverage else "conflict"].append(data_date)
+        else:
+            result["identical"].append(data_date)
 
     if incoming_dates:
         old_rows = conn.execute(
