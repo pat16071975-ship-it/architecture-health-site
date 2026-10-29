@@ -5,6 +5,7 @@ on:
     paths:
       - 'az-baze-auth/deploy/paid-history-production-20261029.py'
       - 'az-baze-auth/deploy/test_paid_history_delivery_20261029.py'
+      - 'az-baze-auth/deploy/test_paid_history_service_group_20261029.py'
       - 'az-baze-auth/deploy/CONTROLLED-PR164-PAID-HISTORY.md'
       - '.github/workflows/az-paid-history-delivery.yml'
 permissions:
@@ -27,11 +28,12 @@ jobs:
           import ast, hashlib, importlib.util, pathlib, subprocess
           p=pathlib.Path('az-baze-auth/deploy/paid-history-production-20261029.py')
           raw=p.read_bytes()
-          assert hashlib.sha256(raw).hexdigest()=='e5b6c105c50620b58e569736776d44a63f569e8f522ab9dbc7198b927bef6b39'
+          assert hashlib.sha256(raw).hexdigest()=='2644f28110c36edc0a47a75d99db75694c2bc48d8d3e0fd1f858127e2d5a9b19'
           spec=importlib.util.spec_from_file_location('delivery',p)
           d=importlib.util.module_from_spec(spec);spec.loader.exec_module(d)
           subprocess.run(['git','diff','--exit-code',d.SOURCE_HEAD,d.TARGET_COMMIT],check=True)
           allowed={str(p),'az-baze-auth/deploy/test_paid_history_delivery_20261029.py',
+                   'az-baze-auth/deploy/test_paid_history_service_group_20261029.py',
                    'az-baze-auth/deploy/CONTROLLED-PR164-PAID-HISTORY.md',
                    '.github/workflows/az-paid-history-delivery.yml'}
           changed=set(subprocess.check_output(['git','diff','--name-only',d.TARGET_COMMIT,'HEAD'],text=True).splitlines())
@@ -45,7 +47,7 @@ jobs:
                   assert not subprocess.check_output(['git','ls-tree',d.BASE_COMMIT,'--',path])
               if path.endswith('.py'):compile(pathlib.Path(path).read_bytes(),path,'exec')
           compile(raw,str(p),'exec')
-          print('MERGE_TREE=EXACT_APPROVED_SOURCE; MANIFEST=4_OF_4_PASS; OPS_SCOPE=4_FILES; LIVE_ACCESS=NONE')
+          print('MERGE_TREE=EXACT_APPROVED_SOURCE; MANIFEST=4_OF_4_PASS; OPS_SCOPE=5_FILES; LIVE_ACCESS=NONE')
           PY
           git worktree add --detach /tmp/az-pr164-delivery-base 2a0301e28d01a7ebaeae81e1e96b9ce4362930b7
       - name: Actual JavaScript syntax and retained period scenarios
@@ -67,7 +69,7 @@ jobs:
       - name: Isolated delivery and rollback tests (no live host)
         run: |
           set -o pipefail
-          sudo env PR164_SOURCE="$GITHUB_WORKSPACE" PR164_BASE=/tmp/az-pr164-delivery-base /usr/bin/python3 -m unittest discover -s az-baze-auth/deploy -p test_paid_history_delivery_20261029.py -v 2>&1 | tee /tmp/az-pr164-delivery-tests.log
+          sudo env PR164_SOURCE="$GITHUB_WORKSPACE" PR164_BASE=/tmp/az-pr164-delivery-base /usr/bin/python3 -m unittest discover -s az-baze-auth/deploy -p 'test_paid_history_*20261029.py' -v 2>&1 | tee /tmp/az-pr164-delivery-tests.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
