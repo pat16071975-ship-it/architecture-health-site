@@ -1,0 +1,79 @@
+name: AZ restore two view options
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/restore-two-views-20261029.py'
+      - 'az-baze-auth/deploy/test_two_views.py'
+      - 'az-baze-auth/deploy/browser_two_views.py'
+      - '.github/workflows/az-restore-two-views.yml'
+permissions:
+  contents: write
+concurrency:
+  group: az-restore-two-view-options
+  cancel-in-progress: false
+jobs:
+  isolated-restoration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare exact two-file restoration and matching test expectations
+        run: |
+          git worktree add --detach /tmp/az-two-views-base ffd0a876562c3b9c1e74410d9cf644aafb3fff39
+          python3 -B az-baze-auth/deploy/restore-two-views-20261029.py --prepare-source .
+          python3 - <<'PY'
+          from pathlib import Path
+          def change(name,old,new):
+              p=Path(name);s=p.read_text();assert s.count(old)==1,(name,old);p.write_text(s.replace(old,new,1))
+          change('tests/verify-paid-history.cjs','<option value="compare" selected>На эту дату по месяцам</option>','<option value="compare" selected>Сравнение</option>')
+          change('tests/verify-paid-history.cjs'," assert(period.includes('<option value=\"monthly\">Итоги месяцев</option>'));", " assert(!period.includes('<option value=\"monthly\">Итоги месяцев</option>'));\n assert(period.includes('<option value=\"single\">На дату</option>'));")
+          for name in ('tests/verify-paid-periods.cjs','az-baze-auth/test_manual_entry_consistency.py'):
+              change(name,'20261029-paid-history-1','20261029-two-views-1')
+          for old,new in [('db160bf97814d18976a97afc5e680668819c6cd7','6b4c114162dd4da125ab7257fe46be7854a68651'),('5aeaf54d35dc98ac9b0ce7d0574813cf8034778a','f1b65ad1a72925959d4c0215c871cf271755034f')]:
+              change('az-baze-auth/test_report_consistency_preservation.py',old,new)
+          print('SOURCE_SCOPE=2_RUNTIME_FILES; ONLY_SELECTOR_AND_CACHE_VERSION; CALCULATIONS=UNCHANGED')
+          PY
+      - name: Exact-file safety and rollback tests
+        run: sudo env TWO_VIEWS_BASE=/tmp/az-two-views-base python3 -B az-baze-auth/deploy/test_two_views.py
+      - name: Retained actual JavaScript calculations and upload tests
+        run: |
+          node --check reports/period-view.js
+          node tests/verify-paid-history.cjs
+          node tests/verify-paid-periods.cjs
+          node tests/verify-paid-upload-periods.cjs
+      - name: Install isolated browser test dependency
+        run: python3 -m pip install playwright==1.55.0
+      - name: Offline actual DOM before and after, desktop tablet phone
+        env:
+          TWO_VIEWS_BASE: /tmp/az-two-views-base
+          TWO_VIEWS_TARGET: ${{ github.workspace }}
+        run: |
+          export CHROMIUM_PATH="$(command -v google-chrome || command -v chromium)"
+          python3 -B az-baze-auth/deploy/browser_two_views.py
+      - name: Record only tested source and test-expectation delta
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          allowed={'reports/period-view.js','reports/index.html','tests/verify-paid-history.cjs','tests/verify-paid-periods.cjs','az-baze-auth/test_manual_entry_consistency.py','az-baze-auth/test_report_consistency_preservation.py'}
+          changed=set(subprocess.check_output(['git','diff','--name-only'],text=True).splitlines())
+          assert changed==allowed,changed
+          stat=subprocess.check_output(['git','diff','--numstat','--','reports'],text=True)
+          assert len(stat.splitlines())==2 and all(line.startswith('1\t1\t') for line in stat.splitlines()),stat
+          subprocess.run(['git','add','--',*sorted(allowed)],check=True)
+          print('EXACT_PRODUCT_DIFF=2_LINES; DATABASE_AND_BACKEND=UNTOUCHED')
+          PY
+          test "$(git ls-remote origin refs/heads/fix/az-restore-two-view-selector-20261029 | cut -f1)" = "$EXPECTED_HEAD"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: restore only Сравнение and На дату, retain all calculations'
+          git push origin HEAD:refs/heads/fix/az-restore-two-view-selector-20261029
+          echo "TESTED_SOURCE_SHA=$(git rev-parse HEAD)"
