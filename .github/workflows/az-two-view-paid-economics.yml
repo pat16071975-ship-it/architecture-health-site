@@ -1,0 +1,113 @@
+name: AZ two-view paid economics
+on:
+  push:
+    branches: [fix/az-two-view-paid-economics-20261029]
+    paths:
+      - '.github/az-two-view-paid-source.b64'
+      - '.github/workflows/az-two-view-paid-economics.yml'
+      - 'tools/prepare-two-view-paid.py'
+      - 'tests/verify-two-view-paid.cjs'
+  pull_request:
+    paths:
+      - 'reports/index.html'
+      - 'reports/period-view.js'
+      - 'reports/services-primary-patient-cost.js'
+      - 'tests/verify-two-view-paid.cjs'
+      - '.github/workflows/az-two-view-paid-economics.yml'
+permissions:
+  contents: write
+concurrency:
+  group: az-two-view-paid-source-only
+  cancel-in-progress: false
+jobs:
+  isolated-economics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      AZBAZE_SECRET_KEY: synthetic-two-view-paid-test-only
+      AZBAZE_DB: /tmp/az-two-view-paid-ci.db
+      AZBAZE_SITE_ROOT: /tmp/az-two-view-paid-site
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Exact reviewed source preparation
+        run: |
+          python - <<'PY'
+          import base64,gzip,hashlib,json
+          from pathlib import Path
+          packed=Path('.github/az-two-view-paid-source.b64')
+          if packed.exists():
+              raw=gzip.decompress(base64.b64decode(packed.read_text().strip(),validate=True))
+              assert hashlib.sha256(raw).hexdigest()=='430c427c0e8267d3db74fdd43fc025b9ac4ed002c2b4631226e133bd9b329f73'
+              files=json.loads(raw)
+              assert set(files)=={'tools/prepare-two-view-paid.py','tests/verify-two-view-paid.cjs','az-baze-auth/TWO-VIEW-PAID-ECONOMICS.md'}
+              for name,text in files.items():
+                  p=Path(name)
+                  assert not p.exists()
+                  p.parent.mkdir(parents=True,exist_ok=True)
+                  p.write_text(text)
+          PY
+          python tools/prepare-two-view-paid.py
+      - name: Exact two-view and cost regressions
+        run: |
+          set -o pipefail
+          node --check reports/period-view.js
+          node --check reports/services-primary-patient-cost.js
+          node tests/verify-two-view-paid.cjs | tee /tmp/az-two-view-paid-js.log
+          node tests/verify-paid-history.cjs
+          node tests/verify-paid-periods.cjs
+          node tests/verify-paid-upload-periods.cjs
+      - name: Install isolated application-test dependencies
+        run: python -m pip install -r az-baze-auth/requirements.txt
+      - name: Existing SQLite API, accounting, upload and manual-input regressions
+        working-directory: az-baze-auth
+        run: |
+          set -o pipefail
+          python -m unittest -v test_paid_period_confirmation.py test_paid_history_reporting.py test_cash_payments.py test_upload_integrity.py test_upload_reconcile.py test_paid_services.py test_paid_services_storage.py test_paid_services_periods.py test_paid_period_report.py test_economics_revenue_source.py test_completed_upload.py test_pr71_approved_restoration.py test_manual_entry_consistency.py test_report_consistency_preservation.py 2>&1 | tee /tmp/az-two-view-paid-python.log
+      - name: Verify source boundary
+        run: |
+          git diff --exit-code 0053dd8eabf935a7daf0321c0ba9d075e32987ba -- az-baze-auth/report_storage.py az-baze-auth/paid_period_confirmation.py az-baze-auth/paid_services.py az-baze-auth/paid_services_upload.py az-baze-auth/cash_payments.py az-baze-auth/cash_upload.py az-baze-auth/advertising_report.py az-baze-auth/daily_upload.py az-baze-auth/templates/uploads.html reports/advertising.html reports/advertising.js reports/dashboard.html reports/forecast.html reports/finrez.html
+          echo 'PROTECTED_SOURCE_BOUNDARY=PASS; LIVE_ACCESS=NONE'
+      - name: Preserve reviewed source and evidence
+        if: always()
+        run: |
+          mkdir -p /tmp/az-two-view-paid-evidence
+          cp /tmp/az-two-view-paid-*.log /tmp/az-two-view-paid-evidence/ 2>/dev/null || true
+          git diff > /tmp/az-two-view-paid-evidence/changes.patch
+          tar -czf /tmp/az-two-view-paid-evidence/source.tgz reports/index.html reports/period-view.js reports/services-primary-patient-cost.js reports/services.html tests/verify-two-view-paid.cjs tools/prepare-two-view-paid.py az-baze-auth/TWO-VIEW-PAID-ECONOMICS.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: az-two-view-paid-evidence
+          path: /tmp/az-two-view-paid-evidence/
+      - name: Record only tested source on the dedicated branch
+        if: github.event_name == 'push'
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import subprocess
+          from pathlib import Path
+          allowed={'reports/index.html','reports/period-view.js','reports/services-primary-patient-cost.js','reports/services.html','tests/verify-paid-periods.cjs','az-baze-auth/test_manual_entry_consistency.py','az-baze-auth/test_paid_history_reporting.py','az-baze-auth/test_report_consistency_preservation.py','tools/prepare-two-view-paid.py','tests/verify-two-view-paid.cjs','az-baze-auth/TWO-VIEW-PAID-ECONOMICS.md','.github/az-two-view-paid-source.b64'}
+          packed=Path('.github/az-two-view-paid-source.b64')
+          if packed.exists():packed.unlink()
+          subprocess.run(['git','add','-A','--',*sorted(allowed)],check=True)
+          changed=set(subprocess.check_output(['git','diff','--cached','--name-only'],text=True).splitlines())
+          assert changed <= allowed,changed
+          print('TESTED_SOURCE_SCOPE=PASS; FILES='+str(len(changed)))
+          PY
+          test "$(git ls-remote origin refs/heads/fix/az-two-view-paid-economics-20261029 | cut -f1)" = "$EXPECTED_HEAD"
+          if git diff --cached --quiet; then echo 'SOURCE_ALREADY_RECORDED=YES'; exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix: align two-view payer averages and common expense denominator'
+          git push origin HEAD:refs/heads/fix/az-two-view-paid-economics-20261029
+          echo "TESTED_SOURCE_SHA=$(git rev-parse HEAD)"
