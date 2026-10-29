@@ -61,5 +61,32 @@ test('legacy fallback money from another period cannot create a year average',()
  h.node('mode').value='year';h.node('year').value='2026';h.run('window.renderPeriod()');
  assert.equal(periodCell(h,'Средний чек стоматологии на оплатившего пациента'),empty);
 });
-console.log('PAID_ASOF_AND_PERIOD=PASS; ADDITIONAL_SCENARIOS=8');
+
+test('arbitrary exact days 9 15 and 17 render in both approved views',()=>{
+ const h=harness();h.add(1,31);
+ const cases=[
+  ['2026-01-09',3,1,2,30,40],
+  ['2026-01-15',5,2,3,80,90],
+  ['2026-01-17',6,3,4,150,160],
+ ];
+ h.ctx.PAID_PATIENTS_BY_DATE={};
+ for(const [date,medicine,dent,structure,dentMoney,clinicMoney] of cases){
+   h.ctx.PAID_PATIENTS_BY_DATE[date]={from:'2026-01-01',to:date,asOf:date,medicine,dent,structure};
+   h.ctx.DOCTOR_PAID_PERIODS.push({from:'2026-01-01',to:date,dentists:{D:dentMoney},clinicDocs:{C:clinicMoney}});
+   h.node('reportDate').value=date;
+   h.node('dateViewMode').value='single';h.fill(date);
+   assert.equal(h.value('paidPatients'),h.money(medicine),date+' single patients');
+   assert.equal(h.value('dentAvg'),h.money(dentMoney/dent),date+' single dent avg');
+   h.node('dateViewMode').value='compare';h.render();
+   assert.equal(h.cell('Оплатившие пациенты',0),countString(medicine),date+' compare patients');
+ }
+});
+test('later month-end must never backfill an earlier arbitrary day',()=>{
+ const h=harness();h.add(1,31);
+ h.ctx.PAID_PATIENTS_BY_DATE={'2026-01-31':{from:'2026-01-01',to:'2026-01-31',asOf:'2026-01-31',medicine:20,dent:10,structure:7}};
+ for(const date of ['2026-01-09','2026-01-15','2026-01-17'])
+   assert.equal(h.run(`exactPayersForDate('${date}',null)`),null,date);
+});
+
+console.log('PAID_ASOF_AND_PERIOD=PASS; ADDITIONAL_SCENARIOS=10');
 `,{require,__dirname,__filename,console,process});
