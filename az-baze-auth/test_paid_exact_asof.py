@@ -68,4 +68,23 @@ class PaidExactAsOfTests(unittest.TestCase):
         self.assertIn('function loadStore(){return SERVER_STORE}',html)
         self.assertNotIn('seed-data.js',html)
 
+    def test_arbitrary_day_endpoints_are_preserved_independently(self):
+        for end in ('2026-01-09','2026-01-15','2026-01-17'):
+            self.f.store('2026-01-01',end)
+        before='\n'.join(self.f.conn.iterdump())
+        self.f.conn.execute('PRAGMA query_only=ON')
+        p=self.f.client().get('/api/reports/data').get_json()
+        self.assertEqual(set(p['paidPatientsByDate']),{'2026-01-09','2026-01-15','2026-01-17'})
+        for end in ('2026-01-09','2026-01-15','2026-01-17'):
+            self.assertEqual(p['paidPatientsByDate'][end]['from'],'2026-01-01')
+            self.assertEqual(p['paidPatientsByDate'][end]['to'],end)
+            self.assertEqual(p['paidPatientsByDate'][end]['asOf'],end)
+        self.assertEqual(before,'\n'.join(self.f.conn.iterdump()))
+
+    def test_month_end_never_backfills_arbitrary_earlier_day(self):
+        self.f.store('2026-01-01','2026-01-31')
+        p=self.f.client().get('/api/reports/data').get_json()
+        for day in ('2026-01-09','2026-01-15','2026-01-17','2026-01-27'):
+            self.assertNotIn(day,p['paidPatientsByDate'])
+
 if __name__=='__main__':unittest.main()
