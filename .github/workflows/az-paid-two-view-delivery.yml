@@ -1,0 +1,64 @@
+name: AZ paid two-view delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/paid-two-view-production-20261029.sh'
+      - '.github/workflows/az-paid-two-view-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bash syntax
+        run: bash -n az-baze-auth/deploy/paid-two-view-production-20261029.sh
+      - name: Exact manifest and guards
+        run: |
+          python3 - <<'PY'
+          import re, subprocess
+          from pathlib import Path
+          script=Path('az-baze-auth/deploy/paid-two-view-production-20261029.sh').read_text()
+          assert "TARGET_COMMIT='23ff7ab9c4ad539e262ab38b2a293b08bb8c2ee8'" in script
+          assert "CONFIRM_TOKEN='PAID-TWO-VIEW-23FF7AB9'" in script
+          rel=[
+            'az-baze-auth/report_storage.py',
+            'reports/index.html',
+            'reports/period-view.js',
+            'reports/management-mobile-layout.js',
+            'reports/services-primary-patient-cost.js',
+            'reports/services.html',
+          ]
+          base=[
+            'de8529f5830609d4aeb5bd5edf0791c9355ba296',
+            '6b4c114162dd4da125ab7257fe46be7854a68651',
+            'f1b65ad1a72925959d4c0215c871cf271755034f',
+            '6c0fee388a2332b3ca64273cec629f9155ede8c9',
+            '8fde6671dcf9b5d05b7628f7d9bf10f05743c2a9',
+            '29c57407610d52115f7df4ce28a5a5930a67645a',
+          ]
+          target=[
+            '45da0bd7939240d5c2e109fea2ddde3519746b31',
+            '078c94300e0d8cc2f5aefca469bb573eb02b187c',
+            '7692475d3385d3828d589f3a489139e23d9c9056',
+            '680b0cba4466717cd8e794804d33b3dd49c19e9f',
+            '8581d1c913f4ddfa5679050f3f77aa6f290b71d7',
+            '9783f3b838f3210af4bc2d06f3fe48efe300990e',
+          ]
+          for p,b,t in zip(rel,base,target):
+            old=subprocess.check_output(['git','show','0053dd8eabf935a7daf0321c0ba9d075e32987ba:'+p])
+            old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old,text=False).decode().strip()
+            new=subprocess.check_output(['git','show','23ff7ab9c4ad539e262ab38b2a293b08bb8c2ee8:'+p])
+            new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new,text=False).decode().strip()
+            assert old_blob==b,(p,old_blob,b)
+            assert new_blob==t,(p,new_blob,t)
+          assert "JAN_CURRENT_CONFIRMATION=PASS" in script
+          assert "DB_EXACT_UNCHANGED_BEFORE_START=PASS" in script
+          assert "DB_EXACT_UNCHANGED_POST_START=PASS" in script
+          assert "ROLLBACK_FILES=COMPLETED; DB_RESTORE=NOT_PERFORMED" in script
+          print('PAID_TWO_VIEW_DELIVERY_CONTRACT=PASS')
+          PY
