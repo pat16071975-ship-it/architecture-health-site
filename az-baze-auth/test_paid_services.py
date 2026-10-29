@@ -581,7 +581,7 @@ process.stdout.write('DOCTOR_ONLY_UI=PASS');
             ("doctorPartsPaid(pd.paidParts,'clinicDocs',name)", view),
             ("doctorPaidSnapshots=_management_doctor_paid_snapshots(db())", storage),
             ("function collectRecord(){", html),
-            ("window.azDoctorHasPaidForDate(date)", html),
+            ("window.azDoctorPaidValue(r.date", html),
         ):
             self.assertTrue(fragment in source, "Missing report contract: " + fragment)
 

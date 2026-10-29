@@ -216,11 +216,29 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         )
 
     def test_manual_save_candidate_is_unchanged_by_importer_reconciliation(self):
-        # Approved monthly-history UI; all importer and accounting assertions remain.
-        for name, sha in {'index.html': '078c94300e0d8cc2f5aefca469bb573eb02b187c',
-                          'period-view.js': '7692475d3385d3828d589f3a489139e23d9c9056'}.items():
-            with self.subTest(name=name):
-                self.assertEqual(git_blob((ROOT.parent / 'reports' / name).read_bytes()), sha)
+        # Protect the actual manual-entry and legacy period contracts rather than
+        # freezing entire files whose paid-patient read projection is authorized to change.
+        html = (ROOT.parent / 'reports' / 'index.html').read_text(encoding='utf-8')
+        start = html.index('function collectRecord(){')
+        end = html.index('function refreshAutos(', start)
+        self.assertEqual(
+            hashlib.sha256(html[start:end].encode()).hexdigest(),
+            'f512bdf6430e1be0f520d3bbc9178d557613271e1c197464a9c7466dea5d6396',
+        )
+
+        view = (ROOT.parent / 'reports' / 'period-view.js').read_text(encoding='utf-8')
+        for start_text, end_text, expected in (
+            ('  function periodData(def,year){', '  function doctorPeriodData(',
+             '55d442c0ae415edfd250e9ec3587b4390274aee149f53337434e9e204fea6305'),
+            ('  function addDateMetric(', '  function addDateDoctorMetric(',
+             '1963e92a0001c721a7319a5eaf3c201bb65dba1fd0cd6457bd496a6e5e68f34d'),
+        ):
+            start = view.index(start_text)
+            end = view.index(end_text, start)
+            self.assertEqual(
+                hashlib.sha256(view[start:end].encode()).hexdigest(),
+                expected,
+            )
 
 
 class ActualDateImportJournalTests(unittest.TestCase):

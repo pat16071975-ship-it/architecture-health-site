@@ -29,7 +29,7 @@ for (const [start, end, expected] of [
   ['  function periodData(def,year){', '  function doctorPeriodData(', '55d442c0ae415edfd250e9ec3587b4390274aee149f53337434e9e204fea6305'],
   ['  function addDateMetric(', '  function addDateDoctorMetric(', '1963e92a0001c721a7319a5eaf3c201bb65dba1fd0cd6457bd496a6e5e68f34d'],
 ]) assert.equal(createHash('sha256').update(part(view, start, end)).digest('hex'), expected, `${start} must retain its original contract`);
-assert(html.includes('./period-view.js?v=20261029-paid-two-views-3'), 'Paid-patient script cache key');
+assert(html.includes('./period-view.js?v=20261029-paid-cash-daily-1'), 'Paid-patient script cache key');
 
 const freeze = value => {
   if (value && typeof value === 'object') {
@@ -39,7 +39,8 @@ const freeze = value => {
   return value;
 };
 const record = date => ({date, plan:2000, factMedicine:400, factLab:50, cashTotal:1000, billedTotal:1200,
-  cashOOO:600, cashIP:400, cashUnallocated:50, primary:8, repeat:9, dentPrimary:4, dentRepeat:5,
+  cashOOO:600, cashIP:400, cashUnallocated:50, _cash_rule:'positive-receipts-only-v1',
+  primary:8, repeat:9, dentPrimary:4, dentRepeat:5,
   clinicPrimary:4, clinicRepeat:4, paidPatientEvidenceComplete:true, paidPatients:8, paidDentPatients:4,
   paidClinicPatients:4, labOrders:2, labRevenue:50,
   dentists:{D1:100,D2:200}, clinicDocs:{C1:40,C2:60}, leadsDent:10, leadsClinic:8, leadsReserve:2});
@@ -105,15 +106,10 @@ function cellValues(table,label){
 const empty='<span class="empty">—</span>';
 const rendered=(h,values)=>values.map(value=>value===null?empty:h.money(value));
 function assertDirections(h,table,dent,clinic){
+  // Direction totals stay on cash. Individual doctor rows may intentionally use
+  // confirmed MIS «Оплачено», so they are not required to sum to the cash total.
   assert.deepEqual(cellValues(table,'Выручка стоматологии'),rendered(h,dent));
   assert.deepEqual(cellValues(table,'Выручка клиники'),rendered(h,clinic));
-  for(const [total,names] of [[dent,['D1','D2']],[clinic,['C1','C2']]]){
-    const doctors=names.map(name=>cellValues(table,name));
-    for(let index=0;index<total.length;index++){
-      const sum=doctors.reduce((sum,cells)=>sum+Number(cells[index].replace(/<[^>]*>|[^\d,.-]/g,'').replace(',','.')),0);
-      if(total[index]!==null)assert.equal(sum,total[index],`Visible doctor sum for column ${index}`);
-    }
-  }
 }
 let checks=0;
 function check(name,callback){callback();checks++;console.log('PASS '+name);}
@@ -121,31 +117,30 @@ function check(name,callback){callback();checks++;console.log('PASS '+name);}
 check('existing July–September, dates, averages and raw values remain unchanged',()=>{
   const dates=['2026-06-30','2026-07-30','2026-07-31','2026-08-31','2026-09-30'];
   const data=Object.fromEntries(dates.map(date=>[date,record(date)])),before=JSON.stringify(data),h=setup({data,paid:snapshots});
-  for(const [date,dent,clinic] of [['2026-06-30',300,100],['2026-07-30',300,100],['2026-07-31',24,36],['2026-08-31',52,68],['2026-09-30',84,100]]){
+  for(const date of dates){
     h.fill(data[date]);const values=Object.fromEntries(h.metrics.map(input=>[input.dataset.key,input.value]));
-    assert.equal(values.dentRev,h.money(dent));assert.equal(values.clinicRev,h.money(clinic));
-    const covered=['2026-07-31','2026-08-31','2026-09-30'].includes(date);
-    assert.equal(values.dentAvg,h.money(covered?dent/4:null));assert.equal(values.clinicAvg,h.money(covered?clinic/4:null));
+    assert.equal(values.dentRev,h.money(300));assert.equal(values.clinicRev,h.money(100));
+    assert.equal(values.dentAvg,h.money(75));assert.equal(values.clinicAvg,h.money(25));
     assert.equal(values.cashTotal,h.money(1000));assert.equal(values.cashOOO,h.money(600));assert.equal(values.cashIP,h.money(400));
   }
   assert.equal(h.dateDoctor('2026-08-20','dentists','D1',999),2);
   assert.equal(h.dateDoctor('2026-07-30','dentists','D1',999),999);
-  for(const [mode,dent,clinic] of [['quarter',[null,300,160,null],[null,100,204,null]],['half',[300,160],[100,204]],['year',[460],[304]]]){
+  for(const [mode,dent,clinic] of [['quarter',[null,300,900,null],[null,100,300,null]],['half',[300,900],[100,300]],['year',[1200],[400]]]){
     h.node('mode').value=mode;h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),dent,clinic);
   }
-  h.node('reportDate').value='2026-08-31';h.run('renderDateComparison()');assertDirections(h,h.node('dateCompareBody'),[24,52,84],[36,68,100]);
+  h.node('reportDate').value='2026-08-31';h.run('renderDateComparison()');assertDirections(h,h.node('dateCompareBody'),[300,300,300],[100,100,100]);
   assert.equal(JSON.stringify(data),before);
 });
 
-check('one half-year file overrides its six months without making monthly paid figures',()=>{
+check('half-year MIS doctor file does not override six months of cash direction totals',()=>{
   const data={};for(let month=1;month<=6;month++){const date=`2026-${String(month).padStart(2,'0')}-${new Date(2026,month,0).getDate()}`;data[date]=record(date);}
   const h=setup({data,periods:[h1]});
   assert.equal(h.sum(Object.values(data),'dentists',h1Bounds),600);
   assert.equal(h.doctor(Object.values(data),'dentists','D1',h1Bounds),500);
   assert.equal(h.dateDoctor('2026-06-30','dentists','D1',100),100);
   assert.equal(h.doctor([], 'dentists','D1',bounds('2026-01-01','2026-01-31')),null);
-  h.node('mode').value='half';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[600,null],[60,null]);
-  assert.deepEqual(cellValues(h.node('periodCompareBody'),'Средний чек стоматологии на оплатившего пациента'),[h.money(25),empty]);
+  h.node('mode').value='half';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[1800,null],[600,null]);
+  assert.deepEqual(cellValues(h.node('periodCompareBody'),'Средний чек стоматологии на оплатившего пациента'),[h.money(75),empty]);
   assert.deepEqual(cellValues(h.node('periodCompareBody'),'Факт'),[h.money(6000),empty]);
 });
 
@@ -168,9 +163,9 @@ check('legacy monthly snapshots cannot pass the raw month as-of date',()=>{
 check('half-year plus monthly snapshots and uncovered legacy month compose once',()=>{
   const data={};for(const date of ['2026-01-31','2026-06-30','2026-07-31','2026-08-31','2026-09-30','2026-10-31'])data[date]=record(date);
   const h=setup({data,periods:[h1],paid:snapshots});
-  h.node('mode').value='year';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[1060],[364]);
+  h.node('mode').value='year';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[1800],[600]);
   const sourceOnly=setup({periods:[h1],paid:snapshots});sourceOnly.node('mode').value='year';sourceOnly.run('renderPeriod()');
-  assertDirections(sourceOnly,sourceOnly.node('periodCompareBody'),[760],[264]);
+  assertDirections(sourceOnly,sourceOnly.node('periodCompareBody'),[null],[null]);
   assert.deepEqual(cellValues(sourceOnly.node('periodCompareBody'),'Факт'),[empty]);
   assert.deepEqual(cellValues(sourceOnly.node('periodCompareBody'),'Средний чек стоматологии на оплатившего пациента'),[empty]);
 });
@@ -232,19 +227,19 @@ check('October 1-11 snapshot plus 12-13 slice sums to MIS paid total',()=>{
 check('zero paid is retained and absent sources remain empty',()=>{
   const h=setup({periods:[period('2026-01-01','2026-06-30',0,0)]});
   assert.equal(h.sum([],'dentists',h1Bounds),0);assert.equal(h.doctor([],'dentists','D2',h1Bounds),0);
-  h.node('mode').value='half';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[0,null],[0,null]);
+  h.node('mode').value='half';h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),[null,null],[null,null]);
   const missing=setup();missing.node('mode').value='year';missing.run('renderPeriod()');
   assertDirections(missing,missing.node('periodCompareBody'),[null],[null]);
   assert.equal(missing.sum([],'dentists',yearBounds),null);
 });
 
-check('doctor-only date comparison and single date do not fabricate other metrics',()=>{
+check('doctor-only MIS source never fabricates cash direction totals',()=>{
   const h=setup({periods:[period('2026-07-01','2026-07-31',21,4)]});
-  h.node('reportDate').value='2026-08-31';h.run('renderDateComparison()');assertDirections(h,h.node('dateCompareBody'),[21,null,null],[4,null,null]);
+  h.node('reportDate').value='2026-08-31';h.run('renderDateComparison()');assertDirections(h,h.node('dateCompareBody'),[null,null,null],[null,null,null]);
   for(const label of ['Факт','ДС ООО','ДС ИП','Средний чек стоматологии на оплатившего пациента'])assert.deepEqual(cellValues(h.node('dateCompareBody'),label),[empty,empty,empty]);
   h.node('reportDate').value='2026-07-31';h.run('loadDate()');
   const values=Object.fromEntries(h.metrics.map(input=>[input.dataset.key,input.value]));
-  assert.equal(values.dentRev,h.money(21));assert.equal(values.clinicRev,h.money(4));
+  assert.equal(values.dentRev,h.money(0));assert.equal(values.clinicRev,h.money(0));
   for(const [key,value] of Object.entries(values))if(!['dentRev','clinicRev'].includes(key))assert.equal(value,'',key);
   const noMonth=setup({periods:[h1]});noMonth.node('reportDate').value='2026-06-30';noMonth.node('compareRange').value='h1';noMonth.run('renderDateComparison()');
   assertDirections(noMonth,noMonth.node('dateCompareBody'),Array(6).fill(null),Array(6).fill(null));
@@ -267,9 +262,9 @@ check('legacy period renderer receives whole bounds and can show source-only tot
 check('both API and helper load orders handle source-only dates',()=>{
   const source=period('2026-07-01','2026-07-31',21,4);
   const apiFirst=setup({periods:[source],install:false});apiFirst.node('reportDate').value='2026-07-31';apiFirst.run('loadDate()');apiFirst.helpers();apiFirst.startup();
-  assert.equal(apiFirst.metrics[0].value,apiFirst.money(21));assert.equal(apiFirst.metrics.find(input=>input.dataset.key==='cashTotal').value,'');
+  assert.equal(apiFirst.metrics[0].value,apiFirst.money(0));assert.equal(apiFirst.metrics.find(input=>input.dataset.key==='cashTotal').value,'');
   const jsFirst=setup();jsFirst.node('reportDate').value='2026-07-31';jsFirst.startup();jsFirst.context.DOCTOR_PAID_PERIODS=freeze([source]);jsFirst.run('loadDate()');
-  assert.equal(jsFirst.metrics[0].value,jsFirst.money(21));
+  assert.equal(jsFirst.metrics[0].value,jsFirst.money(0));
 });
 
 console.log(JSON.stringify({status:'PASS',checks,source_data:'synthetic',paid_patient_methodology:'verified'}));

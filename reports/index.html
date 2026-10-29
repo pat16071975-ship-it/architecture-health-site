@@ -94,7 +94,7 @@ const mg=$('#marketingGrid');mg.innerHTML='';[['Стоматология — ц�
 function getSelectedDate(){return $('#reportDate').value}
 function fillRecord(r){
 const d=derive(r),paidOnly=typeof window.azDoctorHasPaidForDate==='function'&&window.azDoctorHasPaidForDate(r.date)&&!loadStore()[r.date];
-if(typeof window.azDoctorDirectionPaid==='function'){d.dentRev=window.azDoctorDirectionPaid([r],'dentists');d.clinicRev=window.azDoctorDirectionPaid([r],'clinicDocs')}
+
 if(typeof window.azPaidEconomicsForDate==='function')Object.assign(d,window.azPaidEconomicsForDate(r.date,paidOnly?null:r));
 document.querySelectorAll('[data-key]').forEach(inp=>{const k=inp.dataset.key,t=inp.dataset.type,v=paidOnly&&inp.readOnly&&!['dentRev','clinicRev','paidPatients','paidDentPatients','paidClinicPatients','dentAvg','clinicAvg'].includes(k)?null:d[k];if(inp.readOnly){inp.value=t==='money'?money(v):t==='pct'?pct(v):count(v)}else{inp.value=v??''}});
 document.querySelectorAll('[data-doctor]').forEach(inp=>{const original=(d[inp.dataset.doctorType]||{})[inp.dataset.doctor]??'';inp.value=typeof window.azDoctorPaidValue==='function'?window.azDoctorPaidValue(r.date,inp.dataset.doctorType,inp.dataset.doctor,original):original});
@@ -117,7 +117,7 @@ function init(){renderStructure();const ys=$('#year');const cy=new Date().getFul
 init();
 </script>
 <script src="./seed-data.js?v=20260827-2"></script>
-<script src="./period-view.js?v=20261029-paid-two-views-3"></script>
+<script src="./period-view.js?v=20261029-paid-cash-daily-1"></script>
 <script src="./management-mobile-layout.js?v=20261029-paid-two-views-3"></script>
 <script src="./secure-import.js?v=20260831-1"></script>
 </body>

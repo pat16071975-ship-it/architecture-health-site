@@ -31,6 +31,7 @@ function harness(){
   ctx.PAID_PATIENTS_MONTHLY[month]={asOf:date,medicine:patients,dent,structure:clinic};
   ctx.DOCTOR_PAID_PERIODS.push({from:month+'-01',to:date,dentists:{D:dentMoney},clinicDocs:{C:clinicMoney}});
   if(raw)store[date]={date,factMedicine:1000,factLab:200,cashTotal:1200,cashOOO:700,cashIP:500,
+   _cash_rule:'positive-receipts-only-v1',
    primary:3,repeat:7,labOrders:2,labRevenue:200,dentists:{D:900},clinicDocs:{C:800},
    paidPatientEvidenceComplete:true,paidPatientPeriodFrom:month+'-01',paidPatientPeriodTo:date,
    paidPatients:patients,paidDentPatients:dent,paidClinicPatients:clinic};
@@ -59,10 +60,10 @@ test('both existing views: January through October exact evidence, all linked av
   h.node('reportDate').value=date;h.render();h.fill(date);
   assert.equal(h.value('paidPatients'),h.money(10+i));
   assert.equal(h.value('avgCheck'),h.money(1000/(10+i)));
-  assert.equal(h.value('dentRev'),h.money(100));assert.equal(h.value('clinicRev'),h.money(200));
-  assert.equal(h.value('dentAvg'),h.money(100/(4+i)));assert.equal(h.value('clinicAvg'),h.money(200/(8+i)));
-  assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',i),h.money(100/(4+i)));
-  assert.equal(h.cell('Средний чек клиники на оплатившего пациента',i),h.money(200/(8+i)));
+  assert.equal(h.value('dentRev'),h.money(900));assert.equal(h.value('clinicRev'),h.money(800));
+  assert.equal(h.value('dentAvg'),h.money(900/(4+i)));assert.equal(h.value('clinicAvg'),h.money(800/(8+i)));
+  assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',i),h.money(900/(4+i)));
+  assert.equal(h.cell('Средний чек клиники на оплатившего пациента',i),h.money(800/(8+i)));
   assert.equal(JSON.stringify(h.store[date]),before[i]);
  });
 });
@@ -74,21 +75,21 @@ test('day 27 must not manufacture historical day-27 payers from final months',()
 test('existing date31 comparison exposes all nine closed months, not invented October31',()=>{
  const h=harness();[31,28,31,30,31,30,31,31,30,27].forEach((d,i)=>h.add(i+1,d));
  h.node('reportDate').value='2026-10-31';h.render();
- for(let i=0;i<9;i++)assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',i),h.money(25));
+ for(let i=0;i<9;i++)assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',i),h.money(225));
  assert.equal(h.cell('Оплатившие пациенты',9),empty);
 });
-test('paid-only exact source renders payers and direction averages without fabricated clinic cash',()=>{
+test('paid-only exact source renders payers but never fabricates cash averages',()=>{
  const h=harness(),date=h.add(1,31,{raw:false});h.fill(date);h.node('reportDate').value=date;h.render();
- assert.equal(h.value('paidPatients'),h.money(10));assert.equal(h.value('dentAvg'),h.money(25));
- assert.equal(h.value('clinicAvg'),h.money(25));assert.equal(h.value('cashTotal'),h.money(null));
- assert.equal(h.value('avgCheck'),h.money(null));assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',0),h.money(25));
+ assert.equal(h.value('paidPatients'),h.money(10));assert.equal(h.value('dentAvg'),h.money(null));
+ assert.equal(h.value('clinicAvg'),h.money(null));assert.equal(h.value('cashTotal'),h.money(null));
+ assert.equal(h.value('avgCheck'),h.money(null));assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',0),empty);
 });
-test('old paid snapshot does not supply numerator for newer payer date',()=>{
+test('old paid snapshot cannot override same-date cash numerator',()=>{
  const h=harness(),date=h.add(1,27);h.ctx.DOCTOR_PAID_PERIODS.length=0;
  h.ctx.DOCTOR_PAID_SNAPSHOTS['2026-01']=[{asOf:'2026-01-20',dentists:{D:111},clinicDocs:{C:222}}];
  h.fill(date);h.node('reportDate').value=date;h.render();
- assert.equal(h.value('dentRev'),h.money(111));assert.equal(h.value('dentAvg'),h.money(null));
- assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',0),empty);
+ assert.equal(h.value('dentRev'),h.money(900));assert.equal(h.value('dentAvg'),h.money(225));
+ assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',0),h.money(225));
 });
 test('known older cash date cannot supply medicine average for newer payer period',()=>{
  const h=harness(),date=h.add(1,27);h.store[date]._cashAsOf='2026-01-20';h.fill(date);
@@ -113,7 +114,7 @@ test('wrong period on a record cannot override exact monthly source',()=>{
  const h=harness(),date=h.add(1,31);h.store[date].paidPatientPeriodTo='2026-01-27';h.store[date].paidPatients=999;h.fill(date);assert.equal(h.value('paidPatients'),h.money(10));
 });
 test('changing date and re-rendering does not carry a future month result backwards',()=>{
- const h=harness(),date=h.add(1,31);h.fill(date);h.fill('2026-01-27');assert.equal(h.value('paidPatients'),h.money(null));h.fill(date);assert.equal(h.value('dentAvg'),h.money(25));
+ const h=harness(),date=h.add(1,31);h.fill(date);h.fill('2026-01-27');assert.equal(h.value('paidPatients'),h.money(null));h.fill(date);assert.equal(h.value('dentAvg'),h.money(225));
 });
 if(process.env.SKIP_COST!=='1'){
  const cost=fs.readFileSync(path.join(root,'reports/services-primary-patient-cost.js'),'utf8');

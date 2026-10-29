@@ -64,6 +64,7 @@ class PaidExactAsOfTests(unittest.TestCase):
             html=report_storage._render_server_reports()
         self.assertIn('PAID_PATIENTS_BY_DATE={}',html)
         self.assertIn('PAID_PATIENTS_BY_DATE=payload.paidPatientsByDate||{};',html)
+        self.assertIn('period-view.js?v=20261029-paid-cash-daily-1',html)
         self.assertIn('management-mobile-layout.js?v=20261029-paid-two-views-3',html)
         self.assertIn('function loadStore(){return SERVER_STORE}',html)
         self.assertNotIn('seed-data.js',html)

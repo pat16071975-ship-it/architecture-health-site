@@ -199,6 +199,7 @@ def _paid_patient_interval(snapshot, start, end, mappings, ignored):
         "medicine": set(),
         "dent": set(),
         "structure": set(),
+        "lab": set(),
         "dentists": {},
         "clinicDocs": {},
     }
@@ -222,7 +223,9 @@ def _paid_patient_interval(snapshot, start, end, mappings, ignored):
             sets["structure"].update(tokens)
             sets["medicine"].update(tokens)
             sets["clinicDocs"].setdefault(display, set()).update(tokens)
-        elif source in mappings["lab"] or source in ignored:
+        elif source in mappings["lab"]:
+            sets["lab"].update(tokens)
+        elif source in ignored:
             continue
         else:
             unknown.add(source)
@@ -287,23 +290,31 @@ def _cover_paid_patient_range(intervals, start, end):
     return cover(start)
 
 
-def _combine_paid_patient_intervals(parts):
+def _combine_paid_patient_sets(parts):
     if not parts:
         return None
     combined = {
         "medicine": set(),
         "dent": set(),
         "structure": set(),
+        "lab": set(),
         "dentists": {},
         "clinicDocs": {},
     }
     for part in parts:
         sets = part["sets"]
-        for key in ("medicine", "dent", "structure"):
-            combined[key].update(sets[key])
+        for key in ("medicine", "dent", "structure", "lab"):
+            combined[key].update(sets.get(key) or ())
         for key in ("dentists", "clinicDocs"):
             for name, tokens in sets[key].items():
                 combined[key].setdefault(name, set()).update(tokens)
+    return combined
+
+
+def _combine_paid_patient_intervals(parts):
+    combined = _combine_paid_patient_sets(parts)
+    if combined is None:
+        return None
     return {
         "medicine": len(combined["medicine"]),
         "dent": len(combined["dent"]),
@@ -321,12 +332,134 @@ def _paid_patient_counts(conn, start, end, intervals=None):
     return _combine_paid_patient_intervals(parts)
 
 
-def _management_paid_patients_by_date(conn, intervals=None):
-    """Every provable MTD endpoint, not just the latest endpoint per month.
+def _mis_paid_patient_sets_by_month(intervals):
+    """Latest provable MTD MIS payer membership per month; tokens never leave backend."""
+    result = {}
+    for end in sorted({part["to"] for part in intervals}):
+        start = end[:7] + "-01"
+        parts = _cover_paid_patient_range(intervals, start, end)
+        combined = _combine_paid_patient_sets(parts)
+        if combined is not None:
+            result[end[:7]] = {"asOf": end, "sets": combined}
+    return result
 
-    A completed monthly export cannot prove an earlier cutoff. Source intervals
-    and patient tokens stay private; only aggregate counts leave this function.
+
+def _cash_paid_patients_by_date(conn, intervals):
+    """Exact MTD payer timeline from cash dates, gated by MIS month-end membership.
+
+    Cash supplies when money arrived. MIS supplies which paid patients belong to
+    dentistry/structure/lab. A month is exposed only when the resolved cash
+    timeline reproduces the confirmed MIS payer sets at that month's as-of date.
     """
+    months = _mis_paid_patient_sets_by_month(intervals)
+    if not months:
+        return {}
+
+    try:
+        rows = conn.execute(
+            "SELECT data_date,payload_json FROM cash_receipts_daily ORDER BY data_date"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+
+    by_month = {}
+    for row in rows:
+        day = str(row["data_date"])
+        month = day[:7]
+        if month not in months:
+            continue
+        try:
+            payload = json.loads(row["payload_json"])
+        except (TypeError, ValueError):
+            return {}
+        by_month.setdefault(month, []).append((day, payload))
+
+    result = {}
+    for month, membership in months.items():
+        as_of = membership["asOf"]
+        month_start = month + "-01"
+        month_rows = [(day, payload) for day, payload in by_month.get(month, []) if day <= as_of]
+        if not month_rows:
+            continue
+
+        # At least one source covering the whole requested MTD interval is
+        # required, and every positive-cash day inside it must carry patient evidence.
+        evidence = []
+        coverage_ok = False
+        incomplete_positive_day = False
+        for day, payload in month_rows:
+            ev = cash_payments.payer_evidence(payload)
+            cash_total = float((payload or {}).get("cashTotal") or 0)
+            if cash_total > 0 and ev is None:
+                incomplete_positive_day = True
+            if ev is not None:
+                evidence.append((day, ev))
+                if ev["coverageFrom"] <= month_start and ev["coverageTo"] >= as_of:
+                    coverage_ok = True
+        if incomplete_positive_day or not coverage_ok:
+            continue
+
+        mis = membership["sets"]
+        cumulative = {"medicine": set(), "dent": set(), "structure": set()}
+        snapshots = {}
+        events_by_day = {}
+        for day, ev in evidence:
+            events_by_day.setdefault(day, []).append(ev)
+
+        current = calendar_date.fromisoformat(month_start)
+        end_date = calendar_date.fromisoformat(as_of)
+        while current <= end_date:
+            day = current.isoformat()
+            for ev in events_by_day.get(day, []):
+                direct_dent = ev["dent"] & mis["dent"]
+                direct_structure = ev["structure"] & mis["structure"]
+                cumulative["dent"].update(direct_dent)
+                cumulative["structure"].update(direct_structure)
+                cumulative["medicine"].update(direct_dent | direct_structure)
+
+                for token in ev["unallocated"]:
+                    in_dent = token in mis["dent"]
+                    in_structure = token in mis["structure"]
+                    in_lab = token in mis["lab"]
+                    # If an unallocated receipt can only belong to one medical
+                    # direction in the confirmed MIS month, attribution is deterministic.
+                    if in_dent and not in_structure and not in_lab:
+                        cumulative["dent"].add(token)
+                        cumulative["medicine"].add(token)
+                    elif in_structure and not in_dent and not in_lab:
+                        cumulative["structure"].add(token)
+                        cumulative["medicine"].add(token)
+                    elif (in_dent or in_structure) and not in_lab:
+                        # Multi-medical-direction receipt: exact medical payer,
+                        # but direction remains unresolved until a direct event proves it.
+                        cumulative["medicine"].add(token)
+
+            snapshots[day] = {
+                "from": month_start,
+                "to": day,
+                "asOf": day,
+                "medicine": len(cumulative["medicine"]),
+                "dent": len(cumulative["dent"]),
+                "structure": len(cumulative["structure"]),
+            }
+            current += timedelta(days=1)
+
+        final = snapshots.get(as_of)
+        if not final:
+            continue
+        if (
+            set(cumulative["medicine"]) != set(mis["medicine"])
+            or set(cumulative["dent"]) != set(mis["dent"])
+            or set(cumulative["structure"]) != set(mis["structure"])
+        ):
+            # Never publish a partial timeline as exact payer data.
+            continue
+        result.update(snapshots)
+    return result
+
+
+def _management_paid_patients_by_date(conn, intervals=None):
+    """Every provable MTD endpoint; cash timeline adds arbitrary dates only after reconciliation."""
     intervals = _paid_patient_intervals(conn) if intervals is None else intervals
     result = {}
     for end in sorted({part["to"] for part in intervals}):
@@ -334,7 +467,10 @@ def _management_paid_patients_by_date(conn, intervals=None):
         counts = _paid_patient_counts(conn, start, end, intervals)
         if counts is not None:
             result[end] = {"from": start, "to": end, "asOf": end, **counts}
-    return result
+    # Reconciled cash dates are stronger temporal evidence than a month-end MIS
+    # snapshot, while the MIS still defines the paid-patient membership.
+    result.update(_cash_paid_patients_by_date(conn, intervals))
+    return dict(sorted(result.items()))
 
 
 def _management_paid_patients_monthly(conn, intervals=None):
@@ -755,6 +891,7 @@ def register_report_storage(app):
         monthly_plans = management_monthly_plans()
         data = {}
         payer_intervals = _paid_patient_intervals(db())
+        payer_by_date = _management_paid_patients_by_date(db(), payer_intervals)
         for row in rows:
             try:
                 record = json.loads(row["payload"])
@@ -767,7 +904,7 @@ def register_report_storage(app):
                 record["plan"] = monthly_plans[month]
             record_date = str(row["date"])
             month_start = record_date[:7] + "-01"
-            payer_counts = _paid_patient_counts(db(), month_start, record_date, payer_intervals)
+            payer_counts = payer_by_date.get(record_date)
             # These are derived read-view fields, never a fallback stored count.
             for key in ("paidPatientEvidenceComplete", "paidPatients", "paidDentPatients",
                         "paidClinicPatients", "paidDentPatientsByDoctor",
@@ -780,15 +917,17 @@ def register_report_storage(app):
                 record["paidPatients"] = payer_counts["medicine"]
                 record["paidDentPatients"] = payer_counts["dent"]
                 record["paidClinicPatients"] = payer_counts["structure"]
-                record["paidDentPatientsByDoctor"] = payer_counts["dentists"]
-                record["paidClinicPatientsByDoctor"] = payer_counts["clinicDocs"]
+                if "dentists" in payer_counts:
+                    record["paidDentPatientsByDoctor"] = payer_counts["dentists"]
+                if "clinicDocs" in payer_counts:
+                    record["paidClinicPatientsByDoctor"] = payer_counts["clinicDocs"]
             data[row["date"]] = record
         return jsonify(
             data=data,
             doctorPaidSnapshots=_management_doctor_paid_snapshots(db()),
             doctorPaidPeriods=_management_doctor_paid_periods(db()),
             paidPatientsMonthly=_management_paid_patients_monthly(db(), payer_intervals),
-            paidPatientsByDate=_management_paid_patients_by_date(db(), payer_intervals),
+            paidPatientsByDate=payer_by_date,
             csrf=csrf_token(),
         )
 

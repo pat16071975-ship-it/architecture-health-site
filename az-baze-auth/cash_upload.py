@@ -90,6 +90,37 @@ def _insert_cash_row(conn, data_date, payload, filename, source_sha, actor_id, n
     )
 
 
+def _backfill_payer_evidence(conn, data_date, incoming_payload, actor_id):
+    existing = conn.execute(
+        "SELECT * FROM cash_receipts_daily WHERE data_date=?",
+        (data_date,),
+    ).fetchone()
+    if not existing:
+        raise ValueError("Денежная запись исчезла во время payer-backfill. Повторите загрузку.")
+    try:
+        old_payload = json.loads(existing["payload_json"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Сохранённая денежная запись повреждена.") from exc
+    if (
+        upload_reconcile.canonical(cash_payments.financial_payload(old_payload))
+        != upload_reconcile.canonical(cash_payments.financial_payload(incoming_payload))
+    ):
+        raise ValueError("Денежные суммы изменились во время payer-backfill. Повторите проверку.")
+
+    upload_reconcile.archive_cash_row(
+        conn, existing, actor_id, "payer_evidence_backfill"
+    )
+    enriched = dict(old_payload)
+    for key in cash_payments.PAYER_EVIDENCE_KEYS:
+        if key in incoming_payload:
+            enriched[key] = incoming_payload[key]
+    conn.execute(
+        "UPDATE cash_receipts_daily SET payload_json=? WHERE data_date=?",
+        (json.dumps(enriched, ensure_ascii=False, separators=(",", ":")), data_date),
+    )
+    return enriched
+
+
 def _commit_cash(decision=None):
     perms = user_permissions(g.user)
     if "upload_services" not in perms:
@@ -108,6 +139,7 @@ def _commit_cash(decision=None):
     comparison = upload_reconcile.compare_cash(conn, daily)
     conflict_dates = set(comparison.get("conflict") or [])
     removed_dates = set(comparison.get("removed") or [])
+    evidence_dates = set(comparison.get("evidence_only") or [])
     has_conflict = bool(conflict_dates or removed_dates)
 
     if has_conflict and decision not in {"keep_old", "use_new"}:
@@ -128,6 +160,8 @@ def _commit_cash(decision=None):
     backup_path = None
     if use_new and has_conflict:
         backup_path = upload_reconcile.create_db_backup("cash-reimport")
+    elif evidence_dates:
+        backup_path = upload_reconcile.create_db_backup("cash-payer-evidence")
 
     now = iso_now()
     source_sha = cash_payments.sha256(raw)
@@ -139,6 +173,11 @@ def _commit_cash(decision=None):
 
     conn.execute("BEGIN")
     try:
+        for data_date in sorted(evidence_dates):
+            _backfill_payer_evidence(
+                conn, data_date, daily[data_date], g.user["id"]
+            )
+
         if use_new:
             for data_date in sorted(removed_dates):
                 existing = conn.execute(
@@ -193,13 +232,14 @@ def _commit_cash(decision=None):
             f"file={filename}; sheet={sheet_name}; range={min(daily)}..{max(daily)}; "
             f"decision={decision or 'append'}; new={len(new_dates)}; "
             f"identical={len(identical_dates)}; conflict={len(conflict_dates)}; "
-            f"removed={len(removed_dates)}; months={','.join(sorted(affected_months))}; "
+            f"removed={len(removed_dates)}; payer_evidence={len(evidence_dates)}; "
+            f"months={','.join(sorted(affected_months))}; "
             f"reports={updated}; backup={backup_path or ''}; "
             "rule=positive-receipts-only"
         ),
     )
 
-    if not apply_dates and not (use_new and removed_dates):
+    if not apply_dates and not (use_new and removed_dates) and not evidence_dates:
         message = (
             "Денежные данные совпадают; ничего не изменено."
             if not has_conflict
@@ -208,6 +248,8 @@ def _commit_cash(decision=None):
         status = "duplicate"
     else:
         parts = [f"новых дней: {len(new_dates)}"]
+        if evidence_dates:
+            parts.append(f"дней дополнено данными об оплативших: {len(evidence_dates)}")
         if conflict_dates:
             parts.append(
                 f"отличались: {len(conflict_dates)} "
@@ -229,6 +271,7 @@ def _commit_cash(decision=None):
         "months": len(affected_months),
         "rows": updated,
         "backup": backup_path,
+        "payerEvidenceDays": len(evidence_dates),
         "reconciliation": _cash_totals(daily),
     }
 

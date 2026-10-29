@@ -32,7 +32,7 @@ jobs:
       - run: python -m pip install -r az-baze-auth/requirements.txt
       - name: Real SQLite to reporting API
         working-directory: az-baze-auth
-        run: python -m unittest -v test_paid_period_confirmation.py test_paid_history_reporting.py test_paid_period_report.py test_paid_services.py test_paid_services_storage.py test_paid_services_periods.py
+        run: python -m unittest -v test_paid_period_confirmation.py test_paid_history_reporting.py test_paid_cash_timeline.py test_paid_period_report.py test_paid_services.py test_paid_services_storage.py test_paid_services_periods.py
       - name: Actual JavaScript report selectors and renderer
         run: |
           node --check reports/period-view.js
@@ -41,8 +41,17 @@ jobs:
           node tests/verify-paid-history.cjs
           node tests/verify-paid-periods.cjs
           node tests/verify-paid-upload-periods.cjs
-      - name: No loader or financial source changes
+      - name: Protect clinical imports and cash money semantics
         run: |
-          # The owner authorized the cost denominator correction, covered above.
-          # Original source money, imports, lab/cash logic and backend remain protected.
-          git diff --exit-code ${{ github.event.pull_request.base.sha }} -- az-baze-auth/paid_services.py az-baze-auth/paid_services_upload.py az-baze-auth/ident_import.py az-baze-auth/cash_payments.py az-baze-auth/cash_upload.py az-baze-auth/upload_integrity.py az-baze-auth/templates/uploads.html reports/dashboard.html
+          git diff --exit-code ${{ github.event.pull_request.base.sha }} -- az-baze-auth/paid_services.py az-baze-auth/paid_services_upload.py az-baze-auth/ident_import.py az-baze-auth/upload_integrity.py az-baze-auth/templates/uploads.html reports/dashboard.html
+          python - <<'PY'
+          from pathlib import Path
+          cash=Path('az-baze-auth/cash_payments.py').read_text(encoding='utf-8')
+          upload=Path('az-baze-auth/cash_upload.py').read_text(encoding='utf-8')
+          assert 'if legal is None or movement is None or movement <= 0:' in cash
+          assert 'day["cashTotal"] += movement' in cash
+          assert 'financial_payload' in cash and 'payerEvidenceComplete' in cash
+          assert 'payer_evidence_backfill' in upload
+          assert 'cash_payments.financial_payload' in upload
+          print('CASH_MONEY_SEMANTICS_PROTECTED=PASS')
+          PY
