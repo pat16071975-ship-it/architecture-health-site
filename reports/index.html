@@ -94,10 +94,10 @@ const mg=$('#marketingGrid');mg.innerHTML='';[['Стоматология — ц�
 function getSelectedDate(){return $('#reportDate').value}
 function fillRecord(r){
 const d=derive(r),paidOnly=typeof window.azDoctorHasPaidForDate==='function'&&window.azDoctorHasPaidForDate(r.date)&&!loadStore()[r.date];
-if(typeof window.azDoctorDirectionPaid==='function'){d.dentRev=window.azDoctorDirectionPaid([r],'dentists');d.clinicRev=window.azDoctorDirectionPaid([r],'clinicDocs')}
+if(typeof window.azDoctorDirectionPaid==='function'&&r?._cash_rule!=='positive-receipts-only-v1'){d.dentRev=window.azDoctorDirectionPaid([r],'dentists');d.clinicRev=window.azDoctorDirectionPaid([r],'clinicDocs')}
 if(typeof window.azPaidEconomicsForDate==='function')Object.assign(d,window.azPaidEconomicsForDate(r.date,paidOnly?null:r));
 document.querySelectorAll('[data-key]').forEach(inp=>{const k=inp.dataset.key,t=inp.dataset.type,v=paidOnly&&inp.readOnly&&!['dentRev','clinicRev','paidPatients','paidDentPatients','paidClinicPatients','dentAvg','clinicAvg'].includes(k)?null:d[k];if(inp.readOnly){inp.value=t==='money'?money(v):t==='pct'?pct(v):count(v)}else{inp.value=v??''}});
-document.querySelectorAll('[data-doctor]').forEach(inp=>{const original=(d[inp.dataset.doctorType]||{})[inp.dataset.doctor]??'';inp.value=typeof window.azDoctorPaidValue==='function'?window.azDoctorPaidValue(r.date,inp.dataset.doctorType,inp.dataset.doctor,original):original});
+document.querySelectorAll('[data-doctor]').forEach(inp=>{const original=(d[inp.dataset.doctorType]||{})[inp.dataset.doctor]??'';inp.value=r?._cash_rule==='positive-receipts-only-v1'||typeof window.azDoctorPaidValue!=='function'?original:window.azDoctorPaidValue(r.date,inp.dataset.doctorType,inp.dataset.doctor,original)});
 }
 function collectRecord(){const date=getSelectedDate(),existing=loadStore()[date]||blankRecord(date);const r={...existing,date,dentists:{...(existing.dentists||{})},clinicDocs:{...(existing.clinicDocs||{})}};document.querySelectorAll('[data-key]:not([readonly])').forEach(inp=>r[inp.dataset.key]=inp.value.trim());document.querySelectorAll('[data-doctor]').forEach(inp=>{if(typeof window.azDoctorHasPaidForDate==='function'&&window.azDoctorHasPaidForDate(date))return;r[inp.dataset.doctorType][inp.dataset.doctor]=inp.value.trim()});return r}
 function refreshAutos(){fillRecord(collectRecord())}
