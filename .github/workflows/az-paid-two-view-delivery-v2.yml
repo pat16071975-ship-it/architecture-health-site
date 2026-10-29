@@ -1,0 +1,29 @@
+name: AZ paid two-view delivery v2
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/paid-two-view-production-20261029-v2.sh'
+      - '.github/workflows/az-paid-two-view-delivery-v2.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify node-free delivery package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/paid-two-view-production-20261029-v2.sh'
+          bash -n "$f"
+          ! grep -qE 'node --check|missing command node|curl git python3 node systemctl' "$f"
+          grep -F "TARGET_COMMIT='23ff7ab9c4ad539e262ab38b2a293b08bb8c2ee8'" "$f"
+          grep -F "CONFIRM_TOKEN='PAID-TWO-VIEW-23FF7AB9'" "$f"
+          grep -F "PAID_TWO_VIEW_PRODUCTION_DEPLOY=PASS" "$f"
+          grep -F "DB_EXACT_UNCHANGED_BEFORE_START=PASS" "$f"
+          grep -F "DB_EXACT_UNCHANGED_POST_START=PASS" "$f"
+          echo 'PAID_TWO_VIEW_DELIVERY_V2=PASS'
