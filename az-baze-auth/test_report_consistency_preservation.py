@@ -216,8 +216,9 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         )
 
     def test_manual_save_candidate_is_unchanged_by_importer_reconciliation(self):
-        for name, sha in {'index.html': '30d81dc254ad94d6def113b5f35a265d6f54949e',
-                          'period-view.js': '47b1f8d8d6b1ea55071badb57465b11cac07473a'}.items():
+        # Approved monthly-history UI; all importer and accounting assertions remain.
+        for name, sha in {'index.html': 'db160bf97814d18976a97afc5e680668819c6cd7',
+                          'period-view.js': '5aeaf54d35dc98ac9b0ce7d0574813cf8034778a'}.items():
             with self.subTest(name=name):
                 self.assertEqual(git_blob((ROOT.parent / 'reports' / name).read_bytes()), sha)
 
