@@ -12,6 +12,7 @@ import ident_import
 import paid_services
 import upload_reconcile
 import advertising_report
+import paid_period_confirmation
 
 MANAGEMENT_KEY = "az-management-report-v1"
 REPORT_BLOB_KEYS = {
@@ -231,53 +232,24 @@ def _paid_patient_interval(snapshot, start, end, mappings, ignored):
     return {"from": start, "to": end, "sets": sets}
 
 
+def _paid_report_sources(conn):
+    return paid_period_confirmation.read_sources(
+        conn, paid_period_confirmation.load_config(DB_PATH)
+    )
+
+
 def _paid_patient_intervals(conn):
     mappings, ignored = _management_doctor_provider_mappings(conn)
-    intervals = []
-
-    if conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='service_payment_periods'"
-    ).fetchone():
-        for row in conn.execute(
-            "SELECT period_start,period_end,payload_json "
-            "FROM service_payment_periods ORDER BY period_start,period_end"
-        ):
-            start, end = str(row["period_start"] or ""), str(row["period_end"] or "")
-            if not DATE_RE.fullmatch(start) or not DATE_RE.fullmatch(end) or start > end:
-                continue
-            try:
-                snapshot = json.loads(row["payload_json"])
-            except (TypeError, ValueError):
-                continue
-            interval = _paid_patient_interval(snapshot, start, end, mappings, ignored)
-            if interval:
-                intervals.append(interval)
-
-    if conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='service_payment_snapshots'"
-    ).fetchone():
-        for row in conn.execute(
-            "SELECT month,as_of_date,payload_json "
-            "FROM service_payment_snapshots ORDER BY month,as_of_date"
-        ):
-            month, end = str(row["month"] or ""), str(row["as_of_date"] or "")
-            start = month + "-01"
-            if not DATE_RE.fullmatch(start) or not DATE_RE.fullmatch(end) or start > end:
-                continue
-            try:
-                snapshot = json.loads(row["payload_json"])
-            except (TypeError, ValueError):
-                continue
-            interval = _paid_patient_interval(snapshot, start, end, mappings, ignored)
-            if interval:
-                intervals.append(interval)
-
-    # Prefer period reports over legacy snapshots for identical boundaries.
     unique = {}
-    for interval in intervals:
-        key = (interval["from"], interval["to"])
-        unique[key] = interval
-    return sorted(unique.values(), key=lambda x: (x["from"], x["to"]))
+    # Snapshot sources first, explicit period sources second. An exact period
+    # takes precedence over a legacy snapshot; never add overlapping copies.
+    for source in _paid_report_sources(conn):
+        interval = _paid_patient_interval(
+            source["payload"], source["from"], source["to"], mappings, ignored
+        )
+        if interval is not None:
+            unique[(interval["from"], interval["to"])] = interval
+    return sorted(unique.values(), key=lambda item: (item["from"], item["to"]))
 
 
 def _cover_paid_patient_range(intervals, start, end):
@@ -379,92 +351,45 @@ def _management_paid_patients_monthly(conn):
 
 
 def _management_doctor_paid_snapshots(conn):
-    """Read monthly doctor values without changing stored management data."""
-    exists = conn.execute(
-        "SELECT 1 FROM sqlite_master "
-        "WHERE type='table' AND name='service_payment_snapshots'"
-    ).fetchone()
-    if not exists:
-        return {}
-
+    """Read the original amounts using the same reporting period as payers."""
     mappings, ignored = _management_doctor_provider_mappings(conn)
-
     result = {}
-    for row in conn.execute(
-        "SELECT as_of_date,month,payload_json "
-        "FROM service_payment_snapshots ORDER BY month,as_of_date"
-    ):
-        as_of = str(row["as_of_date"] or "")
-        month = str(row["month"] or "")
-        if not DATE_RE.fullmatch(as_of) or month != as_of[:7]:
+    for source in _paid_report_sources(conn):
+        if source["kind"] != "snapshot":
             continue
+        snapshot = source["payload"]
         try:
-            snapshot = json.loads(row["payload_json"])
-        except (TypeError, ValueError):
+            summary = paid_services.direction_summary(
+                snapshot, mappings["dent"], mappings["structure"], mappings["lab"],
+                ignored=ignored,
+            )
+        except (TypeError, ValueError, AttributeError):
             continue
-        if not isinstance(snapshot, dict) or snapshot.get("version") not in (1, 2):
+        if summary["unknownProviders"] or any(
+            not math.isfinite(value)
+            for key in ("dentists", "clinicDocs", "labDocs")
+            for value in summary[key].values()
+        ):
             continue
-        summary = paid_services.direction_summary(
-            {
-                "providers": snapshot.get("providers") or {},
-                "totals": snapshot.get("totals") or {},
-                "provider_residual": snapshot.get("provider_residual") or {},
-            },
-            mappings["dent"],
-            mappings["structure"],
-            mappings["lab"],
-            ignored=ignored,
-        )
-        # Do not assign unclassified staff's payments to any existing doctor.
-        if summary["unknownProviders"]:
-            continue
-        result.setdefault(month, []).append({
-            "asOf": as_of,
-            "dentists": summary["dentists"],
-            "clinicDocs": summary["clinicDocs"],
+        result.setdefault(source["from"][:7], []).append({
+            "asOf": source["to"],
+            "dentists": summary["dentists"], "clinicDocs": summary["clinicDocs"],
         })
+    for rows in result.values():
+        rows.sort(key=lambda row: row["asOf"])
     return result
 
 
 def _management_doctor_paid_periods(conn):
-    """Return whole source intervals; never manufacture monthly paid values."""
-    if not conn.execute(
-        "SELECT 1 FROM sqlite_master "
-        "WHERE type='table' AND name='service_payment_periods'"
-    ).fetchone():
-        return []
-
+    """Whole source amounts; an approved month does not invent payment days."""
     mappings, ignored = _management_doctor_provider_mappings(conn)
     result = []
-    for row in conn.execute(
-        "SELECT period_start,period_end,payload_json "
-        "FROM service_payment_periods ORDER BY period_start,period_end"
-    ):
-        start = str(row["period_start"] or "")
-        end = str(row["period_end"] or "")
-        if not DATE_RE.fullmatch(start) or not DATE_RE.fullmatch(end) or start > end:
-            continue
-        try:
-            calendar_date.fromisoformat(start)
-            calendar_date.fromisoformat(end)
-            snapshot = json.loads(row["payload_json"])
-        except (TypeError, ValueError):
-            continue
-        if (
-            not isinstance(snapshot, dict)
-            or snapshot.get("version") != 3
-            or snapshot.get("period_start") != start
-            or snapshot.get("period_end") != end
-            or not isinstance(snapshot.get("providers"), dict)
-            or any(not isinstance(value, dict) for value in snapshot["providers"].values())
-        ):
+    for source in _paid_report_sources(conn):
+        if source["kind"] != "period":
             continue
         try:
             summary = paid_services.direction_summary(
-                snapshot,
-                mappings["dent"],
-                mappings["structure"],
-                mappings["lab"],
+                source["payload"], mappings["dent"], mappings["structure"], mappings["lab"],
                 ignored=ignored,
             )
         except (TypeError, ValueError, AttributeError):
@@ -476,10 +401,8 @@ def _management_doctor_paid_periods(conn):
         ):
             continue
         result.append({
-            "from": start,
-            "to": end,
-            "dentists": summary["dentists"],
-            "clinicDocs": summary["clinicDocs"],
+            "from": source["from"], "to": source["to"],
+            "dentists": summary["dentists"], "clinicDocs": summary["clinicDocs"],
         })
     return result
 
@@ -704,7 +627,7 @@ def _render_server_reports():
 
     old_store = """function loadStore(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}}
 function saveStore(v){localStorage.setItem(STORAGE_KEY,JSON.stringify(v))}"""
-    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={},DOCTOR_PAID_PERIODS=[];
+    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={},DOCTOR_PAID_PERIODS=[],PAID_PATIENTS_MONTHLY={};
 function loadStore(){return SERVER_STORE}
 function saveStore(v){SERVER_STORE=v}
 async function reportApi(url,options={}){
@@ -723,6 +646,7 @@ async function loadServerStore(){
   SERVER_STORE=payload.data||{};
   DOCTOR_PAID_SNAPSHOTS=payload.doctorPaidSnapshots||{};
   DOCTOR_PAID_PERIODS=Array.isArray(payload.doctorPaidPeriods)?payload.doctorPaidPeriods:[];
+  PAID_PATIENTS_MONTHLY=payload.paidPatientsMonthly||{};
   REPORT_CSRF=payload.csrf||'';
   if(typeof syncProviderNames==='function'){
     syncProviderNames(SERVER_STORE);
@@ -846,7 +770,14 @@ def register_report_storage(app):
             record_date = str(row["date"])
             month_start = record_date[:7] + "-01"
             payer_counts = _paid_patient_counts(db(), month_start, record_date, payer_intervals)
+            # These are derived read-view fields, never a fallback stored count.
+            for key in ("paidPatientEvidenceComplete", "paidPatients", "paidDentPatients",
+                        "paidClinicPatients", "paidDentPatientsByDoctor",
+                        "paidClinicPatientsByDoctor", "paidPatientPeriodFrom", "paidPatientPeriodTo"):
+                record.pop(key, None)
             if payer_counts is not None:
+                record["paidPatientPeriodFrom"] = month_start
+                record["paidPatientPeriodTo"] = record_date
                 record["paidPatientEvidenceComplete"] = True
                 record["paidPatients"] = payer_counts["medicine"]
                 record["paidDentPatients"] = payer_counts["dent"]

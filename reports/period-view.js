@@ -250,7 +250,7 @@
 
   const toolbar=document.querySelector('.toolbar'),actions=toolbar?.querySelector('.toolbar-actions'),saveBtn=document.getElementById('saveBtn');
   if(saveBtn)saveBtn.classList.add('hidden');
-  const dateViewField=document.createElement('div');dateViewField.className='field date-view-field';dateViewField.id='dateViewField';dateViewField.innerHTML='<label>Просмотр</label><select id="dateViewMode"><option value="single">Одна дата</option><option value="compare" selected>На эту дату по месяцам</option></select>';
+  const dateViewField=document.createElement('div');dateViewField.className='field date-view-field';dateViewField.id='dateViewField';dateViewField.innerHTML='<label>Просмотр</label><select id="dateViewMode"><option value="single">Одна дата</option><option value="compare" selected>На эту дату по месяцам</option><option value="monthly">Итоги месяцев</option></select>';
   const compareRangeField=document.createElement('div');compareRangeField.className='field compare-range-field hidden';compareRangeField.id='compareRangeField';compareRangeField.innerHTML='<label>Период сравнения</label><select id="compareRange"><option value="ytd">С начала года</option><option value="q1">1 квартал</option><option value="q2">2 квартал</option><option value="q3">3 квартал</option><option value="q4">4 квартал</option><option value="h1">1 полугодие</option><option value="h2">2 полугодие</option><option value="year">Весь год</option></select>';
   if(toolbar&&actions){toolbar.insertBefore(dateViewField,actions);toolbar.insertBefore(compareRangeField,actions)}
   const entryBtn=document.createElement('button');entryBtn.id='entryBtn';entryBtn.className='btn primary entry-btn';entryBtn.textContent='Заполнить данные за день';
@@ -354,7 +354,7 @@
           ?'Сохранено на сервере, но не удалось обновить данные. Обновите страницу.'
           :'Сохранено на сервере: '+new Date(date+'T12:00:00').toLocaleString('ru-RU');
         closeEntry();
-        if(!refreshFailed&&document.getElementById('dateViewMode').value==='compare')renderDateComparison();
+        if(!refreshFailed&&['compare','monthly'].includes(document.getElementById('dateViewMode').value))renderDateComparison();
       }catch(error){
         console.error(error);
         document.getElementById('status').textContent='Не удалось сохранить данные на сервере';
@@ -363,14 +363,14 @@
       return;
     }
     // Preserve the original standalone/offline page behavior.
-    store[date]=r;saveStore(store);document.getElementById('reportDate').value=date;fillRecord(r);renderMismatchNote(r);document.getElementById('status').textContent='Сохранено в этом браузере: '+new Date(date+'T12:00:00').toLocaleString('ru-RU');closeEntry();if(document.getElementById('dateViewMode').value==='compare')renderDateComparison();
+    store[date]=r;saveStore(store);document.getElementById('reportDate').value=date;fillRecord(r);renderMismatchNote(r);document.getElementById('status').textContent='Сохранено в этом браузере: '+new Date(date+'T12:00:00').toLocaleString('ru-RU');closeEntry();if(['compare','monthly'].includes(document.getElementById('dateViewMode').value))renderDateComparison();
   }
   function renderMismatchNote(_r){
     const section=document.querySelector('#editView .section.general');if(!section)return;
     const note=section.querySelector('.reconcile-note');if(note)note.remove();
   }
   function currentRecord(){const date=document.getElementById('reportDate').value;return loadStore()[date]||null}
-  entryBtn.addEventListener('click',openEntry);todayBtn.addEventListener('click',()=>{const d=new Date(),date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');document.getElementById('reportDate').value=date;loadDate();renderMismatchNote(currentRecord());if(document.getElementById('dateViewMode').value==='compare')renderDateComparison()});
+  entryBtn.addEventListener('click',openEntry);todayBtn.addEventListener('click',()=>{const d=new Date(),date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');document.getElementById('reportDate').value=date;loadDate();renderMismatchNote(currentRecord());if(['compare','monthly'].includes(document.getElementById('dateViewMode').value))renderDateComparison()});
   document.getElementById('entryClose').addEventListener('click',closeEntry);document.getElementById('entryCancel').addEventListener('click',closeEntry);document.getElementById('entrySave').addEventListener('click',saveEntry);overlay.addEventListener('click',e=>{if(e.target===overlay)closeEntry()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!overlay.classList.contains('hidden'))closeEntry()});overlay.addEventListener('input',e=>{if(e.target.matches('[data-entry-key="factMedicine"],[data-entry-doctor]'))updateEntryReconcile()});
 
   const monthNames=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
@@ -404,16 +404,44 @@
     }).join('');
     tbody.appendChild(tr);
   }
+  function monthlyReportColumn(year,month,store){
+    const key=`${year}-${String(month).padStart(2,'0')}`;
+    const source=typeof PAID_PATIENTS_MONTHLY==='undefined'?{}:PAID_PATIENTS_MONTHLY;
+    const candidate=source[key];
+    const payers=candidate&&paidDate(candidate.asOf)&&candidate.asOf.slice(0,7)===key?candidate:null;
+    const dates=Object.keys(store).filter(d=>paidDate(d)&&d.slice(0,7)===key).sort();
+    const target=payers?payers.asOf:dates[dates.length-1]||paidMonthEnd(key+'-01');
+    const original=store[target]||null;
+    // An amount from a different date must not be divided by this payer count.
+    const r=original?{...original,paidPatientEvidenceComplete:!!payers,
+      paidPatients:payers?payers.medicine:null,paidDentPatients:payers?payers.dent:null,
+      paidClinicPatients:payers?payers.structure:null}:null;
+    const exact=completeDoctorPaidParts(key+'-01',target,doctorPaidIntervals(key+'-01',target));
+    const paidParts=exact!==null?exact:(!payers&&r?[r]:[]);
+    const d=r?derive(r):null;
+    if(d&&rawOrNull(r.factMedicine)===null)d.avgCheck=null;
+    return {month,target,r,d,paidParts,monthly:true,payers};
+  }
+  function comparisonPayer(column,scope){
+    if(column.monthly)return column.payers?rawOrNull(column.payers[scope]):null;
+    const keys={medicine:'paidPatients',dent:'paidDentPatients',structure:'paidClinicPatients'};
+    return rawOrNull(column.d?.[keys[scope]]);
+  }
   function renderDateComparison(){
     const date=document.getElementById('reportDate').value;if(!date)return;const base=new Date(date+'T12:00:00'),year=base.getFullYear(),day=base.getDate(),selectedMonth=base.getMonth()+1,range=document.getElementById('compareRange').value,store=loadStore();
-    const months=compareMonths(range,selectedMonth).map(month=>{const target=clampDate(year,month,day),r=store[target]||null,paid=doctorDatePaidParts(target);return {month,target,r,d:r?derive(r):null,paidParts:paid.length?paid:r?[r]:[]}});
+    const monthly=document.getElementById('dateViewMode').value==='monthly';
+    const months=compareMonths(range,selectedMonth).map(month=>{
+      if(monthly)return monthlyReportColumn(year,month,store);
+      const target=clampDate(year,month,day),r=store[target]||null,paid=doctorDatePaidParts(target);
+      return {month,target,r,d:r?derive(r):null,paidParts:paid.length?paid:r?[r]:[]};
+    });
     const head=document.getElementById('dateCompareHead'),tbody=document.getElementById('dateCompareBody'),note=document.getElementById('dateSummaryNote');if(!head||!tbody)return;
-    document.getElementById('dateCompareTitle').textContent=`На ${day} число по месяцам ${year}`;document.getElementById('dateCompareHint').textContent='Если такого числа в месяце нет, используется последний календарный день месяца.';
+    document.getElementById('dateCompareTitle').textContent=monthly?`Итоги месяцев ${year}`:`На ${day} число по месяцам ${year}`;document.getElementById('dateCompareHint').textContent=monthly?'Итог каждого месяца — по указанной дате загруженного среза. Месячный итог не является срезом на выбранное число.':'Если такого числа в месяце нет, используется последний календарный день месяца.';
     head.innerHTML='<tr><th>Показатель</th>'+months.map(m=>`<th><span class="period-name">${monthNames[m.month-1]}</span><span class="period-months">${new Date(m.target+'T12:00:00').toLocaleDateString('ru-RU')}<br>${m.r?'есть данные':m.paidParts.length?'есть выручка врачей':'нет данных'}</span></th>`).join('')+'</tr>';tbody.innerHTML='';
     note.textContent='Градиент применяется внутри каждой строки по видимым месяцам: меньшее значение красноватое, большее — зеленоватое. Потери, отказы и недошедшие не окрашиваются.';const cols=months.length+1;
-    addGroup(tbody,'Основные показатели','group-general',cols);addSub(tbody,'План и выполнение','sub-general',cols);addDateMetric(tbody,'План','row-general',months,(d,r)=>rawOrNull(r.plan),fmtMoney,'plan');addDateMetric(tbody,'Должно быть','row-general row-secondary',months,d=>rawOrNull(d.due),fmtMoney,'due');addDateMetric(tbody,'Факт','row-general',months,d=>rawOrNull(d.factTotal),fmtMoney,'factTotal',true);addDateMetric(tbody,'Выставлено счетов','row-general row-billed',months,d=>rawOrNull(d.billedTotal),fmtMoney,'billedTotal');addDateMetric(tbody,'ДС ООО','row-general row-secondary',months,d=>rawOrNull(d.cashOOO),fmtMoney,'cashOOO');addDateMetric(tbody,'ДС ИП','row-general row-secondary',months,d=>rawOrNull(d.cashIP),fmtMoney,'cashIP');addDateMetric(tbody,'% выполнения плана месяца','row-general',months,d=>rawOrNull(d.execution),fmtPct,'execution',true);addDateMetric(tbody,'ПП 2025 на этот день','row-general',months,(d,r)=>rawOrNull(r.pp25),fmtCount,'pp25');addDateMetric(tbody,'Средний чек 2025','row-general',months,(d,r)=>rawOrNull(r.avg25),fmtMoney,'avg25');addSub(tbody,'Пациенты','sub-general',cols);addDateMetric(tbody,'Оплатившие пациенты','row-general',months,d=>rawOrNull(d.paidPatients),fmtCount,'paidPatients',true);addDateMetric(tbody,'Первичные приёмы','row-general',months,(d,r)=>rawOrNull(r.primary),fmtCount,'primary');addDateMetric(tbody,'Повторные приёмы','row-general',months,(d,r)=>rawOrNull(r.repeat),fmtCount,'repeat');addDateMetric(tbody,'ПП в день','row-general',months,d=>rawOrNull(d.ppDay),fmtCount,'ppDay');addDateMetric(tbody,'Средний чек медицины на оплатившего пациента','row-general',months,d=>rawOrNull(d.avgCheck),fmtMoney,'avgCheck',true);
-    addGroup(tbody,'Стоматология','group-dent',cols);addSub(tbody,'Приёмы','sub-visits-dent',cols);addDateMetric(tbody,'Первичные','row-visits-dent',months,(d,r)=>rawOrNull(r.dentPrimary),fmtCount,'dentPrimary');addDateMetric(tbody,'Повторные','row-visits-dent',months,(d,r)=>rawOrNull(r.dentRepeat),fmtCount,'dentRepeat');addDateMetric(tbody,'ПП в день','row-visits-dent',months,d=>rawOrNull(d.dentPPDay),fmtCount,'dentPPDay');addSub(tbody,'Выручка и экономика','sub-money-dent',cols);addDateMetric(tbody,'Оплатившие пациенты','row-money-dent',months,d=>rawOrNull(d.paidDentPatients),fmtCount,'paidDentPatients');addDateDoctorMetric(tbody,'Выручка стоматологии','row-money-dent',months,m=>rawOrNull(doctorPartsDirectionPaid(m.paidParts,'dentists')),fmtMoney,'dentRev',true);addDateDoctorMetric(tbody,'Средний чек стоматологии на оплатившего пациента','row-money-dent',months,m=>m.d?.paidDentPatients?doctorPartsDirectionPaid(m.paidParts,'dentists')/m.d.paidDentPatients:null,fmtMoney,'dentAvg');addSub(tbody,'Выручка по врачам','sub-team-dent',cols);dentists.forEach(name=>addDateDoctorMetric(tbody,name,'row-team-dent',months,m=>rawOrNull(doctorPaidValue(m.target,'dentists',name,(m.r?.dentists||{})[name])),fmtMoney,'dentist'));
-    addGroup(tbody,'Клиника','group-clinic',cols);addSub(tbody,'Приёмы','sub-visits-clinic',cols);addDateMetric(tbody,'Первичные','row-visits-clinic',months,(d,r)=>rawOrNull(r.clinicPrimary),fmtCount,'clinicPrimary');addDateMetric(tbody,'Повторные','row-visits-clinic',months,(d,r)=>rawOrNull(r.clinicRepeat),fmtCount,'clinicRepeat');addDateMetric(tbody,'ПП в день','row-visits-clinic',months,d=>rawOrNull(d.clinicPPDay),fmtCount,'clinicPPDay');addSub(tbody,'Выручка и экономика','sub-money-clinic',cols);addDateMetric(tbody,'Оплатившие пациенты','row-money-clinic',months,d=>rawOrNull(d.paidClinicPatients),fmtCount,'paidClinicPatients');addDateDoctorMetric(tbody,'Выручка клиники','row-money-clinic',months,m=>rawOrNull(doctorPartsDirectionPaid(m.paidParts,'clinicDocs')),fmtMoney,'clinicRev',true);addDateDoctorMetric(tbody,'Средний чек клиники на оплатившего пациента','row-money-clinic',months,m=>m.d?.paidClinicPatients?doctorPartsDirectionPaid(m.paidParts,'clinicDocs')/m.d.paidClinicPatients:null,fmtMoney,'clinicAvg');addSub(tbody,'Выручка по специалистам','sub-team-clinic',cols);clinicDocs.forEach(name=>addDateDoctorMetric(tbody,name,'row-team-clinic',months,m=>rawOrNull(doctorPaidValue(m.target,'clinicDocs',name,(m.r?.clinicDocs||{})[name])),fmtMoney,'clinicDoctor'));
+    addGroup(tbody,'Основные показатели','group-general',cols);addSub(tbody,'План и выполнение','sub-general',cols);addDateMetric(tbody,'План','row-general',months,(d,r)=>rawOrNull(r.plan),fmtMoney,'plan');addDateMetric(tbody,'Должно быть','row-general row-secondary',months,d=>rawOrNull(d.due),fmtMoney,'due');addDateMetric(tbody,'Факт','row-general',months,d=>rawOrNull(d.factTotal),fmtMoney,'factTotal',true);addDateMetric(tbody,'Выставлено счетов','row-general row-billed',months,d=>rawOrNull(d.billedTotal),fmtMoney,'billedTotal');addDateMetric(tbody,'ДС ООО','row-general row-secondary',months,d=>rawOrNull(d.cashOOO),fmtMoney,'cashOOO');addDateMetric(tbody,'ДС ИП','row-general row-secondary',months,d=>rawOrNull(d.cashIP),fmtMoney,'cashIP');addDateMetric(tbody,'% выполнения плана месяца','row-general',months,d=>rawOrNull(d.execution),fmtPct,'execution',true);addDateMetric(tbody,'ПП 2025 на этот день','row-general',months,(d,r)=>rawOrNull(r.pp25),fmtCount,'pp25');addDateMetric(tbody,'Средний чек 2025','row-general',months,(d,r)=>rawOrNull(r.avg25),fmtMoney,'avg25');addSub(tbody,'Пациенты','sub-general',cols);addDateDoctorMetric(tbody,'Оплатившие пациенты','row-general',months,m=>comparisonPayer(m,'medicine'),fmtCount,'paidPatients',true);addDateMetric(tbody,'Первичные приёмы','row-general',months,(d,r)=>rawOrNull(r.primary),fmtCount,'primary');addDateMetric(tbody,'Повторные приёмы','row-general',months,(d,r)=>rawOrNull(r.repeat),fmtCount,'repeat');addDateMetric(tbody,'ПП в день','row-general',months,d=>rawOrNull(d.ppDay),fmtCount,'ppDay');addDateMetric(tbody,'Средний чек медицины на оплатившего пациента','row-general',months,d=>rawOrNull(d.avgCheck),fmtMoney,'avgCheck',true);
+    addGroup(tbody,'Стоматология','group-dent',cols);addSub(tbody,'Приёмы','sub-visits-dent',cols);addDateMetric(tbody,'Первичные','row-visits-dent',months,(d,r)=>rawOrNull(r.dentPrimary),fmtCount,'dentPrimary');addDateMetric(tbody,'Повторные','row-visits-dent',months,(d,r)=>rawOrNull(r.dentRepeat),fmtCount,'dentRepeat');addDateMetric(tbody,'ПП в день','row-visits-dent',months,d=>rawOrNull(d.dentPPDay),fmtCount,'dentPPDay');addSub(tbody,'Выручка и экономика','sub-money-dent',cols);addDateDoctorMetric(tbody,'Оплатившие пациенты','row-money-dent',months,m=>comparisonPayer(m,'dent'),fmtCount,'paidDentPatients');addDateDoctorMetric(tbody,'Выручка стоматологии','row-money-dent',months,m=>rawOrNull(doctorPartsDirectionPaid(m.paidParts,'dentists')),fmtMoney,'dentRev',true);addDateDoctorMetric(tbody,'Средний чек стоматологии на оплатившего пациента','row-money-dent',months,m=>comparisonPayer(m,'dent')&&m.paidParts.length?doctorPartsDirectionPaid(m.paidParts,'dentists')/comparisonPayer(m,'dent'):null,fmtMoney,'dentAvg');addSub(tbody,'Выручка по врачам','sub-team-dent',cols);dentists.forEach(name=>addDateDoctorMetric(tbody,name,'row-team-dent',months,m=>rawOrNull(m.monthly?doctorPartsPaid(m.paidParts,'dentists',name):doctorPaidValue(m.target,'dentists',name,(m.r?.dentists||{})[name])),fmtMoney,'dentist'));
+    addGroup(tbody,'Клиника','group-clinic',cols);addSub(tbody,'Приёмы','sub-visits-clinic',cols);addDateMetric(tbody,'Первичные','row-visits-clinic',months,(d,r)=>rawOrNull(r.clinicPrimary),fmtCount,'clinicPrimary');addDateMetric(tbody,'Повторные','row-visits-clinic',months,(d,r)=>rawOrNull(r.clinicRepeat),fmtCount,'clinicRepeat');addDateMetric(tbody,'ПП в день','row-visits-clinic',months,d=>rawOrNull(d.clinicPPDay),fmtCount,'clinicPPDay');addSub(tbody,'Выручка и экономика','sub-money-clinic',cols);addDateDoctorMetric(tbody,'Оплатившие пациенты','row-money-clinic',months,m=>comparisonPayer(m,'structure'),fmtCount,'paidClinicPatients');addDateDoctorMetric(tbody,'Выручка клиники','row-money-clinic',months,m=>rawOrNull(doctorPartsDirectionPaid(m.paidParts,'clinicDocs')),fmtMoney,'clinicRev',true);addDateDoctorMetric(tbody,'Средний чек клиники на оплатившего пациента','row-money-clinic',months,m=>comparisonPayer(m,'structure')&&m.paidParts.length?doctorPartsDirectionPaid(m.paidParts,'clinicDocs')/comparisonPayer(m,'structure'):null,fmtMoney,'clinicAvg');addSub(tbody,'Выручка по специалистам','sub-team-clinic',cols);clinicDocs.forEach(name=>addDateDoctorMetric(tbody,name,'row-team-clinic',months,m=>rawOrNull(m.monthly?doctorPartsPaid(m.paidParts,'clinicDocs',name):doctorPaidValue(m.target,'clinicDocs',name,(m.r?.clinicDocs||{})[name])),fmtMoney,'clinicDoctor'));
     addGroup(tbody,'Лаборатория','group-lab',cols);addSub(tbody,'Объём','sub-lab-volume',cols);addDateMetric(tbody,'Количество заказов','row-lab-volume',months,(d,r)=>rawOrNull(r.labOrders),fmtCount,'labOrders');addSub(tbody,'Выручка и экономика','sub-lab-money',cols);addDateMetric(tbody,'Выручка лаборатории','row-lab-money',months,(d,r)=>rawOrNull(r.labRevenue||r.factLab),fmtMoney,'labRevenue',true);addDateMetric(tbody,'Средний чек лаборатории','row-lab-money',months,d=>rawOrNull(d.labAvg),fmtMoney,'labAvg');
     addGroup(tbody,'Маркетинг','group-marketing',cols);addSub(tbody,'Лиды','sub-marketing-input',cols);addDateMetric(tbody,'Целевые лиды — стоматология','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsDent),fmtCount,'leadsDent');addDateMetric(tbody,'Отказ / мониторинг — стоматология','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsDentLost),fmtCount,'leadsDentLost');addDateMetric(tbody,'Целевые лиды — клиника','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsClinic),fmtCount,'leadsClinic');addDateMetric(tbody,'Резерв','row-marketing-input',months,(d,r)=>rawOrNull(r.leadsReserve),fmtCount,'leadsReserve');addDateMetric(tbody,'Всего лидов','row-marketing-input',months,d=>rawOrNull(d.totalLeads),fmtCount,'totalLeads',true);addSub(tbody,'Конверсия','sub-marketing-conv',cols);addDateMetric(tbody,'Конверсия стоматология','row-marketing-conv',months,d=>rawOrNull(d.convDent),fmtPct,'convDent');addDateMetric(tbody,'Конверсия клиника','row-marketing-conv',months,d=>rawOrNull(d.convClinic),fmtPct,'convClinic');addDateMetric(tbody,'Общая конверсия','row-marketing-conv',months,d=>rawOrNull(d.totalConv),fmtPct,'totalConv',true);
     queueDateStickyClone();
@@ -425,7 +453,7 @@
   }
   function syncDateStickyClone(){
     dateStickyRaf=0;
-    const compare=document.getElementById('mode').value==='date'&&document.getElementById('dateViewMode').value==='compare';
+    const compare=document.getElementById('mode').value==='date'&&['compare','monthly'].includes(document.getElementById('dateViewMode').value);
     const shell=dateCompareShell,table=shell?.querySelector('table'),head=table?.querySelector('thead');
     const enabled=!!(compare&&window.innerWidth>900&&shell&&table&&head);
     if(!enabled){hideDateStickyClone();return;}
@@ -458,7 +486,7 @@
   }
 
   function syncDateUx(){
-    const mode=document.getElementById('mode').value,isDate=mode==='date',compare=document.getElementById('dateViewMode').value==='compare';
+    const mode=document.getElementById('mode').value,isDate=mode==='date',compare=['compare','monthly'].includes(document.getElementById('dateViewMode').value);
     dateViewField.classList.toggle('hidden',!isDate);compareRangeField.classList.toggle('hidden',!isDate||!compare);entryBtn.classList.toggle('hidden',!isDate);todayBtn.classList.toggle('hidden',!isDate);
     if(isDate){periodView?.classList.add('hidden');dateCompareView.classList.toggle('hidden',!compare);editView?.classList.toggle('hidden',compare);if(compare)renderDateComparison();else{editView?.classList.remove('hidden');renderMismatchNote(currentRecord())}}
     else{dateCompareView.classList.add('hidden');editView?.classList.add('hidden')}
@@ -468,7 +496,7 @@
   window.addEventListener('resize',queueDateStickyClone,{passive:true});
   dateCompareShell?.addEventListener('scroll',queueDateStickyClone,{passive:true});
   document.getElementById('dateViewMode').addEventListener('change',syncDateUx);document.getElementById('compareRange').addEventListener('change',renderDateComparison);
-  document.getElementById('reportDate').addEventListener('change',()=>{setTimeout(()=>{renderMismatchNote(currentRecord());if(document.getElementById('dateViewMode').value==='compare')renderDateComparison()},0)});
+  document.getElementById('reportDate').addEventListener('change',()=>{setTimeout(()=>{renderMismatchNote(currentRecord());if(['compare','monthly'].includes(document.getElementById('dateViewMode').value))renderDateComparison()},0)});
   document.getElementById('mode').addEventListener('change',()=>setTimeout(syncDateUx,0));document.getElementById('deleteBtn')?.addEventListener('click',()=>setTimeout(()=>renderMismatchNote(currentRecord()),0));document.getElementById('loginForm')?.addEventListener('submit',()=>setTimeout(()=>renderMismatchNote(currentRecord()),450));
   document.getElementById('quarter')?.addEventListener('change',()=>window.renderPeriod());document.getElementById('half')?.addEventListener('change',()=>window.renderPeriod());
   setTimeout(()=>{makeViewOnly();const r=currentRecord(),date=document.getElementById('reportDate').value;if(r||window.azDoctorHasPaidForDate(date))fillRecord(r||blankRecord(date));renderMismatchNote(r);syncDateUx()},0);
