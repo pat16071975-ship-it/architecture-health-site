@@ -85,7 +85,7 @@ test('later month-end must never backfill an earlier arbitrary day',()=>{
  const h=harness();h.add(1,31);
  h.ctx.PAID_PATIENTS_BY_DATE={'2026-01-31':{from:'2026-01-01',to:'2026-01-31',asOf:'2026-01-31',medicine:20,dent:10,structure:7}};
  for(const date of ['2026-01-09','2026-01-15','2026-01-17'])
-   assert.equal(h.run(`exactPayersForDate('${date}',null)`),null,date);
+    assert.equal(h.run("exactPayersForDate('"+date+"',null)"),null,date);
 });
 
 console.log('PAID_ASOF_AND_PERIOD=PASS; ADDITIONAL_SCENARIOS=10');
