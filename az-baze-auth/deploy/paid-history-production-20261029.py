@@ -306,7 +306,7 @@ def verify_config_readable(config):
     info=config_path().stat()
     require(info.st_uid==0 and info.st_gid==grp.getgrnam('www-data').gr_gid
             and stat.S_IMODE(info.st_mode)==0o640, 'UNSAFE_ACTIVE_CONFIG_PERMISSIONS')
-    actual=run(['runuser','-u','azadmin','--',str(APP/'venv/bin/python'),'-B','-c',
+    actual=run(['runuser','-u','azadmin','-g','www-data','--',str(APP/'venv/bin/python'),'-B','-c',
                 "import hashlib,pathlib,sys; print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())",
                 str(config_path())]).strip().decode('ascii')
     require(actual==sha(config), 'SERVICE_CANNOT_READ_CONFIG')
