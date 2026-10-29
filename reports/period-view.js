@@ -295,18 +295,21 @@
       result[out]=dates.reduce((sum,x)=>sum+x.payers[key],0);
     // Preserve the existing period denominator: sum of monthly unique counts.
     // Never average already calculated monthly average checks.
-    const medicine=dates.map(({date})=>{
-      const r=store[date];return r&&(!r._reportSourceDate||r._reportSourceDate===date)&&(!r._cashAsOf||r._cashAsOf===date)?paidAmount(r.factMedicine):null;
+    const cashRows=dates.map(({date})=>{
+      const r=store[date];
+      const exact=r&&(!r._reportSourceDate||r._reportSourceDate===date)&&(!r._cashAsOf||r._cashAsOf===date);
+      return exact?{
+        medicine:paidAmount(r.factMedicine),
+        dent:cashDirectionAmount(r,'dentists'),
+        structure:cashDirectionAmount(r,'clinicDocs'),
+      }:null;
     });
-    if(result.paidPatients>0&&medicine.every(x=>x!==null))
-      result.avgCheck=medicine.reduce((s,x)=>s+x,0)/result.paidPatients;
-    const expected=mergedPaidRanges(dates.map(x=>({from:x.date.slice(0,7)+'-01',to:x.date})));
-    const actual=mergedPaidRanges(pd.paidParts);
-    if(expected&&actual&&JSON.stringify(expected)===JSON.stringify(actual)){
-      const dent=doctorPartsDirectionPaid(pd.paidParts,'dentists'),clinic=doctorPartsDirectionPaid(pd.paidParts,'clinicDocs');
-      if(result.paidDentPatients>0&&Number.isFinite(dent))result.dentAvg=dent/result.paidDentPatients;
-      if(result.paidClinicPatients>0&&Number.isFinite(clinic))result.clinicAvg=clinic/result.paidClinicPatients;
-    }
+    if(result.paidPatients>0&&cashRows.every(x=>x&&x.medicine!==null))
+      result.avgCheck=cashRows.reduce((sum,x)=>sum+x.medicine,0)/result.paidPatients;
+    if(result.paidDentPatients>0&&cashRows.every(x=>x&&x.dent!==null))
+      result.dentAvg=cashRows.reduce((sum,x)=>sum+x.dent,0)/result.paidDentPatients;
+    if(result.paidClinicPatients>0&&cashRows.every(x=>x&&x.structure!==null))
+      result.clinicAvg=cashRows.reduce((sum,x)=>sum+x.structure,0)/result.paidClinicPatients;
     return result;
   }
 
@@ -340,6 +343,18 @@
     return [{name:String(year)+' год',months:'январь — декабрь',sm:1,em:12}];
   }
   function periodData(def,year){const rows=latestMonthlyRecords(year,def.sm,def.em);return {def,rows,a:aggregate(rows),expected:def.em-def.sm+1}}
+  function periodCashDoctor(rows,key,name){
+    if(!Array.isArray(rows)||!rows.length)return null;
+    let total=0;
+    for(const row of rows){
+      if(!row||(!row._reportSourceDate||row._reportSourceDate===row.date)===false||(!row._cashAsOf||row._cashAsOf===row.date)===false)return null;
+      const value=paidAmount((row[key]||{})[name]??0);
+      if(value===null)return null;
+      total+=value;
+    }
+    return total;
+  }
+
   function doctorPeriodData(def,year){
     const data=periodData(def,year),from=`${year}-${String(def.sm).padStart(2,'0')}-01`,to=paidMonthEnd(`${year}-${String(def.em).padStart(2,'0')}-01`);
     const pd={...data,bounds:{from,to},paidParts:doctorPeriodParts(data.rows,{from,to})};
@@ -365,8 +380,8 @@
     addGroup(tbody,'Основные показатели','group-general',cols);addSub(tbody,'План и выполнение','sub-general',cols);
     addMetric(tbody,'План','row-general',pds,a=>a.plan,fmtMoney,false,'plan');addMetric(tbody,'Должно быть','row-general row-secondary',pds,a=>a.due,fmtMoney,false,'due');addMetric(tbody,'Факт','row-general',pds,a=>a.factTotal,fmtMoney,true,'factTotal');addMetric(tbody,'Выставлено счетов','row-general row-billed',pds,a=>a.billedTotal,fmtMoney,false,'billedTotal');addMetric(tbody,'ДС ООО','row-general row-secondary',pds,a=>a.cashOOO,fmtMoney,false,'cashOOO');addMetric(tbody,'ДС ИП','row-general row-secondary',pds,a=>a.cashIP,fmtMoney,false,'cashIP');addMetric(tbody,'% выполнения плана месяца','row-general',pds,a=>a.execution,fmtPct,true,'execution');
     addSub(tbody,'Пациенты','sub-general',cols);addMetric(tbody,'Оплатившие пациенты','row-general',pds,(a,rows,pd)=>pd.economics.paidPatients,fmtCount,true,'paidPatients',true);addMetric(tbody,'Первичные приёмы','row-general',pds,a=>a.primary,fmtCount,false,'primary');addMetric(tbody,'Повторные приёмы','row-general',pds,a=>a.repeat,fmtCount,false,'repeat');addMetric(tbody,'Средний чек медицины на оплатившего пациента','row-general',pds,(a,rows,pd)=>pd.economics.avgCheck,fmtMoney,true,'avgCheck',true);
-    addGroup(tbody,'Стоматология','group-dent',cols);addSub(tbody,'Приёмы','sub-visits-dent',cols);addMetric(tbody,'Первичные','row-visits-dent',pds,a=>a.dentPrimary,fmtCount,false,'dentPrimary');addMetric(tbody,'Повторные','row-visits-dent',pds,a=>a.dentRepeat,fmtCount,false,'dentRepeat');addSub(tbody,'Выручка и экономика','sub-money-dent',cols);addMetric(tbody,'Оплатившие пациенты','row-money-dent',pds,(a,rows,pd)=>pd.economics.paidDentPatients,fmtCount,false,'paidDentPatients',true);addMetric(tbody,'Выручка стоматологии','row-money-dent',pds,(a,rows,pd)=>doctorPartsDirectionPaid(pd.paidParts,'dentists'),fmtMoney,true,'dentRev',true);addMetric(tbody,'Средний чек стоматологии на оплатившего пациента','row-money-dent',pds,(a,rows,pd)=>pd.economics.dentAvg,fmtMoney,false,'dentAvg',true);addSub(tbody,'Выручка по врачам','sub-team-dent',cols);dentists.forEach(name=>addMetric(tbody,name,'row-team-dent',pds,(a,rows,pd)=>doctorPartsPaid(pd.paidParts,'dentists',name),fmtMoney,false,'dentist',true));
-    addGroup(tbody,'Клиника','group-clinic',cols);addSub(tbody,'Приёмы','sub-visits-clinic',cols);addMetric(tbody,'Первичные','row-visits-clinic',pds,a=>a.clinicPrimary,fmtCount,false,'clinicPrimary');addMetric(tbody,'Повторные','row-visits-clinic',pds,a=>a.clinicRepeat,fmtCount,false,'clinicRepeat');addSub(tbody,'Выручка и экономика','sub-money-clinic',cols);addMetric(tbody,'Оплатившие пациенты','row-money-clinic',pds,(a,rows,pd)=>pd.economics.paidClinicPatients,fmtCount,false,'paidClinicPatients',true);addMetric(tbody,'Выручка клиники','row-money-clinic',pds,(a,rows,pd)=>doctorPartsDirectionPaid(pd.paidParts,'clinicDocs'),fmtMoney,true,'clinicRev',true);addMetric(tbody,'Средний чек клиники на оплатившего пациента','row-money-clinic',pds,(a,rows,pd)=>pd.economics.clinicAvg,fmtMoney,false,'clinicAvg',true);addSub(tbody,'Выручка по специалистам','sub-team-clinic',cols);clinicDocs.forEach(name=>addMetric(tbody,name,'row-team-clinic',pds,(a,rows,pd)=>doctorPartsPaid(pd.paidParts,'clinicDocs',name),fmtMoney,false,'clinicDoctor',true));
+    addGroup(tbody,'Стоматология','group-dent',cols);addSub(tbody,'Приёмы','sub-visits-dent',cols);addMetric(tbody,'Первичные','row-visits-dent',pds,a=>a.dentPrimary,fmtCount,false,'dentPrimary');addMetric(tbody,'Повторные','row-visits-dent',pds,a=>a.dentRepeat,fmtCount,false,'dentRepeat');addSub(tbody,'Выручка и экономика','sub-money-dent',cols);addMetric(tbody,'Оплатившие пациенты','row-money-dent',pds,(a,rows,pd)=>pd.economics.paidDentPatients,fmtCount,false,'paidDentPatients',true);addMetric(tbody,'Выручка стоматологии','row-money-dent',pds,a=>a?.dentRev??null,fmtMoney,true,'dentRev',true);addMetric(tbody,'Средний чек стоматологии на оплатившего пациента','row-money-dent',pds,(a,rows,pd)=>pd.economics.dentAvg,fmtMoney,false,'dentAvg',true);addSub(tbody,'Выручка по врачам','sub-team-dent',cols);dentists.forEach(name=>addMetric(tbody,name,'row-team-dent',pds,(a,rows)=>periodCashDoctor(rows,'dentists',name),fmtMoney,false,'dentist',true));
+    addGroup(tbody,'Клиника','group-clinic',cols);addSub(tbody,'Приёмы','sub-visits-clinic',cols);addMetric(tbody,'Первичные','row-visits-clinic',pds,a=>a.clinicPrimary,fmtCount,false,'clinicPrimary');addMetric(tbody,'Повторные','row-visits-clinic',pds,a=>a.clinicRepeat,fmtCount,false,'clinicRepeat');addSub(tbody,'Выручка и экономика','sub-money-clinic',cols);addMetric(tbody,'Оплатившие пациенты','row-money-clinic',pds,(a,rows,pd)=>pd.economics.paidClinicPatients,fmtCount,false,'paidClinicPatients',true);addMetric(tbody,'Выручка клиники','row-money-clinic',pds,a=>a?.clinicRev??null,fmtMoney,true,'clinicRev',true);addMetric(tbody,'Средний чек клиники на оплатившего пациента','row-money-clinic',pds,(a,rows,pd)=>pd.economics.clinicAvg,fmtMoney,false,'clinicAvg',true);addSub(tbody,'Выручка по специалистам','sub-team-clinic',cols);clinicDocs.forEach(name=>addMetric(tbody,name,'row-team-clinic',pds,(a,rows)=>periodCashDoctor(rows,'clinicDocs',name),fmtMoney,false,'clinicDoctor',true));
     addGroup(tbody,'Лаборатория','group-lab',cols);addSub(tbody,'Объём','sub-lab-volume',cols);addMetric(tbody,'Количество заказов','row-lab-volume',pds,a=>a.labOrders,fmtCount,false,'labOrders');addSub(tbody,'Выручка и экономика','sub-lab-money',cols);addMetric(tbody,'Выручка лаборатории','row-lab-money',pds,a=>a.labRevenue,fmtMoney,true,'labRevenue');addMetric(tbody,'Средний чек лаборатории','row-lab-money',pds,a=>a.labAvg,fmtMoney,false,'labAvg');
     addGroup(tbody,'Маркетинг','group-marketing',cols);addSub(tbody,'Лиды','sub-marketing-input',cols);addMetric(tbody,'Целевые лиды — стоматология','row-marketing-input',pds,a=>a.leadsDent,fmtCount,false,'leadsDent');addMetric(tbody,'Отказ / мониторинг — стоматология','row-marketing-input',pds,a=>a.leadsDentLost,fmtCount,false,'leadsDentLost');addMetric(tbody,'Целевые лиды — клиника','row-marketing-input',pds,a=>a.leadsClinic,fmtCount,false,'leadsClinic');addMetric(tbody,'Резерв','row-marketing-input',pds,a=>a.leadsReserve,fmtCount,false,'leadsReserve');addMetric(tbody,'Всего лидов','row-marketing-input',pds,a=>a.totalLeads,fmtCount,true,'totalLeads');addSub(tbody,'Конверсия','sub-marketing-conv',cols);addMetric(tbody,'Конверсия стоматология','row-marketing-conv',pds,a=>a.convDent,fmtPct,false,'convDent');addMetric(tbody,'Конверсия клиника','row-marketing-conv',pds,a=>a.convClinic,fmtPct,false,'convClinic');addMetric(tbody,'Общая конверсия','row-marketing-conv',pds,a=>a.totalConv,fmtPct,true,'totalConv');
   };
