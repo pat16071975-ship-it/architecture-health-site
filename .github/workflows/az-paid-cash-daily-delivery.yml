@@ -1,0 +1,67 @@
+name: AZ paid cash daily delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/paid-cash-daily-production-20261029.sh'
+      - '.github/workflows/az-paid-cash-daily-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify delivery package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/paid-cash-daily-production-20261029.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/paid-cash-daily-production-20261029.sh').read_text()
+          assert "TARGET_COMMIT='9f6511864d0af476979916d4e1f886e43424e84b'" in script
+          assert "CONFIRM_TOKEN='PAID-CASH-DAILY-9F651186'" in script
+          assert 'PAID_CASH_DAILY_PRODUCTION_DEPLOY=PASS' in script
+          assert 'BUSINESS_DATA_BACKFILL=NOT_PERFORMED' in script
+          assert 'DB_EXACT_UNCHANGED_BEFORE_START=PASS' in script
+          assert 'DB_EXACT_UNCHANGED_POST_START=PASS' in script
+
+          paths=[
+            'az-baze-auth/cash_payments.py',
+            'az-baze-auth/cash_upload.py',
+            'az-baze-auth/upload_reconcile.py',
+            'az-baze-auth/report_storage.py',
+            'reports/index.html',
+            'reports/period-view.js',
+          ]
+          base=[
+            '416c219b7fd8bd14c2a28cb823e0ff68e2b4df91',
+            'f7b041ec8dd367fb26d1f06e0bb4b33615b34f72',
+            '5cad7baa20e2f8c77d7ab389d8137f7d5452db75',
+            '45da0bd7939240d5c2e109fea2ddde3519746b31',
+            '078c94300e0d8cc2f5aefca469bb573eb02b187c',
+            '7692475d3385d3828d589f3a489139e23d9c9056',
+          ]
+          target=[
+            '557fab9cf2bb8173d752cb1c226fde4a0fc2bdb9',
+            'ae6499ae68de25272758bcbb06b1a6bae90fd027',
+            'a0aa7ba33a6850cb8b4f06f19c50fdc200a890f1',
+            'a0db6ef5f1c69b19f56ae1ad525afb66aa2b3f6f',
+            '3e43b1124cc7f526ece4a5bc6ceaef8ad19f06b7',
+            '153b1bba79fe506494ae941dc09254a8cc698988',
+          ]
+          for path,b,t in zip(paths,base,target):
+            old=subprocess.check_output(['git','show','23ff7ab9c4ad539e262ab38b2a293b08bb8c2ee8:'+path])
+            old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+            new=subprocess.check_output(['git','show','9f6511864d0af476979916d4e1f886e43424e84b:'+path])
+            new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+            assert old_blob==b,(path,old_blob,b)
+            assert new_blob==t,(path,new_blob,t)
+          print('PAID_CASH_DAILY_DELIVERY_CONTRACT=PASS')
+          PY
