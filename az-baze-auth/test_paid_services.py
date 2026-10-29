@@ -577,11 +577,11 @@ process.stdout.write('DOCTOR_ONLY_UI=PASS');
             ("const clinicRev=Object.values(r.clinicDocs||{}).reduce", html),
             ("addMetric(tbody,'Выручка стоматологии'", view),
             ("addMetric(tbody,'Выручка клиники'", view),
-            ("doctorPartsPaid(pd.paidParts,'dentists',name)", view),
-            ("doctorPartsPaid(pd.paidParts,'clinicDocs',name)", view),
+            ("periodCashDoctor(rows,'dentists',name)", view),
+            ("periodCashDoctor(rows,'clinicDocs',name)", view),
             ("doctorPaidSnapshots=_management_doctor_paid_snapshots(db())", storage),
             ("function collectRecord(){", html),
-            ("window.azDoctorHasPaidForDate(date)", html),
+            ("r?._cash_rule==='positive-receipts-only-v1'", html),
         ):
             self.assertTrue(fragment in source, "Missing report contract: " + fragment)
 
