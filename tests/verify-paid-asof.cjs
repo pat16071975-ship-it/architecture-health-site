@@ -12,7 +12,7 @@ test('earlier exact endpoint survives a later upload and needs no raw row',()=>{
  h.ctx.PAID_PATIENTS_BY_DATE={'2026-01-20':{from:'2026-01-01',to:'2026-01-20',asOf:'2026-01-20',medicine:6,dent:2,structure:5}};
  h.ctx.DOCTOR_PAID_PERIODS.push({from:'2026-01-01',to:'2026-01-20',dentists:{D:40},clinicDocs:{C:50}});
  h.node('reportDate').value='2026-01-20';h.render();h.fill('2026-01-20');
- assert.equal(h.value('paidPatients'),h.money(6));assert.equal(h.value('dentAvg'),h.money(20));
+ assert.equal(h.value('paidPatients'),h.money(6));assert.equal(h.value('dentAvg'),h.money(null));
  assert.equal(h.cell('Оплатившие пациенты',0),countString(6));
 });
 test('misdated exact endpoint is not trusted',()=>{
@@ -30,17 +30,17 @@ test('year with October cash28 and payer27 uses matched available monthly source
  h.node('mode').value='year';h.node('year').value='2026';h.run('window.renderPeriod()');
  assert.equal(periodCell(h,'Оплатившие пациенты'),countString(100));
  assert.equal(periodCell(h,'Средний чек медицины на оплатившего пациента'),h.money(100));
- assert.equal(periodCell(h,'Выручка стоматологии'),h.money(1000));
- assert.equal(periodCell(h,'Средний чек стоматологии на оплатившего пациента'),h.money(25));
- assert.equal(periodCell(h,'Средний чек клиники на оплатившего пациента'),h.money(25));
+ assert.equal(periodCell(h,'Выручка стоматологии'),h.money(9000));
+ assert.equal(periodCell(h,'Средний чек стоматологии на оплатившего пациента'),h.money(225));
+ assert.equal(periodCell(h,'Средний чек клиники на оплатившего пациента'),h.money(100));
 });
 test('quarter and half remain weighted, not averages of monthly averages',()=>{
  const h=harness();h.add(1,31,{patients:10,dent:2,clinic:5,dentMoney:100,clinicMoney:50});h.add(2,28,{patients:30,dent:8,clinic:15,dentMoney:900,clinicMoney:150});
  for(const mode of ['quarter','half']){
   h.node('mode').value=mode;h.node('year').value='2026';h.run('window.renderPeriod()');
   assert.equal(periodCell(h,'Оплатившие пациенты'),countString(40));
-  assert.equal(periodCell(h,'Средний чек стоматологии на оплатившего пациента'),h.money(100));
-  assert.equal(periodCell(h,'Средний чек клиники на оплатившего пациента'),h.money(10));
+  assert.equal(periodCell(h,'Средний чек стоматологии на оплатившего пациента'),h.money(180));
+  assert.equal(periodCell(h,'Средний чек клиники на оплатившего пациента'),h.money(80));
  }
 });
 test('unknown monthly patient evidence is not zero in a year total',()=>{
@@ -54,12 +54,12 @@ test('source-only month is counted but no missing medical numerator is invented'
  h.node('mode').value='year';h.node('year').value='2026';h.run('window.renderPeriod()');
  assert.equal(periodCell(h,'Оплатившие пациенты'),countString(20));
  assert.equal(periodCell(h,'Средний чек медицины на оплатившего пациента'),empty);
- assert.equal(periodCell(h,'Средний чек стоматологии на оплатившего пациента'),h.money(25));
+ assert.equal(periodCell(h,'Средний чек стоматологии на оплатившего пациента'),empty);
 });
-test('legacy fallback money from another period cannot create a year average',()=>{
+test('period average uses stored cash even when MIS money fallback is absent',()=>{
  const h=harness();h.add(1,31);h.ctx.DOCTOR_PAID_PERIODS.length=0;
  h.node('mode').value='year';h.node('year').value='2026';h.run('window.renderPeriod()');
- assert.equal(periodCell(h,'Средний чек стоматологии на оплатившего пациента'),empty);
+ assert.equal(periodCell(h,'Средний чек стоматологии на оплатившего пациента'),h.money(225));
 });
 
 test('arbitrary exact days 9 15 and 17 render in both approved views',()=>{
@@ -73,6 +73,9 @@ test('arbitrary exact days 9 15 and 17 render in both approved views',()=>{
  for(const [date,medicine,dent,structure,dentMoney,clinicMoney] of cases){
    h.ctx.PAID_PATIENTS_BY_DATE[date]={from:'2026-01-01',to:date,asOf:date,medicine,dent,structure};
    h.ctx.DOCTOR_PAID_PERIODS.push({from:'2026-01-01',to:date,dentists:{D:dentMoney},clinicDocs:{C:clinicMoney}});
+   h.store[date]={date,_cash_rule:'positive-receipts-only-v1',factMedicine:medicine*100,
+     factLab:0,cashTotal:medicine*100,cashOOO:medicine*100,cashIP:0,
+     primary:0,repeat:0,labOrders:0,labRevenue:0,dentists:{D:dentMoney},clinicDocs:{C:clinicMoney}};
    h.node('reportDate').value=date;
    h.node('dateViewMode').value='single';h.fill(date);
    assert.equal(h.value('paidPatients'),h.money(medicine),date+' single patients');
