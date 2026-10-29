@@ -234,8 +234,9 @@ def _parse_rows(rows):
         patient_token = ""
         if patient_index is not None and patient_index < len(cols):
             patient_token = _patient_token(cols[patient_index])
-        if patient_token and patient_token not in day["payerTokens"]:
-            day["payerTokens"].append(patient_token)
+        if patient_token:
+            if patient_token not in day["payerTokens"]:
+                day["payerTokens"].append(patient_token)
         else:
             payer_incomplete_dates.add(data_date)
 
@@ -275,7 +276,7 @@ def _parse_rows(rows):
 
     normalized = {}
     dates = sorted(result)
-    coverage_from = dates[0][:7] + "-01" if dates else ""
+    coverage_from = dates[0] if dates else ""
     coverage_to = dates[-1] if dates else ""
     for data_date, day in result.items():
         allocated = float(day["factMedicine"]) + float(day["factLab"])
@@ -285,6 +286,28 @@ def _parse_rows(rows):
         day["payerEvidenceCoverageTo"] = coverage_to
         normalized[data_date] = _round_payload(day)
     return dict(sorted(normalized.items()))
+
+
+def _apply_payer_source_coverage(daily, filename):
+    """Expand payer evidence to Jan 1 only for a provable YTD/whole-year source."""
+    if not daily:
+        return daily
+    dates = sorted(daily)
+    first, last = dates[0], dates[-1]
+    lower = str(filename or "").lower().replace("ё", "е")
+    year = first[:4]
+    ytd_named = any(marker in lower for marker in ("весь год", "с начала года", "ytd"))
+    broad_from_january = (
+        first.startswith(year + "-01-")
+        and int(first[-2:]) <= 7
+        and last[:7] > year + "-01"
+    )
+    coverage_from = year + "-01-01" if ytd_named or broad_from_january else first
+    for payload in daily.values():
+        if payload.get("payerEvidenceVersion") == 1:
+            payload["payerEvidenceCoverageFrom"] = coverage_from
+            payload["payerEvidenceCoverageTo"] = last
+    return daily
 
 
 def parse_file(raw, filename=""):
@@ -303,7 +326,7 @@ def parse_file(raw, filename=""):
             for worksheet in workbook.worksheets:
                 try:
                     parsed = _parse_rows(worksheet.iter_rows(values_only=True))
-                    return parsed, worksheet.title
+                    return _apply_payer_source_coverage(parsed, filename), worksheet.title
                 except ValueError as exc:
                     last_error = exc
         finally:
@@ -314,7 +337,7 @@ def parse_file(raw, filename=""):
 
     text = raw.decode("utf-8-sig")
     rows = [line.split("\t") for line in text.splitlines()]
-    return _parse_rows(rows), "текст"
+    return _apply_payer_source_coverage(_parse_rows(rows), filename), "текст"
 
 
 def _round_payload(value):
