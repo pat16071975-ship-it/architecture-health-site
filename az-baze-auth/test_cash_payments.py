@@ -349,7 +349,7 @@ class CashPaymentsTests(unittest.TestCase):
         daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
         day = daily["2026-01-15"]
         self.assertTrue(day["payerEvidenceComplete"])
-        self.assertEqual(day["payerEvidenceCoverageFrom"], "2026-01-01")
+        self.assertEqual(day["payerEvidenceCoverageFrom"], "2026-01-15")
         self.assertEqual(day["payerEvidenceCoverageTo"], "2026-01-15")
         self.assertEqual(len(day["payerTokens"]), 2)
         self.assertEqual(len(day["payerDirectionTokens"]["dent"]), 1)
@@ -402,6 +402,42 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(result["evidence_only"], [])
         self.assertEqual(result["conflict"], ["2026-01-15"])
         conn.close()
+
+    def test_repeated_positive_receipts_same_patient_keep_day_complete(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 3000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+            ["15 янв 2026\n11:00", "Иванов Иван Иванович", "№101 Чирков М. С.",
+             4000, 2000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        day = daily["2026-01-15"]
+        self.assertTrue(day["payerEvidenceComplete"])
+        self.assertEqual(len(day["payerTokens"]), 1)
+        self.assertEqual(len(day["payerDirectionTokens"]["dent"]), 1)
+
+    def test_whole_year_source_proves_january_first_coverage(self):
+        raw = self.workbook_bytes([
+            ["05 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 5000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+            ["15 фев 2026\n10:00", "Петров Петр Петрович", "№200 Чирков М. С.",
+             3000, 3000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "Счета и оплаты (2026.10.29)(весь год).xlsx")
+        self.assertEqual(daily["2026-01-05"]["payerEvidenceCoverageFrom"], "2026-01-01")
+        self.assertEqual(daily["2026-01-05"]["payerEvidenceCoverageTo"], "2026-02-15")
+        self.assertEqual(daily["2026-02-15"]["payerEvidenceCoverageFrom"], "2026-01-01")
+
+    def test_partial_source_never_backfills_days_before_first_operation(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 5000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+            ["16 янв 2026\n10:00", "Петров Петр Петрович", "№200 Чирков М. С.",
+             3000, 3000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash-partial.xlsx")
+        self.assertEqual(daily["2026-01-15"]["payerEvidenceCoverageFrom"], "2026-01-15")
+        self.assertEqual(daily["2026-01-15"]["payerEvidenceCoverageTo"], "2026-01-16")
 
 if __name__ == "__main__":
     unittest.main()
