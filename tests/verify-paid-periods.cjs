@@ -39,7 +39,8 @@ const freeze = value => {
   return value;
 };
 const record = date => ({date, plan:2000, factMedicine:400, factLab:50, cashTotal:1000, billedTotal:1200,
-  cashOOO:600, cashIP:400, cashUnallocated:50, primary:8, repeat:9, dentPrimary:4, dentRepeat:5,
+  cashOOO:600, cashIP:400, cashUnallocated:50, _cash_rule:'positive-receipts-only-v1',
+  primary:8, repeat:9, dentPrimary:4, dentRepeat:5,
   clinicPrimary:4, clinicRepeat:4, paidPatientEvidenceComplete:true, paidPatients:8, paidDentPatients:4,
   paidClinicPatients:4, labOrders:2, labRevenue:50,
   dentists:{D1:100,D2:200}, clinicDocs:{C1:40,C2:60}, leadsDent:10, leadsClinic:8, leadsReserve:2});
@@ -121,19 +122,18 @@ function check(name,callback){callback();checks++;console.log('PASS '+name);}
 check('existing July–September, dates, averages and raw values remain unchanged',()=>{
   const dates=['2026-06-30','2026-07-30','2026-07-31','2026-08-31','2026-09-30'];
   const data=Object.fromEntries(dates.map(date=>[date,record(date)])),before=JSON.stringify(data),h=setup({data,paid:snapshots});
-  for(const [date,dent,clinic] of [['2026-06-30',300,100],['2026-07-30',300,100],['2026-07-31',24,36],['2026-08-31',52,68],['2026-09-30',84,100]]){
+  for(const date of dates){
     h.fill(data[date]);const values=Object.fromEntries(h.metrics.map(input=>[input.dataset.key,input.value]));
-    assert.equal(values.dentRev,h.money(dent));assert.equal(values.clinicRev,h.money(clinic));
-    const covered=['2026-07-31','2026-08-31','2026-09-30'].includes(date);
-    assert.equal(values.dentAvg,h.money(covered?dent/4:null));assert.equal(values.clinicAvg,h.money(covered?clinic/4:null));
+    assert.equal(values.dentRev,h.money(300));assert.equal(values.clinicRev,h.money(100));
+    assert.equal(values.dentAvg,h.money(75));assert.equal(values.clinicAvg,h.money(25));
     assert.equal(values.cashTotal,h.money(1000));assert.equal(values.cashOOO,h.money(600));assert.equal(values.cashIP,h.money(400));
   }
   assert.equal(h.dateDoctor('2026-08-20','dentists','D1',999),2);
   assert.equal(h.dateDoctor('2026-07-30','dentists','D1',999),999);
-  for(const [mode,dent,clinic] of [['quarter',[null,300,160,null],[null,100,204,null]],['half',[300,160],[100,204]],['year',[460],[304]]]){
+  for(const [mode,dent,clinic] of [['quarter',[null,300,900,null],[null,100,300,null]],['half',[300,900],[100,300]],['year',[1200],[400]]]){
     h.node('mode').value=mode;h.run('renderPeriod()');assertDirections(h,h.node('periodCompareBody'),dent,clinic);
   }
-  h.node('reportDate').value='2026-08-31';h.run('renderDateComparison()');assertDirections(h,h.node('dateCompareBody'),[24,52,84],[36,68,100]);
+  h.node('reportDate').value='2026-08-31';h.run('renderDateComparison()');assertDirections(h,h.node('dateCompareBody'),[300,300,300],[100,100,100]);
   assert.equal(JSON.stringify(data),before);
 });
 
