@@ -1,0 +1,42 @@
+name: AZ paid patient history
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/**'
+      - 'reports/index.html'
+      - 'reports/period-view.js'
+      - 'tests/verify-paid-history.cjs'
+      - 'tools/paid-history-confirmation-plan.py'
+      - '.github/workflows/az-paid-history.yml'
+permissions:
+  contents: read
+jobs:
+  history:
+    runs-on: ubuntu-latest
+    env:
+      AZBAZE_SECRET_KEY: synthetic-history-test
+      AZBAZE_DB: /tmp/az-paid-history-ci.db
+      AZBAZE_SITE_ROOT: /tmp/az-paid-history-site
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r az-baze-auth/requirements.txt
+      - name: Real SQLite to reporting API
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_paid_period_confirmation.py test_paid_history_reporting.py test_paid_period_report.py test_paid_services.py test_paid_services_storage.py test_paid_services_periods.py
+      - name: Actual JavaScript report selectors and renderer
+        run: |
+          node --check reports/period-view.js
+          node tests/verify-paid-history.cjs
+          node tests/verify-paid-periods.cjs
+          node tests/verify-paid-upload-periods.cjs
+      - name: No loader or financial source changes
+        run: |
+          git diff --exit-code ${{ github.event.pull_request.base.sha }} -- az-baze-auth/paid_services.py az-baze-auth/paid_services_upload.py az-baze-auth/ident_import.py az-baze-auth/cash_payments.py az-baze-auth/cash_upload.py az-baze-auth/upload_integrity.py az-baze-auth/templates/uploads.html reports/dashboard.html reports/services-primary-patient-cost.js
