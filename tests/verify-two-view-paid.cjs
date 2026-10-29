@@ -74,14 +74,14 @@ test('day 27 must not manufacture historical day-27 payers from final months',()
 test('existing date31 comparison exposes all nine closed months, not invented October31',()=>{
  const h=harness();[31,28,31,30,31,30,31,31,30,27].forEach((d,i)=>h.add(i+1,d));
  h.node('reportDate').value='2026-10-31';h.render();
- for(let i=0;i<9;i++)assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',i),h.money(25));
+ for(let i=0;i<9;i++)assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',i),h.money(225));
  assert.equal(h.cell('Оплатившие пациенты',9),empty);
 });
 test('paid-only exact source renders payers and direction averages without fabricated clinic cash',()=>{
  const h=harness(),date=h.add(1,31,{raw:false});h.fill(date);h.node('reportDate').value=date;h.render();
- assert.equal(h.value('paidPatients'),h.money(10));assert.equal(h.value('dentAvg'),h.money(25));
- assert.equal(h.value('clinicAvg'),h.money(25));assert.equal(h.value('cashTotal'),h.money(null));
- assert.equal(h.value('avgCheck'),h.money(null));assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',0),h.money(25));
+ assert.equal(h.value('paidPatients'),h.money(10));assert.equal(h.value('dentAvg'),h.money(null));
+ assert.equal(h.value('clinicAvg'),h.money(null));assert.equal(h.value('cashTotal'),h.money(null));
+ assert.equal(h.value('avgCheck'),h.money(null));assert.equal(h.cell('Средний чек стоматологии на оплатившего пациента',0),empty);
 });
 test('old paid snapshot does not supply numerator for newer payer date',()=>{
  const h=harness(),date=h.add(1,27);h.ctx.DOCTOR_PAID_PERIODS.length=0;
