@@ -297,12 +297,7 @@ def _apply_payer_source_coverage(daily, filename):
     lower = str(filename or "").lower().replace("ё", "е")
     year = first[:4]
     ytd_named = any(marker in lower for marker in ("весь год", "с начала года", "ytd"))
-    broad_from_january = (
-        first.startswith(year + "-01-")
-        and int(first[-2:]) <= 7
-        and last[:7] > year + "-01"
-    )
-    coverage_from = year + "-01-01" if ytd_named or broad_from_january else first
+    coverage_from = year + "-01-01" if ytd_named else first
     for payload in daily.values():
         if payload.get("payerEvidenceVersion") == 1:
             payload["payerEvidenceCoverageFrom"] = coverage_from
