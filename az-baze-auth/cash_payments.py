@@ -153,9 +153,9 @@ def _blank_day():
         "payerEvidenceComplete": False,
         "payerEvidenceCoverageFrom": "",
         "payerEvidenceCoverageTo": "",
-        "payerTokens": set(),
+        "payerTokens": [],
         "payerDirectionTokens": {
-            "dent": set(), "structure": set(), "lab": set(), "unallocated": set(),
+            "dent": [], "structure": [], "lab": [], "unallocated": [],
         },
     }
 
@@ -234,8 +234,8 @@ def _parse_rows(rows):
         patient_token = ""
         if patient_index is not None and patient_index < len(cols):
             patient_token = _patient_token(cols[patient_index])
-        if patient_token:
-            day["payerTokens"].add(patient_token)
+        if patient_token and patient_token not in day["payerTokens"]:
+            day["payerTokens"].append(patient_token)
         else:
             payer_incomplete_dates.add(data_date)
 
@@ -249,7 +249,9 @@ def _parse_rows(rows):
         # «Внесение ДС» and other rows without a provider remain unallocated.
         direction, provider = _find_provider(operation)
         if patient_token:
-            day["payerDirectionTokens"][direction if direction in {"dent", "structure", "lab"} else "unallocated"].add(patient_token)
+            bucket = direction if direction in {"dent", "structure", "lab"} else "unallocated"
+            if patient_token not in day["payerDirectionTokens"][bucket]:
+                day["payerDirectionTokens"][bucket].append(patient_token)
         if direction == "dent":
             day["dentists"][provider] = float(day["dentists"].get(provider) or 0) + movement
             _add_legal(day["dentistsLegal"], provider, legal, movement)
