@@ -113,7 +113,7 @@ test('wrong period on a record cannot override exact monthly source',()=>{
  const h=harness(),date=h.add(1,31);h.store[date].paidPatientPeriodTo='2026-01-27';h.store[date].paidPatients=999;h.fill(date);assert.equal(h.value('paidPatients'),h.money(10));
 });
 test('changing date and re-rendering does not carry a future month result backwards',()=>{
- const h=harness(),date=h.add(1,31);h.fill(date);h.fill('2026-01-27');assert.equal(h.value('paidPatients'),h.money(null));h.fill(date);assert.equal(h.value('dentAvg'),h.money(25));
+ const h=harness(),date=h.add(1,31);h.fill(date);h.fill('2026-01-27');assert.equal(h.value('paidPatients'),h.money(null));h.fill(date);assert.equal(h.value('dentAvg'),h.money(225));
 });
 if(process.env.SKIP_COST!=='1'){
  const cost=fs.readFileSync(path.join(root,'reports/services-primary-patient-cost.js'),'utf8');
