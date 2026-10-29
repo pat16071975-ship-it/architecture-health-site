@@ -31,6 +31,12 @@ REQUIRED_HEADERS = {
     "movement": "Движение ДС (₽)",
     "kkm": "ККМ",
 }
+PATIENT_HEADERS = ("Пациент/Компания", "Пациент / Компания")
+PAYER_EVIDENCE_KEYS = {
+    "payerEvidenceVersion", "payerEvidenceComplete",
+    "payerEvidenceCoverageFrom", "payerEvidenceCoverageTo",
+    "payerTokens", "payerDirectionTokens",
+}
 INVOICE_OPERATION_RE = re.compile(r"^№\d+")
 DEBT_OPERATION_RE = re.compile(r"^Задолженность по счету №\d+", re.IGNORECASE)
 
@@ -75,6 +81,21 @@ def next_required_date(conn):
 
 def sha256(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+def _person_key(value):
+    text = str(value or "").lower().replace("ё", "е")
+    parts = re.findall(r"[a-zа-я]+", text)
+    if not parts:
+        return ""
+    surname = parts[0]
+    initials = "".join(part[0] for part in parts[1:3])
+    return surname + "_" + initials
+
+
+def _patient_token(value):
+    key = _person_key(value)
+    return hashlib.sha256(key.encode("utf-8")).hexdigest() if key else ""
 
 
 def _money(value):
@@ -128,6 +149,14 @@ def _blank_day():
         "clinicCashIP": 0.0,
         "labCashOOO": 0.0,
         "labCashIP": 0.0,
+        "payerEvidenceVersion": 1,
+        "payerEvidenceComplete": False,
+        "payerEvidenceCoverageFrom": "",
+        "payerEvidenceCoverageTo": "",
+        "payerTokens": set(),
+        "payerDirectionTokens": {
+            "dent": set(), "structure": set(), "lab": set(), "unallocated": set(),
+        },
     }
 
 
@@ -168,8 +197,10 @@ def _parse_rows(rows):
             index[key] = headers.index(label)
         except ValueError as exc:
             raise ValueError(f"В файле «Счета и оплаты» нет обязательной колонки «{label}».") from exc
+    patient_index = next((headers.index(label) for label in PATIENT_HEADERS if label in headers), None)
 
     result = defaultdict(_blank_day)
+    payer_incomplete_dates = set()
     recognized = 0
     for source_row in rows[1:]:
         cols = list(source_row)
@@ -199,6 +230,15 @@ def _parse_rows(rows):
         legal = LEGAL_BY_KKM.get(kkm)
         if legal is None or movement is None or movement <= 0:
             continue
+
+        patient_token = ""
+        if patient_index is not None and patient_index < len(cols):
+            patient_token = _patient_token(cols[patient_index])
+        if patient_token:
+            day["payerTokens"].add(patient_token)
+        else:
+            payer_incomplete_dates.add(data_date)
+
         if legal == "ooo":
             day["cashOOO"] += movement
         else:
@@ -208,6 +248,8 @@ def _parse_rows(rows):
         # Attribute whenever the operation text explicitly contains a known provider.
         # «Внесение ДС» and other rows without a provider remain unallocated.
         direction, provider = _find_provider(operation)
+        if patient_token:
+            day["payerDirectionTokens"][direction if direction in {"dent", "structure", "lab"} else "unallocated"].add(patient_token)
         if direction == "dent":
             day["dentists"][provider] = float(day["dentists"].get(provider) or 0) + movement
             _add_legal(day["dentistsLegal"], provider, legal, movement)
@@ -230,9 +272,15 @@ def _parse_rows(rows):
         raise ValueError("Файл «Счета и оплаты» не содержит распознаваемых операций.")
 
     normalized = {}
+    dates = sorted(result)
+    coverage_from = dates[0][:7] + "-01" if dates else ""
+    coverage_to = dates[-1] if dates else ""
     for data_date, day in result.items():
         allocated = float(day["factMedicine"]) + float(day["factLab"])
         day["cashUnallocated"] = max(0.0, float(day["cashTotal"]) - allocated)
+        day["payerEvidenceComplete"] = patient_index is not None and data_date not in payer_incomplete_dates
+        day["payerEvidenceCoverageFrom"] = coverage_from
+        day["payerEvidenceCoverageTo"] = coverage_to
         normalized[data_date] = _round_payload(day)
     return dict(sorted(normalized.items()))
 
@@ -270,9 +318,38 @@ def parse_file(raw, filename=""):
 def _round_payload(value):
     if isinstance(value, dict):
         return {str(k): _round_payload(v) for k, v in value.items()}
+    if isinstance(value, set):
+        return sorted(_round_payload(v) for v in value)
+    if isinstance(value, list):
+        return [_round_payload(v) for v in value]
     if isinstance(value, float):
         return round(value, 2)
     return value
+
+
+def financial_payload(payload):
+    """Cash payload without privacy-safe payer evidence; used for safe backfill comparison."""
+    return {
+        key: value
+        for key, value in dict(payload or {}).items()
+        if key not in PAYER_EVIDENCE_KEYS
+    }
+
+
+def payer_evidence(payload):
+    value = dict(payload or {})
+    directions = value.get("payerDirectionTokens") or {}
+    if value.get("payerEvidenceVersion") != 1 or value.get("payerEvidenceComplete") is not True:
+        return None
+    return {
+        "coverageFrom": str(value.get("payerEvidenceCoverageFrom") or ""),
+        "coverageTo": str(value.get("payerEvidenceCoverageTo") or ""),
+        "all": set(str(x) for x in (value.get("payerTokens") or []) if str(x)),
+        "dent": set(str(x) for x in (directions.get("dent") or []) if str(x)),
+        "structure": set(str(x) for x in (directions.get("structure") or []) if str(x)),
+        "lab": set(str(x) for x in (directions.get("lab") or []) if str(x)),
+        "unallocated": set(str(x) for x in (directions.get("unallocated") or []) if str(x)),
+    }
 
 
 def replace_range(conn, daily, source_filename, source_sha256, imported_by, imported_at):
