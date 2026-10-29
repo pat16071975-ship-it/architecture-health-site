@@ -7,6 +7,7 @@ from pathlib import Path
 from openpyxl import Workbook
 
 import cash_payments
+import cash_upload
 import upload_reconcile
 
 cash_payments.configure_providers(
@@ -438,6 +439,54 @@ class CashPaymentsTests(unittest.TestCase):
         daily, _ = cash_payments.parse_file(raw, "cash-partial.xlsx")
         self.assertEqual(daily["2026-01-15"]["payerEvidenceCoverageFrom"], "2026-01-15")
         self.assertEqual(daily["2026-01-15"]["payerEvidenceCoverageTo"], "2026-01-16")
+
+    def test_guarded_backfill_changes_only_payer_evidence_and_archives_old_row(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 5000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        incoming = daily["2026-01-15"]
+        old = cash_payments.financial_payload(incoming)
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cash_payments.init_schema(conn)
+        upload_reconcile.init_schema(conn)
+        conn.execute(
+            """INSERT INTO cash_receipts_daily(
+               data_date,payload_json,source_filename,source_sha256,imported_by,imported_at
+               ) VALUES(?,?,?,?,?,?)""",
+            ("2026-01-15", json.dumps(old, ensure_ascii=False), "old.xlsx", "oldsha", 1, "old"),
+        )
+        before = cash_payments.financial_payload(json.loads(
+            conn.execute("SELECT payload_json FROM cash_receipts_daily").fetchone()[0]
+        ))
+
+        conn.execute("BEGIN")
+        enriched = cash_upload._backfill_payer_evidence(
+            conn, "2026-01-15", incoming, actor_id=7
+        )
+        conn.commit()
+
+        after_row = conn.execute(
+            "SELECT payload_json,source_filename,source_sha256 FROM cash_receipts_daily WHERE data_date=?",
+            ("2026-01-15",),
+        ).fetchone()
+        after = json.loads(after_row["payload_json"])
+        self.assertEqual(cash_payments.financial_payload(after), before)
+        self.assertEqual(cash_payments.financial_payload(enriched), before)
+        self.assertTrue(after["payerEvidenceComplete"])
+        self.assertEqual(after_row["source_filename"], "old.xlsx")
+        self.assertEqual(after_row["source_sha256"], "oldsha")
+        archived = conn.execute(
+            "SELECT decision,payload_json FROM cash_receipt_versions WHERE data_date=?",
+            ("2026-01-15",),
+        ).fetchall()
+        self.assertEqual(len(archived), 1)
+        self.assertEqual(archived[0]["decision"], "payer_evidence_backfill")
+        self.assertEqual(json.loads(archived[0]["payload_json"]), old)
+        conn.close()
 
 if __name__ == "__main__":
     unittest.main()
