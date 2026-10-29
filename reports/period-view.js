@@ -343,6 +343,12 @@
     return [{name:String(year)+' год',months:'январь — декабрь',sm:1,em:12}];
   }
   function periodData(def,year){const rows=latestMonthlyRecords(year,def.sm,def.em);return {def,rows,a:aggregate(rows),expected:def.em-def.sm+1}}
+  function doctorPeriodData(def,year){
+    const data=periodData(def,year),from=`${year}-${String(def.sm).padStart(2,'0')}-01`,to=paidMonthEnd(`${year}-${String(def.em).padStart(2,'0')}-01`);
+    const pd={...data,bounds:{from,to},paidParts:doctorPeriodParts(data.rows,{from,to})};
+    return {...pd,economics:paidEconomicsForPeriod(pd,year)};
+  }
+
   function periodCashDoctor(rows,key,name){
     if(!Array.isArray(rows)||!rows.length)return null;
     let total=0;
@@ -355,11 +361,6 @@
     return total;
   }
 
-  function doctorPeriodData(def,year){
-    const data=periodData(def,year),from=`${year}-${String(def.sm).padStart(2,'0')}-01`,to=paidMonthEnd(`${year}-${String(def.em).padStart(2,'0')}-01`);
-    const pd={...data,bounds:{from,to},paidParts:doctorPeriodParts(data.rows,{from,to})};
-    return {...pd,economics:paidEconomicsForPeriod(pd,year)};
-  }
   function addGroup(tbody,label,cls,colspan){const tr=document.createElement('tr');tr.className='group-row '+cls;tr.innerHTML=`<td colspan="${colspan}">${label}</td>`;tbody.appendChild(tr)}
   function addSub(tbody,label,cls,colspan){const tr=document.createElement('tr');tr.className='sub-row '+cls;tr.innerHTML=`<td colspan="${colspan}">${label}</td>`;tbody.appendChild(tr)}
   function addMetric(tbody,label,cls,pds,getter,formatter,important=false,key='',doctorMetric=false){
