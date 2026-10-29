@@ -22,7 +22,10 @@ from urllib.request import urlopen
 TARGET = 'aa4d10259faff4d61479f0cfcf932d5edcf67b7c'
 TARGET_STORAGE = '45da0bd7939240d5c2e109fea2ddde3519746b31'
 BASE_STORAGE = 'de8529f5830609d4aeb5bd5edf0791c9355ba296'
-CONFIG_SHA256 = '8fe1f6e18ffa04c081d67b5011fe1ec20fc12f0dec678a25b61bb7a634679b69'
+CONFIG_SHA256_BEFORE_JAN = '8fe1f6e18ffa04c081d67b5011fe1ec20fc12f0dec678a25b61bb7a634679b69'
+CONFIG_BACKUP_BEFORE_JAN = Path('/var/lib/az-baze/backups/paid-confirmation-before-jan-refresh-20261029T103943Z.json')
+JAN_OLD_IMPORTED_AT = '2026-10-28T15:28:19.184976+00:00'
+JAN_NEW_IMPORTED_AT = '2026-10-29T07:17:46.091831+00:00'
 DEPENDENCIES = {
     'ident_import.py': 'e9950b781b0f4ebdfe044860b948813938a8089d',
     'paid_services.py': '7731d49098494276e40442d06443a0729fc7fcf3',
@@ -159,8 +162,45 @@ def main():
     root = Path('/opt/az-baze-auth')
     db_path = Path('/var/lib/az-baze/auth.db')
     require(db_path.is_file() and not db_path.is_symlink(), 'DATABASE_PATH_MISMATCH')
-    raw_config = db_path.with_name('paid-period-confirmations-v1.json').read_bytes()
-    require(hashlib.sha256(raw_config).hexdigest() == CONFIG_SHA256, 'ACTIVE_CONFIG_CHANGED')
+    config_path = db_path.with_name('paid-period-confirmations-v1.json')
+    raw_config = config_path.read_bytes()
+    require(CONFIG_BACKUP_BEFORE_JAN.is_file() and not CONFIG_BACKUP_BEFORE_JAN.is_symlink(),
+            'JAN_CONFIG_BACKUP_MISSING')
+    backup_raw = CONFIG_BACKUP_BEFORE_JAN.read_bytes()
+    require(hashlib.sha256(backup_raw).hexdigest() == CONFIG_SHA256_BEFORE_JAN,
+            'JAN_CONFIG_BACKUP_CHANGED')
+    try:
+        active_config = json.loads(raw_config)
+        backup_config = json.loads(backup_raw)
+    except (TypeError, ValueError):
+        raise RuntimeError('CONFIG_JSON_INVALID')
+    require(isinstance(active_config, dict) and active_config.get('version') == 1
+            and isinstance(active_config.get('confirmations'), list),
+            'ACTIVE_CONFIG_CONTRACT_INVALID')
+    require(isinstance(backup_config, dict) and backup_config.get('version') == 1
+            and isinstance(backup_config.get('confirmations'), list),
+            'BACKUP_CONFIG_CONTRACT_INVALID')
+    active_jan = [x for x in active_config['confirmations']
+                  if isinstance(x, dict) and x.get('reportMonth') == '2026-01']
+    backup_jan = [x for x in backup_config['confirmations']
+                  if isinstance(x, dict) and x.get('reportMonth') == '2026-01']
+    require(len(active_jan) == len(backup_jan) == 1, 'JAN_CONFIRMATION_COUNT_CHANGED')
+    require((backup_jan[0].get('kind'), backup_jan[0].get('sourceFrom'),
+             backup_jan[0].get('sourceTo'), backup_jan[0].get('importedAt'))
+            == ('period', '2026-01-05', '2026-01-31', JAN_OLD_IMPORTED_AT),
+            'BACKUP_JAN_IDENTITY_UNEXPECTED')
+    require((active_jan[0].get('kind'), active_jan[0].get('sourceFrom'),
+             active_jan[0].get('sourceTo'), active_jan[0].get('importedAt'))
+            == ('period', '2026-01-05', '2026-01-31', JAN_NEW_IMPORTED_AT),
+            'ACTIVE_JAN_IDENTITY_UNEXPECTED')
+    other = lambda cfg: sorted(
+        (x for x in cfg['confirmations']
+         if isinstance(x, dict) and x.get('reportMonth') != '2026-01'),
+        key=lambda x: x.get('reportMonth', '')
+    )
+    require(other(active_config) == other(backup_config),
+            'NON_JANUARY_CONFIRMATIONS_CHANGED')
+    print('JAN_CONFIG_TRANSITION=PASS; OTHER_CONFIRMATIONS_UNCHANGED=PASS')
     live = (root / 'report_storage.py').read_bytes()
     require(git_blob(live) in (BASE_STORAGE, TARGET_STORAGE), 'LIVE_REPORT_STORAGE_CHANGED')
     raws = {name: (root / name).read_bytes() for name in DEPENDENCIES}
