@@ -459,6 +459,7 @@ class CashPaymentsTests(unittest.TestCase):
                ) VALUES(?,?,?,?,?,?)""",
             ("2026-01-15", json.dumps(old, ensure_ascii=False), "old.xlsx", "oldsha", 1, "old"),
         )
+        conn.commit()
         before = cash_payments.financial_payload(json.loads(
             conn.execute("SELECT payload_json FROM cash_receipts_daily").fetchone()[0]
         ))
