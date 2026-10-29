@@ -90,6 +90,37 @@ def _insert_cash_row(conn, data_date, payload, filename, source_sha, actor_id, n
     )
 
 
+def _backfill_payer_evidence(conn, data_date, incoming_payload, actor_id):
+    existing = conn.execute(
+        "SELECT * FROM cash_receipts_daily WHERE data_date=?",
+        (data_date,),
+    ).fetchone()
+    if not existing:
+        raise ValueError("Денежная запись исчезла во время payer-backfill. Повторите загрузку.")
+    try:
+        old_payload = json.loads(existing["payload_json"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Сохранённая денежная запись повреждена.") from exc
+    if (
+        upload_reconcile.canonical(cash_payments.financial_payload(old_payload))
+        != upload_reconcile.canonical(cash_payments.financial_payload(incoming_payload))
+    ):
+        raise ValueError("Денежные суммы изменились во время payer-backfill. Повторите проверку.")
+
+    upload_reconcile.archive_cash_row(
+        conn, existing, actor_id, "payer_evidence_backfill"
+    )
+    enriched = dict(old_payload)
+    for key in cash_payments.PAYER_EVIDENCE_KEYS:
+        if key in incoming_payload:
+            enriched[key] = incoming_payload[key]
+    conn.execute(
+        "UPDATE cash_receipts_daily SET payload_json=? WHERE data_date=?",
+        (json.dumps(enriched, ensure_ascii=False, separators=(",", ":")), data_date),
+    )
+    return enriched
+
+
 def _commit_cash(decision=None):
     perms = user_permissions(g.user)
     if "upload_services" not in perms:
@@ -143,29 +174,8 @@ def _commit_cash(decision=None):
     conn.execute("BEGIN")
     try:
         for data_date in sorted(evidence_dates):
-            existing = conn.execute(
-                "SELECT * FROM cash_receipts_daily WHERE data_date=?",
-                (data_date,),
-            ).fetchone()
-            if not existing:
-                raise ValueError("Денежная запись исчезла во время payer-backfill. Повторите загрузку.")
-            try:
-                old_payload = json.loads(existing["payload_json"])
-            except (TypeError, ValueError) as exc:
-                raise ValueError("Сохранённая денежная запись повреждена.") from exc
-            incoming_payload = daily[data_date]
-            if upload_reconcile.canonical(cash_payments.financial_payload(old_payload)) != upload_reconcile.canonical(cash_payments.financial_payload(incoming_payload)):
-                raise ValueError("Денежные суммы изменились во время payer-backfill. Повторите проверку.")
-            upload_reconcile.archive_cash_row(
-                conn, existing, g.user["id"], "payer_evidence_backfill"
-            )
-            enriched = dict(old_payload)
-            for key in cash_payments.PAYER_EVIDENCE_KEYS:
-                if key in incoming_payload:
-                    enriched[key] = incoming_payload[key]
-            conn.execute(
-                "UPDATE cash_receipts_daily SET payload_json=? WHERE data_date=?",
-                (json.dumps(enriched, ensure_ascii=False, separators=(",", ":")), data_date),
+            _backfill_payer_evidence(
+                conn, data_date, daily[data_date], g.user["id"]
             )
 
         if use_new:
