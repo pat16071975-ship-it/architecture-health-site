@@ -50,8 +50,8 @@ jobs:
           upload=Path('az-baze-auth/cash_upload.py').read_text(encoding='utf-8')
           assert 'if legal is None or movement is None or movement <= 0:' in cash
           assert 'day["cashTotal"] += movement' in cash
-          assert 'financial_payload' in cash and 'payerEvidenceComplete' in cash
+          assert 'cash_core_payload' in cash and 'payerEvidenceComplete' in cash
           assert 'payer_evidence_backfill' in upload
-          assert 'cash_payments.financial_payload' in upload
+          assert 'cash_payments.cash_core_payload' in upload
           print('CASH_MONEY_SEMANTICS_PROTECTED=PASS')
           PY

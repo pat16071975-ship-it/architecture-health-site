@@ -102,10 +102,10 @@ def _backfill_payer_evidence(conn, data_date, incoming_payload, actor_id):
     except (TypeError, ValueError) as exc:
         raise ValueError("Сохранённая денежная запись повреждена.") from exc
     if (
-        upload_reconcile.canonical(cash_payments.financial_payload(old_payload))
-        != upload_reconcile.canonical(cash_payments.financial_payload(incoming_payload))
+        upload_reconcile.canonical(cash_payments.cash_core_payload(old_payload))
+        != upload_reconcile.canonical(cash_payments.cash_core_payload(incoming_payload))
     ):
-        raise ValueError("Денежные суммы изменились во время payer-backfill. Повторите проверку.")
+        raise ValueError("Факт / ООО / ИП изменились во время payer-backfill. Повторите проверку.")
 
     upload_reconcile.archive_cash_row(
         conn, existing, actor_id, "payer_evidence_backfill"

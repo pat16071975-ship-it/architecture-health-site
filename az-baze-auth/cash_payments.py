@@ -347,8 +347,23 @@ def _round_payload(value):
     return value
 
 
+def cash_core_payload(payload):
+    """Immutable receipt core used to authorize payer-evidence enrichment.
+
+    Existing stored secondary accounting projections are intentionally excluded:
+    payer backfill may never rewrite them. The core is the actual positive cash
+    total and its legal-entity split, which must match exactly for that day.
+    """
+    value = dict(payload or {})
+    return {
+        "cashTotal": round(float(value.get("cashTotal") or 0), 2),
+        "cashOOO": round(float(value.get("cashOOO") or 0), 2),
+        "cashIP": round(float(value.get("cashIP") or 0), 2),
+    }
+
+
 def financial_payload(payload):
-    """Cash payload without privacy-safe payer evidence; used for safe backfill comparison."""
+    """Legacy full cash projection excluding privacy-safe payer evidence."""
     return {
         key: value
         for key, value in dict(payload or {}).items()

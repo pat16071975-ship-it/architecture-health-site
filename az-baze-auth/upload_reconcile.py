@@ -487,16 +487,27 @@ def compare_cash(conn, daily):
             ) from exc
 
         incoming = daily[data_date]
+        old_evidence = cash_payments.payer_evidence(old)
+        new_evidence = cash_payments.payer_evidence(incoming)
+
+        # One-time migration path only: enrich an old cash row that has no payer
+        # evidence yet. Existing money/projections stay untouched; the immutable
+        # receipt core must still match exactly.
+        if old_evidence is None and new_evidence is not None:
+            if canonical(cash_payments.cash_core_payload(old)) != canonical(cash_payments.cash_core_payload(incoming)):
+                result["conflict"].append(data_date)
+            else:
+                result["evidence_only"].append(data_date)
+            continue
+
+        # Outside the one-time evidence migration, retain the old strict full
+        # financial comparison so normal cash reimports still detect any change.
         if canonical(cash_payments.financial_payload(old)) != canonical(cash_payments.financial_payload(incoming)):
             result["conflict"].append(data_date)
             continue
 
-        old_evidence = cash_payments.payer_evidence(old)
-        new_evidence = cash_payments.payer_evidence(incoming)
         if canonical(old) == canonical(incoming):
             result["identical"].append(data_date)
-        elif old_evidence is None and new_evidence is not None:
-            result["evidence_only"].append(data_date)
         elif old_evidence is not None and new_evidence is None:
             # Never erase previously captured payer evidence with an older-format file.
             result["identical"].append(data_date)

@@ -370,6 +370,10 @@ class CashPaymentsTests(unittest.TestCase):
         cash_payments.init_schema(conn)
         upload_reconcile.init_schema(conn)
         old = cash_payments.financial_payload(daily["2026-01-15"])
+        old["billedTotal"] = 999999
+        old["cashUnallocated"] = 123
+        old["factMedicine"] = 321
+        old["dentists"] = {"Legacy Doctor": 321}
         conn.execute(
             """INSERT INTO cash_receipts_daily(
                data_date,payload_json,source_filename,source_sha256,imported_by,imported_at
@@ -448,6 +452,10 @@ class CashPaymentsTests(unittest.TestCase):
         daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
         incoming = daily["2026-01-15"]
         old = cash_payments.financial_payload(incoming)
+        old["billedTotal"] = 777777
+        old["cashUnallocated"] = 55
+        old["factMedicine"] = 444
+        old["dentists"] = {"Legacy Doctor": 444}
 
         conn = sqlite3.connect(":memory:")
         conn.row_factory = sqlite3.Row
@@ -487,6 +495,45 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(len(archived), 1)
         self.assertEqual(archived[0]["decision"], "payer_evidence_backfill")
         self.assertEqual(json.loads(archived[0]["payload_json"]), old)
+        conn.close()
+
+    def test_cash_core_contains_only_fact_ooo_ip(self):
+        payload = {
+            "cashTotal": 123.45,
+            "cashOOO": 100,
+            "cashIP": 23.45,
+            "billedTotal": 999,
+            "factMedicine": 88,
+            "dentists": {"Legacy": 88},
+        }
+        self.assertEqual(
+            cash_payments.cash_core_payload(payload),
+            {"cashTotal": 123.45, "cashOOO": 100.0, "cashIP": 23.45},
+        )
+
+    def test_existing_payer_evidence_keeps_strict_secondary_comparison(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 5000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        incoming = daily["2026-01-15"]
+        old = dict(incoming)
+        old["billedTotal"] = float(incoming["billedTotal"]) + 1
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cash_payments.init_schema(conn)
+        upload_reconcile.init_schema(conn)
+        conn.execute(
+            """INSERT INTO cash_receipts_daily(
+               data_date,payload_json,source_filename,source_sha256,imported_by,imported_at
+               ) VALUES(?,?,?,?,?,?)""",
+            ("2026-01-15", json.dumps(old, ensure_ascii=False), "old.xlsx", "oldsha", 1, "old"),
+        )
+        result = upload_reconcile.compare_cash(conn, daily)
+        self.assertEqual(result["evidence_only"], [])
+        self.assertEqual(result["conflict"], ["2026-01-15"])
         conn.close()
 
 if __name__ == "__main__":
