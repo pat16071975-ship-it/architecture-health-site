@@ -399,7 +399,10 @@ def _cash_paid_patients_by_date(conn, intervals):
         return min(values) if values else None
 
     def placed_day(token, direction, cash_dates, visit_dates):
-        cash_day = first(cash_dates.get(token))
+        direction_cash = first((cash_dates.get(direction) or {}).get(token))
+        unallocated_cash = first((cash_dates.get("unallocated") or {}).get(token))
+        any_cash = first((cash_dates.get("all") or {}).get(token))
+        cash_day = direction_cash or unallocated_cash or any_cash
         visit_day = first((visit_dates.get(direction) or {}).get(token))
         if cash_day and visit_day:
             return max(cash_day, visit_day)
@@ -435,11 +438,15 @@ def _cash_paid_patients_by_date(conn, intervals):
         mis = membership["sets"]
         visit_dates = mis.get("visitDates") or {"dent": {}, "structure": {}}
 
-        cash_dates = {}
+        cash_dates = {"all": {}, "dent": {}, "structure": {}, "unallocated": {}}
         for day, ev in evidence:
             for token in ev["all"]:
                 if token in mis["medicine"]:
-                    cash_dates.setdefault(token, set()).add(day)
+                    cash_dates["all"].setdefault(token, set()).add(day)
+            for direction in ("dent", "structure", "unallocated"):
+                for token in ev[direction]:
+                    if token in mis["medicine"]:
+                        cash_dates[direction].setdefault(token, set()).add(day)
 
         placed = {"dent": {}, "structure": {}}
         unresolved = False
