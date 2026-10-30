@@ -1,0 +1,46 @@
+name: AZ advertising terminology delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/advertising-terminology-production-20261030.sh'
+      - '.github/workflows/az-advertising-terminology-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify advertising terminology deploy package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/advertising-terminology-production-20261030.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/advertising-terminology-production-20261030.sh').read_text()
+          assert "TARGET_COMMIT='8062b65adb406acddfcacb91a638f005a00255ec'" in script
+          assert "CONFIRM_TOKEN='ADVERTISING-TERMINOLOGY-8062B65A'" in script
+          assert 'ADVERTISING_TERMINOLOGY_PRODUCTION_DEPLOY=PASS' in script
+          assert 'DATABASE_WRITES=NONE' in script
+
+          path='az-baze-auth/terminology.py'
+          old=subprocess.check_output(['git','show','cea38135489c8650d08ed39c53dfbe9c5cac4876:'+path])
+          new=subprocess.check_output(['git','show','8062b65adb406acddfcacb91a638f005a00255ec:'+path])
+          old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+          new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+          assert old_blob=='defc0929c083d494bebced292756de68d56811e8',old_blob
+          assert new_blob=='1b690a53638cbd204732f50f91a325ddac1102ae',new_blob
+
+          text=new.decode()
+          assert 'def skip_runtime_rename(path):' in text
+          assert "value.startswith('/api/reports/advertising')" in text
+          assert 'if skip_runtime_rename(path):' in text
+          print('ADVERTISING_TERMINOLOGY_DELIVERY_CONTRACT=PASS')
+          PY
