@@ -1,0 +1,44 @@
+name: AZ paid day placement delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/paid-day-placement-production-20261030.sh'
+      - '.github/workflows/az-paid-day-placement-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify delivery package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/paid-day-placement-production-20261030.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/paid-day-placement-production-20261030.sh').read_text()
+          assert "TARGET_COMMIT='69b7b0a9ca995cf36eb42939ec99f10ebbfbde55'" in script
+          assert "CONFIRM_TOKEN='PAID-DAY-PLACEMENT-69B7B0A9'" in script
+          assert 'PAID_DAY_PLACEMENT_PRODUCTION_DEPLOY=PASS' in script
+          assert 'BUSINESS_DATA_BACKFILL=NOT_PERFORMED' in script
+
+          paths=['az-baze-auth/cash_payments.py','az-baze-auth/report_storage.py']
+          base=['097cd53617a4fc9115102df1c67b1688e2207b8d','a0db6ef5f1c69b19f56ae1ad525afb66aa2b3f6f']
+          target=['d7c952f525e4fde687b9ad58a6933b1ccb3024a3','6c87c6038959f430970786b08e830aa27d7e6419']
+          for path,b,t in zip(paths,base,target):
+              old=subprocess.check_output(['git','show','173012dfbbd82f29d6eab5b7ac1760d359b9b43b:'+path])
+              new=subprocess.check_output(['git','show','69b7b0a9ca995cf36eb42939ec99f10ebbfbde55:'+path])
+              old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+              new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+              assert old_blob==b,(path,old_blob,b)
+              assert new_blob==t,(path,new_blob,t)
+          print('PAID_DAY_PLACEMENT_DELIVERY_CONTRACT=PASS')
+          PY
