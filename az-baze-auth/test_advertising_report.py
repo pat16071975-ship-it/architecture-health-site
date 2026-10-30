@@ -309,6 +309,38 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("5. Яндекс Метрика", uploads)
         self.assertIn('name="metrika_zip"', uploads)
         self.assertIn("/api/reports/advertising/metrika/import", uploads)
+        self.assertIn('data-range="day">Сегодня</button>', html)
+        self.assertIn('data-range="month">Текущий месяц по сегодня</button>', html)
+        self.assertIn("Рекламные KPI собираются с 27.10.2026", html)
+        self.assertNotIn('data-range="day">27 октября</button>', html)
+        self.assertNotIn("function setDefaultDates()", js)
+        self.assertNotIn("new Date(2026,9,27)", js)
+        self.assertIn("clinicToday=payload.today||clinicToday", js)
+        self.assertIn("load({serverDefaults:true})", js)
+        self.assertIn("history.replaceState", js)
+        self.assertIn("q.set('from',$('#fromDate').value)", js)
+        self.assertIn("q.set('to',$('#toDate').value)", js)
+        self.assertIn("new Date(Date.UTC(y,m,0)).getUTCDate()", js)
+
+    def test_arbitrary_multi_day_range_sums_only_available_days(self):
+        c=conn()
+        try:
+            seed(c)
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-10-03","direct","Прямые заходы","Прямые заходы","","",None,None,20,"x","m3"),
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-10-05","direct","Прямые заходы","Прямые заходы","","",None,None,30,"x","m5"),
+            )
+            c.commit()
+            summary=m._summary(c,date(2026,10,1),date(2026,10,5))
+            self.assertEqual(summary["visits"],130)
+            empty=m._summary(c,date(2026,10,2),date(2026,10,2))
+            self.assertIsNone(empty["visits"])
+        finally:
+            c.close()
 
 
 if __name__=="__main__":
