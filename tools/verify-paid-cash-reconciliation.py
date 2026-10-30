@@ -22,9 +22,20 @@ for p in (DB,REPORT_STORAGE,CASH_PAYMENTS,IDENT_IMPORT,CONFIG):
     if not p.exists():
         stop('MISSING='+str(p))
 
-# Load cash module only; it has no import-time DB writes.
-sys.path.insert(0,str(CASH_PAYMENTS.parent))
-import cash_payments
+def payer_evidence(payload):
+    value = dict(payload or {})
+    directions = value.get("payerDirectionTokens") or {}
+    if value.get("payerEvidenceVersion") != 1 or value.get("payerEvidenceComplete") is not True:
+        return None
+    return {
+        "coverageFrom": str(value.get("payerEvidenceCoverageFrom") or ""),
+        "coverageTo": str(value.get("payerEvidenceCoverageTo") or ""),
+        "all": set(str(x) for x in (value.get("payerTokens") or []) if str(x)),
+        "dent": set(str(x) for x in (directions.get("dent") or []) if str(x)),
+        "structure": set(str(x) for x in (directions.get("structure") or []) if str(x)),
+        "lab": set(str(x) for x in (directions.get("lab") or []) if str(x)),
+        "unallocated": set(str(x) for x in (directions.get("unallocated") or []) if str(x)),
+    }
 
 # Read only the provider constants from live ident_import without importing Flask/app.
 ident_source=IDENT_IMPORT.read_text(encoding='utf-8')
@@ -122,7 +133,7 @@ try:
         coverage_ok=False
         coverage_min=None; coverage_max=None
         for day,payload in mrows:
-            ev=cash_payments.payer_evidence(payload)
+            ev=payer_evidence(payload)
             cash_total=float(payload.get('cashTotal') or 0)
             if ev is None:
                 if cash_total>0:
