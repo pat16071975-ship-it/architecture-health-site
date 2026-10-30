@@ -1,0 +1,43 @@
+name: AZ advertising render delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/advertising-render-production-20261030.sh'
+      - '.github/workflows/az-advertising-render-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify advertising render deploy package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/advertising-render-production-20261030.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/advertising-render-production-20261030.sh').read_text()
+          assert "TARGET_COMMIT='0d3fc3e76586d810a8c317e6814a5f90c1ecb4cb'" in script
+          assert "CONFIRM_TOKEN='ADVERTISING-RENDER-0D3FC3E7'" in script
+          assert "ADVERTISING_RENDER_PRODUCTION_DEPLOY=PASS" in script
+
+          path='reports/advertising.js'
+          old=subprocess.check_output(['git','show','5bb9064babb6eeb30b89129848c7c0c6d7f385b6:'+path])
+          new=subprocess.check_output(['git','show','0d3fc3e76586d810a8c317e6814a5f90c1ecb4cb:'+path])
+          old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+          new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+          assert old_blob=='d31666f70cde4fd333116c743126a1d93cf31221',old_blob
+          assert new_blob=='4af7824727f464f8555757664515a80fb74cd979',new_blob
+          text=new.decode()
+          assert "all('.chip').forEach" in text
+          assert "$('.chip').forEach" not in text
+          print('ADVERTISING_RENDER_DELIVERY_CONTRACT=PASS')
+          PY
