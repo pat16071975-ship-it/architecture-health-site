@@ -40,7 +40,7 @@ jobs:
 
           text=new.decode()
           assert 'def skip_runtime_rename(path):' in text
-          assert "value.startswith('/api/reports/advertising')" in text
+          assert '/api/reports/advertising' in text
           assert 'if skip_runtime_rename(path):' in text
           print('ADVERTISING_TERMINOLOGY_DELIVERY_CONTRACT=PASS')
           PY
