@@ -6,6 +6,7 @@ import sys
 import tempfile
 import types
 import unittest
+import terminology
 import zipfile
 from datetime import date
 from pathlib import Path
@@ -351,6 +352,23 @@ class AdvertisingReportTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_advertising_routes_are_exempt_from_global_structure_terminology(self):
+        for path in (
+            "/reports/advertising/",
+            "/reports/advertising.html",
+            "/reports/advertising.js",
+            "/api/reports/advertising",
+            "/api/reports/advertising/metrika/import",
+        ):
+            self.assertTrue(terminology.skip_runtime_rename(path), path)
+
+        for path in (
+            "/reports/management/",
+            "/reports/forecast/",
+            "/api/reports/management",
+        ):
+            self.assertFalse(terminology.skip_runtime_rename(path), path)
+
     def test_ui_contract(self):
         root=Path(__file__).parents[1]/"reports"
         html=(root/"advertising.html").read_text(encoding="utf-8")
@@ -389,6 +407,8 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("Покрытие выбранного периода", js)
         self.assertIn("coveragePart('Метрика',c.metrika)", js)
         self.assertIn("coveragePart('«Оплачено» MIS',c.misPaid)", js)
+        terminology_source=(Path(__file__).parent/"terminology.py").read_text(encoding="utf-8")
+        self.assertIn("skip_runtime_rename(path)", terminology_source)
         self.assertIn("all('.chip').forEach", js)
         self.assertNotIn("$('.chip').forEach", js)
 
