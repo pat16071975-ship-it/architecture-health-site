@@ -561,5 +561,131 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertFalse(day["payerEvidenceComplete"])
         self.assertEqual(day["cashTotal"], 0)
 
+    def test_v1_to_v2_equal_evidence_allows_core_only_refresh(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 5000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        incoming = daily["2026-01-15"]
+        self.assertEqual(incoming["payerEvidenceVersion"], 2)
+
+        old = dict(incoming)
+        old["payerEvidenceVersion"] = 1
+        old["billedTotal"] = float(incoming["billedTotal"]) + 999
+        old["cashUnallocated"] = 123
+        old["factMedicine"] = 321
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cash_payments.init_schema(conn)
+        upload_reconcile.init_schema(conn)
+        conn.execute(
+            """INSERT INTO cash_receipts_daily(
+               data_date,payload_json,source_filename,source_sha256,imported_by,imported_at
+               ) VALUES(?,?,?,?,?,?)""",
+            ("2026-01-15", json.dumps(old, ensure_ascii=False), "old.xlsx", "oldsha", 1, "old"),
+        )
+        result = upload_reconcile.compare_cash(conn, daily)
+        self.assertEqual(result["evidence_only"], ["2026-01-15"])
+        self.assertEqual(result["conflict"], [])
+        conn.close()
+
+    def test_v1_to_v2_superset_refresh_preserves_secondary_financial_fields(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 5000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+            ["15 янв 2026\n11:00", "Петров Петр Петрович", "Внесение ДС",
+             0, 3000, "Основная", "", "", "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        incoming = daily["2026-01-15"]
+        tokens = list(incoming["payerTokens"])
+        self.assertEqual(len(tokens), 2)
+
+        old = cash_payments.financial_payload(incoming)
+        old["payerEvidenceVersion"] = 1
+        old["payerEvidenceComplete"] = True
+        old["payerEvidenceCoverageFrom"] = incoming["payerEvidenceCoverageFrom"]
+        old["payerEvidenceCoverageTo"] = incoming["payerEvidenceCoverageTo"]
+        old["payerTokens"] = [incoming["payerDirectionTokens"]["dent"][0]]
+        old["payerDirectionTokens"] = {
+            "dent": list(incoming["payerDirectionTokens"]["dent"]),
+            "structure": [], "lab": [], "unallocated": [],
+        }
+        old["billedTotal"] = 777777
+        old["cashUnallocated"] = 55
+        old["factMedicine"] = 444
+        old["dentists"] = {"Legacy Doctor": 444}
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cash_payments.init_schema(conn)
+        upload_reconcile.init_schema(conn)
+        conn.execute(
+            """INSERT INTO cash_receipts_daily(
+               data_date,payload_json,source_filename,source_sha256,imported_by,imported_at
+               ) VALUES(?,?,?,?,?,?)""",
+            ("2026-01-15", json.dumps(old, ensure_ascii=False), "old.xlsx", "oldsha", 1, "old"),
+        )
+        conn.commit()
+        comparison = upload_reconcile.compare_cash(conn, daily)
+        self.assertEqual(comparison["evidence_only"], ["2026-01-15"])
+        self.assertEqual(comparison["conflict"], [])
+
+        conn.execute("BEGIN")
+        enriched = cash_upload._backfill_payer_evidence(
+            conn, "2026-01-15", incoming, actor_id=7
+        )
+        conn.commit()
+        self.assertEqual(enriched["payerEvidenceVersion"], 2)
+        self.assertEqual(set(enriched["payerTokens"]), set(incoming["payerTokens"]))
+        self.assertEqual(enriched["billedTotal"], 777777)
+        self.assertEqual(enriched["cashUnallocated"], 55)
+        self.assertEqual(enriched["factMedicine"], 444)
+        self.assertEqual(enriched["dentists"], {"Legacy Doctor": 444})
+        conn.close()
+
+    def test_v1_to_v2_refresh_rejects_evidence_shrink_or_cash_core_change(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "№100 Чирков М. С.",
+             5000, 5000, "Основная", "", cash_payments.OOO_KKM, "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        incoming = daily["2026-01-15"]
+
+        old = dict(incoming)
+        old["payerEvidenceVersion"] = 1
+        old["payerTokens"] = list(incoming["payerTokens"]) + ["extra-old-token"]
+
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cash_payments.init_schema(conn)
+        upload_reconcile.init_schema(conn)
+        conn.execute(
+            """INSERT INTO cash_receipts_daily(
+               data_date,payload_json,source_filename,source_sha256,imported_by,imported_at
+               ) VALUES(?,?,?,?,?,?)""",
+            ("2026-01-15", json.dumps(old, ensure_ascii=False), "old.xlsx", "oldsha", 1, "old"),
+        )
+        result = upload_reconcile.compare_cash(conn, daily)
+        self.assertEqual(result["evidence_only"], [])
+        self.assertEqual(result["conflict"], ["2026-01-15"])
+
+        conn.execute("DELETE FROM cash_receipts_daily")
+        old2 = dict(incoming)
+        old2["payerEvidenceVersion"] = 1
+        old2["cashTotal"] = float(incoming["cashTotal"]) + 1
+        conn.execute(
+            """INSERT INTO cash_receipts_daily(
+               data_date,payload_json,source_filename,source_sha256,imported_by,imported_at
+               ) VALUES(?,?,?,?,?,?)""",
+            ("2026-01-15", json.dumps(old2, ensure_ascii=False), "old.xlsx", "oldsha", 1, "old"),
+        )
+        result2 = upload_reconcile.compare_cash(conn, daily)
+        self.assertEqual(result2["evidence_only"], [])
+        self.assertEqual(result2["conflict"], ["2026-01-15"])
+        conn.close()
+
 if __name__ == "__main__":
     unittest.main()
