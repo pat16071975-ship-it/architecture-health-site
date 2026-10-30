@@ -107,6 +107,33 @@ def _backfill_payer_evidence(conn, data_date, incoming_payload, actor_id):
     ):
         raise ValueError("Факт / ООО / ИП изменились во время payer-backfill. Повторите проверку.")
 
+    old_evidence = cash_payments.payer_evidence(old_payload)
+    new_evidence = cash_payments.payer_evidence(incoming_payload)
+    if new_evidence is None:
+        raise ValueError("Новая версия не содержит полного payer-evidence.")
+    if old_evidence is not None:
+        same_version_refresh = (
+            old_evidence["version"] == new_evidence["version"]
+            and all(
+                old_evidence[key] == new_evidence[key]
+                for key in ("all", "dent", "structure", "lab", "unallocated")
+            )
+            and new_evidence["coverageFrom"] <= old_evidence["coverageFrom"]
+            and new_evidence["coverageTo"] >= old_evidence["coverageTo"]
+        )
+        v1_to_v2_superset = (
+            old_evidence["version"] == 1
+            and new_evidence["version"] == 2
+            and all(
+                old_evidence[key].issubset(new_evidence[key])
+                for key in ("all", "dent", "structure", "lab", "unallocated")
+            )
+            and new_evidence["coverageFrom"] <= old_evidence["coverageFrom"]
+            and new_evidence["coverageTo"] >= old_evidence["coverageTo"]
+        )
+        if not (same_version_refresh or v1_to_v2_superset):
+            raise ValueError("Payer-evidence изменился небезопасно во время backfill. Повторите проверку.")
+
     upload_reconcile.archive_cash_row(
         conn, existing, actor_id, "payer_evidence_backfill"
     )
