@@ -100,25 +100,48 @@ function siteSourceRows(){
     .filter(row=>row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null)
     .sort((a,b)=>(Number(b.visits)||0)-(Number(a.visits)||0)||sourceName(a).localeCompare(sourceName(b),'ru'))
 }
+function yandexCampaignRows(){
+  return (payload?.campaigns||[])
+    .filter(row=>row.source_key==='yandex_ads'&&(row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null))
+    .sort((a,b)=>(Number(b.visits)||0)-(Number(a.visits)||0)||campaignName(a).localeCompare(campaignName(b),'ru'))
+}
 function sourceName(row){
   return (row.source_name||row.campaign_name||row.channel_name||'Источник не определён').trim()
+}
+function campaignName(row){
+  return String(row.campaign_name||'').trim()||'Не определено'
 }
 function siteCells(row){
   return '<td>'+number(row.visits)+'</td><td>'+number(row.booking_open_visits)+'</td><td>'+number(row.medflex_visits)+'</td>'
 }
 function renderSources(){
-  const rows=siteSourceRows(),body=$('#sourceRows');
+  const rows=siteSourceRows(),body=$('#sourceRows'),yandexCampaigns=yandexCampaignRows();
   if(!rows.length){
     body.innerHTML='<tr><td colspan="4">Метрика за выбранный период ещё не загружена.</td></tr>';
     return
   }
   const s=payload?.summary||{};
-  const sourceHtml=rows.map(row=>
-    '<tr><td>'+h(sourceName(row))+'</td>'+siteCells(row)+'</tr>'
-  ).join('');
+  const sourceHtml=rows.map(row=>{
+    const expandable=row.source_key==='yandex_ads'&&yandexCampaigns.length>0;
+    const label=expandable
+      ? '<button type="button" class="source-expand" aria-expanded="false" aria-label="Показать рекламные кампании Яндекс-рекламы">+</button><span>'+h(sourceName(row))+'</span>'
+      : h(sourceName(row));
+    const parent='<tr><td>'+label+'</td>'+siteCells(row)+'</tr>';
+    if(!expandable)return parent;
+    const children=yandexCampaigns.map(campaign=>
+      '<tr class="child-row yandex-campaign-row" hidden><td><span class="campaign-name">'+h(campaignName(campaign))+'</span></td>'+siteCells(campaign)+'</tr>'
+    ).join('');
+    return parent+children
+  }).join('');
   const totalHtml=
     '<tr class="group-row"><td>Всего</td><td>'+number(s.visits)+'</td><td>'+number(s.booking_open_visits)+'</td><td>'+number(s.medflex_visits)+'</td></tr>';
-  body.innerHTML=sourceHtml+totalHtml
+  body.innerHTML=sourceHtml+totalHtml;
+  body.querySelectorAll('.source-expand').forEach(button=>button.addEventListener('click',()=>{
+    const expanded=button.getAttribute('aria-expanded')==='true';
+    button.setAttribute('aria-expanded',expanded?'false':'true');
+    button.textContent=expanded?'+':'−';
+    body.querySelectorAll('.yandex-campaign-row').forEach(row=>{row.hidden=expanded})
+  }))
 }
 
 function shortDate(value){

@@ -352,6 +352,42 @@ class AdvertisingReportTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_yandex_campaign_breakdown_keeps_named_and_undefined(self):
+        c=conn()
+        try:
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама",
+                 "101","Ортодонтия",None,None,20,"t","named"),
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама",
+                 "","",None,None,8,"t","unknown"),
+            )
+            c.execute(
+                "INSERT INTO advertising_metrika_goal_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама",
+                 "101","Ортодонтия","booking_open","Открытие окна записи",2,2,"t","named"),
+            )
+            c.execute(
+                "INSERT INTO advertising_metrika_goal_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама",
+                 "","","medflex","Переход к записи в Medflex",3,3,"t","unknown"),
+            )
+            c.commit()
+
+            rows=m._group_breakdown(c,date(2026,10,29),date(2026,10,29),"campaign")
+            yandex=[row for row in rows if row["source_key"]=="yandex_ads"]
+            by_name={row["campaign_name"]:row for row in yandex}
+            self.assertEqual(set(by_name),{"Ортодонтия","Не определено"})
+            self.assertEqual(by_name["Ортодонтия"]["visits"],20)
+            self.assertEqual(by_name["Ортодонтия"]["booking_open_visits"],2)
+            self.assertEqual(by_name["Не определено"]["visits"],8)
+            self.assertEqual(by_name["Не определено"]["medflex_visits"],3)
+        finally:
+            c.close()
+
     def test_advertising_routes_are_exempt_from_global_structure_terminology(self):
         for path in (
             "/reports/advertising/",
@@ -413,6 +449,13 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("skip_runtime_rename(path)", terminology_source)
         self.assertIn("all('.chip').forEach", js)
         self.assertNotIn("$('.chip').forEach", js)
+        self.assertIn("function yandexCampaignRows()", js)
+        self.assertIn("row.source_key==='yandex_ads'", js)
+        self.assertIn("class=\"source-expand\"", js)
+        self.assertIn("class=\"child-row yandex-campaign-row\"", js)
+        self.assertIn("button.textContent=expanded?'+':'−'", js)
+        self.assertIn("return String(row.campaign_name||'').trim()||'Не определено'", js)
+        self.assertIn(".source-expand{", html)
 
     def test_arbitrary_multi_day_range_sums_only_available_days(self):
         c=conn()
