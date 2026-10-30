@@ -1,0 +1,45 @@
+name: AZ paid no-month-blank delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/paid-no-month-blank-production-20261030.sh'
+      - '.github/workflows/az-paid-no-month-blank-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify paid no-month-blank deploy package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/paid-no-month-blank-production-20261030.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/paid-no-month-blank-production-20261030.sh').read_text()
+          assert "TARGET_COMMIT='83e0b51dff396a3915acf8b6a03a7e780fe57957'" in script
+          assert "CONFIRM_TOKEN='PAID-NO-MONTH-BLANK-83E0B51D'" in script
+          assert 'PAID_NO_MONTH_BLANK_PRODUCTION_DEPLOY=PASS' in script
+          assert 'BUSINESS_DATA_BACKFILL=NOT_REQUIRED' in script
+
+          path='az-baze-auth/report_storage.py'
+          old=subprocess.check_output(['git','show','37973940903a798e0061c9c35f1b4559fc10920b:'+path])
+          new=subprocess.check_output(['git','show','83e0b51dff396a3915acf8b6a03a7e780fe57957:'+path])
+          old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+          new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+          assert old_blob=='6c87c6038959f430970786b08e830aa27d7e6419',old_blob
+          assert new_blob=='d409d76721e80dd1fbb2ce5d4fc243d2e5bc9841',new_blob
+
+          text=new.decode()
+          assert 'if day is None or not month_start <= day <= as_of:' in text
+          assert 'day = as_of' in text
+          print('PAID_NO_MONTH_BLANK_DELIVERY_CONTRACT=PASS')
+          PY
