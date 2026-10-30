@@ -389,6 +389,8 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("Покрытие выбранного периода", js)
         self.assertIn("coveragePart('Метрика',c.metrika)", js)
         self.assertIn("coveragePart('«Оплачено» MIS',c.misPaid)", js)
+        self.assertIn("all('.chip').forEach", js)
+        self.assertNotIn("$('.chip').forEach", js)
 
     def test_arbitrary_multi_day_range_sums_only_available_days(self):
         c=conn()
