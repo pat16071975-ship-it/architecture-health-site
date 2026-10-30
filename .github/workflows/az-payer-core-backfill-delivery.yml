@@ -1,0 +1,61 @@
+name: AZ payer core backfill delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/payer-core-backfill-production-20261030.sh'
+      - '.github/workflows/az-payer-core-backfill-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify guarded payer-core delivery
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/payer-core-backfill-production-20261030.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/payer-core-backfill-production-20261030.sh').read_text()
+          assert "TARGET_COMMIT='173012dfbbd82f29d6eab5b7ac1760d359b9b43b'" in script
+          assert "CONFIRM_TOKEN='PAYER-CORE-BACKFILL-173012DF'" in script
+          assert 'PAYER_CORE_BACKFILL_PRODUCTION_DEPLOY=PASS' in script
+          assert 'BUSINESS_DATA_BACKFILL=NOT_PERFORMED' in script
+
+          paths=[
+            'az-baze-auth/cash_payments.py',
+            'az-baze-auth/upload_reconcile.py',
+            'az-baze-auth/cash_upload.py',
+          ]
+          base=[
+            '557fab9cf2bb8173d752cb1c226fde4a0fc2bdb9',
+            'a0aa7ba33a6850cb8b4f06f19c50fdc200a890f1',
+            'ae6499ae68de25272758bcbb06b1a6bae90fd027',
+          ]
+          target=[
+            '097cd53617a4fc9115102df1c67b1688e2207b8d',
+            'f521694ea986bf8d3fb61718538e4b6d39aa9d8c',
+            '34f40d075ccc21c7f650830a8aeb8dc7f7493ed0',
+          ]
+          for path,b,t in zip(paths,base,target):
+            old=subprocess.check_output(['git','show','9f6511864d0af476979916d4e1f886e43424e84b:'+path])
+            new=subprocess.check_output(['git','show','173012dfbbd82f29d6eab5b7ac1760d359b9b43b:'+path])
+            old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+            new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+            assert old_blob==b,(path,old_blob,b)
+            assert new_blob==t,(path,new_blob,t)
+
+          assert 'cash_core_payload' in subprocess.check_output(
+            ['git','show','173012dfbbd82f29d6eab5b7ac1760d359b9b43b:az-baze-auth/cash_payments.py'],
+            text=True,
+          )
+          print('PAYER_CORE_BACKFILL_DELIVERY_CONTRACT=PASS')
+          PY
