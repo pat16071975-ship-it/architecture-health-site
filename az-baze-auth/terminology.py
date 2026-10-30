@@ -54,6 +54,17 @@ REPORT_UI_GUARD = r'''<script id="az-report-terminology-guard">
 </script>'''
 
 
+def skip_runtime_rename(path):
+    """Keep owner-approved wording on the advertising report only."""
+    value = str(path or "")
+    return (
+        value == "/reports/advertising/"
+        or value == "/reports/advertising.html"
+        or value == "/reports/advertising.js"
+        or value.startswith("/api/reports/advertising")
+    )
+
+
 def _replace_text(value):
     return value.replace(OLD, NEW) if isinstance(value, str) else value
 
@@ -138,6 +149,8 @@ def install(app, report_storage):
     @app.after_request
     def rename_report_direction(response):
         path = getattr(__import__('flask').request, 'path', '')
+        if skip_runtime_rename(path):
+            return response
         if not (path.startswith('/reports/') or path.startswith('/api/reports/')):
             return response
         content_type = response.headers.get('Content-Type', '')
