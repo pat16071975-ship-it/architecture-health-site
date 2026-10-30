@@ -500,8 +500,31 @@ def compare_cash(conn, daily):
                 result["evidence_only"].append(data_date)
             continue
 
-        # Outside the one-time evidence migration, retain the old strict full
-        # financial comparison so normal cash reimports still detect any change.
+        # One-time v1 -> v2 migration: v2 broadens payer timing beyond approved
+        # KKM rows. Allow only an evidence superset with the same immutable cash core.
+        if (
+            old_evidence is not None
+            and new_evidence is not None
+            and old_evidence["version"] == 1
+            and new_evidence["version"] == 2
+        ):
+            core_same = (
+                canonical(cash_payments.cash_core_payload(old))
+                == canonical(cash_payments.cash_core_payload(incoming))
+            )
+            wider_coverage = (
+                new_evidence["coverageFrom"] <= old_evidence["coverageFrom"]
+                and new_evidence["coverageTo"] >= old_evidence["coverageTo"]
+            )
+            superset = all(
+                old_evidence[key].issubset(new_evidence[key])
+                for key in ("all", "dent", "structure", "lab", "unallocated")
+            )
+            result["evidence_only" if core_same and wider_coverage and superset else "conflict"].append(data_date)
+            continue
+
+        # Outside explicit evidence migrations, retain strict full financial
+        # comparison so normal cash reimports still detect any change.
         if canonical(cash_payments.financial_payload(old)) != canonical(cash_payments.financial_payload(incoming)):
             result["conflict"].append(data_date)
             continue
