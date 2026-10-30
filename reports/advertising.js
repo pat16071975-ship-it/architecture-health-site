@@ -68,7 +68,7 @@ function renderRevenue(){
   const directions=r.direction_paid||{};
   const details=[
     ['Стоматология',directions.dent],
-    ['Клиника',directions.structure],
+    ['Отделение структуры',directions.structure],
     ['Лаборатория',directions.lab],
     ['Другие / не классифицированные исполнители',directions.other]
   ].filter(x=>x[1]!=null&&Math.abs(Number(x[1])||0)>.004);
