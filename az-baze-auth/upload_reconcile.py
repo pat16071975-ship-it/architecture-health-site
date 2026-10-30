@@ -487,7 +487,7 @@ def compare_cash(conn, daily):
             ) from exc
 
         incoming = daily[data_date]
-        if canonical(cash_payments.financial_payload(old)) != canonical(cash_payments.financial_payload(incoming)):
+        if canonical(cash_payments.cash_core_payload(old)) != canonical(cash_payments.cash_core_payload(incoming)):
             result["conflict"].append(data_date)
             continue
 
