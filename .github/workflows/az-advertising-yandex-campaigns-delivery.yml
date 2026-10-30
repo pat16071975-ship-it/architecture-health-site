@@ -1,0 +1,62 @@
+name: AZ advertising Yandex campaigns delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/advertising-yandex-campaigns-production-20261030.sh'
+      - '.github/workflows/az-advertising-yandex-campaigns-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify Yandex campaign drill-down deploy package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/advertising-yandex-campaigns-production-20261030.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/advertising-yandex-campaigns-production-20261030.sh').read_text()
+          assert "TARGET_COMMIT='a534f86834957f3acebd5321c0d2a4cb29c2d246'" in script
+          assert "CONFIRM_TOKEN='ADVERTISING-YANDEX-CAMPAIGNS-A534F868'" in script
+          assert 'ADVERTISING_YANDEX_CAMPAIGNS_PRODUCTION_DEPLOY=PASS' in script
+
+          paths=[
+              'az-baze-auth/advertising_report.py',
+              'reports/advertising.html',
+              'reports/advertising.js',
+          ]
+          base=[
+              '911870573d9b73aa06ace28945923b601e2727de',
+              '03b1297892f5b97d12f872d1d29141483305378c',
+              '0bc09dc6c1a0013d18877bff8cd110fb94cb0216',
+          ]
+          target=[
+              '88a4866cd28003b0a9a2f463cba4df3b072a23ec',
+              '5ef1cf91a1822abb987cd9f3d406b8c85e185945',
+              '64c1d83104e1ca6de6aa8cc7d5b92195441f997a',
+          ]
+          for path,b,t in zip(paths,base,target):
+              old=subprocess.check_output(['git','show','f3afa87573b43491bfee795c1304e18f34ce0d1b:'+path])
+              new=subprocess.check_output(['git','show','a534f86834957f3acebd5321c0d2a4cb29c2d246:'+path])
+              old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+              new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+              assert old_blob==b,(path,old_blob,b)
+              assert new_blob==t,(path,new_blob,t)
+
+          js=subprocess.check_output(['git','show','a534f86834957f3acebd5321c0d2a4cb29c2d246:reports/advertising.js']).decode()
+          py=subprocess.check_output(['git','show','a534f86834957f3acebd5321c0d2a4cb29c2d246:az-baze-auth/advertising_report.py']).decode()
+          assert "class=\"source-expand\"" in js
+          assert "class=\"child-row yandex-campaign-row\"" in js
+          assert "button.textContent=expanded?'+':'−'" in js
+          assert 'return "", "Не определено"' in py
+          print('ADVERTISING_YANDEX_CAMPAIGNS_DELIVERY_CONTRACT=PASS')
+          PY
