@@ -227,18 +227,27 @@ def _parse_rows(rows):
         if movement is not None and movement > 0 and kkm and kkm not in LEGAL_BY_KKM:
             raise ValueError(f"В файле «Счета и оплаты» обнаружена неизвестная ККМ: {kkm}.")
 
+        # Payer timing is broader than the approved cash numerator. Any positive
+        # patient movement is valid temporal evidence for a confirmed MIS payer,
+        # including deposits/bank movements with an empty KKM. Cash money itself
+        # remains restricted to the approved OOO/IP KKM below.
+        patient_token = ""
+        if movement is not None and movement > 0:
+            if patient_index is not None and patient_index < len(cols):
+                patient_token = _patient_token(cols[patient_index])
+            if patient_token:
+                if patient_token not in day["payerTokens"]:
+                    day["payerTokens"].append(patient_token)
+                direction, _evidence_provider = _find_provider(operation)
+                bucket = direction if direction in {"dent", "structure", "lab"} else "unallocated"
+                if patient_token not in day["payerDirectionTokens"][bucket]:
+                    day["payerDirectionTokens"][bucket].append(patient_token)
+            else:
+                payer_incomplete_dates.add(data_date)
+
         legal = LEGAL_BY_KKM.get(kkm)
         if legal is None or movement is None or movement <= 0:
             continue
-
-        patient_token = ""
-        if patient_index is not None and patient_index < len(cols):
-            patient_token = _patient_token(cols[patient_index])
-        if patient_token:
-            if patient_token not in day["payerTokens"]:
-                day["payerTokens"].append(patient_token)
-        else:
-            payer_incomplete_dates.add(data_date)
 
         if legal == "ooo":
             day["cashOOO"] += movement
@@ -246,13 +255,9 @@ def _parse_rows(rows):
             day["cashIP"] += movement
         day["cashTotal"] += movement
 
-        # Attribute whenever the operation text explicitly contains a known provider.
-        # «Внесение ДС» and other rows without a provider remain unallocated.
+        # Attribute approved cash money whenever the operation text explicitly
+        # contains a known provider. Payer timing was captured above independently.
         direction, provider = _find_provider(operation)
-        if patient_token:
-            bucket = direction if direction in {"dent", "structure", "lab"} else "unallocated"
-            if patient_token not in day["payerDirectionTokens"][bucket]:
-                day["payerDirectionTokens"][bucket].append(patient_token)
         if direction == "dent":
             day["dentists"][provider] = float(day["dentists"].get(provider) or 0) + movement
             _add_legal(day["dentistsLegal"], provider, legal, movement)
