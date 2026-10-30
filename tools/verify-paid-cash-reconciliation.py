@@ -6,23 +6,45 @@ import pathlib
 import sqlite3
 import sys
 import types
+from datetime import date as calendar_date, timedelta
 
 DB=pathlib.Path('/var/lib/az-baze/auth.db')
 REPORT_STORAGE=pathlib.Path('/opt/az-baze-auth/report_storage.py')
 CASH_PAYMENTS=pathlib.Path('/opt/az-baze-auth/cash_payments.py')
+IDENT_IMPORT=pathlib.Path('/opt/az-baze-auth/ident_import.py')
 CONFIG=pathlib.Path('/var/lib/az-baze/paid-period-confirmations-v1.json')
 
 def stop(msg):
     print('PAID_CASH_RECON=STOP; '+msg)
     raise SystemExit(1)
 
-for p in (DB,REPORT_STORAGE,CASH_PAYMENTS,CONFIG):
+for p in (DB,REPORT_STORAGE,CASH_PAYMENTS,IDENT_IMPORT,CONFIG):
     if not p.exists():
         stop('MISSING='+str(p))
 
 # Load cash module only; it has no import-time DB writes.
 sys.path.insert(0,str(CASH_PAYMENTS.parent))
 import cash_payments
+
+# Read only the provider constants from live ident_import without importing Flask/app.
+ident_source=IDENT_IMPORT.read_text(encoding='utf-8')
+ident_tree=ast.parse(ident_source)
+safe_ident_nodes=[]
+for node in ident_tree.body:
+    if isinstance(node,ast.Assign):
+        names={target.id for target in node.targets if isinstance(target,ast.Name)}
+        if names & {'DENTISTS','STRUCTURE_DOCTORS','LAB_DOCTORS','KNOWN_STAFF'}:
+            safe_ident_nodes.append(node)
+ident_ns={'set':set}
+safe_ident=ast.Module(body=safe_ident_nodes,type_ignores=[])
+ast.fix_missing_locations(safe_ident)
+exec(compile(safe_ident,str(IDENT_IMPORT),'exec'),ident_ns)
+ident_import=types.SimpleNamespace(
+    DENTISTS=ident_ns['DENTISTS'],
+    STRUCTURE_DOCTORS=ident_ns['STRUCTURE_DOCTORS'],
+    LAB_DOCTORS=ident_ns['LAB_DOCTORS'],
+    KNOWN_STAFF=ident_ns['KNOWN_STAFF'],
+)
 
 # Extract exact pure/read functions from live report_storage without importing Flask/app.
 source=REPORT_STORAGE.read_text(encoding='utf-8')
@@ -47,6 +69,10 @@ ns={
     'json':json,
     'sqlite3':sqlite3,
     'Path':pathlib.Path,
+    'DB_PATH':DB,
+    'calendar_date':calendar_date,
+    'timedelta':timedelta,
+    'ident_import':ident_import,
     'paid_services':types.SimpleNamespace(),
     'paid_period_confirmation':None,
 }
