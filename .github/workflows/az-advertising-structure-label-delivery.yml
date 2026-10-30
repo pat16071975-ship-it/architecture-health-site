@@ -1,0 +1,44 @@
+name: AZ advertising structure label delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/advertising-structure-label-production-20261030.sh'
+      - '.github/workflows/az-advertising-structure-label-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify advertising structure-label deploy package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/advertising-structure-label-production-20261030.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/advertising-structure-label-production-20261030.sh').read_text()
+          assert "TARGET_COMMIT='eb5949c3b3bc4d2d82695e85f9ca87fd40b11503'" in script
+          assert "CONFIRM_TOKEN='ADVERTISING-STRUCTURE-LABEL-EB5949C3'" in script
+          assert "ADVERTISING_STRUCTURE_LABEL_PRODUCTION_DEPLOY=PASS" in script
+
+          path='reports/advertising.js'
+          old=subprocess.check_output(['git','show','0d3fc3e76586d810a8c317e6814a5f90c1ecb4cb:'+path])
+          new=subprocess.check_output(['git','show','eb5949c3b3bc4d2d82695e85f9ca87fd40b11503:'+path])
+          old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+          new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+          assert old_blob=='4af7824727f464f8555757664515a80fb74cd979',old_blob
+          assert new_blob=='0bc09dc6c1a0013d18877bff8cd110fb94cb0216',new_blob
+
+          text=new.decode()
+          assert "['Отделение структуры',directions.structure]" in text
+          assert "['Клиника',directions.structure]" not in text
+          print('ADVERTISING_STRUCTURE_LABEL_DELIVERY_CONTRACT=PASS')
+          PY
