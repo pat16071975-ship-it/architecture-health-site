@@ -121,13 +121,36 @@ function renderSources(){
   body.innerHTML=sourceHtml+totalHtml
 }
 
+function shortDate(value){
+  if(!validDate(value))return '';
+  const [y,m,d]=value.split('-');
+  return d+'.'+m+'.'+y
+}
+function coveragePart(label,item,allowComplete=true){
+  if(!item||!item.days)return label+': нет данных';
+  const range=item.from===item.to?shortDate(item.from):shortDate(item.from)+'–'+shortDate(item.to);
+  const suffix=allowComplete&&item.expectedDays
+    ? (item.complete?' — полный период':' — частично, '+item.days+' из '+item.expectedDays+' дней')
+    : ' — '+item.days+' дн.';
+  return label+': '+range+suffix
+}
+function renderCoverage(){
+  const c=payload?.coverage||{};
+  const parts=[
+    coveragePart('Метрика',c.metrika),
+    coveragePart('Приёмы',c.clinic),
+    coveragePart('«Оплачено» MIS',c.misPaid),
+    coveragePart('Кассовые операции',c.cash,false)
+  ];
+  $('#coverage').textContent='Покрытие выбранного периода: '+parts.join(' · ')
+}
 function renderFreshness(){
   const items=payload?.freshness||[];
   const spend=payload?.summary?.spend;
   const prefix=spend==null?'Расходы и клики Директа пока не загружены — неизвестные значения не заменяются нулями. ':'';
   $('#freshness').textContent=prefix+(items.length?'Актуальность источников: '+items.map(x=>x.label+' — '+(String(x.generated_at||'').slice(0,10)||'нет данных')).join(' · '):'Данные Метрики ещё не загружены.')
 }
-function render(){renderSite();renderActivity();renderRevenue();renderSources();renderFreshness()}
+function render(){renderSite();renderActivity();renderRevenue();renderSources();renderCoverage();renderFreshness()}
 function syncUrl(){
   const q=new URLSearchParams(location.search);
   q.set('from',$('#fromDate').value);
