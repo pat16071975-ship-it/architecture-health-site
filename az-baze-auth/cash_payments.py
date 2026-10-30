@@ -32,6 +32,7 @@ REQUIRED_HEADERS = {
     "kkm": "ККМ",
 }
 PATIENT_HEADERS = ("Пациент/Компания", "Пациент / Компания")
+PAYER_EVIDENCE_VERSION = 2
 PAYER_EVIDENCE_KEYS = {
     "payerEvidenceVersion", "payerEvidenceComplete",
     "payerEvidenceCoverageFrom", "payerEvidenceCoverageTo",
@@ -149,7 +150,7 @@ def _blank_day():
         "clinicCashIP": 0.0,
         "labCashOOO": 0.0,
         "labCashIP": 0.0,
-        "payerEvidenceVersion": 1,
+        "payerEvidenceVersion": PAYER_EVIDENCE_VERSION,
         "payerEvidenceComplete": False,
         "payerEvidenceCoverageFrom": "",
         "payerEvidenceCoverageTo": "",
@@ -304,7 +305,7 @@ def _apply_payer_source_coverage(daily, filename):
     ytd_named = any(marker in lower for marker in ("весь год", "с начала года", "ytd"))
     coverage_from = year + "-01-01" if ytd_named else first
     for payload in daily.values():
-        if payload.get("payerEvidenceVersion") == 1:
+        if payload.get("payerEvidenceVersion") == PAYER_EVIDENCE_VERSION:
             payload["payerEvidenceCoverageFrom"] = coverage_from
             payload["payerEvidenceCoverageTo"] = last
     return daily
@@ -379,9 +380,11 @@ def financial_payload(payload):
 def payer_evidence(payload):
     value = dict(payload or {})
     directions = value.get("payerDirectionTokens") or {}
-    if value.get("payerEvidenceVersion") != 1 or value.get("payerEvidenceComplete") is not True:
+    version = value.get("payerEvidenceVersion")
+    if version not in {1, 2} or value.get("payerEvidenceComplete") is not True:
         return None
     return {
+        "version": int(version),
         "coverageFrom": str(value.get("payerEvidenceCoverageFrom") or ""),
         "coverageTo": str(value.get("payerEvidenceCoverageTo") or ""),
         "all": set(str(x) for x in (value.get("payerTokens") or []) if str(x)),
