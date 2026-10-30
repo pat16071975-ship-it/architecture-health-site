@@ -1,0 +1,56 @@
+name: AZ advertising coverage delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/advertising-coverage-production-20261030.sh'
+      - '.github/workflows/az-advertising-coverage-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify advertising coverage deploy package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/advertising-coverage-production-20261030.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/advertising-coverage-production-20261030.sh').read_text()
+          assert "TARGET_COMMIT='5bb9064babb6eeb30b89129848c7c0c6d7f385b6'" in script
+          assert "CONFIRM_TOKEN='ADVERTISING-COVERAGE-5BB9064B'" in script
+          assert 'ADVERTISING_COVERAGE_PRODUCTION_DEPLOY=PASS' in script
+
+          paths=[
+              'az-baze-auth/advertising_report.py',
+              'reports/advertising.html',
+              'reports/advertising.js',
+          ]
+          base=[
+              'c2db5fe53f8df28d0beec2a23b2b3fa61895bfe4',
+              '0d96e0d0c595bec491e2c64ee26010e8ee610665',
+              '049c47090973459af64bd939153d5ad73da842b6',
+          ]
+          target=[
+              '911870573d9b73aa06ace28945923b601e2727de',
+              '03b1297892f5b97d12f872d1d29141483305378c',
+              'd31666f70cde4fd333116c743126a1d93cf31221',
+          ]
+          for path,b,t in zip(paths,base,target):
+              old=subprocess.check_output(['git','show','1308b11764c366eb3da44b8dc9ab37e531b2acdd:'+path])
+              new=subprocess.check_output(['git','show','5bb9064babb6eeb30b89129848c7c0c6d7f385b6:'+path])
+              old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+              new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+              assert old_blob==b,(path,old_blob,b)
+              assert new_blob==t,(path,new_blob,t)
+
+          print('ADVERTISING_COVERAGE_DELIVERY_CONTRACT=PASS')
+          PY
