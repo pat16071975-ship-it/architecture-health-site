@@ -198,6 +198,6 @@ function initialState(){
   comparisonOptions(compare||'previous_period');
   load({serverDefaults:true})
 }
-$('.chip').forEach(b=>b.addEventListener('click',()=>quickRange(b.dataset.range)));
+all('.chip').forEach(b=>b.addEventListener('click',()=>quickRange(b.dataset.range)));
 ['fromDate','toDate','compareMode'].forEach(id=>$('#'+id).addEventListener('change',()=>load()));
 initialState();
