@@ -366,12 +366,12 @@ class AdvertisingReportTests(unittest.TestCase):
                  "","",None,None,8,"t","unknown"),
             )
             c.execute(
-                "INSERT INTO advertising_metrika_goal_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_metrika_goal_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама",
                  "101","Ортодонтия","booking_open","Открытие окна записи",2,2,"t","named"),
             )
             c.execute(
-                "INSERT INTO advertising_metrika_goal_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_metrika_goal_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама",
                  "","","medflex","Переход к записи в Medflex",3,3,"t","unknown"),
             )
