@@ -1,22 +1,32 @@
 
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const $=s=>document.querySelector(s), $=s=>[...document.querySelectorAll(s)];
 const money=v=>v==null?'Нет данных':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(v)+' ₽';
 const number=v=>v==null?'Нет данных':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(v);
-const iso=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
-const sameMonth=(a,b)=>a.slice(0,7)===b.slice(0,7);
-let payload=null;
+const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
+const validDate=s=>DATE_RE.test(String(s||''));
+const sameMonth=(a,b)=>validDate(a)&&validDate(b)&&a.slice(0,7)===b.slice(0,7);
+let payload=null,clinicToday='';
 
 function h(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
-function setDefaultDates(){const n=new Date();$('#fromDate').value=iso(new Date(n.getFullYear(),n.getMonth(),1));$('#toDate').value=iso(n)}
-function quickRange(k){
-  const n=new Date();let a,b;
-  if(k==='day'){a=new Date(2026,9,27);b=new Date(2026,9,27)}
-  else if(k==='month'){a=new Date(n.getFullYear(),n.getMonth(),1);b=n}
-  else{a=new Date(n.getFullYear(),n.getMonth()-1,1);b=new Date(n.getFullYear(),n.getMonth(),0)}
-  $('#fromDate').value=iso(a);$('#toDate').value=iso(b);load()
+function monthStart(day){return day.slice(0,7)+'-01'}
+function previousMonth(day){
+  const [rawY,rawM]=day.slice(0,7).split('-').map(Number);
+  let y=rawY,m=rawM-1;
+  if(m===0){y-=1;m=12}
+  const mm=String(m).padStart(2,'0');
+  const last=String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,'0');
+  return [y+'-'+mm+'-01',y+'-'+mm+'-'+last]
 }
-function comparisonOptions(){
-  const old=$('#compareMode').value||'previous_period',month=sameMonth($('#fromDate').value,$('#toDate').value);
+function quickRange(k){
+  const today=clinicToday||payload?.today;
+  if(!validDate(today)){load({serverDefaults:true});return}
+  let a=today,b=today;
+  if(k==='month')a=monthStart(today);
+  else if(k==='prev-month')[a,b]=previousMonth(today);
+  $('#fromDate').value=a;$('#toDate').value=b;load()
+}
+function comparisonOptions(preferred){
+  const old=preferred||$('#compareMode').value||'previous_period',month=sameMonth($('#fromDate').value,$('#toDate').value);
   let o=[['none','Без сравнения'],['previous_period','Предыдущий сопоставимый период']];
   if(month)o.push(['previous_quarter_avg','Среднее предыдущего квартала'],['year_avg','Среднее текущего года']);
   o.push(['last_year','Тот же период прошлого года']);
@@ -118,16 +128,53 @@ function renderFreshness(){
   $('#freshness').textContent=prefix+(items.length?'Актуальность источников: '+items.map(x=>x.label+' — '+(String(x.generated_at||'').slice(0,10)||'нет данных')).join(' · '):'Данные Метрики ещё не загружены.')
 }
 function render(){renderSite();renderActivity();renderRevenue();renderSources();renderFreshness()}
-async function load(){
+function syncUrl(){
+  const q=new URLSearchParams(location.search);
+  q.set('from',$('#fromDate').value);
+  q.set('to',$('#toDate').value);
+  q.set('compare',$('#compareMode').value);
+  history.replaceState(null,'',location.pathname+'?'+q.toString())
+}
+function showPeriodError(message){
+  $('#freshness').innerHTML='<span class="error">'+h(message)+'</span>'
+}
+async function load(options={}){
+  const serverDefaults=options.serverDefaults===true;
   comparisonOptions();$('#page').classList.add('loading');
   try{
-    const q=new URLSearchParams({from:$('#fromDate').value,to:$('#toDate').value,compare:$('#compareMode').value,trend:'visits'});
+    const from=$('#fromDate').value,to=$('#toDate').value;
+    if(!serverDefaults){
+      if(!validDate(from)||!validDate(to)){showPeriodError('Выберите обе даты периода.');return}
+      if(from>to){showPeriodError('Дата «с» не может быть позже даты «по».');return}
+    }
+    const q=new URLSearchParams({compare:$('#compareMode').value||'previous_period',trend:'visits'});
+    if(!serverDefaults){q.set('from',from);q.set('to',to)}
     const r=await fetch('/api/reports/advertising?'+q,{credentials:'same-origin',cache:'no-store'});
-    if(!r.ok)throw new Error('HTTP '+r.status);payload=await r.json();render()
-  }catch(e){console.error(e);$('#freshness').innerHTML='<span class="error">Не удалось загрузить рекламный отчёт.</span>'}
-  finally{$('#page').classList.remove('loading')}
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    payload=await r.json();
+    clinicToday=payload.today||clinicToday;
+    $('#fromDate').value=payload.period.from;
+    $('#toDate').value=payload.period.to;
+    comparisonOptions(payload.compare?.mode||$('#compareMode').value);
+    syncUrl();
+    render()
+  }catch(e){
+    console.error(e);
+    showPeriodError('Не удалось загрузить рекламный отчёт.')
+  }finally{$('#page').classList.remove('loading')}
 }
-setDefaultDates();comparisonOptions();
-$$('.chip').forEach(b=>b.addEventListener('click',()=>quickRange(b.dataset.range)));
-['fromDate','toDate','compareMode'].forEach(id=>$('#'+id).addEventListener('change',load));
-load();
+function initialState(){
+  const q=new URLSearchParams(location.search);
+  const from=q.get('from'),to=q.get('to'),compare=q.get('compare');
+  if(validDate(from)&&validDate(to)&&from<=to){
+    $('#fromDate').value=from;$('#toDate').value=to;
+    comparisonOptions(compare||'previous_period');
+    load();
+    return
+  }
+  comparisonOptions(compare||'previous_period');
+  load({serverDefaults:true})
+}
+$('.chip').forEach(b=>b.addEventListener('click',()=>quickRange(b.dataset.range)));
+['fromDate','toDate','compareMode'].forEach(id=>$('#'+id).addEventListener('change',()=>load()));
+initialState();
