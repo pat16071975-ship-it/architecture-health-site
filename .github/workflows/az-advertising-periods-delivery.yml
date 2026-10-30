@@ -1,0 +1,45 @@
+name: AZ advertising periods delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/advertising-periods-production-20261030.sh'
+      - '.github/workflows/az-advertising-periods-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify advertising periods delivery
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/advertising-periods-production-20261030.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/advertising-periods-production-20261030.sh').read_text()
+          assert "TARGET_COMMIT='48200f2a9897f3b0e366939eae826f398dc54f2c'" in script
+          assert "CONFIRM_TOKEN='ADVERTISING-PERIODS-48200F2A'" in script
+          assert 'ADVERTISING_PERIODS_PRODUCTION_DEPLOY=PASS' in script
+          assert 'SERVICE_RESTART=NONE' in script
+
+          paths=['reports/advertising.html','reports/advertising.js']
+          base=['99033f3739489069c529ec9e580cd90860cd4eab','37ec2259e8cebb9ee2fc6f2855e6e37e66b8cb1c']
+          target=['0d96e0d0c595bec491e2c64ee26010e8ee610665','049c47090973459af64bd939153d5ad73da842b6']
+          for path,b,t in zip(paths,base,target):
+              old=subprocess.check_output(['git','show','efba13c07b92e3259eb2c627d9bac24cd9cc90d0:'+path])
+              new=subprocess.check_output(['git','show','48200f2a9897f3b0e366939eae826f398dc54f2c:'+path])
+              old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+              new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+              assert old_blob==b,(path,old_blob,b)
+              assert new_blob==t,(path,new_blob,t)
+
+          print('ADVERTISING_PERIODS_DELIVERY_CONTRACT=PASS')
+          PY
