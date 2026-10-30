@@ -287,6 +287,70 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(r["cash_total"],784400)
         finally:c.close()
 
+    def test_selected_period_coverage_matches_source_evidence(self):
+        c=conn()
+        try:
+            for day,visits in (("2026-10-27",75),("2026-10-28",42)):
+                c.execute(
+                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("metrika",day,"direct","Прямые заходы","Прямые заходы","","",None,None,visits,"t","m"),
+                )
+            for day,primary,repeat in (
+                ("2026-10-27",13,32),
+                ("2026-10-28",3,17),
+                ("2026-10-29",2,11),
+            ):
+                c.execute(
+                    "INSERT INTO advertising_clinic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("mis",day,"unknown","Неизвестно","Неизвестно","","",None,None,primary,None,None,repeat,None,"t","mis"),
+                )
+            c.execute(
+                "CREATE TABLE advertising_mis_paid_ingests("
+                "period_start TEXT,period_end TEXT,source_filename TEXT,source_sha256 TEXT,"
+                "imported_at TEXT,paid_total REAL,detailed_paid_total REAL,line_count INTEGER,"
+                "PRIMARY KEY(period_start,period_end))"
+            )
+            c.execute(
+                "INSERT INTO advertising_mis_paid_ingests VALUES(?,?,?,?,?,?,?,?)",
+                ("2026-10-27","2026-10-27","paid.xlsx","sha","t",800900,535680,71),
+            )
+            c.execute(
+                "CREATE TABLE cash_receipts_daily("
+                "data_date TEXT PRIMARY KEY,payload_json TEXT,source_filename TEXT,"
+                "source_sha256 TEXT,imported_by INTEGER,imported_at TEXT)"
+            )
+            for day,total in (
+                ("2026-10-27",784400),
+                ("2026-10-28",203100),
+                ("2026-10-29",163490),
+            ):
+                c.execute(
+                    "INSERT INTO cash_receipts_daily VALUES(?,?,?,?,?,?)",
+                    (day,json.dumps({"cashTotal":total}),"cash.xlsx","sha",1,"t"),
+                )
+            c.commit()
+
+            coverage=m._coverage_summary(c,date(2026,10,27),date(2026,10,30))
+            self.assertEqual(
+                (coverage["metrika"]["days"],coverage["metrika"]["from"],coverage["metrika"]["to"],coverage["metrika"]["complete"]),
+                (2,"2026-10-27","2026-10-28",False),
+            )
+            self.assertEqual(
+                (coverage["clinic"]["days"],coverage["clinic"]["to"],coverage["clinic"]["complete"]),
+                (3,"2026-10-29",False),
+            )
+            self.assertEqual(
+                (coverage["misPaid"]["days"],coverage["misPaid"]["from"],coverage["misPaid"]["complete"]),
+                (1,"2026-10-27",False),
+            )
+            self.assertEqual(
+                (coverage["cash"]["days"],coverage["cash"]["from"],coverage["cash"]["to"],coverage["cash"]["complete"]),
+                (3,"2026-10-27","2026-10-29",None),
+            )
+            self.assertEqual(coverage["trackingStart"],"2026-10-27")
+        finally:
+            c.close()
+
     def test_ui_contract(self):
         root=Path(__file__).parents[1]/"reports"
         html=(root/"advertising.html").read_text(encoding="utf-8")
@@ -321,6 +385,10 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("q.set('from',$('#fromDate').value)", js)
         self.assertIn("q.set('to',$('#toDate').value)", js)
         self.assertIn("new Date(Date.UTC(y,m,0)).getUTCDate()", js)
+        self.assertIn('id="coverage"', html)
+        self.assertIn("Покрытие выбранного периода", js)
+        self.assertIn("coveragePart('Метрика',c.metrika)", js)
+        self.assertIn("coveragePart('«Оплачено» MIS',c.misPaid)", js)
 
     def test_arbitrary_multi_day_range_sums_only_available_days(self):
         c=conn()
