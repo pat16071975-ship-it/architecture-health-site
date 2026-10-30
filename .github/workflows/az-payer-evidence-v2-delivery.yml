@@ -1,0 +1,57 @@
+name: AZ payer evidence v2 delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/payer-evidence-v2-production-20261030.sh'
+      - '.github/workflows/az-payer-evidence-v2-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify payer evidence v2 deploy package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/payer-evidence-v2-production-20261030.sh'
+          bash -n "$f"
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/payer-evidence-v2-production-20261030.sh').read_text()
+          assert "TARGET_COMMIT='37973940903a798e0061c9c35f1b4559fc10920b'" in script
+          assert "CONFIRM_TOKEN='PAYER-EVIDENCE-V2-37973940'" in script
+          assert 'PAYER_EVIDENCE_V2_PRODUCTION_DEPLOY=PASS' in script
+          assert 'BUSINESS_DATA_BACKFILL=NOT_PERFORMED' in script
+
+          paths=[
+              'az-baze-auth/cash_payments.py',
+              'az-baze-auth/upload_reconcile.py',
+              'az-baze-auth/cash_upload.py',
+          ]
+          base=[
+              'd7c952f525e4fde687b9ad58a6933b1ccb3024a3',
+              'f521694ea986bf8d3fb61718538e4b6d39aa9d8c',
+              '34f40d075ccc21c7f650830a8aeb8dc7f7493ed0',
+          ]
+          target=[
+              '8e90ce33b8d36f51a46f3eaf13d55fce6ac8bea9',
+              '6945643c50da4054ad18ca44885cd4ce59c422c9',
+              '58a3958be43db73666d84ab7010e00950af515e4',
+          ]
+          for path,b,t in zip(paths,base,target):
+              old=subprocess.check_output(['git','show','69b7b0a9ca995cf36eb42939ec99f10ebbfbde55:'+path])
+              new=subprocess.check_output(['git','show','37973940903a798e0061c9c35f1b4559fc10920b:'+path])
+              old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+              new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+              assert old_blob==b,(path,old_blob,b)
+              assert new_blob==t,(path,new_blob,t)
+
+          print('PAYER_EVIDENCE_V2_DELIVERY_CONTRACT=PASS')
+          PY
