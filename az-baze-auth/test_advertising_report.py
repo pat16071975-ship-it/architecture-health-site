@@ -407,6 +407,8 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("Покрытие выбранного периода", js)
         self.assertIn("coveragePart('Метрика',c.metrika)", js)
         self.assertIn("coveragePart('«Оплачено» MIS',c.misPaid)", js)
+        self.assertIn("['Отделение структуры',directions.structure]", js)
+        self.assertNotIn("['Клиника',directions.structure]", js)
         terminology_source=(Path(__file__).parent/"terminology.py").read_text(encoding="utf-8")
         self.assertIn("skip_runtime_rename(path)", terminology_source)
         self.assertIn("all('.chip').forEach", js)
