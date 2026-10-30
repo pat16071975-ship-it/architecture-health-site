@@ -168,14 +168,39 @@ class CashPaidTimelineTests(unittest.TestCase):
         self.assertEqual(rows["2026-01-15"]["medicine"], 2)
         self.assertEqual(rows["2026-01-15"]["structure"], 1)
 
-    def test_unresolved_mis_payer_keeps_only_confirmed_month_end(self):
+    def test_unresolved_mis_payer_no_longer_blanks_whole_month(self):
         known = "known"
         unresolved = "unresolved"
         intervals = self._interval({known}, {unresolved})
         self._put("2026-01-05", self._payload({"dent": {known}}))
         rows = report_storage._management_paid_patients_by_date(self.f.conn, intervals)
-        self.assertNotIn("2026-01-15", rows)
+        self.assertEqual(rows["2026-01-15"]["medicine"], 1)
+        self.assertEqual(rows["2026-01-15"]["dent"], 1)
+        self.assertEqual(rows["2026-01-15"]["structure"], 0)
+        self.assertEqual(rows["2026-01-30"]["medicine"], 1)
         self.assertEqual(rows["2026-01-31"]["medicine"], 2)
+        self.assertEqual(rows["2026-01-31"]["structure"], 1)
+
+
+    def test_multiple_unresolved_tokens_are_delayed_only_to_confirmed_endpoint(self):
+        dent_known = "dent-known"
+        dent_unresolved = "dent-unresolved"
+        structure_known = "structure-known"
+        structure_unresolved = "structure-unresolved"
+        intervals = self._interval(
+            {dent_known, dent_unresolved},
+            {structure_known, structure_unresolved},
+        )
+        self._put("2026-01-05", self._payload({"dent": {dent_known}}))
+        self._put("2026-01-10", self._payload({"structure": {structure_known}}))
+
+        rows = report_storage._management_paid_patients_by_date(self.f.conn, intervals)
+        self.assertEqual(rows["2026-01-15"]["medicine"], 2)
+        self.assertEqual(rows["2026-01-15"]["dent"], 1)
+        self.assertEqual(rows["2026-01-15"]["structure"], 1)
+        self.assertEqual(rows["2026-01-31"]["medicine"], 4)
+        self.assertEqual(rows["2026-01-31"]["dent"], 2)
+        self.assertEqual(rows["2026-01-31"]["structure"], 2)
 
 
 if __name__ == "__main__":

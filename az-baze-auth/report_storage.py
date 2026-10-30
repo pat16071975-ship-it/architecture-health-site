@@ -370,7 +370,8 @@ def _cash_paid_patients_by_date(conn, intervals):
     the payment day when the patient has a positive receipt in the month. If the
     confirmed MIS payer has no current-month cash receipt, the first linked
     service date in that direction supplies the in-month day (prepayment/deposit
-    cases). A patient is never placed before both known facts exist.
+    cases). If neither date is provable, only that confirmed payer is delayed to
+    the confirmed endpoint; the rest of the month remains available.
     """
     months = _mis_paid_patient_sets_by_month(intervals)
     if not months:
@@ -449,18 +450,16 @@ def _cash_paid_patients_by_date(conn, intervals):
                         cash_dates[direction].setdefault(token, set()).add(day)
 
         placed = {"dent": {}, "structure": {}}
-        unresolved = False
         for direction in ("dent", "structure"):
             for token in mis[direction]:
                 day = placed_day(token, direction, cash_dates, visit_dates)
+                # A confirmed MIS payer with no provable intra-month event must
+                # not erase the whole month. Delay only that token to the exact
+                # confirmed endpoint. This preserves a conservative MTD timeline
+                # before the endpoint and the exact confirmed month-end set.
                 if day is None or not month_start <= day <= as_of:
-                    unresolved = True
-                    break
+                    day = as_of
                 placed[direction][token] = day
-            if unresolved:
-                break
-        if unresolved:
-            continue
 
         events = {}
         for direction in ("dent", "structure"):
