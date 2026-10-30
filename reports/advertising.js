@@ -1,5 +1,5 @@
 
-const $=s=>document.querySelector(s), $=s=>[...document.querySelectorAll(s)];
+const $=s=>document.querySelector(s), all=s=>[...document.querySelectorAll(s)];
 const money=v=>v==null?'Нет данных':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(v)+' ₽';
 const number=v=>v==null?'Нет данных':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(v);
 const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
