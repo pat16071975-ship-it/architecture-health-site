@@ -380,18 +380,30 @@ def _group_breakdown(conn, start, end, level):
     except sqlite3.OperationalError:
         goals = []
     groups = {}
+    def campaign_parts(row):
+        source_key = str(row["source_key"] or "")
+        campaign_id = str(row["campaign_id"] or "").strip()
+        campaign_name = str(row["campaign_name"] or "").strip()
+        if source_key == "yandex_ads" and not campaign_name:
+            # The user-facing Yandex Direct drill-down must never hide traffic
+            # merely because Direct did not resolve the campaign name.
+            # Collapse such traffic into one explicit "Не определено" bucket.
+            return "", "Не определено"
+        return campaign_id, campaign_name
+
     def key_for(row):
         if level == "campaign":
-            campaign_id, campaign_name = str(row["campaign_id"] or ""), str(row["campaign_name"] or "")
+            campaign_id, campaign_name = campaign_parts(row)
             return None if not campaign_id and not campaign_name else (str(row["source_key"]), campaign_id, campaign_name)
         return (str(row["source_key"]),)
     def ensure(row, key):
         if key not in groups:
+            campaign_id, campaign_name = campaign_parts(row) if level == "campaign" else ("", "")
             groups[key] = {
                 "source_key": str(row["source_key"]), "source_name": str(row["source_name"]),
                 "channel_name": str(row["channel_name"] or ""),
-                "campaign_id": str(row["campaign_id"] or "") if level == "campaign" else "",
-                "campaign_name": str(row["campaign_name"] or "") if level == "campaign" else "",
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name,
                 **{metric: None for metric in METRIC_KEYS},
             }
         return groups[key]
