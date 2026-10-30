@@ -1198,6 +1198,100 @@ def _today():
         return datetime.now(ZoneInfo(DEFAULT_TIMEZONE)).date()
 
 
+def _coverage_summary(conn, start, end):
+    """Visible source coverage for the selected advertising-report period."""
+    start_s, end_s = _iso(start), _iso(end)
+    tracking_start = date.fromisoformat("2026-10-27")
+    expected_start = max(start, tracking_start)
+    expected_days = max(0, (end - expected_start).days + 1) if end >= expected_start else 0
+
+    def pack(days, complete=True):
+        values = sorted({
+            str(day)
+            for day in days
+            if isinstance(day, str) and start_s <= day <= end_s
+        })
+        expected = {
+            (expected_start + timedelta(days=offset)).isoformat()
+            for offset in range(expected_days)
+        }
+        return {
+            "from": values[0] if values else None,
+            "to": values[-1] if values else None,
+            "days": len(values),
+            "expectedFrom": _iso(expected_start) if expected_days else None,
+            "expectedTo": end_s if expected_days else None,
+            "expectedDays": expected_days,
+            "complete": bool(expected_days and expected.issubset(set(values))) if complete else None,
+        }
+
+    metrika_days = set()
+    try:
+        rows = conn.execute(
+            "SELECT completed_days_json FROM advertising_metrika_imports"
+        ).fetchall()
+        for row in rows:
+            try:
+                values = json.loads(row["completed_days_json"])
+            except (TypeError, ValueError):
+                continue
+            if isinstance(values, list):
+                metrika_days.update(str(value) for value in values)
+    except sqlite3.OperationalError:
+        pass
+    if not metrika_days:
+        try:
+            rows = conn.execute(
+                "SELECT DISTINCT metric_date FROM advertising_traffic_daily "
+                "WHERE provider='metrika' AND metric_date BETWEEN ? AND ?",
+                (start_s, end_s),
+            ).fetchall()
+            metrika_days.update(str(row["metric_date"]) for row in rows)
+        except sqlite3.OperationalError:
+            pass
+
+    clinic_days = set()
+    try:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT metric_date
+            FROM advertising_clinic_daily
+            WHERE provider='mis' AND metric_date BETWEEN ? AND ?
+              AND (primary_visits IS NOT NULL OR repeat_visits IS NOT NULL)
+            """,
+            (start_s, end_s),
+        ).fetchall()
+        clinic_days.update(str(row["metric_date"]) for row in rows)
+    except sqlite3.OperationalError:
+        pass
+
+    revenue_days = {
+        day for day in _mis_revenue_daily(conn)
+        if start_s <= day <= end_s
+    }
+
+    cash_days = set()
+    try:
+        rows = conn.execute(
+            "SELECT data_date FROM cash_receipts_daily "
+            "WHERE data_date BETWEEN ? AND ? ORDER BY data_date",
+            (start_s, end_s),
+        ).fetchall()
+        cash_days.update(str(row["data_date"]) for row in rows)
+    except sqlite3.OperationalError:
+        pass
+
+    return {
+        "trackingStart": _iso(tracking_start),
+        "metrika": pack(metrika_days),
+        "clinic": pack(clinic_days),
+        "misPaid": pack(revenue_days),
+        # No-operation cash dates may be absent from cash_receipts_daily, so this
+        # is deliberately shown as operation-day evidence, not completeness.
+        "cash": pack(cash_days, complete=False),
+    }
+
+
 def _report_payload(conn, start, end, compare_mode, trend_metric):
     current = _summary(conn, start, end)
     ranges = _comparison_ranges(compare_mode, start, end)
@@ -1212,6 +1306,7 @@ def _report_payload(conn, start, end, compare_mode, trend_metric):
         "campaigns": _group_breakdown(conn, start, end, "campaign"),
         "trend": _trend(conn, start, end, trend_metric, ranges),
         "freshness": _freshness(conn),
+        "coverage": _coverage_summary(conn, start, end),
         "revenue": _revenue_summary(conn, start, end),
         "crm": _crm_status(conn, start, end),
     }
