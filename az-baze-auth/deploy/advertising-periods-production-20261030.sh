@@ -82,7 +82,8 @@ download_targets(){
     actual="$(git hash-object "$dst")"
     [[ "$actual" == "${TARGET_BLOB[$i]}" ]] || fail "target blob mismatch $rel: $actual"
   done
-  node --check "$STAGE/reports/advertising.js"
+  # JavaScript syntax is verified by the exact delivery CI against TARGET_BLOB.
+  # Production host intentionally does not require Node.js.
   grep -Fq 'data-range="day">Сегодня</button>' "$STAGE/reports/advertising.html"
   grep -Fq 'Текущий месяц по сегодня' "$STAGE/reports/advertising.html"
   grep -Fq 'Рекламные KPI собираются с 27.10.2026' "$STAGE/reports/advertising.html"
@@ -129,7 +130,7 @@ PY
 preflight(){
   [[ "$(id -u)" == '0' ]] || fail 'run as root'
   [[ "$(hostname -s)" == 'az-server' ]] || fail "wrong host $(hostname -s)"
-  for c in curl git node python3 systemctl; do command -v "$c" >/dev/null 2>&1 || fail "missing command $c"; done
+  for c in curl git python3 systemctl; do command -v "$c" >/dev/null 2>&1 || fail "missing command $c"; done
   [[ -d "$SITE_ROOT/reports" ]] || fail 'site reports root missing'
   [[ -f "$DB" && ! -L "$DB" ]] || fail 'database path invalid'
   systemctl is-active --quiet "$SERVICE" || fail 'service not active'
