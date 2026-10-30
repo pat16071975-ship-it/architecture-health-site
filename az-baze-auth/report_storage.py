@@ -232,7 +232,22 @@ def _paid_patient_interval(snapshot, start, end, mappings, ignored):
 
     if unknown:
         return None
-    return {"from": start, "to": end, "sets": sets}
+
+    visit_dates = {"dent": {}, "structure": {}}
+    for raw_key, raw_providers in (snapshot.get("visit_links") or {}).items():
+        key = str(raw_key or "")
+        if "|" not in key:
+            continue
+        data_date, token = key.split("|", 1)
+        if not data_date or not token or not start <= data_date <= end:
+            continue
+        providers = {str(value or "") for value in (raw_providers or [])}
+        if token in sets["dent"] and any(provider in mappings["dent"] for provider in providers):
+            visit_dates["dent"].setdefault(token, set()).add(data_date)
+        if token in sets["structure"] and any(provider in mappings["structure"] for provider in providers):
+            visit_dates["structure"].setdefault(token, set()).add(data_date)
+
+    return {"from": start, "to": end, "sets": sets, "visitDates": visit_dates}
 
 
 def _paid_report_sources(conn):
@@ -300,6 +315,7 @@ def _combine_paid_patient_sets(parts):
         "lab": set(),
         "dentists": {},
         "clinicDocs": {},
+        "visitDates": {"dent": {}, "structure": {}},
     }
     for part in parts:
         sets = part["sets"]
@@ -308,6 +324,9 @@ def _combine_paid_patient_sets(parts):
         for key in ("dentists", "clinicDocs"):
             for name, tokens in sets[key].items():
                 combined[key].setdefault(name, set()).update(tokens)
+        for direction in ("dent", "structure"):
+            for token, dates in (part.get("visitDates", {}).get(direction, {}) or {}).items():
+                combined["visitDates"][direction].setdefault(token, set()).update(dates or ())
     return combined
 
 
@@ -345,11 +364,13 @@ def _mis_paid_patient_sets_by_month(intervals):
 
 
 def _cash_paid_patients_by_date(conn, intervals):
-    """Exact MTD payer timeline from cash dates, gated by MIS month-end membership.
+    """Historical MTD payer timeline from confirmed MIS membership + temporal evidence.
 
-    Cash supplies when money arrived. MIS supplies which paid patients belong to
-    dentistry/structure/lab. A month is exposed only when the resolved cash
-    timeline reproduces the confirmed MIS payer sets at that month's as-of date.
+    MIS remains authoritative for who is an «Оплативший пациент». Cash supplies
+    the payment day when the patient has a positive receipt in the month. If the
+    confirmed MIS payer has no current-month cash receipt, the first linked
+    service date in that direction supplies the in-month day (prepayment/deposit
+    cases). A patient is never placed before both known facts exist.
     """
     months = _mis_paid_patient_sets_by_month(intervals)
     if not months:
@@ -374,16 +395,28 @@ def _cash_paid_patients_by_date(conn, intervals):
             return {}
         by_month.setdefault(month, []).append((day, payload))
 
+    def first(values):
+        return min(values) if values else None
+
+    def placed_day(token, direction, cash_dates, visit_dates):
+        cash_day = first(cash_dates.get(token))
+        visit_day = first((visit_dates.get(direction) or {}).get(token))
+        if cash_day and visit_day:
+            return max(cash_day, visit_day)
+        return cash_day or visit_day
+
     result = {}
     for month, membership in months.items():
         as_of = membership["asOf"]
         month_start = month + "-01"
-        month_rows = [(day, payload) for day, payload in by_month.get(month, []) if day <= as_of]
+        month_rows = [
+            (day, payload)
+            for day, payload in by_month.get(month, [])
+            if month_start <= day <= as_of
+        ]
         if not month_rows:
             continue
 
-        # At least one source covering the whole requested MTD interval is
-        # required, and every positive-cash day inside it must carry patient evidence.
         evidence = []
         coverage_ok = False
         incomplete_positive_day = False
@@ -400,39 +433,44 @@ def _cash_paid_patients_by_date(conn, intervals):
             continue
 
         mis = membership["sets"]
+        visit_dates = mis.get("visitDates") or {"dent": {}, "structure": {}}
+
+        cash_dates = {}
+        for day, ev in evidence:
+            for token in ev["all"]:
+                if token in mis["medicine"]:
+                    cash_dates.setdefault(token, set()).add(day)
+
+        placed = {"dent": {}, "structure": {}}
+        unresolved = False
+        for direction in ("dent", "structure"):
+            for token in mis[direction]:
+                day = placed_day(token, direction, cash_dates, visit_dates)
+                if day is None or not month_start <= day <= as_of:
+                    unresolved = True
+                    break
+                placed[direction][token] = day
+            if unresolved:
+                break
+        if unresolved:
+            continue
+
+        events = {}
+        for direction in ("dent", "structure"):
+            for token, day in placed[direction].items():
+                events.setdefault(day, {"dent": set(), "structure": set()})[direction].add(token)
+
         cumulative = {"medicine": set(), "dent": set(), "structure": set()}
         snapshots = {}
-        events_by_day = {}
-        for day, ev in evidence:
-            events_by_day.setdefault(day, []).append(ev)
-
         current = calendar_date.fromisoformat(month_start)
         end_date = calendar_date.fromisoformat(as_of)
         while current <= end_date:
             day = current.isoformat()
-            for ev in events_by_day.get(day, []):
-                direct_dent = ev["dent"] & mis["dent"]
-                direct_structure = ev["structure"] & mis["structure"]
-                cumulative["dent"].update(direct_dent)
-                cumulative["structure"].update(direct_structure)
-                cumulative["medicine"].update(direct_dent | direct_structure)
-
-                for token in ev["unallocated"]:
-                    in_dent = token in mis["dent"]
-                    in_structure = token in mis["structure"]
-                    in_lab = token in mis["lab"]
-                    # If an unallocated receipt can only belong to one medical
-                    # direction in the confirmed MIS month, attribution is deterministic.
-                    if in_dent and not in_structure and not in_lab:
-                        cumulative["dent"].add(token)
-                        cumulative["medicine"].add(token)
-                    elif in_structure and not in_dent and not in_lab:
-                        cumulative["structure"].add(token)
-                        cumulative["medicine"].add(token)
-                    elif (in_dent or in_structure) and not in_lab:
-                        # Multi-medical-direction receipt: exact medical payer,
-                        # but direction remains unresolved until a direct event proves it.
-                        cumulative["medicine"].add(token)
+            event = events.get(day)
+            if event:
+                cumulative["dent"].update(event["dent"])
+                cumulative["structure"].update(event["structure"])
+                cumulative["medicine"].update(event["dent"] | event["structure"])
 
             snapshots[day] = {
                 "from": month_start,
@@ -448,15 +486,14 @@ def _cash_paid_patients_by_date(conn, intervals):
         if not final:
             continue
         if (
-            set(cumulative["medicine"]) != set(mis["medicine"])
-            or set(cumulative["dent"]) != set(mis["dent"])
-            or set(cumulative["structure"]) != set(mis["structure"])
+            cumulative["medicine"] != mis["medicine"]
+            or cumulative["dent"] != mis["dent"]
+            or cumulative["structure"] != mis["structure"]
         ):
-            # Never publish a partial timeline as exact payer data.
             continue
+
         result.update(snapshots)
     return result
-
 
 def _management_paid_patients_by_date(conn, intervals=None):
     """Every provable MTD endpoint; cash timeline adds arbitrary dates only after reconciliation."""
