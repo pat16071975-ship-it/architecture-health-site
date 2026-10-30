@@ -536,5 +536,30 @@ class CashPaymentsTests(unittest.TestCase):
         self.assertEqual(result["conflict"], ["2026-01-15"])
         conn.close()
 
+    def test_positive_patient_movement_without_kkm_is_payer_timing_only(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "Иванов Иван Иванович", "Внесение ДС",
+             0, 5000, "Основная", "", "", "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        day = daily["2026-01-15"]
+        self.assertTrue(day["payerEvidenceComplete"])
+        self.assertEqual(len(day["payerTokens"]), 1)
+        self.assertEqual(len(day["payerDirectionTokens"]["unallocated"]), 1)
+        self.assertEqual(day["cashTotal"], 0)
+        self.assertEqual(day["cashOOO"], 0)
+        self.assertEqual(day["cashIP"], 0)
+        self.assertEqual(day["cashUnallocated"], 0)
+
+    def test_positive_blank_kkm_movement_without_patient_marks_evidence_incomplete(self):
+        raw = self.workbook_bytes([
+            ["15 янв 2026\n10:00", "", "Внесение ДС",
+             0, 5000, "Основная", "", "", "", "", "", ""],
+        ])
+        daily, _ = cash_payments.parse_file(raw, "cash.xlsx")
+        day = daily["2026-01-15"]
+        self.assertFalse(day["payerEvidenceComplete"])
+        self.assertEqual(day["cashTotal"], 0)
+
 if __name__ == "__main__":
     unittest.main()
