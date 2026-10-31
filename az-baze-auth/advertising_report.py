@@ -1852,18 +1852,26 @@ def register_advertising_report(app):
                         completed=True,
                         diagnostics=False,
                     )
-                    core_parsed = _parse_metrika_zip(core_raw, core_filename)
+                    core_parsed = _parse_metrika_zip(
+                        core_raw,
+                        core_filename,
+                        now=sync_started,
+                    )
                     if core_parsed["completed_days"] != [day.isoformat()] or core_parsed.get("provisional_days"):
                         raise ValueError("API Метрики вернул неожиданный завершённый период.")
 
                     full_parsed = None
-                    if not _stored_metrika_matches(conn, core_parsed):
+                    if not _completed_metrika_matches_registered(conn, core_parsed):
                         full_raw, full_filename = client.fetch_day_archive(
                             day,
                             completed=True,
                             diagnostics=True,
                         )
-                        full_parsed = _parse_metrika_zip(full_raw, full_filename)
+                        full_parsed = _parse_metrika_zip(
+                            full_raw,
+                            full_filename,
+                            now=sync_started,
+                        )
                         if (
                             full_parsed["completed_days"] != [day.isoformat()]
                             or full_parsed.get("provisional_days")
@@ -1882,6 +1890,7 @@ def register_advertising_report(app):
                     current_raw,
                     current_filename,
                     allow_provisional=True,
+                    now=sync_started,
                 )
                 if (
                     current_parsed.get("completed_days")
@@ -1907,7 +1916,7 @@ def register_advertising_report(app):
                     parsed_day = str((core_parsed.get("completed_days") or [""])[0])
                     if parsed_day not in still_targets:
                         continue
-                    if _stored_metrika_matches(conn, core_parsed):
+                    if _completed_metrika_matches_registered(conn, core_parsed):
                         completed_unchanged.append(parsed_day)
                         continue
                     if full_parsed is None:
@@ -1933,16 +1942,17 @@ def register_advertising_report(app):
                 message=str(exc) or "Не удалось получить данные Яндекс Метрики.",
             ), 400
 
-        audit(
-            "advertising_metrika_auto_sync",
-            target_user_id=g.user["id"],
-            details=(
-                "completed_updated=" + ",".join(completed_updated)
-                + "; completed_unchanged=" + ",".join(completed_unchanged)
-                + "; current_day=" + current_day.isoformat()
-                + "; current_updated=" + ("1" if current_result["updated"] else "0")
-            ),
-        )
+        if completed_updated or current_result["updated"]:
+            audit(
+                "advertising_metrika_auto_sync",
+                target_user_id=g.user["id"],
+                details=(
+                    "completed_updated=" + ",".join(completed_updated)
+                    + "; completed_unchanged=" + ",".join(completed_unchanged)
+                    + "; current_day=" + current_day.isoformat()
+                    + "; current_updated=" + ("1" if current_result["updated"] else "0")
+                ),
+            )
         return jsonify(
             status="ok",
             message="Данные Яндекс Метрики обновлены.",
