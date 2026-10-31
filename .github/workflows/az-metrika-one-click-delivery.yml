@@ -148,3 +148,50 @@ jobs:
           test "$rc" -eq 1
           test "$(cat "$tmp/marker")" = 'ROLLBACK'
           echo 'EXPLICIT_FAIL_ROLLBACK_FLOW=PASS'
+
+          cat >"$tmp/credential-fail-flow.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -Eeuo pipefail
+          marker="$1"
+          ENV_WRITTEN=1
+          BACKUP='present'
+          CANDIDATE='secret-never-printed'
+          rollback_env(){ printf 'CREDENTIAL_ROLLBACK\n' >>"$marker"; return 0; }
+          on_error(){ local code="$1"; trap - ERR; if [[ "$ENV_WRITTEN" == '1' && -n "$BACKUP" ]]; then rollback_env; fi; CANDIDATE=''; unset CANDIDATE || true; exit "$code"; }
+          fail(){ echo "STOP: $*" >&2; on_error 1; }
+          fail 'synthetic postwrite health failure'
+          SH
+          set +e
+          bash "$tmp/credential-fail-flow.sh" "$tmp/credential-marker" >/dev/null 2>&1
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          test "$(cat "$tmp/credential-marker")" = 'CREDENTIAL_ROLLBACK'
+          echo 'CREDENTIAL_EXPLICIT_FAIL_ROLLBACK_FLOW=PASS'
+
+          python3 - <<'PY'
+          def counter_ok(c):
+              required={'id','permission','status','time_zone_name'}
+              return (
+                  isinstance(c,dict) and required.issubset(c)
+                  and str(c['id'])=='113776005'
+                  and str(c['permission'])=='own'
+                  and str(c['status'])=='Active'
+                  and str(c['time_zone_name'])=='Asia/Novosibirsk'
+              )
+          assert counter_ok({'id':113776005,'permission':'own','status':'Active','time_zone_name':'Asia/Novosibirsk'})
+          assert not counter_ok({'id':113776005,'permission':'own','time_zone_name':'Asia/Novosibirsk'})
+          assert not counter_ok({'id':113776005,'permission':'own','status':'Active'})
+
+          def report_ok(r):
+              required={'sampled','sample_share','total_rows_rounded','data'}
+              if not isinstance(r,dict) or not required.issubset(r): return False
+              try: share=float(r['sample_share'])
+              except (TypeError,ValueError): return False
+              return r['sampled'] is False and share==1.0 and r['total_rows_rounded'] is False and isinstance(r['data'],list)
+          assert report_ok({'sampled':False,'sample_share':1.0,'total_rows_rounded':False,'data':[]})
+          assert not report_ok({'sample_share':1.0,'total_rows_rounded':False,'data':[]})
+          assert not report_ok({'sampled':False,'total_rows_rounded':False,'data':[]})
+          assert not report_ok({'sampled':False,'sample_share':1.0,'data':[]})
+          print('FAIL_CLOSED_API_PROOF_FIELDS=PASS')
+          PY
