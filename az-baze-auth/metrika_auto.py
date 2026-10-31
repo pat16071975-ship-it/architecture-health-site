@@ -224,6 +224,8 @@ class MetrikaClient:
     def __init__(self, token, request_json=None):
         self.token = str(token or "").strip()
         self.request_json = request_json or self._request_json
+        self._counter_cache = None
+        self._goals_cache = None
         if not self.token:
             raise MetrikaApiError("Нужно подключить Яндекс Метрику.")
 
@@ -258,16 +260,23 @@ class MetrikaClient:
             raise MetrikaApiError("API Яндекс Метрики вернул некорректный ответ.") from None
 
     def counter(self):
+        if self._counter_cache is not None:
+            return self._counter_cache
         payload = self.request_json(f"/management/v1/counter/{COUNTER_ID}", {})
         counter = payload.get("counter") if isinstance(payload, dict) else None
         if not isinstance(counter, dict) or str(counter.get("id") or "") != COUNTER_ID:
             raise MetrikaApiError("Не удалось подтвердить доступ к счётчику Яндекс Метрики.")
+        if str(counter.get("status") or "Active") != "Active":
+            raise MetrikaApiError("Счётчик Яндекс Метрики не активен.")
         zone = str(counter.get("time_zone_name") or "")
         if zone and zone != TIMEZONE:
             raise MetrikaApiError("Часовой пояс счётчика Метрики не совпадает с Asia/Novosibirsk.")
+        self._counter_cache = payload
         return payload
 
     def goals(self):
+        if self._goals_cache is not None:
+            return self._goals_cache
         payload = self.request_json(f"/management/v1/counter/{COUNTER_ID}/goals", {})
         goals = payload.get("goals") if isinstance(payload, dict) else None
         if not isinstance(goals, list):
@@ -287,7 +296,8 @@ class MetrikaClient:
                 "В счётчике отсутствуют используемые цели Яндекс Метрики: "
                 + ", ".join(missing)
             )
-        return payload, [by_name[name] for name in EXPORT_GOAL_NAMES]
+        self._goals_cache = (payload, [by_name[name] for name in EXPORT_GOAL_NAMES])
+        return self._goals_cache
 
     def table(self, *, day, dimensions, metrics, filters=ROBOT_FILTER, sort="-ym:s:visits", counter_id=COUNTER_ID):
         params = {
