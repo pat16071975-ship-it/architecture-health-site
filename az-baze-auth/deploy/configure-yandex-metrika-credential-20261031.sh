@@ -107,6 +107,7 @@ class DataAccessParser(html.parser.HTMLParser):
         self.entry_depth=0
         self.entry_parts=[]
         self.entries=[]
+        self.section_parts=[]
 
     @staticmethod
     def norm(value):
@@ -125,6 +126,10 @@ class DataAccessParser(html.parser.HTMLParser):
             self.heading_tag=tag
             self.heading_parts=[]
             return
+        if self.section_active:
+            for name,value in attrs:
+                if name.lower() in {"value","title","aria-label","data-scope"} and value:
+                    self.section_parts.append(str(value))
         if self.section_active and self.entry_tag is None and tag in self.ENTRY_TAGS:
             self.entry_tag=tag
             self.entry_depth=1
@@ -168,8 +173,11 @@ class DataAccessParser(html.parser.HTMLParser):
             return
         if self.heading_tag is not None:
             self.heading_parts.append(data)
-        elif self.entry_tag is not None:
-            self.entry_parts.append(data)
+        else:
+            if self.section_active:
+                self.section_parts.append(data)
+            if self.entry_tag is not None:
+                self.entry_parts.append(data)
 
 parser=DataAccessParser()
 parser.feed(app_info)
@@ -179,6 +187,11 @@ if not parser.entries:
     raise SystemExit("OAUTH_APP_SCOPE_ENTRIES_NOT_PROVEN")
 
 scope_pattern=r"(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:(?:[a-z][a-z0-9_.-]*|\*))(?![A-Za-z0-9_.*-])"
+bare_group_pattern=r"(?<![a-z0-9_.-])(direct|passport|login|tracker|webmaster|cloud_api|market)(?![a-z0-9_.-])"
+section_evidence="\n".join(parser.section_parts).lower()
+section_residual=re.sub(scope_pattern," ",section_evidence)
+if re.findall(bare_group_pattern,section_residual):
+    raise SystemExit("OAUTH_APP_BARE_PERMISSION_GROUP_UNPROVEN")
 required_scopes={"metrika:read"}
 scopes=[]
 for entry in parser.entries:
@@ -190,7 +203,7 @@ for entry in parser.entries:
         raise SystemExit("OAUTH_APP_SCOPE_ENTRY_UNPROVEN")
     scope=found[0]
     residual=re.sub(scope_pattern," ",lowered)
-    bare_groups=set(re.findall(r"(?<![a-z0-9_.-])(direct|passport|login|tracker|webmaster|cloud_api|market)(?![a-z0-9_.-])",residual))
+    bare_groups=set(re.findall(bare_group_pattern,residual))
     if bare_groups:
         raise SystemExit("OAUTH_APP_BARE_PERMISSION_GROUP_UNPROVEN")
     scopes.append(scope)
