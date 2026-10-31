@@ -89,33 +89,113 @@ if not client_id:
 
 app_info=fetch_text("https://oauth.yandex.ru/client/%s/info" % urllib.parse.quote(client_id,safe=""))
 
-class ScopeEvidenceParser(html.parser.HTMLParser):
+class DataAccessParser(html.parser.HTMLParser):
+    SECTION_LABELS={
+        "доступ к данным","data access","access permissions","permissions","права доступа"
+    }
+    ENTRY_TAGS={"li","option","dd"}
+    HEADING_TAGS={"h1","h2","h3","h4","h5","h6","legend","dt","label"}
+
     def __init__(self):
         super().__init__()
         self.skip=0
-        self.parts=[]
+        self.heading_tag=None
+        self.heading_parts=[]
+        self.section_active=False
+        self.section_found=0
+        self.entry_tag=None
+        self.entry_depth=0
+        self.entry_parts=[]
+        self.entries=[]
+
+    @staticmethod
+    def norm(value):
+        return " ".join(str(value or "").split()).strip().lower()
+
     def handle_starttag(self,tag,attrs):
-        if tag.lower() in {"script","style"}:
+        tag=tag.lower()
+        if tag in {"script","style"}:
             self.skip+=1
             return
-        if not self.skip:
-            for _,value in attrs:
-                if value:
-                    self.parts.append(str(value))
-    def handle_endtag(self,tag):
-        if tag.lower() in {"script","style"} and self.skip:
-            self.skip-=1
-    def handle_data(self,data):
-        if not self.skip:
-            self.parts.append(data)
+        if self.skip:
+            return
+        if tag in self.HEADING_TAGS:
+            if self.section_active and self.heading_tag is None:
+                self.section_active=False
+            self.heading_tag=tag
+            self.heading_parts=[]
+            return
+        if self.section_active and self.entry_tag is None and tag in self.ENTRY_TAGS:
+            self.entry_tag=tag
+            self.entry_depth=1
+            self.entry_parts=[]
+            for name,value in attrs:
+                if name.lower() in {"value","title","aria-label","data-scope"} and value:
+                    self.entry_parts.append(str(value))
+            return
+        if self.entry_tag is not None:
+            self.entry_depth+=1
+            for name,value in attrs:
+                if name.lower() in {"value","title","aria-label","data-scope"} and value:
+                    self.entry_parts.append(str(value))
 
-parser=ScopeEvidenceParser()
+    def handle_endtag(self,tag):
+        tag=tag.lower()
+        if tag in {"script","style"} and self.skip:
+            self.skip-=1
+            return
+        if self.skip:
+            return
+        if self.heading_tag==tag:
+            label=self.norm(" ".join(self.heading_parts))
+            if label in self.SECTION_LABELS:
+                self.section_found+=1
+                self.section_active=True
+            self.heading_tag=None
+            self.heading_parts=[]
+            return
+        if self.entry_tag is not None:
+            self.entry_depth-=1
+            if self.entry_depth==0:
+                entry=" ".join(self.entry_parts).strip()
+                if entry:
+                    self.entries.append(entry)
+                self.entry_tag=None
+                self.entry_parts=[]
+
+    def handle_data(self,data):
+        if self.skip:
+            return
+        if self.heading_tag is not None:
+            self.heading_parts.append(data)
+        elif self.entry_tag is not None:
+            self.entry_parts.append(data)
+
+parser=DataAccessParser()
 parser.feed(app_info)
-scope_evidence="\n".join(parser.parts)
+if parser.section_found!=1:
+    raise SystemExit("OAUTH_APP_DATA_ACCESS_SECTION_NOT_PROVEN")
+if not parser.entries:
+    raise SystemExit("OAUTH_APP_SCOPE_ENTRIES_NOT_PROVEN")
+
 scope_pattern=r"(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:(?:[a-z][a-z0-9_.-]*|\*))(?![A-Za-z0-9_.*-])"
-scopes=set(re.findall(scope_pattern,scope_evidence))
 required_scopes={"metrika:read"}
-if scopes != required_scopes:
+scopes=[]
+for entry in parser.entries:
+    lowered=entry.lower()
+    if "example" in lowered or "пример" in lowered:
+        raise SystemExit("OAUTH_APP_SCOPE_ENTRY_AMBIGUOUS")
+    found=re.findall(scope_pattern,entry)
+    if len(found)!=1:
+        raise SystemExit("OAUTH_APP_SCOPE_ENTRY_UNPROVEN")
+    scope=found[0]
+    residual=re.sub(scope_pattern," ",lowered)
+    bare_groups=set(re.findall(r"(?<![a-z0-9_.-])(direct|passport|login|tracker|webmaster|cloud_api|market)(?![a-z0-9_.-])",residual))
+    if bare_groups:
+        raise SystemExit("OAUTH_APP_BARE_PERMISSION_GROUP_UNPROVEN")
+    scopes.append(scope)
+
+if set(scopes)!=required_scopes:
     raise SystemExit("OAUTH_APP_SCOPE_SET_NOT_EXACT_READ_ONLY")
 print("OAUTH_APP_SCOPE_SET=METRIKA_READ_ONLY_PASS")
 
@@ -149,8 +229,17 @@ for name in required:
     goal=by_name.get(name)
     if not isinstance(goal,dict):
         raise SystemExit("REQUIRED_GOAL_MISSING")
-    if "id" not in goal or goal.get("id") is None or "status" not in goal:
+    if "id" not in goal or "status" not in goal:
         raise SystemExit("REQUIRED_GOAL_PROOF_FIELDS_MISSING")
+    raw_id=goal.get("id")
+    if isinstance(raw_id,bool):
+        raise SystemExit("REQUIRED_GOAL_ID_INVALID")
+    try:
+        goal_id=int(str(raw_id).strip())
+    except (TypeError,ValueError):
+        raise SystemExit("REQUIRED_GOAL_ID_INVALID")
+    if goal_id<=0:
+        raise SystemExit("REQUIRED_GOAL_ID_INVALID")
     if str(goal["status"])!="Active":
         raise SystemExit("REQUIRED_GOAL_NOT_ACTIVE")
 print("METRIKA_GOALS_READ=PASS; REQUIRED_GOALS_ACTIVE=PASS")
