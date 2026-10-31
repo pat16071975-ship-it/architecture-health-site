@@ -1,0 +1,54 @@
+name: AZ advertising cross-day delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/advertising-cross-day-production-20261031.sh'
+      - '.github/workflows/az-advertising-cross-day-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify cross-day advertising deploy package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/advertising-cross-day-production-20261031.sh'
+          bash -n "$f"
+          test "$(git hash-object "$f")" = 'b82eb3030fb5200749c70280bea7be627d5fd381'
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/advertising-cross-day-production-20261031.sh').read_text()
+          assert "TARGET_COMMIT='5eabd3c2a3855533c9898606296e8fef9137bc5b'" in script
+          assert "CONFIRM_TOKEN='ADVERTISING-CROSS-DAY-5EABD3C2'" in script
+          assert 'ADVERTISING_CROSS_DAY_PRODUCTION_DEPLOY=PASS' in script
+          assert 'DATABASE_WRITES_BY_INSTALLER=NONE' in script
+
+          old=subprocess.check_output([
+              'git','show','826f4133356e6a9628b2340803304c59890932af:az-baze-auth/advertising_report.py'
+          ])
+          new=subprocess.check_output([
+              'git','show','5eabd3c2a3855533c9898606296e8fef9137bc5b:az-baze-auth/advertising_report.py'
+          ])
+          assert subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()=='2b269edc407e86668876f497ea525cb6f1037679'
+          assert subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()=='7deb8d73fdb633c4644e7b0b6924de4b87bcbff7'
+
+          js=subprocess.check_output([
+              'git','show','5eabd3c2a3855533c9898606296e8fef9137bc5b:reports/advertising.js'
+          ])
+          assert subprocess.check_output(['git','hash-object','--stdin'],input=js).decode().strip()=='58c7b1ccc84ca0d0848adf5e81440d7233a1d4d8'
+
+          proposal=subprocess.check_output([
+              'git','show','5eabd3c2a3855533c9898606296e8fef9137bc5b:az-baze-auth/tools/propose-metrika-history-reclass-20261031.py'
+          ])
+          assert subprocess.check_output(['git','hash-object','--stdin'],input=proposal).decode().strip()=='fdd91811539dd03d78bf69c3555fe1c4d27b8ff4'
+
+          print('ADVERTISING_CROSS_DAY_DELIVERY_CONTRACT=PASS')
+          PY
