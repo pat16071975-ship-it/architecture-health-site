@@ -276,6 +276,11 @@ def auto_metrika_request(path, params):
             "goals":[
                 {"id":674318079,"name":"Открытие окна записи","status":"Active"},
                 {"id":674318216,"name":"Переход к записи в Medflex","status":"Active"},
+                {"id":674318251,"name":"Нажатие на телефон","status":"Active"},
+                {"id":674371065,"name":"Автоцель: клик по номеру телефона","status":"Active"},
+                {"id":674572012,"name":"Автоцель: переход в мессенджер","status":"Active"},
+                {"id":675346316,"name":"Автоцель: переход в соц.сеть","status":"Active"},
+                {"id":675772127,"name":"Автоцель: скачивание файла","status":"Active"},
             ]
         }
     if path != "/stat/v1/data":
