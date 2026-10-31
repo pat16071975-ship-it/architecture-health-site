@@ -1813,15 +1813,36 @@ def register_advertising_report(app):
                 client = metrika_auto.MetrikaClient(token)
                 prepared_completed = []
                 for day in completed_targets:
-                    raw, filename = client.fetch_day_archive(day, completed=True)
-                    parsed = _parse_metrika_zip(raw, filename)
-                    if parsed["completed_days"] != [day.isoformat()] or parsed.get("provisional_days"):
+                    core_raw, core_filename = client.fetch_day_archive(
+                        day,
+                        completed=True,
+                        diagnostics=False,
+                    )
+                    core_parsed = _parse_metrika_zip(core_raw, core_filename)
+                    if core_parsed["completed_days"] != [day.isoformat()] or core_parsed.get("provisional_days"):
                         raise ValueError("API Метрики вернул неожиданный завершённый период.")
-                    prepared_completed.append(parsed)
+
+                    full_parsed = None
+                    if not _stored_metrika_matches(conn, core_parsed):
+                        full_raw, full_filename = client.fetch_day_archive(
+                            day,
+                            completed=True,
+                            diagnostics=True,
+                        )
+                        full_parsed = _parse_metrika_zip(full_raw, full_filename)
+                        if (
+                            full_parsed["completed_days"] != [day.isoformat()]
+                            or full_parsed.get("provisional_days")
+                            or full_parsed["traffic_rows"] != core_parsed["traffic_rows"]
+                            or full_parsed["goal_rows"] != core_parsed["goal_rows"]
+                        ):
+                            raise ValueError("Полная и контрольная выгрузки Метрики не совпали.")
+                    prepared_completed.append((core_parsed, full_parsed))
 
                 current_raw, current_filename = client.fetch_day_archive(
                     current_day,
                     completed=False,
+                    diagnostics=False,
                 )
                 current_parsed = _parse_metrika_zip(
                     current_raw,
@@ -1848,14 +1869,16 @@ def register_advertising_report(app):
                 }
                 completed_updated = []
                 completed_unchanged = []
-                for parsed in prepared_completed:
-                    parsed_day = str((parsed.get("completed_days") or [""])[0])
+                for core_parsed, full_parsed in prepared_completed:
+                    parsed_day = str((core_parsed.get("completed_days") or [""])[0])
                     if parsed_day not in still_targets:
                         continue
-                    if _stored_metrika_matches(conn, parsed):
+                    if _stored_metrika_matches(conn, core_parsed):
                         completed_unchanged.append(parsed_day)
                         continue
-                    _store_metrika(conn, parsed, g.user["id"])
+                    if full_parsed is None:
+                        raise ValueError("Не подготовлен полный архив изменившегося завершённого дня.")
+                    _store_metrika(conn, full_parsed, g.user["id"])
                     completed_updated.append(parsed_day)
 
                 current_result = _store_metrika_provisional(
