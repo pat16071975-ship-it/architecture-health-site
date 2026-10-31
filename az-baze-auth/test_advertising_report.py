@@ -636,6 +636,71 @@ class AdvertisingReportTests(unittest.TestCase):
             finally:
                 c.close(); m.METRIKA_ARCHIVE_ROOT=old
 
+
+    def test_history_reclass_preflight_is_read_only_and_resolves_current_archive(self):
+        tool_path=Path(__file__).with_name("tools")/"propose-metrika-history-reclass-20261031.py"
+        source=tool_path.read_text(encoding="utf-8")
+        self.assertIn("?mode=ro",source)
+        self.assertIn('PRAGMA query_only=ON',source)
+        for forbidden in ("UPDATE advertising_","DELETE FROM advertising_","INSERT INTO advertising_","_store_metrika(","conn.commit("):
+            self.assertNotIn(forbidden,source)
+
+        raw=legacy_alias_zip()
+        parsed=m._parse_metrika_zip(raw,"legacy.zip")
+        sha=parsed["payload_sha256"]
+        with tempfile.TemporaryDirectory() as tmp:
+            archive=Path(tmp)/(sha+".zip")
+            archive.write_bytes(raw)
+            c=conn()
+            try:
+                legacy_import="metrika-"+sha[:16]
+                c.execute(
+                    "INSERT INTO advertising_metrika_imports VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (sha,"legacy.zip","2026-10-28","2026-10-28",json.dumps(["2026-10-28"]),
+                     "2026-10-28T23:00:00+00:00","old",1,4,1,str(archive)),
+                )
+                legacy_traffic=[
+                    ("yandex_ads","Яндекс-реклама","Платная реклама","715444498","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",5),
+                    ("yandex_ads","Яндекс-реклама","Платная реклама","","bruksizm_search_nsk",1),
+                    ("instagram_starostenko","Instagram — Старостенко","Социальные сети","","starostenko",2),
+                    ("instagram_bio_unknown","Instagram — ссылка в bio, профиль не определён","Социальные сети","","",1),
+                ]
+                for source_key,source_name,channel,campaign_id,campaign_name,visits in legacy_traffic:
+                    c.execute(
+                        "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        ("metrika","2026-10-28",source_key,source_name,channel,campaign_id,campaign_name,
+                         None,None,visits,"old",legacy_import),
+                    )
+                c.execute(
+                    "INSERT INTO advertising_metrika_goal_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("metrika","2026-10-28","instagram_starostenko","Instagram — Старостенко","Социальные сети",
+                     "","starostenko","medflex","Переход к записи в Medflex",1,1,"old",legacy_import),
+                )
+                c.commit()
+
+                previous=sys.modules.get("advertising_report")
+                sys.modules["advertising_report"]=m
+                try:
+                    tool_spec=importlib.util.spec_from_file_location("metrika_history_reclass_proposal",tool_path)
+                    tool=importlib.util.module_from_spec(tool_spec); tool_spec.loader.exec_module(tool)
+                    tool.TARGET_DAYS=("2026-10-28",)
+                    plan=tool.build_plan(c)
+                finally:
+                    if previous is None:
+                        sys.modules.pop("advertising_report",None)
+                    else:
+                        sys.modules["advertising_report"]=previous
+
+                self.assertEqual(len(plan),1)
+                self.assertEqual(plan[0]["day"],"2026-10-28")
+                self.assertEqual(plan[0]["payload_sha256"],sha)
+                self.assertEqual(plan[0]["visits"],9)
+                self.assertTrue(plan[0]["reclassification_required"])
+                self.assertEqual(plan[0]["current_traffic_rows"],4)
+                self.assertEqual(plan[0]["canonical_traffic_rows"],3)
+            finally:
+                c.close()
+
     def test_revenue_summary_puts_total_paid_first_and_reconciles_every_ruble_by_provider(self):
         c=conn()
         try:
