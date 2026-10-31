@@ -828,7 +828,7 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     return rebuilt_traffic, rebuilt_goals
 
 
-def _parse_metrika_zip(raw, filename="", allow_provisional=False):
+def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
     if not raw:
         raise ValueError("Пустой ZIP Яндекс Метрики.")
     if len(raw) > 25 * 1024 * 1024:
@@ -868,16 +868,41 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False):
     if not isinstance(traffic, list) or not isinstance(goals, list):
         raise ValueError("В выгрузке Метрики нет обязательных таблиц.")
 
-    completed_days = sorted({
+    completed_days = {
         str(row.get("date") or "")
         for row in traffic
         if str(row.get("day_status") or "").startswith("completed_calendar_day")
-    })
-    provisional_days = sorted({
+    }
+    provisional_days = {
         str(row.get("date") or "")
         for row in traffic
         if allow_provisional and str(row.get("day_status") or "") == "provisional_current_day"
-    })
+    }
+
+    meta_from = str(meta.get("period_from") or "")
+    meta_to = str(meta.get("period_to") or "")
+    meta_status = str(meta.get("day_status") or "")
+    if meta_from and meta_from == meta_to and DATE_RE.fullmatch(meta_from):
+        if meta_status.startswith("completed_calendar_day"):
+            if meta_from in provisional_days:
+                raise ValueError("Статус дня в выгрузке Метрики противоречив.")
+            completed_days.add(meta_from)
+        elif allow_provisional and meta_status == "provisional_current_day":
+            if meta_from in completed_days:
+                raise ValueError("Статус дня в выгрузке Метрики противоречив.")
+            provisional_days.add(meta_from)
+
+    completed_days = sorted(day for day in completed_days if day)
+    provisional_days = sorted(day for day in provisional_days if day)
+
+    current = now or datetime.now(ZoneInfo(DEFAULT_TIMEZONE))
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=ZoneInfo(DEFAULT_TIMEZONE))
+    local_today = current.astimezone(ZoneInfo(DEFAULT_TIMEZONE)).date()
+    for day in completed_days:
+        if date.fromisoformat(day) >= local_today:
+            raise ValueError("Незавершённый календарный день нельзя импортировать как завершённый.")
+
     accepted_days = sorted(set(completed_days) | set(provisional_days))
     if not accepted_days:
         raise ValueError(
@@ -1094,6 +1119,15 @@ def _store_metrika_provisional(conn, parsed, actor_user_id):
         "provisional_days": provisional_days,
         "payload_sha256": parsed["payload_sha256"],
     }
+
+
+def _completed_metrika_matches_registered(conn, parsed):
+    days = list(parsed.get("completed_days") or [])
+    return (
+        len(days) == 1
+        and _metrika_day_is_completed(conn, days[0])
+        and _stored_metrika_matches(conn, parsed)
+    )
 
 
 def _store_metrika(conn, parsed, actor_user_id):
