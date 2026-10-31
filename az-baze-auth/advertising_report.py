@@ -552,11 +552,24 @@ def _canonical_metrika_identity(source_key, source_name, channel_name, campaign_
     if source_key == "yandex_ads":
         source_name = "Яндекс-реклама"
         channel_name = "Платная реклама"
-        canonical_id = ""
-        if campaign_id in YANDEX_CANONICAL_CAMPAIGNS:
-            canonical_id = campaign_id
-        elif campaign_name:
-            canonical_id = YANDEX_CAMPAIGN_ALIASES.get(campaign_name.lower(), "")
+
+        # A non-empty campaign ID is authoritative evidence.  Known IDs may be
+        # canonicalized, but an unknown ID must never be replaced merely
+        # because its text name matches a known campaign.
+        if campaign_id:
+            if campaign_id in YANDEX_CANONICAL_CAMPAIGNS:
+                return (
+                    source_key,
+                    source_name,
+                    channel_name,
+                    campaign_id,
+                    YANDEX_CANONICAL_CAMPAIGNS[campaign_id],
+                )
+            return source_key, source_name, channel_name, campaign_id, campaign_name
+
+        # Name / UTM aliases are only safe when the factual campaign ID is
+        # absent.
+        canonical_id = YANDEX_CAMPAIGN_ALIASES.get(campaign_name.lower(), "") if campaign_name else ""
         if canonical_id:
             return (
                 source_key,
