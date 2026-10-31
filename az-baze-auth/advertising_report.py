@@ -640,8 +640,8 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     }
     for row in selected:
         for (goal_key, goal_name), values in row.get("goals", {}).items():
-            if not values["goal_visits"] and not values["reaches"]:
-                continue
+            # A zero present in campaigns_clean is evidence, not missing data.
+            # Keep the row so the UI renders 0 instead of «Нет данных».
             key = (
                 day, "yandex_ads", "Яндекс-реклама", "Платная реклама",
                 "", row["campaign_name"], goal_key, goal_name,
@@ -656,15 +656,17 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
         )
         residual_goal_visits = parent["goal_visits"] - selected_values["goal_visits"]
         residual_reaches = parent["reaches"] - selected_values["reaches"]
-        if residual_goal_visits or residual_reaches:
-            key = (
-                day, "yandex_ads", "Яндекс-реклама", "Платная реклама",
-                "", "", goal_key, goal_name,
-            )
-            rebuilt_goals[key] = {
-                "goal_visits": residual_goal_visits,
-                "reaches": residual_reaches,
-            }
+        # parent_goals means this metric is known for the parent.  After
+        # subtracting the named campaigns, zero is therefore a proven residual
+        # value and must remain 0 rather than becoming unknown.
+        key = (
+            day, "yandex_ads", "Яндекс-реклама", "Платная реклама",
+            "", "", goal_key, goal_name,
+        )
+        rebuilt_goals[key] = {
+            "goal_visits": residual_goal_visits,
+            "reaches": residual_reaches,
+        }
     return rebuilt_traffic, rebuilt_goals
 
 
