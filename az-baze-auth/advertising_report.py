@@ -1631,7 +1631,7 @@ def register_advertising_report(app):
         return jsonify(payload)
 
     @app.post("/api/reports/advertising/metrika/sync")
-    @permission_required("section5")
+    @permission_required("upload_services")
     def advertising_metrika_sync():
         require_csrf()
         token = metrika_auto.token_from_env()
@@ -1701,7 +1701,7 @@ def register_advertising_report(app):
         )
 
     @app.post("/api/reports/advertising/metrika/import")
-    @permission_required("section5")
+    @permission_required("upload_services")
     def advertising_metrika_import():
         require_csrf()
         uploaded = request.files.get("metrika_zip")
