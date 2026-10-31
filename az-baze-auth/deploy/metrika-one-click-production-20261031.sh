@@ -136,6 +136,7 @@ make_backup(){
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   BACKUP="$BACKUP_ROOT/metrika-one-click-$stamp"
   mkdir -p -- "$BACKUP/files/templates"
+  chmod 0700 "$BACKUP"
   cp -a -- "$APP_ROOT/advertising_report.py" "$BACKUP/files/advertising_report.py"
   cp -a -- "$APP_ROOT/templates/uploads.html" "$BACKUP/files/templates/uploads.html"
   cp -a -- "$ENV_FILE" "$BACKUP/auth.env"
@@ -207,7 +208,8 @@ preflight(){
   download_targets
   [[ "$(db_integrity)" == 'ok' ]] || fail 'database integrity failed'
   echo "DB_SCHEMA_FINGERPRINT=$(schema_fingerprint)"
-  echo "ENV_FILE_SHA256=$(env_sha)"
+  env_sha >/dev/null
+  echo 'ENV_FILE_FINGERPRINT_CAPTURED=PASS'
   echo 'METRIKA_ONE_CLICK_PRODUCTION_PREFLIGHT=PASS; LIVE_CHANGES=NONE'
 }
 
