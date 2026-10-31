@@ -884,6 +884,59 @@ class AdvertisingReportTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_legacy_completed_row_stays_completed_after_first_history_record_appears(self):
+        c=conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            old=m.METRIKA_ARCHIVE_ROOT
+            m.METRIKA_ARCHIVE_ROOT=Path(tmp)
+            try:
+                c.execute(
+                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        "metrika","2026-10-28","direct","Прямые заходы","Прямые заходы",
+                        "","",None,None,3,"t","metrika-aabbccddeeff0011",
+                    ),
+                )
+                provisional=m._parse_metrika_zip(
+                    provisional_metrika_zip(day="2026-10-27",visits=5),
+                    "live-27.zip",
+                    allow_provisional=True,
+                )
+                m._store_metrika_provisional(c,provisional,1)
+                c.commit()
+
+                now=datetime(2026,11,10,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk"))
+                before=ma.missing_completed_days(c,now)
+                self.assertIn(date(2026,10,27),before)
+                self.assertNotIn(date(2026,10,28),before)
+
+                completed=m._parse_metrika_zip(
+                    provisional_metrika_zip(
+                        day="2026-10-27",
+                        visits=5,
+                        status="completed_calendar_day_revisable",
+                    ),
+                    "completed-27.zip",
+                    now=datetime(2026,10,28,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+                )
+                m._store_metrika(c,completed,1)
+                c.commit()
+
+                after=ma.missing_completed_days(c,now)
+                targets=ma.completed_sync_days(c,now)
+                self.assertNotIn(date(2026,10,27),after)
+                self.assertNotIn(date(2026,10,28),after)
+                self.assertNotIn(date(2026,10,28),targets)
+
+                legacy=c.execute(
+                    "SELECT import_id,visits FROM advertising_traffic_daily "
+                    "WHERE provider='metrika' AND metric_date='2026-10-28'"
+                ).fetchone()
+                self.assertEqual(legacy["import_id"],"metrika-aabbccddeeff0011")
+                self.assertEqual(legacy["visits"],3)
+            finally:
+                c.close(); m.METRIKA_ARCHIVE_ROOT=old
+
     def test_auto_metrika_finds_gap_before_earliest_import_from_tracking_start(self):
         c=conn()
         try:
