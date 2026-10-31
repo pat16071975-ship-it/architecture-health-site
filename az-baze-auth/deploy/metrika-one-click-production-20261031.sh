@@ -24,7 +24,7 @@ MUTATION_STARTED=0
 
 cleanup(){ [[ -n "${STAGE:-}" && -d "$STAGE" ]] && rm -rf -- "$STAGE"; }
 trap cleanup EXIT
-fail(){ echo "STOP: $*" >&2; exit 1; }
+fail(){ echo "STOP: $*" >&2; on_error 1; }
 health(){ curl -fsS --connect-timeout 2 --max-time 5 "$HEALTH" >/dev/null; }
 wait_health(){ local i; for i in $(seq 1 30); do health && return 0; sleep 1; done; return 1; }
 blob(){ git hash-object "$1"; }
@@ -186,17 +186,26 @@ install_targets(){
 
 rollback_files(){
   echo 'ROLLBACK_FILES=START'
-  systemctl stop "$SERVICE" || true
-  cp -a -- "$BACKUP/files/advertising_report.py" "$APP_ROOT/advertising_report.py"
-  cp -a -- "$BACKUP/files/templates/uploads.html" "$APP_ROOT/templates/uploads.html"
-  rm -f -- "$APP_ROOT/metrika_auto.py"
-  systemctl start "$SERVICE" || true
+  local rollback_rc=0
+  set +e
+  systemctl stop "$SERVICE" || rollback_rc=1
+  cp -a -- "$BACKUP/files/advertising_report.py" "$APP_ROOT/advertising_report.py" || rollback_rc=1
+  cp -a -- "$BACKUP/files/templates/uploads.html" "$APP_ROOT/templates/uploads.html" || rollback_rc=1
+  rm -f -- "$APP_ROOT/metrika_auto.py" || rollback_rc=1
+  systemctl start "$SERVICE" || rollback_rc=1
   if wait_health; then
     echo 'ROLLBACK_HEALTH=PASS'
   else
     echo 'ROLLBACK_HEALTH=FAIL' >&2
+    rollback_rc=1
   fi
-  echo 'ROLLBACK_FILES=COMPLETED; DB_RESTORE=NOT_PERFORMED; ENV_RESTORE=NOT_REQUIRED'
+  set -e
+  if [[ "$rollback_rc" == '0' ]]; then
+    echo 'ROLLBACK_FILES=PASS; DB_RESTORE=NOT_PERFORMED; ENV_RESTORE=NOT_REQUIRED'
+  else
+    echo 'ROLLBACK_FILES=FAIL; MANUAL_RECOVERY_REQUIRED=YES' >&2
+  fi
+  return 0
 }
 
 preflight(){
@@ -221,7 +230,9 @@ preflight(){
 on_error(){
   local code="$1"
   trap - ERR
-  if [[ "$MUTATION_STARTED" == '1' && -n "$BACKUP" ]]; then rollback_files; fi
+  if [[ "$MUTATION_STARTED" == '1' && -n "$BACKUP" ]]; then
+    rollback_files
+  fi
   exit "$code"
 }
 trap 'on_error $?' ERR
