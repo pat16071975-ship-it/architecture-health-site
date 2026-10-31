@@ -75,7 +75,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
 
     def test_template_preserves_journal_contract_and_reconcile_close(self):
         raw = (ROOT / 'templates/uploads.html').read_bytes()
-        self.assertEqual(git_blob(raw), 'c36b7393a90f72626425e92fac8b56b54c335cf6')
+        self.assertEqual(git_blob(raw), '576803d8eb0ef60545484096060d516d182fcdb1')
         text = raw.decode('utf-8')
         changes = [
             ("{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}", "{{ row['data_date'] or '—' }}"),
@@ -107,6 +107,9 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         self.assertIn("5. Яндекс Метрика", text)
         self.assertIn('name="metrika_zip"', text)
         self.assertIn("/api/reports/advertising/metrika/import", text)
+        self.assertIn("Загрузить данные Яндекс Метрики", text)
+        self.assertIn("/api/reports/advertising/metrika/sync", text)
+        self.assertIn("Ручная загрузка ZIP — резервный вариант", text)
 
     def test_home_logout_is_hidden_only_on_mobile(self):
         source = (ROOT / 'app.py').read_text(encoding='utf-8')
