@@ -20,7 +20,7 @@ MODE="${1:-}"
 CONFIRM="${2:-}"
 STAGE=''
 BACKUP=''
-INSTALLED=0
+MUTATION_STARTED=0
 
 cleanup(){ [[ -n "${STAGE:-}" && -d "$STAGE" ]] && rm -rf -- "$STAGE"; }
 trap cleanup EXIT
@@ -176,10 +176,11 @@ PY
 }
 
 install_targets(){
+  MUTATION_STARTED=1
+  echo 'LIVE_MUTATION_STARTED=YES; ROLLBACK_ARMED=YES'
   atomic_install_one "$STAGE/advertising_report.py" "$APP_ROOT/advertising_report.py" "$APP_ROOT/advertising_report.py"
   atomic_install_one "$STAGE/metrika_auto.py" "$APP_ROOT/metrika_auto.py" "$APP_ROOT/advertising_report.py"
   atomic_install_one "$STAGE/templates/uploads.html" "$APP_ROOT/templates/uploads.html" "$APP_ROOT/templates/uploads.html"
-  INSTALLED=1
   echo 'ATOMIC_INSTALL=PASS'
 }
 
@@ -190,7 +191,11 @@ rollback_files(){
   cp -a -- "$BACKUP/files/templates/uploads.html" "$APP_ROOT/templates/uploads.html"
   rm -f -- "$APP_ROOT/metrika_auto.py"
   systemctl start "$SERVICE" || true
-  wait_health || true
+  if wait_health; then
+    echo 'ROLLBACK_HEALTH=PASS'
+  else
+    echo 'ROLLBACK_HEALTH=FAIL' >&2
+  fi
   echo 'ROLLBACK_FILES=COMPLETED; DB_RESTORE=NOT_PERFORMED; ENV_RESTORE=NOT_REQUIRED'
 }
 
@@ -216,7 +221,7 @@ preflight(){
 on_error(){
   local code="$1"
   trap - ERR
-  if [[ "$INSTALLED" == '1' && -n "$BACKUP" ]]; then rollback_files; fi
+  if [[ "$MUTATION_STARTED" == '1' && -n "$BACKUP" ]]; then rollback_files; fi
   exit "$code"
 }
 trap 'on_error $?' ERR
@@ -252,7 +257,8 @@ case "$MODE" in
     echo 'DB_SCHEMA_UNCHANGED_POST_START=PASS'
     echo 'ENV_FILE_UNCHANGED_POST_START=PASS'
 
-    INSTALLED=0
+    MUTATION_STARTED=0
+    echo 'ROLLBACK_DISARMED=YES'
     echo 'METRIKA_ONE_CLICK_PRODUCTION_DEPLOY=PASS'
     echo "TARGET_COMMIT=$TARGET_COMMIT"
     echo "BACKUP=$BACKUP"
