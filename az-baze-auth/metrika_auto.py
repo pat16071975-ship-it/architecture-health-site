@@ -419,7 +419,7 @@ class MetrikaClient:
                 raise MetrikaApiError("Не удалось получить все страницы отчёта Яндекс Метрики.")
             offset += len(data)
 
-    def fetch_day_archive(self, day, *, completed=True):
+    def fetch_day_archive(self, day, *, completed=True, diagnostics=True):
         counter_payload = self.counter()
         goals_payload, goals = self.goals()
         goal_registry = [
@@ -452,21 +452,22 @@ class MetrikaClient:
         _validate_additive_totals(campaign_raw, metrics, "кампании")
 
         diagnostic_raw = {}
-        for name, (dimensions, metric_kind, filters, sort) in DIAGNOSTIC_SPECS.items():
-            report_metrics = (
-                tuple(metrics)
-                if metric_kind == "full"
-                else tuple(BASE_METRICS)
-                if metric_kind == "base"
-                else ("ym:pv:pageviews", "ym:pv:users")
-            )
-            diagnostic_raw[name] = self.table(
-                day=day,
-                dimensions=dimensions,
-                metrics=report_metrics,
-                filters=filters,
-                sort=sort,
-            )
+        if diagnostics:
+            for name, (dimensions, metric_kind, filters, sort) in DIAGNOSTIC_SPECS.items():
+                report_metrics = (
+                    tuple(metrics)
+                    if metric_kind == "full"
+                    else tuple(BASE_METRICS)
+                    if metric_kind == "base"
+                    else ("ym:pv:pageviews", "ym:pv:users")
+                )
+                diagnostic_raw[name] = self.table(
+                    day=day,
+                    dimensions=dimensions,
+                    metrics=report_metrics,
+                    filters=filters,
+                    sort=sort,
+                )
 
         direct_campaign_rows = []
         for api_row in campaign_raw.get("data") or []:
@@ -498,34 +499,41 @@ class MetrikaClient:
                 )
             direct_campaign_rows.append(direct_row)
 
-        medflex_status = {}
-        medflex_primary_raw = None
-        for counter_id in MEDFLEX_COUNTERS:
-            try:
-                raw = self.table(
-                    day=day,
-                    dimensions=("ym:s:date",),
-                    metrics=("ym:s:visits", "ym:s:users", "ym:s:pageviews"),
-                    filters=ROBOT_FILTER,
-                    sort="-ym:s:visits",
-                    counter_id=counter_id,
-                )
-                medflex_status[counter_id] = (
-                    "no_data" if int(raw.get("total_rows") or 0) == 0 else "ok"
-                )
-                if counter_id == MEDFLEX_COUNTERS[0]:
-                    medflex_primary_raw = raw
-            except MetrikaAccessError:
-                medflex_status[counter_id] = "no_access"
-            except MetrikaApiError:
-                medflex_status[counter_id] = "error"
+        medflex_status = {counter_id: "not_checked" for counter_id in MEDFLEX_COUNTERS}
+        medflex_primary_raw = {
+            "counter_id": MEDFLEX_COUNTERS[0],
+            "status": "not_checked",
+            "data": [],
+        }
+        if diagnostics:
+            medflex_status = {}
+            medflex_primary_raw = None
+            for counter_id in MEDFLEX_COUNTERS:
+                try:
+                    raw = self.table(
+                        day=day,
+                        dimensions=("ym:s:date",),
+                        metrics=("ym:s:visits", "ym:s:users", "ym:s:pageviews"),
+                        filters=ROBOT_FILTER,
+                        sort="-ym:s:visits",
+                        counter_id=counter_id,
+                    )
+                    medflex_status[counter_id] = (
+                        "no_data" if int(raw.get("total_rows") or 0) == 0 else "ok"
+                    )
+                    if counter_id == MEDFLEX_COUNTERS[0]:
+                        medflex_primary_raw = raw
+                except MetrikaAccessError:
+                    medflex_status[counter_id] = "no_access"
+                except MetrikaApiError:
+                    medflex_status[counter_id] = "error"
 
-        if medflex_primary_raw is None:
-            medflex_primary_raw = {
-                "counter_id": MEDFLEX_COUNTERS[0],
-                "status": medflex_status[MEDFLEX_COUNTERS[0]],
-                "data": [],
-            }
+            if medflex_primary_raw is None:
+                medflex_primary_raw = {
+                    "counter_id": MEDFLEX_COUNTERS[0],
+                    "status": medflex_status[MEDFLEX_COUNTERS[0]],
+                    "data": [],
+                }
 
         fetched_at = datetime.now(timezone.utc).isoformat()
         batch_id = "az-metrika-auto-" + fetched_at
@@ -648,6 +656,22 @@ class MetrikaClient:
             name = _dimension_value(dims[0]) or "Не определено"
             report_lines.append(name + " | " + ", ".join(str(float(value or 0)) for value in vals))
         report_text = "\n".join(report_lines) + "\n\n"
+
+        if not diagnostics:
+            files = {
+                "az_analytics.json": json.dumps(
+                    az_payload, ensure_ascii=False, indent=2
+                ).encode("utf-8"),
+                f"REPORT-{day.isoformat()}.txt": report_text.encode("utf-8"),
+            }
+            raw = io.BytesIO()
+            with zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as archive:
+                for name in sorted(files):
+                    archive.writestr(name, files[name])
+            return (
+                raw.getvalue(),
+                f"AZ-BAZE-auto-metrika-core-{day.isoformat()}.zip",
+            )
 
         traffic_headers = [
             "row_id", "batch_id", "counter_id", "date", "day_status",
