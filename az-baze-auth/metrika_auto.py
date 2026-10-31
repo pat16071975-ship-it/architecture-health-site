@@ -48,6 +48,32 @@ BASE_METRICS = (
 CAMPAIGN_DIMENSION = "ym:s:cross_device_last_significantDirectClickOrder"
 
 MEDFLEX_COUNTERS = ("113892774", "113916673")
+STANDARD_ARCHIVE_NAMES = {
+    "README.txt",
+    "SHA256.json",
+    "age.csv", "age_raw.json",
+    "az_analytics.json",
+    "browsers.csv", "browsers_raw.json",
+    "counter_raw.json",
+    "daily.csv", "daily_raw.json",
+    "devices.csv", "devices_raw.json",
+    "gender.csv", "gender_raw.json",
+    "geography.csv", "geography_raw.json",
+    "goal_registry.csv",
+    "goals_raw.json",
+    "hours.csv", "hours_raw.json",
+    "landing.csv", "landing_raw.json",
+    "medflex_daily_raw.json",
+    "metrica_api_raw.json",
+    "metrica_goal_day.csv",
+    "metrica_traffic_day.csv",
+    "new_visitors.csv", "new_visitors_raw.json",
+    "pages.csv", "pages_raw.json",
+    "referrers.csv", "referrers_raw.json",
+    "search_phrases.csv", "search_phrases_raw.json",
+    "sources.csv", "sources_raw.json",
+    "without_test.csv", "without_test_raw.json",
+}
 DIAGNOSTIC_SPECS = {
     "daily": (("ym:s:date",), "full", ROBOT_FILTER, "-ym:s:visits"),
     "sources": (
@@ -610,11 +636,15 @@ class MetrikaClient:
         ).encode("utf-8")
         files["README.txt"] = readme
 
-        if len(files) != 38:
+        expected_before_hash = set(STANDARD_ARCHIVE_NAMES)
+        expected_before_hash.remove("SHA256.json")
+        expected_before_hash.add(f"REPORT-{day.isoformat()}.txt")
+        if set(files) != expected_before_hash:
             raise MetrikaApiError("Внутренний архив Метрики не совпал с утверждённым составом.")
         checksums = {name: hashlib.sha256(content).hexdigest() for name, content in files.items()}
         files["SHA256.json"] = json.dumps(checksums, ensure_ascii=False, indent=2).encode("utf-8")
-        if len(files) != 39:
+        expected_full = set(expected_before_hash) | {"SHA256.json"}
+        if set(files) != expected_full or len(files) != 39:
             raise MetrikaApiError("Внутренний архив Метрики не совпал с утверждённым составом.")
 
         raw = io.BytesIO()
