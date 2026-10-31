@@ -23,7 +23,7 @@ jobs:
           cred='az-baze-auth/deploy/configure-yandex-metrika-credential-20261031.sh'
           bash -n "$deploy"
           bash -n "$cred"
-          test "$(git hash-object "$deploy")" = '907c365ad3b44403282d064b1cc2cfba6626ba7c'
+          test "$(git hash-object "$deploy")" = '1ae0abc575d8eb6a4c30a719f99ad7cee7d98e85'
           test "$(git hash-object "$cred")" = 'd70e4b2205f7ad484d1da7d895158bacfd11914e'
           python3 - <<'PY'
           import subprocess
@@ -64,6 +64,7 @@ jobs:
           assert 'METRIKA_ONE_CLICK_PRODUCTION_DEPLOY=PASS' in deploy
           assert 'CHANGED_RUNTIME_FILES=3; DB_SCHEMA_CHANGED=NO; SECRET_CHANGES=NONE' in deploy
           assert 'ENV_FILE_UNCHANGED_POST_START=PASS' in deploy
+          assert 'ENV_FILE_FINGERPRINT_CAPTURED=PASS' in deploy
 
           cred=Path('az-baze-auth/deploy/configure-yandex-metrika-credential-20261031.sh').read_text()
           assert "KEY='AZBAZE_YANDEX_METRIKA_TOKEN'" in cred
