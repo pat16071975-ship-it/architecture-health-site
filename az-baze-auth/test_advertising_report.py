@@ -7,9 +7,11 @@ import tempfile
 import types
 import unittest
 import terminology
+import metrika_auto as ma
 import zipfile
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 fake_flask=types.ModuleType("flask")
 fake_flask.Response=object
@@ -264,7 +266,158 @@ def unknown_empty_id_with_campaign_report_zip():
     return raw.getvalue()
 
 
+
+def auto_metrika_request(path, params):
+    if path == "/management/v1/counter/113776005":
+        return {"counter":{"id":113776005,"time_zone_name":"Asia/Novosibirsk","permission":"own"}}
+    if path == "/management/v1/counter/113776005/goals":
+        return {
+            "goals":[
+                {"id":674318079,"name":"Открытие окна записи","status":"Active"},
+                {"id":674318216,"name":"Переход к записи в Medflex","status":"Active"},
+            ]
+        }
+    if path != "/stat/v1/data":
+        raise AssertionError(path)
+
+    dimensions=str(params.get("dimensions") or "").split(",")
+    metrics=str(params.get("metrics") or "").split(",")
+
+    def metric_values(visits, booking=(0,0), medflex=(0,0)):
+        values=[]
+        for metric in metrics:
+            if metric=="ym:s:visits": values.append(float(visits))
+            elif metric=="ym:s:users": values.append(float(visits))
+            elif metric=="ym:s:pageviews": values.append(float(visits))
+            elif metric=="ym:s:bounceRate": values.append(0.0)
+            elif metric=="ym:s:avgVisitDurationSeconds": values.append(30.0)
+            elif metric=="ym:s:goal674318079reaches": values.append(float(booking[0]))
+            elif metric=="ym:s:goal674318079visits": values.append(float(booking[1]))
+            elif metric=="ym:s:goal674318216reaches": values.append(float(medflex[0]))
+            elif metric=="ym:s:goal674318216visits": values.append(float(medflex[1]))
+            else: raise AssertionError(metric)
+        return values
+
+    if dimensions == [ma.CAMPAIGN_DIMENSION]:
+        data=[
+            {"dimensions":[{"id":"715560815","name":"АЗ | Ортодонт и гнатолог | Поиск | Новосибирск"}],
+             "metrics":metric_values(5,booking=(2,2),medflex=(1,1))},
+            {"dimensions":[{"id":"715444498","name":"АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"}],
+             "metrics":metric_values(1)},
+            {"dimensions":[{"id":"other","name":"Чужие кампании"}],
+             "metrics":metric_values(1)},
+        ]
+        totals=metric_values(7,booking=(2,2),medflex=(1,1))
+    else:
+        assert tuple(dimensions)==ma.TRAFFIC_DIMENSIONS
+        day=str(params["date1"])
+        def dims(source_id,source_name,detail_id=None,detail=None,utm_source=None,utm_medium=None,utm_campaign=None,utm_content=None,utm_term=None):
+            return [
+                {"name":day},
+                {"id":source_id,"name":source_name},
+                {"id":detail_id,"name":detail},
+                {"name":utm_source},
+                {"name":utm_medium},
+                {"name":utm_campaign},
+                {"name":utm_content},
+                {"name":utm_term},
+            ]
+        data=[
+            {"dimensions":dims("ad","Переходы по рекламе","ad.Яндекс: Директ","Яндекс: Директ"),
+             "metrics":metric_values(7,booking=(2,2),medflex=(1,1))},
+            {"dimensions":dims("social","Переходы из социальных сетей","social.instagram","instagram.com","instagram","social","starostenko","profile"),
+             "metrics":metric_values(3,booking=(1,1))},
+            {"dimensions":dims("messenger","Переходы из мессенджеров","messenger.telegram","Telegram","telegram","social","metrika_test"),
+             "metrics":metric_values(2)},
+        ]
+        totals=metric_values(12,booking=(3,3),medflex=(1,1))
+
+    return {
+        "query":{"ids":[113776005],"dimensions":dimensions,"metrics":metrics,"date1":params["date1"],"date2":params["date2"]},
+        "data":data,
+        "total_rows":len(data),
+        "total_rows_rounded":False,
+        "sampled":False,
+        "sample_share":1.0,
+        "totals":totals,
+    }
+
+
 class AdvertisingReportTests(unittest.TestCase):
+    def test_auto_metrika_missing_days_starts_after_latest_and_stops_at_yesterday(self):
+        c=conn()
+        try:
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-10-30","direct","Прямые заходы","Прямые заходы","","",None,None,1,"t","m"),
+            )
+            c.commit()
+            days=ma.missing_completed_days(
+                c,
+                datetime(2026,11,2,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+            )
+            self.assertEqual([day.isoformat() for day in days],["2026-10-31","2026-11-01"])
+        finally:
+            c.close()
+
+    def test_auto_metrika_no_missing_days_when_yesterday_already_loaded(self):
+        c=conn()
+        try:
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-10-30","direct","Прямые заходы","Прямые заходы","","",None,None,1,"t","m"),
+            )
+            c.commit()
+            days=ma.missing_completed_days(
+                c,
+                datetime(2026,10,31,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+            )
+            self.assertEqual(days,[])
+        finally:
+            c.close()
+
+    def test_auto_metrika_api_archive_uses_existing_parser_and_campaign_split(self):
+        client=ma.MetrikaClient("secret-not-logged",request_json=auto_metrika_request)
+        raw,filename=client.fetch_day_archive(date(2026,10,31))
+        self.assertEqual(filename,"AZ-BAZE-auto-metrika-2026-10-31.zip")
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            names=set(archive.namelist())
+            self.assertIn("az_analytics.json",names)
+            self.assertIn("REPORT-2026-10-31.txt",names)
+            self.assertIn("metrica_api_raw.json",names)
+            self.assertIn("campaigns_raw.json",names)
+            self.assertIn("SHA256.json",names)
+
+        parsed=m._parse_metrika_zip(raw,filename)
+        self.assertEqual(parsed["completed_days"],["2026-10-31"])
+        self.assertEqual(
+            sum(values["visits"] for values in parsed["traffic_rows"].values()),
+            10,
+        )
+        yandex={
+            key[5]:values["visits"]
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="yandex_ads"
+        }
+        self.assertEqual(
+            yandex,
+            {
+                "АЗ | Ортодонт и гнатолог | Поиск | Новосибирск":5,
+                "АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск":1,
+                "":1,
+            },
+        )
+        instagram={
+            key[5]:values["visits"]
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="instagram"
+        }
+        self.assertEqual(instagram,{"Старостенко":3})
+
+    def test_auto_metrika_requires_server_token(self):
+        with self.assertRaises(ma.MetrikaApiError):
+            ma.MetrikaClient("")
+
     def test_partial_month_comparison(self):
         self.assertEqual(m._comparison_ranges("previous_period",date(2026,10,1),date(2026,10,25)),[(date(2026,9,1),date(2026,9,25))])
 
