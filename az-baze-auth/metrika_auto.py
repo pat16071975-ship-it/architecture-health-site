@@ -65,10 +65,33 @@ def previous_completed_day(now=None):
 
 def missing_completed_days(conn, now=None):
     yesterday = previous_completed_day(now)
-    row = conn.execute(
-        "SELECT MAX(metric_date) AS day FROM advertising_traffic_daily WHERE provider='metrika'"
-    ).fetchone()
-    latest = date.fromisoformat(str(row["day"])) if row and row["day"] else None
+    known_days = set()
+    try:
+        rows = conn.execute(
+            "SELECT completed_days_json FROM advertising_metrika_imports"
+        ).fetchall()
+        for row in rows:
+            try:
+                values = json.loads(row["completed_days_json"])
+            except (TypeError, ValueError):
+                continue
+            if isinstance(values, list):
+                known_days.update(
+                    date.fromisoformat(str(value))
+                    for value in values
+                    if value
+                )
+    except Exception:
+        known_days = set()
+
+    if not known_days:
+        row = conn.execute(
+            "SELECT MAX(metric_date) AS day FROM advertising_traffic_daily WHERE provider='metrika'"
+        ).fetchone()
+        if row and row["day"]:
+            known_days.add(date.fromisoformat(str(row["day"])))
+
+    latest = max(known_days) if known_days else None
     start = (latest + timedelta(days=1)) if latest else yesterday
     if start > yesterday:
         return []
@@ -161,7 +184,6 @@ class MetrikaClient:
             "filters": filters,
             "limit": 100000,
             "offset": 1,
-            "accuracy": "full",
             "lang": "ru",
         }
         if sort:
