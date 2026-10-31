@@ -23,8 +23,8 @@ jobs:
           cred='az-baze-auth/deploy/configure-yandex-metrika-credential-20261031.sh'
           bash -n "$deploy"
           bash -n "$cred"
-          test "$(git hash-object "$deploy")" = '1ae0abc575d8eb6a4c30a719f99ad7cee7d98e85'
-          test "$(git hash-object "$cred")" = 'd70e4b2205f7ad484d1da7d895158bacfd11914e'
+          test "$(git hash-object "$deploy")" = '548945421579fd33a6fc7a1bd04307ed99a57407'
+          test "$(git hash-object "$cred")" = '9e3f8cd6e632e65bd95ccb3969e8f55085297491'
           python3 - <<'PY'
           import subprocess
           from pathlib import Path
@@ -65,14 +65,19 @@ jobs:
           assert 'CHANGED_RUNTIME_FILES=3; DB_SCHEMA_CHANGED=NO; SECRET_CHANGES=NONE' in deploy
           assert 'ENV_FILE_UNCHANGED_POST_START=PASS' in deploy
           assert 'ENV_FILE_FINGERPRINT_CAPTURED=PASS' in deploy
+          assert 'LIVE_MUTATION_STARTED=YES; ROLLBACK_ARMED=YES' in deploy
+          assert 'ROLLBACK_DISARMED=YES' in deploy
+          assert 'if [[ "$MUTATION_STARTED" == \'1\' && -n "$BACKUP" ]]; then rollback_files; fi' in deploy
+          install_block=deploy.split('install_targets(){',1)[1].split('}',1)[0]
+          assert install_block.index('MUTATION_STARTED=1') < install_block.index('atomic_install_one')
 
           cred=Path('az-baze-auth/deploy/configure-yandex-metrika-credential-20261031.sh').read_text()
           assert "KEY='AZBAZE_YANDEX_METRIKA_TOKEN'" in cred
           assert "CONFIRM_TOKEN='METRIKA-CREDENTIAL-91356C4F'" in cred
           assert 'IFS= read -r -s CANDIDATE </dev/tty' in cred
-          assert 'OAUTH_APP_METRIKA_SCOPE=READ_ONLY_PASS' in cred
-          for scope in ('metrika:write','metrika:expenses','metrika:user_params','metrika:offline_data'):
-              assert scope in cred
+          assert 'required_scopes={"metrika:read"}' in cred
+          assert 'if scopes != required_scopes:' in cred
+          assert 'OAUTH_APP_SCOPE_SET=METRIKA_READ_ONLY_PASS' in cred
           assert 'CREDENTIAL_READONLY_PROBE=PASS' in cred
           assert 'SECRET_PRINTED=NO; SECRET_ARGV=NO' in cred
           assert 'oauth_token=' not in cred
