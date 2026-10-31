@@ -97,6 +97,44 @@ def metrika_zip():
     return raw.getvalue()
 
 
+def metrika_campaign_breakdown_zip():
+    with zipfile.ZipFile(io.BytesIO(metrika_zip())) as source:
+        payload = json.loads(source.read("az_analytics.json").decode("utf-8"))
+
+    payload["metrica_traffic_day"].extend([
+        {"row_id":"yandex36","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"ad","traffic_source_name":"Переходы по рекламе","source_detail":"Яндекс: Директ","source_detail_id":"ad.Яндекс: Директ","visits":36,"is_test_tag":False},
+        {"row_id":"brux1","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"ad","traffic_source_name":"Переходы по рекламе","source_detail":"Яндекс: Директ","source_detail_id":"ad.Яндекс: Директ","utm_source":"yandex","utm_medium":"cpc","utm_campaign":"bruksizm_search_nsk","visits":1,"is_test_tag":False},
+        {"row_id":"igzub3","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"social","traffic_source_name":"Переходы из социальных сетей","source_detail":"instagram.com","source_detail_id":"social.instagram","utm_source":"instagram","utm_medium":"social","utm_campaign":"zubachev","utm_content":"profile","visits":3,"is_test_tag":False},
+        {"row_id":"igclinic4","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"social","traffic_source_name":"Переходы из социальных сетей","source_detail":"instagram.com","source_detail_id":"social.instagram","utm_source":"instagram","utm_medium":"social","utm_campaign":"clinic","utm_content":"profile","visits":4,"is_test_tag":False},
+        {"row_id":"igstory2","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"social","traffic_source_name":"Переходы из социальных сетей","source_detail":"instagram.com","source_detail_id":"social.instagram","utm_source":"instagram","utm_medium":"social","utm_campaign":"story_autumn","visits":2,"is_test_tag":False},
+        {"row_id":"igunknown1","date":"2026-10-27","day_status":"completed_calendar_day_revisable","traffic_source_id":"social","traffic_source_name":"Переходы из социальных сетей","source_detail":"instagram.com","source_detail_id":"social.instagram","utm_source":"instagram","utm_medium":"social","visits":1,"is_test_tag":False},
+    ])
+    payload["metrica_goal_day"].extend([
+        {"traffic_row_id":"yandex36","date":"2026-10-27","goal_name":"Открытие окна записи","goal_visits":2,"reaches":2},
+        {"traffic_row_id":"yandex36","date":"2026-10-27","goal_name":"Переход к записи в Medflex","goal_visits":1,"reaches":1},
+        {"traffic_row_id":"igzub3","date":"2026-10-27","goal_name":"Открытие окна записи","goal_visits":1,"reaches":1},
+    ])
+    payload["goal_registry"] = [
+        {"goal_id":"674318079","goal_name":"Открытие окна записи"},
+        {"goal_id":"674318216","goal_name":"Переход к записи в Medflex"},
+    ]
+
+    report = """campaigns_clean
+Метрики: ym:s:visits, ym:s:goal674318079reaches, ym:s:goal674318079visits, ym:s:goal674318216reaches, ym:s:goal674318216visits
+Итого: [60.0, 2.0, 2.0, 1.0, 1.0]
+АЗ | Ортодонт и гнатолог | Поиск | Новосибирск | 34.0, 2.0, 2.0, 1.0, 1.0
+Чужие кампании | 25.0, 0.0, 0.0, 0.0, 0.0
+АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск | 1.0, 0.0, 0.0, 0.0, 0.0
+
+"""
+
+    raw = io.BytesIO()
+    with zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("az_analytics.json", json.dumps(payload, ensure_ascii=False))
+        z.writestr("REPORT-2026-10-27.txt", report)
+    return raw.getvalue()
+
+
 class AdvertisingReportTests(unittest.TestCase):
     def test_partial_month_comparison(self):
         self.assertEqual(m._comparison_ranges("previous_period",date(2026,10,1),date(2026,10,25)),[(date(2026,9,1),date(2026,9,25))])
@@ -151,16 +189,17 @@ class AdvertisingReportTests(unittest.TestCase):
         for key, values in parsed["traffic_rows"].items():
             by_name[key[2]] = by_name.get(key[2], 0) + values["visits"]
         self.assertEqual(by_name["Яндекс Бизнес"], 25)
-        self.assertEqual(by_name["Instagram — Старостенко"], 6)
-        self.assertEqual(by_name["Instagram — ссылка в bio, профиль не определён"], 2)
+        self.assertEqual(by_name["Instagram"], 8)
+        self.assertNotIn("Instagram — Старостенко", by_name)
+        self.assertNotIn("Instagram — ссылка в bio, профиль не определён", by_name)
         self.assertNotIn("Яндекс-реклама", by_name)
 
         goals = {}
         for key, values in parsed["goal_rows"].items():
             source_name, goal_key = key[2], key[6]
             goals[(source_name, goal_key)] = goals.get((source_name, goal_key), 0) + values["goal_visits"]
-        self.assertEqual(goals[("Instagram — Старостенко", "booking_open")], 2)
-        self.assertEqual(goals[("Instagram — Старостенко", "medflex")], 2)
+        self.assertEqual(goals[("Instagram", "booking_open")], 2)
+        self.assertEqual(goals[("Instagram", "medflex")], 2)
         self.assertEqual(goals[("Taplink", "booking_open")], 1)
         self.assertEqual(goals[("Taplink", "medflex")], 1)
         self.assertEqual(goals[("2ГИС", "medflex")], 1)
@@ -190,10 +229,19 @@ class AdvertisingReportTests(unittest.TestCase):
                 }
                 self.assertEqual(sum(row["visits"] for row in sources.values()), 75)
                 self.assertEqual(sources["Яндекс Бизнес"]["visits"], 25)
-                self.assertEqual(sources["Instagram — Старостенко"]["visits"], 6)
-                self.assertEqual(sources["Instagram — Старостенко"]["booking_open_visits"], 2)
-                self.assertEqual(sources["Instagram — Старостенко"]["medflex_visits"], 2)
-                self.assertEqual(sources["Instagram — ссылка в bio, профиль не определён"]["visits"], 2)
+                self.assertEqual(sources["Instagram"]["visits"], 8)
+                self.assertEqual(sources["Instagram"]["booking_open_visits"], 2)
+                self.assertEqual(sources["Instagram"]["medflex_visits"], 2)
+
+                campaigns = {
+                    row["campaign_name"]: row
+                    for row in m._group_breakdown(c, date(2026,10,27), date(2026,10,27), "campaign")
+                    if row["source_key"] == "instagram"
+                }
+                self.assertEqual(campaigns["Старостенко"]["visits"], 6)
+                self.assertEqual(campaigns["Старостенко"]["booking_open_visits"], 2)
+                self.assertEqual(campaigns["Старостенко"]["medflex_visits"], 2)
+                self.assertEqual(campaigns["link_in_bio"]["visits"], 2)
 
                 second = m._store_metrika(c, parsed, 1); c.commit()
                 self.assertTrue(second["reused"])
@@ -214,12 +262,12 @@ class AdvertisingReportTests(unittest.TestCase):
                     "WHERE provider='metrika' AND source_key='yandex_business'"
                 )
                 c.execute(
-                    "UPDATE advertising_metrika_goal_daily SET source_key='instagram',source_name='Instagram' "
-                    "WHERE provider='metrika' AND source_key='instagram_starostenko'"
+                    "UPDATE advertising_metrika_goal_daily SET source_key='instagram_other',source_name='Instagram — профиль не определён' "
+                    "WHERE provider='metrika' AND source_key='instagram'"
                 )
                 c.execute(
-                    "UPDATE advertising_traffic_daily SET source_key='instagram',source_name='Instagram' "
-                    "WHERE provider='metrika' AND source_key IN ('instagram_starostenko','instagram_bio_unknown')"
+                    "UPDATE advertising_traffic_daily SET source_key='instagram_other',source_name='Instagram — профиль не определён' "
+                    "WHERE provider='metrika' AND source_key='instagram'"
                 )
                 c.commit()
                 self.assertFalse(m._stored_metrika_matches(c, parsed))
@@ -236,12 +284,76 @@ class AdvertisingReportTests(unittest.TestCase):
                 ).fetchall()
                 values = {row["source_name"]: row["visits"] for row in rows}
                 self.assertEqual(values["Яндекс Бизнес"], 25)
-                self.assertEqual(values["Instagram — Старостенко"], 6)
-                self.assertEqual(values["Instagram — ссылка в bio, профиль не определён"], 2)
+                self.assertEqual(values["Instagram"], 8)
+                self.assertNotIn("Instagram — профиль не определён", values)
                 self.assertNotIn("Яндекс-реклама", values)
             finally:
                 c.close(); m.METRIKA_ARCHIVE_ROOT = old
 
+
+
+    def test_campaign_report_splits_yandex_and_instagram_by_real_labels(self):
+        parsed = m._parse_metrika_zip(metrika_campaign_breakdown_zip(), "campaigns.zip")
+
+        yandex = {
+            key[5]: values["visits"]
+            for key, values in parsed["traffic_rows"].items()
+            if key[1] == "yandex_ads"
+        }
+        self.assertEqual(yandex["АЗ | Ортодонт и гнатолог | Поиск | Новосибирск"], 34)
+        self.assertEqual(yandex["АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"], 1)
+        self.assertEqual(yandex[""], 2)
+        self.assertEqual(sum(yandex.values()), 37)
+
+        business_visits = sum(
+            values["visits"]
+            for key, values in parsed["traffic_rows"].items()
+            if key[1] == "yandex_business"
+        )
+        self.assertEqual(business_visits, 25)
+
+        instagram = {
+            key[5]: instagram.get(key[5], 0) + values["visits"]
+            if False else values["visits"]
+            for key, values in parsed["traffic_rows"].items()
+            if key[1] == "instagram"
+        }
+        self.assertEqual(instagram["Старостенко"], 6)
+        self.assertEqual(instagram["link_in_bio"], 2)
+        self.assertEqual(instagram["Зубачев"], 3)
+        self.assertEqual(instagram["Клиника"], 4)
+        self.assertEqual(instagram["story_autumn"], 2)
+        self.assertEqual(instagram[""], 1)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            old = m.METRIKA_ARCHIVE_ROOT
+            m.METRIKA_ARCHIVE_ROOT = Path(tmp)
+            c = conn()
+            try:
+                m._store_metrika(c, parsed, 1); c.commit()
+                sources = {
+                    row["source_key"]: row
+                    for row in m._group_breakdown(c, date(2026,10,27), date(2026,10,27), "source")
+                    if row["visits"] is not None
+                }
+                self.assertEqual(sources["yandex_ads"]["visits"], 37)
+                self.assertEqual(sources["yandex_business"]["visits"], 25)
+                self.assertEqual(sources["instagram"]["visits"], 18)
+
+                campaigns = m._group_breakdown(c, date(2026,10,27), date(2026,10,27), "campaign")
+                yandex_campaigns = {
+                    row["campaign_name"]: row for row in campaigns if row["source_key"] == "yandex_ads"
+                }
+                instagram_campaigns = {
+                    row["campaign_name"]: row for row in campaigns if row["source_key"] == "instagram"
+                }
+                self.assertEqual(yandex_campaigns["АЗ | Ортодонт и гнатолог | Поиск | Новосибирск"]["booking_open_visits"], 2)
+                self.assertEqual(yandex_campaigns["АЗ | Ортодонт и гнатолог | Поиск | Новосибирск"]["medflex_visits"], 1)
+                self.assertEqual(yandex_campaigns["Не определено"]["visits"], 2)
+                self.assertEqual(instagram_campaigns["Зубачев"]["booking_open_visits"], 1)
+                self.assertEqual(instagram_campaigns["Не определено"]["visits"], 1)
+            finally:
+                c.close(); m.METRIKA_ARCHIVE_ROOT = old
 
     def test_revenue_summary_puts_total_paid_first_and_reconciles_every_ruble_by_provider(self):
         c=conn()
@@ -449,10 +561,10 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("skip_runtime_rename(path)", terminology_source)
         self.assertIn("all('.chip').forEach", js)
         self.assertNotIn("$('.chip').forEach", js)
-        self.assertIn("function yandexCampaignRows()", js)
-        self.assertIn("row.source_key==='yandex_ads'", js)
+        self.assertIn("function campaignRowsForSource(sourceKey)", js)
+        self.assertIn("sourceKey==='yandex_ads'||sourceKey==='instagram'", js)
         self.assertIn("class=\"source-expand\"", js)
-        self.assertIn("class=\"child-row yandex-campaign-row\"", js)
+        self.assertIn("class=\"child-row source-campaign-row\"", js)
         self.assertIn("button.textContent=expanded?'+':'−'", js)
         self.assertIn("return String(row.campaign_name||'').trim()||'Не определено'", js)
         self.assertIn(".source-expand{", html)
