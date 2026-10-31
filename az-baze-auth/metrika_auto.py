@@ -47,6 +47,68 @@ BASE_METRICS = (
 )
 CAMPAIGN_DIMENSION = "ym:s:cross_device_last_significantDirectClickOrder"
 
+MEDFLEX_COUNTERS = ("113892774", "113916673")
+DIAGNOSTIC_SPECS = {
+    "daily": (("ym:s:date",), "full", ROBOT_FILTER, "-ym:s:visits"),
+    "sources": (
+        ("ym:s:cross_device_last_significantTrafficSource", "ym:s:cross_device_last_significantSourceEngine"),
+        "full", ROBOT_FILTER, "-ym:s:visits",
+    ),
+    "devices": (("ym:s:deviceCategory",), "full", ROBOT_FILTER, "-ym:s:visits"),
+    "browsers": (("ym:s:browser",), "full", ROBOT_FILTER, "-ym:s:visits"),
+    "hours": (("ym:s:hour",), "full", ROBOT_FILTER, "-ym:s:visits"),
+    "new_visitors": (("ym:s:isNewUser",), "full", ROBOT_FILTER, "-ym:s:visits"),
+    "search_phrases": (
+        ("ym:s:cross_device_last_significantSearchEngineRoot", "ym:s:cross_device_last_significantSearchPhrase"),
+        "full", ROBOT_FILTER, "-ym:s:visits",
+    ),
+    "without_test": (
+        ("ym:s:date",),
+        "full",
+        ROBOT_FILTER + " AND ym:s:cross_device_last_significantUTMCampaign!='metrika_test'",
+        "-ym:s:visits",
+    ),
+    "age": (("ym:s:ageInterval",), "base", ROBOT_FILTER, "-ym:s:visits"),
+    "gender": (("ym:s:gender",), "base", ROBOT_FILTER, "-ym:s:visits"),
+    "geography": (("ym:s:regionCountry", "ym:s:regionCity"), "base", ROBOT_FILTER, "-ym:s:visits"),
+    "landing": (("ym:s:startURL",), "base", ROBOT_FILTER, "-ym:s:visits"),
+    "referrers": (("ym:s:cross_device_last_significantReferer",), "base", ROBOT_FILTER, "-ym:s:visits"),
+    "pages": (("ym:pv:URLPathFull",), "pages", "ym:pv:isRobot=='No'", "-ym:pv:pageviews"),
+}
+
+
+def _csv_bytes(headers, rows):
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return ("\ufeff" + buffer.getvalue()).encode("utf-8")
+
+
+def _table_csv(payload):
+    query = payload.get("query") or {}
+    dimensions = list(query.get("dimensions") or [])
+    metrics = list(query.get("metrics") or [])
+    rows = []
+    for item in payload.get("data") or []:
+        dim_values = [_dimension_value(value) or "" for value in (item.get("dimensions") or [])]
+        metric_values = list(item.get("metrics") or [])
+        rows.append([*dim_values, *metric_values])
+    return _csv_bytes([*dimensions, *metrics], rows)
+
+
+def _dict_csv(rows, headers):
+    return _csv_bytes(
+        headers,
+        [
+            [
+                "" if row.get(header) is None else row.get(header)
+                for header in headers
+            ]
+            for row in rows
+        ],
+    )
+
 
 class MetrikaApiError(RuntimeError):
     pass
@@ -174,9 +236,9 @@ class MetrikaClient:
             raise MetrikaApiError("В счётчике не найдены используемые цели Яндекс Метрики.")
         return payload, selected
 
-    def table(self, *, day, dimensions, metrics, filters=ROBOT_FILTER, sort="-ym:s:visits"):
+    def table(self, *, day, dimensions, metrics, filters=ROBOT_FILTER, sort="-ym:s:visits", counter_id=COUNTER_ID):
         params = {
-            "ids": COUNTER_ID,
+            "ids": str(counter_id),
             "dimensions": ",".join(dimensions),
             "metrics": ",".join(metrics),
             "date1": day.isoformat(),
@@ -244,6 +306,48 @@ class MetrikaClient:
             dimensions=(CAMPAIGN_DIMENSION,),
             metrics=metrics,
         )
+
+        diagnostic_raw = {}
+        for name, (dimensions, metric_kind, filters, sort) in DIAGNOSTIC_SPECS.items():
+            report_metrics = (
+                tuple(metrics)
+                if metric_kind == "full"
+                else tuple(BASE_METRICS)
+                if metric_kind == "base"
+                else ("ym:pv:pageviews", "ym:pv:users")
+            )
+            diagnostic_raw[name] = self.table(
+                day=day,
+                dimensions=dimensions,
+                metrics=report_metrics,
+                filters=filters,
+                sort=sort,
+            )
+
+        medflex_status = {}
+        medflex_primary_raw = None
+        for counter_id in MEDFLEX_COUNTERS:
+            try:
+                raw = self.table(
+                    day=day,
+                    dimensions=("ym:s:date",),
+                    metrics=("ym:s:visits", "ym:s:users", "ym:s:pageviews"),
+                    filters=ROBOT_FILTER,
+                    sort="-ym:s:visits",
+                    counter_id=counter_id,
+                )
+                medflex_status[counter_id] = "ok"
+                if counter_id == MEDFLEX_COUNTERS[0]:
+                    medflex_primary_raw = raw
+            except MetrikaApiError:
+                medflex_status[counter_id] = "unavailable"
+
+        if medflex_primary_raw is None:
+            medflex_primary_raw = {
+                "counter_id": MEDFLEX_COUNTERS[0],
+                "status": medflex_status[MEDFLEX_COUNTERS[0]],
+                "data": [],
+            }
 
         fetched_at = datetime.now(timezone.utc).isoformat()
         batch_id = "az-metrika-auto-" + fetched_at
@@ -360,23 +464,55 @@ class MetrikaClient:
             report_lines.append(name + " | " + ", ".join(str(float(value or 0)) for value in vals))
         report_text = "\n".join(report_lines) + "\n\n"
 
+        traffic_headers = [
+            "row_id", "batch_id", "counter_id", "date", "day_status",
+            "traffic_source_id", "traffic_source_name", "source_detail_id", "source_detail",
+            "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+            "direct_campaign_id", "direct_campaign_name", "campaign_match_status",
+            "visits", "users_nonadditive", "pageviews", "bounce_rate",
+            "avg_visit_duration_seconds", "confirmed_leads", "is_test_tag",
+            "attribution", "robot_filter",
+        ]
+        goal_headers = [
+            "traffic_row_id", "date", "goal_id", "goal_name", "reaches",
+            "goal_visits", "lead_class", "included_in_confirmed_leads",
+        ]
+        registry_headers = [
+            "goal_id", "goal_name", "lead_class", "included_in_confirmed_leads",
+        ]
+
         files = {
             "az_analytics.json": json.dumps(az_payload, ensure_ascii=False, indent=2).encode("utf-8"),
             f"REPORT-{day.isoformat()}.txt": report_text.encode("utf-8"),
             "metrica_api_raw.json": json.dumps(traffic_raw, ensure_ascii=False, indent=2).encode("utf-8"),
-            "campaigns_raw.json": json.dumps(campaign_raw, ensure_ascii=False, indent=2).encode("utf-8"),
             "goals_raw.json": json.dumps(goals_payload, ensure_ascii=False, indent=2).encode("utf-8"),
             "counter_raw.json": json.dumps(counter_payload, ensure_ascii=False, indent=2).encode("utf-8"),
+            "medflex_daily_raw.json": json.dumps(medflex_primary_raw, ensure_ascii=False, indent=2).encode("utf-8"),
+            "metrica_traffic_day.csv": _dict_csv(traffic_rows, traffic_headers),
+            "metrica_goal_day.csv": _dict_csv(goal_rows, goal_headers),
+            "goal_registry.csv": _dict_csv(goal_registry, registry_headers),
         }
+        for name, payload in diagnostic_raw.items():
+            files[name + "_raw.json"] = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+            files[name + ".csv"] = _table_csv(payload)
+
         readme = (
-            f"AZ-BAZE automatic Yandex Metrica import for {day.isoformat()}.\n"
-            "Source: Yandex Metrica API, read-only OAuth.\n"
-            "The archive is generated internally and is parsed by the existing az_analytics_export_v1 importer.\n"
-            "Robots excluded. Attribution: cross_device_last_significant.\n"
+            f"АЗ — автоматическая выгрузка Яндекс Метрики за {day.isoformat()}\n"
+            "Формат az_analytics_export_v1. Основной файл az_analytics.json.\n"
+            "Источник: API Яндекс Метрики, OAuth только с правом чтения.\n"
+            "Роботы исключены. Атрибуция: последний значимый переход, кросс-девайс.\n"
+            f"Medflex {MEDFLEX_COUNTERS[0]}: {medflex_status[MEDFLEX_COUNTERS[0]]}; "
+            f"{MEDFLEX_COUNTERS[1]}: {medflex_status[MEDFLEX_COUNTERS[1]]}.\n"
+            "Автоматический импорт выполняется существующим загрузчиком AZ-BAZE.\n"
         ).encode("utf-8")
         files["README.txt"] = readme
+
+        if len(files) != 38:
+            raise MetrikaApiError("Внутренний архив Метрики не совпал с утверждённым составом.")
         checksums = {name: hashlib.sha256(content).hexdigest() for name, content in files.items()}
         files["SHA256.json"] = json.dumps(checksums, ensure_ascii=False, indent=2).encode("utf-8")
+        if len(files) != 39:
+            raise MetrikaApiError("Внутренний архив Метрики не совпал с утверждённым составом.")
 
         raw = io.BytesIO()
         with zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as archive:
