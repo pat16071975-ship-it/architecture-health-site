@@ -348,7 +348,11 @@ class AdvertisingReportTests(unittest.TestCase):
                 }
                 self.assertEqual(yandex_campaigns["АЗ | Ортодонт и гнатолог | Поиск | Новосибирск"]["booking_open_visits"], 2)
                 self.assertEqual(yandex_campaigns["АЗ | Ортодонт и гнатолог | Поиск | Новосибирск"]["medflex_visits"], 1)
+                self.assertEqual(yandex_campaigns["АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"]["booking_open_visits"], 0)
+                self.assertEqual(yandex_campaigns["АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"]["medflex_visits"], 0)
                 self.assertEqual(yandex_campaigns["Не определено"]["visits"], 2)
+                self.assertEqual(yandex_campaigns["Не определено"]["booking_open_visits"], 0)
+                self.assertEqual(yandex_campaigns["Не определено"]["medflex_visits"], 0)
                 self.assertEqual(instagram_campaigns["Зубачев"]["booking_open_visits"], 1)
                 self.assertEqual(instagram_campaigns["Не определено"]["visits"], 1)
             finally:
