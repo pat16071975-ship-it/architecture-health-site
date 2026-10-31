@@ -408,7 +408,8 @@ def _group_breakdown(conn, start, end, level):
             row["campaign_id"], row["campaign_name"],
         )
         if source_key in {"yandex_ads", "instagram"} and not campaign_name:
-            campaign_id, campaign_name = "", "Не определено"
+            # Missing display name must not erase a factual non-empty campaign ID.
+            campaign_name = "Не определено"
         return source_key, source_name, channel_name, campaign_id, campaign_name
 
     def key_for(identity):
