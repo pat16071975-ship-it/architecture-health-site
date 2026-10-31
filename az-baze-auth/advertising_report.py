@@ -1800,41 +1800,72 @@ def register_advertising_report(app):
         if not token:
             return jsonify(
                 status="error",
-                message="Яндекс Метрика ещё не подключена к серверу. Нужна однократная авторизация.",
+                message="Яндекс Метрика ещё не подключена к серверу.",
             ), 400
 
         conn = db()
-        days = metrika_auto.missing_completed_days(conn)
-        if not days:
-            return jsonify(
-                status="ok",
-                message="Данные Яндекс Метрики уже актуальны. Новых завершённых дней нет.",
-                completed_days=[],
-                imported=0,
-            )
-
         try:
-            client = metrika_auto.MetrikaClient(token)
-            prepared = []
-            for day in days:
-                raw, filename = client.fetch_day_archive(day)
-                parsed = _parse_metrika_zip(raw, filename)
-                if parsed["completed_days"] != [day.isoformat()]:
-                    raise ValueError("API Метрики вернул неожиданный период.")
-                prepared.append(parsed)
+            with metrika_auto.MetrikaSyncLock():
+                sync_started = datetime.now(ZoneInfo(DEFAULT_TIMEZONE))
+                current_day = metrika_auto.current_local_day(sync_started)
+                completed_targets = metrika_auto.completed_sync_days(conn, sync_started)
 
-            conn.execute("BEGIN IMMEDIATE")
-            still_missing = {
-                day.isoformat()
-                for day in metrika_auto.missing_completed_days(conn)
-            }
-            results = []
-            for parsed in prepared:
-                parsed_days = list(parsed.get("completed_days") or [])
-                if len(parsed_days) != 1 or parsed_days[0] not in still_missing:
-                    continue
-                results.append(_store_metrika(conn, parsed, g.user["id"]))
-            conn.commit()
+                client = metrika_auto.MetrikaClient(token)
+                prepared_completed = []
+                for day in completed_targets:
+                    raw, filename = client.fetch_day_archive(day, completed=True)
+                    parsed = _parse_metrika_zip(raw, filename)
+                    if parsed["completed_days"] != [day.isoformat()] or parsed.get("provisional_days"):
+                        raise ValueError("API Метрики вернул неожиданный завершённый период.")
+                    prepared_completed.append(parsed)
+
+                current_raw, current_filename = client.fetch_day_archive(
+                    current_day,
+                    completed=False,
+                )
+                current_parsed = _parse_metrika_zip(
+                    current_raw,
+                    current_filename,
+                    allow_provisional=True,
+                )
+                if (
+                    current_parsed.get("completed_days")
+                    or current_parsed.get("provisional_days") != [current_day.isoformat()]
+                ):
+                    raise ValueError("API Метрики вернул неожиданный текущий период.")
+
+                # The API fetch happens outside the DB write transaction.  A
+                # non-blocking process lock prevents parallel refresh jobs.
+                # Re-check the day after the network phase so a midnight
+                # rollover cannot store yesterday as a provisional snapshot.
+                if metrika_auto.current_local_day() != current_day:
+                    raise ValueError("Во время обновления сменились календарные сутки. Нажмите кнопку ещё раз.")
+
+                conn.execute("BEGIN IMMEDIATE")
+                still_targets = {
+                    day.isoformat()
+                    for day in metrika_auto.completed_sync_days(conn, sync_started)
+                }
+                completed_updated = []
+                completed_unchanged = []
+                for parsed in prepared_completed:
+                    parsed_day = str((parsed.get("completed_days") or [""])[0])
+                    if parsed_day not in still_targets:
+                        continue
+                    if _stored_metrika_matches(conn, parsed):
+                        completed_unchanged.append(parsed_day)
+                        continue
+                    _store_metrika(conn, parsed, g.user["id"])
+                    completed_updated.append(parsed_day)
+
+                current_result = _store_metrika_provisional(
+                    conn,
+                    current_parsed,
+                    g.user["id"],
+                )
+                conn.commit()
+        except metrika_auto.MetrikaBusyError as exc:
+            return jsonify(status="busy", message=str(exc)), 409
         except (metrika_auto.MetrikaApiError, ValueError, OSError, sqlite3.DatabaseError) as exc:
             try:
                 conn.rollback()
@@ -1845,28 +1876,24 @@ def register_advertising_report(app):
                 message=str(exc) or "Не удалось получить данные Яндекс Метрики.",
             ), 400
 
-        completed_days = [
-            day
-            for result in results
-            for day in result["completed_days"]
-        ]
         audit(
             "advertising_metrika_auto_sync",
             target_user_id=g.user["id"],
             details=(
-                "days=" + ",".join(completed_days)
-                + "; imported=" + str(sum(0 if result["reused"] else 1 for result in results))
+                "completed_updated=" + ",".join(completed_updated)
+                + "; completed_unchanged=" + ",".join(completed_unchanged)
+                + "; current_day=" + current_day.isoformat()
+                + "; current_updated=" + ("1" if current_result["updated"] else "0")
             ),
         )
         return jsonify(
             status="ok",
-            message=(
-                "Данные Яндекс Метрики загружены автоматически."
-                if completed_days
-                else "Данные Яндекс Метрики уже актуальны."
-            ),
-            completed_days=completed_days,
-            imported=sum(0 if result["reused"] else 1 for result in results),
+            message="Данные Яндекс Метрики обновлены.",
+            completed_days=completed_updated,
+            checked_completed_days=completed_unchanged,
+            current_day=current_day.isoformat(),
+            current_updated=bool(current_result["updated"]),
+            current_reused=bool(current_result["reused"]),
         )
 
     @app.post("/api/reports/advertising/metrika/import")
