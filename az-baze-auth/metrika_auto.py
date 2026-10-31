@@ -220,7 +220,7 @@ class MetrikaClient:
         campaign_raw = self.table(
             day=day,
             dimensions=(CAMPAIGN_DIMENSION,),
-            metrics=("ym:s:visits", *metrics[5:]),
+            metrics=metrics,
         )
 
         fetched_at = datetime.now(timezone.utc).isoformat()
@@ -321,7 +321,7 @@ class MetrikaClient:
             "daily_summary": {day.isoformat(): summary},
         }
 
-        campaign_metrics = ["ym:s:visits", *metrics[5:]]
+        campaign_metrics = list(metrics)
         report_lines = [
             "campaigns_clean",
             "Метрики: " + ", ".join(campaign_metrics),
