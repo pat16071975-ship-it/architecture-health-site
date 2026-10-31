@@ -1,0 +1,65 @@
+name: AZ advertising Yandex Instagram delivery
+on:
+  push:
+    branches: [fix/az-restore-two-view-selector-20261029]
+    paths:
+      - 'az-baze-auth/deploy/advertising-yandex-instagram-production-20261031.sh'
+      - '.github/workflows/az-advertising-yandex-instagram-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify Yandex and Instagram drill-down deploy package
+        run: |
+          set -Eeuo pipefail
+          f='az-baze-auth/deploy/advertising-yandex-instagram-production-20261031.sh'
+          bash -n "$f"
+          test "$(git hash-object "$f")" = 'e775328085be2c206d0e176b76d9c5a945af5aaa'
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          script=Path('az-baze-auth/deploy/advertising-yandex-instagram-production-20261031.sh').read_text()
+          assert "TARGET_COMMIT='826f4133356e6a9628b2340803304c59890932af'" in script
+          assert "CONFIRM_TOKEN='ADVERTISING-YANDEX-INSTAGRAM-826F4133'" in script
+          assert 'ADVERTISING_YANDEX_INSTAGRAM_PRODUCTION_DEPLOY=PASS' in script
+          assert 'DATABASE_WRITES_BY_INSTALLER=NONE' in script
+
+          paths=[
+              'az-baze-auth/advertising_report.py',
+              'reports/advertising.js',
+          ]
+          base=[
+              '88a4866cd28003b0a9a2f463cba4df3b072a23ec',
+              '64c1d83104e1ca6de6aa8cc7d5b92195441f997a',
+          ]
+          target=[
+              '2b269edc407e86668876f497ea525cb6f1037679',
+              '58c7b1ccc84ca0d0848adf5e81440d7233a1d4d8',
+          ]
+          for path,b,t in zip(paths,base,target):
+              old=subprocess.check_output(['git','show','a534f86834957f3acebd5321c0d2a4cb29c2d246:'+path])
+              new=subprocess.check_output(['git','show','826f4133356e6a9628b2340803304c59890932af:'+path])
+              old_blob=subprocess.check_output(['git','hash-object','--stdin'],input=old).decode().strip()
+              new_blob=subprocess.check_output(['git','hash-object','--stdin'],input=new).decode().strip()
+              assert old_blob==b,(path,old_blob,b)
+              assert new_blob==t,(path,new_blob,t)
+
+          py=subprocess.check_output(['git','show','826f4133356e6a9628b2340803304c59890932af:az-baze-auth/advertising_report.py']).decode()
+          js=subprocess.check_output(['git','show','826f4133356e6a9628b2340803304c59890932af:reports/advertising.js']).decode()
+          assert 'METRIKA_CAMPAIGN_REPORT_SECTION = "campaigns_clean"' in py
+          assert '"starostenko": "Старостенко"' in py
+          assert '"zubachev": "Зубачев"' in py
+          assert '"clinic": "Клиника"' in py
+          assert 'A zero present in campaigns_clean is evidence, not missing data.' in py
+          assert "sourceKey==='yandex_ads'||sourceKey==='instagram'" in js
+          assert 'class="child-row source-campaign-row"' in js
+          assert "button.textContent=expanded?'+':'−'" in js
+          print('ADVERTISING_YANDEX_INSTAGRAM_DELIVERY_CONTRACT=PASS')
+          PY
