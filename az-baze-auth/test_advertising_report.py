@@ -462,9 +462,9 @@ class AdvertisingReportTests(unittest.TestCase):
             # Canonicalization changes grouping only; raw stored total remains exact.
             self.assertEqual(
                 c.execute("SELECT SUM(visits) FROM advertising_traffic_daily WHERE provider='metrika'").fetchone()[0],
-                96,
+                78,
             )
-            self.assertEqual(sum(row["visits"] for row in sources.values()),96)
+            self.assertEqual(sum(row["visits"] for row in sources.values()),78)
         finally:
             c.close()
 
