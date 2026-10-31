@@ -1,0 +1,82 @@
+name: AZ Metrika one-click delivery
+on:
+  push:
+    branches: [ops/az-metrika-one-click-production-20261031]
+    paths:
+      - 'az-baze-auth/deploy/metrika-one-click-production-20261031.sh'
+      - 'az-baze-auth/deploy/configure-yandex-metrika-credential-20261031.sh'
+      - '.github/workflows/az-metrika-one-click-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify PR180 production and credential packages
+        run: |
+          set -Eeuo pipefail
+          deploy='az-baze-auth/deploy/metrika-one-click-production-20261031.sh'
+          cred='az-baze-auth/deploy/configure-yandex-metrika-credential-20261031.sh'
+          bash -n "$deploy"
+          bash -n "$cred"
+          test "$(git hash-object "$deploy")" = '907c365ad3b44403282d064b1cc2cfba6626ba7c'
+          test "$(git hash-object "$cred")" = 'd70e4b2205f7ad484d1da7d895158bacfd11914e'
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          target='91356c4fd597fbcfd3e5af76f57ff18fe82c5c56'
+          base='4f5553834e15d37554c13d4218d6932045becdd4'
+
+          expected_target={
+              'az-baze-auth/advertising_report.py':'d9def18c1a227e388586ddde55f24d1f3ce57e79',
+              'az-baze-auth/metrika_auto.py':'9967320615c4f9bd6ebdf5062545da3d8a7b3d6c',
+              'az-baze-auth/templates/uploads.html':'1effc5ae1b123816bde3ff792efaa2e649a6a90d',
+              'reports/advertising.js':'58c7b1ccc84ca0d0848adf5e81440d7233a1d4d8',
+          }
+          expected_base={
+              'az-baze-auth/advertising_report.py':'7deb8d73fdb633c4644e7b0b6924de4b87bcbff7',
+              'az-baze-auth/templates/uploads.html':'c36b7393a90f72626425e92fac8b56b54c335cf6',
+              'reports/advertising.js':'58c7b1ccc84ca0d0848adf5e81440d7233a1d4d8',
+          }
+
+          def git_blob(ref,path):
+              raw=subprocess.check_output(['git','show',f'{ref}:{path}'])
+              return subprocess.check_output(['git','hash-object','--stdin'],input=raw).decode().strip()
+
+          for path,sha in expected_target.items():
+              assert git_blob(target,path)==sha,(path,'target')
+          for path,sha in expected_base.items():
+              assert git_blob(base,path)==sha,(path,'base')
+          missing=subprocess.run(
+              ['git','cat-file','-e',f'{base}:az-baze-auth/metrika_auto.py'],
+              stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL
+          )
+          assert missing.returncode!=0
+
+          deploy=Path('az-baze-auth/deploy/metrika-one-click-production-20261031.sh').read_text()
+          assert "TARGET_COMMIT='91356c4fd597fbcfd3e5af76f57ff18fe82c5c56'" in deploy
+          assert "CONFIRM_TOKEN='METRIKA-ONE-CLICK-PRODUCTION-91356C4F'" in deploy
+          assert 'METRIKA_ONE_CLICK_PRODUCTION_DEPLOY=PASS' in deploy
+          assert 'CHANGED_RUNTIME_FILES=3; DB_SCHEMA_CHANGED=NO; SECRET_CHANGES=NONE' in deploy
+          assert 'ENV_FILE_UNCHANGED_POST_START=PASS' in deploy
+
+          cred=Path('az-baze-auth/deploy/configure-yandex-metrika-credential-20261031.sh').read_text()
+          assert "KEY='AZBAZE_YANDEX_METRIKA_TOKEN'" in cred
+          assert "CONFIRM_TOKEN='METRIKA-CREDENTIAL-91356C4F'" in cred
+          assert 'IFS= read -r -s CANDIDATE </dev/tty' in cred
+          assert 'OAUTH_APP_METRIKA_SCOPE=READ_ONLY_PASS' in cred
+          for scope in ('metrika:write','metrika:expenses','metrika:user_params','metrika:offline_data'):
+              assert scope in cred
+          assert 'CREDENTIAL_READONLY_PROBE=PASS' in cred
+          assert 'SECRET_PRINTED=NO; SECRET_ARGV=NO' in cred
+          assert 'oauth_token=' not in cred
+          assert 'set -x' not in cred
+          assert 'echo "$CANDIDATE"' not in cred
+
+          print('AZ_METRIKA_ONE_CLICK_DELIVERY_CONTRACT=PASS')
+          PY
