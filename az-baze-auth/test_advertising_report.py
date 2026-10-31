@@ -313,8 +313,7 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertEqual(business_visits, 25)
 
         instagram = {
-            key[5]: instagram.get(key[5], 0) + values["visits"]
-            if False else values["visits"]
+            key[5]: values["visits"]
             for key, values in parsed["traffic_rows"].items()
             if key[1] == "instagram"
         }
