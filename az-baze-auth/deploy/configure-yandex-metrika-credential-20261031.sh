@@ -46,7 +46,7 @@ PY
 probe_token(){
   local token="$1"
   printf '%s' "$token" | python3 -c '
-import datetime,json,sys,urllib.error,urllib.parse,urllib.request
+import datetime,html.parser,json,re,sys,urllib.error,urllib.parse,urllib.request
 from zoneinfo import ZoneInfo
 
 token=sys.stdin.read().strip()
@@ -88,12 +88,30 @@ if not client_id:
     raise SystemExit("OAUTH_CLIENT_ID_NOT_FOUND")
 
 app_info=fetch_text("https://oauth.yandex.ru/client/%s/info" % urllib.parse.quote(client_id,safe=""))
-if "metrika:read" not in app_info:
-    raise SystemExit("CANNOT_PROVE_METRIKA_READ_SCOPE")
-for forbidden in ("metrika:write","metrika:expenses","metrika:user_params","metrika:offline_data"):
-    if forbidden in app_info:
-        raise SystemExit("OAUTH_APP_HAS_FORBIDDEN_METRIKA_SCOPE_"+forbidden.replace(":","_"))
-print("OAUTH_APP_METRIKA_SCOPE=READ_ONLY_PASS")
+
+class ScopeTextParser(html.parser.HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.skip=0
+        self.parts=[]
+    def handle_starttag(self,tag,attrs):
+        if tag.lower() in {"script","style"}:
+            self.skip+=1
+    def handle_endtag(self,tag):
+        if tag.lower() in {"script","style"} and self.skip:
+            self.skip-=1
+    def handle_data(self,data):
+        if not self.skip:
+            self.parts.append(data)
+
+parser=ScopeTextParser()
+parser.feed(app_info)
+visible_text="\n".join(parser.parts)
+scopes=set(re.findall(r"(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:[a-z][a-z0-9_.-]*)(?![A-Za-z0-9_.-])",visible_text))
+required_scopes={"metrika:read"}
+if scopes != required_scopes:
+    raise SystemExit("OAUTH_APP_SCOPE_SET_NOT_EXACT_READ_ONLY")
+print("OAUTH_APP_SCOPE_SET=METRIKA_READ_ONLY_PASS")
 
 counter=fetch_json("https://api-metrika.yandex.net/management/v1/counter/113776005")
 c=counter.get("counter") if isinstance(counter,dict) else None
