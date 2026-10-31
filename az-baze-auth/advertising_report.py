@@ -658,6 +658,17 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     ]
     if not yandex_traffic:
         return traffic_rows, goal_rows
+
+    # campaigns_clean carries campaign names but not reliable IDs.  If the
+    # structured traffic already contains an unknown non-empty ID, rebuilding
+    # all Yandex rows from names could erase that factual distinction.  Fail
+    # closed and preserve the structured rows instead.
+    if any(
+        key[4] and key[4] not in YANDEX_CANONICAL_CAMPAIGNS
+        for key, _values in yandex_traffic
+    ):
+        return traffic_rows, goal_rows
+
     parent_visits = sum(int(values.get("visits") or 0) for _, values in yandex_traffic)
     selected = [
         row for row in campaign_rows
