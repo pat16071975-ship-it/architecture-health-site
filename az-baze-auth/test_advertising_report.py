@@ -444,6 +444,92 @@ class AdvertisingReportTests(unittest.TestCase):
         with self.assertRaises(ma.MetrikaApiError):
             ma.MetrikaClient("")
 
+    def test_auto_metrika_finds_gap_inside_existing_history(self):
+        c=conn()
+        try:
+            c.executemany(
+                "INSERT INTO advertising_metrika_imports VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                [
+                    ("sha27","a.zip","2026-10-27","2026-10-27",json.dumps(["2026-10-27"]),"t","t",1,1,1,"/tmp/a"),
+                    ("sha29","b.zip","2026-10-29","2026-10-29",json.dumps(["2026-10-29"]),"t","t",1,1,1,"/tmp/b"),
+                ],
+            )
+            c.commit()
+            days=ma.missing_completed_days(
+                c,
+                datetime(2026,10,31,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+            )
+            self.assertEqual(
+                [day.isoformat() for day in days],
+                ["2026-10-28","2026-10-30"],
+            )
+        finally:
+            c.close()
+
+    def test_auto_metrika_requires_all_approved_goals(self):
+        def missing_goal(path,params):
+            if path.endswith("/goals"):
+                return {"goals":[{"id":674318079,"name":"Открытие окна записи","status":"Active"}]}
+            raise AssertionError(path)
+        client=ma.MetrikaClient("server-secret",request_json=missing_goal)
+        with self.assertRaisesRegex(ma.MetrikaApiError,"отсутствуют используемые цели"):
+            client.goals()
+
+    def test_auto_metrika_reporting_query_has_attribution_and_full_accuracy_guard(self):
+        calls=[]
+        def request_json(path,params):
+            calls.append((path,dict(params)))
+            return {
+                "query":dict(params),
+                "data":[],
+                "total_rows":0,
+                "total_rows_rounded":False,
+                "sampled":False,
+                "sample_share":1.0,
+                "totals":[0.0],
+            }
+        client=ma.MetrikaClient("server-secret",request_json=request_json)
+        client.table(
+            day=date(2026,10,31),
+            dimensions=("ym:s:date",),
+            metrics=("ym:s:visits",),
+        )
+        self.assertEqual(calls[0][1]["attribution"],ma.ATTRIBUTION)
+        self.assertEqual(calls[0][1]["filters"],ma.ROBOT_FILTER)
+        self.assertEqual(calls[0][1]["limit"],100000)
+
+        def sampled(path,params):
+            return {
+                "data":[],
+                "total_rows":0,
+                "total_rows_rounded":False,
+                "sampled":True,
+                "sample_share":0.5,
+            }
+        with self.assertRaisesRegex(ma.MetrikaApiError,"семплированные"):
+            ma.MetrikaClient("server-secret",request_json=sampled).table(
+                day=date(2026,10,31),
+                dimensions=("ym:s:date",),
+                metrics=("ym:s:visits",),
+            )
+
+    def test_metrika_routes_require_upload_services_permission(self):
+        source=Path(__file__).with_name("advertising_report.py").read_text(encoding="utf-8")
+        self.assertIn(
+            '@app.post("/api/reports/advertising/metrika/sync")\n'
+            '    @permission_required("upload_services")',
+            source,
+        )
+        self.assertIn(
+            '@app.post("/api/reports/advertising/metrika/import")\n'
+            '    @permission_required("upload_services")',
+            source,
+        )
+        self.assertNotIn("AZBAZE_YANDEX_METRIKA_TOKEN=",source)
+        template=(Path(__file__).with_name("templates")/"uploads.html").read_text(encoding="utf-8")
+        self.assertNotIn("AZBAZE_YANDEX_METRIKA_TOKEN",template)
+
+
     def test_partial_month_comparison(self):
         self.assertEqual(m._comparison_ranges("previous_period",date(2026,10,1),date(2026,10,25)),[(date(2026,9,1),date(2026,9,25))])
 
