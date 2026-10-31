@@ -591,6 +591,71 @@ def _metrika_campaign_name(row, source_key):
     return str(row.get("direct_campaign_name") or row.get("utm_campaign") or "").strip()
 
 
+def _parse_structured_campaigns(payload):
+    raw_rows = payload.get("direct_campaign_day")
+    if raw_rows is None:
+        return None
+    if not isinstance(raw_rows, list):
+        raise ValueError("Некорректная структурированная разбивка кампаний Метрики.")
+
+    goal_registry = {
+        str(item.get("goal_id") or ""): str(item.get("goal_name") or "")
+        for item in (payload.get("goal_registry") or [])
+        if isinstance(item, dict)
+    }
+    grouped = {}
+    for item in raw_rows:
+        if not isinstance(item, dict):
+            raise ValueError("Некорректная строка кампании Метрики.")
+        campaign_id = str(item.get("campaign_id") or "").strip()
+        campaign_name = str(item.get("campaign_name") or "").strip()
+        try:
+            visits = int(item.get("visits") or 0)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Некорректное число визитов кампании Метрики.") from exc
+        if visits < 0:
+            raise ValueError("Некорректное число визитов кампании Метрики.")
+
+        key = (campaign_id, campaign_name)
+        row = grouped.setdefault(
+            key,
+            {
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name,
+                "visits": 0,
+                "goals": {},
+            },
+        )
+        row["visits"] += visits
+
+        goals = item.get("goals") or []
+        if not isinstance(goals, list):
+            raise ValueError("Некорректные цели кампании Метрики.")
+        for goal in goals:
+            if not isinstance(goal, dict):
+                raise ValueError("Некорректная цель кампании Метрики.")
+            goal_id = str(goal.get("goal_id") or "")
+            goal_name = str(goal.get("goal_name") or goal_registry.get(goal_id, "")).strip()
+            goal_key = METRIKA_GOALS.get(goal_name)
+            if not goal_key:
+                continue
+            try:
+                goal_visits = int(goal.get("goal_visits") or 0)
+                reaches = int(goal.get("reaches") or 0)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("Некорректные значения цели кампании Метрики.") from exc
+            if goal_visits < 0 or reaches < 0:
+                raise ValueError("Некорректные значения цели кампании Метрики.")
+            pair = row["goals"].setdefault(
+                (goal_key, goal_name),
+                {"goal_visits": 0, "reaches": 0},
+            )
+            pair["goal_visits"] += goal_visits
+            pair["reaches"] += reaches
+
+    return list(grouped.values())
+
+
 def _parse_report_campaigns(report_text, payload):
     if not report_text:
         return []
@@ -675,7 +740,11 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     parent_visits = sum(int(values.get("visits") or 0) for _, values in yandex_traffic)
     selected = [
         row for row in campaign_rows
-        if row["campaign_name"] not in METRIKA_CAMPAIGN_REPORT_IGNORED
+        if row["campaign_name"] != "Чужие кампании"
+        and not (
+            row["campaign_name"] == "Не определено"
+            and not str(row.get("campaign_id") or "").strip()
+        )
         and int(row.get("visits") or 0) > 0
     ]
     named_visits = sum(int(row["visits"]) for row in selected)
@@ -709,7 +778,8 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     }
     for row in selected:
         source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
-            "yandex_ads", "Яндекс-реклама", "Платная реклама", "", row["campaign_name"]
+            "yandex_ads", "Яндекс-реклама", "Платная реклама",
+            str(row.get("campaign_id") or ""), row["campaign_name"],
         )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name)
         rebuilt_traffic[key] = {"visits": int(row["visits"])}
@@ -724,7 +794,8 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     }
     for row in selected:
         source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
-            "yandex_ads", "Яндекс-реклама", "Платная реклама", "", row["campaign_name"]
+            "yandex_ads", "Яндекс-реклама", "Платная реклама",
+            str(row.get("campaign_id") or ""), row["campaign_name"],
         )
         for (goal_key, goal_name), values in row.get("goals", {}).items():
             # A zero present in campaigns_clean is evidence, not missing data.
@@ -847,9 +918,14 @@ def _parse_metrika_zip(raw, filename=""):
         target["goal_visits"] += int(row.get("goal_visits") or 0)
         target["reaches"] += int(row.get("reaches") or 0)
 
-    report_campaigns = _parse_report_campaigns(report_text, payload)
+    structured_campaigns = _parse_structured_campaigns(payload)
+    campaign_rows = (
+        structured_campaigns
+        if structured_campaigns is not None
+        else _parse_report_campaigns(report_text, payload)
+    )
     traffic_rows, goal_rows = _apply_yandex_campaign_report(
-        traffic_rows, goal_rows, completed_days, report_campaigns
+        traffic_rows, goal_rows, completed_days, campaign_rows
     )
 
     return {
