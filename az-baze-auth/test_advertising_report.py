@@ -865,6 +865,25 @@ class AdvertisingReportTests(unittest.TestCase):
         with self.assertRaises(ma.MetrikaApiError):
             ma.MetrikaClient("")
 
+    def test_old_provisional_is_still_missing_when_completed_history_is_empty(self):
+        c=conn()
+        try:
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    "metrika","2026-10-27","direct","Прямые заходы","Прямые заходы",
+                    "","",None,None,5,"t","metrika-live-2026-10-27",
+                ),
+            )
+            c.commit()
+            now=datetime(2026,11,10,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk"))
+            missing=ma.missing_completed_days(c,now)
+            targets=ma.completed_sync_days(c,now)
+            self.assertIn(date(2026,10,27),missing)
+            self.assertIn(date(2026,10,27),targets)
+        finally:
+            c.close()
+
     def test_auto_metrika_finds_gap_before_earliest_import_from_tracking_start(self):
         c=conn()
         try:
