@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import io
 import json
 import sqlite3
@@ -282,13 +283,13 @@ def auto_metrika_request(path, params):
 
     dimensions=str(params.get("dimensions") or "").split(",")
     metrics=str(params.get("metrics") or "").split(",")
+    counter_id=str(params.get("ids") or "")
 
     def metric_values(visits, booking=(0,0), medflex=(0,0)):
         values=[]
         for metric in metrics:
-            if metric=="ym:s:visits": values.append(float(visits))
-            elif metric=="ym:s:users": values.append(float(visits))
-            elif metric=="ym:s:pageviews": values.append(float(visits))
+            if metric in {"ym:s:visits","ym:s:users","ym:s:pageviews","ym:pv:pageviews","ym:pv:users"}:
+                values.append(float(visits))
             elif metric=="ym:s:bounceRate": values.append(0.0)
             elif metric=="ym:s:avgVisitDurationSeconds": values.append(30.0)
             elif metric=="ym:s:goal674318079reaches": values.append(float(booking[0]))
@@ -297,6 +298,17 @@ def auto_metrika_request(path, params):
             elif metric=="ym:s:goal674318216visits": values.append(float(medflex[1]))
             else: raise AssertionError(metric)
         return values
+
+    if counter_id in ma.MEDFLEX_COUNTERS:
+        return {
+            "query":{"ids":[int(counter_id)],"dimensions":dimensions,"metrics":metrics,"date1":params["date1"],"date2":params["date2"]},
+            "data":[],
+            "total_rows":0,
+            "total_rows_rounded":False,
+            "sampled":False,
+            "sample_share":1.0,
+            "totals":[0.0 for _ in metrics],
+        }
 
     if dimensions == [ma.CAMPAIGN_DIMENSION]:
         data=[
@@ -308,8 +320,7 @@ def auto_metrika_request(path, params):
              "metrics":metric_values(1)},
         ]
         totals=metric_values(7,booking=(2,2),medflex=(1,1))
-    else:
-        assert tuple(dimensions)==ma.TRAFFIC_DIMENSIONS
+    elif tuple(dimensions)==ma.TRAFFIC_DIMENSIONS:
         day=str(params["date1"])
         def dims(source_id,source_name,detail_id=None,detail=None,utm_source=None,utm_medium=None,utm_campaign=None,utm_content=None,utm_term=None):
             return [
@@ -331,6 +342,12 @@ def auto_metrika_request(path, params):
              "metrics":metric_values(2)},
         ]
         totals=metric_values(12,booking=(3,3),medflex=(1,1))
+    else:
+        data=[{
+            "dimensions":[{"name":str(params["date1"]) if dimension.endswith(":date") else "Тест"} for dimension in dimensions],
+            "metrics":metric_values(1),
+        }]
+        totals=metric_values(1)
 
     return {
         "query":{"ids":[113776005],"dimensions":dimensions,"metrics":metrics,"date1":params["date1"],"date2":params["date2"]},
@@ -382,11 +399,20 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertEqual(filename,"AZ-BAZE-auto-metrika-2026-10-31.zip")
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             names=set(archive.namelist())
+            self.assertEqual(len(names),39)
             self.assertIn("az_analytics.json",names)
             self.assertIn("REPORT-2026-10-31.txt",names)
             self.assertIn("metrica_api_raw.json",names)
-            self.assertIn("campaigns_raw.json",names)
-            self.assertIn("SHA256.json",names)
+            self.assertIn("metrica_traffic_day.csv",names)
+            self.assertIn("metrica_goal_day.csv",names)
+            self.assertIn("goal_registry.csv",names)
+            self.assertIn("medflex_daily_raw.json",names)
+            self.assertNotIn("campaigns_raw.json",names)
+            hashes=json.loads(archive.read("SHA256.json").decode("utf-8"))
+            self.assertEqual(len(hashes),38)
+            for name,expected in hashes.items():
+                self.assertEqual(hashlib.sha256(archive.read(name)).hexdigest(),expected)
+            self.assertIsNone(archive.testzip())
 
         parsed=m._parse_metrika_zip(raw,filename)
         self.assertEqual(parsed["completed_days"],["2026-10-31"])
