@@ -135,6 +135,50 @@ def metrika_campaign_breakdown_zip():
     return raw.getvalue()
 
 
+def legacy_alias_zip():
+    payload = {
+        "metadata": {
+            "schema_version": "az_analytics_export_v1",
+            "fetched_at_utc": "2026-10-28T23:00:00+00:00",
+            "period_from": "2026-10-28",
+            "period_to": "2026-10-28",
+            "source_timezone": "Asia/Novosibirsk",
+            "counter_id": "113776005",
+            "sample_share": 1.0,
+            "attribution": "cross_device_last_significant",
+        },
+        "metrica_traffic_day": [
+            {"row_id":"brux_native","date":"2026-10-28","day_status":"completed_calendar_day_revisable",
+             "traffic_source_id":"ad","traffic_source_name":"Переходы по рекламе","source_detail":"Яндекс: Директ",
+             "utm_source":"yandex","utm_medium":"cpc","utm_campaign":"bruksizm_search_nsk",
+             "direct_campaign_id":"715444498","direct_campaign_name":"АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",
+             "visits":5,"is_test_tag":False},
+            {"row_id":"brux_utm","date":"2026-10-28","day_status":"completed_calendar_day_revisable",
+             "traffic_source_id":"ad","traffic_source_name":"Переходы по рекламе","source_detail":"Яндекс Директ: Не определено",
+             "utm_source":"yandex","utm_medium":"cpc","utm_campaign":"bruksizm_search_nsk",
+             "visits":1,"is_test_tag":False},
+            {"row_id":"ig_star","date":"2026-10-28","day_status":"completed_calendar_day_revisable",
+             "traffic_source_id":"social","traffic_source_name":"Переходы из социальных сетей","source_detail":"instagram.com",
+             "utm_source":"instagram","utm_medium":"social","utm_campaign":"starostenko","utm_content":"profile",
+             "visits":2,"is_test_tag":False},
+            {"row_id":"ig_bio","date":"2026-10-28","day_status":"completed_calendar_day_revisable",
+             "traffic_source_id":"social","traffic_source_name":"Переходы из социальных сетей","source_detail":"instagram.com",
+             "utm_source":"ig","utm_medium":"social","utm_content":"link_in_bio",
+             "visits":1,"is_test_tag":False},
+        ],
+        "metrica_goal_day": [
+            {"traffic_row_id":"ig_star","date":"2026-10-28","goal_name":"Переход к записи в Medflex","goal_visits":1,"reaches":1},
+        ],
+        "goal_registry": [],
+        "direct_campaign_day": None,
+        "daily_summary": [],
+    }
+    raw = io.BytesIO()
+    with zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("az_analytics.json", json.dumps(payload, ensure_ascii=False))
+    return raw.getvalue()
+
+
 class AdvertisingReportTests(unittest.TestCase):
     def test_partial_month_comparison(self):
         self.assertEqual(m._comparison_ranges("previous_period",date(2026,10,1),date(2026,10,25)),[(date(2026,9,1),date(2026,9,25))])
@@ -487,6 +531,110 @@ class AdvertisingReportTests(unittest.TestCase):
             ),
             ("instagram","Instagram","Социальные сети","","link_in_bio"),
         )
+
+
+    def test_parser_merges_native_and_utm_aliases_into_one_canonical_campaign(self):
+        parsed=m._parse_metrika_zip(legacy_alias_zip(),"legacy.zip")
+        yandex=[
+            (key,values) for key,values in parsed["traffic_rows"].items()
+            if key[1]=="yandex_ads"
+        ]
+        self.assertEqual(len(yandex),1)
+        key,values=yandex[0]
+        self.assertEqual(key[4],"715444498")
+        self.assertEqual(key[5],"АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск")
+        self.assertEqual(values["visits"],6)
+
+        instagram={
+            key[5]:values["visits"]
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="instagram"
+        }
+        self.assertEqual(instagram,{"Старостенко":2,"link_in_bio":1})
+
+    def test_same_archived_zip_reclassifies_legacy_rows_without_changing_totals_or_history(self):
+        raw=legacy_alias_zip()
+        parsed=m._parse_metrika_zip(raw,"legacy.zip")
+        sha=parsed["payload_sha256"]
+        with tempfile.TemporaryDirectory() as tmp:
+            old=m.METRIKA_ARCHIVE_ROOT
+            m.METRIKA_ARCHIVE_ROOT=Path(tmp)
+            c=conn()
+            try:
+                archive=m._archive_metrika(raw,sha)
+                c.execute(
+                    "INSERT INTO advertising_metrika_imports VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (sha,"legacy.zip","2026-10-28","2026-10-28",json.dumps(["2026-10-28"]),
+                     "2026-10-28T23:00:00+00:00","old",1,4,1,archive),
+                )
+                c.execute(
+                    "INSERT INTO advertising_report_imports VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (sha,"metrika","2026-10-28","2026-10-28","2026-10-28T23:00:00+00:00",
+                     "Asia/Novosibirsk","RUB","","cross_device_last_significant","old",1,4),
+                )
+                legacy_import="metrika-"+sha[:16]
+                legacy_traffic=[
+                    ("yandex_ads","Яндекс-реклама","Платная реклама","715444498","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",5),
+                    ("yandex_ads","Яндекс-реклама","Платная реклама","","bruksizm_search_nsk",1),
+                    ("instagram_starostenko","Instagram — Старостенко","Социальные сети","","starostenko",2),
+                    ("instagram_bio_unknown","Instagram — ссылка в bio, профиль не определён","Социальные сети","","",1),
+                ]
+                for source_key,source_name,channel,campaign_id,campaign_name,visits in legacy_traffic:
+                    c.execute(
+                        "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        ("metrika","2026-10-28",source_key,source_name,channel,campaign_id,campaign_name,
+                         None,None,visits,"old",legacy_import),
+                    )
+                c.execute(
+                    "INSERT INTO advertising_metrika_goal_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("metrika","2026-10-28","instagram_starostenko","Instagram — Старостенко","Социальные сети",
+                     "","starostenko","medflex","Переход к записи в Medflex",1,1,"old",legacy_import),
+                )
+                c.commit()
+
+                before_visits=c.execute(
+                    "SELECT SUM(visits) FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date='2026-10-28'"
+                ).fetchone()[0]
+                before_goal=c.execute(
+                    "SELECT SUM(goal_visits),SUM(reaches) FROM advertising_metrika_goal_daily "
+                    "WHERE provider='metrika' AND metric_date='2026-10-28'"
+                ).fetchone()
+                before_imports=c.execute("SELECT COUNT(*) FROM advertising_metrika_imports").fetchone()[0]
+                before_schema=c.execute("PRAGMA schema_version").fetchone()[0]
+
+                self.assertFalse(m._stored_metrika_matches(c,parsed))
+                result=m._store_metrika(c,parsed,1); c.commit()
+                self.assertFalse(result["reused"])
+                self.assertTrue(result["reclassified"])
+                self.assertTrue(m._stored_metrika_matches(c,parsed))
+
+                after_visits=c.execute(
+                    "SELECT SUM(visits) FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date='2026-10-28'"
+                ).fetchone()[0]
+                after_goal=c.execute(
+                    "SELECT SUM(goal_visits),SUM(reaches) FROM advertising_metrika_goal_daily "
+                    "WHERE provider='metrika' AND metric_date='2026-10-28'"
+                ).fetchone()
+                self.assertEqual(before_visits,after_visits)
+                self.assertEqual(tuple(before_goal),tuple(after_goal))
+                self.assertEqual(c.execute("SELECT COUNT(*) FROM advertising_metrika_imports").fetchone()[0],before_imports)
+                self.assertEqual(c.execute("PRAGMA schema_version").fetchone()[0],before_schema)
+
+                rows=c.execute(
+                    "SELECT source_key,campaign_id,campaign_name,visits FROM advertising_traffic_daily "
+                    "WHERE provider='metrika' AND metric_date='2026-10-28' ORDER BY source_key,campaign_name"
+                ).fetchall()
+                rendered=[tuple(row) for row in rows]
+                self.assertIn(("yandex_ads","715444498","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",6),rendered)
+                self.assertIn(("instagram","","Старостенко",2),rendered)
+                self.assertIn(("instagram","","link_in_bio",1),rendered)
+                self.assertNotIn(("yandex_ads","","bruksizm_search_nsk",1),rendered)
+
+                second=m._store_metrika(c,parsed,1); c.commit()
+                self.assertTrue(second["reused"])
+                self.assertFalse(second["reclassified"])
+            finally:
+                c.close(); m.METRIKA_ARCHIVE_ROOT=old
 
     def test_revenue_summary_puts_total_paid_first_and_reconciles_every_ruble_by_provider(self):
         c=conn()
