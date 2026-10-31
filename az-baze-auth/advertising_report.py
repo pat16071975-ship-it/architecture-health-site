@@ -11,6 +11,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import metrika_auto
+
 from flask import Response, abort, g, jsonify, request
 
 from app import DB_PATH, SITE_ROOT, admin_required, audit, db, iso_now, permission_required, require_csrf
@@ -589,6 +591,71 @@ def _metrika_campaign_name(row, source_key):
     return str(row.get("direct_campaign_name") or row.get("utm_campaign") or "").strip()
 
 
+def _parse_structured_campaigns(payload):
+    raw_rows = payload.get("direct_campaign_day")
+    if raw_rows is None:
+        return None
+    if not isinstance(raw_rows, list):
+        raise ValueError("Некорректная структурированная разбивка кампаний Метрики.")
+
+    goal_registry = {
+        str(item.get("goal_id") or ""): str(item.get("goal_name") or "")
+        for item in (payload.get("goal_registry") or [])
+        if isinstance(item, dict)
+    }
+    grouped = {}
+    for item in raw_rows:
+        if not isinstance(item, dict):
+            raise ValueError("Некорректная строка кампании Метрики.")
+        campaign_id = str(item.get("campaign_id") or "").strip()
+        campaign_name = str(item.get("campaign_name") or "").strip()
+        try:
+            visits = int(item.get("visits") or 0)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Некорректное число визитов кампании Метрики.") from exc
+        if visits < 0:
+            raise ValueError("Некорректное число визитов кампании Метрики.")
+
+        key = (campaign_id, campaign_name)
+        row = grouped.setdefault(
+            key,
+            {
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name,
+                "visits": 0,
+                "goals": {},
+            },
+        )
+        row["visits"] += visits
+
+        goals = item.get("goals") or []
+        if not isinstance(goals, list):
+            raise ValueError("Некорректные цели кампании Метрики.")
+        for goal in goals:
+            if not isinstance(goal, dict):
+                raise ValueError("Некорректная цель кампании Метрики.")
+            goal_id = str(goal.get("goal_id") or "")
+            goal_name = str(goal.get("goal_name") or goal_registry.get(goal_id, "")).strip()
+            goal_key = METRIKA_GOALS.get(goal_name)
+            if not goal_key:
+                continue
+            try:
+                goal_visits = int(goal.get("goal_visits") or 0)
+                reaches = int(goal.get("reaches") or 0)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("Некорректные значения цели кампании Метрики.") from exc
+            if goal_visits < 0 or reaches < 0:
+                raise ValueError("Некорректные значения цели кампании Метрики.")
+            pair = row["goals"].setdefault(
+                (goal_key, goal_name),
+                {"goal_visits": 0, "reaches": 0},
+            )
+            pair["goal_visits"] += goal_visits
+            pair["reaches"] += reaches
+
+    return list(grouped.values())
+
+
 def _parse_report_campaigns(report_text, payload):
     if not report_text:
         return []
@@ -673,7 +740,11 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     parent_visits = sum(int(values.get("visits") or 0) for _, values in yandex_traffic)
     selected = [
         row for row in campaign_rows
-        if row["campaign_name"] not in METRIKA_CAMPAIGN_REPORT_IGNORED
+        if row["campaign_name"] != "Чужие кампании"
+        and not (
+            row["campaign_name"] == "Не определено"
+            and not str(row.get("campaign_id") or "").strip()
+        )
         and int(row.get("visits") or 0) > 0
     ]
     named_visits = sum(int(row["visits"]) for row in selected)
@@ -707,7 +778,8 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     }
     for row in selected:
         source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
-            "yandex_ads", "Яндекс-реклама", "Платная реклама", "", row["campaign_name"]
+            "yandex_ads", "Яндекс-реклама", "Платная реклама",
+            str(row.get("campaign_id") or ""), row["campaign_name"],
         )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name)
         rebuilt_traffic[key] = {"visits": int(row["visits"])}
@@ -722,7 +794,8 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     }
     for row in selected:
         source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
-            "yandex_ads", "Яндекс-реклама", "Платная реклама", "", row["campaign_name"]
+            "yandex_ads", "Яндекс-реклама", "Платная реклама",
+            str(row.get("campaign_id") or ""), row["campaign_name"],
         )
         for (goal_key, goal_name), values in row.get("goals", {}).items():
             # A zero present in campaigns_clean is evidence, not missing data.
@@ -755,7 +828,7 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     return rebuilt_traffic, rebuilt_goals
 
 
-def _parse_metrika_zip(raw, filename=""):
+def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
     if not raw:
         raise ValueError("Пустой ZIP Яндекс Метрики.")
     if len(raw) > 25 * 1024 * 1024:
@@ -795,19 +868,54 @@ def _parse_metrika_zip(raw, filename=""):
     if not isinstance(traffic, list) or not isinstance(goals, list):
         raise ValueError("В выгрузке Метрики нет обязательных таблиц.")
 
-    completed_days = sorted({
+    completed_days = {
         str(row.get("date") or "")
         for row in traffic
         if str(row.get("day_status") or "").startswith("completed_calendar_day")
-    })
-    if not completed_days:
-        raise ValueError("В ZIP нет завершённых календарных дней.")
+    }
+    provisional_days = {
+        str(row.get("date") or "")
+        for row in traffic
+        if allow_provisional and str(row.get("day_status") or "") == "provisional_current_day"
+    }
+
+    meta_from = str(meta.get("period_from") or "")
+    meta_to = str(meta.get("period_to") or "")
+    meta_status = str(meta.get("day_status") or "")
+    if meta_from and meta_from == meta_to and DATE_RE.fullmatch(meta_from):
+        if meta_status.startswith("completed_calendar_day"):
+            if meta_from in provisional_days:
+                raise ValueError("Статус дня в выгрузке Метрики противоречив.")
+            completed_days.add(meta_from)
+        elif allow_provisional and meta_status == "provisional_current_day":
+            if meta_from in completed_days:
+                raise ValueError("Статус дня в выгрузке Метрики противоречив.")
+            provisional_days.add(meta_from)
+
+    completed_days = sorted(day for day in completed_days if day)
+    provisional_days = sorted(day for day in provisional_days if day)
+
+    current = now or datetime.now(ZoneInfo(DEFAULT_TIMEZONE))
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=ZoneInfo(DEFAULT_TIMEZONE))
+    local_today = current.astimezone(ZoneInfo(DEFAULT_TIMEZONE)).date()
+    for day in completed_days:
+        if date.fromisoformat(day) >= local_today:
+            raise ValueError("Незавершённый календарный день нельзя импортировать как завершённый.")
+
+    accepted_days = sorted(set(completed_days) | set(provisional_days))
+    if not accepted_days:
+        raise ValueError(
+            "В ZIP нет завершённых календарных дней."
+            if not allow_provisional
+            else "В ZIP нет допустимых данных Яндекс Метрики."
+        )
 
     traffic_by_id = {}
     traffic_rows = {}
     for row in traffic:
         day = str(row.get("date") or "")
-        if day not in completed_days:
+        if day not in accepted_days:
             continue
         traffic_by_id[str(row.get("row_id") or "")] = row
         if bool(row.get("is_test_tag")):
@@ -825,7 +933,7 @@ def _parse_metrika_zip(raw, filename=""):
     goal_rows = {}
     for row in goals:
         day = str(row.get("date") or "")
-        if day not in completed_days:
+        if day not in accepted_days:
             continue
         traffic_row = traffic_by_id.get(str(row.get("traffic_row_id") or ""))
         if not traffic_row or bool(traffic_row.get("is_test_tag")):
@@ -845,14 +953,20 @@ def _parse_metrika_zip(raw, filename=""):
         target["goal_visits"] += int(row.get("goal_visits") or 0)
         target["reaches"] += int(row.get("reaches") or 0)
 
-    report_campaigns = _parse_report_campaigns(report_text, payload)
+    structured_campaigns = _parse_structured_campaigns(payload)
+    campaign_rows = (
+        structured_campaigns
+        if structured_campaigns is not None
+        else _parse_report_campaigns(report_text, payload)
+    )
     traffic_rows, goal_rows = _apply_yandex_campaign_report(
-        traffic_rows, goal_rows, completed_days, report_campaigns
+        traffic_rows, goal_rows, accepted_days, campaign_rows
     )
 
     return {
         "metadata": meta,
         "completed_days": completed_days,
+        "provisional_days": provisional_days,
         "traffic_rows": traffic_rows,
         "goal_rows": goal_rows,
         "payload_sha256": hashlib.sha256(raw).hexdigest(),
@@ -872,7 +986,7 @@ def _archive_metrika(raw, payload_sha256):
 
 
 def _stored_metrika_matches(conn, parsed):
-    days = list(parsed.get("completed_days") or [])
+    days = sorted(set(parsed.get("completed_days") or []) | set(parsed.get("provisional_days") or []))
     if not days:
         return False
     placeholders = ",".join("?" for _ in days)
@@ -930,6 +1044,90 @@ def _stored_metrika_matches(conn, parsed):
         for key, values in (parsed.get("goal_rows") or {}).items()
     }
     return actual_goals == expected_goals
+
+
+def _metrika_day_is_completed(conn, day):
+    rows = conn.execute(
+        "SELECT completed_days_json FROM advertising_metrika_imports"
+    ).fetchall()
+    for row in rows:
+        try:
+            values = json.loads(row["completed_days_json"])
+        except (TypeError, ValueError):
+            continue
+        if isinstance(values, list) and day in {str(value) for value in values}:
+            return True
+    return False
+
+
+def _store_metrika_provisional(conn, parsed, actor_user_id):
+    provisional_days = list(parsed.get("provisional_days") or [])
+    if parsed.get("completed_days") or len(provisional_days) != 1:
+        raise ValueError("Оперативный срез Метрики должен содержать ровно текущий день.")
+    day = provisional_days[0]
+    if _metrika_day_is_completed(conn, day):
+        raise ValueError("Этот день уже сохранён как завершённый и не может быть заменён оперативным срезом.")
+    if _stored_metrika_matches(conn, parsed):
+        return {
+            "reused": True,
+            "updated": False,
+            "provisional_days": provisional_days,
+            "payload_sha256": parsed["payload_sha256"],
+        }
+
+    imported_at = iso_now()
+    import_id = "metrika-live-" + day
+    conn.execute(
+        "DELETE FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date=?",
+        (day,),
+    )
+    conn.execute(
+        "DELETE FROM advertising_metrika_goal_daily WHERE provider='metrika' AND metric_date=?",
+        (day,),
+    )
+    for key, values in parsed["traffic_rows"].items():
+        row_day, source_key, source_name, channel_name, campaign_id, campaign_name = key
+        if row_day != day:
+            continue
+        conn.execute(
+            """
+            INSERT INTO advertising_traffic_daily(
+                provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,
+                spend,clicks,visits,updated_at,import_id
+            ) VALUES('metrika',?,?,?,?,?,?,NULL,NULL,?,?,?)
+            """,
+            (row_day, source_key, source_name, channel_name, campaign_id, campaign_name,
+             int(values["visits"]), imported_at, import_id),
+        )
+    for key, values in parsed["goal_rows"].items():
+        row_day, source_key, source_name, channel_name, campaign_id, campaign_name, goal_key, goal_name = key
+        if row_day != day:
+            continue
+        conn.execute(
+            """
+            INSERT INTO advertising_metrika_goal_daily(
+                provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,
+                goal_key,goal_name,goal_visits,reaches,updated_at,import_id
+            ) VALUES('metrika',?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (row_day, source_key, source_name, channel_name, campaign_id, campaign_name,
+             goal_key, goal_name, int(values["goal_visits"]), int(values["reaches"]), imported_at, import_id),
+        )
+    return {
+        "reused": False,
+        "updated": True,
+        "provisional_days": provisional_days,
+        "payload_sha256": parsed["payload_sha256"],
+    }
+
+
+def _completed_metrika_matches_registered(conn, parsed):
+    days = list(parsed.get("completed_days") or [])
+    return (
+        len(days) == 1
+        and _metrika_day_is_completed(conn, days[0])
+        and _stored_metrika_matches(conn, parsed)
+    )
 
 
 def _store_metrika(conn, parsed, actor_user_id):
@@ -1596,6 +1794,10 @@ def _report_payload(conn, start, end, compare_mode, trend_metric):
     }
 
 
+def _metrika_sync_has_changes(completed_updated, current_result):
+    return bool(completed_updated or current_result.get("updated"))
+
+
 def register_advertising_report(app):
     _ensure_schema()
 
@@ -1628,8 +1830,145 @@ def register_advertising_report(app):
         payload["availableComparisons"] = ["previous_period", *(["previous_quarter_avg", "year_avg"] if _same_month(start, end) else []), "last_year"]
         return jsonify(payload)
 
+    @app.post("/api/reports/advertising/metrika/sync")
+    @permission_required("upload_services")
+    def advertising_metrika_sync():
+        require_csrf()
+        token = metrika_auto.token_from_env()
+        if not token:
+            return jsonify(
+                status="error",
+                message="Яндекс Метрика ещё не подключена к серверу.",
+            ), 400
+
+        conn = db()
+        try:
+            with metrika_auto.MetrikaSyncLock():
+                sync_started = datetime.now(ZoneInfo(DEFAULT_TIMEZONE))
+                current_day = metrika_auto.current_local_day(sync_started)
+                completed_targets = metrika_auto.completed_sync_days(conn, sync_started)
+
+                client = metrika_auto.MetrikaClient(token)
+                prepared_completed = []
+                for day in completed_targets:
+                    core_raw, core_filename = client.fetch_day_archive(
+                        day,
+                        completed=True,
+                        diagnostics=False,
+                    )
+                    core_parsed = _parse_metrika_zip(
+                        core_raw,
+                        core_filename,
+                        now=sync_started,
+                    )
+                    if core_parsed["completed_days"] != [day.isoformat()] or core_parsed.get("provisional_days"):
+                        raise ValueError("API Метрики вернул неожиданный завершённый период.")
+
+                    full_parsed = None
+                    if not _completed_metrika_matches_registered(conn, core_parsed):
+                        full_raw, full_filename = client.fetch_day_archive(
+                            day,
+                            completed=True,
+                            diagnostics=True,
+                        )
+                        full_parsed = _parse_metrika_zip(
+                            full_raw,
+                            full_filename,
+                            now=sync_started,
+                        )
+                        if (
+                            full_parsed["completed_days"] != [day.isoformat()]
+                            or full_parsed.get("provisional_days")
+                            or full_parsed["traffic_rows"] != core_parsed["traffic_rows"]
+                            or full_parsed["goal_rows"] != core_parsed["goal_rows"]
+                        ):
+                            raise ValueError("Полная и контрольная выгрузки Метрики не совпали.")
+                    prepared_completed.append((core_parsed, full_parsed))
+
+                current_raw, current_filename = client.fetch_day_archive(
+                    current_day,
+                    completed=False,
+                    diagnostics=False,
+                )
+                current_parsed = _parse_metrika_zip(
+                    current_raw,
+                    current_filename,
+                    allow_provisional=True,
+                    now=sync_started,
+                )
+                if (
+                    current_parsed.get("completed_days")
+                    or current_parsed.get("provisional_days") != [current_day.isoformat()]
+                ):
+                    raise ValueError("API Метрики вернул неожиданный текущий период.")
+
+                # The API fetch happens outside the DB write transaction.  A
+                # non-blocking process lock prevents parallel refresh jobs.
+                # Re-check the day after the network phase so a midnight
+                # rollover cannot store yesterday as a provisional snapshot.
+                if metrika_auto.current_local_day() != current_day:
+                    raise ValueError("Во время обновления сменились календарные сутки. Нажмите кнопку ещё раз.")
+
+                conn.execute("BEGIN IMMEDIATE")
+                still_targets = {
+                    day.isoformat()
+                    for day in metrika_auto.completed_sync_days(conn, sync_started)
+                }
+                completed_updated = []
+                completed_unchanged = []
+                for core_parsed, full_parsed in prepared_completed:
+                    parsed_day = str((core_parsed.get("completed_days") or [""])[0])
+                    if parsed_day not in still_targets:
+                        continue
+                    if _completed_metrika_matches_registered(conn, core_parsed):
+                        completed_unchanged.append(parsed_day)
+                        continue
+                    if full_parsed is None:
+                        raise ValueError("Не подготовлен полный архив изменившегося завершённого дня.")
+                    _store_metrika(conn, full_parsed, g.user["id"])
+                    completed_updated.append(parsed_day)
+
+                current_result = _store_metrika_provisional(
+                    conn,
+                    current_parsed,
+                    g.user["id"],
+                )
+                conn.commit()
+        except metrika_auto.MetrikaBusyError as exc:
+            return jsonify(status="busy", message=str(exc)), 409
+        except (metrika_auto.MetrikaApiError, ValueError, OSError, sqlite3.DatabaseError) as exc:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            return jsonify(
+                status="error",
+                message=str(exc) or "Не удалось получить данные Яндекс Метрики.",
+            ), 400
+
+        if _metrika_sync_has_changes(completed_updated, current_result):
+            audit(
+                "advertising_metrika_auto_sync",
+                target_user_id=g.user["id"],
+                details=(
+                    "completed_updated=" + ",".join(completed_updated)
+                    + "; completed_unchanged=" + ",".join(completed_unchanged)
+                    + "; current_day=" + current_day.isoformat()
+                    + "; current_updated=" + ("1" if current_result["updated"] else "0")
+                ),
+            )
+        return jsonify(
+            status="ok",
+            message="Данные Яндекс Метрики обновлены.",
+            completed_days=completed_updated,
+            checked_completed_days=completed_unchanged,
+            current_day=current_day.isoformat(),
+            current_updated=bool(current_result["updated"]),
+            current_reused=bool(current_result["reused"]),
+        )
+
     @app.post("/api/reports/advertising/metrika/import")
-    @permission_required("section5")
+    @permission_required("upload_services")
     def advertising_metrika_import():
         require_csrf()
         uploaded = request.files.get("metrika_zip")

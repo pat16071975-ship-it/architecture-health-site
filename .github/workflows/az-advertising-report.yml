@@ -4,6 +4,7 @@ on:
     branches: ['feature/az-advertising-report-v1-20261026', 'feature/az-advertising-mis-bridge-20261027']
     paths:
       - 'az-baze-auth/advertising_report.py'
+      - 'az-baze-auth/metrika_auto.py'
       - 'az-baze-auth/advertising_mis_bridge.py'
       - 'az-baze-auth/paid_services_upload.py'
       - 'az-baze-auth/daily_upload.py'
@@ -20,6 +21,7 @@ on:
   pull_request:
     paths:
       - 'az-baze-auth/advertising_report.py'
+      - 'az-baze-auth/metrika_auto.py'
       - 'az-baze-auth/advertising_mis_bridge.py'
       - 'az-baze-auth/paid_services_upload.py'
       - 'az-baze-auth/daily_upload.py'
@@ -49,7 +51,7 @@ jobs:
       - name: Python syntax and report tests
         working-directory: az-baze-auth
         run: |
-          python -m py_compile advertising_report.py advertising_mis_bridge.py paid_services_upload.py daily_upload.py completed_upload.py report_storage.py
+          python -m py_compile advertising_report.py metrika_auto.py advertising_mis_bridge.py paid_services_upload.py daily_upload.py completed_upload.py report_storage.py
           python -m unittest -v test_advertising_report.py
           python -m unittest -v test_advertising_mis_bridge.py
           python -m unittest -v test_paid_services.py test_paid_services_periods.py test_completed_upload.py test_upload_consistency_atomic.py test_upload_reconcile.py
@@ -75,6 +77,8 @@ jobs:
           uploads=Path('az-baze-auth/templates/uploads.html').read_text(encoding='utf-8')
           assert '5. Яндекс Метрика' in uploads
           assert 'name="metrika_zip"' in uploads
+          assert 'Загрузить данные Яндекс Метрики' in uploads
+          assert '/api/reports/advertising/metrika/sync' in uploads
           source=Path('az-baze-auth/report_storage.py').read_text(encoding='utf-8')
           assert 'advertising_report.register_advertising_report(app)' in source
           print('ADVERTISING_REPORT_SCOPE=PASS')

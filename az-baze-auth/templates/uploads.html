@@ -123,11 +123,17 @@
   <form method="post" enctype="multipart/form-data" class="upload-box" data-az-metrika-form>
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <h3>5. Яндекс Метрика</h3>
-    <p>ZIP фактической выгрузки Метрики. В рекламный отчёт попадут только завершённые календарные дни; неполный текущий день будет пропущен.</p>
+    <p>Нажмите кнопку, чтобы получить свежие данные Яндекс Метрики прямо сейчас. Текущий день обновляется оперативным срезом без суммирования, пропущенные дни дозагружаются, а последние 3 завершённых дня перепроверяются.</p>
     {% if 'upload_services' in perms %}
-      <input type="file" name="metrika_zip" accept=".zip,application/zip" required>
-      <div class="hint">Тестовая UTM <strong>metrika_test</strong> сохраняется в исходном ZIP, но автоматически исключается из рабочих KPI.</div>
-      <button class="btn primary" type="submit" style="margin-top:12px">Загрузить Яндекс Метрику</button>
+      <button class="btn primary" type="button" id="metrikaAutoLoad" style="margin-top:4px">Загрузить данные Яндекс Метрики</button>
+      <div class="hint">Используется только серверное подключение с правом чтения. Тестовая UTM <strong>metrika_test</strong> сохраняется в исходных данных, но исключается из рабочих KPI.</div>
+      <details style="margin-top:12px">
+        <summary style="cursor:pointer;font-size:11px;font-weight:600;color:#6c746d">Ручная загрузка ZIP — резервный вариант</summary>
+        <div style="margin-top:10px">
+          <input type="file" name="metrika_zip" accept=".zip,application/zip">
+          <button class="btn" type="submit" style="margin-top:10px">Загрузить ZIP вручную</button>
+        </div>
+      </details>
     {% else %}<div class="lock">Нет права на загрузку Метрики.</div>{% endif %}
     <div id="metrikaClientResult" class="result hidden"></div>
   </form>
@@ -299,6 +305,7 @@
   const cashForm=document.querySelector('[data-az-cash-upload-form]');
   const paidForm=document.querySelector('[data-az-paid-upload-form]');
   const metrikaForm=document.querySelector('[data-az-metrika-form]');
+  const metrikaAutoBtn=document.getElementById('metrikaAutoLoad');
   const overlay=document.getElementById('reconcileOverlay');
   const title=document.getElementById('reconcileTitle');
   const message=document.getElementById('reconcileMessage');
@@ -541,6 +548,25 @@
   clinicalForm?.addEventListener('submit',event=>{event.preventDefault();preview('clinical',clinicalForm)});
   cashForm?.addEventListener('submit',event=>{event.preventDefault();preview('cash',cashForm)});
   paidForm?.addEventListener('submit',event=>{event.preventDefault();preview('paid',paidForm)});
+  metrikaAutoBtn?.addEventListener('click',async()=>{
+    metrikaAutoBtn.disabled=true;
+    resultBox('metrika','Обновляю свежие данные Яндекс Метрики…',true);
+    try{
+      const out=await send('/api/reports/advertising/metrika/sync',metrikaForm);
+      const updated=(out.completed_days||[]).map(value=>value.split('-').reverse().join('.')).join(', ');
+      const current=out.current_day?out.current_day.split('-').reverse().join('.'):'';
+      let message=out.message||'Данные Метрики обновлены.';
+      if(current)message+=' Текущий день: '+current+(out.current_updated?' — обновлён.':' — без изменений.');
+      if(updated)message+=' Обновлены завершённые дни: '+updated+'.';
+      resultBox('metrika',message,true);
+      setTimeout(()=>location.reload(),900);
+    }catch(error){
+      resultBox('metrika',error.message||'Не удалось загрузить данные Яндекс Метрики.',false);
+    }finally{
+      metrikaAutoBtn.disabled=false;
+    }
+  });
+
   metrikaForm?.addEventListener('submit',async event=>{
     event.preventDefault();
     resultBox('metrika','Проверяю ZIP Яндекс Метрики…',true);
