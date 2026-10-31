@@ -324,7 +324,7 @@ class MetrikaClient:
                 raise MetrikaAuthError("Нужно повторно подключить Яндекс Метрику.") from None
             if exc.code == 403:
                 raise MetrikaAccessError("Нет доступа к счётчику Яндекс Метрики.") from None
-            if exc.code == 429:
+            if exc.code in {420, 429}:
                 raise MetrikaRateLimitError("Яндекс Метрика временно ограничила частоту запросов. Повторите позже.") from None
             raise MetrikaApiError("Яндекс Метрика вернула ошибку API.") from None
         except (urllib.error.URLError, TimeoutError):
