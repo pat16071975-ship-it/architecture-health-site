@@ -24,7 +24,7 @@ jobs:
           bash -n "$deploy"
           bash -n "$cred"
           test "$(git hash-object "$deploy")" = '444087df832eba9e100c596abff4d1ca96a9c604'
-          test "$(git hash-object "$cred")" = 'a3443a4609ef1c8a41a7bb1a3221776945b7edc6'
+          test "$(git hash-object "$cred")" = '7847e68ea849da4d3b488419035e392f384394f3'
           python3 - <<'PY'
           import subprocess
           from pathlib import Path
@@ -109,7 +109,7 @@ jobs:
               def __init__(self):
                   super().__init__(); self.skip=0; self.heading_tag=None; self.heading_parts=[]
                   self.section_active=False; self.section_found=0
-                  self.entry_tag=None; self.entry_depth=0; self.entry_parts=[]; self.entries=[]
+                  self.entry_tag=None; self.entry_depth=0; self.entry_parts=[]; self.entries=[]; self.section_parts=[]
               @staticmethod
               def norm(value): return ' '.join(str(value or '').split()).strip().lower()
               def handle_starttag(self,tag,attrs):
@@ -120,6 +120,10 @@ jobs:
                   if tag in self.HEADING_TAGS:
                       if self.section_active and self.heading_tag is None: self.section_active=False
                       self.heading_tag=tag; self.heading_parts=[]; return
+                  if self.section_active:
+                      for name,value in attrs:
+                          if name.lower() in {'value','title','aria-label','data-scope'} and value:
+                              self.section_parts.append(str(value))
                   if self.section_active and self.entry_tag is None and tag in self.ENTRY_TAGS:
                       self.entry_tag=tag; self.entry_depth=1; self.entry_parts=[]
                       for name,value in attrs:
@@ -149,14 +153,20 @@ jobs:
                           self.entry_tag=None; self.entry_parts=[]
               def handle_data(self,data):
                   if self.skip: return
-                  if self.heading_tag is not None: self.heading_parts.append(data)
-                  elif self.entry_tag is not None: self.entry_parts.append(data)
+                  if self.heading_tag is not None:
+                      self.heading_parts.append(data)
+                  else:
+                      if self.section_active: self.section_parts.append(data)
+                      if self.entry_tag is not None: self.entry_parts.append(data)
 
           pattern=r'(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:(?:[a-z][a-z0-9_.-]*|\\*))(?![A-Za-z0-9_.*-])'
           bare_pattern=r'(?<![a-z0-9_.-])(direct|passport|login|tracker|webmaster|cloud_api|market)(?![a-z0-9_.-])'
           def prove(raw):
               p=DataAccessParser(); p.feed(raw)
               if p.section_found!=1 or not p.entries: return False
+              section_evidence='\n'.join(p.section_parts).lower()
+              section_residual=re.sub(pattern,' ',section_evidence)
+              if re.findall(bare_pattern,section_residual): return False
               scopes=[]
               for entry in p.entries:
                   lowered=entry.lower()
@@ -179,6 +189,7 @@ jobs:
           assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>passport:business</li></ul>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>direct</li></ul>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>passport</li></ul>')
+          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><div>direct</div><h2>Почта</h2>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>Пример: metrika:read</li></ul>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>Без scope</li></ul>')
           assert not prove('<style>.x{content:"metrika:read"}</style><p>Nothing authoritative</p>')
