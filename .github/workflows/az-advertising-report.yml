@@ -21,6 +21,7 @@ on:
   pull_request:
     paths:
       - 'az-baze-auth/advertising_report.py'
+      - 'az-baze-auth/metrika_auto.py'
       - 'az-baze-auth/advertising_mis_bridge.py'
       - 'az-baze-auth/paid_services_upload.py'
       - 'az-baze-auth/daily_upload.py'
