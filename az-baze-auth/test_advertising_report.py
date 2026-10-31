@@ -301,6 +301,9 @@ def auto_metrika_request(path, params):
             elif metric=="ym:s:goal674318079visits": values.append(float(booking[1]))
             elif metric=="ym:s:goal674318216reaches": values.append(float(medflex[0]))
             elif metric=="ym:s:goal674318216visits": values.append(float(medflex[1]))
+            elif metric.startswith("ym:s:goal") and (
+                metric.endswith("reaches") or metric.endswith("visits")
+            ): values.append(0.0)
             else: raise AssertionError(metric)
         return values
 
@@ -321,10 +324,12 @@ def auto_metrika_request(path, params):
              "metrics":metric_values(5,booking=(2,2),medflex=(1,1))},
             {"dimensions":[{"id":"715444498","name":"АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"}],
              "metrics":metric_values(1)},
+            {"dimensions":[{"id":"999999999","name":"Новая неизвестная кампания"}],
+             "metrics":metric_values(2)},
             {"dimensions":[{"id":"other","name":"Чужие кампании"}],
              "metrics":metric_values(1)},
         ]
-        totals=metric_values(7,booking=(2,2),medflex=(1,1))
+        totals=metric_values(9,booking=(2,2),medflex=(1,1))
     elif tuple(dimensions)==ma.TRAFFIC_DIMENSIONS:
         day=str(params["date1"])
         def dims(source_id,source_name,detail_id=None,detail=None,utm_source=None,utm_medium=None,utm_campaign=None,utm_content=None,utm_term=None):
@@ -340,13 +345,13 @@ def auto_metrika_request(path, params):
             ]
         data=[
             {"dimensions":dims("ad","Переходы по рекламе","ad.Яндекс: Директ","Яндекс: Директ"),
-             "metrics":metric_values(7,booking=(2,2),medflex=(1,1))},
+             "metrics":metric_values(9,booking=(2,2),medflex=(1,1))},
             {"dimensions":dims("social","Переходы из социальных сетей","social.instagram","instagram.com","instagram","social","starostenko","profile"),
              "metrics":metric_values(3,booking=(1,1))},
             {"dimensions":dims("messenger","Переходы из мессенджеров","messenger.telegram","Telegram","telegram","social","metrika_test"),
              "metrics":metric_values(2)},
         ]
-        totals=metric_values(12,booking=(3,3),medflex=(1,1))
+        totals=metric_values(14,booking=(3,3),medflex=(1,1))
     else:
         data=[{
             "dimensions":[{"name":str(params["date1"]) if dimension.endswith(":date") else "Тест"} for dimension in dimensions],
@@ -413,6 +418,15 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertIn("goal_registry.csv",names)
             self.assertIn("medflex_daily_raw.json",names)
             self.assertNotIn("campaigns_raw.json",names)
+            az_payload=json.loads(archive.read("az_analytics.json").decode("utf-8"))
+            direct={
+                str(row.get("campaign_id") or ""):row
+                for row in az_payload["direct_campaign_day"]
+            }
+            self.assertEqual(direct["715560815"]["visits"],5)
+            self.assertEqual(direct["715444498"]["visits"],1)
+            self.assertEqual(direct["999999999"]["campaign_name"],"Новая неизвестная кампания")
+            self.assertEqual(direct["999999999"]["visits"],2)
             hashes=json.loads(archive.read("SHA256.json").decode("utf-8"))
             self.assertEqual(len(hashes),38)
             for name,expected in hashes.items():
@@ -423,19 +437,20 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertEqual(parsed["completed_days"],["2026-10-31"])
         self.assertEqual(
             sum(values["visits"] for values in parsed["traffic_rows"].values()),
-            10,
+            12,
         )
         yandex={
-            key[5]:values["visits"]
+            (key[4],key[5]):values["visits"]
             for key,values in parsed["traffic_rows"].items()
             if key[1]=="yandex_ads"
         }
         self.assertEqual(
             yandex,
             {
-                "АЗ | Ортодонт и гнатолог | Поиск | Новосибирск":5,
-                "АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск":1,
-                "":1,
+                ("715560815","АЗ | Ортодонт и гнатолог | Поиск | Новосибирск"):5,
+                ("715444498","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"):1,
+                ("999999999","Новая неизвестная кампания"):2,
+                ("",""):1,
             },
         )
         instagram={
