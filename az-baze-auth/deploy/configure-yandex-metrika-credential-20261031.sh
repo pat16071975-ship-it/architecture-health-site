@@ -19,7 +19,7 @@ BACKUP=''
 ENV_WRITTEN=0
 CANDIDATE=''
 
-fail(){ echo "STOP: $*" >&2; exit 1; }
+fail(){ echo "STOP: $*" >&2; on_error 1; }
 health(){ curl -fsS --connect-timeout 2 --max-time 5 "$HEALTH" >/dev/null; }
 wait_health(){ local i; for i in $(seq 1 30); do health && return 0; sleep 1; done; return 1; }
 blob(){ git hash-object "$1"; }
@@ -89,7 +89,7 @@ if not client_id:
 
 app_info=fetch_text("https://oauth.yandex.ru/client/%s/info" % urllib.parse.quote(client_id,safe=""))
 
-class ScopeTextParser(html.parser.HTMLParser):
+class ScopeEvidenceParser(html.parser.HTMLParser):
     def __init__(self):
         super().__init__()
         self.skip=0
@@ -97,6 +97,11 @@ class ScopeTextParser(html.parser.HTMLParser):
     def handle_starttag(self,tag,attrs):
         if tag.lower() in {"script","style"}:
             self.skip+=1
+            return
+        if not self.skip:
+            for _,value in attrs:
+                if value:
+                    self.parts.append(str(value))
     def handle_endtag(self,tag):
         if tag.lower() in {"script","style"} and self.skip:
             self.skip-=1
@@ -104,10 +109,11 @@ class ScopeTextParser(html.parser.HTMLParser):
         if not self.skip:
             self.parts.append(data)
 
-parser=ScopeTextParser()
+parser=ScopeEvidenceParser()
 parser.feed(app_info)
-visible_text="\n".join(parser.parts)
-scopes=set(re.findall(r"(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:[a-z][a-z0-9_.-]*)(?![A-Za-z0-9_.-])",visible_text))
+scope_evidence="\n".join(parser.parts)
+scope_pattern=r"(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:(?:[a-z][a-z0-9_.-]*|\*))(?![A-Za-z0-9_.*-])"
+scopes=set(re.findall(scope_pattern,scope_evidence))
 required_scopes={"metrika:read"}
 if scopes != required_scopes:
     raise SystemExit("OAUTH_APP_SCOPE_SET_NOT_EXACT_READ_ONLY")
@@ -115,16 +121,20 @@ print("OAUTH_APP_SCOPE_SET=METRIKA_READ_ONLY_PASS")
 
 counter=fetch_json("https://api-metrika.yandex.net/management/v1/counter/113776005")
 c=counter.get("counter") if isinstance(counter,dict) else None
-if not isinstance(c,dict) or str(c.get("id") or "")!="113776005":
+if not isinstance(c,dict):
+    raise SystemExit("COUNTER_READ_FAILED")
+required_counter_fields={"id","permission","status","time_zone_name"}
+if not required_counter_fields.issubset(c):
+    raise SystemExit("COUNTER_PROOF_FIELDS_MISSING")
+if str(c["id"])!="113776005":
     raise SystemExit("COUNTER_ID_MISMATCH")
-if str(c.get("permission") or "")!="own":
+if str(c["permission"])!="own":
     raise SystemExit("COUNTER_PERMISSION_NOT_OWN")
-if str(c.get("status") or "Active")!="Active":
+if str(c["status"])!="Active":
     raise SystemExit("COUNTER_NOT_ACTIVE")
-zone=str(c.get("time_zone_name") or "")
-if zone and zone!="Asia/Novosibirsk":
+if str(c["time_zone_name"])!="Asia/Novosibirsk":
     raise SystemExit("COUNTER_TIMEZONE_MISMATCH")
-print("COUNTER_113776005_READ=PASS; PERMISSION=own")
+print("COUNTER_113776005_READ=PASS; PERMISSION=own; STATUS=Active; TIMEZONE=Asia/Novosibirsk")
 
 goals=fetch_json("https://api-metrika.yandex.net/management/v1/counter/113776005/goals")
 rows=goals.get("goals") if isinstance(goals,dict) else None
@@ -134,10 +144,16 @@ required={
 "Открытие окна записи","Переход к записи в Medflex","Нажатие на телефон",
 "Автоцель: клик по номеру телефона","Автоцель: переход в мессенджер",
 "Автоцель: переход в соц.сеть","Автоцель: скачивание файла"}
-active={str(x.get("name") or "") for x in rows if isinstance(x,dict) and str(x.get("status") or "Active")=="Active"}
-if not required.issubset(active):
-    raise SystemExit("REQUIRED_GOALS_MISSING")
-print("METRIKA_GOALS_READ=PASS")
+by_name={str(x.get("name") or ""):x for x in rows if isinstance(x,dict)}
+for name in required:
+    goal=by_name.get(name)
+    if not isinstance(goal,dict):
+        raise SystemExit("REQUIRED_GOAL_MISSING")
+    if "id" not in goal or goal.get("id") is None or "status" not in goal:
+        raise SystemExit("REQUIRED_GOAL_PROOF_FIELDS_MISSING")
+    if str(goal["status"])!="Active":
+        raise SystemExit("REQUIRED_GOAL_NOT_ACTIVE")
+print("METRIKA_GOALS_READ=PASS; REQUIRED_GOALS_ACTIVE=PASS")
 
 yesterday=datetime.datetime.now(ZoneInfo("Asia/Novosibirsk")).date()-datetime.timedelta(days=1)
 report=fetch_json("https://api-metrika.yandex.net/stat/v1/data",{
@@ -151,11 +167,22 @@ report=fetch_json("https://api-metrika.yandex.net/stat/v1/data",{
     "limit":100000,
     "offset":1,
 })
-if report.get("sampled") is True or float(report.get("sample_share",1.0))!=1.0:
-    raise SystemExit("REPORT_SAMPLED")
-if not isinstance(report.get("data"),list):
+required_report_fields={"sampled","sample_share","total_rows_rounded","data"}
+if not required_report_fields.issubset(report):
+    raise SystemExit("REPORT_PROOF_FIELDS_MISSING")
+if report["sampled"] is not False:
+    raise SystemExit("REPORT_SAMPLED_FLAG_NOT_FALSE")
+try:
+    sample_share=float(report["sample_share"])
+except (TypeError,ValueError):
+    raise SystemExit("REPORT_SAMPLE_SHARE_INVALID")
+if sample_share!=1.0:
+    raise SystemExit("REPORT_SAMPLE_SHARE_NOT_FULL")
+if report["total_rows_rounded"] is not False:
+    raise SystemExit("REPORT_TOTAL_ROWS_ROUNDED")
+if not isinstance(report["data"],list):
     raise SystemExit("REPORT_READ_FAILED")
-print("METRIKA_REPORT_READ=PASS")
+print("METRIKA_REPORT_READ=PASS; SAMPLING_PROOF=PASS")
 print("CREDENTIAL_READONLY_PROBE=PASS")
 '
 }
@@ -185,16 +212,28 @@ try:
 finally:
     if os.path.exists(tmp): os.unlink(tmp)
 ' "$ENV_FILE" "$KEY"
-  ENV_WRITTEN=1
 }
 
 rollback_env(){
   echo 'CREDENTIAL_ROLLBACK=START'
-  systemctl stop "$SERVICE" || true
-  cp -a -- "$BACKUP/auth.env" "$ENV_FILE"
-  systemctl start "$SERVICE" || true
-  wait_health || true
-  echo 'CREDENTIAL_ROLLBACK=PASS'
+  local rollback_rc=0
+  set +e
+  systemctl stop "$SERVICE" || rollback_rc=1
+  cp -a -- "$BACKUP/auth.env" "$ENV_FILE" || rollback_rc=1
+  systemctl start "$SERVICE" || rollback_rc=1
+  if wait_health; then
+    echo 'CREDENTIAL_ROLLBACK_HEALTH=PASS'
+  else
+    echo 'CREDENTIAL_ROLLBACK_HEALTH=FAIL' >&2
+    rollback_rc=1
+  fi
+  set -e
+  if [[ "$rollback_rc" == '0' ]]; then
+    echo 'CREDENTIAL_ROLLBACK=PASS'
+  else
+    echo 'CREDENTIAL_ROLLBACK=FAIL; MANUAL_RECOVERY_REQUIRED=YES' >&2
+  fi
+  return 0
 }
 
 preflight(){
@@ -223,7 +262,9 @@ read_candidate(){
 on_error(){
   local code="$1"
   trap - ERR
-  if [[ "$ENV_WRITTEN" == '1' && -n "$BACKUP" ]]; then rollback_env; fi
+  if [[ "$ENV_WRITTEN" == '1' && -n "$BACKUP" ]]; then
+    rollback_env
+  fi
   CANDIDATE=''
   unset CANDIDATE || true
   exit "$code"
@@ -255,6 +296,8 @@ case "$MODE" in
     echo "BACKUP=$BACKUP"
     echo 'ENV_BACKUP=PASS'
 
+    ENV_WRITTEN=1
+    echo 'CREDENTIAL_MUTATION_STARTED=YES; ROLLBACK_ARMED=YES'
     write_env "$CANDIDATE"
     [[ "$(key_state)" == 'present' ]] || fail 'credential key not present after atomic write'
     echo 'ENV_ATOMIC_WRITE=PASS; SECRET_OUTPUT=NONE'
