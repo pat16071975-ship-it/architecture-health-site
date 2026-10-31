@@ -11,6 +11,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import metrika_auto
+
 from flask import Response, abort, g, jsonify, request
 
 from app import DB_PATH, SITE_ROOT, admin_required, audit, db, iso_now, permission_required, require_csrf
@@ -1627,6 +1629,76 @@ def register_advertising_report(app):
         payload["today"] = _iso(today)
         payload["availableComparisons"] = ["previous_period", *(["previous_quarter_avg", "year_avg"] if _same_month(start, end) else []), "last_year"]
         return jsonify(payload)
+
+    @app.post("/api/reports/advertising/metrika/sync")
+    @permission_required("section5")
+    def advertising_metrika_sync():
+        require_csrf()
+        token = metrika_auto.token_from_env()
+        if not token:
+            return jsonify(
+                status="error",
+                message="Яндекс Метрика ещё не подключена к серверу. Нужна однократная авторизация.",
+            ), 400
+
+        conn = db()
+        days = metrika_auto.missing_completed_days(conn)
+        if not days:
+            return jsonify(
+                status="ok",
+                message="Данные Яндекс Метрики уже актуальны. Новых завершённых дней нет.",
+                completed_days=[],
+                imported=0,
+            )
+
+        try:
+            client = metrika_auto.MetrikaClient(token)
+            prepared = []
+            for day in days:
+                raw, filename = client.fetch_day_archive(day)
+                parsed = _parse_metrika_zip(raw, filename)
+                if parsed["completed_days"] != [day.isoformat()]:
+                    raise ValueError("API Метрики вернул неожиданный период.")
+                prepared.append(parsed)
+
+            conn.execute("BEGIN IMMEDIATE")
+            results = []
+            for parsed in prepared:
+                results.append(_store_metrika(conn, parsed, g.user["id"]))
+            conn.commit()
+        except (metrika_auto.MetrikaApiError, ValueError, OSError, sqlite3.DatabaseError) as exc:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            return jsonify(
+                status="error",
+                message=str(exc) or "Не удалось получить данные Яндекс Метрики.",
+            ), 400
+
+        completed_days = [
+            day
+            for result in results
+            for day in result["completed_days"]
+        ]
+        audit(
+            "advertising_metrika_auto_sync",
+            target_user_id=g.user["id"],
+            details=(
+                "days=" + ",".join(completed_days)
+                + "; imported=" + str(sum(0 if result["reused"] else 1 for result in results))
+            ),
+        )
+        return jsonify(
+            status="ok",
+            message=(
+                "Данные Яндекс Метрики загружены автоматически."
+                if completed_days
+                else "Данные Яндекс Метрики уже актуальны."
+            ),
+            completed_days=completed_days,
+            imported=sum(0 if result["reused"] else 1 for result in results),
+        )
 
     @app.post("/api/reports/advertising/metrika/import")
     @permission_required("section5")
