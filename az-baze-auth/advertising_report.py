@@ -828,7 +828,7 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     return rebuilt_traffic, rebuilt_goals
 
 
-def _parse_metrika_zip(raw, filename=""):
+def _parse_metrika_zip(raw, filename="", allow_provisional=False):
     if not raw:
         raise ValueError("Пустой ZIP Яндекс Метрики.")
     if len(raw) > 25 * 1024 * 1024:
@@ -873,14 +873,24 @@ def _parse_metrika_zip(raw, filename=""):
         for row in traffic
         if str(row.get("day_status") or "").startswith("completed_calendar_day")
     })
-    if not completed_days:
-        raise ValueError("В ZIP нет завершённых календарных дней.")
+    provisional_days = sorted({
+        str(row.get("date") or "")
+        for row in traffic
+        if allow_provisional and str(row.get("day_status") or "") == "provisional_current_day"
+    })
+    accepted_days = sorted(set(completed_days) | set(provisional_days))
+    if not accepted_days:
+        raise ValueError(
+            "В ZIP нет завершённых календарных дней."
+            if not allow_provisional
+            else "В ZIP нет допустимых данных Яндекс Метрики."
+        )
 
     traffic_by_id = {}
     traffic_rows = {}
     for row in traffic:
         day = str(row.get("date") or "")
-        if day not in completed_days:
+        if day not in accepted_days:
             continue
         traffic_by_id[str(row.get("row_id") or "")] = row
         if bool(row.get("is_test_tag")):
@@ -898,7 +908,7 @@ def _parse_metrika_zip(raw, filename=""):
     goal_rows = {}
     for row in goals:
         day = str(row.get("date") or "")
-        if day not in completed_days:
+        if day not in accepted_days:
             continue
         traffic_row = traffic_by_id.get(str(row.get("traffic_row_id") or ""))
         if not traffic_row or bool(traffic_row.get("is_test_tag")):
@@ -925,12 +935,13 @@ def _parse_metrika_zip(raw, filename=""):
         else _parse_report_campaigns(report_text, payload)
     )
     traffic_rows, goal_rows = _apply_yandex_campaign_report(
-        traffic_rows, goal_rows, completed_days, campaign_rows
+        traffic_rows, goal_rows, accepted_days, campaign_rows
     )
 
     return {
         "metadata": meta,
         "completed_days": completed_days,
+        "provisional_days": provisional_days,
         "traffic_rows": traffic_rows,
         "goal_rows": goal_rows,
         "payload_sha256": hashlib.sha256(raw).hexdigest(),
@@ -950,7 +961,7 @@ def _archive_metrika(raw, payload_sha256):
 
 
 def _stored_metrika_matches(conn, parsed):
-    days = list(parsed.get("completed_days") or [])
+    days = sorted(set(parsed.get("completed_days") or []) | set(parsed.get("provisional_days") or []))
     if not days:
         return False
     placeholders = ",".join("?" for _ in days)
@@ -1008,6 +1019,81 @@ def _stored_metrika_matches(conn, parsed):
         for key, values in (parsed.get("goal_rows") or {}).items()
     }
     return actual_goals == expected_goals
+
+
+def _metrika_day_is_completed(conn, day):
+    rows = conn.execute(
+        "SELECT completed_days_json FROM advertising_metrika_imports"
+    ).fetchall()
+    for row in rows:
+        try:
+            values = json.loads(row["completed_days_json"])
+        except (TypeError, ValueError):
+            continue
+        if isinstance(values, list) and day in {str(value) for value in values}:
+            return True
+    return False
+
+
+def _store_metrika_provisional(conn, parsed, actor_user_id):
+    provisional_days = list(parsed.get("provisional_days") or [])
+    if parsed.get("completed_days") or len(provisional_days) != 1:
+        raise ValueError("Оперативный срез Метрики должен содержать ровно текущий день.")
+    day = provisional_days[0]
+    if _metrika_day_is_completed(conn, day):
+        raise ValueError("Этот день уже сохранён как завершённый и не может быть заменён оперативным срезом.")
+    if _stored_metrika_matches(conn, parsed):
+        return {
+            "reused": True,
+            "updated": False,
+            "provisional_days": provisional_days,
+            "payload_sha256": parsed["payload_sha256"],
+        }
+
+    imported_at = iso_now()
+    import_id = "metrika-live-" + day
+    conn.execute(
+        "DELETE FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date=?",
+        (day,),
+    )
+    conn.execute(
+        "DELETE FROM advertising_metrika_goal_daily WHERE provider='metrika' AND metric_date=?",
+        (day,),
+    )
+    for key, values in parsed["traffic_rows"].items():
+        row_day, source_key, source_name, channel_name, campaign_id, campaign_name = key
+        if row_day != day:
+            continue
+        conn.execute(
+            """
+            INSERT INTO advertising_traffic_daily(
+                provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,
+                spend,clicks,visits,updated_at,import_id
+            ) VALUES('metrika',?,?,?,?,?,?,NULL,NULL,?,?,?)
+            """,
+            (row_day, source_key, source_name, channel_name, campaign_id, campaign_name,
+             int(values["visits"]), imported_at, import_id),
+        )
+    for key, values in parsed["goal_rows"].items():
+        row_day, source_key, source_name, channel_name, campaign_id, campaign_name, goal_key, goal_name = key
+        if row_day != day:
+            continue
+        conn.execute(
+            """
+            INSERT INTO advertising_metrika_goal_daily(
+                provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,
+                goal_key,goal_name,goal_visits,reaches,updated_at,import_id
+            ) VALUES('metrika',?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (row_day, source_key, source_name, channel_name, campaign_id, campaign_name,
+             goal_key, goal_name, int(values["goal_visits"]), int(values["reaches"]), imported_at, import_id),
+        )
+    return {
+        "reused": False,
+        "updated": True,
+        "provisional_days": provisional_days,
+        "payload_sha256": parsed["payload_sha256"],
+    }
 
 
 def _store_metrika(conn, parsed, actor_user_id):
