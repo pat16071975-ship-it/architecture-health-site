@@ -34,6 +34,20 @@ INSTAGRAM_CAMPAIGN_LABELS = {
     "zubachev": "Зубачев",
     "clinic": "Клиника",
 }
+LEGACY_INSTAGRAM_SOURCE_KEYS = {
+    "instagram_starostenko": "starostenko",
+    "instagram_bio_unknown": "link_in_bio",
+    "instagram_other": "",
+}
+YANDEX_CANONICAL_CAMPAIGNS = {
+    "715444498": "АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",
+    "715560815": "АЗ | Ортодонт и гнатолог | Поиск | Новосибирск",
+}
+YANDEX_CAMPAIGN_ALIASES = {
+    "bruksizm_search_nsk": "715444498",
+    "аз | бруксизм и скрежет зубами | поиск | новосибирск": "715444498",
+    "аз | ортодонт и гнатолог | поиск | новосибирск": "715560815",
+}
 METRIKA_CAMPAIGN_REPORT_SECTION = "campaigns_clean"
 METRIKA_CAMPAIGN_REPORT_IGNORED = {"Чужие кампании", "Не определено"}
 DATASET_CONFIG = {
@@ -387,37 +401,41 @@ def _group_breakdown(conn, start, end, level):
     except sqlite3.OperationalError:
         goals = []
     groups = {}
-    def campaign_parts(row):
-        source_key = str(row["source_key"] or "")
-        campaign_id = str(row["campaign_id"] or "").strip()
-        campaign_name = str(row["campaign_name"] or "").strip()
-        if source_key in {"yandex_ads", "instagram"} and not campaign_name:
-            # Expandable advertising/social sources keep unattributed traffic
-            # visible instead of dropping it.
-            return "", "Не определено"
-        return campaign_id, campaign_name
 
-    def key_for(row):
+    def identity_for(row):
+        source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
+            row["source_key"], row["source_name"], row["channel_name"],
+            row["campaign_id"], row["campaign_name"],
+        )
+        if source_key in {"yandex_ads", "instagram"} and not campaign_name:
+            # Missing display name must not erase a factual non-empty campaign ID.
+            campaign_name = "Не определено"
+        return source_key, source_name, channel_name, campaign_id, campaign_name
+
+    def key_for(identity):
+        source_key, _source_name, _channel_name, campaign_id, campaign_name = identity
         if level == "campaign":
-            campaign_id, campaign_name = campaign_parts(row)
-            return None if not campaign_id and not campaign_name else (str(row["source_key"]), campaign_id, campaign_name)
-        return (str(row["source_key"]),)
-    def ensure(row, key):
+            return None if not campaign_id and not campaign_name else (source_key, campaign_id, campaign_name)
+        return (source_key,)
+
+    def ensure(identity, key):
         if key not in groups:
-            campaign_id, campaign_name = campaign_parts(row) if level == "campaign" else ("", "")
+            source_key, source_name, channel_name, campaign_id, campaign_name = identity
             groups[key] = {
-                "source_key": str(row["source_key"]), "source_name": str(row["source_name"]),
-                "channel_name": str(row["channel_name"] or ""),
-                "campaign_id": campaign_id,
-                "campaign_name": campaign_name,
+                "source_key": source_key, "source_name": source_name,
+                "channel_name": channel_name,
+                "campaign_id": campaign_id if level == "campaign" else "",
+                "campaign_name": campaign_name if level == "campaign" else "",
                 **{metric: None for metric in METRIC_KEYS},
             }
         return groups[key]
+
     def add(row, fields):
-        key = key_for(row)
+        identity = identity_for(row)
+        key = key_for(identity)
         if key is None:
             return
-        target = ensure(row, key)
+        target = ensure(identity, key)
         for field in fields:
             value = row[field]
             if value is not None:
@@ -429,10 +447,11 @@ def _group_breakdown(conn, start, end, level):
     for row in cohort:
         add(row, ("new_patients", "new_patient_30d_paid"))
     for row in goals:
-        key = key_for(row)
+        identity = identity_for(row)
+        key = key_for(identity)
         if key is None:
             continue
-        target = ensure(row, key)
+        target = ensure(identity, key)
         field = {
             "booking_open": "booking_open_visits",
             "medflex": "medflex_visits",
@@ -512,6 +531,58 @@ def _instagram_campaign_name(row):
     return INSTAGRAM_CAMPAIGN_LABELS.get(raw.lower(), raw)
 
 
+def _canonical_metrika_identity(source_key, source_name, channel_name, campaign_id, campaign_name):
+    source_key = str(source_key or "").strip()
+    source_name = str(source_name or "").strip()
+    channel_name = str(channel_name or "").strip()
+    campaign_id = str(campaign_id or "").strip()
+    campaign_name = str(campaign_name or "").strip()
+
+    legacy_instagram_tag = LEGACY_INSTAGRAM_SOURCE_KEYS.get(source_key)
+    if source_key == "instagram" or source_key in LEGACY_INSTAGRAM_SOURCE_KEYS:
+        source_key = "instagram"
+        source_name = "Instagram"
+        channel_name = "Социальные сети"
+        if not campaign_name and legacy_instagram_tag:
+            campaign_name = legacy_instagram_tag
+        if campaign_name:
+            campaign_name = INSTAGRAM_CAMPAIGN_LABELS.get(campaign_name.lower(), campaign_name)
+        campaign_id = ""
+        return source_key, source_name, channel_name, campaign_id, campaign_name
+
+    if source_key == "yandex_ads":
+        source_name = "Яндекс-реклама"
+        channel_name = "Платная реклама"
+
+        # A non-empty campaign ID is authoritative evidence.  Known IDs may be
+        # canonicalized, but an unknown ID must never be replaced merely
+        # because its text name matches a known campaign.
+        if campaign_id:
+            if campaign_id in YANDEX_CANONICAL_CAMPAIGNS:
+                return (
+                    source_key,
+                    source_name,
+                    channel_name,
+                    campaign_id,
+                    YANDEX_CANONICAL_CAMPAIGNS[campaign_id],
+                )
+            return source_key, source_name, channel_name, campaign_id, campaign_name
+
+        # Name / UTM aliases are only safe when the factual campaign ID is
+        # absent.
+        canonical_id = YANDEX_CAMPAIGN_ALIASES.get(campaign_name.lower(), "") if campaign_name else ""
+        if canonical_id:
+            return (
+                source_key,
+                source_name,
+                channel_name,
+                canonical_id,
+                YANDEX_CANONICAL_CAMPAIGNS[canonical_id],
+            )
+
+    return source_key, source_name, channel_name, campaign_id, campaign_name
+
+
 def _metrika_campaign_name(row, source_key):
     if source_key == "instagram":
         return _instagram_campaign_name(row)
@@ -588,6 +659,17 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     ]
     if not yandex_traffic:
         return traffic_rows, goal_rows
+
+    # campaigns_clean carries campaign names but not reliable IDs.  If the
+    # structured traffic already contains an unknown non-empty ID, rebuilding
+    # all Yandex rows from names could erase that factual distinction.  Fail
+    # closed and preserve the structured rows instead.
+    if any(
+        key[4] and key[4] not in YANDEX_CANONICAL_CAMPAIGNS
+        for key, _values in yandex_traffic
+    ):
+        return traffic_rows, goal_rows
+
     parent_visits = sum(int(values.get("visits") or 0) for _, values in yandex_traffic)
     selected = [
         row for row in campaign_rows
@@ -624,10 +706,10 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
         if not (key[0] == day and key[1] == "yandex_ads")
     }
     for row in selected:
-        key = (
-            day, "yandex_ads", "Яндекс-реклама", "Платная реклама",
-            "", row["campaign_name"],
+        source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
+            "yandex_ads", "Яндекс-реклама", "Платная реклама", "", row["campaign_name"]
         )
+        key = (day, source_key, source_name, channel_name, campaign_id, campaign_name)
         rebuilt_traffic[key] = {"visits": int(row["visits"])}
     residual_visits = parent_visits - named_visits
     if residual_visits:
@@ -639,12 +721,15 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
         if not (key[0] == day and key[1] == "yandex_ads")
     }
     for row in selected:
+        source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
+            "yandex_ads", "Яндекс-реклама", "Платная реклама", "", row["campaign_name"]
+        )
         for (goal_key, goal_name), values in row.get("goals", {}).items():
             # A zero present in campaigns_clean is evidence, not missing data.
             # Keep the row so the UI renders 0 instead of «Нет данных».
             key = (
-                day, "yandex_ads", "Яндекс-реклама", "Платная реклама",
-                "", row["campaign_name"], goal_key, goal_name,
+                day, source_key, source_name, channel_name,
+                campaign_id, campaign_name, goal_key, goal_name,
             )
             rebuilt_goals[key] = {
                 "goal_visits": int(values["goal_visits"]),
@@ -730,6 +815,9 @@ def _parse_metrika_zip(raw, filename=""):
         source_key, source_name, channel_name = _metrika_source(row)
         campaign_id = str(row.get("direct_campaign_id") or "")
         campaign_name = _metrika_campaign_name(row, source_key)
+        source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
+            source_key, source_name, channel_name, campaign_id, campaign_name
+        )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name)
         target = traffic_rows.setdefault(key, {"visits": 0})
         target["visits"] += int(row.get("visits") or 0)
@@ -749,6 +837,9 @@ def _parse_metrika_zip(raw, filename=""):
         source_key, source_name, channel_name = _metrika_source(traffic_row)
         campaign_id = str(traffic_row.get("direct_campaign_id") or "")
         campaign_name = _metrika_campaign_name(traffic_row, source_key)
+        source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
+            source_key, source_name, channel_name, campaign_id, campaign_name
+        )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name, goal_key, goal_name)
         target = goal_rows.setdefault(key, {"goal_visits": 0, "reaches": 0})
         target["goal_visits"] += int(row.get("goal_visits") or 0)
