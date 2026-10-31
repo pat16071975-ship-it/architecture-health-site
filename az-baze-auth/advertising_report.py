@@ -1738,8 +1738,15 @@ def register_advertising_report(app):
                 prepared.append(parsed)
 
             conn.execute("BEGIN IMMEDIATE")
+            still_missing = {
+                day.isoformat()
+                for day in metrika_auto.missing_completed_days(conn)
+            }
             results = []
             for parsed in prepared:
+                parsed_days = list(parsed.get("completed_days") or [])
+                if len(parsed_days) != 1 or parsed_days[0] not in still_missing:
+                    continue
                 results.append(_store_metrika(conn, parsed, g.user["id"]))
             conn.commit()
         except (metrika_auto.MetrikaApiError, ValueError, OSError, sqlite3.DatabaseError) as exc:
