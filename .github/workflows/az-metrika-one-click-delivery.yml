@@ -23,8 +23,8 @@ jobs:
           cred='az-baze-auth/deploy/configure-yandex-metrika-credential-20261031.sh'
           bash -n "$deploy"
           bash -n "$cred"
-          test "$(git hash-object "$deploy")" = '548945421579fd33a6fc7a1bd04307ed99a57407'
-          test "$(git hash-object "$cred")" = '9e3f8cd6e632e65bd95ccb3969e8f55085297491'
+          test "$(git hash-object "$deploy")" = '444087df832eba9e100c596abff4d1ca96a9c604'
+          test "$(git hash-object "$cred")" = '23468d0d3499cfdccbd2132a691ec50773939b23'
           python3 - <<'PY'
           import subprocess
           from pathlib import Path
@@ -67,18 +67,31 @@ jobs:
           assert 'ENV_FILE_FINGERPRINT_CAPTURED=PASS' in deploy
           assert 'LIVE_MUTATION_STARTED=YES; ROLLBACK_ARMED=YES' in deploy
           assert 'ROLLBACK_DISARMED=YES' in deploy
-          assert 'if [[ "$MUTATION_STARTED" == \'1\' && -n "$BACKUP" ]]; then rollback_files; fi' in deploy
+          assert 'fail(){ echo "STOP: $*" >&2; on_error 1; }' in deploy
+          assert 'if [[ "$MUTATION_STARTED" == \'1\' && -n "$BACKUP" ]]; then' in deploy
           install_block=deploy.split('install_targets(){',1)[1].split('}',1)[0]
           assert install_block.index('MUTATION_STARTED=1') < install_block.index('atomic_install_one')
+          assert 'ROLLBACK_FILES=PASS' in deploy
+          assert 'MANUAL_RECOVERY_REQUIRED=YES' in deploy
 
           cred=Path('az-baze-auth/deploy/configure-yandex-metrika-credential-20261031.sh').read_text()
           assert "KEY='AZBAZE_YANDEX_METRIKA_TOKEN'" in cred
           assert "CONFIRM_TOKEN='METRIKA-CREDENTIAL-91356C4F'" in cred
           assert 'IFS= read -r -s CANDIDATE </dev/tty' in cred
+          assert 'fail(){ echo "STOP: $*" >&2; on_error 1; }' in cred
           assert 'required_scopes={"metrika:read"}' in cred
           assert 'if scopes != required_scopes:' in cred
+          assert r'(?:[a-z][a-z0-9_.-]*|\\*)' in cred
           assert 'OAUTH_APP_SCOPE_SET=METRIKA_READ_ONLY_PASS' in cred
+          assert 'required_counter_fields={"id","permission","status","time_zone_name"}' in cred
+          assert 'COUNTER_PROOF_FIELDS_MISSING' in cred
+          assert 'REQUIRED_GOAL_PROOF_FIELDS_MISSING' in cred
+          assert 'required_report_fields={"sampled","sample_share","total_rows_rounded","data"}' in cred
+          assert 'REPORT_PROOF_FIELDS_MISSING' in cred
           assert 'CREDENTIAL_READONLY_PROBE=PASS' in cred
+          apply_block=cred.split('  --apply)',1)[1]
+          assert apply_block.index('ENV_WRITTEN=1') < apply_block.index('write_env "$CANDIDATE"')
+          assert 'CREDENTIAL_ROLLBACK=PASS' in cred
           assert 'SECRET_PRINTED=NO; SECRET_ARGV=NO' in cred
           assert 'oauth_token=' not in cred
           assert 'set -x' not in cred
@@ -89,19 +102,49 @@ jobs:
               def __init__(self):
                   super().__init__(); self.skip=0; self.parts=[]
               def handle_starttag(self,tag,attrs):
-                  if tag.lower() in {'script','style'}: self.skip+=1
+                  if tag.lower() in {'script','style'}:
+                      self.skip+=1; return
+                  if not self.skip:
+                      for _,value in attrs:
+                          if value: self.parts.append(str(value))
               def handle_endtag(self,tag):
                   if tag.lower() in {'script','style'} and self.skip: self.skip-=1
               def handle_data(self,data):
                   if not self.skip: self.parts.append(data)
+          pattern=r'(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:(?:[a-z][a-z0-9_.-]*|\\*))(?![A-Za-z0-9_.*-])'
           def scope_set(raw):
               p=P(); p.feed(raw)
-              text='\n'.join(p.parts)
-              return set(re.findall(r'(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:[a-z][a-z0-9_.-]*)(?![A-Za-z0-9_.-])',text))
-          assert scope_set('<html><body>metrika:read</body></html>')=={'metrika:read'}
-          assert scope_set('<style>font-size:12</style><div>metrika:read</div>')=={'metrika:read'}
-          assert scope_set('<div>metrika:read direct:api</div>')!={'metrika:read'}
-          assert scope_set('<div>metrika:read passport:business</div>')!={'metrika:read'}
+              evidence='\n'.join(p.parts)
+              return set(re.findall(pattern,evidence))
+          required={'metrika:read'}
+          assert scope_set('<html><body>metrika:read</body></html>')==required
+          assert scope_set('<div>metrika:read metrika:read</div>')==required
+          assert scope_set('<style>font-size:12</style><div data-scope="metrika:read">Allowed</div>')==required
+          assert scope_set('<div>metrika:read direct:api</div>')!=required
+          assert scope_set('<div>metrika:read direct:*</div>')!=required
+          assert scope_set('<div>metrika:read passport:business</div>')!=required
+          assert scope_set('<div>No scopes</div>')!=required
 
           print('AZ_METRIKA_ONE_CLICK_DELIVERY_CONTRACT=PASS')
           PY
+
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          cat >"$tmp/fail-flow.sh" <<'SH'
+          #!/usr/bin/env bash
+          set -Eeuo pipefail
+          marker="$1"
+          MUTATION_STARTED=1
+          BACKUP='present'
+          rollback_files(){ printf 'ROLLBACK\n' >>"$marker"; return 0; }
+          on_error(){ local code="$1"; trap - ERR; if [[ "$MUTATION_STARTED" == '1' && -n "$BACKUP" ]]; then rollback_files; fi; exit "$code"; }
+          fail(){ echo "STOP: $*" >&2; on_error 1; }
+          fail 'synthetic postcheck'
+          SH
+          set +e
+          bash "$tmp/fail-flow.sh" "$tmp/marker" >/dev/null 2>&1
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          test "$(cat "$tmp/marker")" = 'ROLLBACK'
+          echo 'EXPLICIT_FAIL_ROLLBACK_FLOW=PASS'
