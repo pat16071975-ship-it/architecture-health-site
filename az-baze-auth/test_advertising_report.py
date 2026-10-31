@@ -463,7 +463,10 @@ class AdvertisingReportTests(unittest.TestCase):
                 c,
                 datetime(2026,11,2,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
             )
-            self.assertEqual([day.isoformat() for day in days],["2026-10-31","2026-11-01"])
+            self.assertEqual(
+                [day.isoformat() for day in days],
+                ["2026-10-27","2026-10-28","2026-10-29","2026-10-31","2026-11-01"],
+            )
         finally:
             c.close()
 
@@ -479,7 +482,10 @@ class AdvertisingReportTests(unittest.TestCase):
                 c,
                 datetime(2026,10,31,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
             )
-            self.assertEqual(days,[])
+            self.assertEqual(
+                [day.isoformat() for day in days],
+                ["2026-10-27","2026-10-28","2026-10-29"],
+            )
         finally:
             c.close()
 
@@ -850,7 +856,7 @@ class AdvertisingReportTests(unittest.TestCase):
             )
             self.assertEqual(
                 [day.isoformat() for day in days],
-                ["2026-10-27","2026-10-28","2026-10-29","2026-10-30"],
+                ["2026-10-27","2026-10-28","2026-10-29","2026-10-30","2026-10-31"],
             )
         finally:
             c.close()
