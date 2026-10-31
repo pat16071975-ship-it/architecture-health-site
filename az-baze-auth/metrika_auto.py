@@ -110,6 +110,32 @@ def _dict_csv(rows, headers):
     )
 
 
+def _validate_additive_totals(payload, metrics, label):
+    totals = payload.get("totals")
+    if not isinstance(totals, list) or len(totals) != len(metrics):
+        raise MetrikaApiError(f"Яндекс Метрика не вернула контрольные итоги: {label}.")
+    additive = [
+        index
+        for index, metric in enumerate(metrics)
+        if metric == "ym:s:visits"
+        or (
+            metric.startswith("ym:s:goal")
+            and (metric.endswith("reaches") or metric.endswith("visits"))
+        )
+    ]
+    for index in additive:
+        actual = sum(
+            float((row.get("metrics") or [])[index] or 0)
+            for row in (payload.get("data") or [])
+            if len(row.get("metrics") or []) == len(metrics)
+        )
+        expected = float(totals[index] or 0)
+        if abs(actual - expected) > 1e-7:
+            raise MetrikaApiError(
+                f"Яндекс Метрика скрыла или не вернула часть строк: {label}. Импорт остановлен."
+            )
+
+
 class MetrikaApiError(RuntimeError):
     pass
 
@@ -337,6 +363,8 @@ class MetrikaClient:
             dimensions=(CAMPAIGN_DIMENSION,),
             metrics=metrics,
         )
+        _validate_additive_totals(traffic_raw, metrics, "основной срез")
+        _validate_additive_totals(campaign_raw, metrics, "кампании")
 
         diagnostic_raw = {}
         for name, (dimensions, metric_kind, filters, sort) in DIAGNOSTIC_SPECS.items():
