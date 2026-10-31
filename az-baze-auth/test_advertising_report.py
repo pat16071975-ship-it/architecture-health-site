@@ -205,6 +205,34 @@ def unknown_id_conflict_zip():
     return raw.getvalue()
 
 
+def unknown_id_conflict_with_campaign_report_zip():
+    with zipfile.ZipFile(io.BytesIO(metrika_campaign_breakdown_zip())) as source:
+        payload=json.loads(source.read("az_analytics.json").decode("utf-8"))
+        report=source.read("REPORT-2026-10-27.txt")
+    payload["metrica_traffic_day"].append(
+        {
+            "row_id":"unknown_report_conflict",
+            "date":"2026-10-27",
+            "day_status":"completed_calendar_day_revisable",
+            "traffic_source_id":"ad",
+            "traffic_source_name":"Переходы по рекламе",
+            "source_detail":"Яндекс: Директ",
+            "utm_source":"yandex",
+            "utm_medium":"cpc",
+            "utm_campaign":"bruksizm_search_nsk",
+            "direct_campaign_id":"999999999",
+            "direct_campaign_name":"АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",
+            "visits":4,
+            "is_test_tag":False,
+        }
+    )
+    raw=io.BytesIO()
+    with zipfile.ZipFile(raw,"w",zipfile.ZIP_DEFLATED) as z:
+        z.writestr("az_analytics.json",json.dumps(payload,ensure_ascii=False))
+        z.writestr("REPORT-2026-10-27.txt",report)
+    return raw.getvalue()
+
+
 class AdvertisingReportTests(unittest.TestCase):
     def test_partial_month_comparison(self):
         self.assertEqual(m._comparison_ranges("previous_period",date(2026,10,1),date(2026,10,25)),[(date(2026,9,1),date(2026,9,25))])
@@ -792,6 +820,30 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(sum(row["visits"] for row in rows),9)
         finally:
             c.close()
+
+
+    def test_campaign_report_split_fails_closed_when_unknown_nonempty_id_exists(self):
+        parsed=m._parse_metrika_zip(
+            unknown_id_conflict_with_campaign_report_zip(),
+            "unknown-id-with-report.zip",
+        )
+        yandex=[
+            (key[4],key[5],values["visits"])
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="yandex_ads"
+        ]
+        self.assertIn(
+            (
+                "999999999",
+                "АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",
+                4,
+            ),
+            yandex,
+        )
+        self.assertEqual(sum(row[2] for row in yandex),41)
+        self.assertTrue(
+            any(campaign_id=="" and visits==36 for campaign_id,_name,visits in yandex)
+        )
 
     def test_revenue_summary_puts_total_paid_first_and_reconciles_every_ruble_by_provider(self):
         c=conn()
