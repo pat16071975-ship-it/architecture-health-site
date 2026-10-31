@@ -1,4 +1,5 @@
 import csv
+import fcntl
 import hashlib
 import io
 import json
@@ -16,6 +17,9 @@ ATTRIBUTION = "cross_device_last_significant"
 ROBOT_FILTER = "ym:s:isRobot=='No'"
 TOKEN_ENV = "AZBAZE_YANDEX_METRIKA_TOKEN"
 API_ROOT = "https://api-metrika.yandex.net"
+SYNC_LOCK_PATH = os.environ.get("AZBAZE_METRIKA_SYNC_LOCK", "/var/lib/az-baze/metrika-sync.lock")
+TRACKING_START = date(2026, 10, 27)
+RECENT_COMPLETED_REFRESH_DAYS = 3
 
 EXPORT_GOAL_NAMES = (
     "Открытие окна записи",
@@ -178,15 +182,56 @@ class MetrikaRateLimitError(MetrikaApiError):
     pass
 
 
+class MetrikaBusyError(MetrikaApiError):
+    pass
+
+
+class MetrikaSyncLock:
+    def __init__(self, path=None):
+        self.path = str(path or SYNC_LOCK_PATH)
+        self.handle = None
+
+    def __enter__(self):
+        self.handle = open(self.path, "a+", encoding="utf-8")
+        try:
+            fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            self.handle.close()
+            self.handle = None
+            raise MetrikaBusyError("Обновление Яндекс Метрики уже выполняется.") from None
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if self.handle is not None:
+            fcntl.flock(self.handle.fileno(), fcntl.LOCK_UN)
+            self.handle.close()
+            self.handle = None
+
+
 def token_from_env():
     return str(os.environ.get(TOKEN_ENV) or "").strip()
 
 
-def previous_completed_day(now=None):
+def current_local_day(now=None):
     current = now or datetime.now(ZoneInfo(TIMEZONE))
     if current.tzinfo is None:
         current = current.replace(tzinfo=ZoneInfo(TIMEZONE))
-    return current.astimezone(ZoneInfo(TIMEZONE)).date() - timedelta(days=1)
+    return current.astimezone(ZoneInfo(TIMEZONE)).date()
+
+
+def previous_completed_day(now=None):
+    return current_local_day(now) - timedelta(days=1)
+
+
+def recent_completed_days(now=None, count=RECENT_COMPLETED_REFRESH_DAYS):
+    yesterday = previous_completed_day(now)
+    start = max(TRACKING_START, yesterday - timedelta(days=max(0, int(count) - 1)))
+    if start > yesterday:
+        return []
+    return [
+        start + timedelta(days=offset)
+        for offset in range((yesterday - start).days + 1)
+    ]
 
 
 def missing_completed_days(conn, now=None):
@@ -230,6 +275,10 @@ def missing_completed_days(conn, now=None):
         for offset in range((yesterday - start).days + 1)
         if start + timedelta(days=offset) not in known_days
     ]
+
+
+def completed_sync_days(conn, now=None):
+    return sorted(set(missing_completed_days(conn, now)) | set(recent_completed_days(now)))
 
 
 def _dimension_value(item):
@@ -370,7 +419,7 @@ class MetrikaClient:
                 raise MetrikaApiError("Не удалось получить все страницы отчёта Яндекс Метрики.")
             offset += len(data)
 
-    def fetch_day_archive(self, day):
+    def fetch_day_archive(self, day, *, completed=True):
         counter_payload = self.counter()
         goals_payload, goals = self.goals()
         goal_registry = [
@@ -506,7 +555,10 @@ class MetrikaClient:
                 "batch_id": batch_id,
                 "counter_id": COUNTER_ID,
                 "date": dim_payload["date"] or day.isoformat(),
-                "day_status": "completed_calendar_day_revisable",
+                "day_status": (
+                    "completed_calendar_day_revisable"
+                    if completed else "provisional_current_day"
+                ),
                 **{key: dim_payload[key] for key in (
                     "traffic_source_id", "traffic_source_name", "source_detail_id", "source_detail",
                     "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
@@ -558,6 +610,10 @@ class MetrikaClient:
             "fetched_at_utc": fetched_at,
             "period_from": day.isoformat(),
             "period_to": day.isoformat(),
+            "day_status": (
+                "completed_calendar_day_revisable"
+                if completed else "provisional_current_day"
+            ),
             "source_timezone": TIMEZONE,
             "counter_id": COUNTER_ID,
             "extraction_method": "api",
@@ -632,7 +688,12 @@ class MetrikaClient:
             "Роботы исключены. Атрибуция: последний значимый переход, кросс-девайс.\n"
             f"Medflex {MEDFLEX_COUNTERS[0]}: {medflex_status[MEDFLEX_COUNTERS[0]]}; "
             f"{MEDFLEX_COUNTERS[1]}: {medflex_status[MEDFLEX_COUNTERS[1]]}.\n"
-            "Автоматический импорт выполняется существующим загрузчиком AZ-BAZE.\n"
+            (
+                "Статус дня: завершённый календарный день.\n"
+                if completed
+                else "Статус дня: текущий оперативный срез; повторное обновление заменяет предыдущий срез.\n"
+            )
+            + "Автоматический импорт выполняется существующим загрузчиком AZ-BAZE.\n"
         ).encode("utf-8")
         files["README.txt"] = readme
 
