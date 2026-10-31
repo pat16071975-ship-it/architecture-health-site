@@ -114,6 +114,18 @@ class MetrikaApiError(RuntimeError):
     pass
 
 
+class MetrikaAuthError(MetrikaApiError):
+    pass
+
+
+class MetrikaAccessError(MetrikaApiError):
+    pass
+
+
+class MetrikaRateLimitError(MetrikaApiError):
+    pass
+
+
 def token_from_env():
     return str(os.environ.get(TOKEN_ENV) or "").strip()
 
@@ -138,26 +150,34 @@ def missing_completed_days(conn, now=None):
             except (TypeError, ValueError):
                 continue
             if isinstance(values, list):
-                known_days.update(
-                    date.fromisoformat(str(value))
-                    for value in values
-                    if value
-                )
+                for value in values:
+                    if value:
+                        known_days.add(date.fromisoformat(str(value)))
     except Exception:
         known_days = set()
 
     if not known_days:
-        row = conn.execute(
-            "SELECT MAX(metric_date) AS day FROM advertising_traffic_daily WHERE provider='metrika'"
-        ).fetchone()
-        if row and row["day"]:
-            known_days.add(date.fromisoformat(str(row["day"])))
+        rows = conn.execute(
+            "SELECT DISTINCT metric_date FROM advertising_traffic_daily "
+            "WHERE provider='metrika' ORDER BY metric_date"
+        ).fetchall()
+        known_days.update(
+            date.fromisoformat(str(row["metric_date"]))
+            for row in rows
+            if row["metric_date"]
+        )
 
-    latest = max(known_days) if known_days else None
-    start = (latest + timedelta(days=1)) if latest else yesterday
+    if not known_days:
+        return [yesterday]
+
+    start = min(known_days)
     if start > yesterday:
         return []
-    return [start + timedelta(days=offset) for offset in range((yesterday - start).days + 1)]
+    return [
+        start + timedelta(days=offset)
+        for offset in range((yesterday - start).days + 1)
+        if start + timedelta(days=offset) not in known_days
+    ]
 
 
 def _dimension_value(item):
@@ -198,11 +218,11 @@ class MetrikaClient:
                 raw = response.read()
         except urllib.error.HTTPError as exc:
             if exc.code == 401:
-                raise MetrikaApiError("Нужно повторно подключить Яндекс Метрику.") from None
+                raise MetrikaAuthError("Нужно повторно подключить Яндекс Метрику.") from None
             if exc.code == 403:
-                raise MetrikaApiError("Нет доступа к счётчику Яндекс Метрики.") from None
+                raise MetrikaAccessError("Нет доступа к счётчику Яндекс Метрики.") from None
             if exc.code == 429:
-                raise MetrikaApiError("Яндекс Метрика временно ограничила частоту запросов. Повторите позже.") from None
+                raise MetrikaRateLimitError("Яндекс Метрика временно ограничила частоту запросов. Повторите позже.") from None
             raise MetrikaApiError("Яндекс Метрика вернула ошибку API.") from None
         except (urllib.error.URLError, TimeoutError):
             raise MetrikaApiError("Не удалось связаться с API Яндекс Метрики.") from None
@@ -226,15 +246,22 @@ class MetrikaClient:
         goals = payload.get("goals") if isinstance(payload, dict) else None
         if not isinstance(goals, list):
             raise MetrikaApiError("Не удалось получить цели Яндекс Метрики.")
-        selected = []
-        by_name = {str(goal.get("name") or ""): goal for goal in goals if isinstance(goal, dict)}
-        for name in EXPORT_GOAL_NAMES:
-            goal = by_name.get(name)
-            if goal and goal.get("id") is not None:
-                selected.append(goal)
-        if not selected:
-            raise MetrikaApiError("В счётчике не найдены используемые цели Яндекс Метрики.")
-        return payload, selected
+        by_name = {
+            str(goal.get("name") or ""): goal
+            for goal in goals
+            if isinstance(goal, dict) and str(goal.get("status") or "Active") == "Active"
+        }
+        missing = [
+            name
+            for name in EXPORT_GOAL_NAMES
+            if not by_name.get(name) or by_name[name].get("id") is None
+        ]
+        if missing:
+            raise MetrikaApiError(
+                "В счётчике отсутствуют используемые цели Яндекс Метрики: "
+                + ", ".join(missing)
+            )
+        return payload, [by_name[name] for name in EXPORT_GOAL_NAMES]
 
     def table(self, *, day, dimensions, metrics, filters=ROBOT_FILTER, sort="-ym:s:visits", counter_id=COUNTER_ID):
         params = {
@@ -247,6 +274,7 @@ class MetrikaClient:
             "limit": 100000,
             "offset": 1,
             "lang": "ru",
+            "attribution": ATTRIBUTION,
         }
         if sort:
             params["sort"] = sort
@@ -258,7 +286,10 @@ class MetrikaClient:
             payload = self.request_json("/stat/v1/data", dict(params))
             if not isinstance(payload, dict):
                 raise MetrikaApiError("API Яндекс Метрики вернул некорректный отчёт.")
-            if payload.get("sampled") is True or float(payload.get("sample_share") or 1.0) != 1.0:
+            sample_share = payload.get("sample_share")
+            if payload.get("sampled") is True or (
+                sample_share is not None and float(sample_share) != 1.0
+            ):
                 raise MetrikaApiError("Яндекс Метрика вернула семплированные данные. Импорт остановлен.")
             if payload.get("total_rows_rounded") is True:
                 raise MetrikaApiError("Яндекс Метрика вернула округлённое число строк. Импорт остановлен.")
@@ -336,11 +367,15 @@ class MetrikaClient:
                     sort="-ym:s:visits",
                     counter_id=counter_id,
                 )
-                medflex_status[counter_id] = "ok"
+                medflex_status[counter_id] = (
+                    "no_data" if int(raw.get("total_rows") or 0) == 0 else "ok"
+                )
                 if counter_id == MEDFLEX_COUNTERS[0]:
                     medflex_primary_raw = raw
+            except MetrikaAccessError:
+                medflex_status[counter_id] = "no_access"
             except MetrikaApiError:
-                medflex_status[counter_id] = "unavailable"
+                medflex_status[counter_id] = "error"
 
         if medflex_primary_raw is None:
             medflex_primary_raw = {
