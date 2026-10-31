@@ -658,6 +658,23 @@ class AdvertisingReportTests(unittest.TestCase):
         with self.assertRaises(ma.MetrikaApiError):
             ma.MetrikaClient("")
 
+    def test_auto_metrika_finds_gap_before_earliest_import_from_tracking_start(self):
+        c=conn()
+        try:
+            for day in ("2026-10-28","2026-10-29","2026-10-30"):
+                c.execute(
+                    "INSERT INTO advertising_metrika_imports VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    ("sha"+day,day+".zip",day,day,json.dumps([day]),"t","t",1,1,1,"/tmp/"+day),
+                )
+            c.commit()
+            days=ma.missing_completed_days(
+                c,
+                datetime(2026,10,31,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+            )
+            self.assertEqual([day.isoformat() for day in days],["2026-10-27"])
+        finally:
+            c.close()
+
     def test_auto_metrika_finds_gap_inside_existing_history(self):
         c=conn()
         try:
