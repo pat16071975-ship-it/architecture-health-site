@@ -370,6 +370,41 @@ def auto_metrika_request(path, params):
     }
 
 
+def provisional_metrika_zip(day="2026-10-31", visits=5, status="provisional_current_day"):
+    payload={
+        "metadata":{
+            "schema_version":"az_analytics_export_v1",
+            "fetched_at_utc":"2026-10-31T08:00:00+00:00",
+            "period_from":day,
+            "period_to":day,
+            "day_status":status,
+            "source_timezone":"Asia/Novosibirsk",
+            "counter_id":"113776005",
+            "sample_share":1.0,
+            "attribution":"cross_device_last_significant",
+        },
+        "metrica_traffic_day":[
+            {
+                "row_id":"live1",
+                "date":day,
+                "day_status":status,
+                "traffic_source_id":"direct",
+                "traffic_source_name":"Прямые заходы",
+                "visits":visits,
+                "is_test_tag":False,
+            }
+        ],
+        "metrica_goal_day":[],
+        "goal_registry":[],
+        "direct_campaign_day":None,
+        "daily_summary":{},
+    }
+    raw=io.BytesIO()
+    with zipfile.ZipFile(raw,"w",zipfile.ZIP_DEFLATED) as z:
+        z.writestr("az_analytics.json",json.dumps(payload,ensure_ascii=False))
+    return raw.getvalue()
+
+
 class AdvertisingReportTests(unittest.TestCase):
     def test_auto_metrika_missing_days_starts_after_latest_and_stops_at_yesterday(self):
         c=conn()
@@ -459,6 +494,141 @@ class AdvertisingReportTests(unittest.TestCase):
             if key[1]=="instagram"
         }
         self.assertEqual(instagram,{"Старостенко":3})
+
+
+    def test_auto_metrika_sync_plan_refreshes_last_three_completed_and_current_day(self):
+        c=conn()
+        try:
+            for day in ("2026-10-27","2026-10-28","2026-10-29","2026-10-30"):
+                c.execute(
+                    "INSERT INTO advertising_metrika_imports VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        "sha"+day,day+".zip",day,day,json.dumps([day]),"t","t",1,1,1,"/tmp/"+day
+                    ),
+                )
+            c.commit()
+            now=datetime(2026,10,31,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk"))
+            self.assertEqual(
+                [d.isoformat() for d in ma.completed_sync_days(c,now)],
+                ["2026-10-28","2026-10-29","2026-10-30"],
+            )
+            self.assertEqual(ma.current_local_day(now).isoformat(),"2026-10-31")
+        finally:
+            c.close()
+
+    def test_provisional_current_day_replaces_snapshot_without_import_history(self):
+        c=conn()
+        try:
+            first=m._parse_metrika_zip(
+                provisional_metrika_zip(visits=5),
+                "live.zip",
+                allow_provisional=True,
+            )
+            self.assertEqual(first["completed_days"],[])
+            self.assertEqual(first["provisional_days"],["2026-10-31"])
+
+            r1=m._store_metrika_provisional(c,first,1); c.commit()
+            self.assertTrue(r1["updated"])
+            self.assertFalse(r1["reused"])
+            self.assertEqual(
+                c.execute(
+                    "SELECT SUM(visits) FROM advertising_traffic_daily "
+                    "WHERE provider='metrika' AND metric_date='2026-10-31'"
+                ).fetchone()[0],
+                5,
+            )
+            self.assertEqual(
+                c.execute("SELECT COUNT(*) FROM advertising_metrika_imports").fetchone()[0],
+                0,
+            )
+
+            before=c.total_changes
+            same=m._store_metrika_provisional(c,first,1); c.commit()
+            self.assertTrue(same["reused"])
+            self.assertFalse(same["updated"])
+            self.assertEqual(c.total_changes,before)
+
+            second=m._parse_metrika_zip(
+                provisional_metrika_zip(visits=8),
+                "live2.zip",
+                allow_provisional=True,
+            )
+            r2=m._store_metrika_provisional(c,second,1); c.commit()
+            self.assertTrue(r2["updated"])
+            self.assertEqual(
+                c.execute(
+                    "SELECT SUM(visits) FROM advertising_traffic_daily "
+                    "WHERE provider='metrika' AND metric_date='2026-10-31'"
+                ).fetchone()[0],
+                8,
+            )
+            self.assertEqual(
+                c.execute(
+                    "SELECT COUNT(*) FROM advertising_traffic_daily "
+                    "WHERE provider='metrika' AND metric_date='2026-10-31'"
+                ).fetchone()[0],
+                1,
+            )
+            self.assertEqual(
+                c.execute("SELECT COUNT(*) FROM advertising_metrika_imports").fetchone()[0],
+                0,
+            )
+        finally:
+            c.close()
+
+    def test_completed_day_replaces_provisional_and_blocks_later_provisional_overwrite(self):
+        c=conn()
+        with tempfile.TemporaryDirectory() as tmp:
+            old=m.METRIKA_ARCHIVE_ROOT
+            m.METRIKA_ARCHIVE_ROOT=Path(tmp)
+            try:
+                live=m._parse_metrika_zip(
+                    provisional_metrika_zip(visits=5),
+                    "live.zip",
+                    allow_provisional=True,
+                )
+                m._store_metrika_provisional(c,live,1); c.commit()
+
+                completed=m._parse_metrika_zip(
+                    provisional_metrika_zip(
+                        visits=7,
+                        status="completed_calendar_day_revisable",
+                    ),
+                    "completed.zip",
+                )
+                m._store_metrika(c,completed,1); c.commit()
+                self.assertEqual(
+                    c.execute(
+                        "SELECT SUM(visits) FROM advertising_traffic_daily "
+                        "WHERE provider='metrika' AND metric_date='2026-10-31'"
+                    ).fetchone()[0],
+                    7,
+                )
+                self.assertEqual(
+                    c.execute("SELECT COUNT(*) FROM advertising_metrika_imports").fetchone()[0],
+                    1,
+                )
+                with self.assertRaisesRegex(ValueError,"уже сохранён как завершённый"):
+                    m._store_metrika_provisional(c,live,1)
+            finally:
+                c.close(); m.METRIKA_ARCHIVE_ROOT=old
+
+    def test_metrika_sync_lock_rejects_parallel_second_job(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"sync.lock"
+            with ma.MetrikaSyncLock(path):
+                with self.assertRaisesRegex(ma.MetrikaBusyError,"уже выполняется"):
+                    with ma.MetrikaSyncLock(path):
+                        pass
+
+    def test_auto_archive_can_mark_current_day_provisional(self):
+        client=ma.MetrikaClient("secret-not-logged",request_json=auto_metrika_request)
+        raw,filename=client.fetch_day_archive(date(2026,10,31),completed=False)
+        parsed=m._parse_metrika_zip(raw,filename,allow_provisional=True)
+        self.assertEqual(parsed["completed_days"],[])
+        self.assertEqual(parsed["provisional_days"],["2026-10-31"])
+        with self.assertRaisesRegex(ValueError,"нет завершённых"):
+            m._parse_metrika_zip(raw,filename)
 
     def test_auto_metrika_requires_server_token(self):
         with self.assertRaises(ma.MetrikaApiError):
