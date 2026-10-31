@@ -355,6 +355,36 @@ class MetrikaClient:
                 sort=sort,
             )
 
+        direct_campaign_rows = []
+        for api_row in campaign_raw.get("data") or []:
+            dims = list(api_row.get("dimensions") or [])
+            values = list(api_row.get("metrics") or [])
+            if len(dims) != 1 or len(values) != len(metrics):
+                raise MetrikaApiError("Структура разбивки кампаний Метрики изменилась. Импорт остановлен.")
+            campaign_id = _dimension_id(dims[0]) or ""
+            campaign_name = _dimension_value(dims[0]) or ""
+            direct_row = {
+                "date": day.isoformat(),
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name,
+                "visits": int(round(values[0] or 0)),
+                "goals": [],
+            }
+            cursor = 5
+            for goal in goal_registry:
+                reaches = int(round(values[cursor] or 0))
+                goal_visits = int(round(values[cursor + 1] or 0))
+                cursor += 2
+                direct_row["goals"].append(
+                    {
+                        "goal_id": goal["goal_id"],
+                        "goal_name": goal["goal_name"],
+                        "reaches": reaches,
+                        "goal_visits": goal_visits,
+                    }
+                )
+            direct_campaign_rows.append(direct_row)
+
         medflex_status = {}
         medflex_primary_raw = None
         for counter_id in MEDFLEX_COUNTERS:
@@ -478,7 +508,7 @@ class MetrikaClient:
             "metrica_traffic_day": traffic_rows,
             "metrica_goal_day": goal_rows,
             "goal_registry": goal_registry,
-            "direct_campaign_day": None,
+            "direct_campaign_day": direct_campaign_rows,
             "daily_summary": {day.isoformat(): summary},
         }
 
