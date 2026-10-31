@@ -29,6 +29,13 @@ METRIKA_GOALS = {
     "Автоцель: клик по номеру телефона": "phone_auto",
     "Автоцель: переход в мессенджер": "messenger",
 }
+INSTAGRAM_CAMPAIGN_LABELS = {
+    "starostenko": "Старостенко",
+    "zubachev": "Зубачев",
+    "clinic": "Клиника",
+}
+METRIKA_CAMPAIGN_REPORT_SECTION = "campaigns_clean"
+METRIKA_CAMPAIGN_REPORT_IGNORED = {"Чужие кампании", "Не определено"}
 DATASET_CONFIG = {
     "direct": ("advertising_traffic_daily", "metric_date"),
     "metrika": ("advertising_traffic_daily", "metric_date"),
@@ -384,10 +391,9 @@ def _group_breakdown(conn, start, end, level):
         source_key = str(row["source_key"] or "")
         campaign_id = str(row["campaign_id"] or "").strip()
         campaign_name = str(row["campaign_name"] or "").strip()
-        if source_key == "yandex_ads" and not campaign_name:
-            # The user-facing Yandex Direct drill-down must never hide traffic
-            # merely because Direct did not resolve the campaign name.
-            # Collapse such traffic into one explicit "Не определено" bucket.
+        if source_key in {"yandex_ads", "instagram"} and not campaign_name:
+            # Expandable advertising/social sources keep unattributed traffic
+            # visible instead of dropping it.
             return "", "Не определено"
         return campaign_id, campaign_name
 
@@ -480,11 +486,7 @@ def _metrika_source(row):
         return "organic", detail or traffic_name or "Поиск", "Поиск"
     if traffic_id == "social":
         if "instagram" in (detail + " " + utm_source).lower() or utm_source == "ig":
-            if utm_campaign == "starostenko":
-                return "instagram_starostenko", "Instagram — Старостенко", "Социальные сети"
-            if utm_content == "link_in_bio":
-                return "instagram_bio_unknown", "Instagram — ссылка в bio, профиль не определён", "Социальные сети"
-            return "instagram_other", "Instagram — профиль не определён", "Социальные сети"
+            return "instagram", "Instagram", "Социальные сети"
         return "social", detail or traffic_name or "Социальные сети", "Социальные сети"
     if traffic_id == "internal":
         return "internal", "Внутренние переходы", "Другие источники"
@@ -502,6 +504,172 @@ def _metrika_source(row):
     key = re.sub(r"[^a-z0-9а-я]+", "_", (traffic_id or detail or traffic_name).lower()).strip("_") or "other"
     return key[:120], detail or traffic_name or "Другие источники", "Другие источники"
 
+
+def _instagram_campaign_name(row):
+    raw = str(row.get("utm_campaign") or row.get("utm_content") or "").strip()
+    if not raw:
+        return ""
+    return INSTAGRAM_CAMPAIGN_LABELS.get(raw.lower(), raw)
+
+
+def _metrika_campaign_name(row, source_key):
+    if source_key == "instagram":
+        return _instagram_campaign_name(row)
+    return str(row.get("direct_campaign_name") or row.get("utm_campaign") or "").strip()
+
+
+def _parse_report_campaigns(report_text, payload):
+    if not report_text:
+        return []
+    lines = [line.rstrip("\r") for line in report_text.splitlines()]
+    try:
+        index = next(i for i, line in enumerate(lines) if line.strip() == METRIKA_CAMPAIGN_REPORT_SECTION)
+    except StopIteration:
+        return []
+    if index + 1 >= len(lines):
+        return []
+    metrics_line = lines[index + 1].strip()
+    if not metrics_line.startswith("Метрики:"):
+        return []
+    metrics = [item.strip() for item in metrics_line.split(":", 1)[1].split(",") if item.strip()]
+    if "ym:s:visits" not in metrics:
+        return []
+    goal_names = {
+        str(item.get("goal_id") or ""): str(item.get("goal_name") or "")
+        for item in (payload.get("goal_registry") or [])
+        if isinstance(item, dict)
+    }
+    result = []
+    for raw_line in lines[index + 2:]:
+        line = raw_line.strip()
+        if not line:
+            break
+        if line.startswith("Итого:"):
+            continue
+        if " | " not in line:
+            return []
+        campaign_name, values_text = line.rsplit(" | ", 1)
+        values_raw = [item.strip() for item in values_text.split(",")]
+        if len(values_raw) != len(metrics):
+            return []
+        try:
+            values = [float(item) for item in values_raw]
+        except ValueError:
+            return []
+        row = {
+            "campaign_name": campaign_name.strip(),
+            "visits": int(round(values[metrics.index("ym:s:visits")])),
+            "goals": {},
+        }
+        for metric, value in zip(metrics, values):
+            match = re.fullmatch(r"ym:s:goal(\d+)(reaches|visits)", metric)
+            if not match:
+                continue
+            goal_name = goal_names.get(match.group(1), "")
+            goal_key = METRIKA_GOALS.get(goal_name)
+            if not goal_key:
+                continue
+            pair = row["goals"].setdefault(
+                (goal_key, goal_name), {"goal_visits": 0, "reaches": 0}
+            )
+            pair["goal_visits" if match.group(2) == "visits" else "reaches"] = int(round(value))
+        result.append(row)
+    return result
+
+
+def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campaign_rows):
+    if len(completed_days) != 1 or not campaign_rows:
+        return traffic_rows, goal_rows
+    day = completed_days[0]
+    yandex_traffic = [
+        (key, values)
+        for key, values in traffic_rows.items()
+        if key[0] == day and key[1] == "yandex_ads"
+    ]
+    if not yandex_traffic:
+        return traffic_rows, goal_rows
+    parent_visits = sum(int(values.get("visits") or 0) for _, values in yandex_traffic)
+    selected = [
+        row for row in campaign_rows
+        if row["campaign_name"] not in METRIKA_CAMPAIGN_REPORT_IGNORED
+        and int(row.get("visits") or 0) > 0
+    ]
+    named_visits = sum(int(row["visits"]) for row in selected)
+    if not selected or named_visits > parent_visits:
+        return traffic_rows, goal_rows
+
+    parent_goals = {}
+    for key, values in goal_rows.items():
+        if key[0] != day or key[1] != "yandex_ads":
+            continue
+        bucket = parent_goals.setdefault(
+            (key[6], key[7]), {"goal_visits": 0, "reaches": 0}
+        )
+        bucket["goal_visits"] += int(values.get("goal_visits") or 0)
+        bucket["reaches"] += int(values.get("reaches") or 0)
+
+    selected_goals = {}
+    for row in selected:
+        for goal, values in row.get("goals", {}).items():
+            bucket = selected_goals.setdefault(goal, {"goal_visits": 0, "reaches": 0})
+            bucket["goal_visits"] += int(values.get("goal_visits") or 0)
+            bucket["reaches"] += int(values.get("reaches") or 0)
+    for goal, values in selected_goals.items():
+        parent = parent_goals.get(goal, {"goal_visits": 0, "reaches": 0})
+        if values["goal_visits"] > parent["goal_visits"] or values["reaches"] > parent["reaches"]:
+            return traffic_rows, goal_rows
+
+    rebuilt_traffic = {
+        key: values for key, values in traffic_rows.items()
+        if not (key[0] == day and key[1] == "yandex_ads")
+    }
+    for row in selected:
+        key = (
+            day, "yandex_ads", "Яндекс-реклама", "Платная реклама",
+            "", row["campaign_name"],
+        )
+        rebuilt_traffic[key] = {"visits": int(row["visits"])}
+    residual_visits = parent_visits - named_visits
+    if residual_visits:
+        key = (day, "yandex_ads", "Яндекс-реклама", "Платная реклама", "", "")
+        rebuilt_traffic[key] = {"visits": residual_visits}
+
+    rebuilt_goals = {
+        key: values for key, values in goal_rows.items()
+        if not (key[0] == day and key[1] == "yandex_ads")
+    }
+    for row in selected:
+        for (goal_key, goal_name), values in row.get("goals", {}).items():
+            # A zero present in campaigns_clean is evidence, not missing data.
+            # Keep the row so the UI renders 0 instead of «Нет данных».
+            key = (
+                day, "yandex_ads", "Яндекс-реклама", "Платная реклама",
+                "", row["campaign_name"], goal_key, goal_name,
+            )
+            rebuilt_goals[key] = {
+                "goal_visits": int(values["goal_visits"]),
+                "reaches": int(values["reaches"]),
+            }
+    for (goal_key, goal_name), parent in parent_goals.items():
+        selected_values = selected_goals.get(
+            (goal_key, goal_name), {"goal_visits": 0, "reaches": 0}
+        )
+        residual_goal_visits = parent["goal_visits"] - selected_values["goal_visits"]
+        residual_reaches = parent["reaches"] - selected_values["reaches"]
+        # parent_goals means this metric is known for the parent.  After
+        # subtracting the named campaigns, zero is therefore a proven residual
+        # value and must remain 0 rather than becoming unknown.
+        key = (
+            day, "yandex_ads", "Яндекс-реклама", "Платная реклама",
+            "", "", goal_key, goal_name,
+        )
+        rebuilt_goals[key] = {
+            "goal_visits": residual_goal_visits,
+            "reaches": residual_reaches,
+        }
+    return rebuilt_traffic, rebuilt_goals
+
+
 def _parse_metrika_zip(raw, filename=""):
     if not raw:
         raise ValueError("Пустой ZIP Яндекс Метрики.")
@@ -515,6 +683,14 @@ def _parse_metrika_zip(raw, filename=""):
             if len(names) > 50:
                 raise ValueError("В ZIP слишком много файлов.")
             payload = json.loads(archive.read("az_analytics.json").decode("utf-8"))
+            report_names = [
+                name for name in names
+                if re.fullmatch(r"REPORT-\d{4}-\d{2}-\d{2}\.txt", Path(name).name)
+            ]
+            report_text = (
+                archive.read(report_names[0]).decode("utf-8-sig")
+                if len(report_names) == 1 else ""
+            )
     except (zipfile.BadZipFile, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError("Не удалось прочитать ZIP Яндекс Метрики.") from exc
 
@@ -553,7 +729,7 @@ def _parse_metrika_zip(raw, filename=""):
             continue
         source_key, source_name, channel_name = _metrika_source(row)
         campaign_id = str(row.get("direct_campaign_id") or "")
-        campaign_name = str(row.get("direct_campaign_name") or row.get("utm_campaign") or "")
+        campaign_name = _metrika_campaign_name(row, source_key)
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name)
         target = traffic_rows.setdefault(key, {"visits": 0})
         target["visits"] += int(row.get("visits") or 0)
@@ -572,11 +748,16 @@ def _parse_metrika_zip(raw, filename=""):
             continue
         source_key, source_name, channel_name = _metrika_source(traffic_row)
         campaign_id = str(traffic_row.get("direct_campaign_id") or "")
-        campaign_name = str(traffic_row.get("direct_campaign_name") or traffic_row.get("utm_campaign") or "")
+        campaign_name = _metrika_campaign_name(traffic_row, source_key)
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name, goal_key, goal_name)
         target = goal_rows.setdefault(key, {"goal_visits": 0, "reaches": 0})
         target["goal_visits"] += int(row.get("goal_visits") or 0)
         target["reaches"] += int(row.get("reaches") or 0)
+
+    report_campaigns = _parse_report_campaigns(report_text, payload)
+    traffic_rows, goal_rows = _apply_yandex_campaign_report(
+        traffic_rows, goal_rows, completed_days, report_campaigns
+    )
 
     return {
         "metadata": meta,

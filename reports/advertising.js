@@ -100,10 +100,13 @@ function siteSourceRows(){
     .filter(row=>row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null)
     .sort((a,b)=>(Number(b.visits)||0)-(Number(a.visits)||0)||sourceName(a).localeCompare(sourceName(b),'ru'))
 }
-function yandexCampaignRows(){
+function campaignRowsForSource(sourceKey){
   return (payload?.campaigns||[])
-    .filter(row=>row.source_key==='yandex_ads'&&(row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null))
+    .filter(row=>row.source_key===sourceKey&&(row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null))
     .sort((a,b)=>(Number(b.visits)||0)-(Number(a.visits)||0)||campaignName(a).localeCompare(campaignName(b),'ru'))
+}
+function isExpandableSource(sourceKey){
+  return sourceKey==='yandex_ads'||sourceKey==='instagram'
 }
 function sourceName(row){
   return (row.source_name||row.campaign_name||row.channel_name||'Источник не определён').trim()
@@ -115,21 +118,22 @@ function siteCells(row){
   return '<td>'+number(row.visits)+'</td><td>'+number(row.booking_open_visits)+'</td><td>'+number(row.medflex_visits)+'</td>'
 }
 function renderSources(){
-  const rows=siteSourceRows(),body=$('#sourceRows'),yandexCampaigns=yandexCampaignRows();
+  const rows=siteSourceRows(),body=$('#sourceRows');
   if(!rows.length){
     body.innerHTML='<tr><td colspan="4">Метрика за выбранный период ещё не загружена.</td></tr>';
     return
   }
   const s=payload?.summary||{};
   const sourceHtml=rows.map(row=>{
-    const expandable=row.source_key==='yandex_ads'&&yandexCampaigns.length>0;
+    const campaigns=campaignRowsForSource(row.source_key);
+    const expandable=isExpandableSource(row.source_key)&&campaigns.length>0;
     const label=expandable
-      ? '<button type="button" class="source-expand" aria-expanded="false" aria-label="Показать рекламные кампании Яндекс-рекламы">+</button><span>'+h(sourceName(row))+'</span>'
+      ? '<button type="button" class="source-expand" data-source-key="'+h(row.source_key)+'" aria-expanded="false" aria-label="Показать детализацию источника">+</button><span>'+h(sourceName(row))+'</span>'
       : h(sourceName(row));
     const parent='<tr><td>'+label+'</td>'+siteCells(row)+'</tr>';
     if(!expandable)return parent;
-    const children=yandexCampaigns.map(campaign=>
-      '<tr class="child-row yandex-campaign-row" hidden><td><span class="campaign-name">'+h(campaignName(campaign))+'</span></td>'+siteCells(campaign)+'</tr>'
+    const children=campaigns.map(campaign=>
+      '<tr class="child-row source-campaign-row" data-source-key="'+h(row.source_key)+'" hidden><td><span class="campaign-name">'+h(campaignName(campaign))+'</span></td>'+siteCells(campaign)+'</tr>'
     ).join('');
     return parent+children
   }).join('');
@@ -138,9 +142,12 @@ function renderSources(){
   body.innerHTML=sourceHtml+totalHtml;
   body.querySelectorAll('.source-expand').forEach(button=>button.addEventListener('click',()=>{
     const expanded=button.getAttribute('aria-expanded')==='true';
+    const sourceKey=button.dataset.sourceKey||'';
     button.setAttribute('aria-expanded',expanded?'false':'true');
     button.textContent=expanded?'+':'−';
-    body.querySelectorAll('.yandex-campaign-row').forEach(row=>{row.hidden=expanded})
+    body.querySelectorAll('.source-campaign-row').forEach(row=>{
+      if(row.dataset.sourceKey===sourceKey)row.hidden=expanded
+    })
   }))
 }
 
