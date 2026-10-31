@@ -1794,6 +1794,10 @@ def _report_payload(conn, start, end, compare_mode, trend_metric):
     }
 
 
+def _metrika_sync_has_changes(completed_updated, current_result):
+    return bool(completed_updated or current_result.get("updated"))
+
+
 def register_advertising_report(app):
     _ensure_schema()
 
@@ -1942,7 +1946,7 @@ def register_advertising_report(app):
                 message=str(exc) or "Не удалось получить данные Яндекс Метрики.",
             ), 400
 
-        if completed_updated or current_result["updated"]:
+        if _metrika_sync_has_changes(completed_updated, current_result):
             audit(
                 "advertising_metrika_auto_sync",
                 target_user_id=g.user["id"],
