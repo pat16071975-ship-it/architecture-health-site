@@ -438,6 +438,30 @@ class AdvertisingReportTests(unittest.TestCase):
         finally:
             c.close()
 
+
+    def test_auto_metrika_core_snapshot_uses_only_two_report_requests(self):
+        calls=[]
+        def request_json(path,params):
+            calls.append((path,dict(params)))
+            return auto_metrika_request(path,params)
+
+        client=ma.MetrikaClient("secret-not-logged",request_json=request_json)
+        raw,filename=client.fetch_day_archive(
+            date(2026,10,31),
+            completed=False,
+            diagnostics=False,
+        )
+        stat_calls=[item for item in calls if item[0]=="/stat/v1/data"]
+        self.assertEqual(len(stat_calls),2)
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            self.assertEqual(
+                set(archive.namelist()),
+                {"az_analytics.json","REPORT-2026-10-31.txt"},
+            )
+        parsed=m._parse_metrika_zip(raw,filename,allow_provisional=True)
+        self.assertEqual(parsed["completed_days"],[])
+        self.assertEqual(parsed["provisional_days"],["2026-10-31"])
+
     def test_auto_metrika_api_archive_uses_existing_parser_and_campaign_split(self):
         client=ma.MetrikaClient("secret-not-logged",request_json=auto_metrika_request)
         raw,filename=client.fetch_day_archive(date(2026,10,31))
