@@ -358,6 +358,136 @@ class AdvertisingReportTests(unittest.TestCase):
             finally:
                 c.close(); m.METRIKA_ARCHIVE_ROOT = old
 
+
+    def test_cross_day_breakdown_canonicalizes_legacy_yandex_and_instagram_without_double_count(self):
+        c=conn()
+        try:
+            traffic_rows = [
+                # 28-29 legacy Yandex: same factual Bruksizm campaign stored under native ID and UTM-only alias.
+                ("2026-10-28","yandex_ads","Яндекс-реклама","Платная реклама","715444498","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",5),
+                ("2026-10-28","yandex_ads","Яндекс-реклама","Платная реклама","","bruksizm_search_nsk",1),
+                ("2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама","715444498","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",2),
+                ("2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама","","bruksizm_search_nsk",2),
+                # 30.10 PR178 representation: same campaign by full name, plus Orthodontics and factual residual.
+                ("2026-10-30","yandex_ads","Яндекс-реклама","Платная реклама","","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",1),
+                ("2026-10-30","yandex_ads","Яндекс-реклама","Платная реклама","","АЗ | Ортодонт и гнатолог | Поиск | Новосибирск",34),
+                ("2026-10-30","yandex_ads","Яндекс-реклама","Платная реклама","","",2),
+                # Legacy "other" campaign remains separate and is not guessed.
+                ("2026-10-28","yandex_ads","Яндекс-реклама","Платная реклама","other","Чужие кампании",1),
+                ("2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама","other","Чужие кампании",17),
+
+                # Instagram 27-29 legacy source keys + 30.10 new parent representation.
+                ("2026-10-27","instagram_starostenko","Instagram — Старостенко","Социальные сети","","starostenko",6),
+                ("2026-10-27","instagram_bio_unknown","Instagram — ссылка в bio, профиль не определён","Социальные сети","","",2),
+                ("2026-10-28","instagram_starostenko","Instagram — Старостенко","Социальные сети","","starostenko",2),
+                ("2026-10-29","instagram_starostenko","Instagram — Старостенко","Социальные сети","","starostenko",1),
+                ("2026-10-29","instagram_bio_unknown","Instagram — ссылка в bio, профиль не определён","Социальные сети","","",1),
+                ("2026-10-30","instagram","Instagram","Социальные сети","","Старостенко",1),
+            ]
+            for day,source_key,source_name,channel,campaign_id,campaign_name,visits in traffic_rows:
+                c.execute(
+                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("metrika",day,source_key,source_name,channel,campaign_id,campaign_name,
+                     None,None,visits,"t","metrika-legacy"),
+                )
+
+            goal_rows = [
+                # Physical 30.10 values.
+                ("2026-10-30","yandex_ads","Яндекс-реклама","Платная реклама","","АЗ | Ортодонт и гнатолог | Поиск | Новосибирск","booking_open","Открытие окна записи",2,2),
+                ("2026-10-30","yandex_ads","Яндекс-реклама","Платная реклама","","АЗ | Ортодонт и гнатолог | Поиск | Новосибирск","medflex","Переход к записи в Medflex",1,1),
+                ("2026-10-30","yandex_ads","Яндекс-реклама","Платная реклама","","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск","booking_open","Открытие окна записи",0,0),
+                ("2026-10-30","yandex_ads","Яндекс-реклама","Платная реклама","","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск","medflex","Переход к записи в Medflex",0,0),
+                ("2026-10-30","yandex_ads","Яндекс-реклама","Платная реклама","","","booking_open","Открытие окна записи",0,0),
+                ("2026-10-30","yandex_ads","Яндекс-реклама","Платная реклама","","","medflex","Переход к записи в Medflex",0,0),
+
+                # Legacy Instagram goals from the physical mixed-period presentation.
+                ("2026-10-27","instagram_starostenko","Instagram — Старостенко","Социальные сети","","starostenko","booking_open","Открытие окна записи",1,1),
+                ("2026-10-27","instagram_starostenko","Instagram — Старостенко","Социальные сети","","starostenko","medflex","Переход к записи в Medflex",1,1),
+                ("2026-10-27","instagram_bio_unknown","Instagram — ссылка в bio, профиль не определён","Социальные сети","","","booking_open","Открытие окна записи",1,1),
+                ("2026-10-27","instagram_bio_unknown","Instagram — ссылка в bio, профиль не определён","Социальные сети","","","medflex","Переход к записи в Medflex",1,1),
+                ("2026-10-28","instagram_starostenko","Instagram — Старостенко","Социальные сети","","starostenko","medflex","Переход к записи в Medflex",1,1),
+                ("2026-10-29","instagram_starostenko","Instagram — Старостенко","Социальные сети","","starostenko","medflex","Переход к записи в Medflex",1,1),
+            ]
+            for row in goal_rows:
+                c.execute(
+                    "INSERT INTO advertising_metrika_goal_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("metrika",)+row+("t","metrika-legacy"),
+                )
+            c.commit()
+
+            sources = {
+                row["source_key"]: row
+                for row in m._group_breakdown(c,date(2026,10,27),date(2026,10,30),"source")
+                if row["visits"] is not None
+            }
+            self.assertEqual(sources["yandex_ads"]["visits"],65)
+            self.assertEqual(sources["yandex_ads"]["booking_open_visits"],2)
+            self.assertEqual(sources["yandex_ads"]["medflex_visits"],1)
+            self.assertEqual(sources["instagram"]["visits"],13)
+            self.assertEqual(sources["instagram"]["booking_open_visits"],2)
+            self.assertEqual(sources["instagram"]["medflex_visits"],4)
+            self.assertNotIn("instagram_starostenko",sources)
+            self.assertNotIn("instagram_bio_unknown",sources)
+
+            campaigns=m._group_breakdown(c,date(2026,10,27),date(2026,10,30),"campaign")
+            yandex={row["campaign_name"]:row for row in campaigns if row["source_key"]=="yandex_ads"}
+            instagram={row["campaign_name"]:row for row in campaigns if row["source_key"]=="instagram"}
+
+            self.assertEqual(
+                set(yandex),
+                {
+                    "АЗ | Ортодонт и гнатолог | Поиск | Новосибирск",
+                    "АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",
+                    "Чужие кампании",
+                    "Не определено",
+                },
+            )
+            self.assertEqual(yandex["АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"]["campaign_id"],"715444498")
+            self.assertEqual(yandex["АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"]["visits"],11)
+            self.assertEqual(yandex["АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"]["booking_open_visits"],0)
+            self.assertEqual(yandex["АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"]["medflex_visits"],0)
+            self.assertEqual(yandex["АЗ | Ортодонт и гнатолог | Поиск | Новосибирск"]["campaign_id"],"715560815")
+            self.assertEqual(yandex["АЗ | Ортодонт и гнатолог | Поиск | Новосибирск"]["visits"],34)
+            self.assertEqual(yandex["Не определено"]["visits"],2)
+            self.assertEqual(yandex["Чужие кампании"]["visits"],18)
+            self.assertNotIn("bruksizm_search_nsk",yandex)
+
+            self.assertEqual(instagram["Старостенко"]["visits"],10)
+            self.assertEqual(instagram["Старостенко"]["booking_open_visits"],1)
+            self.assertEqual(instagram["Старостенко"]["medflex_visits"],3)
+            self.assertEqual(instagram["link_in_bio"]["visits"],3)
+            self.assertEqual(instagram["link_in_bio"]["booking_open_visits"],1)
+            self.assertEqual(instagram["link_in_bio"]["medflex_visits"],1)
+
+            # Canonicalization changes grouping only; raw stored total remains exact.
+            self.assertEqual(
+                c.execute("SELECT SUM(visits) FROM advertising_traffic_daily WHERE provider='metrika'").fetchone()[0],
+                96,
+            )
+            self.assertEqual(sum(row["visits"] for row in sources.values()),96)
+        finally:
+            c.close()
+
+    def test_canonical_identity_does_not_guess_unknown_campaigns(self):
+        self.assertEqual(
+            m._canonical_metrika_identity(
+                "yandex_ads","Яндекс-реклама","Платная реклама","","new_story_campaign"
+            ),
+            ("yandex_ads","Яндекс-реклама","Платная реклама","","new_story_campaign"),
+        )
+        self.assertEqual(
+            m._canonical_metrika_identity(
+                "instagram_other","Instagram — профиль не определён","Социальные сети","","story_123"
+            ),
+            ("instagram","Instagram","Социальные сети","","story_123"),
+        )
+        self.assertEqual(
+            m._canonical_metrika_identity(
+                "instagram_bio_unknown","Instagram — ссылка в bio, профиль не определён","Социальные сети","",""
+            ),
+            ("instagram","Instagram","Социальные сети","","link_in_bio"),
+        )
+
     def test_revenue_summary_puts_total_paid_first_and_reconciles_every_ruble_by_provider(self):
         c=conn()
         try:
