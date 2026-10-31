@@ -688,7 +688,7 @@ class MetrikaClient:
             "Роботы исключены. Атрибуция: последний значимый переход, кросс-девайс.\n"
             f"Medflex {MEDFLEX_COUNTERS[0]}: {medflex_status[MEDFLEX_COUNTERS[0]]}; "
             f"{MEDFLEX_COUNTERS[1]}: {medflex_status[MEDFLEX_COUNTERS[1]]}.\n"
-            (
+            + (
                 "Статус дня: завершённый календарный день.\n"
                 if completed
                 else "Статус дня: текущий оперативный срез; повторное обновление заменяет предыдущий срез.\n"
