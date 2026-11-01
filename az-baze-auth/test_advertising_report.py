@@ -268,6 +268,67 @@ def unknown_empty_id_with_campaign_report_zip():
 
 
 
+
+def new_api_test_only_native_campaign_zip():
+    day="2026-10-31"
+    payload={
+        "metadata":{
+            "schema_version":"az_analytics_export_v1",
+            "fetched_at_utc":"2026-11-01T01:00:00+00:00",
+            "period_from":day,
+            "period_to":day,
+            "day_status":"completed_calendar_day_revisable",
+            "source_timezone":"Asia/Novosibirsk",
+            "counter_id":"113776005",
+            "sample_share":1.0,
+            "attribution":"cross_device_last_significant",
+            "campaign_identity_source":"traffic_direct_click_order",
+        },
+        "metrica_traffic_day":[
+            {
+                "row_id":"test-native-5",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"ad",
+                "traffic_source_name":"Переходы по рекламе",
+                "source_detail":"Яндекс: Директ",
+                "source_detail_id":"ad.Яндекс: Директ",
+                "utm_campaign":"metrika_test",
+                "direct_campaign_id":"999999999",
+                "direct_campaign_name":"Тестовая кампания",
+                "visits":5,
+                "is_test_tag":True,
+            },
+            {
+                "row_id":"work-undefined-7",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"ad",
+                "traffic_source_name":"Переходы по рекламе",
+                "source_detail":"Яндекс: Директ",
+                "source_detail_id":"ad.Яндекс: Директ",
+                "visits":7,
+                "is_test_tag":False,
+            },
+        ],
+        "metrica_goal_day":[],
+        "goal_registry":[],
+        "direct_campaign_day":None,
+        "daily_summary":{day:{"visits":12,"test_tag_visits":5}},
+    }
+    report="""campaigns_clean
+Метрики: ym:s:visits
+Итого: [5.0]
+Тестовая кампания | 5.0
+
+"""
+    raw=io.BytesIO()
+    with zipfile.ZipFile(raw,"w",zipfile.ZIP_DEFLATED) as z:
+        z.writestr("az_analytics.json",json.dumps(payload,ensure_ascii=False))
+        z.writestr(f"REPORT-{day}.txt",report)
+    return raw.getvalue()
+
+
 def auto_metrika_request(path, params):
     if path == "/management/v1/counter/113776005":
         return {
@@ -633,6 +694,10 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertNotIn("campaigns_raw.json",names)
             az_payload=json.loads(archive.read("az_analytics.json").decode("utf-8"))
             self.assertIsNone(az_payload["direct_campaign_day"])
+            self.assertEqual(
+                az_payload["metadata"]["campaign_identity_source"],
+                "traffic_direct_click_order",
+            )
             traffic=az_payload["metrica_traffic_day"]
             native={
                 str(row.get("direct_campaign_id") or ""):row
@@ -1812,6 +1877,21 @@ class AdvertisingReportTests(unittest.TestCase):
                 self.assertEqual(sum(row["visits"] for row in rows),10)
             finally:
                 c.close(); m.METRIKA_ARCHIVE_ROOT=old
+
+    def test_new_api_format_never_applies_legacy_campaigns_clean_when_native_id_is_test_only(self):
+        parsed=m._parse_metrika_zip(
+            new_api_test_only_native_campaign_zip(),
+            "new-api-test-only-native.zip",
+            now=datetime(2026,11,1,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+        yandex={
+            (key[4],key[5]):values["visits"]
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="yandex_ads"
+        }
+        self.assertEqual(yandex,{("",""):7})
+        self.assertNotIn(("999999999","Тестовая кампания"),yandex)
+        self.assertEqual(sum(yandex.values()),7)
 
     def test_native_direct_click_order_ids_override_legacy_campaign_report_fallback(self):
         raw=unknown_empty_id_with_campaign_report_zip()
