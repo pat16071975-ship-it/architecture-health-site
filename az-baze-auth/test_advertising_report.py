@@ -526,9 +526,10 @@ def empty_metrika_zip(day="2026-10-31", status="provisional_current_day"):
 
 
 def zero_auto_metrika_request(path, params):
-    if path == "/management/v1/counter/113776005":
-        return {"counter":{"id":113776005,"time_zone_name":"Asia/Novosibirsk","permission":"own"}}
-    if path == "/management/v1/counter/113776005/goals":
+    if path in {
+        "/management/v1/counter/113776005",
+        "/management/v1/counter/113776005/goals",
+    }:
         return auto_metrika_request(path,params)
     if path != "/stat/v1/data":
         raise AssertionError(path)
