@@ -93,6 +93,10 @@ if not required_counter_fields.issubset(c):
     raise SystemExit("COUNTER_PROOF_FIELDS_MISSING")
 if str(c["id"])!="113776005":
     raise SystemExit("COUNTER_ID_MISMATCH")
+site_raw=str(c["site"] or "").strip()
+site_host=urllib.parse.urlparse(site_raw if "://" in site_raw else "https://"+site_raw).hostname or ""
+if site_host.lower()!="azmednsk.ru":
+    raise SystemExit("COUNTER_SITE_MISMATCH")
 if str(c["permission"])!="own":
     raise SystemExit("COUNTER_PERMISSION_NOT_OWN")
 if str(c["status"])!="Active":
