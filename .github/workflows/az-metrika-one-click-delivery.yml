@@ -24,7 +24,7 @@ jobs:
           bash -n "$deploy"
           bash -n "$cred"
           test "$(git hash-object "$deploy")" = '444087df832eba9e100c596abff4d1ca96a9c604'
-          test "$(git hash-object "$cred")" = '7847e68ea849da4d3b488419035e392f384394f3'
+          test "$(git hash-object "$cred")" = '2ed677dac006815030d84ab3023c8299c9dcc063'
           python3 - <<'PY'
           import subprocess
           from pathlib import Path
@@ -83,6 +83,8 @@ jobs:
           assert 'if set(scopes)!=required_scopes:' in cred
           assert 'OAUTH_APP_DATA_ACCESS_SECTION_NOT_PROVEN' in cred
           assert 'OAUTH_APP_SCOPE_ENTRIES_NOT_PROVEN' in cred
+          assert 'OAUTH_APP_SECTION_SCOPE_SET_NOT_EXACT_READ_ONLY' in cred
+          assert 'OAUTH_APP_SCOPE_ENTRY_EMPTY' in cred
           assert 'OAUTH_APP_SCOPE_ENTRY_UNPROVEN' in cred
           assert 'OAUTH_APP_BARE_PERMISSION_GROUP_UNPROVEN' in cred
           assert 'OAUTH_APP_SCOPE_SET=METRIKA_READ_ONLY_PASS' in cred
@@ -109,7 +111,7 @@ jobs:
               def __init__(self):
                   super().__init__(); self.skip=0; self.heading_tag=None; self.heading_parts=[]
                   self.section_active=False; self.section_found=0
-                  self.entry_tag=None; self.entry_depth=0; self.entry_parts=[]; self.entries=[]; self.section_parts=[]
+                  self.entry_tag=None; self.entry_depth=0; self.entry_parts=[]; self.entries=[]; self.section_parts=[]; self.entry_count=0
               @staticmethod
               def norm(value): return ' '.join(str(value or '').split()).strip().lower()
               def handle_starttag(self,tag,attrs):
@@ -125,7 +127,7 @@ jobs:
                           if name.lower() in {'value','title','aria-label','data-scope'} and value:
                               self.section_parts.append(str(value))
                   if self.section_active and self.entry_tag is None and tag in self.ENTRY_TAGS:
-                      self.entry_tag=tag; self.entry_depth=1; self.entry_parts=[]
+                      self.entry_tag=tag; self.entry_depth=1; self.entry_parts=[]; self.entry_count+=1
                       for name,value in attrs:
                           if name.lower() in {'value','title','aria-label','data-scope'} and value:
                               self.entry_parts.append(str(value))
@@ -149,7 +151,7 @@ jobs:
                       self.entry_depth-=1
                       if self.entry_depth==0:
                           entry=' '.join(self.entry_parts).strip()
-                          if entry: self.entries.append(entry)
+                          self.entries.append(entry)
                           self.entry_tag=None; self.entry_parts=[]
               def handle_data(self,data):
                   if self.skip: return
@@ -163,12 +165,15 @@ jobs:
           bare_pattern=r'(?<![a-z0-9_.-])(direct|passport|login|tracker|webmaster|cloud_api|market)(?![a-z0-9_.-])'
           def prove(raw):
               p=DataAccessParser(); p.feed(raw)
-              if p.section_found!=1 or not p.entries: return False
+              required={'metrika:read'}
+              if p.section_found!=1 or p.entry_count==0 or not p.entries: return False
               section_evidence='\n'.join(p.section_parts).lower()
+              if set(re.findall(pattern,section_evidence))!=required: return False
               section_residual=re.sub(pattern,' ',section_evidence)
               if re.findall(bare_pattern,section_residual): return False
               scopes=[]
               for entry in p.entries:
+                  if not entry.strip(): return False
                   lowered=entry.lower()
                   if 'example' in lowered or 'пример' in lowered: return False
                   found=re.findall(pattern,entry)
@@ -176,7 +181,7 @@ jobs:
                   residual=re.sub(pattern,' ',lowered)
                   if re.findall(bare_pattern,residual): return False
                   scopes.append(found[0])
-              return set(scopes)=={'metrika:read'}
+              return set(scopes)==required
 
           good_ru='<h2>Доступ к данным</h2><ul><li>Получение статистики (metrika:read)</li></ul><h2>Почта</h2>'
           good_en='<h2>Data access</h2><ul><li data-scope="metrika:read">Get statistics</li></ul><h2>Contact</h2>'
@@ -190,6 +195,11 @@ jobs:
           assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>direct</li></ul>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>passport</li></ul>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><div>direct</div><h2>Почта</h2>')
+          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><div data-scope="direct:*">Дополнительный доступ</div><h2>Почта</h2>')
+          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><div>direct:api</div><h2>Почта</h2>')
+          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><div aria-label="passport:business">Дополнительный доступ</div><h2>Почта</h2>')
+          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li></li></ul>')
+          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>   </li></ul>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>Пример: metrika:read</li></ul>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>Без scope</li></ul>')
           assert not prove('<style>.x{content:"metrika:read"}</style><p>Nothing authoritative</p>')
