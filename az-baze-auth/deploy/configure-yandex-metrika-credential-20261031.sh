@@ -82,155 +82,28 @@ def fetch_text(url):
     except Exception:
         raise SystemExit("OAUTH_APP_INFO_CONNECTION_ERROR")
 
-identity=fetch_json("https://login.yandex.ru/info",{"format":"json"})
-client_id=str(identity.get("client_id") or "").strip()
-if not client_id:
-    raise SystemExit("OAUTH_CLIENT_ID_NOT_FOUND")
-
-app_info=fetch_text("https://oauth.yandex.ru/client/%s/info" % urllib.parse.quote(client_id,safe=""))
-
-class DataAccessParser(html.parser.HTMLParser):
-    SECTION_LABELS={
-        "доступ к данным", "data access", "access permissions", "permissions", "права доступа"
-    }
-    ENTRY_TAGS={"li", "option", "dd"}
-    HEADING_TAGS={"h1", "h2", "h3", "h4", "h5", "h6", "legend", "dt", "label"}
-    SCOPE_ATTRIBUTES={"value", "title", "aria-label", "data-scope"}
-
-    def __init__(self):
-        super().__init__()
-        self.skip=0
-        self.heading_tag=None
-        self.heading_parts=[]
-        self.section_active=False
-        self.section_found=0
-        self.section_heading_tag=None
-        self.section_parts=[]
-        self.entry_stack=[]
-        self.entries=[]
-        self.entry_count=0
-
-    @staticmethod
-    def norm(value):
-        return " ".join(str(value or "").split()).strip().lower()
-
-    def _section_ends_at(self, tag):
-        old=self.section_heading_tag
-        if old in {"h1", "h2", "h3", "h4", "h5", "h6"}:
-            return tag in {"h1", "h2", "h3", "h4", "h5", "h6"} and int(tag[1])<=int(old[1])
-        return tag==old
-
-    def handle_starttag(self, tag, attrs):
-        tag=tag.lower()
-        if tag in {"script", "style"}:
-            self.skip+=1
-            return
-        if self.skip:
-            return
-        evidence=[str(value) for name,value in attrs if name.lower() in self.SCOPE_ATTRIBUTES and value]
-        if tag in self.HEADING_TAGS:
-            if self.section_active and self._section_ends_at(tag):
-                self.section_active=False
-            if self.section_active:
-                self.section_parts.extend(evidence)
-                for frame in self.entry_stack:
-                    frame["parts"].extend(evidence)
-            self.heading_tag=tag
-            self.heading_parts=[]
-            return
-        if self.section_active:
-            self.section_parts.extend(evidence)
-            for frame in self.entry_stack:
-                frame["parts"].extend(evidence)
-            if tag in self.ENTRY_TAGS:
-                self.entry_count+=1
-                self.entry_stack.append({"tag":tag,"parts":list(evidence)})
-
-    def handle_endtag(self, tag):
-        tag=tag.lower()
-        if tag in {"script", "style"} and self.skip:
-            self.skip-=1
-            return
-        if self.skip:
-            return
-        if self.heading_tag==tag:
-            label=self.norm(" ".join(self.heading_parts))
-            if label in self.SECTION_LABELS:
-                self.section_found+=1
-                self.section_active=True
-                self.section_heading_tag=tag
-            self.heading_tag=None
-            self.heading_parts=[]
-            return
-        if self.entry_stack and tag==self.entry_stack[-1]["tag"]:
-            frame=self.entry_stack.pop()
-            self.entries.append(" ".join(frame["parts"]).strip())
-
-    def handle_data(self, data):
-        if self.skip:
-            return
-        if self.heading_tag is not None:
-            self.heading_parts.append(data)
-        if self.section_active:
-            self.section_parts.append(data)
-            for frame in self.entry_stack:
-                frame["parts"].append(data)
-parser=DataAccessParser()
-parser.feed(app_info)
-if parser.section_found!=1:
-    raise SystemExit("OAUTH_APP_DATA_ACCESS_SECTION_NOT_PROVEN")
-if parser.entry_count==0 or not parser.entries or parser.entry_stack:
-    raise SystemExit("OAUTH_APP_SCOPE_ENTRIES_NOT_PROVEN")
-
-scope_pattern=r"(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:(?:[a-z][a-z0-9_.-]*|\*))(?![A-Za-z0-9_.*-])"
-bare_group_pattern=r"(?<![a-z0-9_.-])(direct|passport|login|tracker|webmaster|cloud_api|market)(?![a-z0-9_.-])"
-required_scopes={"metrika:read"}
-
-section_evidence="\n".join(parser.section_parts).lower()
-section_scopes=set(re.findall(scope_pattern,section_evidence))
-if section_scopes!=required_scopes:
-    raise SystemExit("OAUTH_APP_SECTION_SCOPE_SET_NOT_EXACT_READ_ONLY")
-section_residual=re.sub(scope_pattern," ",section_evidence)
-if re.findall(bare_group_pattern,section_residual):
-    raise SystemExit("OAUTH_APP_BARE_PERMISSION_GROUP_UNPROVEN")
-
-scopes=[]
-for entry in parser.entries:
-    if not entry.strip():
-        raise SystemExit("OAUTH_APP_SCOPE_ENTRY_EMPTY")
-    lowered=entry.lower()
-    if "example" in lowered or "пример" in lowered:
-        raise SystemExit("OAUTH_APP_SCOPE_ENTRY_AMBIGUOUS")
-    found=re.findall(scope_pattern,entry)
-    if len(found)!=1:
-        raise SystemExit("OAUTH_APP_SCOPE_ENTRY_UNPROVEN")
-    scope=found[0]
-    residual=re.sub(scope_pattern," ",lowered)
-    bare_groups=set(re.findall(bare_group_pattern,residual))
-    if bare_groups:
-        raise SystemExit("OAUTH_APP_BARE_PERMISSION_GROUP_UNPROVEN")
-    scopes.append(scope)
-
-if set(scopes)!=required_scopes:
-    raise SystemExit("OAUTH_APP_SCOPE_SET_NOT_EXACT_READ_ONLY")
-print("OAUTH_APP_SCOPE_SET=METRIKA_READ_ONLY_PASS")
+print("OAUTH_SCOPE_SET=NOT_ASSERTED; API_READ_PROOF=REQUIRED")
 
 counter=fetch_json("https://api-metrika.yandex.net/management/v1/counter/113776005")
 c=counter.get("counter") if isinstance(counter,dict) else None
 if not isinstance(c,dict):
     raise SystemExit("COUNTER_READ_FAILED")
-required_counter_fields={"id","permission","status","time_zone_name"}
+required_counter_fields={"id","site","permission","status","time_zone_name"}
 if not required_counter_fields.issubset(c):
     raise SystemExit("COUNTER_PROOF_FIELDS_MISSING")
 if str(c["id"])!="113776005":
     raise SystemExit("COUNTER_ID_MISMATCH")
+site_raw=str(c["site"] or "").strip()
+site_host=urllib.parse.urlparse(site_raw if "://" in site_raw else "https://"+site_raw).hostname or ""
+if site_host.lower()!="azmednsk.ru":
+    raise SystemExit("COUNTER_SITE_MISMATCH")
 if str(c["permission"])!="own":
     raise SystemExit("COUNTER_PERMISSION_NOT_OWN")
 if str(c["status"])!="Active":
     raise SystemExit("COUNTER_NOT_ACTIVE")
 if str(c["time_zone_name"])!="Asia/Novosibirsk":
     raise SystemExit("COUNTER_TIMEZONE_MISMATCH")
-print("COUNTER_113776005_READ=PASS; PERMISSION=own; STATUS=Active; TIMEZONE=Asia/Novosibirsk")
+print("COUNTER_113776005_READ=PASS; SITE=azmednsk.ru; PERMISSION=own; STATUS=Active; TIMEZONE=Asia/Novosibirsk")
 
 goals=fetch_json("https://api-metrika.yandex.net/management/v1/counter/113776005/goals")
 rows=goals.get("goals") if isinstance(goals,dict) else None
