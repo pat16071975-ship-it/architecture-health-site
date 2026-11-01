@@ -24,7 +24,7 @@ jobs:
           bash -n "$deploy"
           bash -n "$cred"
           test "$(git hash-object "$deploy")" = '444087df832eba9e100c596abff4d1ca96a9c604'
-          test "$(git hash-object "$cred")" = 'b4853899a2b527e7598414c824c2175ff29ce77e'
+          test "$(git hash-object "$cred")" = '9e77c7a585e935fcce213a1871384aa3d6f68f73'
           python3 - <<'PY'
           import subprocess
           from pathlib import Path
@@ -79,16 +79,12 @@ jobs:
           assert "CONFIRM_TOKEN='METRIKA-CREDENTIAL-91356C4F'" in cred
           assert 'IFS= read -r -s CANDIDATE </dev/tty' in cred
           assert 'fail(){ echo "STOP: $*" >&2; on_error 1; }' in cred
-          assert 'required_scopes={"metrika:read"}' in cred
-          assert 'if set(scopes)!=required_scopes:' in cred
-          assert 'OAUTH_APP_DATA_ACCESS_SECTION_NOT_PROVEN' in cred
-          assert 'OAUTH_APP_SCOPE_ENTRIES_NOT_PROVEN' in cred
-          assert 'OAUTH_APP_SECTION_SCOPE_SET_NOT_EXACT_READ_ONLY' in cred
-          assert 'OAUTH_APP_SCOPE_ENTRY_EMPTY' in cred
-          assert 'OAUTH_APP_SCOPE_ENTRY_UNPROVEN' in cred
-          assert 'OAUTH_APP_BARE_PERMISSION_GROUP_UNPROVEN' in cred
-          assert 'OAUTH_APP_SCOPE_SET=METRIKA_READ_ONLY_PASS' in cred
-          assert 'required_counter_fields={"id","permission","status","time_zone_name"}' in cred
+          assert 'OAUTH_SCOPE_SET=NOT_ASSERTED; API_READ_PROOF=REQUIRED' in cred
+          assert 'oauth.yandex.ru/client/' not in cred
+          assert 'login.yandex.ru/info' not in cred
+
+          assert 'required_counter_fields={"id","site","permission","status","time_zone_name"}' in cred
+          assert 'COUNTER_SITE_MISMATCH' in cred
           assert 'COUNTER_PROOF_FIELDS_MISSING' in cred
           assert 'REQUIRED_GOAL_PROOF_FIELDS_MISSING' in cred
           assert 'REQUIRED_GOAL_ID_INVALID' in cred
@@ -103,141 +99,6 @@ jobs:
           assert 'set -x' not in cred
           assert 'echo "$CANDIDATE"' not in cred
 
-          import html.parser,re
-          class DataAccessParser(html.parser.HTMLParser):
-              SECTION_LABELS={
-                  "доступ к данным", "data access", "access permissions", "permissions", "права доступа"
-              }
-              ENTRY_TAGS={"li", "option", "dd"}
-              HEADING_TAGS={"h1", "h2", "h3", "h4", "h5", "h6", "legend", "dt", "label"}
-              SCOPE_ATTRIBUTES={"value", "title", "aria-label", "data-scope"}
-          
-              def __init__(self):
-                  super().__init__()
-                  self.skip=0
-                  self.heading_tag=None
-                  self.heading_parts=[]
-                  self.section_active=False
-                  self.section_found=0
-                  self.section_heading_tag=None
-                  self.section_parts=[]
-                  self.entry_stack=[]
-                  self.entries=[]
-                  self.entry_count=0
-          
-              @staticmethod
-              def norm(value):
-                  return " ".join(str(value or "").split()).strip().lower()
-          
-              def _section_ends_at(self, tag):
-                  old=self.section_heading_tag
-                  if old in {"h1", "h2", "h3", "h4", "h5", "h6"}:
-                      return tag in {"h1", "h2", "h3", "h4", "h5", "h6"} and int(tag[1])<=int(old[1])
-                  return tag==old
-          
-              def handle_starttag(self, tag, attrs):
-                  tag=tag.lower()
-                  if tag in {"script", "style"}:
-                      self.skip+=1
-                      return
-                  if self.skip:
-                      return
-                  evidence=[str(value) for name,value in attrs if name.lower() in self.SCOPE_ATTRIBUTES and value]
-                  if tag in self.HEADING_TAGS:
-                      if self.section_active and self._section_ends_at(tag):
-                          self.section_active=False
-                      if self.section_active:
-                          self.section_parts.extend(evidence)
-                          for frame in self.entry_stack:
-                              frame["parts"].extend(evidence)
-                      self.heading_tag=tag
-                      self.heading_parts=[]
-                      return
-                  if self.section_active:
-                      self.section_parts.extend(evidence)
-                      for frame in self.entry_stack:
-                          frame["parts"].extend(evidence)
-                      if tag in self.ENTRY_TAGS:
-                          self.entry_count+=1
-                          self.entry_stack.append({"tag":tag,"parts":list(evidence)})
-          
-              def handle_endtag(self, tag):
-                  tag=tag.lower()
-                  if tag in {"script", "style"} and self.skip:
-                      self.skip-=1
-                      return
-                  if self.skip:
-                      return
-                  if self.heading_tag==tag:
-                      label=self.norm(" ".join(self.heading_parts))
-                      if label in self.SECTION_LABELS:
-                          self.section_found+=1
-                          self.section_active=True
-                          self.section_heading_tag=tag
-                      self.heading_tag=None
-                      self.heading_parts=[]
-                      return
-                  if self.entry_stack and tag==self.entry_stack[-1]["tag"]:
-                      frame=self.entry_stack.pop()
-                      self.entries.append(" ".join(frame["parts"]).strip())
-          
-              def handle_data(self, data):
-                  if self.skip:
-                      return
-                  if self.heading_tag is not None:
-                      self.heading_parts.append(data)
-                  if self.section_active:
-                      self.section_parts.append(data)
-                      for frame in self.entry_stack:
-                          frame["parts"].append(data)
-          pattern=r'(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:(?:[a-z][a-z0-9_.-]*|\\*))(?![A-Za-z0-9_.*-])'
-          bare_pattern=r'(?<![a-z0-9_.-])(direct|passport|login|tracker|webmaster|cloud_api|market)(?![a-z0-9_.-])'
-          def prove(raw):
-              p=DataAccessParser(); p.feed(raw)
-              required={'metrika:read'}
-              if p.section_found!=1 or p.entry_count==0 or not p.entries or p.entry_stack: return False
-              section_evidence='\n'.join(p.section_parts).lower()
-              if set(re.findall(pattern,section_evidence))!=required: return False
-              section_residual=re.sub(pattern,' ',section_evidence)
-              if re.findall(bare_pattern,section_residual): return False
-              scopes=[]
-              for entry in p.entries:
-                  if not entry.strip(): return False
-                  lowered=entry.lower()
-                  if 'example' in lowered or 'пример' in lowered: return False
-                  found=re.findall(pattern,entry)
-                  if len(found)!=1: return False
-                  residual=re.sub(pattern,' ',lowered)
-                  if re.findall(bare_pattern,residual): return False
-                  scopes.append(found[0])
-              return set(scopes)==required
-
-          good_ru='<h2>Доступ к данным</h2><ul><li>Получение статистики (metrika:read)</li></ul><h2>Почта</h2>'
-          good_en='<h2>Data access</h2><ul><li data-scope="metrika:read">Get statistics</li></ul><h2>Contact</h2>'
-          assert prove(good_ru)
-          assert prove(good_en)
-          assert prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>metrika:read</li></ul>')
-          assert not prove('<p>Example: metrika:read</p>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>direct:api</li></ul>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>direct:*</li></ul>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>passport:business</li></ul>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>direct</li></ul>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>passport</li></ul>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><div>direct</div><h2>Почта</h2>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><div data-scope="direct:*">Дополнительный доступ</div><h2>Почта</h2>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><div>direct:api</div><h2>Почта</h2>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><div aria-label="passport:business">Дополнительный доступ</div><h2>Почта</h2>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li></li></ul>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>   </li></ul>')
-          assert prove('<section><h2>Доступ к данным</h2><h3>Разрешения</h3><ul><li>metrika:read</li></ul></section>')
-          assert not prove('<section><h2>Доступ к данным</h2><ul><li>metrika:read<ul><li></li></ul></li></ul></section>')
-          assert not prove('<section><h2>Доступ к данным</h2><ul><li>metrika:read<ul><li>   </li></ul></li></ul></section>')
-          assert not prove('<section><h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><h3>Дополнительные права</h3><ul><li>direct:api</li></ul></section>')
-          assert not prove('<section><h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><h3 data-scope="direct:*">Дополнительные права</h3></section>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>Пример: metrika:read</li></ul>')
-          assert not prove('<h2>Доступ к данным</h2><ul><li>Без scope</li></ul>')
-          assert not prove('<style>.x{content:"metrika:read"}</style><p>Nothing authoritative</p>')
-
           def valid_goal_id(raw):
               if isinstance(raw,bool): return False
               try: value=int(str(raw).strip())
@@ -250,7 +111,7 @@ jobs:
           assert not valid_goal_id('0')
           assert not valid_goal_id(None)
           assert not valid_goal_id(False)
-          print('AUTHORITATIVE_SCOPE_AND_GOAL_ID_NEGATIVE_CASES=PASS')
+          print('EXISTING_OAUTH_API_READ_CONTRACT=PASS')
 
           print('AZ_METRIKA_ONE_CLICK_DELIVERY_CONTRACT=PASS')
           PY
