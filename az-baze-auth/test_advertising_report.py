@@ -1964,7 +1964,7 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("coveragePart('«Оплачено» MIS',c.misPaid)", js)
         self.assertIn("$('#clinicRevenue').textContent=money(r.actual_received_total);", js)
         self.assertNotIn("$('#clinicRevenue').textContent=money(r.clinic_paid_total);", js)
-        self.assertIn("Фактически получено денег за выбранный период", html)
+        self.assertIn("Выручка клиники — фактически получено денег за выбранный период", html)
         self.assertIn("По фактической дате поступления из кассового источника", html)
         self.assertIn("«Оплачено» по отчёту МИС за выбранный период", js)
         self.assertIn("['Отделение структуры',directions.structure]", js)
