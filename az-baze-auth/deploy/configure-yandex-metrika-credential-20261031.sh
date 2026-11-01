@@ -91,10 +91,11 @@ app_info=fetch_text("https://oauth.yandex.ru/client/%s/info" % urllib.parse.quot
 
 class DataAccessParser(html.parser.HTMLParser):
     SECTION_LABELS={
-        "доступ к данным","data access","access permissions","permissions","права доступа"
+        "доступ к данным", "data access", "access permissions", "permissions", "права доступа"
     }
-    ENTRY_TAGS={"li","option","dd"}
-    HEADING_TAGS={"h1","h2","h3","h4","h5","h6","legend","dt","label"}
+    ENTRY_TAGS={"li", "option", "dd"}
+    HEADING_TAGS={"h1", "h2", "h3", "h4", "h5", "h6", "legend", "dt", "label"}
+    SCOPE_ATTRIBUTES={"value", "title", "aria-label", "data-scope"}
 
     def __init__(self):
         super().__init__()
@@ -103,52 +104,51 @@ class DataAccessParser(html.parser.HTMLParser):
         self.heading_parts=[]
         self.section_active=False
         self.section_found=0
-        self.entry_tag=None
-        self.entry_depth=0
-        self.entry_parts=[]
-        self.entries=[]
+        self.section_heading_tag=None
         self.section_parts=[]
+        self.entry_stack=[]
+        self.entries=[]
         self.entry_count=0
 
     @staticmethod
     def norm(value):
         return " ".join(str(value or "").split()).strip().lower()
 
-    def handle_starttag(self,tag,attrs):
+    def _section_ends_at(self, tag):
+        old=self.section_heading_tag
+        if old in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+            return tag in {"h1", "h2", "h3", "h4", "h5", "h6"} and int(tag[1])<=int(old[1])
+        return tag==old
+
+    def handle_starttag(self, tag, attrs):
         tag=tag.lower()
-        if tag in {"script","style"}:
+        if tag in {"script", "style"}:
             self.skip+=1
             return
         if self.skip:
             return
+        evidence=[str(value) for name,value in attrs if name.lower() in self.SCOPE_ATTRIBUTES and value]
         if tag in self.HEADING_TAGS:
-            if self.section_active and self.heading_tag is None:
+            if self.section_active and self._section_ends_at(tag):
                 self.section_active=False
+            if self.section_active:
+                self.section_parts.extend(evidence)
+                for frame in self.entry_stack:
+                    frame["parts"].extend(evidence)
             self.heading_tag=tag
             self.heading_parts=[]
             return
         if self.section_active:
-            for name,value in attrs:
-                if name.lower() in {"value","title","aria-label","data-scope"} and value:
-                    self.section_parts.append(str(value))
-        if self.section_active and self.entry_tag is None and tag in self.ENTRY_TAGS:
-            self.entry_tag=tag
-            self.entry_depth=1
-            self.entry_parts=[]
-            self.entry_count+=1
-            for name,value in attrs:
-                if name.lower() in {"value","title","aria-label","data-scope"} and value:
-                    self.entry_parts.append(str(value))
-            return
-        if self.entry_tag is not None:
-            self.entry_depth+=1
-            for name,value in attrs:
-                if name.lower() in {"value","title","aria-label","data-scope"} and value:
-                    self.entry_parts.append(str(value))
+            self.section_parts.extend(evidence)
+            for frame in self.entry_stack:
+                frame["parts"].extend(evidence)
+            if tag in self.ENTRY_TAGS:
+                self.entry_count+=1
+                self.entry_stack.append({"tag":tag,"parts":list(evidence)})
 
-    def handle_endtag(self,tag):
+    def handle_endtag(self, tag):
         tag=tag.lower()
-        if tag in {"script","style"} and self.skip:
+        if tag in {"script", "style"} and self.skip:
             self.skip-=1
             return
         if self.skip:
@@ -158,33 +158,28 @@ class DataAccessParser(html.parser.HTMLParser):
             if label in self.SECTION_LABELS:
                 self.section_found+=1
                 self.section_active=True
+                self.section_heading_tag=tag
             self.heading_tag=None
             self.heading_parts=[]
             return
-        if self.entry_tag is not None:
-            self.entry_depth-=1
-            if self.entry_depth==0:
-                entry=" ".join(self.entry_parts).strip()
-                self.entries.append(entry)
-                self.entry_tag=None
-                self.entry_parts=[]
+        if self.entry_stack and tag==self.entry_stack[-1]["tag"]:
+            frame=self.entry_stack.pop()
+            self.entries.append(" ".join(frame["parts"]).strip())
 
-    def handle_data(self,data):
+    def handle_data(self, data):
         if self.skip:
             return
         if self.heading_tag is not None:
             self.heading_parts.append(data)
-        else:
-            if self.section_active:
-                self.section_parts.append(data)
-            if self.entry_tag is not None:
-                self.entry_parts.append(data)
-
+        if self.section_active:
+            self.section_parts.append(data)
+            for frame in self.entry_stack:
+                frame["parts"].append(data)
 parser=DataAccessParser()
 parser.feed(app_info)
 if parser.section_found!=1:
     raise SystemExit("OAUTH_APP_DATA_ACCESS_SECTION_NOT_PROVEN")
-if parser.entry_count==0 or not parser.entries:
+if parser.entry_count==0 or not parser.entries or parser.entry_stack:
     raise SystemExit("OAUTH_APP_SCOPE_ENTRIES_NOT_PROVEN")
 
 scope_pattern=r"(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:(?:[a-z][a-z0-9_.-]*|\*))(?![A-Za-z0-9_.*-])"

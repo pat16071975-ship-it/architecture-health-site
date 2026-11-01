@@ -105,68 +105,97 @@ jobs:
 
           import html.parser,re
           class DataAccessParser(html.parser.HTMLParser):
-              SECTION_LABELS={'доступ к данным','data access','access permissions','permissions','права доступа'}
-              ENTRY_TAGS={'li','option','dd'}
-              HEADING_TAGS={'h1','h2','h3','h4','h5','h6','legend','dt','label'}
+              SECTION_LABELS={
+                  "доступ к данным", "data access", "access permissions", "permissions", "права доступа"
+              }
+              ENTRY_TAGS={"li", "option", "dd"}
+              HEADING_TAGS={"h1", "h2", "h3", "h4", "h5", "h6", "legend", "dt", "label"}
+              SCOPE_ATTRIBUTES={"value", "title", "aria-label", "data-scope"}
+          
               def __init__(self):
-                  super().__init__(); self.skip=0; self.heading_tag=None; self.heading_parts=[]
-                  self.section_active=False; self.section_found=0
-                  self.entry_tag=None; self.entry_depth=0; self.entry_parts=[]; self.entries=[]; self.section_parts=[]; self.entry_count=0
+                  super().__init__()
+                  self.skip=0
+                  self.heading_tag=None
+                  self.heading_parts=[]
+                  self.section_active=False
+                  self.section_found=0
+                  self.section_heading_tag=None
+                  self.section_parts=[]
+                  self.entry_stack=[]
+                  self.entries=[]
+                  self.entry_count=0
+          
               @staticmethod
-              def norm(value): return ' '.join(str(value or '').split()).strip().lower()
-              def handle_starttag(self,tag,attrs):
+              def norm(value):
+                  return " ".join(str(value or "").split()).strip().lower()
+          
+              def _section_ends_at(self, tag):
+                  old=self.section_heading_tag
+                  if old in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+                      return tag in {"h1", "h2", "h3", "h4", "h5", "h6"} and int(tag[1])<=int(old[1])
+                  return tag==old
+          
+              def handle_starttag(self, tag, attrs):
                   tag=tag.lower()
-                  if tag in {'script','style'}:
-                      self.skip+=1; return
-                  if self.skip: return
-                  if tag in self.HEADING_TAGS:
-                      if self.section_active and self.heading_tag is None: self.section_active=False
-                      self.heading_tag=tag; self.heading_parts=[]; return
-                  if self.section_active:
-                      for name,value in attrs:
-                          if name.lower() in {'value','title','aria-label','data-scope'} and value:
-                              self.section_parts.append(str(value))
-                  if self.section_active and self.entry_tag is None and tag in self.ENTRY_TAGS:
-                      self.entry_tag=tag; self.entry_depth=1; self.entry_parts=[]; self.entry_count+=1
-                      for name,value in attrs:
-                          if name.lower() in {'value','title','aria-label','data-scope'} and value:
-                              self.entry_parts.append(str(value))
+                  if tag in {"script", "style"}:
+                      self.skip+=1
                       return
-                  if self.entry_tag is not None:
-                      self.entry_depth+=1
-                      for name,value in attrs:
-                          if name.lower() in {'value','title','aria-label','data-scope'} and value:
-                              self.entry_parts.append(str(value))
-              def handle_endtag(self,tag):
+                  if self.skip:
+                      return
+                  evidence=[str(value) for name,value in attrs if name.lower() in self.SCOPE_ATTRIBUTES and value]
+                  if tag in self.HEADING_TAGS:
+                      if self.section_active and self._section_ends_at(tag):
+                          self.section_active=False
+                      if self.section_active:
+                          self.section_parts.extend(evidence)
+                          for frame in self.entry_stack:
+                              frame["parts"].extend(evidence)
+                      self.heading_tag=tag
+                      self.heading_parts=[]
+                      return
+                  if self.section_active:
+                      self.section_parts.extend(evidence)
+                      for frame in self.entry_stack:
+                          frame["parts"].extend(evidence)
+                      if tag in self.ENTRY_TAGS:
+                          self.entry_count+=1
+                          self.entry_stack.append({"tag":tag,"parts":list(evidence)})
+          
+              def handle_endtag(self, tag):
                   tag=tag.lower()
-                  if tag in {'script','style'} and self.skip:
-                      self.skip-=1; return
-                  if self.skip: return
+                  if tag in {"script", "style"} and self.skip:
+                      self.skip-=1
+                      return
+                  if self.skip:
+                      return
                   if self.heading_tag==tag:
-                      label=self.norm(' '.join(self.heading_parts))
+                      label=self.norm(" ".join(self.heading_parts))
                       if label in self.SECTION_LABELS:
-                          self.section_found+=1; self.section_active=True
-                      self.heading_tag=None; self.heading_parts=[]; return
-                  if self.entry_tag is not None:
-                      self.entry_depth-=1
-                      if self.entry_depth==0:
-                          entry=' '.join(self.entry_parts).strip()
-                          self.entries.append(entry)
-                          self.entry_tag=None; self.entry_parts=[]
-              def handle_data(self,data):
-                  if self.skip: return
+                          self.section_found+=1
+                          self.section_active=True
+                          self.section_heading_tag=tag
+                      self.heading_tag=None
+                      self.heading_parts=[]
+                      return
+                  if self.entry_stack and tag==self.entry_stack[-1]["tag"]:
+                      frame=self.entry_stack.pop()
+                      self.entries.append(" ".join(frame["parts"]).strip())
+          
+              def handle_data(self, data):
+                  if self.skip:
+                      return
                   if self.heading_tag is not None:
                       self.heading_parts.append(data)
-                  else:
-                      if self.section_active: self.section_parts.append(data)
-                      if self.entry_tag is not None: self.entry_parts.append(data)
-
+                  if self.section_active:
+                      self.section_parts.append(data)
+                      for frame in self.entry_stack:
+                          frame["parts"].append(data)
           pattern=r'(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:(?:[a-z][a-z0-9_.-]*|\\*))(?![A-Za-z0-9_.*-])'
           bare_pattern=r'(?<![a-z0-9_.-])(direct|passport|login|tracker|webmaster|cloud_api|market)(?![a-z0-9_.-])'
           def prove(raw):
               p=DataAccessParser(); p.feed(raw)
               required={'metrika:read'}
-              if p.section_found!=1 or p.entry_count==0 or not p.entries: return False
+              if p.section_found!=1 or p.entry_count==0 or not p.entries or p.entry_stack: return False
               section_evidence='\n'.join(p.section_parts).lower()
               if set(re.findall(pattern,section_evidence))!=required: return False
               section_residual=re.sub(pattern,' ',section_evidence)
@@ -200,6 +229,11 @@ jobs:
           assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><div aria-label="passport:business">Дополнительный доступ</div><h2>Почта</h2>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li></li></ul>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>metrika:read</li><li>   </li></ul>')
+          assert prove('<section><h2>Доступ к данным</h2><h3>Разрешения</h3><ul><li>metrika:read</li></ul></section>')
+          assert not prove('<section><h2>Доступ к данным</h2><ul><li>metrika:read<ul><li></li></ul></li></ul></section>')
+          assert not prove('<section><h2>Доступ к данным</h2><ul><li>metrika:read<ul><li>   </li></ul></li></ul></section>')
+          assert not prove('<section><h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><h3>Дополнительные права</h3><ul><li>direct:api</li></ul></section>')
+          assert not prove('<section><h2>Доступ к данным</h2><ul><li>metrika:read</li></ul><h3 data-scope="direct:*">Дополнительные права</h3></section>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>Пример: metrika:read</li></ul>')
           assert not prove('<h2>Доступ к данным</h2><ul><li>Без scope</li></ul>')
           assert not prove('<style>.x{content:"metrika:read"}</style><p>Nothing authoritative</p>')
