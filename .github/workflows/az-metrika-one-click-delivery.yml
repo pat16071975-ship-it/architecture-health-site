@@ -24,7 +24,7 @@ jobs:
           bash -n "$deploy"
           bash -n "$cred"
           test "$(git hash-object "$deploy")" = '444087df832eba9e100c596abff4d1ca96a9c604'
-          test "$(git hash-object "$cred")" = '9e77c7a585e935fcce213a1871384aa3d6f68f73'
+          test "$(git hash-object "$cred")" = 'ffc23c7015c311e914656e0ed8cc28bc23a1a0a0'
           python3 - <<'PY'
           import subprocess
           from pathlib import Path
@@ -170,6 +170,26 @@ jobs:
           assert counter_ok({'id':113776005,'permission':'own','status':'Active','time_zone_name':'Asia/Novosibirsk'})
           assert not counter_ok({'id':113776005,'permission':'own','time_zone_name':'Asia/Novosibirsk'})
           assert not counter_ok({'id':113776005,'permission':'own','status':'Active'})
+
+          import urllib.parse
+          def counter_ok(c):
+              required={'id','site','permission','status','time_zone_name'}
+              if not isinstance(c,dict) or not required.issubset(c): return False
+              site_raw=str(c['site'] or '').strip()
+              site_host=urllib.parse.urlparse(site_raw if '://' in site_raw else 'https://'+site_raw).hostname or ''
+              return (
+                  str(c['id'])=='113776005'
+                  and site_host.lower()=='azmednsk.ru'
+                  and str(c['permission'])=='own'
+                  and str(c['status'])=='Active'
+                  and str(c['time_zone_name'])=='Asia/Novosibirsk'
+              )
+          assert counter_ok({'id':113776005,'site':'azmednsk.ru','permission':'own','status':'Active','time_zone_name':'Asia/Novosibirsk'})
+          assert counter_ok({'id':113776005,'site':'https://azmednsk.ru/','permission':'own','status':'Active','time_zone_name':'Asia/Novosibirsk'})
+          assert not counter_ok({'id':113776005,'site':'other-site.example','permission':'own','status':'Active','time_zone_name':'Asia/Novosibirsk'})
+          assert not counter_ok({'id':113776005,'site':'','permission':'own','status':'Active','time_zone_name':'Asia/Novosibirsk'})
+          assert not counter_ok({'id':113776005,'site':None,'permission':'own','status':'Active','time_zone_name':'Asia/Novosibirsk'})
+          print('COUNTER_SITE_NEGATIVE_CASES=PASS')
 
           def report_ok(r):
               required={'sampled','sample_share','total_rows_rounded','data'}
