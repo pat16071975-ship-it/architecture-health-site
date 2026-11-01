@@ -108,6 +108,7 @@ class DataAccessParser(html.parser.HTMLParser):
         self.entry_parts=[]
         self.entries=[]
         self.section_parts=[]
+        self.entry_count=0
 
     @staticmethod
     def norm(value):
@@ -134,6 +135,7 @@ class DataAccessParser(html.parser.HTMLParser):
             self.entry_tag=tag
             self.entry_depth=1
             self.entry_parts=[]
+            self.entry_count+=1
             for name,value in attrs:
                 if name.lower() in {"value","title","aria-label","data-scope"} and value:
                     self.entry_parts.append(str(value))
@@ -163,8 +165,7 @@ class DataAccessParser(html.parser.HTMLParser):
             self.entry_depth-=1
             if self.entry_depth==0:
                 entry=" ".join(self.entry_parts).strip()
-                if entry:
-                    self.entries.append(entry)
+                self.entries.append(entry)
                 self.entry_tag=None
                 self.entry_parts=[]
 
@@ -183,18 +184,25 @@ parser=DataAccessParser()
 parser.feed(app_info)
 if parser.section_found!=1:
     raise SystemExit("OAUTH_APP_DATA_ACCESS_SECTION_NOT_PROVEN")
-if not parser.entries:
+if parser.entry_count==0 or not parser.entries:
     raise SystemExit("OAUTH_APP_SCOPE_ENTRIES_NOT_PROVEN")
 
 scope_pattern=r"(?<![A-Za-z0-9_.-])([a-z][a-z0-9_.-]*:(?:[a-z][a-z0-9_.-]*|\*))(?![A-Za-z0-9_.*-])"
 bare_group_pattern=r"(?<![a-z0-9_.-])(direct|passport|login|tracker|webmaster|cloud_api|market)(?![a-z0-9_.-])"
+required_scopes={"metrika:read"}
+
 section_evidence="\n".join(parser.section_parts).lower()
+section_scopes=set(re.findall(scope_pattern,section_evidence))
+if section_scopes!=required_scopes:
+    raise SystemExit("OAUTH_APP_SECTION_SCOPE_SET_NOT_EXACT_READ_ONLY")
 section_residual=re.sub(scope_pattern," ",section_evidence)
 if re.findall(bare_group_pattern,section_residual):
     raise SystemExit("OAUTH_APP_BARE_PERMISSION_GROUP_UNPROVEN")
-required_scopes={"metrika:read"}
+
 scopes=[]
 for entry in parser.entries:
+    if not entry.strip():
+        raise SystemExit("OAUTH_APP_SCOPE_ENTRY_EMPTY")
     lowered=entry.lower()
     if "example" in lowered or "пример" in lowered:
         raise SystemExit("OAUTH_APP_SCOPE_ENTRY_AMBIGUOUS")
