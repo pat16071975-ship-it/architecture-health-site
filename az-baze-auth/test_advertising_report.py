@@ -270,7 +270,15 @@ def unknown_empty_id_with_campaign_report_zip():
 
 def auto_metrika_request(path, params):
     if path == "/management/v1/counter/113776005":
-        return {"counter":{"id":113776005,"time_zone_name":"Asia/Novosibirsk","permission":"own"}}
+        return {
+            "counter":{
+                "id":113776005,
+                "site":"azmednsk.ru",
+                "status":"Active",
+                "time_zone_name":"Asia/Novosibirsk",
+                "permission":"own",
+            }
+        }
     if path == "/management/v1/counter/113776005/goals":
         return {
             "goals":[
@@ -283,6 +291,23 @@ def auto_metrika_request(path, params):
                 {"id":675772127,"name":"Автоцель: скачивание файла","status":"Active"},
             ]
         }
+    for counter_id in ma.MEDFLEX_COUNTERS:
+        if path == f"/management/v1/counter/{counter_id}":
+            return {
+                "counter":{
+                    "id":int(counter_id),
+                    "site":"medflex.example",
+                    "status":"Active",
+                    "time_zone_name":"Asia/Novosibirsk",
+                    "permission":"view",
+                }
+            }
+        if path == f"/management/v1/counter/{counter_id}/goals":
+            return {
+                "goals":[
+                    {"id":int(counter_id)+1,"name":"Medflex test goal","status":"Active"}
+                ]
+            }
     if path != "/stat/v1/data":
         raise AssertionError(path)
 
@@ -295,21 +320,35 @@ def auto_metrika_request(path, params):
         for metric in metrics:
             if metric in {"ym:s:visits","ym:s:users","ym:s:pageviews","ym:pv:pageviews","ym:pv:users"}:
                 values.append(float(visits))
-            elif metric=="ym:s:bounceRate": values.append(0.0)
-            elif metric=="ym:s:avgVisitDurationSeconds": values.append(30.0)
-            elif metric=="ym:s:goal674318079reaches": values.append(float(booking[0]))
-            elif metric=="ym:s:goal674318079visits": values.append(float(booking[1]))
-            elif metric=="ym:s:goal674318216reaches": values.append(float(medflex[0]))
-            elif metric=="ym:s:goal674318216visits": values.append(float(medflex[1]))
+            elif metric=="ym:s:bounceRate":
+                values.append(0.0)
+            elif metric=="ym:s:avgVisitDurationSeconds":
+                values.append(30.0)
+            elif metric=="ym:s:goal674318079reaches":
+                values.append(float(booking[0]))
+            elif metric=="ym:s:goal674318079visits":
+                values.append(float(booking[1]))
+            elif metric=="ym:s:goal674318216reaches":
+                values.append(float(medflex[0]))
+            elif metric=="ym:s:goal674318216visits":
+                values.append(float(medflex[1]))
             elif metric.startswith("ym:s:goal") and (
                 metric.endswith("reaches") or metric.endswith("visits")
-            ): values.append(0.0)
-            else: raise AssertionError(metric)
+            ):
+                values.append(0.0)
+            else:
+                raise AssertionError(metric)
         return values
 
     if counter_id in ma.MEDFLEX_COUNTERS:
         return {
-            "query":{"ids":[int(counter_id)],"dimensions":dimensions,"metrics":metrics,"date1":params["date1"],"date2":params["date2"]},
+            "query":{
+                "ids":[int(counter_id)],
+                "dimensions":dimensions,
+                "metrics":metrics,
+                "date1":params["date1"],
+                "date2":params["date2"],
+            },
             "data":[],
             "total_rows":0,
             "total_rows_rounded":False,
@@ -318,21 +357,21 @@ def auto_metrika_request(path, params):
             "totals":[0.0 for _ in metrics],
         }
 
-    if dimensions == [ma.CAMPAIGN_DIMENSION]:
-        data=[
-            {"dimensions":[{"id":"715560815","name":"АЗ | Ортодонт и гнатолог | Поиск | Новосибирск"}],
-             "metrics":metric_values(5,booking=(2,2),medflex=(1,1))},
-            {"dimensions":[{"id":"715444498","name":"АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"}],
-             "metrics":metric_values(1)},
-            {"dimensions":[{"id":"999999999","name":"Новая неизвестная кампания"}],
-             "metrics":metric_values(2)},
-            {"dimensions":[{"id":"other","name":"Чужие кампании"}],
-             "metrics":metric_values(1)},
-        ]
-        totals=metric_values(9,booking=(2,2),medflex=(1,1))
-    elif tuple(dimensions)==ma.TRAFFIC_DIMENSIONS:
+    if tuple(dimensions)==ma.TRAFFIC_DIMENSIONS:
         day=str(params["date1"])
-        def dims(source_id,source_name,detail_id=None,detail=None,utm_source=None,utm_medium=None,utm_campaign=None,utm_content=None,utm_term=None):
+        def dims(
+            source_id,
+            source_name,
+            detail_id=None,
+            detail=None,
+            utm_source=None,
+            utm_medium=None,
+            utm_campaign=None,
+            utm_content=None,
+            utm_term=None,
+            campaign_id=None,
+            campaign_name=None,
+        ):
             return [
                 {"name":day},
                 {"id":source_id,"name":source_name},
@@ -342,25 +381,81 @@ def auto_metrika_request(path, params):
                 {"name":utm_campaign},
                 {"name":utm_content},
                 {"name":utm_term},
+                {"id":campaign_id,"name":campaign_name},
             ]
         data=[
-            {"dimensions":dims("ad","Переходы по рекламе","ad.Яндекс: Директ","Яндекс: Директ"),
-             "metrics":metric_values(9,booking=(2,2),medflex=(1,1))},
-            {"dimensions":dims("social","Переходы из социальных сетей","social.instagram","instagram.com","instagram","social","starostenko","profile"),
-             "metrics":metric_values(3,booking=(1,1))},
-            {"dimensions":dims("messenger","Переходы из мессенджеров","messenger.telegram","Telegram","telegram","social","metrika_test"),
-             "metrics":metric_values(2)},
+            {
+                "dimensions":dims(
+                    "ad","Переходы по рекламе","ad.Яндекс: Директ","Яндекс: Директ",
+                    campaign_id="715560815",
+                    campaign_name="АЗ | Ортодонт и гнатолог | Поиск | Новосибирск",
+                ),
+                "metrics":metric_values(5,booking=(2,2),medflex=(1,1)),
+            },
+            {
+                "dimensions":dims(
+                    "ad","Переходы по рекламе","ad.Яндекс: Директ","Яндекс: Директ",
+                    campaign_id="715444498",
+                    campaign_name="АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",
+                ),
+                "metrics":metric_values(1),
+            },
+            {
+                "dimensions":dims(
+                    "ad","Переходы по рекламе","ad.Яндекс: Директ","Яндекс: Директ",
+                    campaign_id="999999999",
+                    campaign_name="Новая неизвестная кампания",
+                ),
+                "metrics":metric_values(2),
+            },
+            {
+                "dimensions":dims(
+                    "ad","Переходы по рекламе","ad.Яндекс: Директ","Яндекс: Директ"
+                ),
+                "metrics":metric_values(1),
+            },
+            {
+                "dimensions":dims(
+                    "social","Переходы из социальных сетей","social.instagram","instagram.com",
+                    "instagram","social","starostenko","profile"
+                ),
+                "metrics":metric_values(3,booking=(1,1)),
+            },
+            {
+                "dimensions":dims(
+                    "messenger","Переходы из мессенджеров","messenger.telegram","Telegram",
+                    "telegram","social","metrika_test"
+                ),
+                "metrics":metric_values(2),
+            },
         ]
         totals=metric_values(14,booking=(3,3),medflex=(1,1))
+    elif dimensions == ["ym:s:date"]:
+        without_test="metrika_test" in str(params.get("filters") or "")
+        visits=12 if without_test else 14
+        data=[{
+            "dimensions":[{"name":str(params["date1"])}],
+            "metrics":metric_values(visits,booking=(3,3),medflex=(1,1)),
+        }]
+        totals=metric_values(visits,booking=(3,3),medflex=(1,1))
     else:
         data=[{
-            "dimensions":[{"name":str(params["date1"]) if dimension.endswith(":date") else "Тест"} for dimension in dimensions],
+            "dimensions":[
+                {"name":str(params["date1"]) if dimension.endswith(":date") else "Тест"}
+                for dimension in dimensions
+            ],
             "metrics":metric_values(1),
         }]
         totals=metric_values(1)
 
     return {
-        "query":{"ids":[113776005],"dimensions":dimensions,"metrics":metrics,"date1":params["date1"],"date2":params["date2"]},
+        "query":{
+            "ids":[113776005],
+            "dimensions":dimensions,
+            "metrics":metrics,
+            "date1":params["date1"],
+            "date2":params["date2"],
+        },
         "data":data,
         "total_rows":len(data),
         "total_rows_rounded":False,
@@ -504,6 +599,13 @@ class AdvertisingReportTests(unittest.TestCase):
         )
         stat_calls=[item for item in calls if item[0]=="/stat/v1/data"]
         self.assertEqual(len(stat_calls),2)
+        self.assertEqual(
+            stat_calls[0][1]["dimensions"],
+            ",".join(ma.TRAFFIC_DIMENSIONS),
+        )
+        self.assertEqual(stat_calls[1][1]["dimensions"],"ym:s:date")
+        self.assertEqual(stat_calls[0][1]["accuracy"],"full")
+        self.assertEqual(stat_calls[1][1]["accuracy"],"full")
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             self.assertEqual(
                 set(archive.namelist()),
@@ -529,14 +631,24 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertIn("medflex_daily_raw.json",names)
             self.assertNotIn("campaigns_raw.json",names)
             az_payload=json.loads(archive.read("az_analytics.json").decode("utf-8"))
-            direct={
-                str(row.get("campaign_id") or ""):row
-                for row in az_payload["direct_campaign_day"]
+            self.assertIsNone(az_payload["direct_campaign_day"])
+            traffic=az_payload["metrica_traffic_day"]
+            native={
+                str(row.get("direct_campaign_id") or ""):row
+                for row in traffic
+                if str(row.get("direct_campaign_id") or "")
             }
-            self.assertEqual(direct["715560815"]["visits"],5)
-            self.assertEqual(direct["715444498"]["visits"],1)
-            self.assertEqual(direct["999999999"]["campaign_name"],"Новая неизвестная кампания")
-            self.assertEqual(direct["999999999"]["visits"],2)
+            self.assertEqual(native["715560815"]["visits"],5)
+            self.assertEqual(native["715444498"]["visits"],1)
+            self.assertEqual(native["999999999"]["direct_campaign_name"],"Новая неизвестная кампания")
+            self.assertEqual(native["999999999"]["visits"],2)
+            medflex=json.loads(archive.read("medflex_daily_raw.json").decode("utf-8"))
+            self.assertEqual(
+                set(medflex["counters"]),
+                set(ma.MEDFLEX_COUNTERS),
+            )
+            for counter_id in ma.MEDFLEX_COUNTERS:
+                self.assertIn("goals_raw",medflex["counters"][counter_id])
             hashes=json.loads(archive.read("SHA256.json").decode("utf-8"))
             self.assertEqual(len(hashes),38)
             for name,expected in hashes.items():
@@ -1006,7 +1118,9 @@ class AdvertisingReportTests(unittest.TestCase):
         )
         self.assertEqual(calls[0][1]["attribution"],ma.ATTRIBUTION)
         self.assertEqual(calls[0][1]["filters"],ma.ROBOT_FILTER)
+        self.assertEqual(calls[0][1]["accuracy"],"full")
         self.assertEqual(calls[0][1]["limit"],100000)
+        self.assertIn(ma.CAMPAIGN_DIMENSION,ma.TRAFFIC_DIMENSIONS)
 
         def sampled(path,params):
             return {
@@ -1697,6 +1811,22 @@ class AdvertisingReportTests(unittest.TestCase):
                 self.assertEqual(sum(row["visits"] for row in rows),10)
             finally:
                 c.close(); m.METRIKA_ARCHIVE_ROOT=old
+
+    def test_native_direct_click_order_ids_override_legacy_campaign_report_fallback(self):
+        raw=unknown_empty_id_with_campaign_report_zip()
+        parsed=m._parse_metrika_zip(raw,"native-id-with-report.zip")
+        yandex={
+            (key[4],key[5]):values["visits"]
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="yandex_ads"
+        }
+        self.assertEqual(
+            yandex,
+            {
+                ("715444498","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"):6,
+                ("999999999",""):4,
+            },
+        )
 
     def test_campaign_report_split_fails_closed_when_unknown_nonempty_id_exists(self):
         parsed=m._parse_metrika_zip(
