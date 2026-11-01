@@ -694,6 +694,7 @@ class MetrikaClient:
             "source_timezone": TIMEZONE,
             "counter_id": COUNTER_ID,
             "extraction_method": "api",
+            "campaign_identity_source": "traffic_direct_click_order",
             "attribution": ATTRIBUTION,
             "robot_filter": ROBOT_FILTER,
             "sample_share": 1.0,
