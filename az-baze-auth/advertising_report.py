@@ -904,6 +904,10 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
             raise ValueError("Незавершённый календарный день нельзя импортировать как завершённый.")
 
     accepted_days = sorted(set(completed_days) | set(provisional_days))
+    native_campaign_format = (
+        str(meta.get("campaign_identity_source") or "").strip()
+        == "traffic_direct_click_order"
+    )
     if not accepted_days:
         raise ValueError(
             "В ZIP нет завершённых календарных дней."
@@ -923,9 +927,16 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
         source_key, source_name, channel_name = _metrika_source(row)
         campaign_id = str(row.get("direct_campaign_id") or "")
         campaign_name = _metrika_campaign_name(row, source_key)
-        source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
-            source_key, source_name, channel_name, campaign_id, campaign_name
-        )
+        if native_campaign_format and source_key == "yandex_ads":
+            campaign_name = str(row.get("direct_campaign_name") or "").strip()
+            source_name = "Яндекс-реклама"
+            channel_name = "Платная реклама"
+            if campaign_id in YANDEX_CANONICAL_CAMPAIGNS:
+                campaign_name = YANDEX_CANONICAL_CAMPAIGNS[campaign_id]
+        else:
+            source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
+                source_key, source_name, channel_name, campaign_id, campaign_name
+            )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name)
         target = traffic_rows.setdefault(key, {"visits": 0})
         target["visits"] += int(row.get("visits") or 0)
@@ -945,9 +956,16 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
         source_key, source_name, channel_name = _metrika_source(traffic_row)
         campaign_id = str(traffic_row.get("direct_campaign_id") or "")
         campaign_name = _metrika_campaign_name(traffic_row, source_key)
-        source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
-            source_key, source_name, channel_name, campaign_id, campaign_name
-        )
+        if native_campaign_format and source_key == "yandex_ads":
+            campaign_name = str(traffic_row.get("direct_campaign_name") or "").strip()
+            source_name = "Яндекс-реклама"
+            channel_name = "Платная реклама"
+            if campaign_id in YANDEX_CANONICAL_CAMPAIGNS:
+                campaign_name = YANDEX_CANONICAL_CAMPAIGNS[campaign_id]
+        else:
+            source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
+                source_key, source_name, channel_name, campaign_id, campaign_name
+            )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name, goal_key, goal_name)
         target = goal_rows.setdefault(key, {"goal_visits": 0, "reaches": 0})
         target["goal_visits"] += int(row.get("goal_visits") or 0)
@@ -955,9 +973,13 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
 
     structured_campaigns = _parse_structured_campaigns(payload)
     campaign_rows = (
-        structured_campaigns
-        if structured_campaigns is not None
-        else _parse_report_campaigns(report_text, payload)
+        []
+        if native_campaign_format
+        else (
+            structured_campaigns
+            if structured_campaigns is not None
+            else _parse_report_campaigns(report_text, payload)
+        )
     )
     traffic_rows, goal_rows = _apply_yandex_campaign_report(
         traffic_rows, goal_rows, accepted_days, campaign_rows

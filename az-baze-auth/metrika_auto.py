@@ -41,6 +41,7 @@ TRAFFIC_DIMENSIONS = (
     "ym:s:cross_device_last_significantUTMCampaign",
     "ym:s:cross_device_last_significantUTMContent",
     "ym:s:cross_device_last_significantUTMTerm",
+    "ym:s:cross_device_last_significantDirectClickOrder",
 )
 BASE_METRICS = (
     "ym:s:visits",
@@ -164,6 +165,27 @@ def _validate_additive_totals(payload, metrics, label):
             raise MetrikaApiError(
                 f"Яндекс Метрика скрыла или не вернула часть строк: {label}. Импорт остановлен."
             )
+
+
+def _validate_control_totals(detail_payload, control_payload, metrics, label):
+    detail_totals = detail_payload.get("totals")
+    control_totals = control_payload.get("totals")
+    if (
+        not isinstance(detail_totals, list)
+        or not isinstance(control_totals, list)
+        or len(detail_totals) != len(metrics)
+        or len(control_totals) != len(metrics)
+    ):
+        raise MetrikaApiError(f"Яндекс Метрика не вернула контрольные итоги: {label}.")
+    for index, metric in enumerate(metrics):
+        if metric == "ym:s:visits" or (
+            metric.startswith("ym:s:goal")
+            and (metric.endswith("reaches") or metric.endswith("visits"))
+        ):
+            if abs(float(detail_totals[index] or 0) - float(control_totals[index] or 0)) > 1e-7:
+                raise MetrikaApiError(
+                    f"Детальный и контрольный отчёты Яндекс Метрики не совпали: {label}."
+                )
 
 
 class MetrikaApiError(RuntimeError):
@@ -340,6 +362,14 @@ class MetrikaClient:
             raise MetrikaApiError("Не удалось подтвердить доступ к счётчику Яндекс Метрики.")
         if str(counter.get("status") or "Active") != "Active":
             raise MetrikaApiError("Счётчик Яндекс Метрики не активен.")
+        site_raw = str(counter.get("site") or "").strip()
+        site_host = urllib.parse.urlparse(
+            site_raw if "://" in site_raw else "https://" + site_raw
+        ).hostname or ""
+        if site_host.lower() != "azmednsk.ru":
+            raise MetrikaApiError("Счётчик Яндекс Метрики относится к другому сайту.")
+        if str(counter.get("permission") or "") != "own":
+            raise MetrikaAccessError("Нет подтверждённого доступа владельца к счётчику Яндекс Метрики.")
         zone = str(counter.get("time_zone_name") or "")
         if zone and zone != TIMEZONE:
             raise MetrikaApiError("Часовой пояс счётчика Метрики не совпадает с Asia/Novosibirsk.")
@@ -379,6 +409,7 @@ class MetrikaClient:
             "date1": day.isoformat(),
             "date2": day.isoformat(),
             "filters": filters,
+            "accuracy": "full",
             "limit": 100000,
             "offset": 1,
             "lang": "ru",
@@ -440,17 +471,20 @@ class MetrikaClient:
             dimensions=TRAFFIC_DIMENSIONS,
             metrics=metrics,
         )
-        campaign_raw = self.table(
+        control_raw = self.table(
             day=day,
-            dimensions=(CAMPAIGN_DIMENSION,),
+            dimensions=("ym:s:date",),
             metrics=metrics,
         )
         _validate_additive_totals(traffic_raw, metrics, "основной срез")
-        _validate_additive_totals(campaign_raw, metrics, "кампании")
+        _validate_additive_totals(control_raw, metrics, "контрольный дневной итог")
+        _validate_control_totals(traffic_raw, control_raw, metrics, "основной срез")
 
-        diagnostic_raw = {}
+        diagnostic_raw = {"daily": control_raw} if diagnostics else {}
         if diagnostics:
             for name, (dimensions, metric_kind, filters, sort) in DIAGNOSTIC_SPECS.items():
+                if name == "daily":
+                    continue
                 report_metrics = (
                     tuple(metrics)
                     if metric_kind == "full"
@@ -466,47 +500,81 @@ class MetrikaClient:
                     sort=sort,
                 )
 
-        direct_campaign_rows = []
-        for api_row in campaign_raw.get("data") or []:
+        direct_campaign_map = {}
+        for api_row in traffic_raw.get("data") or []:
             dims = list(api_row.get("dimensions") or [])
             values = list(api_row.get("metrics") or [])
-            if len(dims) != 1 or len(values) != len(metrics):
-                raise MetrikaApiError("Структура разбивки кампаний Метрики изменилась. Импорт остановлен.")
-            campaign_id = _dimension_id(dims[0]) or ""
-            campaign_name = _dimension_value(dims[0]) or ""
-            direct_row = {
-                "date": day.isoformat(),
-                "campaign_id": campaign_id,
-                "campaign_name": campaign_name,
-                "visits": int(round(values[0] or 0)),
-                "goals": [],
-            }
-            cursor = 5
-            for goal in goal_registry:
-                reaches = int(round(values[cursor] or 0))
-                goal_visits = int(round(values[cursor + 1] or 0))
-                cursor += 2
-                direct_row["goals"].append(
+            if len(dims) != len(TRAFFIC_DIMENSIONS) or len(values) != len(metrics):
+                raise MetrikaApiError("Структура основного отчёта Метрики изменилась. Импорт остановлен.")
+            campaign_id = _dimension_id(dims[8]) or ""
+            campaign_name = _dimension_value(dims[8]) or ""
+            if not campaign_id and not campaign_name:
+                continue
+            key = (campaign_id, campaign_name)
+            row = direct_campaign_map.setdefault(
+                key,
+                {
+                    "date": day.isoformat(),
+                    "campaign_id": campaign_id,
+                    "campaign_name": campaign_name,
+                    "visits": 0,
+                    "goals": [],
+                },
+            )
+            row["visits"] += int(round(values[0] or 0))
+            if not row["goals"]:
+                row["goals"] = [
                     {
                         "goal_id": goal["goal_id"],
                         "goal_name": goal["goal_name"],
-                        "reaches": reaches,
-                        "goal_visits": goal_visits,
+                        "reaches": 0,
+                        "goal_visits": 0,
                     }
-                )
-            direct_campaign_rows.append(direct_row)
+                    for goal in goal_registry
+                ]
+            cursor = 5
+            for goal_row in row["goals"]:
+                goal_row["reaches"] += int(round(values[cursor] or 0))
+                goal_row["goal_visits"] += int(round(values[cursor + 1] or 0))
+                cursor += 2
+        direct_campaign_rows = list(direct_campaign_map.values())
 
         medflex_status = {counter_id: "not_checked" for counter_id in MEDFLEX_COUNTERS}
         medflex_primary_raw = {
-            "counter_id": MEDFLEX_COUNTERS[0],
-            "status": "not_checked",
-            "data": [],
+            "counters": {
+                counter_id: {"status": "not_checked"}
+                for counter_id in MEDFLEX_COUNTERS
+            }
         }
         if diagnostics:
             medflex_status = {}
-            medflex_primary_raw = None
+            medflex_primary_raw = {"counters": {}}
             for counter_id in MEDFLEX_COUNTERS:
                 try:
+                    counter_meta = self.request_json(
+                        f"/management/v1/counter/{counter_id}", {}
+                    )
+                    counter_obj = (
+                        counter_meta.get("counter")
+                        if isinstance(counter_meta, dict)
+                        else None
+                    )
+                    if (
+                        not isinstance(counter_obj, dict)
+                        or str(counter_obj.get("id") or "") != counter_id
+                    ):
+                        raise MetrikaApiError(
+                            "Не удалось подтвердить счётчик Medflex Яндекс Метрики."
+                        )
+                    goals_meta = self.request_json(
+                        f"/management/v1/counter/{counter_id}/goals", {}
+                    )
+                    if not isinstance(goals_meta, dict) or not isinstance(
+                        goals_meta.get("goals"), list
+                    ):
+                        raise MetrikaApiError(
+                            "Не удалось получить цели счётчика Medflex Яндекс Метрики."
+                        )
                     raw = self.table(
                         day=day,
                         dimensions=("ym:s:date",),
@@ -515,22 +583,20 @@ class MetrikaClient:
                         sort="-ym:s:visits",
                         counter_id=counter_id,
                     )
-                    medflex_status[counter_id] = (
-                        "no_data" if int(raw.get("total_rows") or 0) == 0 else "ok"
-                    )
-                    if counter_id == MEDFLEX_COUNTERS[0]:
-                        medflex_primary_raw = raw
+                    status = "no_data" if int(raw.get("total_rows") or 0) == 0 else "ok"
+                    medflex_status[counter_id] = status
+                    medflex_primary_raw["counters"][counter_id] = {
+                        "status": status,
+                        "counter_raw": counter_meta,
+                        "goals_raw": goals_meta,
+                        "daily_raw": raw,
+                    }
                 except MetrikaAccessError:
                     medflex_status[counter_id] = "no_access"
+                    medflex_primary_raw["counters"][counter_id] = {"status": "no_access"}
                 except MetrikaApiError:
                     medflex_status[counter_id] = "error"
-
-            if medflex_primary_raw is None:
-                medflex_primary_raw = {
-                    "counter_id": MEDFLEX_COUNTERS[0],
-                    "status": medflex_status[MEDFLEX_COUNTERS[0]],
-                    "data": [],
-                }
+                    medflex_primary_raw["counters"][counter_id] = {"status": "error"}
 
         fetched_at = datetime.now(timezone.utc).isoformat()
         batch_id = "az-metrika-auto-" + fetched_at
@@ -552,6 +618,8 @@ class MetrikaClient:
                 "utm_campaign": _dimension_value(dims[5]),
                 "utm_content": _dimension_value(dims[6]),
                 "utm_term": _dimension_value(dims[7]),
+                "direct_campaign_id": _dimension_id(dims[8]),
+                "direct_campaign_name": _dimension_value(dims[8]),
             }
             row_key = json.dumps([day.isoformat(), index, dims], ensure_ascii=False, sort_keys=True).encode("utf-8")
             row_id = hashlib.sha256(row_key).hexdigest()[:24]
@@ -568,9 +636,13 @@ class MetrikaClient:
                     "traffic_source_id", "traffic_source_name", "source_detail_id", "source_detail",
                     "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
                 )},
-                "direct_campaign_id": None,
-                "direct_campaign_name": None,
-                "campaign_match_status": "unresolved" if dim_payload["traffic_source_id"] == "ad" else "not_applicable",
+                "direct_campaign_id": dim_payload["direct_campaign_id"],
+                "direct_campaign_name": dim_payload["direct_campaign_name"],
+                "campaign_match_status": (
+                    "native_direct_click_order"
+                    if dim_payload["direct_campaign_id"] or dim_payload["direct_campaign_name"]
+                    else ("unresolved" if dim_payload["traffic_source_id"] == "ad" else "not_applicable")
+                ),
                 "visits": int(round(values[0] or 0)),
                 "users_nonadditive": int(round(values[1] or 0)),
                 "pageviews": int(round(values[2] or 0)),
@@ -622,6 +694,7 @@ class MetrikaClient:
             "source_timezone": TIMEZONE,
             "counter_id": COUNTER_ID,
             "extraction_method": "api",
+            "campaign_identity_source": "traffic_direct_click_order",
             "attribution": ATTRIBUTION,
             "robot_filter": ROBOT_FILTER,
             "sample_share": 1.0,
@@ -633,25 +706,37 @@ class MetrikaClient:
             "metrica_traffic_day": traffic_rows,
             "metrica_goal_day": goal_rows,
             "goal_registry": goal_registry,
-            "direct_campaign_day": direct_campaign_rows,
+            "direct_campaign_day": None,
             "daily_summary": {day.isoformat(): summary},
         }
 
-        campaign_metrics = list(metrics)
+        campaign_metrics = ["ym:s:visits"]
+        for goal in goal_registry:
+            campaign_metrics.extend(
+                (
+                    f"ym:s:goal{goal['goal_id']}reaches",
+                    f"ym:s:goal{goal['goal_id']}visits",
+                )
+            )
         report_lines = [
             "campaigns_clean",
             "Метрики: " + ", ".join(campaign_metrics),
         ]
-        totals = list(campaign_raw.get("totals") or [])
-        if len(totals) == len(campaign_metrics):
-            report_lines.append("Итого: [" + ", ".join(str(float(value or 0)) for value in totals) + "]")
-        for api_row in campaign_raw.get("data") or []:
-            dims = list(api_row.get("dimensions") or [])
-            vals = list(api_row.get("metrics") or [])
-            if len(dims) != 1 or len(vals) != len(campaign_metrics):
-                raise MetrikaApiError("Структура разбивки кампаний Метрики изменилась. Импорт остановлен.")
-            name = _dimension_value(dims[0]) or "Не определено"
-            report_lines.append(name + " | " + ", ".join(str(float(value or 0)) for value in vals))
+        campaign_totals = [0 for _ in campaign_metrics]
+        for row in direct_campaign_rows:
+            values = [int(row["visits"])]
+            for goal in row["goals"]:
+                values.extend((int(goal["reaches"]), int(goal["goal_visits"])))
+            for index, value in enumerate(values):
+                campaign_totals[index] += value
+            name = row["campaign_name"] or "Не определено"
+            report_lines.append(
+                name + " | " + ", ".join(str(float(value)) for value in values)
+            )
+        report_lines.insert(
+            2,
+            "Итого: [" + ", ".join(str(float(value)) for value in campaign_totals) + "]",
+        )
         report_text = "\n".join(report_lines) + "\n\n"
 
         if not diagnostics:
@@ -705,7 +790,7 @@ class MetrikaClient:
         readme = (
             f"АЗ — автоматическая выгрузка Яндекс Метрики за {day.isoformat()}\n"
             "Формат az_analytics_export_v1. Основной файл az_analytics.json.\n"
-            "Источник: API Яндекс Метрики, OAuth только с правом чтения.\n"
+            "Источник: API Яндекс Метрики, OAuth с подтверждённым read-доступом.\n"
             "Роботы исключены. Атрибуция: последний значимый переход, кросс-девайс.\n"
             f"Medflex {MEDFLEX_COUNTERS[0]}: {medflex_status[MEDFLEX_COUNTERS[0]]}; "
             f"{MEDFLEX_COUNTERS[1]}: {medflex_status[MEDFLEX_COUNTERS[1]]}.\n"
