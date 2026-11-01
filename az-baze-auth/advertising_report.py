@@ -1548,6 +1548,7 @@ def _revenue_summary(conn, start, end):
         "unclassified_detailed": unclassified_detailed,
         **provider,
         **cash,
+        "actual_received_total": cash["cash_total"],
         "days_with_mis_revenue": len(selected),
     }
 
