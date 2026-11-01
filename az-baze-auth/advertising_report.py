@@ -727,11 +727,14 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     if not yandex_traffic:
         return traffic_rows, goal_rows
 
-    # Native DirectClickOrder evidence in traffic is authoritative.  New
-    # API archives preserve it directly and must never be rebuilt from the
-    # legacy name-only campaigns_clean fallback.  Older ZIPs without native
-    # IDs continue through the historical fallback below.
-    if any(key[4] for key, _values in yandex_traffic):
+    # campaigns_clean carries campaign names but not reliable IDs.  If the
+    # structured traffic already contains an unknown non-empty ID, rebuilding
+    # all Yandex rows from names could erase that factual distinction.  Fail
+    # closed and preserve the structured rows instead.
+    if any(
+        key[4] and key[4] not in YANDEX_CANONICAL_CAMPAIGNS
+        for key, _values in yandex_traffic
+    ):
         return traffic_rows, goal_rows
 
     parent_visits = sum(int(values.get("visits") or 0) for _, values in yandex_traffic)
@@ -950,11 +953,26 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
         target["goal_visits"] += int(row.get("goal_visits") or 0)
         target["reaches"] += int(row.get("reaches") or 0)
 
+    native_direct_evidence = any(
+        (
+            str(row.get("direct_campaign_id") or "").strip()
+            or str(row.get("direct_campaign_name") or "").strip()
+        )
+        and str(row.get("date") or "") in accepted_days
+        and not bool(row.get("is_test_tag"))
+        and _metrika_source(row)[0] == "yandex_ads"
+        for row in traffic
+        if isinstance(row, dict)
+    )
     structured_campaigns = _parse_structured_campaigns(payload)
     campaign_rows = (
-        structured_campaigns
-        if structured_campaigns is not None
-        else _parse_report_campaigns(report_text, payload)
+        []
+        if native_direct_evidence
+        else (
+            structured_campaigns
+            if structured_campaigns is not None
+            else _parse_report_campaigns(report_text, payload)
+        )
     )
     traffic_rows, goal_rows = _apply_yandex_campaign_report(
         traffic_rows, goal_rows, accepted_days, campaign_rows
