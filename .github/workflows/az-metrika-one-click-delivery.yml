@@ -24,7 +24,7 @@ jobs:
           bash -n "$deploy"
           bash -n "$cred"
           test "$(git hash-object "$deploy")" = '444087df832eba9e100c596abff4d1ca96a9c604'
-          test "$(git hash-object "$cred")" = '2ed677dac006815030d84ab3023c8299c9dcc063'
+          test "$(git hash-object "$cred")" = 'b4853899a2b527e7598414c824c2175ff29ce77e'
           python3 - <<'PY'
           import subprocess
           from pathlib import Path
