@@ -77,6 +77,7 @@ function renderRevenue(){
   const patientGap=r.provider_known_without_patient_detail;
   $('#revenueExplanation').innerHTML=
     '<b>«Оплачено» по отчёту МИС за выбранный период: '+money(r.clinic_paid_total)+'.</b> '+
+    'Вся сумма «Оплачено» распределена по врачам/исполнителям. '+
     'Эта сумма используется для аналитики врачей/направлений и не подменяет фактически полученные деньги. '+
     'Построчная детализация до пациента/услуги доступна на '+money(r.detailed_paid_total)+'. '+
     (patientGap!=null&&patientGap>0
