@@ -63,7 +63,7 @@ function renderActivity(){
 
 function renderRevenue(){
   const r=payload?.revenue||{};
-  $('#clinicRevenue').textContent=money(r.clinic_paid_total);
+  $('#clinicRevenue').textContent=money(r.actual_received_total);
 
   const directions=r.direction_paid||{};
   const details=[
@@ -76,7 +76,8 @@ function renderRevenue(){
 
   const patientGap=r.provider_known_without_patient_detail;
   $('#revenueExplanation').innerHTML=
-    '<b>Вся сумма «Оплачено» распределена по врачам/исполнителям.</b> '+
+    '<b>«Оплачено» по отчёту МИС за выбранный период: '+money(r.clinic_paid_total)+'.</b> '+
+    'Эта сумма используется для аналитики врачей/направлений и не подменяет фактически полученные деньги. '+
     'Построчная детализация до пациента/услуги доступна на '+money(r.detailed_paid_total)+'. '+
     (patientGap!=null&&patientGap>0
       ? 'Ещё '+money(patientGap)+' имеют известного врача/направление, но в выгрузке нет строки пациента/услуги для этой части оплаты. '
