@@ -1766,6 +1766,47 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(r["cash_total"],784400)
         finally:c.close()
 
+    def test_actual_received_money_changes_with_selected_day_and_range(self):
+        c=conn()
+        try:
+            c.execute(
+                "CREATE TABLE cash_receipts_daily("
+                "data_date TEXT PRIMARY KEY,payload_json TEXT,source_filename TEXT,"
+                "source_sha256 TEXT,imported_by INTEGER,imported_at TEXT)"
+            )
+            for day,total,ooo,ip in (
+                ("2026-10-27",100000,40000,60000),
+                ("2026-10-28",250000,50000,200000),
+                ("2026-10-29",70000,20000,50000),
+            ):
+                c.execute(
+                    "INSERT INTO cash_receipts_daily VALUES(?,?,?,?,?,?)",
+                    (
+                        day,
+                        json.dumps({
+                            "cashTotal":total,
+                            "cashOOO":ooo,
+                            "cashIP":ip,
+                            "cashUnallocated":0,
+                        }),
+                        "cash.xlsx","sha",1,"t",
+                    ),
+                )
+            c.commit()
+
+            day27=m._revenue_summary(c,date(2026,10,27),date(2026,10,27))
+            day28=m._revenue_summary(c,date(2026,10,28),date(2026,10,28))
+            range2728=m._revenue_summary(c,date(2026,10,27),date(2026,10,28))
+
+            self.assertEqual(day27["actual_received_total"],100000)
+            self.assertEqual(day28["actual_received_total"],250000)
+            self.assertEqual(range2728["actual_received_total"],350000)
+            self.assertEqual(range2728["cash_ooo"],90000)
+            self.assertEqual(range2728["cash_ip"],260000)
+            self.assertNotEqual(day27["actual_received_total"],day28["actual_received_total"])
+        finally:
+            c.close()
+
     def test_selected_period_coverage_matches_source_evidence(self):
         c=conn()
         try:
@@ -1921,6 +1962,11 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("Покрытие выбранного периода", js)
         self.assertIn("coveragePart('Метрика',c.metrika)", js)
         self.assertIn("coveragePart('«Оплачено» MIS',c.misPaid)", js)
+        self.assertIn("$('#clinicRevenue').textContent=money(r.actual_received_total);", js)
+        self.assertNotIn("$('#clinicRevenue').textContent=money(r.clinic_paid_total);", js)
+        self.assertIn("Выручка клиники — фактически получено денег за выбранный период", html)
+        self.assertIn("По фактической дате поступления из кассового источника", html)
+        self.assertIn("«Оплачено» по отчёту МИС за выбранный период", js)
         self.assertIn("['Отделение структуры',directions.structure]", js)
         self.assertNotIn("['Клиника',directions.structure]", js)
         terminology_source=(Path(__file__).parent/"terminology.py").read_text(encoding="utf-8")
