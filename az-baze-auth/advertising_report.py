@@ -461,6 +461,35 @@ def _source_registry(conn, store=None):
     return sorted(registry.values(), key=lambda item: item["source_name"].lower())
 
 
+def _dataset_period_complete(conn, dataset, start, end):
+    try:
+        rows = conn.execute(
+            """
+            SELECT period_start,period_end
+            FROM advertising_report_imports
+            WHERE dataset=? AND period_end>=? AND period_start<=?
+            ORDER BY period_start,period_end
+            """,
+            (dataset, _iso(start), _iso(end)),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return False
+    if not rows:
+        return False
+    cursor = start
+    for row in rows:
+        period_start = max(date.fromisoformat(str(row["period_start"])), start)
+        period_end = min(date.fromisoformat(str(row["period_end"])), end)
+        if period_end < cursor:
+            continue
+        if period_start > cursor:
+            return False
+        cursor = max(cursor, period_end + timedelta(days=1))
+        if cursor > end:
+            return True
+    return cursor > end
+
+
 def _direct_source_values(conn, start, end):
     try:
         rows = conn.execute(
@@ -493,7 +522,8 @@ def _direct_source_values(conn, start, end):
 def _source_economics(conn, start, end, store=None):
     store = store or _load_cost_store(conn)
     budget = _cost_period_summary(store, start, end)
-    direct = _direct_source_values(conn, start, end)
+    direct_complete = _dataset_period_complete(conn, "direct", start, end)
+    direct = _direct_source_values(conn, start, end) if direct_complete else {}
     result = {}
     for meta in _source_registry(conn, store):
         key = meta["source_key"]
@@ -531,6 +561,7 @@ def _source_economics(conn, start, end, store=None):
         "source_spend_total": source_spend_total,
         "cost_per_click": cost_per_click,
         "click_scope_complete": click_scope_complete,
+        "direct_period_complete": direct_complete,
     }
 
 
@@ -574,7 +605,11 @@ def _summary(conn, start, end):
         "contractors_payment": budget.get("contractors_payment"),
         "source_spend_total": economics.get("source_spend_total"),
         "cost_per_click": economics.get("cost_per_click"),
-        "clicks": _nullable_sum(traffic, "clicks"),
+        "clicks": (
+            sum(int(item.get("clicks") or 0) for item in economics["sources"].values() if item.get("clicks") is not None)
+            if economics.get("direct_period_complete") and any(item.get("clicks") is not None for item in economics["sources"].values())
+            else None
+        ),
         "visits": _nullable_sum(traffic, "visits"),
         "target_leads": _nullable_sum(clinic, "target_leads"),
         "leads_with_primary": _nullable_sum(clinic, "leads_with_primary"),
