@@ -329,12 +329,21 @@ def _normalize_cost_store(payload):
             if key not in sources:
                 raise ValueError("unknown advertising source")
             clean_spend[key] = _cost_number(value)
+        advertising_payment = _cost_number(raw.get("advertising_payment"))
+        contractors_payment = _cost_number(raw.get("contractors_payment"))
+        total_spend = _cost_number(raw.get("total_spend"))
+        totals = (advertising_payment, contractors_payment, total_spend)
+        if any(value is not None for value in totals):
+            if any(value is None for value in totals):
+                raise ValueError("advertising totals incomplete")
+            if abs(total_spend - advertising_payment - contractors_payment) > 0.01:
+                raise ValueError("total spend must equal advertising plus contractors")
         periods.append({
             "from": start,
             "to": end,
-            "advertising_payment": _cost_number(raw.get("advertising_payment")),
-            "contractors_payment": _cost_number(raw.get("contractors_payment")),
-            "total_spend": _cost_number(raw.get("total_spend")),
+            "advertising_payment": advertising_payment,
+            "contractors_payment": contractors_payment,
+            "total_spend": total_spend,
             "source_spend": clean_spend,
         })
 
@@ -510,12 +519,34 @@ def _direct_source_values(conn, start, end):
         )
         target = values.setdefault(
             key,
-            {"source_name": name, "channel_name": channel, "spend": None, "clicks": None},
+            {
+                "source_name": name,
+                "channel_name": channel,
+                "spend": 0.0,
+                "clicks": 0,
+                "spend_complete": True,
+                "clicks_complete": True,
+                "rows": 0,
+            },
         )
-        if row["spend"] is not None:
-            target["spend"] = (target["spend"] or 0) + float(row["spend"])
-        if row["clicks"] is not None:
-            target["clicks"] = (target["clicks"] or 0) + int(row["clicks"])
+        target["rows"] += 1
+        if row["spend"] is None:
+            target["spend_complete"] = False
+        else:
+            target["spend"] += float(row["spend"])
+        if row["clicks"] is None:
+            target["clicks_complete"] = False
+        else:
+            target["clicks"] += int(row["clicks"])
+    for target in values.values():
+        if not target["rows"] or not target["spend_complete"]:
+            target["spend"] = None
+        else:
+            target["spend"] = round(float(target["spend"]), 2)
+        if not target["rows"] or not target["clicks_complete"]:
+            target["clicks"] = None
+        else:
+            target["clicks"] = int(target["clicks"])
     return values
 
 
@@ -542,8 +573,16 @@ def _source_economics(conn, start, end, store=None):
 
     source_values = [item["spend"] for item in result.values() if item["spend"] is not None]
     source_spend_total = round(sum(source_values), 2) if source_values else None
-    paid_sources = [item for item in result.values() if (item["spend"] or 0) > 0]
-    click_scope_complete = bool(paid_sources) and all(item.get("clicks") is not None for item in paid_sources)
+    cpc_scope = [
+        item for item in result.values()
+        if item.get("channel_name") == "Платная реклама"
+        or item.get("spend") is not None
+        or item.get("clicks") is not None
+    ]
+    click_scope_complete = bool(cpc_scope) and all(
+        item.get("spend") is not None and item.get("clicks") is not None
+        for item in cpc_scope
+    )
     advertising_payment = budget.get("advertising_payment")
     if (
         click_scope_complete
@@ -551,7 +590,7 @@ def _source_economics(conn, start, end, store=None):
         and source_spend_total is not None
         and abs(source_spend_total - advertising_payment) <= 0.01
     ):
-        clicks = sum(int(item.get("clicks") or 0) for item in paid_sources)
+        clicks = sum(int(item.get("clicks") or 0) for item in cpc_scope)
         cost_per_click = advertising_payment / clicks if clicks else None
     else:
         cost_per_click = None
@@ -662,21 +701,23 @@ def _metric_daily(conn, start, end, metric):
             (start_s, end_s),
         ).fetchall()
         return {str(row["day"]): row["value"] for row in rows}
-    if metric in {"target_leads", "primary_visits", "primary_paid"}:
+    if metric == "target_leads":
         rows = conn.execute(
-            f"SELECT metric_date AS day,SUM({metric}) AS value FROM advertising_clinic_daily "
-            f"WHERE metric_date BETWEEN ? AND ? AND {metric} IS NOT NULL GROUP BY metric_date ORDER BY metric_date",
+            "SELECT metric_date AS day,SUM(target_leads) AS value FROM advertising_clinic_daily "
+            "WHERE metric_date BETWEEN ? AND ? AND target_leads IS NOT NULL GROUP BY metric_date ORDER BY metric_date",
             (start_s, end_s),
         ).fetchall()
         return {str(row["day"]): row["value"] for row in rows}
-    if metric == "total_paid":
-        rows = conn.execute(
-            "SELECT metric_date AS day,SUM(COALESCE(primary_paid,0)+COALESCE(repeat_paid,0)) AS value "
-            "FROM advertising_clinic_daily WHERE metric_date BETWEEN ? AND ? "
-            "AND (primary_paid IS NOT NULL OR repeat_paid IS NOT NULL) GROUP BY metric_date ORDER BY metric_date",
-            (start_s, end_s),
-        ).fetchall()
-        return {str(row["day"]): row["value"] for row in rows}
+    if metric in {"primary_visits", "primary_paid", "total_paid"}:
+        result = {}
+        cursor = start
+        while cursor <= end:
+            day_summary = _summary(conn, cursor, cursor)
+            value = day_summary.get(metric)
+            if value is not None:
+                result[_iso(cursor)] = value
+            cursor += timedelta(days=1)
+        return result
     if metric == "actual_received_total":
         try:
             rows = conn.execute(
@@ -2359,6 +2400,26 @@ def register_advertising_report(app):
             period["total_spend"] = _cost_number(request.form.get("total_spend"))
         except ValueError:
             return jsonify(status="error", message="Расходы должны быть неотрицательными числами."), 400
+        totals = (
+            period["advertising_payment"],
+            period["contractors_payment"],
+            period["total_spend"],
+        )
+        if any(value is not None for value in totals):
+            if any(value is None for value in totals):
+                return jsonify(
+                    status="error",
+                    message="Заполните «Оплата рекламы», «Подрядчики» и «Всего расходов на рекламу».",
+                ), 400
+            expected_total = round(
+                period["advertising_payment"] + period["contractors_payment"],
+                2,
+            )
+            if abs(period["total_spend"] - expected_total) > 0.01:
+                return jsonify(
+                    status="error",
+                    message="«Всего расходов на рекламу» должно равняться оплате рекламы плюс подрядчики.",
+                ), 400
 
         store["periods"] = [
             item for item in store.get("periods", [])
