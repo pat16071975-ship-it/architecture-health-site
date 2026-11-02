@@ -575,7 +575,8 @@ def _source_economics(conn, start, end, store=None):
     source_spend_total = round(sum(source_values), 2) if source_values else None
     cpc_scope = [
         item for item in result.values()
-        if item.get("channel_name") == "Платная реклама"
+        if item.get("manual")
+        or item.get("channel_name") == "Платная реклама"
         or item.get("spend") is not None
         or item.get("clicks") is not None
     ]
