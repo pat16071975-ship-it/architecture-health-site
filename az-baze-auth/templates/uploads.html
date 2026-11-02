@@ -2,7 +2,7 @@
 {% block content %}
 <style>
 .paid-period-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.paid-period-fields label{display:grid;gap:5px;font-size:11px;font-weight:600}.paid-period-fields input{width:100%;min-width:0;box-sizing:border-box;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 12px Montserrat,Arial,sans-serif}
-.upload-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.upload-title{margin:0;font-size:24px;font-weight:500}.upload-head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.upload-home{white-space:nowrap;min-width:124px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.next-upload{margin:12px 0 16px;padding:16px 18px;border:2px solid #b59662;background:#fff8e8;border-radius:11px;font-size:22px;line-height:1.3;font-weight:700;color:#5d4930}.next-upload strong{font-size:28px}.status-line{margin:10px 0 18px;padding:10px 12px;border-left:3px solid #b59662;background:#fffaf0;border-radius:8px;font-size:12px}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload-box{border:1px solid #ded5c8;border-radius:11px;background:#fff;padding:14px}.upload-box h3{margin:0 0 5px;font-size:14px}.upload-box p{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}.upload-box input[type=file]{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}.lock{padding:10px;border-radius:8px;background:#f2eee7;color:#7c756d;font-size:11px}.result{margin:14px 0 0;padding:11px 13px;border-radius:9px;font-size:12px;line-height:1.5}.result.ok{background:#e5eee7;color:#315a40}.result.error{background:#f7e8e6;color:#8a403b}.hint{margin-top:10px;color:#72786f;font-size:10.5px;line-height:1.5}.journal-title{margin:0 0 10px;font-size:18px;font-weight:500}.state-imported,.state-replaced{color:#315a40}.state-duplicate{color:#7a684c}.state-denied_replace{color:#9a4b48}.cash-upload-box{margin-top:12px;border-top:3px solid #44634f}.paid-upload-box{margin-top:12px;border-top:3px solid #b59662}.cash-upload-box .cash-rule{margin-top:8px;padding:8px 10px;border-radius:8px;background:#f1f6f2;color:#4b5b50;font-size:10.5px;line-height:1.45}.provider-pending{margin:12px 0;padding:12px 14px;border:1px solid #dfb7b1;border-left:4px solid #9a4b48;border-radius:9px;background:#fff4f2;color:#743b37;font-size:11px;line-height:1.5}.provider-pending strong{display:block;margin-bottom:4px}.reconcile-overlay{position:fixed;inset:0;z-index:1600;display:grid;place-items:center;padding:18px;background:rgba(38,45,40,.42);backdrop-filter:blur(3px)}.reconcile-dialog{width:min(760px,96vw);max-height:92vh;overflow:auto;border:1px solid #d8cdbb;border-radius:16px;background:#fffdf8;box-shadow:0 24px 80px rgba(37,42,39,.28)}.reconcile-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid #e3dacd;background:#faf6ef}.reconcile-head h2{margin:0;font-size:21px;font-weight:600}.reconcile-head-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}.reconcile-close-text{display:none}.reconcile-close{display:inline-grid;place-items:center;flex:0 0 auto;width:36px;height:36px;margin:-6px -6px -6px 0;border:0;border-radius:8px;background:transparent;color:#687067;font:400 28px/1 Arial,sans-serif;cursor:pointer;touch-action:manipulation}.reconcile-close:hover{background:#f0ebe3;color:#354039}.reconcile-close:focus-visible{outline:2px solid #44634f;outline-offset:2px}.reconcile-body{padding:16px 18px}.reconcile-summary{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:8px;margin:12px 0}.reconcile-stat{padding:10px;border:1px solid #e1d7c9;border-radius:9px;background:#fff}.reconcile-stat span{display:block;font-size:9px;color:#747a73}.reconcile-stat strong{display:block;margin-top:4px;font-size:17px}.reconcile-warning{padding:10px 12px;border-left:4px solid #b59662;border-radius:8px;background:#fff7e8;color:#5f4c31;font-size:11px;line-height:1.45}.provider-map{display:grid;gap:8px;margin-top:12px}.provider-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(190px,240px);gap:10px;align-items:center;padding:9px 10px;border:1px solid #e2d9ca;border-radius:9px;background:#fff}.provider-row strong{font-size:11px}.provider-row select{width:100%;padding:8px;border:1px solid #d2c6b5;border-radius:8px;background:#fff;font:600 11px Montserrat}.visit-direction-wrap{margin-top:12px;overflow:auto;border:1px solid #dfd4c4;border-radius:10px;background:#fff}.visit-direction-table{width:100%;min-width:720px;border-collapse:collapse;font-size:10.5px}.visit-direction-table th,.visit-direction-table td{padding:9px 10px;border-bottom:1px solid #eee6da;text-align:left;vertical-align:top}.visit-direction-table th{background:#faf6ef;color:#5d655e;font-size:9.5px;text-transform:uppercase;letter-spacing:.02em}.visit-direction-table tr:last-child td{border-bottom:0}.visit-direction-patient{font-weight:700;color:#354039}.visit-direction-hint{color:#6f766f;line-height:1.4}.visit-direction-table select{width:100%;min-width:170px;padding:8px;border:1px solid #d2c6b5;border-radius:8px;background:#fff;font:600 10.5px Montserrat}.reconcile-foot{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding:13px 18px;border-top:1px solid #e3dacd;background:#faf7f1}.reconcile-foot .btn.danger{background:#9a4b48;border-color:#9a4b48;color:#fff}.hidden{display:none!important}
+.upload-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px}.upload-title{margin:0;font-size:24px;font-weight:500}.upload-head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.upload-home{white-space:nowrap;min-width:124px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}.next-upload{margin:12px 0 16px;padding:16px 18px;border:2px solid #b59662;background:#fff8e8;border-radius:11px;font-size:22px;line-height:1.3;font-weight:700;color:#5d4930}.next-upload strong{font-size:28px}.status-line{margin:10px 0 18px;padding:10px 12px;border-left:3px solid #b59662;background:#fffaf0;border-radius:8px;font-size:12px}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.upload-box{border:1px solid #ded5c8;border-radius:11px;background:#fff;padding:14px}.upload-box h3{margin:0 0 5px;font-size:14px}.upload-box p{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}.upload-box input[type=file]{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}.lock{padding:10px;border-radius:8px;background:#f2eee7;color:#7c756d;font-size:11px}.result{margin:14px 0 0;padding:11px 13px;border-radius:9px;font-size:12px;line-height:1.5}.result.ok{background:#e5eee7;color:#315a40}.result.error{background:#f7e8e6;color:#8a403b}.hint{margin-top:10px;color:#72786f;font-size:10.5px;line-height:1.5}.journal-title{margin:0 0 10px;font-size:18px;font-weight:500}.state-imported,.state-replaced{color:#315a40}.state-duplicate{color:#7a684c}.state-denied_replace{color:#9a4b48}.cash-upload-box{margin-top:12px;border-top:3px solid #44634f}.paid-upload-box{margin-top:12px;border-top:3px solid #b59662}.advertising-costs-box{border-top:3px solid #44634f}.ad-cost-period,.ad-cost-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}.ad-cost-period{grid-template-columns:repeat(2,minmax(0,1fr))}.ad-cost-field{display:grid;gap:4px}.ad-cost-field label{font-size:10px;font-weight:600;color:#5f675f}.ad-cost-field input{width:100%;box-sizing:border-box;padding:8px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}.ad-cost-source-head,.ad-cost-source-row{display:grid;grid-template-columns:minmax(150px,1fr) 140px 34px;gap:7px;align-items:center}.ad-cost-source-head{margin-top:12px;padding:0 2px;font-size:9px;font-weight:700;color:#747a73}.ad-cost-source-row{margin-top:6px}.ad-cost-source-row input{width:100%;box-sizing:border-box;padding:8px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}.ad-cost-source-row .source-name{font-size:11px;font-weight:600;color:#354039}.ad-cost-source-row .source-meta{display:block;margin-top:2px;font-size:9px;color:#858a84}.ad-cost-remove{width:34px;height:34px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;cursor:pointer}.ad-cost-control{margin-top:10px;padding:8px 10px;border-radius:8px;background:#f6f1e8;font-size:10px;line-height:1.45;color:#646b64}.cash-upload-box .cash-rule{margin-top:8px;padding:8px 10px;border-radius:8px;background:#f1f6f2;color:#4b5b50;font-size:10.5px;line-height:1.45}.provider-pending{margin:12px 0;padding:12px 14px;border:1px solid #dfb7b1;border-left:4px solid #9a4b48;border-radius:9px;background:#fff4f2;color:#743b37;font-size:11px;line-height:1.5}.provider-pending strong{display:block;margin-bottom:4px}.reconcile-overlay{position:fixed;inset:0;z-index:1600;display:grid;place-items:center;padding:18px;background:rgba(38,45,40,.42);backdrop-filter:blur(3px)}.reconcile-dialog{width:min(760px,96vw);max-height:92vh;overflow:auto;border:1px solid #d8cdbb;border-radius:16px;background:#fffdf8;box-shadow:0 24px 80px rgba(37,42,39,.28)}.reconcile-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid #e3dacd;background:#faf6ef}.reconcile-head h2{margin:0;font-size:21px;font-weight:600}.reconcile-head-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}.reconcile-close-text{display:none}.reconcile-close{display:inline-grid;place-items:center;flex:0 0 auto;width:36px;height:36px;margin:-6px -6px -6px 0;border:0;border-radius:8px;background:transparent;color:#687067;font:400 28px/1 Arial,sans-serif;cursor:pointer;touch-action:manipulation}.reconcile-close:hover{background:#f0ebe3;color:#354039}.reconcile-close:focus-visible{outline:2px solid #44634f;outline-offset:2px}.reconcile-body{padding:16px 18px}.reconcile-summary{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:8px;margin:12px 0}.reconcile-stat{padding:10px;border:1px solid #e1d7c9;border-radius:9px;background:#fff}.reconcile-stat span{display:block;font-size:9px;color:#747a73}.reconcile-stat strong{display:block;margin-top:4px;font-size:17px}.reconcile-warning{padding:10px 12px;border-left:4px solid #b59662;border-radius:8px;background:#fff7e8;color:#5f4c31;font-size:11px;line-height:1.45}.provider-map{display:grid;gap:8px;margin-top:12px}.provider-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(190px,240px);gap:10px;align-items:center;padding:9px 10px;border:1px solid #e2d9ca;border-radius:9px;background:#fff}.provider-row strong{font-size:11px}.provider-row select{width:100%;padding:8px;border:1px solid #d2c6b5;border-radius:8px;background:#fff;font:600 11px Montserrat}.visit-direction-wrap{margin-top:12px;overflow:auto;border:1px solid #dfd4c4;border-radius:10px;background:#fff}.visit-direction-table{width:100%;min-width:720px;border-collapse:collapse;font-size:10.5px}.visit-direction-table th,.visit-direction-table td{padding:9px 10px;border-bottom:1px solid #eee6da;text-align:left;vertical-align:top}.visit-direction-table th{background:#faf6ef;color:#5d655e;font-size:9.5px;text-transform:uppercase;letter-spacing:.02em}.visit-direction-table tr:last-child td{border-bottom:0}.visit-direction-patient{font-weight:700;color:#354039}.visit-direction-hint{color:#6f766f;line-height:1.4}.visit-direction-table select{width:100%;min-width:170px;padding:8px;border:1px solid #d2c6b5;border-radius:8px;background:#fff;font:600 10.5px Montserrat}.reconcile-foot{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding:13px 18px;border-top:1px solid #e3dacd;background:#faf7f1}.reconcile-foot .btn.danger{background:#9a4b48;border-color:#9a4b48;color:#fff}.hidden{display:none!important}
 .plan-overlay{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:18px;background:rgba(38,45,40,.38);backdrop-filter:blur(3px)}.plan-dialog{width:min(720px,96vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid #d8cdbb;border-radius:16px;background:#fffdf8;box-shadow:0 24px 80px rgba(37,42,39,.26)}.plan-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:15px 17px;border-bottom:1px solid #e3dacd;background:#faf6ef}.plan-head h2{margin:0;font-size:21px;font-weight:500}.plan-head .muted{margin-top:4px}.plan-close{border:0;background:transparent;color:#687067;font-size:24px;line-height:1;cursor:pointer;padding:2px 6px}.plan-body{overflow:auto;padding:15px 17px}.plan-year{display:grid;grid-template-columns:140px 1fr;gap:12px;align-items:end;margin-bottom:14px}.plan-field{display:grid;gap:5px}.plan-field label{font-size:10.5px;font-weight:700;color:#5f675f}.plan-field input,.plan-field select{width:100%;min-width:0;padding:9px 10px;border:1px solid #d8cdbb;border-radius:8px;background:#fff;color:#2d342f;font:600 12px Montserrat,Arial,sans-serif}.plan-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:9px}.plan-note{padding:10px 12px;border-left:3px solid #44634f;border-radius:8px;background:#f1f6f2;color:#4b5b50;font-size:11px;line-height:1.45}.plan-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 17px;border-top:1px solid #e3dacd;background:#faf7f1}.plan-status{min-height:16px;font-size:10.5px}.plan-status.ok{color:#315a40}.plan-status.error{color:#9a4b48}.plan-actions{display:flex;gap:8px}.hidden{display:none!important}
 @media(max-width:700px){.upload-grid{grid-template-columns:1fr}.upload-head{flex-direction:column}.upload-head-actions{width:100%}.next-upload{font-size:18px}.next-upload strong{font-size:22px}.reconcile-overlay{padding:0;place-items:stretch}.reconcile-dialog{width:100vw;max-width:none;height:100dvh;max-height:100dvh;display:flex;flex-direction:column;overflow:hidden;border:0;border-radius:0;box-shadow:none}.reconcile-head{position:sticky;top:0;z-index:3;align-items:center;flex:0 0 auto;padding:12px 14px}.reconcile-head h2{font-size:18px;line-height:1.25}.reconcile-head-actions{gap:4px}.reconcile-close-text{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 12px;border:1px solid #cfc4b4;border-radius:8px;background:#fffdf8;color:#354039;font:600 12px Montserrat,Arial,sans-serif;cursor:pointer;touch-action:manipulation}.reconcile-close{width:44px;height:44px;margin:0;font-size:30px}.reconcile-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding:12px 14px}.reconcile-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.reconcile-foot{position:sticky;bottom:0;z-index:3;flex:0 0 auto;padding:10px 14px}.plan-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.plan-dialog{width:100vw;max-height:100vh;height:100vh;border-radius:0}.plan-overlay{padding:0}.plan-foot{align-items:stretch;flex-direction:column}.plan-actions .btn{flex:1}}
 </style>
@@ -136,6 +136,31 @@
       </details>
     {% else %}<div class="lock">Нет права на загрузку Метрики.</div>{% endif %}
     <div id="metrikaClientResult" class="result hidden"></div>
+  </form>
+
+  <form class="upload-box advertising-costs-box" id="advertisingCostsForm">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <h3>6. Расходы на рекламу</h3>
+    <p>Ручной ввод расходов за конкретный период. Источники из Метрики подставляются автоматически; дополнительный источник можно добавить вручную.</p>
+    {% if 'upload_services' in perms %}
+      <div class="ad-cost-period">
+        <div class="ad-cost-field"><label for="adCostFrom">Период с</label><input id="adCostFrom" name="from" type="date"></div>
+        <div class="ad-cost-field"><label for="adCostTo">По</label><input id="adCostTo" name="to" type="date"></div>
+      </div>
+      <div class="ad-cost-totals">
+        <div class="ad-cost-field"><label for="adCostAdvertising">Оплата рекламы</label><input id="adCostAdvertising" inputmode="decimal" placeholder="₽"></div>
+        <div class="ad-cost-field"><label for="adCostContractors">Подрядчики</label><input id="adCostContractors" inputmode="decimal" placeholder="₽"></div>
+        <div class="ad-cost-field"><label for="adCostTotal">Всего расходов на рекламу</label><input id="adCostTotal" inputmode="decimal" placeholder="₽"></div>
+      </div>
+      <div class="ad-cost-source-head"><span>Источник</span><span>Расход</span><span></span></div>
+      <div id="adCostSources"></div>
+      <div class="ad-cost-control" id="adCostControl">Пустая сумма означает «расход не указан», а не 0 ₽. Подрядчики по источникам автоматически не распределяются.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn" type="button" id="adCostAddSource">Добавить источник</button>
+        <button class="btn primary" type="submit">Сохранить расходы</button>
+      </div>
+    {% else %}<div class="lock">Нет права на ввод рекламных расходов.</div>{% endif %}
+    <div id="adCostResult" class="result hidden"></div>
   </form>
 </div>
 
@@ -298,6 +323,109 @@
 })();
 </script>
 {% endif %}
+
+<script>
+(()=>{
+  const form=document.getElementById('advertisingCostsForm');
+  if(!form)return;
+  const from=document.getElementById('adCostFrom');
+  const to=document.getElementById('adCostTo');
+  const advertising=document.getElementById('adCostAdvertising');
+  const contractors=document.getElementById('adCostContractors');
+  const total=document.getElementById('adCostTotal');
+  const sourcesBox=document.getElementById('adCostSources');
+  const addBtn=document.getElementById('adCostAddSource');
+  const result=document.getElementById('adCostResult');
+  const control=document.getElementById('adCostControl');
+  let sources=[];
+
+  const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  function numberValue(raw){
+    const text=String(raw??'').trim().replace(/\u00a0/g,'').replace(/\s+/g,'').replace(',','.');
+    if(!text)return null;
+    const value=Number(text);
+    return Number.isFinite(value)&&value>=0?value:null;
+  }
+  function render(){
+    sourcesBox.innerHTML=sources.map((item,index)=>
+      '<div class="ad-cost-source-row" data-index="'+index+'>'+
+        '<div><span class="source-name">'+esc(item.source_name||'Новый источник')+'</span>'+
+        '<span class="source-meta">'+esc(item.channel_name||'Другие источники')+(item.manual?' · вручную':' · Метрика')+'</span></div>'+
+        '<input inputmode="decimal" data-ad-spend value="'+esc(item.spend??'')+'" placeholder="₽">'+
+        (item.manual?'<button type="button" class="ad-cost-remove" data-remove aria-label="Удалить">×</button>':'<span></span>')+
+      '</div>'
+    ).join('');
+    updateControl();
+  }
+  function updateControl(){
+    const sourceSum=[...sourcesBox.querySelectorAll('[data-ad-spend]')]
+      .map(input=>numberValue(input.value))
+      .filter(value=>value!==null)
+      .reduce((a,b)=>a+b,0);
+    const ads=numberValue(advertising.value),vendor=numberValue(contractors.value),all=numberValue(total.value);
+    const parts=[];
+    if(ads!==null)parts.push('По источникам указано '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(sourceSum)+' ₽; «Оплата рекламы» '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(ads)+' ₽; разница '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(ads-sourceSum)+' ₽.');
+    if(ads!==null&&vendor!==null&&all!==null)parts.push('Реклама + подрядчики = '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(ads+vendor)+' ₽; введено «Всего» '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(all)+' ₽.');
+    control.textContent=parts.join(' ')||'Пустая сумма означает «расход не указан», а не 0 ₽. Подрядчики по источникам автоматически не распределяются.';
+  }
+  async function load(){
+    const q=new URLSearchParams();
+    if(from.value&&to.value){q.set('from',from.value);q.set('to',to.value)}
+    const response=await fetch('/api/reports/advertising/costs'+(q.toString()?'?'+q:''),{credentials:'same-origin',cache:'no-store'});
+    const payload=await response.json();
+    if(!response.ok)throw new Error(payload.message||'Не удалось загрузить расходы.');
+    from.value=payload.period.from;to.value=payload.period.to;
+    advertising.value=payload.values?.advertising_payment??'';
+    contractors.value=payload.values?.contractors_payment??'';
+    total.value=payload.values?.total_spend??'';
+    sources=(payload.sources||[]).map(item=>({...item}));
+    render();
+  }
+  addBtn?.addEventListener('click',()=>{
+    const name=prompt('Название источника');
+    if(!name||!name.trim())return;
+    sources.push({source_key:'',source_name:name.trim(),channel_name:'Другие источники',manual:true,spend:null});
+    render();
+  });
+  sourcesBox.addEventListener('click',event=>{
+    const button=event.target.closest('[data-remove]');
+    if(!button)return;
+    const row=button.closest('[data-index]');
+    if(!row)return;
+    sources.splice(Number(row.dataset.index),1);render();
+  });
+  sourcesBox.addEventListener('input',updateControl);
+  [advertising,contractors,total].forEach(input=>input?.addEventListener('input',updateControl));
+  [from,to].forEach(input=>input?.addEventListener('change',()=>{if(from.value&&to.value&&from.value<=to.value)load().catch(showError)}));
+  function showError(error){
+    result.textContent=error?.message||String(error||'Ошибка');
+    result.className='result error';
+  }
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    try{
+      const rows=[...sourcesBox.querySelectorAll('[data-index]')].map(row=>{
+        const index=Number(row.dataset.index),item=sources[index],input=row.querySelector('[data-ad-spend]');
+        return {...item,spend:numberValue(input?.value)};
+      });
+      const data=new FormData();
+      data.set('csrf',form.querySelector('[name=csrf]')?.value||'');
+      data.set('from',from.value);data.set('to',to.value);
+      data.set('advertising_payment',advertising.value);
+      data.set('contractors_payment',contractors.value);
+      data.set('total_spend',total.value);
+      data.set('sources_json',JSON.stringify(rows));
+      const response=await fetch('/api/reports/advertising/costs',{method:'POST',body:data,credentials:'same-origin'});
+      const payload=await response.json();
+      if(!response.ok)throw new Error(payload.message||'Не удалось сохранить расходы.');
+      result.textContent=payload.message||'Расходы сохранены.';
+      result.className='result ok';
+      await load();
+    }catch(error){showError(error)}
+  });
+  load().catch(showError);
+})();
+</script>
 
 <script>
 (()=>{
