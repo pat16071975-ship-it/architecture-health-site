@@ -45,6 +45,18 @@ CREATE INDEX IF NOT EXISTS idx_ad_mis_paid_lines_service_date
     ON advertising_mis_paid_lines(service_date);
 CREATE INDEX IF NOT EXISTS idx_ad_mis_paid_lines_patient
     ON advertising_mis_paid_lines(patient_token, service_date);
+CREATE TABLE IF NOT EXISTS advertising_mis_paid_patients (
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    patient_token TEXT NOT NULL,
+    staff TEXT NOT NULL,
+    paid_total REAL NOT NULL,
+    source_sha256 TEXT NOT NULL,
+    imported_at TEXT NOT NULL,
+    PRIMARY KEY(period_start, period_end, patient_token, staff)
+);
+CREATE INDEX IF NOT EXISTS idx_ad_mis_paid_patients_period
+    ON advertising_mis_paid_patients(period_start, period_end);
 CREATE TABLE IF NOT EXISTS advertising_clinic_daily (
     provider TEXT NOT NULL,
     metric_date TEXT NOT NULL,
@@ -167,9 +179,24 @@ def capture_paid_report(conn, report, source_filename, source_sha256, imported_a
     rows = _aggregate_report_lines(report)
     detailed_paid = round(sum(row["paid_amount"] for row in rows.values()), 2)
     paid_total = round(_num((report.get("totals") or {}).get("paid")), 2)
+    patient_totals = {}
+    for item in report.get("patients") or []:
+        token = str(item.get("patient_token") or "").strip()
+        staff = str(item.get("staff") or "").strip()
+        if not token or not staff:
+            continue
+        key = (token, staff)
+        patient_totals[key] = round(
+            patient_totals.get(key, 0.0) + _num(item.get("paid")),
+            2,
+        )
 
     conn.execute(
         "DELETE FROM advertising_mis_paid_lines WHERE period_start=? AND period_end=?",
+        (period_start, period_end),
+    )
+    conn.execute(
+        "DELETE FROM advertising_mis_paid_patients WHERE period_start=? AND period_end=?",
         (period_start, period_end),
     )
     conn.execute(
@@ -225,11 +252,30 @@ def capture_paid_report(conn, report, source_filename, source_sha256, imported_a
                 imported_at,
             ),
         )
+    for (token, staff), patient_paid in patient_totals.items():
+        conn.execute(
+            """
+            INSERT INTO advertising_mis_paid_patients(
+                period_start,period_end,patient_token,staff,paid_total,
+                source_sha256,imported_at
+            ) VALUES(?,?,?,?,?,?,?)
+            """,
+            (
+                period_start,
+                period_end,
+                token,
+                staff,
+                patient_paid,
+                source_sha256 or "",
+                imported_at,
+            ),
+        )
     return {
         "captured": True,
         "period_start": period_start,
         "period_end": period_end,
         "lines": len(rows),
+        "patients": len(patient_totals),
         "paid_total": paid_total,
         "detailed_paid_total": detailed_paid,
         "unmapped_paid": round(paid_total - detailed_paid, 2),
@@ -262,6 +308,21 @@ def _snapshot_lines(conn, period_start, period_end):
     return {str(row["line_key"]): dict(row) for row in rows}
 
 
+def _snapshot_patients(conn, period_start, period_end):
+    rows = conn.execute(
+        """
+        SELECT patient_token,staff,paid_total
+        FROM advertising_mis_paid_patients
+        WHERE period_start=? AND period_end=?
+        """,
+        (period_start, period_end),
+    ).fetchall()
+    return {
+        (str(row["patient_token"]), str(row["staff"])): float(row["paid_total"] or 0)
+        for row in rows
+    }
+
+
 def _payment_candidates(conn):
     groups = defaultdict(list)
     for row in _fetch_ingests(conn):
@@ -269,24 +330,33 @@ def _payment_candidates(conn):
 
     # Evidence is merged per payment date and per source line. A same-day report
     # is stronger evidence for a line than a cumulative delta, but it must not
-    # hide cumulative deltas for other lines (for example a later payment on a
-    # service delivered on an earlier day).
+    # hide cumulative deltas for other lines. Patient-level totals are processed
+    # in parallel so payments against opening debt are preserved instead of
+    # disappearing into provider-only residuals.
     evidence = defaultdict(dict)
+    patient_evidence = defaultdict(dict)
 
     for period_start, ends in groups.items():
         ends = sorted(set(ends))
         previous = {}
+        previous_patients = {}
         previous_end = None
         for period_end in ends:
             current = _snapshot_lines(conn, period_start, period_end)
+            current_patients = _snapshot_patients(conn, period_start, period_end)
             event_date = period_end
             selected = None
+            selected_patients = None
             rank = None
 
             if period_start == period_end:
                 selected = {
                     key: max(0.0, round(_num(row.get("paid_amount")), 2))
                     for key, row in current.items()
+                }
+                selected_patients = {
+                    key: max(0.0, round(value, 2))
+                    for key, value in current_patients.items()
                 }
                 rank = 2
             elif previous_end:
@@ -303,13 +373,30 @@ def _payment_candidates(conn):
                         )
                         for key, row in current.items()
                     }
+                    patient_keys = set(previous_patients) | set(current_patients)
+                    selected_patients = {
+                        key: max(
+                            0.0,
+                            round(
+                                _num(current_patients.get(key))
+                                - _num(previous_patients.get(key)),
+                                2,
+                            ),
+                        )
+                        for key in patient_keys
+                    }
                     rank = 1
 
             if selected is not None and event_date >= TRACKING_START:
+                line_paid_by_patient = defaultdict(float)
                 for key, amount in selected.items():
                     row = current.get(key)
                     if row is None:
                         continue
+                    token = str(row.get("patient_token") or "")
+                    staff = str(row.get("staff") or "")
+                    if token and staff and amount > 0:
+                        line_paid_by_patient[(token, staff)] += amount
                     existing = evidence[event_date].get(key)
                     candidate_rank = (rank, -date.fromisoformat(period_start).toordinal())
                     if existing is not None and candidate_rank <= existing["rank"]:
@@ -318,24 +405,57 @@ def _payment_candidates(conn):
                         "rank": candidate_rank,
                         "event": {
                             "line_key": key,
-                            "patient_token": str(row.get("patient_token") or ""),
-                            "staff": str(row.get("staff") or ""),
+                            "patient_token": token,
+                            "staff": staff,
                             "invoice": str(row.get("invoice") or ""),
                             "service_date": str(row.get("service_date") or ""),
+                            "period_start": period_start,
                             "paid_delta": amount,
+                            "opening_debt": False,
+                        },
+                    }
+
+                for patient_key, patient_delta in (selected_patients or {}).items():
+                    token, staff = patient_key
+                    residual = round(
+                        max(0.0, patient_delta - line_paid_by_patient.get(patient_key, 0.0)),
+                        2,
+                    )
+                    if residual <= 0:
+                        continue
+                    evidence_key = "opening:" + token + ":" + staff
+                    existing = patient_evidence[event_date].get(evidence_key)
+                    candidate_rank = (rank, -date.fromisoformat(period_start).toordinal())
+                    if existing is not None and candidate_rank <= existing["rank"]:
+                        continue
+                    patient_evidence[event_date][evidence_key] = {
+                        "rank": candidate_rank,
+                        "event": {
+                            "line_key": "",
+                            "patient_token": token,
+                            "staff": staff,
+                            "invoice": "",
+                            "service_date": "",
+                            "period_start": period_start,
+                            "paid_delta": residual,
+                            "opening_debt": True,
                         },
                     }
 
             previous = current
+            previous_patients = current_patients
             previous_end = period_end
 
     result = {}
-    for event_date, by_line in evidence.items():
+    for event_date in sorted(set(evidence) | set(patient_evidence)):
         result[event_date] = {
-            "events": [item["event"] for item in by_line.values()],
+            "events": [
+                item["event"] for item in evidence.get(event_date, {}).values()
+            ] + [
+                item["event"] for item in patient_evidence.get(event_date, {}).values()
+            ],
         }
     return result
-
 
 def _latest_line_facts(conn):
     rows = conn.execute(
@@ -353,6 +473,167 @@ def _latest_line_facts(conn):
     for row in rows:
         latest[str(row["line_key"])] = dict(row)
     return latest
+
+
+def _provider_direction(conn, staff):
+    if not staff:
+        return ""
+    try:
+        row = conn.execute(
+            "SELECT direction FROM provider_registry WHERE source_name=?",
+            (staff,),
+        ).fetchone()
+    except Exception:
+        return ""
+    return str(row["direction"] or "") if row else ""
+
+
+def _line_scope(conn, row):
+    if not isinstance(row, dict):
+        return "clinical"
+    text = (
+        str(row.get("group_name") or "") + " " + str(row.get("service_name") or "")
+    ).lower()
+    if "сопутствующ" in text and "товар" in text:
+        return "sales"
+    if _provider_direction(conn, str(row.get("staff") or "")) == "lab":
+        return "lab"
+    if "зтл" in text or "зуботех" in text:
+        return "lab"
+    return "clinical"
+
+
+def _event_classification(conn, event, classification, latest_lines):
+    amount = round(_num(event.get("paid_delta")), 2)
+    if amount <= 0:
+        return "ignore"
+
+    token = str(event.get("patient_token") or "")
+    staff = str(event.get("staff") or "")
+    if not event.get("opening_debt"):
+        line = latest_lines.get(str(event.get("line_key") or "")) or {}
+        scope = _line_scope(conn, line)
+        if scope != "clinical":
+            return scope
+        return classification.get(
+            (
+                str(event.get("service_date") or ""),
+                token,
+                staff,
+            )
+        ) or "unclassified"
+
+    period_start = str(event.get("period_start") or "")
+    historical = [
+        row
+        for row in latest_lines.values()
+        if str(row.get("patient_token") or "") == token
+        and str(row.get("staff") or "") == staff
+        and str(row.get("service_date") or "")
+        and (not period_start or str(row.get("service_date") or "") < period_start)
+    ]
+    if not historical:
+        if _provider_direction(conn, staff) == "lab":
+            return "lab"
+        return "unclassified"
+
+    scopes = {_line_scope(conn, row) for row in historical}
+    clinical_rows = [row for row in historical if _line_scope(conn, row) == "clinical"]
+    if not clinical_rows:
+        if scopes == {"sales"}:
+            return "sales"
+        if scopes == {"lab"}:
+            return "lab"
+        return "unclassified"
+    if scopes - {"clinical"}:
+        return "unclassified"
+
+    kinds = {
+        classification.get(
+            (
+                str(row.get("service_date") or ""),
+                token,
+                staff,
+            )
+        )
+        for row in clinical_rows
+    }
+    kinds.discard(None)
+    if kinds == {"primary"}:
+        return "primary"
+    if kinds == {"repeat"}:
+        return "repeat"
+    return "unclassified"
+
+
+def payment_breakdown(conn, start, end):
+    start_s = str(start)
+    end_s = str(end)
+    try:
+        completed = _load_completed(conn)
+        payment_candidates = _payment_candidates(conn)
+        latest_lines = _latest_line_facts(conn)
+    except Exception:
+        return {
+            "primary_paid": None,
+            "repeat_paid": None,
+            "unclassified_clinical": None,
+            "excluded_lab": None,
+            "excluded_sales": None,
+            "primary_payers": None,
+            "repeat_payers": None,
+        }
+
+    classification = completed["classification"]
+    totals = defaultdict(float)
+    primary_payers = set()
+    repeat_payers = set()
+    has_evidence = False
+
+    for payment_date, candidate in payment_candidates.items():
+        if payment_date < start_s or payment_date > end_s:
+            continue
+        has_evidence = True
+        for event in candidate["events"]:
+            amount = round(_num(event.get("paid_delta")), 2)
+            if amount <= 0:
+                continue
+            kind = _event_classification(conn, event, classification, latest_lines)
+            token = str(event.get("patient_token") or "")
+            if kind == "primary":
+                totals["primary"] += amount
+                if token:
+                    primary_payers.add(token)
+            elif kind == "repeat":
+                totals["repeat"] += amount
+                if token:
+                    repeat_payers.add(token)
+            elif kind == "lab":
+                totals["lab"] += amount
+            elif kind == "sales":
+                totals["sales"] += amount
+            elif kind == "unclassified":
+                totals["unclassified"] += amount
+
+    if not has_evidence:
+        return {
+            "primary_paid": None,
+            "repeat_paid": None,
+            "unclassified_clinical": None,
+            "excluded_lab": None,
+            "excluded_sales": None,
+            "primary_payers": None,
+            "repeat_payers": None,
+        }
+    return {
+        "primary_paid": round(totals["primary"], 2),
+        "repeat_paid": round(totals["repeat"], 2),
+        "unclassified_clinical": round(totals["unclassified"], 2),
+        "excluded_lab": round(totals["lab"], 2),
+        "excluded_sales": round(totals["sales"], 2),
+        "primary_payers": len(primary_payers),
+        "repeat_payers": len(repeat_payers),
+    }
 
 
 def _load_completed(conn):
@@ -486,6 +767,8 @@ def rebuild(conn, updated_at):
     repeat_paid = defaultdict(float)
     patient_paid = defaultdict(lambda: defaultdict(float))
     unclassified_paid = defaultdict(float)
+    excluded_lab = defaultdict(float)
+    excluded_sales = defaultdict(float)
 
     for payment_date, candidate in payment_candidates.items():
         for event in candidate["events"]:
@@ -494,19 +777,19 @@ def rebuild(conn, updated_at):
                 continue
             token = str(event.get("patient_token") or "")
             if token:
+                # The 30-day cohort remains a patient-payment cohort. The
+                # primary/repeat scope below is stricter and excludes ZTL/sales.
                 patient_paid[token][payment_date] += amount
-            kind = classification.get(
-                (
-                    str(event.get("service_date") or ""),
-                    token,
-                    str(event.get("staff") or ""),
-                )
-            )
+            kind = _event_classification(conn, event, classification, latest_lines)
             if kind == "primary":
                 primary_paid[payment_date] += amount
             elif kind == "repeat":
                 repeat_paid[payment_date] += amount
-            else:
+            elif kind == "lab":
+                excluded_lab[payment_date] += amount
+            elif kind == "sales":
+                excluded_sales[payment_date] += amount
+            elif kind == "unclassified":
                 unclassified_paid[payment_date] += amount
 
     primary_services = defaultdict(float)
@@ -516,6 +799,8 @@ def rebuild(conn, updated_at):
         if not service_date or service_date < TRACKING_START:
             continue
         service_evidence_dates.add(service_date)
+        if _line_scope(conn, row) != "clinical":
+            continue
         kind = classification.get(
             (
                 service_date,
@@ -629,5 +914,7 @@ def rebuild(conn, updated_at):
         "payment_evidence_dates": len(evidence_dates),
         "latest_payment_date": latest_payment_date,
         "unclassified_paid": round(sum(unclassified_paid.values()), 2),
+        "excluded_lab": round(sum(excluded_lab.values()), 2),
+        "excluded_sales": round(sum(excluded_sales.values()), 2),
         "import_id": import_id,
     }
