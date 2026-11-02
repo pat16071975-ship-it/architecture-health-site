@@ -16,6 +16,7 @@ on:
       - 'reports/advertising.js'
       - 'reports/menu.html'
       - 'az-baze-auth/templates/uploads.html'
+      - 'az-baze-auth/templates/advertising_costs_fragment.html'
       - 'az-baze-auth/templates/base.html'
       - '.github/workflows/az-advertising-report.yml'
   pull_request:
@@ -33,6 +34,7 @@ on:
       - 'reports/advertising.js'
       - 'reports/menu.html'
       - 'az-baze-auth/templates/uploads.html'
+      - 'az-baze-auth/templates/advertising_costs_fragment.html'
       - 'az-baze-auth/templates/base.html'
       - '.github/workflows/az-advertising-report.yml'
 permissions:
@@ -62,24 +64,51 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           text=Path('reports/advertising.html').read_text(encoding='utf-8')+'\n'+Path('reports/advertising.js').read_text(encoding='utf-8')
-          required=['Рекламный отчёт','Посещения сайта','Визиты с открытием записи','Визиты с переходом в Medflex','Целевые лиды','Работа клиники за период','Выручка клиники','Вся сумма «Оплачено» распределена по врачам/исполнителям','Источники сайта','Не хватает данных CRM для построения отчёта']
-          forbidden=['Устройства','Глубина просмотра','Отказы','Первично записались','id="crmNote"','crm-note','Выручка по врачам / исполнителям','id="providerRevenueRows"']
+          required=[
+              'Рекламный отчёт','Главное за период','Расходы на рекламу','Клики по рекламе',
+              'Посещения сайта','Целевые лиды','Состоявшиеся первичные приёмы',
+              'Выручка первичных приёмов','Выручка новых пациентов за 30 дней',
+              'Работа клиники за период','Динамика','Источники',
+              'Не хватает данных CRM для построения отчёта',
+              'Стоимость рекламного первичного','ROAS первичных',
+          ]
+          forbidden=[
+              'Устройства','Глубина просмотра','Отказы','Первично записались',
+              'Потратили и получили','id="crmNote"','crm-note','id="providerRevenueRows"',
+          ]
           assert all(x in text for x in required)
           assert all(x not in text for x in forbidden)
           js=Path('reports/advertising.js').read_text(encoding='utf-8')
-          assert 'function siteSourceRows()' in js
-          assert 'body.innerHTML=sourceHtml+totalHtml' in js
-          assert '<td>Всего</td>' in js
-          assert 'function sourceGroups()' not in js
-          assert 'group-btn' not in js
+          assert 'function renderSources()' in js
+          assert "sourceKey==='yandex_ads'||sourceKey==='instagram'" in js
+          assert 'spend_provenance' in js
+          assert 'Стоимость клика не считается, пока охват расходов и кликов не совпадает.' in js
+          html=Path('reports/advertising.html').read_text(encoding='utf-8')
+          assert 'value="primary_paid">Выручка первичных</option>' in html
+          assert 'value="actual_received_total">Фактически получено денег</option>' in html
+          assert '<option value="spend">Расходы</option>' not in html
           menu=Path('reports/menu.html').read_text(encoding='utf-8')
           assert '/reports/advertising/' in menu
+
           uploads=Path('az-baze-auth/templates/uploads.html').read_text(encoding='utf-8')
           assert '5. Яндекс Метрика' in uploads
           assert 'name="metrika_zip"' in uploads
           assert 'Загрузить данные Яндекс Метрики' in uploads
           assert '/api/reports/advertising/metrika/sync' in uploads
+          # Protected legacy upload template stays byte-for-byte outside the
+          # advertising feature; the new UI is isolated in its own fragment.
+          fragment=Path('az-baze-auth/templates/advertising_costs_fragment.html').read_text(encoding='utf-8')
+          assert '6. Расходы на рекламу' in fragment
+          assert 'Оплата рекламы' in fragment
+          assert 'Подрядчики' in fragment
+          assert 'Всего расходов на рекламу' in fragment
+          assert '/api/reports/advertising/costs' in fragment
+          daily=Path('az-baze-auth/daily_upload.py').read_text(encoding='utf-8')
+          assert 'advertising_costs_fragment.html' in daily
+          assert 'if "upload_services" in perms:' in daily
+
           source=Path('az-baze-auth/report_storage.py').read_text(encoding='utf-8')
           assert 'advertising_report.register_advertising_report(app)' in source
+          assert '"az-advertising-costs-v1"' in source
           print('ADVERTISING_REPORT_SCOPE=PASS')
           PY
