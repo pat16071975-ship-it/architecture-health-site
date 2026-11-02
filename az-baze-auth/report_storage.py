@@ -22,6 +22,7 @@ REPORT_BLOB_KEYS = {
     "az-service-extra-payments-v1",
     "az-service-salary-v1",
     "az-management-monthly-plan-v1",
+    "az-advertising-costs-v1",
 }
 WRITABLE_BLOB_KEYS = set(REPORT_BLOB_KEYS)
 
@@ -672,6 +673,67 @@ def _validate_blob_payload(key, payload):
                 abort(400)
             months[month] = int(value) if value.is_integer() else value
         parsed = {"version": 1, "months": months}
+    elif key == "az-advertising-costs-v1":
+        if parsed.get("version") != 1 or not isinstance(parsed.get("sources"), dict) or not isinstance(parsed.get("periods"), list):
+            abort(400)
+        clean_sources = {}
+        for raw_key, raw_meta in parsed["sources"].items():
+            source_key = str(raw_key or "").strip()
+            if not source_key or len(source_key) > 120 or not isinstance(raw_meta, dict):
+                abort(400)
+            name = str(raw_meta.get("name") or "").strip()
+            channel = str(raw_meta.get("channel_name") or "").strip()
+            if not name or len(name) > 240 or len(channel) > 240:
+                abort(400)
+            clean_sources[source_key] = {
+                "name": name,
+                "channel_name": channel,
+                "manual": bool(raw_meta.get("manual")),
+            }
+
+        def clean_money(raw):
+            if raw in (None, ""):
+                return None
+            if isinstance(raw, bool):
+                abort(400)
+            try:
+                value = float(raw)
+            except (TypeError, ValueError):
+                abort(400)
+            if not math.isfinite(value) or value < 0 or value > 1_000_000_000_000:
+                abort(400)
+            return round(value, 2)
+
+        clean_periods = []
+        for raw_period in parsed["periods"]:
+            if not isinstance(raw_period, dict):
+                abort(400)
+            start = str(raw_period.get("from") or "").strip()
+            end = str(raw_period.get("to") or "").strip()
+            if not DATE_RE.fullmatch(start) or not DATE_RE.fullmatch(end) or start > end:
+                abort(400)
+            source_spend = raw_period.get("source_spend") or {}
+            if not isinstance(source_spend, dict):
+                abort(400)
+            clean_source_spend = {}
+            for source_key, raw_value in source_spend.items():
+                source_key = str(source_key or "").strip()
+                if source_key not in clean_sources:
+                    abort(400)
+                clean_source_spend[source_key] = clean_money(raw_value)
+            clean_periods.append({
+                "from": start,
+                "to": end,
+                "advertising_payment": clean_money(raw_period.get("advertising_payment")),
+                "contractors_payment": clean_money(raw_period.get("contractors_payment")),
+                "total_spend": clean_money(raw_period.get("total_spend")),
+                "source_spend": clean_source_spend,
+            })
+        clean_periods.sort(key=lambda item: (item["from"], item["to"]))
+        for previous, current in zip(clean_periods, clean_periods[1:]):
+            if current["from"] <= previous["to"]:
+                abort(400)
+        parsed = {"version": 1, "sources": clean_sources, "periods": clean_periods}
     elif key in {"az-service-extra-payments-v1", "az-service-salary-v1"}:
         if not any(name in parsed for name in ("Стоматология", "Клиника", "Лаборатория")):
             abort(400)
