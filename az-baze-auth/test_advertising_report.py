@@ -2370,6 +2370,107 @@ class AdvertisingReportTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_az185_07_manual_added_other_source_with_unknown_spend_blocks_general_cpc(self):
+        c=conn()
+        old_db=m.db
+        old_ensure=m._ensure_schema
+        old_request=m.request
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-10-27","yandex_ads","Яндекс-реклама","Платная реклама","","",None,None,10,"t","m"),
+            )
+            c.commit()
+
+            class FakeApp:
+                def __init__(self):
+                    self.routes={}
+                def get(self,path):
+                    return self._route("GET",path)
+                def post(self,path):
+                    return self._route("POST",path)
+                def _route(self,method,path):
+                    def decorator(fn):
+                        self.routes[(method,path)]=fn
+                        return fn
+                    return decorator
+
+            app=FakeApp()
+            m.db=lambda:c
+            m._ensure_schema=lambda path=m.DB_PATH:None
+            m.request=types.SimpleNamespace(
+                args={},
+                form={
+                    "from":"2026-10-27",
+                    "to":"2026-10-27",
+                    "advertising_payment":"100",
+                    "contractors_payment":"20",
+                    "total_spend":"120",
+                    "sources_json":json.dumps([
+                        {
+                            "source_key":"yandex_ads",
+                            "source_name":"Яндекс-реклама",
+                            "channel_name":"Платная реклама",
+                            "manual":False,
+                            "spend":100,
+                        },
+                        {
+                            "source_key":"",
+                            "source_name":"Ручной новый рекламный источник",
+                            "channel_name":"Другие источники",
+                            "manual":True,
+                            "spend":None,
+                        },
+                    ],ensure_ascii=False),
+                },
+                get_json=lambda silent=True:{},
+            )
+            m.register_advertising_report(app)
+            response=app.routes[("POST","/api/reports/advertising/costs")]()
+            self.assertEqual(response["status"],"ok")
+
+            stored=json.loads(
+                c.execute(
+                    "SELECT payload FROM report_blobs WHERE key=?",
+                    (m.ADVERTISING_COSTS_KEY,),
+                ).fetchone()[0]
+            )
+            manual=[
+                (key,value)
+                for key,value in stored["sources"].items()
+                if value.get("manual")
+            ]
+            self.assertEqual(len(manual),1)
+            manual_key,manual_meta=manual[0]
+            self.assertEqual(manual_meta["channel_name"],"Другие источники")
+            saved_period=stored["periods"][0]
+            self.assertIn(manual_key,saved_period["source_spend"])
+            self.assertIsNone(saved_period["source_spend"][manual_key])
+
+            c.execute(
+                "INSERT INTO advertising_report_imports VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("sha-direct","direct","2026-10-27","2026-10-27","t","Asia/Novosibirsk","RUB","","","t",1,1),
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("direct","2026-10-27","yandex_ads","Яндекс-реклама","Платная реклама","","",100,10,None,"t","d"),
+            )
+            c.commit()
+
+            economics=m._source_economics(c,date(2026,10,27),date(2026,10,27))
+            self.assertFalse(economics["click_scope_complete"])
+            self.assertIsNone(economics["cost_per_click"])
+            summary=m._summary(c,date(2026,10,27),date(2026,10,27))
+            self.assertIsNone(summary["cost_per_click"])
+        finally:
+            m.db=old_db
+            m._ensure_schema=old_ensure
+            m.request=old_request
+            c.close()
+
     def test_az185_05_direct_null_spend_day_cannot_override_manual_period_spend(self):
         c=conn()
         try:
