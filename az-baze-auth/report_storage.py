@@ -22,6 +22,7 @@ REPORT_BLOB_KEYS = {
     "az-service-extra-payments-v1",
     "az-service-salary-v1",
     "az-management-monthly-plan-v1",
+    "az-advertising-costs-v1",
 }
 WRITABLE_BLOB_KEYS = set(REPORT_BLOB_KEYS)
 
@@ -672,6 +673,11 @@ def _validate_blob_payload(key, payload):
                 abort(400)
             months[month] = int(value) if value.is_integer() else value
         parsed = {"version": 1, "months": months}
+    elif key == "az-advertising-costs-v1":
+        try:
+            parsed = advertising_report._normalize_cost_store(parsed)
+        except ValueError:
+            abort(400)
     elif key in {"az-service-extra-payments-v1", "az-service-salary-v1"}:
         if not any(name in parsed for name in ("Стоматология", "Клиника", "Лаборатория")):
             abort(400)

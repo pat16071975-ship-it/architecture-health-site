@@ -42,7 +42,7 @@ def item(patient, staff, invoice, service_date, amount, paid, service="Приё�
     }
 
 
-def report(start, end, items, paid_total=None):
+def report(start, end, items, paid_total=None, patients=None):
     if paid_total is None:
         paid_total = sum(row["paid_amount"] for row in items)
     return {
@@ -50,6 +50,7 @@ def report(start, end, items, paid_total=None):
         "period_end": end,
         "totals": {"paid": paid_total},
         "items": items,
+        "patients": list(patients or []),
     }
 
 
@@ -346,6 +347,196 @@ class AdvertisingMisBridgeTests(unittest.TestCase):
             )
         finally:
             c.close()
+
+    def test_consulted_is_repeat_for_payment_classification(self):
+        c=conn()
+        try:
+            add_day(
+                c,
+                "2026-10-27",
+                [{"date":"2026-10-27","patient":"Иванов И. И.","kind":"Отконсультированные"}],
+            )
+            payload=report(
+                "2026-10-27","2026-10-27",
+                [item("Иванов И. И.","Доктор А. А.","1","2026-10-27",1000,1000)],
+                patients=[{"patient_token":m.patient_token("Иванов И. И."),"staff":"Доктор А. А.","paid":1000}],
+            )
+            m.capture_paid_report(c,payload,"27.xlsx","sha","t")
+            result=m.payment_breakdown(c,"2026-10-27","2026-10-27")
+            self.assertEqual(result["primary_paid"],0)
+            self.assertEqual(result["repeat_paid"],1000)
+            self.assertEqual(result["repeat_payers"],1)
+        finally:
+            c.close()
+
+    def test_opening_debt_uses_historical_visit_type_when_all_candidates_repeat(self):
+        c=conn()
+        try:
+            add_day(
+                c,
+                "2026-09-04",
+                [{"date":"2026-09-04","patient":"Кениг А. А.","kind":"Повторные"}],
+            )
+            # Historical reference carries the old service line. It does not
+            # itself establish the later payment date.
+            history=report(
+                "2026-01-01","2026-11-02",
+                [item("Кениг А. А.","Доктор А. А.","old","2026-09-04",25000,0)],
+                paid_total=0,
+                patients=[{"patient_token":m.patient_token("Кениг А. А."),"staff":"Доктор А. А.","paid":0}],
+            )
+            m.capture_paid_report(c,history,"history.xlsx","history","th")
+
+            before=report(
+                "2026-10-26","2026-10-27",[],paid_total=0,
+                patients=[{"patient_token":m.patient_token("Кениг А. А."),"staff":"Доктор А. А.","paid":0}],
+            )
+            after=report(
+                "2026-10-26","2026-10-28",[],paid_total=25000,
+                patients=[{"patient_token":m.patient_token("Кениг А. А."),"staff":"Доктор А. А.","paid":25000}],
+            )
+            m.capture_paid_report(c,before,"27.xlsx","b","t27")
+            m.capture_paid_report(c,after,"28.xlsx","a","t28")
+
+            result=m.payment_breakdown(c,"2026-10-28","2026-10-28")
+            self.assertEqual(result["primary_paid"],0)
+            self.assertEqual(result["repeat_paid"],25000)
+            self.assertEqual(result["unclassified_clinical"],0)
+        finally:
+            c.close()
+
+    def test_lab_and_sales_are_outside_primary_repeat_scope(self):
+        c=conn()
+        try:
+            add_day(
+                c,
+                "2026-10-27",
+                [
+                    {"date":"2026-10-27","patient":"Лаб Л. Л.","kind":"Первичные"},
+                    {"date":"2026-10-27","patient":"Товар Т. Т.","kind":"Первичные"},
+                ],
+            )
+            lab=item("Лаб Л. Л.","ЗТЛ Техник","1","2026-10-27",5000,5000,service="ЗТЛ изготовление")
+            lab["group"]="ЗТЛ"
+            sale=item("Товар Т. Т.","Доктор А. А.","2","2026-10-27",950,950,service="Щётка")
+            sale["group"]="Сопутствующие товары"
+            payload=report(
+                "2026-10-27","2026-10-27",[lab,sale],
+                paid_total=5950,
+                patients=[
+                    {"patient_token":m.patient_token("Лаб Л. Л."),"staff":"ЗТЛ Техник","paid":5000},
+                    {"patient_token":m.patient_token("Товар Т. Т."),"staff":"Доктор А. А.","paid":950},
+                ],
+            )
+            m.capture_paid_report(c,payload,"27.xlsx","sha","t")
+            result=m.payment_breakdown(c,"2026-10-27","2026-10-27")
+            self.assertEqual(result["primary_paid"],0)
+            self.assertEqual(result["repeat_paid"],0)
+            self.assertEqual(result["unclassified_clinical"],0)
+            self.assertEqual(result["excluded_lab"],5000)
+            self.assertEqual(result["excluded_sales"],950)
+        finally:
+            c.close()
+
+    def test_az185_02_sales_group_is_excluded_even_without_companion_wording(self):
+        c=conn()
+        try:
+            add_day(
+                c,
+                "2026-10-27",
+                [{"date":"2026-10-27","patient":"Товар Т. Т.","kind":"Первичные"}],
+            )
+            sale=item(
+                "Товар Т. Т.","Доктор А. А.","2","2026-10-27",
+                950,950,service="Зубная щётка",
+            )
+            sale["group"]="Продажи"
+            payload=report(
+                "2026-10-27","2026-10-27",[sale],
+                paid_total=950,
+                patients=[{
+                    "patient_token":m.patient_token("Товар Т. Т."),
+                    "staff":"Доктор А. А.","paid":950,
+                }],
+            )
+            m.capture_paid_report(c,payload,"27.xlsx","sha","t")
+            result=m.payment_breakdown(c,"2026-10-27","2026-10-27")
+            self.assertEqual(result["primary_paid"],0)
+            self.assertEqual(result["repeat_paid"],0)
+            self.assertEqual(result["unclassified_clinical"],0)
+            self.assertEqual(result["excluded_sales"],950)
+        finally:
+            c.close()
+
+    def test_az185_04_mixed_clinical_and_lab_opening_debt_stays_outside_clinical_unclassified(self):
+        c=conn()
+        try:
+            patient="Смешанный С. С."
+            staff="Доктор А. А."
+            add_day(
+                c,
+                "2026-09-01",
+                [{"date":"2026-09-01","patient":patient,"kind":"Повторные"}],
+            )
+            clinical=item(patient,staff,"c1","2026-09-01",5000,0,service="Лечение")
+            clinical["group"]="Приёмы"
+            lab=item(patient,staff,"l1","2026-09-02",5000,0,service="Изготовление модели")
+            lab["group"]="ЗТЛ"
+            history=report(
+                "2026-01-01","2026-11-02",[clinical,lab],
+                paid_total=0,
+                patients=[{
+                    "patient_token":m.patient_token(patient),"staff":staff,"paid":0,
+                }],
+            )
+            m.capture_paid_report(c,history,"history.xlsx","history","th")
+
+            before=report(
+                "2026-10-26","2026-10-27",[],paid_total=0,
+                patients=[{
+                    "patient_token":m.patient_token(patient),"staff":staff,"paid":0,
+                }],
+            )
+            after=report(
+                "2026-10-26","2026-10-28",[],paid_total=5000,
+                patients=[{
+                    "patient_token":m.patient_token(patient),"staff":staff,"paid":5000,
+                }],
+            )
+            m.capture_paid_report(c,before,"27.xlsx","b","t27")
+            m.capture_paid_report(c,after,"28.xlsx","a","t28")
+
+            result=m.payment_breakdown(c,"2026-10-28","2026-10-28")
+            self.assertEqual(result["primary_paid"],0)
+            self.assertEqual(result["repeat_paid"],0)
+            self.assertEqual(result["unclassified_clinical"],0)
+            self.assertEqual(result["excluded_mixed_nonclinical"],5000)
+        finally:
+            c.close()
+
+    def test_primary_payer_count_is_unique_patient_not_visit_or_line_count(self):
+        c=conn()
+        try:
+            add_day(
+                c,
+                "2026-10-27",
+                [{"date":"2026-10-27","patient":"Иванов И. И.","kind":"Первичные"}],
+            )
+            payload=report(
+                "2026-10-27","2026-10-27",
+                [
+                    item("Иванов И. И.","Доктор А. А.","1","2026-10-27",1000,1000,"Консультация"),
+                    item("Иванов И. И.","Доктор А. А.","2","2026-10-27",2000,2000,"Лечение"),
+                ],
+                patients=[{"patient_token":m.patient_token("Иванов И. И."),"staff":"Доктор А. А.","paid":3000}],
+            )
+            m.capture_paid_report(c,payload,"27.xlsx","sha","t")
+            result=m.payment_breakdown(c,"2026-10-27","2026-10-27")
+            self.assertEqual(result["primary_paid"],3000)
+            self.assertEqual(result["primary_payers"],1)
+        finally:
+            c.close()
+
 
     def test_source_hooks_are_post_commit_best_effort(self):
         root = Path(__file__).parent

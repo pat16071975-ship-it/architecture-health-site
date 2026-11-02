@@ -12,6 +12,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import metrika_auto
+import advertising_mis_bridge
 
 from flask import Response, abort, g, jsonify, request
 
@@ -23,6 +24,7 @@ DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DEFAULT_TIMEZONE = "Asia/Novosibirsk"
 METRIKA_EXPORT_SCHEMA = "az_analytics_export_v1"
 METRIKA_COUNTER_ID = "113776005"
+ADVERTISING_COSTS_KEY = "az-advertising-costs-v1"
 METRIKA_ARCHIVE_ROOT = Path(os.environ.get("AZBAZE_METRIKA_ARCHIVE", "/var/lib/az-baze/advertising-metrika-archive"))
 METRIKA_GOALS = {
     "Открытие окна записи": "booking_open",
@@ -265,6 +267,344 @@ def _nullable_sum(rows, key):
     return sum(values) if values else None
 
 
+def _cost_number(value):
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        raise ValueError("invalid advertising cost")
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("invalid advertising cost") from exc
+    if not math.isfinite(number) or number < 0 or number > 1_000_000_000_000:
+        raise ValueError("invalid advertising cost")
+    return round(number, 2)
+
+
+def _manual_source_key(name):
+    normalized = re.sub(r"[^a-z0-9а-я]+", "_", str(name or "").lower()).strip("_")
+    digest = hashlib.sha256(str(name or "").strip().lower().encode("utf-8")).hexdigest()[:10]
+    return ("manual_" + (normalized[:40] or "source") + "_" + digest)[:120]
+
+
+def _empty_cost_store():
+    return {"version": 1, "sources": {}, "periods": []}
+
+
+def _normalize_cost_store(payload):
+    if not isinstance(payload, dict) or payload.get("version") != 1:
+        raise ValueError("invalid advertising costs")
+    if not isinstance(payload.get("sources"), dict) or not isinstance(payload.get("periods"), list):
+        raise ValueError("invalid advertising costs")
+
+    sources = {}
+    for raw_key, raw_meta in payload["sources"].items():
+        key = str(raw_key or "").strip()
+        if not key or len(key) > 120 or not isinstance(raw_meta, dict):
+            raise ValueError("invalid advertising source")
+        name = str(raw_meta.get("name") or "").strip()
+        channel = str(raw_meta.get("channel_name") or "").strip()
+        if not name or len(name) > 240 or len(channel) > 240:
+            raise ValueError("invalid advertising source")
+        sources[key] = {
+            "name": name,
+            "channel_name": channel,
+            "manual": bool(raw_meta.get("manual")),
+        }
+
+    periods = []
+    for raw in payload["periods"]:
+        if not isinstance(raw, dict):
+            raise ValueError("invalid advertising cost period")
+        start = str(raw.get("from") or "").strip()
+        end = str(raw.get("to") or "").strip()
+        if not DATE_RE.fullmatch(start) or not DATE_RE.fullmatch(end) or start > end:
+            raise ValueError("invalid advertising cost period")
+        source_spend = raw.get("source_spend") or {}
+        if not isinstance(source_spend, dict):
+            raise ValueError("invalid advertising source spend")
+        clean_spend = {}
+        for key, value in source_spend.items():
+            key = str(key or "").strip()
+            if key not in sources:
+                raise ValueError("unknown advertising source")
+            clean_spend[key] = _cost_number(value)
+        advertising_payment = _cost_number(raw.get("advertising_payment"))
+        contractors_payment = _cost_number(raw.get("contractors_payment"))
+        total_spend = _cost_number(raw.get("total_spend"))
+        totals = (advertising_payment, contractors_payment, total_spend)
+        if any(value is not None for value in totals):
+            if any(value is None for value in totals):
+                raise ValueError("advertising totals incomplete")
+            if abs(total_spend - advertising_payment - contractors_payment) > 0.01:
+                raise ValueError("total spend must equal advertising plus contractors")
+        periods.append({
+            "from": start,
+            "to": end,
+            "advertising_payment": advertising_payment,
+            "contractors_payment": contractors_payment,
+            "total_spend": total_spend,
+            "source_spend": clean_spend,
+        })
+
+    periods.sort(key=lambda item: (item["from"], item["to"]))
+    for previous, current in zip(periods, periods[1:]):
+        if current["from"] <= previous["to"]:
+            raise ValueError("advertising cost periods overlap")
+    return {"version": 1, "sources": sources, "periods": periods}
+
+
+def _load_cost_store(conn):
+    try:
+        row = conn.execute(
+            "SELECT payload FROM report_blobs WHERE key=?",
+            (ADVERTISING_COSTS_KEY,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return _empty_cost_store()
+    if not row:
+        return _empty_cost_store()
+    try:
+        return _normalize_cost_store(json.loads(row["payload"]))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return _empty_cost_store()
+
+
+def _cost_period_summary(store, start, end):
+    start_s, end_s = _iso(start), _iso(end)
+    overlapping = [
+        item for item in store.get("periods", [])
+        if item["from"] <= end_s and item["to"] >= start_s
+    ]
+    if not overlapping:
+        return {
+            "complete": False,
+            "periods": [],
+            "advertising_payment": None,
+            "contractors_payment": None,
+            "total_spend": None,
+            "source_spend": {},
+        }
+
+    selected = [
+        item for item in overlapping
+        if item["from"] >= start_s and item["to"] <= end_s
+    ]
+    cursor = start
+    complete = len(selected) == len(overlapping)
+    for item in selected:
+        item_start = date.fromisoformat(item["from"])
+        item_end = date.fromisoformat(item["to"])
+        if item_start != cursor:
+            complete = False
+            break
+        cursor = item_end + timedelta(days=1)
+    if cursor <= end:
+        complete = False
+    if not complete:
+        return {
+            "complete": False,
+            "periods": selected,
+            "advertising_payment": None,
+            "contractors_payment": None,
+            "total_spend": None,
+            "source_spend": {},
+        }
+
+    def sum_field(field):
+        values = [item.get(field) for item in selected]
+        if not values or any(value is None for value in values):
+            return None
+        return round(sum(values), 2)
+
+    source_spend = {}
+    for key in store.get("sources", {}):
+        values = [(item.get("source_spend") or {}).get(key) for item in selected]
+        source_spend[key] = (
+            round(sum(values), 2)
+            if values and all(value is not None for value in values)
+            else None
+        )
+    return {
+        "complete": True,
+        "periods": selected,
+        "advertising_payment": sum_field("advertising_payment"),
+        "contractors_payment": sum_field("contractors_payment"),
+        "total_spend": sum_field("total_spend"),
+        "source_spend": source_spend,
+    }
+
+
+def _source_registry(conn, store=None):
+    store = store or _load_cost_store(conn)
+    registry = {}
+    try:
+        rows = conn.execute(
+            """
+            SELECT source_key,source_name,channel_name,campaign_id,campaign_name
+            FROM advertising_traffic_daily
+            WHERE provider='metrika'
+            ORDER BY metric_date
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = []
+    for row in rows:
+        key, name, channel, _campaign_id, _campaign_name = _canonical_metrika_identity(
+            row["source_key"], row["source_name"], row["channel_name"], "", ""
+        )
+        if key and key not in registry:
+            registry[key] = {
+                "source_key": key,
+                "source_name": name or key,
+                "channel_name": channel or "",
+                "manual": False,
+            }
+    for key, meta in (store.get("sources") or {}).items():
+        registry[key] = {
+            "source_key": key,
+            "source_name": str(meta.get("name") or key),
+            "channel_name": str(meta.get("channel_name") or ""),
+            "manual": bool(meta.get("manual")),
+        }
+    return sorted(registry.values(), key=lambda item: item["source_name"].lower())
+
+
+def _dataset_period_complete(conn, dataset, start, end):
+    try:
+        rows = conn.execute(
+            """
+            SELECT period_start,period_end
+            FROM advertising_report_imports
+            WHERE dataset=? AND period_end>=? AND period_start<=?
+            ORDER BY period_start,period_end
+            """,
+            (dataset, _iso(start), _iso(end)),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return False
+    if not rows:
+        return False
+    cursor = start
+    for row in rows:
+        period_start = max(date.fromisoformat(str(row["period_start"])), start)
+        period_end = min(date.fromisoformat(str(row["period_end"])), end)
+        if period_end < cursor:
+            continue
+        if period_start > cursor:
+            return False
+        cursor = max(cursor, period_end + timedelta(days=1))
+        if cursor > end:
+            return True
+    return cursor > end
+
+
+def _direct_source_values(conn, start, end):
+    try:
+        rows = conn.execute(
+            """
+            SELECT source_key,source_name,channel_name,campaign_id,campaign_name,
+                   spend,clicks
+            FROM advertising_traffic_daily
+            WHERE provider='direct' AND metric_date BETWEEN ? AND ?
+            """,
+            (_iso(start), _iso(end)),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = []
+    values = {}
+    for row in rows:
+        key, name, channel, _cid, _cname = _canonical_metrika_identity(
+            row["source_key"], row["source_name"], row["channel_name"], "", ""
+        )
+        target = values.setdefault(
+            key,
+            {
+                "source_name": name,
+                "channel_name": channel,
+                "spend": 0.0,
+                "clicks": 0,
+                "spend_complete": True,
+                "clicks_complete": True,
+                "rows": 0,
+            },
+        )
+        target["rows"] += 1
+        if row["spend"] is None:
+            target["spend_complete"] = False
+        else:
+            target["spend"] += float(row["spend"])
+        if row["clicks"] is None:
+            target["clicks_complete"] = False
+        else:
+            target["clicks"] += int(row["clicks"])
+    for target in values.values():
+        if not target["rows"] or not target["spend_complete"]:
+            target["spend"] = None
+        else:
+            target["spend"] = round(float(target["spend"]), 2)
+        if not target["rows"] or not target["clicks_complete"]:
+            target["clicks"] = None
+        else:
+            target["clicks"] = int(target["clicks"])
+    return values
+
+
+def _source_economics(conn, start, end, store=None):
+    store = store or _load_cost_store(conn)
+    budget = _cost_period_summary(store, start, end)
+    direct_complete = _dataset_period_complete(conn, "direct", start, end)
+    direct = _direct_source_values(conn, start, end) if direct_complete else {}
+    result = {}
+    for meta in _source_registry(conn, store):
+        key = meta["source_key"]
+        direct_value = direct.get(key) or {}
+        manual_spend = budget["source_spend"].get(key) if budget["complete"] else None
+        direct_spend = direct_value.get("spend")
+        spend = direct_spend if direct_spend is not None else manual_spend
+        result[key] = {
+            **meta,
+            "spend": None if spend is None else round(float(spend), 2),
+            "manual_spend": manual_spend,
+            "direct_spend": None if direct_spend is None else round(float(direct_spend), 2),
+            "clicks": direct_value.get("clicks"),
+            "spend_provenance": "direct_api" if direct_spend is not None else ("manual" if manual_spend is not None else None),
+        }
+
+    source_values = [item["spend"] for item in result.values() if item["spend"] is not None]
+    source_spend_total = round(sum(source_values), 2) if source_values else None
+    cpc_scope = [
+        item for item in result.values()
+        if item.get("manual")
+        or item.get("channel_name") == "Платная реклама"
+        or item.get("spend") is not None
+        or item.get("clicks") is not None
+    ]
+    click_scope_complete = bool(cpc_scope) and all(
+        item.get("spend") is not None and item.get("clicks") is not None
+        for item in cpc_scope
+    )
+    advertising_payment = budget.get("advertising_payment")
+    if (
+        click_scope_complete
+        and advertising_payment is not None
+        and source_spend_total is not None
+        and abs(source_spend_total - advertising_payment) <= 0.01
+    ):
+        clicks = sum(int(item.get("clicks") or 0) for item in cpc_scope)
+        cost_per_click = advertising_payment / clicks if clicks else None
+    else:
+        cost_per_click = None
+    return {
+        "budget": budget,
+        "sources": result,
+        "source_spend_total": source_spend_total,
+        "cost_per_click": cost_per_click,
+        "click_scope_complete": click_scope_complete,
+        "direct_period_complete": direct_complete,
+    }
+
+
 def _combine_money(primary, repeat):
     if primary is None and repeat is None:
         return None
@@ -286,26 +626,54 @@ def _summary(conn, start, end):
         "SELECT new_patients,new_patient_30d_paid FROM advertising_cohort_daily WHERE cohort_date BETWEEN ? AND ?",
         (start_s, end_s),
     ).fetchall()
+    payment = advertising_mis_bridge.payment_breakdown(conn, start_s, end_s)
+    economics = _source_economics(conn, start, end)
+    budget = economics["budget"]
+
+    primary_paid = payment["primary_paid"]
+    repeat_paid = payment["repeat_paid"]
+    if primary_paid is None:
+        primary_paid = _nullable_sum(clinic, "primary_paid")
+    if repeat_paid is None:
+        repeat_paid = _nullable_sum(clinic, "repeat_paid")
+
     result = {
-        "spend": _nullable_sum(traffic, "spend"),
-        "clicks": _nullable_sum(traffic, "clicks"),
+        # The top KPI is the owner's total advertising expense, including contractors.
+        # Direct/API source spend is kept separately and never silently substituted.
+        "spend": budget.get("total_spend"),
+        "advertising_payment": budget.get("advertising_payment"),
+        "contractors_payment": budget.get("contractors_payment"),
+        "source_spend_total": economics.get("source_spend_total"),
+        "cost_per_click": economics.get("cost_per_click"),
+        "clicks": (
+            sum(int(item.get("clicks") or 0) for item in economics["sources"].values() if item.get("clicks") is not None)
+            if economics.get("direct_period_complete") and any(item.get("clicks") is not None for item in economics["sources"].values())
+            else None
+        ),
         "visits": _nullable_sum(traffic, "visits"),
         "target_leads": _nullable_sum(clinic, "target_leads"),
         "leads_with_primary": _nullable_sum(clinic, "leads_with_primary"),
         "primary_visits": _nullable_sum(clinic, "primary_visits"),
-        "primary_paid": _nullable_sum(clinic, "primary_paid"),
+        "primary_paid": primary_paid,
         "primary_services": _nullable_sum(clinic, "primary_services"),
+        "primary_payers": payment.get("primary_payers"),
         "repeat_visits": _nullable_sum(clinic, "repeat_visits"),
-        "repeat_paid": _nullable_sum(clinic, "repeat_paid"),
+        "repeat_paid": repeat_paid,
+        "repeat_payers": payment.get("repeat_payers"),
+        "unclassified_clinical_paid": payment.get("unclassified_clinical"),
         "new_patients": _nullable_sum(cohort, "new_patients"),
         "new_patient_30d_paid": _nullable_sum(cohort, "new_patient_30d_paid"),
     }
     result["total_visits"] = None if result["primary_visits"] is None and result["repeat_visits"] is None else (result["primary_visits"] or 0) + (result["repeat_visits"] or 0)
     result["total_paid"] = _combine_money(result["primary_paid"], result["repeat_paid"])
+    result["primary_avg_check"] = (
+        result["primary_paid"] / result["primary_payers"]
+        if result["primary_paid"] is not None and result["primary_payers"]
+        else None
+    )
     result["lead_to_primary_pct"] = result["leads_with_primary"] * 100.0 / result["target_leads"] if result["target_leads"] and result["leads_with_primary"] is not None else None
     result.update(_metrika_goal_summary(conn, start, end))
     return result
-
 
 def _average_summaries(summaries):
     if not summaries:
@@ -333,23 +701,42 @@ def _metric_daily(conn, start, end, metric):
             f"WHERE metric_date BETWEEN ? AND ? AND {metric} IS NOT NULL GROUP BY metric_date ORDER BY metric_date",
             (start_s, end_s),
         ).fetchall()
-    elif metric in {"target_leads", "primary_visits"}:
+        return {str(row["day"]): row["value"] for row in rows}
+    if metric == "target_leads":
         rows = conn.execute(
-            f"SELECT metric_date AS day,SUM({metric}) AS value FROM advertising_clinic_daily "
-            f"WHERE metric_date BETWEEN ? AND ? AND {metric} IS NOT NULL GROUP BY metric_date ORDER BY metric_date",
+            "SELECT metric_date AS day,SUM(target_leads) AS value FROM advertising_clinic_daily "
+            "WHERE metric_date BETWEEN ? AND ? AND target_leads IS NOT NULL GROUP BY metric_date ORDER BY metric_date",
             (start_s, end_s),
         ).fetchall()
-    elif metric == "total_paid":
-        rows = conn.execute(
-            "SELECT metric_date AS day,SUM(COALESCE(primary_paid,0)+COALESCE(repeat_paid,0)) AS value "
-            "FROM advertising_clinic_daily WHERE metric_date BETWEEN ? AND ? "
-            "AND (primary_paid IS NOT NULL OR repeat_paid IS NOT NULL) GROUP BY metric_date ORDER BY metric_date",
-            (start_s, end_s),
-        ).fetchall()
-    else:
-        return {}
-    return {str(row["day"]): row["value"] for row in rows}
-
+        return {str(row["day"]): row["value"] for row in rows}
+    if metric in {"primary_visits", "primary_paid", "total_paid"}:
+        result = {}
+        cursor = start
+        while cursor <= end:
+            day_summary = _summary(conn, cursor, cursor)
+            value = day_summary.get(metric)
+            if value is not None:
+                result[_iso(cursor)] = value
+            cursor += timedelta(days=1)
+        return result
+    if metric == "actual_received_total":
+        try:
+            rows = conn.execute(
+                "SELECT data_date,payload_json FROM cash_receipts_daily "
+                "WHERE data_date BETWEEN ? AND ? ORDER BY data_date",
+                (start_s, end_s),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return {}
+        result = {}
+        for row in rows:
+            try:
+                payload = json.loads(row["payload_json"])
+                result[str(row["data_date"])] = float(payload.get("cashTotal") or 0)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+        return result
+    return {}
 
 def _trend(conn, start, end, metric, comparison_ranges):
     days = (end - start).days + 1
@@ -463,11 +850,40 @@ def _group_breakdown(conn, start, end, level):
         }.get(str(row["goal_key"]))
         if field:
             target[field] = (target[field] or 0) + int(row["goal_visits"] or 0)
+    economics = _source_economics(conn, start, end)
+    if level == "source":
+        for source_key, source_value in economics["sources"].items():
+            key = (source_key,)
+            if key not in groups:
+                identity = (
+                    source_key,
+                    source_value["source_name"],
+                    source_value["channel_name"],
+                    "",
+                    "",
+                )
+                ensure(identity, key)
+
     result = []
     for item in groups.values():
+        if level == "source":
+            source_value = economics["sources"].get(item["source_key"]) or {}
+            item["spend"] = source_value.get("spend")
+            if source_value.get("clicks") is not None:
+                item["clicks"] = source_value.get("clicks")
+            item["spend_provenance"] = source_value.get("spend_provenance")
+        else:
+            item["spend_provenance"] = "direct_api" if item["spend"] is not None else None
+
         item["total_paid"] = _combine_money(item["primary_paid"], item["repeat_paid"])
         item["total_visits"] = None if item["primary_visits"] is None and item["repeat_visits"] is None else (item["primary_visits"] or 0) + (item["repeat_visits"] or 0)
         item["lead_to_primary_pct"] = item["leads_with_primary"] * 100.0 / item["target_leads"] if item["target_leads"] and item["leads_with_primary"] is not None else None
+        spend = item.get("spend")
+        item["cost_per_click"] = spend / item["clicks"] if spend is not None and item.get("clicks") else None
+        item["cost_per_visit"] = spend / item["visits"] if spend is not None and item.get("visits") else None
+        item["cost_per_booking_open"] = spend / item["booking_open_visits"] if spend is not None and item.get("booking_open_visits") else None
+        item["cost_per_medflex"] = spend / item["medflex_visits"] if spend is not None and item.get("medflex_visits") else None
+        item["cost_per_target_lead"] = spend / item["target_leads"] if spend is not None and item.get("target_leads") else None
         result.append(item)
     sort_key = "campaign_name" if level == "campaign" else "source_name"
     return sorted(result, key=lambda item: (-(item["spend"] or 0), item.get(sort_key) or ""))
@@ -1537,6 +1953,12 @@ def _revenue_summary(conn, start, end):
     except (sqlite3.OperationalError, TypeError, ValueError):
         pass
 
+    payment_scope = advertising_mis_bridge.payment_breakdown(conn, start_s, end_s)
+    if payment_scope.get("primary_paid") is not None:
+        primary_paid = payment_scope["primary_paid"]
+    if payment_scope.get("repeat_paid") is not None:
+        repeat_paid = payment_scope["repeat_paid"]
+
     return {
         "clinic_paid_total": paid_total,
         "detailed_paid_total": detailed_total,
@@ -1549,6 +1971,11 @@ def _revenue_summary(conn, start, end):
         **provider,
         **cash,
         "actual_received_total": cash["cash_total"],
+        "primary_payers": payment_scope.get("primary_payers"),
+        "repeat_payers": payment_scope.get("repeat_payers"),
+        "unclassified_clinical": payment_scope.get("unclassified_clinical"),
+        "excluded_lab": payment_scope.get("excluded_lab"),
+        "excluded_sales": payment_scope.get("excluded_sales"),
         "days_with_mis_revenue": len(selected),
     }
 
@@ -1802,20 +2229,31 @@ def _report_payload(conn, start, end, compare_mode, trend_metric):
     ranges = _comparison_ranges(compare_mode, start, end)
     comparison = _average_summaries([_summary(conn, a, b) for a, b in ranges]) if ranges else {key: None for key in current}
     deltas = {key: _delta_pct(current.get(key), comparison.get(key)) for key in current if key != "new_patient_30d_paid"}
+    revenue = _revenue_summary(conn, start, end)
+    crm = _crm_status(conn, start, end)
+    budget = _cost_period_summary(_load_cost_store(conn), start, end)
     return {
         "period": {"from": _iso(start), "to": _iso(end)},
         "compare": {"mode": compare_mode, "label": _comparison_label(compare_mode), "ranges": [{"from": _iso(a), "to": _iso(b)} for a, b in ranges], "summary": comparison, "delta_pct": deltas},
         "summary": current,
         "activity": {"primary_visits": current["primary_visits"], "primary_paid": current["primary_paid"], "repeat_visits": current["repeat_visits"], "repeat_paid": current["repeat_paid"], "total_visits": current["total_visits"], "total_paid": current["total_paid"]},
+        "economics": {
+            "cost_period_complete": budget.get("complete", False),
+            "primary_payers": current.get("primary_payers"),
+            "primary_avg_check": current.get("primary_avg_check"),
+            # Advertising attribution is intentionally absent until CRM links a
+            # source to the same primary patients and their factual payments.
+            "advertising_primary_cost": None,
+            "primary_roas": None,
+        },
         "sources": _group_breakdown(conn, start, end, "source"),
         "campaigns": _group_breakdown(conn, start, end, "campaign"),
         "trend": _trend(conn, start, end, trend_metric, ranges),
         "freshness": _freshness(conn),
         "coverage": _coverage_summary(conn, start, end),
-        "revenue": _revenue_summary(conn, start, end),
-        "crm": _crm_status(conn, start, end),
+        "revenue": revenue,
+        "crm": crm,
     }
-
 
 def _metrika_sync_has_changes(completed_updated, current_result):
     return bool(completed_updated or current_result.get("updated"))
@@ -1845,13 +2283,180 @@ def register_advertising_report(app):
         compare_mode = request.args.get("compare", "previous_period")
         if compare_mode not in {"none", "previous_period", "previous_quarter_avg", "year_avg", "last_year"}:
             abort(400)
-        trend_metric = request.args.get("trend", "target_leads")
-        if trend_metric not in {"spend", "visits", "target_leads", "primary_visits", "total_paid"}:
+        trend_metric = request.args.get("trend", "visits")
+        if trend_metric not in {"spend", "visits", "target_leads", "primary_visits", "primary_paid", "total_paid", "actual_received_total"}:
             abort(400)
         payload = _report_payload(db(), start, end, compare_mode, trend_metric)
         payload["today"] = _iso(today)
         payload["availableComparisons"] = ["previous_period", *(["previous_quarter_avg", "year_avg"] if _same_month(start, end) else []), "last_year"]
         return jsonify(payload)
+
+    @app.get("/api/reports/advertising/costs")
+    @permission_required("upload_services")
+    def advertising_costs_get():
+        today = _today()
+        default_start = today.replace(day=1)
+        try:
+            start = _parse_date(request.args.get("from") or _iso(default_start))
+            end = _parse_date(request.args.get("to") or _iso(today))
+        except ValueError:
+            abort(400)
+        if start > end or (end - start).days > 730:
+            abort(400)
+        store = _load_cost_store(db())
+        summary = _cost_period_summary(store, start, end)
+        exact = next(
+            (
+                item for item in store["periods"]
+                if item["from"] == _iso(start) and item["to"] == _iso(end)
+            ),
+            None,
+        )
+        source_spend = (exact or {}).get("source_spend") or {}
+        sources = []
+        for item in _source_registry(db(), store):
+            row = dict(item)
+            row["spend"] = source_spend.get(item["source_key"])
+            sources.append(row)
+        return jsonify(
+            period={"from": _iso(start), "to": _iso(end)},
+            values={
+                "advertising_payment": (exact or {}).get("advertising_payment"),
+                "contractors_payment": (exact or {}).get("contractors_payment"),
+                "total_spend": (exact or {}).get("total_spend"),
+            },
+            sources=sources,
+            coverage_complete=summary.get("complete", False),
+        )
+
+    @app.post("/api/reports/advertising/costs")
+    @permission_required("upload_services")
+    def advertising_costs_save():
+        require_csrf()
+        try:
+            start = _parse_date(str(request.form.get("from") or ""))
+            end = _parse_date(str(request.form.get("to") or ""))
+            if start > end or (end - start).days > 730:
+                raise ValueError("invalid period")
+            source_rows = json.loads(request.form.get("sources_json") or "[]")
+            if not isinstance(source_rows, list):
+                raise ValueError("invalid sources")
+        except (ValueError, TypeError, json.JSONDecodeError):
+            return jsonify(status="error", message="Проверьте период и расходы на рекламу."), 400
+
+        conn = db()
+        store = _load_cost_store(conn)
+        registry = {item["source_key"]: item for item in _source_registry(conn, store)}
+        clean_spend = {}
+        for raw in source_rows:
+            if not isinstance(raw, dict):
+                return jsonify(status="error", message="Некорректный источник рекламы."), 400
+            name = str(raw.get("source_name") or "").strip()
+            key = str(raw.get("source_key") or "").strip()
+            channel = str(raw.get("channel_name") or "").strip()
+            manual = bool(raw.get("manual"))
+            if not name:
+                return jsonify(status="error", message="Укажите название источника."), 400
+            if not key:
+                existing = next(
+                    (
+                        item for item in registry.values()
+                        if item["source_name"].strip().lower() == name.lower()
+                    ),
+                    None,
+                )
+                key = existing["source_key"] if existing else _manual_source_key(name)
+                manual = existing["manual"] if existing else True
+            if key not in registry:
+                registry[key] = {
+                    "source_key": key,
+                    "source_name": name,
+                    "channel_name": channel or "Другие источники",
+                    "manual": manual,
+                }
+            try:
+                clean_spend[key] = _cost_number(raw.get("spend"))
+            except ValueError:
+                return jsonify(status="error", message=f"Некорректная сумма для «{name}»."), 400
+
+        store["sources"] = {
+            key: {
+                "name": item["source_name"],
+                "channel_name": item["channel_name"],
+                "manual": bool(item["manual"]),
+            }
+            for key, item in registry.items()
+        }
+        period = {
+            "from": _iso(start),
+            "to": _iso(end),
+            "advertising_payment": None,
+            "contractors_payment": None,
+            "total_spend": None,
+            "source_spend": clean_spend,
+        }
+        try:
+            period["advertising_payment"] = _cost_number(request.form.get("advertising_payment"))
+            period["contractors_payment"] = _cost_number(request.form.get("contractors_payment"))
+            period["total_spend"] = _cost_number(request.form.get("total_spend"))
+        except ValueError:
+            return jsonify(status="error", message="Расходы должны быть неотрицательными числами."), 400
+        totals = (
+            period["advertising_payment"],
+            period["contractors_payment"],
+            period["total_spend"],
+        )
+        if any(value is not None for value in totals):
+            if any(value is None for value in totals):
+                return jsonify(
+                    status="error",
+                    message="Заполните «Оплата рекламы», «Подрядчики» и «Всего расходов на рекламу».",
+                ), 400
+            expected_total = round(
+                period["advertising_payment"] + period["contractors_payment"],
+                2,
+            )
+            if abs(period["total_spend"] - expected_total) > 0.01:
+                return jsonify(
+                    status="error",
+                    message="«Всего расходов на рекламу» должно равняться оплате рекламы плюс подрядчики.",
+                ), 400
+
+        store["periods"] = [
+            item for item in store.get("periods", [])
+            if not (item["from"] == period["from"] and item["to"] == period["to"])
+        ]
+        store["periods"].append(period)
+        try:
+            normalized = _normalize_cost_store(store)
+        except ValueError as exc:
+            message = (
+                "Периоды расходов не должны пересекаться. Измените существующий период "
+                "или сохраните новый непересекающийся диапазон."
+                if "overlap" in str(exc)
+                else "Не удалось сохранить рекламные расходы."
+            )
+            return jsonify(status="error", message=message), 409
+
+        payload = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
+        conn.execute(
+            """
+            INSERT INTO report_blobs(key,payload,updated_by,updated_at)
+            VALUES(?,?,?,?)
+            ON CONFLICT(key) DO UPDATE SET
+              payload=excluded.payload,
+              updated_by=excluded.updated_by,
+              updated_at=excluded.updated_at
+            """,
+            (ADVERTISING_COSTS_KEY, payload, g.user["id"], iso_now()),
+        )
+        conn.commit()
+        audit(
+            "advertising_costs_saved",
+            target_user_id=g.user["id"],
+            details=f"period={period['from']}..{period['to']}; sources={len(clean_spend)}",
+        )
+        return jsonify(status="ok", message="Расходы на рекламу сохранены.")
 
     @app.post("/api/reports/advertising/metrika/sync")
     @permission_required("upload_services")
