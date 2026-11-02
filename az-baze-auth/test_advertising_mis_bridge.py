@@ -438,6 +438,82 @@ class AdvertisingMisBridgeTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_az185_02_sales_group_is_excluded_even_without_companion_wording(self):
+        c=conn()
+        try:
+            add_day(
+                c,
+                "2026-10-27",
+                [{"date":"2026-10-27","patient":"Товар Т. Т.","kind":"Первичные"}],
+            )
+            sale=item(
+                "Товар Т. Т.","Доктор А. А.","2","2026-10-27",
+                950,950,service="Зубная щётка",
+            )
+            sale["group"]="Продажи"
+            payload=report(
+                "2026-10-27","2026-10-27",[sale],
+                paid_total=950,
+                patients=[{
+                    "patient_token":m.patient_token("Товар Т. Т."),
+                    "staff":"Доктор А. А.","paid":950,
+                }],
+            )
+            m.capture_paid_report(c,payload,"27.xlsx","sha","t")
+            result=m.payment_breakdown(c,"2026-10-27","2026-10-27")
+            self.assertEqual(result["primary_paid"],0)
+            self.assertEqual(result["repeat_paid"],0)
+            self.assertEqual(result["unclassified_clinical"],0)
+            self.assertEqual(result["excluded_sales"],950)
+        finally:
+            c.close()
+
+    def test_az185_04_mixed_clinical_and_lab_opening_debt_stays_outside_clinical_unclassified(self):
+        c=conn()
+        try:
+            patient="Смешанный С. С."
+            staff="Доктор А. А."
+            add_day(
+                c,
+                "2026-09-01",
+                [{"date":"2026-09-01","patient":patient,"kind":"Повторные"}],
+            )
+            clinical=item(patient,staff,"c1","2026-09-01",5000,0,service="Лечение")
+            clinical["group"]="Приёмы"
+            lab=item(patient,staff,"l1","2026-09-02",5000,0,service="Изготовление модели")
+            lab["group"]="ЗТЛ"
+            history=report(
+                "2026-01-01","2026-10-25",[clinical,lab],
+                paid_total=0,
+                patients=[{
+                    "patient_token":m.patient_token(patient),"staff":staff,"paid":0,
+                }],
+            )
+            m.capture_paid_report(c,history,"history.xlsx","history","th")
+
+            before=report(
+                "2026-10-26","2026-10-27",[],paid_total=0,
+                patients=[{
+                    "patient_token":m.patient_token(patient),"staff":staff,"paid":0,
+                }],
+            )
+            after=report(
+                "2026-10-26","2026-10-28",[],paid_total=5000,
+                patients=[{
+                    "patient_token":m.patient_token(patient),"staff":staff,"paid":5000,
+                }],
+            )
+            m.capture_paid_report(c,before,"27.xlsx","b","t27")
+            m.capture_paid_report(c,after,"28.xlsx","a","t28")
+
+            result=m.payment_breakdown(c,"2026-10-28","2026-10-28")
+            self.assertEqual(result["primary_paid"],0)
+            self.assertEqual(result["repeat_paid"],0)
+            self.assertEqual(result["unclassified_clinical"],0)
+            self.assertEqual(result["excluded_mixed_nonclinical"],5000)
+        finally:
+            c.close()
+
     def test_primary_payer_count_is_unique_patient_not_visit_or_line_count(self):
         c=conn()
         try:
