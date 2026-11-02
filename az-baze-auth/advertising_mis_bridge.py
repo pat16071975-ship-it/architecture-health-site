@@ -491,10 +491,13 @@ def _provider_direction(conn, staff):
 def _line_scope(conn, row):
     if not isinstance(row, dict):
         return "clinical"
-    text = (
-        str(row.get("group_name") or "") + " " + str(row.get("service_name") or "")
-    ).lower()
-    if "сопутствующ" in text and "товар" in text:
+    group = str(row.get("group_name") or "").strip().lower()
+    service = str(row.get("service_name") or "").strip().lower()
+    text = group + " " + service
+    if (
+        "продаж" in group
+        or "сопутствующ" in text and "товар" in text
+    ):
         return "sales"
     if _provider_direction(conn, str(row.get("staff") or "")) == "lab":
         return "lab"
@@ -544,9 +547,15 @@ def _event_classification(conn, event, classification, latest_lines):
             return "sales"
         if scopes == {"lab"}:
             return "lab"
+        if scopes:
+            return "excluded_mixed_nonclinical"
         return "unclassified"
     if scopes - {"clinical"}:
-        return "unclassified"
+        # Opening-debt patient totals do not reveal which historical line was
+        # paid. If clinical and ZTL/sales candidates coexist, the whole residual
+        # stays outside the clinical primary/repeat denominator rather than
+        # being mislabelled as unclassified clinical money.
+        return "excluded_mixed_nonclinical"
 
     kinds = {
         classification.get(
@@ -580,6 +589,7 @@ def payment_breakdown(conn, start, end):
             "unclassified_clinical": None,
             "excluded_lab": None,
             "excluded_sales": None,
+            "excluded_mixed_nonclinical": None,
             "primary_payers": None,
             "repeat_payers": None,
         }
@@ -612,6 +622,8 @@ def payment_breakdown(conn, start, end):
                 totals["lab"] += amount
             elif kind == "sales":
                 totals["sales"] += amount
+            elif kind == "excluded_mixed_nonclinical":
+                totals["excluded_mixed_nonclinical"] += amount
             elif kind == "unclassified":
                 totals["unclassified"] += amount
 
@@ -622,6 +634,7 @@ def payment_breakdown(conn, start, end):
             "unclassified_clinical": None,
             "excluded_lab": None,
             "excluded_sales": None,
+            "excluded_mixed_nonclinical": None,
             "primary_payers": None,
             "repeat_payers": None,
         }
@@ -631,6 +644,7 @@ def payment_breakdown(conn, start, end):
         "unclassified_clinical": round(totals["unclassified"], 2),
         "excluded_lab": round(totals["lab"], 2),
         "excluded_sales": round(totals["sales"], 2),
+        "excluded_mixed_nonclinical": round(totals["excluded_mixed_nonclinical"], 2),
         "primary_payers": len(primary_payers),
         "repeat_payers": len(repeat_payers),
     }
@@ -769,6 +783,7 @@ def rebuild(conn, updated_at):
     unclassified_paid = defaultdict(float)
     excluded_lab = defaultdict(float)
     excluded_sales = defaultdict(float)
+    excluded_mixed_nonclinical = defaultdict(float)
 
     for payment_date, candidate in payment_candidates.items():
         for event in candidate["events"]:
@@ -789,6 +804,8 @@ def rebuild(conn, updated_at):
                 excluded_lab[payment_date] += amount
             elif kind == "sales":
                 excluded_sales[payment_date] += amount
+            elif kind == "excluded_mixed_nonclinical":
+                excluded_mixed_nonclinical[payment_date] += amount
             elif kind == "unclassified":
                 unclassified_paid[payment_date] += amount
 
@@ -916,5 +933,6 @@ def rebuild(conn, updated_at):
         "unclassified_paid": round(sum(unclassified_paid.values()), 2),
         "excluded_lab": round(sum(excluded_lab.values()), 2),
         "excluded_sales": round(sum(excluded_sales.values()), 2),
+        "excluded_mixed_nonclinical": round(sum(excluded_mixed_nonclinical.values()), 2),
         "import_id": import_id,
     }
