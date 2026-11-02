@@ -2143,6 +2143,8 @@ class AdvertisingReportTests(unittest.TestCase):
         html=(root/"advertising.html").read_text(encoding="utf-8")
         js=(root/"advertising.js").read_text(encoding="utf-8")
         uploads=(Path(__file__).parent/"templates"/"uploads.html").read_text(encoding="utf-8")
+        cost_fragment=(Path(__file__).parent/"templates"/"advertising_costs_fragment.html").read_text(encoding="utf-8")
+        daily=(Path(__file__).parent/"daily_upload.py").read_text(encoding="utf-8")
         text=html+"\n"+js
         for label in (
             "Рекламный отчёт","Главное за период","Расходы на рекламу",
@@ -2179,13 +2181,16 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("history.replaceState", js)
         self.assertIn("load({serverDefaults:true})", js)
         self.assertIn("5. Яндекс Метрика", uploads)
-        self.assertIn("6. Расходы на рекламу", uploads)
-        self.assertIn("Оплата рекламы", uploads)
-        self.assertIn("Подрядчики", uploads)
-        self.assertIn("Всего расходов на рекламу", uploads)
-        self.assertIn("Добавить источник", uploads)
-        self.assertIn("/api/reports/advertising/costs", uploads)
-        self.assertIn("Подрядчики по источникам автоматически не распределяются", uploads)
+        self.assertNotIn("6. Расходы на рекламу", uploads)
+        self.assertIn("6. Расходы на рекламу", cost_fragment)
+        self.assertIn("Оплата рекламы", cost_fragment)
+        self.assertIn("Подрядчики", cost_fragment)
+        self.assertIn("Всего расходов на рекламу", cost_fragment)
+        self.assertIn("Добавить источник", cost_fragment)
+        self.assertIn("/api/reports/advertising/costs", cost_fragment)
+        self.assertIn("Подрядчики по источникам автоматически не распределяются", cost_fragment)
+        self.assertIn('render_template(\n                "advertising_costs_fragment.html"', daily)
+        self.assertIn('if "upload_services" in perms:', daily)
 
     def test_manual_cost_store_requires_exact_coverage_without_proration(self):
         c=conn()
