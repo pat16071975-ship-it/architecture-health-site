@@ -2308,6 +2308,151 @@ class AdvertisingReportTests(unittest.TestCase):
             c.close()
 
 
+    def test_az185_01_total_spend_must_include_contractors(self):
+        payload={
+            "version":1,
+            "sources":{"yandex_ads":{"name":"Яндекс-реклама","channel_name":"Платная реклама","manual":False}},
+            "periods":[{
+                "from":"2026-10-01","to":"2026-10-01",
+                "advertising_payment":100000,
+                "contractors_payment":20000,
+                "total_spend":100000,
+                "source_spend":{"yandex_ads":100000},
+            }],
+        }
+        with self.assertRaisesRegex(ValueError,"total spend must equal"):
+            m._normalize_cost_store(payload)
+
+        payload["periods"][0]["total_spend"]=120000
+        normalized=m._normalize_cost_store(payload)
+        self.assertEqual(normalized["periods"][0]["total_spend"],120000)
+
+    def test_az185_03_cpc_is_unknown_when_paid_source_spend_is_unknown(self):
+        c=conn()
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            payload={
+                "version":1,
+                "sources":{
+                    "yandex_ads":{"name":"Яндекс-реклама","channel_name":"Платная реклама","manual":False},
+                    "other_paid":{"name":"Другой платный источник","channel_name":"Платная реклама","manual":True},
+                },
+                "periods":[{
+                    "from":"2026-10-01","to":"2026-10-01",
+                    "advertising_payment":100,
+                    "contractors_payment":20,
+                    "total_spend":120,
+                    "source_spend":{"yandex_ads":100,"other_paid":None},
+                }],
+            }
+            c.execute(
+                "INSERT INTO report_blobs VALUES(?,?,?,?)",
+                (m.ADVERTISING_COSTS_KEY,json.dumps(payload,ensure_ascii=False),1,"t"),
+            )
+            c.execute(
+                "INSERT INTO advertising_report_imports VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("sha","direct","2026-10-01","2026-10-01","t","Asia/Novosibirsk","RUB","","","t",1,2),
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("direct","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",100,10,None,"t","d1"),
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("direct","2026-10-01","other_paid","Другой платный источник","Платная реклама","","",None,5,None,"t","d2"),
+            )
+            c.commit()
+            economics=m._source_economics(c,date(2026,10,1),date(2026,10,1))
+            self.assertFalse(economics["click_scope_complete"])
+            self.assertIsNone(economics["cost_per_click"])
+        finally:
+            c.close()
+
+    def test_az185_05_direct_null_spend_day_cannot_override_manual_period_spend(self):
+        c=conn()
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            payload={
+                "version":1,
+                "sources":{"yandex_ads":{"name":"Яндекс-реклама","channel_name":"Платная реклама","manual":False}},
+                "periods":[{
+                    "from":"2026-10-01","to":"2026-10-02",
+                    "advertising_payment":1000,
+                    "contractors_payment":200,
+                    "total_spend":1200,
+                    "source_spend":{"yandex_ads":1000},
+                }],
+            }
+            c.execute(
+                "INSERT INTO report_blobs VALUES(?,?,?,?)",
+                (m.ADVERTISING_COSTS_KEY,json.dumps(payload,ensure_ascii=False),1,"t"),
+            )
+            for day in ("2026-10-01","2026-10-02"):
+                c.execute(
+                    "INSERT INTO advertising_report_imports VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("sha"+day,"direct",day,day,"t","Asia/Novosibirsk","RUB","","","t",1,1),
+                )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("direct","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",400,20,None,"t","d1"),
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("direct","2026-10-02","yandex_ads","Яндекс-реклама","Платная реклама","","",None,25,None,"t","d2"),
+            )
+            c.commit()
+            economics=m._source_economics(c,date(2026,10,1),date(2026,10,2))
+            yandex=economics["sources"]["yandex_ads"]
+            self.assertEqual(yandex["spend"],1000)
+            self.assertEqual(yandex["spend_provenance"],"manual")
+            self.assertIsNone(yandex["direct_spend"])
+        finally:
+            c.close()
+
+    def test_az185_06_primary_paid_trend_matches_summary_with_crm_and_mis_rows(self):
+        c=conn()
+        try:
+            c.execute(
+                "CREATE TABLE daily_uploads(data_date TEXT PRIMARY KEY, normalized_json TEXT NOT NULL, revision INTEGER NOT NULL)"
+            )
+            patient="Иванов И. И."
+            staff="Доктор А. А."
+            c.execute(
+                "INSERT INTO daily_uploads VALUES(?,?,1)",
+                ("2026-10-27",json.dumps({"visits":[{"date":"2026-10-27","patient":patient,"kind":"Первичные"}]},ensure_ascii=False)),
+            )
+            report={
+                "period_start":"2026-10-27",
+                "period_end":"2026-10-27",
+                "totals":{"paid":1000},
+                "items":[{
+                    "patient":patient,"staff":staff,"invoice":"1","date":"2026-10-27",
+                    "group":"Приёмы","service":"Консультация","qty":1,
+                    "amount":1000,"paid_amount":1000,"closing_debt":0,
+                }],
+                "patients":[{
+                    "patient_token":m.advertising_mis_bridge.patient_token(patient),
+                    "staff":staff,"paid":1000,
+                }],
+            }
+            m.advertising_mis_bridge.capture_paid_report(c,report,"27.xlsx","sha","t")
+            m.advertising_mis_bridge.rebuild(c,"t")
+            c.execute(
+                "INSERT INTO advertising_clinic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("crm","2026-10-27","crm","CRM","CRM","","",None,None,1,1000,None,0,0,"t","crm"),
+            )
+            c.commit()
+            summary=m._summary(c,date(2026,10,27),date(2026,10,27))
+            trend=m._metric_daily(c,date(2026,10,27),date(2026,10,27),"primary_paid")
+            self.assertEqual(summary["primary_paid"],1000)
+            self.assertEqual(trend["2026-10-27"],1000)
+        finally:
+            c.close()
+
     def test_arbitrary_multi_day_range_sums_only_available_days(self):
         c=conn()
         try:
