@@ -483,7 +483,7 @@ class AdvertisingMisBridgeTests(unittest.TestCase):
             lab=item(patient,staff,"l1","2026-09-02",5000,0,service="Изготовление модели")
             lab["group"]="ЗТЛ"
             history=report(
-                "2026-01-01","2026-10-25",[clinical,lab],
+                "2026-01-01","2026-11-02",[clinical,lab],
                 paid_total=0,
                 patients=[{
                     "patient_token":m.patient_token(patient),"staff":staff,"paid":0,
