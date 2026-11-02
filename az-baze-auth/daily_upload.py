@@ -1323,7 +1323,7 @@ def register_daily_upload(app):
         cash_latest = cash_payments.latest_loaded_date(conn)
         cash_next_required = cash_payments.next_required_date(conn)
         paid_latest = paid_services.latest_loaded_date(conn)
-        return render_template(
+        page = render_template(
             "uploads.html",
             csrf=csrf_token(),
             perms=perms,
@@ -1339,3 +1339,14 @@ def register_daily_upload(app):
             can_daily=("upload_completed" in perms and "upload_services" in perms),
             can_replace=("upload_replace" in perms),
         )
+        if "upload_services" in perms:
+            fragment = render_template(
+                "advertising_costs_fragment.html",
+                csrf=csrf_token(),
+            )
+            marker = '<div id="reconcileOverlay"'
+            if marker in page:
+                page = page.replace(marker, fragment + "\n" + marker, 1)
+            else:
+                page = page.replace("</body>", fragment + "\n</body>", 1)
+        return page
