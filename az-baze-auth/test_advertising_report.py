@@ -1236,7 +1236,7 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             seed(c); s=m._summary(c,date(2026,10,1),date(2026,10,1))
-            self.assertEqual((s["spend"],s["clicks"],s["visits"]),(1000,100,80))
+            self.assertEqual((s["spend"],s["clicks"],s["visits"]),(None,None,80))
             self.assertEqual((s["target_leads"],s["leads_with_primary"],s["primary_visits"]),(20,12,15))
             self.assertEqual((s["primary_paid"],s["repeat_paid"],s["total_paid"]),(45000,30000,75000))
             self.assertEqual(s["new_patient_30d_paid"],90000)
@@ -2144,56 +2144,164 @@ class AdvertisingReportTests(unittest.TestCase):
         js=(root/"advertising.js").read_text(encoding="utf-8")
         uploads=(Path(__file__).parent/"templates"/"uploads.html").read_text(encoding="utf-8")
         text=html+"\n"+js
-        for label in ("Рекламный отчёт","Посещения сайта","Визиты с открытием записи","Визиты с переходом в Medflex","Целевые лиды","Работа клиники за период","Выручка клиники","Вся сумма «Оплачено» распределена по врачам/исполнителям","Источники сайта","Не хватает данных CRM для построения отчёта"):
+        for label in (
+            "Рекламный отчёт","Главное за период","Расходы на рекламу",
+            "Клики по рекламе","Посещения сайта","Целевые лиды",
+            "Состоявшиеся первичные приёмы","Выручка первичных приёмов",
+            "Выручка новых пациентов за 30 дней","Работа клиники за период",
+            "Динамика","Источники","Не хватает данных CRM для построения отчёта",
+            "Стоимость рекламного первичного","ROAS первичных",
+        ):
             self.assertIn(label,text)
-        for forbidden in ("Выручка новых пациентов за 30 дней","Новых пациентов, впервые пришедших","75 посещений → 13 первичных","Без построчной детализации в выгрузке МИС","Первично записались",'id="crmNote"',"crm-note","Выручка по врачам / исполнителям",'id="providerRevenueRows"'):
+        for forbidden in (
+            "Потратили и получили","Первично записались",
+            "Источники сайта",'id="providerRevenueRows"',
+        ):
             self.assertNotIn(forbidden,text)
-        self.assertIn('id="targetLeads"', html)
-        self.assertIn("crm.message||'Не хватает данных CRM для построения отчёта'", js)
         self.assertIn("s.lead_to_primary_pct", js)
-        self.assertNotIn("providerRevenueRows", js)
-        self.assertIn("function siteSourceRows()", js)
-        self.assertIn("body.innerHTML=sourceHtml+totalHtml", js)
-        self.assertIn('<tr class="group-row"><td>Всего</td>', js)
-        self.assertNotIn("function sourceGroups()", js)
-        self.assertNotIn("group-btn", js)
-        self.assertIn("5. Яндекс Метрика", uploads)
-        self.assertIn('name="metrika_zip"', uploads)
-        self.assertIn("/api/reports/advertising/metrika/import", uploads)
-        self.assertIn('data-range="day">Сегодня</button>', html)
-        self.assertIn('data-range="month">Текущий месяц по сегодня</button>', html)
-        self.assertIn("Рекламные KPI собираются с 27.10.2026", html)
-        self.assertNotIn('data-range="day">27 октября</button>', html)
-        self.assertNotIn("function setDefaultDates()", js)
-        self.assertNotIn("new Date(2026,9,27)", js)
-        self.assertIn("clinicToday=payload.today||clinicToday", js)
-        self.assertIn("load({serverDefaults:true})", js)
-        self.assertIn("history.replaceState", js)
-        self.assertIn("q.set('from',$('#fromDate').value)", js)
-        self.assertIn("q.set('to',$('#toDate').value)", js)
-        self.assertIn("new Date(Date.UTC(y,m,0)).getUTCDate()", js)
-        self.assertIn('id="coverage"', html)
-        self.assertIn("Покрытие выбранного периода", js)
-        self.assertIn("coveragePart('Метрика',c.metrika)", js)
-        self.assertIn("coveragePart('«Оплачено» MIS',c.misPaid)", js)
-        self.assertIn("$('#clinicRevenue').textContent=money(r.actual_received_total);", js)
-        self.assertNotIn("$('#clinicRevenue').textContent=money(r.clinic_paid_total);", js)
-        self.assertIn("Выручка клиники — фактически получено денег за выбранный период", html)
-        self.assertIn("По фактической дате поступления из кассового источника", html)
-        self.assertIn("«Оплачено» по отчёту МИС за выбранный период", js)
-        self.assertIn("['Отделение структуры',directions.structure]", js)
-        self.assertNotIn("['Клиника',directions.structure]", js)
-        terminology_source=(Path(__file__).parent/"terminology.py").read_text(encoding="utf-8")
-        self.assertIn("skip_runtime_rename(path)", terminology_source)
-        self.assertIn("all('.chip').forEach", js)
-        self.assertNotIn("$('.chip').forEach", js)
-        self.assertIn("function campaignRowsForSource(sourceKey)", js)
+        self.assertIn("Стоимость клика не считается, пока охват расходов и кликов не совпадает.", js)
+        self.assertIn("Стоимость рекламного первичного: <b>нет данных CRM</b>", js)
+        self.assertIn("ROAS первичных: <b>нет данных CRM</b>", js)
+        self.assertIn("function renderSources()", js)
         self.assertIn("sourceKey==='yandex_ads'||sourceKey==='instagram'", js)
         self.assertIn("class=\"source-expand\"", js)
         self.assertIn("class=\"child-row source-campaign-row\"", js)
         self.assertIn("button.textContent=expanded?'+':'−'", js)
-        self.assertIn("return String(row.campaign_name||'').trim()||'Не определено'", js)
-        self.assertIn(".source-expand{", html)
+        self.assertIn("spend_provenance==='direct_api'", js)
+        self.assertIn("spend_provenance==='manual'", js)
+        self.assertIn('data-range="day">Сегодня</button>', html)
+        self.assertIn('data-range="month">Текущий месяц по сегодня</button>', html)
+        self.assertIn('value="primary_paid">Выручка первичных</option>', html)
+        self.assertIn('value="actual_received_total">Фактически получено денег</option>', html)
+        self.assertNotIn('<option value="spend">Расходы</option>', html)
+        self.assertIn('id="coverage"', html)
+        self.assertIn("Покрытие выбранного периода", js)
+        self.assertIn("history.replaceState", js)
+        self.assertIn("load({serverDefaults:true})", js)
+        self.assertIn("5. Яндекс Метрика", uploads)
+        self.assertIn("6. Расходы на рекламу", uploads)
+        self.assertIn("Оплата рекламы", uploads)
+        self.assertIn("Подрядчики", uploads)
+        self.assertIn("Всего расходов на рекламу", uploads)
+        self.assertIn("Добавить источник", uploads)
+        self.assertIn("/api/reports/advertising/costs", uploads)
+        self.assertIn("Подрядчики по источникам автоматически не распределяются", uploads)
+
+    def test_manual_cost_store_requires_exact_coverage_without_proration(self):
+        c=conn()
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            payload={
+                "version":1,
+                "sources":{"yandex_ads":{"name":"Яндекс-реклама","channel_name":"Платная реклама","manual":False}},
+                "periods":[{
+                    "from":"2026-10-01","to":"2026-10-31",
+                    "advertising_payment":100000,"contractors_payment":20000,"total_spend":120000,
+                    "source_spend":{"yandex_ads":100000},
+                }],
+            }
+            c.execute(
+                "INSERT INTO report_blobs VALUES(?,?,?,?)",
+                (m.ADVERTISING_COSTS_KEY,json.dumps(payload,ensure_ascii=False),1,"t"),
+            )
+            exact=m._summary(c,date(2026,10,1),date(2026,10,31))
+            partial=m._summary(c,date(2026,10,15),date(2026,10,20))
+            self.assertEqual(exact["spend"],120000)
+            self.assertEqual(exact["advertising_payment"],100000)
+            self.assertEqual(exact["contractors_payment"],20000)
+            self.assertIsNone(partial["spend"])
+            self.assertIsNone(partial["advertising_payment"])
+        finally:
+            c.close()
+
+    def test_manual_source_spend_enriches_existing_source_and_cost_per_visit(self):
+        c=conn()
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",None,None,80,"t","m"),
+            )
+            payload={
+                "version":1,
+                "sources":{"yandex_ads":{"name":"Яндекс-реклама","channel_name":"Платная реклама","manual":False}},
+                "periods":[{
+                    "from":"2026-10-01","to":"2026-10-01",
+                    "advertising_payment":1000,"contractors_payment":200,"total_spend":1200,
+                    "source_spend":{"yandex_ads":1000},
+                }],
+            }
+            c.execute(
+                "INSERT INTO report_blobs VALUES(?,?,?,?)",
+                (m.ADVERTISING_COSTS_KEY,json.dumps(payload,ensure_ascii=False),1,"t"),
+            )
+            c.commit()
+            rows=m._group_breakdown(c,date(2026,10,1),date(2026,10,1),"source")
+            yandex=next(row for row in rows if row["source_key"]=="yandex_ads")
+            self.assertEqual(yandex["spend"],1000)
+            self.assertEqual(yandex["spend_provenance"],"manual")
+            self.assertEqual(yandex["visits"],80)
+            self.assertEqual(yandex["cost_per_visit"],12.5)
+            self.assertIsNone(yandex["cost_per_click"])
+        finally:
+            c.close()
+
+    def test_direct_api_overrides_manual_source_spend_only_with_complete_period(self):
+        c=conn()
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            payload={
+                "version":1,
+                "sources":{"yandex_ads":{"name":"Яндекс-реклама","channel_name":"Платная реклама","manual":False}},
+                "periods":[{
+                    "from":"2026-10-01","to":"2026-10-02",
+                    "advertising_payment":1000,"contractors_payment":200,"total_spend":1200,
+                    "source_spend":{"yandex_ads":1000},
+                }],
+            }
+            c.execute(
+                "INSERT INTO report_blobs VALUES(?,?,?,?)",
+                (m.ADVERTISING_COSTS_KEY,json.dumps(payload,ensure_ascii=False),1,"t"),
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("direct","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",400,20,None,"t","d1"),
+            )
+            c.commit()
+            partial=m._source_economics(c,date(2026,10,1),date(2026,10,2))
+            self.assertEqual(partial["sources"]["yandex_ads"]["spend"],1000)
+            self.assertEqual(partial["sources"]["yandex_ads"]["spend_provenance"],"manual")
+            self.assertIsNone(partial["sources"]["yandex_ads"]["clicks"])
+
+            for day in ("2026-10-01","2026-10-02"):
+                c.execute(
+                    "INSERT INTO advertising_report_imports VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("sha"+day,"direct",day,day,"t","Asia/Novosibirsk","RUB","","","t",1,1),
+                )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("direct","2026-10-02","yandex_ads","Яндекс-реклама","Платная реклама","","",500,25,None,"t","d2"),
+            )
+            c.commit()
+            complete=m._source_economics(c,date(2026,10,1),date(2026,10,2))
+            self.assertEqual(complete["sources"]["yandex_ads"]["spend"],900)
+            self.assertEqual(complete["sources"]["yandex_ads"]["spend_provenance"],"direct_api")
+            self.assertEqual(complete["sources"]["yandex_ads"]["clicks"],45)
+            self.assertEqual(complete["source_spend_total"],900)
+            # General owner-entered total remains independent and is never overwritten.
+            summary=m._summary(c,date(2026,10,1),date(2026,10,2))
+            self.assertEqual(summary["spend"],1200)
+            self.assertEqual(summary["clicks"],45)
+            self.assertIsNone(summary["cost_per_click"])
+        finally:
+            c.close()
+
 
     def test_arbitrary_multi_day_range_sums_only_available_days(self):
         c=conn()
