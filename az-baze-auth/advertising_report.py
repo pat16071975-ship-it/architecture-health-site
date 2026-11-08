@@ -948,18 +948,22 @@ def _metrika_source(row):
         # (native campaign identity or Yandex/Direct source evidence) keep the
         # established yandex_ads bucket; otherwise a new UTM/source becomes a
         # new source automatically without a Python registry entry.
-        probe = " ".join(
-            value for value in (
-                detail_id, detail, traffic_name, utm_source_raw,
-            ) if value
+        source_probe = " ".join(
+            value for value in (detail_id, detail, traffic_name) if value
         ).lower()
+        yandex_utm = (
+            utm_source in {"yandex", "yandex_direct", "yandex-direct", "ydirect"}
+            or "яндекс" in utm_source
+            or "yandex" in utm_source
+        )
         if (
             direct_campaign_id
             or direct_campaign_name
-            or "яндекс" in probe
-            or "yandex" in probe
-            or "директ" in probe
-            or "direct" in probe
+            or "яндекс" in source_probe
+            or "yandex" in source_probe
+            or "директ" in source_probe
+            or "direct" in source_probe
+            or yandex_utm
         ):
             return "yandex_ads", "Яндекс-реклама", "Платная реклама"
         if utm_source_raw:
