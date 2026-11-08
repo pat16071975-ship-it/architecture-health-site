@@ -796,8 +796,11 @@ def _group_breakdown(conn, start, end, level):
             row["source_key"], row["source_name"], row["channel_name"],
             row["campaign_id"], row["campaign_name"],
         )
-        if source_key in {"yandex_ads", "instagram"} and not campaign_name:
-            # Missing display name must not erase a factual non-empty campaign ID.
+        if campaign_id and not campaign_name:
+            # A factual ID without a label is still a distinct campaign and
+            # must be visible as such rather than rendered as generic unknown.
+            campaign_name = "Кампания " + campaign_id
+        elif source_key in {"yandex_ads", "instagram"} and not campaign_name:
             campaign_name = "Не определено"
         return source_key, source_name, channel_name, campaign_id, campaign_name
 
@@ -899,36 +902,105 @@ def _freshness(conn):
 
 
 
+CAMPAIGN_ID_SENTINELS = {"", "other", "unknown", "undefined", "not_set", "not set", "(not set)"}
+CAMPAIGN_NAME_SENTINELS = {
+    "", "чужие кампании", "не определено", "кампания не определена",
+    "other", "unknown", "undefined", "not_set", "not set", "(not set)",
+}
+
+
+def _identity_slug(value):
+    return re.sub(r"[^a-z0-9а-я]+", "_", str(value or "").strip().lower()).strip("_")
+
+
+def _dynamic_source_identity(prefix, raw_name, fallback_name, channel_name):
+    name = str(raw_name or "").strip()
+    slug = _identity_slug(name)
+    key = (prefix + "_" + slug if slug else prefix)[:120]
+    return key, name or fallback_name, channel_name
+
+
+def _meaningful_campaign_id(value):
+    raw = str(value or "").strip()
+    return "" if raw.lower() in CAMPAIGN_ID_SENTINELS else raw
+
+
+def _meaningful_campaign_name(value):
+    raw = str(value or "").strip()
+    return "" if raw.lower() in CAMPAIGN_NAME_SENTINELS else raw
+
+
 def _metrika_source(row):
     traffic_id = str(row.get("traffic_source_id") or "").strip()
     traffic_name = str(row.get("traffic_source_name") or "").strip()
     detail = str(row.get("source_detail") or "").strip()
     detail_id = str(row.get("source_detail_id") or "").strip()
-    utm_source = str(row.get("utm_source") or "").strip().lower()
-    utm_campaign = str(row.get("utm_campaign") or "").strip().lower()
-    utm_content = str(row.get("utm_content") or "").strip().lower()
+    utm_source_raw = str(row.get("utm_source") or "").strip()
+    utm_source = utm_source_raw.lower()
+    direct_campaign_id = _meaningful_campaign_id(row.get("direct_campaign_id"))
+    direct_campaign_name = _meaningful_campaign_name(row.get("direct_campaign_name"))
 
     if traffic_id == "ad":
         if utm_source == "geoadv_direct":
             return "yandex_business", "Яндекс Бизнес", "Платная реклама"
-        return "yandex_ads", "Яндекс-реклама", "Платная реклама"
+
+        # Do not assume that every paid source is Yandex Direct.  Direct facts
+        # (native campaign identity or Yandex/Direct source evidence) keep the
+        # established yandex_ads bucket; otherwise a new UTM/source becomes a
+        # new source automatically without a Python registry entry.
+        probe = " ".join(
+            value for value in (
+                detail_id, detail, traffic_name, utm_source_raw,
+            ) if value
+        ).lower()
+        if (
+            direct_campaign_id
+            or direct_campaign_name
+            or "яндекс" in probe
+            or "yandex" in probe
+            or "директ" in probe
+            or "direct" in probe
+        ):
+            return "yandex_ads", "Яндекс-реклама", "Платная реклама"
+        if utm_source_raw:
+            return _dynamic_source_identity(
+                "paid", utm_source_raw, "Платная реклама", "Платная реклама"
+            )
+        if detail or detail_id:
+            return _dynamic_source_identity(
+                "paid", detail or detail_id, traffic_name or "Платная реклама", "Платная реклама"
+            )
+        return "paid_ads", traffic_name or "Платная реклама", "Платная реклама"
+
     if traffic_id == "direct":
         return "direct", "Прямые заходы", "Прямые заходы"
+
     if traffic_id == "organic":
         probe = (detail_id + " " + detail).lower()
         if "google" in probe:
             return "google_organic", "Google органика", "Поиск"
         if "яндекс" in probe or "yandex" in probe:
             return "yandex_organic", "Яндекс органика", "Поиск"
-        return "organic", detail or traffic_name or "Поиск", "Поиск"
+        return _dynamic_source_identity(
+            "organic", detail or detail_id, traffic_name or "Поиск", "Поиск"
+        )
+
     if traffic_id == "social":
-        if "instagram" in (detail + " " + utm_source).lower() or utm_source == "ig":
+        probe = (detail + " " + detail_id + " " + utm_source_raw).lower()
+        if "instagram" in probe or utm_source == "ig":
             return "instagram", "Instagram", "Социальные сети"
-        return "social", detail or traffic_name or "Социальные сети", "Социальные сети"
+        return _dynamic_source_identity(
+            "social",
+            utm_source_raw or detail or detail_id,
+            traffic_name or "Социальные сети",
+            "Социальные сети",
+        )
+
     if traffic_id == "internal":
         return "internal", "Внутренние переходы", "Другие источники"
+
     if traffic_id == "referral":
-        probe = (detail + " " + detail_id + " " + utm_source).lower()
+        probe = (detail + " " + detail_id + " " + utm_source_raw).lower()
         if "2gis" in probe:
             return "2gis", "2ГИС", "Карты"
         if "taplink" in probe:
@@ -937,9 +1009,16 @@ def _metrika_source(row):
             return "napopravku", "НаПоправку", "Другие источники"
         if "prodoctorov" in probe:
             return "prodoctorov", "ПроДокторов", "Другие источники"
-        return "referral", detail or traffic_name or "Переходы по ссылкам", "Другие источники"
-    key = re.sub(r"[^a-z0-9а-я]+", "_", (traffic_id or detail or traffic_name).lower()).strip("_") or "other"
-    return key[:120], detail or traffic_name or "Другие источники", "Другие источники"
+        return _dynamic_source_identity(
+            "referral",
+            utm_source_raw or detail or detail_id,
+            traffic_name or "Переходы по ссылкам",
+            "Другие источники",
+        )
+
+    raw_source = utm_source_raw or detail or traffic_name or traffic_id
+    key = _identity_slug(raw_source) or "other"
+    return key[:120], raw_source or "Другие источники", "Другие источники"
 
 
 def _instagram_campaign_name(row):
@@ -971,23 +1050,20 @@ def _canonical_metrika_identity(source_key, source_name, channel_name, campaign_
     if source_key == "yandex_ads":
         source_name = "Яндекс-реклама"
         channel_name = "Платная реклама"
+        campaign_id = _meaningful_campaign_id(campaign_id)
+        campaign_name = _meaningful_campaign_name(campaign_name)
 
-        # A non-empty campaign ID is authoritative evidence.  Known IDs may be
-        # canonicalized, but an unknown ID must never be replaced merely
-        # because its text name matches a known campaign.
+        # Factual non-sentinel IDs are authoritative.  A registry entry may
+        # supply a legacy display name only when the current data has no name;
+        # new IDs never require a code change and are always preserved.
         if campaign_id:
-            if campaign_id in YANDEX_CANONICAL_CAMPAIGNS:
-                return (
-                    source_key,
-                    source_name,
-                    channel_name,
-                    campaign_id,
-                    YANDEX_CANONICAL_CAMPAIGNS[campaign_id],
-                )
+            if not campaign_name:
+                campaign_name = YANDEX_CANONICAL_CAMPAIGNS.get(campaign_id, "")
             return source_key, source_name, channel_name, campaign_id, campaign_name
 
-        # Name / UTM aliases are only safe when the factual campaign ID is
-        # absent.
+        # Legacy aliases remain migration compatibility only.  Any new UTM
+        # that is absent from this map is still kept verbatim as its own
+        # campaign, so future campaigns do not require Python edits.
         canonical_id = YANDEX_CAMPAIGN_ALIASES.get(campaign_name.lower(), "") if campaign_name else ""
         if canonical_id:
             return (
@@ -1005,6 +1081,30 @@ def _metrika_campaign_name(row, source_key):
     if source_key == "instagram":
         return _instagram_campaign_name(row)
     return str(row.get("direct_campaign_name") or row.get("utm_campaign") or "").strip()
+
+
+def _metrika_campaign_identity(row, source_key, source_name, channel_name):
+    # DirectClickOrder is preferred only when it contains factual identity.
+    # Yandex sentinels such as "other" / "Чужие кампании" are not campaign
+    # identities.  In that case the factual UTM campaign is the automatic
+    # fallback.  This is deliberately data-driven: no per-campaign registry is
+    # required for a newly created campaign to appear in the report.
+    campaign_id = _meaningful_campaign_id(row.get("direct_campaign_id"))
+    direct_name = _meaningful_campaign_name(row.get("direct_campaign_name"))
+    utm_campaign = str(row.get("utm_campaign") or "").strip()
+
+    if source_key == "instagram":
+        campaign_name = _instagram_campaign_name(row)
+    else:
+        campaign_name = direct_name or utm_campaign
+
+    return _canonical_metrika_identity(
+        source_key,
+        source_name,
+        channel_name,
+        campaign_id,
+        campaign_name,
+    )
 
 
 def _parse_structured_campaigns(payload):
@@ -1341,18 +1441,9 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
         if bool(row.get("is_test_tag")):
             continue
         source_key, source_name, channel_name = _metrika_source(row)
-        campaign_id = str(row.get("direct_campaign_id") or "")
-        campaign_name = _metrika_campaign_name(row, source_key)
-        if native_campaign_format and source_key == "yandex_ads":
-            campaign_name = str(row.get("direct_campaign_name") or "").strip()
-            source_name = "Яндекс-реклама"
-            channel_name = "Платная реклама"
-            if campaign_id in YANDEX_CANONICAL_CAMPAIGNS:
-                campaign_name = YANDEX_CANONICAL_CAMPAIGNS[campaign_id]
-        else:
-            source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
-                source_key, source_name, channel_name, campaign_id, campaign_name
-            )
+        source_key, source_name, channel_name, campaign_id, campaign_name = _metrika_campaign_identity(
+            row, source_key, source_name, channel_name
+        )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name)
         target = traffic_rows.setdefault(key, {"visits": 0})
         target["visits"] += int(row.get("visits") or 0)
@@ -1370,18 +1461,9 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
         if not goal_key:
             continue
         source_key, source_name, channel_name = _metrika_source(traffic_row)
-        campaign_id = str(traffic_row.get("direct_campaign_id") or "")
-        campaign_name = _metrika_campaign_name(traffic_row, source_key)
-        if native_campaign_format and source_key == "yandex_ads":
-            campaign_name = str(traffic_row.get("direct_campaign_name") or "").strip()
-            source_name = "Яндекс-реклама"
-            channel_name = "Платная реклама"
-            if campaign_id in YANDEX_CANONICAL_CAMPAIGNS:
-                campaign_name = YANDEX_CANONICAL_CAMPAIGNS[campaign_id]
-        else:
-            source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
-                source_key, source_name, channel_name, campaign_id, campaign_name
-            )
+        source_key, source_name, channel_name, campaign_id, campaign_name = _metrika_campaign_identity(
+            traffic_row, source_key, source_name, channel_name
+        )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name, goal_key, goal_name)
         target = goal_rows.setdefault(key, {"goal_visits": 0, "reaches": 0})
         target["goal_visits"] += int(row.get("goal_visits") or 0)
