@@ -421,6 +421,19 @@ def universal_dynamic_identity_zip():
                 "is_test_tag":False,
             },
             {
+                "row_id":"future-paid-direct-word-source",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"ad",
+                "traffic_source_name":"Переходы по рекламе",
+                "source_detail":"Future Ads Network Two",
+                "utm_source":"future_direct_mail_network",
+                "utm_medium":"cpc",
+                "utm_campaign":"mail_launch",
+                "visits":8,
+                "is_test_tag":False,
+            },
+            {
                 "row_id":"future-social-source",
                 "date":day,
                 "day_status":"completed_calendar_day_revisable",
@@ -462,7 +475,7 @@ def universal_dynamic_identity_zip():
         ],
         "goal_registry":[],
         "direct_campaign_day":None,
-        "daily_summary":{day:{"visits":54,"test_tag_visits":0}},
+        "daily_summary":{day:{"visits":62,"test_tag_visits":0}},
     }
     raw=io.BytesIO()
     with zipfile.ZipFile(raw,"w",zipfile.ZIP_DEFLATED) as z:
@@ -2070,6 +2083,7 @@ class AdvertisingReportTests(unittest.TestCase):
             if key[1]!="yandex_ads"
         }
         self.assertEqual(sources["paid_future_paid_network"],5)
+        self.assertEqual(sources["paid_future_direct_mail_network"],8)
         self.assertEqual(sources["social_future_social_network"],6)
         self.assertEqual(sources["referral_future_partner"],7)
 
@@ -2100,6 +2114,7 @@ class AdvertisingReportTests(unittest.TestCase):
                     if row["visits"] is not None
                 }
                 self.assertEqual(source_rows["paid_future_paid_network"]["visits"],5)
+                self.assertEqual(source_rows["paid_future_direct_mail_network"]["visits"],8)
                 self.assertEqual(source_rows["social_future_social_network"]["visits"],6)
                 self.assertEqual(source_rows["referral_future_partner"]["visits"],7)
 
