@@ -1050,12 +1050,10 @@ def _canonical_metrika_identity(source_key, source_name, channel_name, campaign_
     if source_key == "yandex_ads":
         source_name = "Яндекс-реклама"
         channel_name = "Платная реклама"
-        campaign_id = _meaningful_campaign_id(campaign_id)
-        campaign_name = _meaningful_campaign_name(campaign_name)
 
-        # Factual non-sentinel IDs are authoritative.  A registry entry may
-        # supply a legacy display name only when the current data has no name;
-        # new IDs never require a code change and are always preserved.
+        # Raw Metrika sentinels are removed before this function.  Keep legacy
+        # stored identities untouched here so historical "other" rows are not
+        # silently rewritten merely by rendering an old report.
         if campaign_id:
             if not campaign_name:
                 campaign_name = YANDEX_CANONICAL_CAMPAIGNS.get(campaign_id, "")
