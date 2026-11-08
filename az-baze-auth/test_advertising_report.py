@@ -2118,6 +2118,28 @@ class AdvertisingReportTests(unittest.TestCase):
                 self.assertEqual(source_rows["social_future_social_network"]["visits"],6)
                 self.assertEqual(source_rows["referral_future_partner"]["visits"],7)
 
+                all_campaigns=m._group_breakdown(
+                    c,date(2026,11,7),date(2026,11,7),"campaign"
+                )
+                dynamic_paid={
+                    row["campaign_name"]:row
+                    for row in all_campaigns
+                    if row["source_key"]=="paid_future_paid_network"
+                }
+                dynamic_social={
+                    row["campaign_name"]:row
+                    for row in all_campaigns
+                    if row["source_key"]=="social_future_social_network"
+                }
+                dynamic_referral={
+                    row["campaign_name"]:row
+                    for row in all_campaigns
+                    if row["source_key"]=="referral_future_partner"
+                }
+                self.assertEqual(dynamic_paid["launch_alpha"]["visits"],5)
+                self.assertEqual(dynamic_social["creator_launch"]["visits"],6)
+                self.assertEqual(dynamic_referral["clinic_profile"]["visits"],7)
+
                 campaigns=[
                     row for row in m._group_breakdown(
                         c,date(2026,11,7),date(2026,11,7),"campaign"
@@ -2401,7 +2423,8 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("Стоимость рекламного первичного: <b>нет данных CRM</b>", js)
         self.assertIn("ROAS первичных: <b>нет данных CRM</b>", js)
         self.assertIn("function renderSources()", js)
-        self.assertIn("sourceKey==='yandex_ads'||sourceKey==='instagram'", js)
+        self.assertIn("const expandable=campaigns.length>0;", js)
+        self.assertNotIn("sourceKey==='yandex_ads'||sourceKey==='instagram'", js)
         self.assertIn("class=\"source-expand\"", js)
         self.assertIn("class=\"child-row source-campaign-row\"", js)
         self.assertIn("button.textContent=expanded?'+':'−'", js)
