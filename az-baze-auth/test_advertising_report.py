@@ -332,6 +332,144 @@ def new_api_test_only_native_campaign_zip():
     return raw.getvalue()
 
 
+def universal_dynamic_identity_zip():
+    day="2026-11-07"
+    payload={
+        "metadata":{
+            "schema_version":"az_analytics_export_v1",
+            "fetched_at_utc":"2026-11-08T01:00:00+00:00",
+            "period_from":day,
+            "period_to":day,
+            "day_status":"completed_calendar_day_revisable",
+            "source_timezone":"Asia/Novosibirsk",
+            "counter_id":"113776005",
+            "sample_share":1.0,
+            "attribution":"cross_device_last_significant",
+            "campaign_identity_source":"traffic_direct_click_order",
+        },
+        "metrica_traffic_day":[
+            {
+                "row_id":"future-real-id",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"ad",
+                "traffic_source_name":"Переходы по рекламе",
+                "source_detail":"Яндекс: Директ",
+                "source_detail_id":"ad.Яндекс: Директ",
+                "utm_source":"yandex",
+                "utm_medium":"cpc",
+                "utm_campaign":"future_named_from_utm",
+                "direct_campaign_id":"991234567",
+                "direct_campaign_name":"",
+                "visits":4,
+                "is_test_tag":False,
+            },
+            {
+                "row_id":"future-other-alpha",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"ad",
+                "traffic_source_name":"Переходы по рекламе",
+                "source_detail":"Яндекс: Директ",
+                "source_detail_id":"ad.Яндекс: Директ",
+                "utm_source":"yandex",
+                "utm_medium":"cpc",
+                "utm_campaign":"future_service_alpha",
+                "direct_campaign_id":"other",
+                "direct_campaign_name":"Чужие кампании",
+                "visits":17,
+                "is_test_tag":False,
+            },
+            {
+                "row_id":"future-blank-beta",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"ad",
+                "traffic_source_name":"Переходы по рекламе",
+                "source_detail":"Яндекс: Директ",
+                "source_detail_id":"ad.Яндекс: Директ",
+                "utm_source":"yandex",
+                "utm_medium":"cpc",
+                "utm_campaign":"future_service_beta",
+                "direct_campaign_id":"",
+                "direct_campaign_name":"",
+                "visits":12,
+                "is_test_tag":False,
+            },
+            {
+                "row_id":"future-truly-unknown",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"ad",
+                "traffic_source_name":"Переходы по рекламе",
+                "source_detail":"Яндекс: Директ",
+                "source_detail_id":"ad.Яндекс: Директ",
+                "visits":3,
+                "is_test_tag":False,
+            },
+            {
+                "row_id":"future-paid-source",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"ad",
+                "traffic_source_name":"Переходы по рекламе",
+                "source_detail":"Future Ads Network",
+                "utm_source":"future_paid_network",
+                "utm_medium":"cpc",
+                "utm_campaign":"launch_alpha",
+                "visits":5,
+                "is_test_tag":False,
+            },
+            {
+                "row_id":"future-social-source",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"social",
+                "traffic_source_name":"Переходы из социальных сетей",
+                "source_detail":"future.social",
+                "utm_source":"future_social_network",
+                "utm_campaign":"creator_launch",
+                "visits":6,
+                "is_test_tag":False,
+            },
+            {
+                "row_id":"future-referral-source",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"referral",
+                "traffic_source_name":"Переходы по ссылкам на сайтах",
+                "utm_source":"future_partner",
+                "utm_campaign":"clinic_profile",
+                "visits":7,
+                "is_test_tag":False,
+            },
+        ],
+        "metrica_goal_day":[
+            {
+                "traffic_row_id":"future-other-alpha",
+                "date":day,
+                "goal_name":"Открытие окна записи",
+                "goal_visits":2,
+                "reaches":2,
+            },
+            {
+                "traffic_row_id":"future-paid-source",
+                "date":day,
+                "goal_name":"Переход к записи в Medflex",
+                "goal_visits":1,
+                "reaches":1,
+            },
+        ],
+        "goal_registry":[],
+        "direct_campaign_day":None,
+        "daily_summary":{day:{"visits":54,"test_tag_visits":0}},
+    }
+    raw=io.BytesIO()
+    with zipfile.ZipFile(raw,"w",zipfile.ZIP_DEFLATED) as z:
+        z.writestr("az_analytics.json",json.dumps(payload,ensure_ascii=False))
+    return raw.getvalue()
+
+
 def auto_metrika_request(path, params):
     if path == "/management/v1/counter/113776005":
         return {
@@ -1833,8 +1971,8 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(len(rows),2)
             by_id={row["campaign_id"]:row for row in rows}
             self.assertEqual(set(by_id),{"999999999","888888888"})
-            self.assertEqual(by_id["999999999"]["campaign_name"],"Не определено")
-            self.assertEqual(by_id["888888888"]["campaign_name"],"Не определено")
+            self.assertEqual(by_id["999999999"]["campaign_name"],"Кампания 999999999")
+            self.assertEqual(by_id["888888888"]["campaign_name"],"Кампания 888888888")
             self.assertEqual(by_id["999999999"]["visits"],4)
             self.assertEqual(by_id["888888888"]["visits"],3)
             self.assertEqual(sum(row["visits"] for row in rows),7)
@@ -1875,7 +2013,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 by_id={row["campaign_id"]:row for row in rows}
                 self.assertEqual(set(by_id),{"715444498","999999999"})
                 self.assertEqual(by_id["715444498"]["visits"],6)
-                self.assertEqual(by_id["999999999"]["campaign_name"],"Не определено")
+                self.assertEqual(by_id["999999999"]["campaign_name"],"Кампания 999999999")
                 self.assertEqual(by_id["999999999"]["visits"],4)
                 self.assertEqual(sum(row["visits"] for row in rows),10)
             finally:
@@ -1892,9 +2030,92 @@ class AdvertisingReportTests(unittest.TestCase):
             for key,values in parsed["traffic_rows"].items()
             if key[1]=="yandex_ads"
         }
-        self.assertEqual(yandex,{("",""):7})
+        self.assertEqual(
+            yandex,
+            {
+                (
+                    "715444498",
+                    "АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",
+                ):7,
+            },
+        )
         self.assertNotIn(("999999999","Тестовая кампания"),yandex)
         self.assertEqual(sum(yandex.values()),7)
+
+    def test_universal_identity_uses_utm_fallback_and_discovers_new_sources_without_registries(self):
+        parsed=m._parse_metrika_zip(
+            universal_dynamic_identity_zip(),
+            "universal-dynamic.zip",
+            now=datetime(2026,11,8,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+
+        yandex={
+            (key[4],key[5]):values["visits"]
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="yandex_ads"
+        }
+        self.assertEqual(
+            yandex,
+            {
+                ("991234567","future_named_from_utm"):4,
+                ("","future_service_alpha"):17,
+                ("","future_service_beta"):12,
+                ("",""):3,
+            },
+        )
+
+        sources={
+            key[1]:values["visits"]
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]!="yandex_ads"
+        }
+        self.assertEqual(sources["paid_future_paid_network"],5)
+        self.assertEqual(sources["social_future_social_network"],6)
+        self.assertEqual(sources["referral_future_partner"],7)
+
+        goals={
+            (key[1],key[5],key[6]):values["goal_visits"]
+            for key,values in parsed["goal_rows"].items()
+        }
+        self.assertEqual(
+            goals[("yandex_ads","future_service_alpha","booking_open")],
+            2,
+        )
+        self.assertEqual(
+            goals[("paid_future_paid_network","launch_alpha","medflex")],
+            1,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            old=m.METRIKA_ARCHIVE_ROOT
+            m.METRIKA_ARCHIVE_ROOT=Path(tmp)
+            c=conn()
+            try:
+                m._store_metrika(c,parsed,1); c.commit()
+                source_rows={
+                    row["source_key"]:row
+                    for row in m._group_breakdown(
+                        c,date(2026,11,7),date(2026,11,7),"source"
+                    )
+                    if row["visits"] is not None
+                }
+                self.assertEqual(source_rows["paid_future_paid_network"]["visits"],5)
+                self.assertEqual(source_rows["social_future_social_network"]["visits"],6)
+                self.assertEqual(source_rows["referral_future_partner"]["visits"],7)
+
+                campaigns=[
+                    row for row in m._group_breakdown(
+                        c,date(2026,11,7),date(2026,11,7),"campaign"
+                    )
+                    if row["source_key"]=="yandex_ads"
+                ]
+                by_name={row["campaign_name"]:row for row in campaigns}
+                self.assertEqual(by_name["future_service_alpha"]["visits"],17)
+                self.assertEqual(by_name["future_service_beta"]["visits"],12)
+                self.assertEqual(by_name["future_named_from_utm"]["campaign_id"],"991234567")
+                self.assertEqual(by_name["Не определено"]["visits"],3)
+            finally:
+                c.close(); m.METRIKA_ARCHIVE_ROOT=old
 
     def test_native_direct_click_order_ids_override_legacy_campaign_report_fallback(self):
         raw=unknown_empty_id_with_campaign_report_zip()
