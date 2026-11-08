@@ -129,7 +129,7 @@ function lineChart(){
   $('#trendLegend').innerHTML='<span><i style="background:#44634f"></i>Выбранный период</span>'+(cmp.length?'<span><i style="background:#b59662"></i>'+h(payload?.compare?.label||'Сравнение')+'</span>':'')
 }
 function sourceName(row){return (row.source_name||row.campaign_name||row.channel_name||'Источник не определён').trim()}
-function campaignName(row){return String(row.campaign_name||'').trim()||'Не определено'}
+function campaignName(row){const name=String(row.campaign_name||'').trim();if(name)return name;const id=String(row.campaign_id||'').trim();return id?'Кампания '+id:'Не определено'}
 function sourceRows(){
   return (payload?.sources||[])
     .filter(row=>row.spend!=null||row.clicks!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null)
@@ -140,7 +140,6 @@ function campaignRowsForSource(sourceKey){
     .filter(row=>row.source_key===sourceKey&&(row.spend!=null||row.clicks!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null))
     .sort((a,b)=>(Number(b.spend)||0)-(Number(a.spend)||0)||(Number(b.visits)||0)-(Number(a.visits)||0)||campaignName(a).localeCompare(campaignName(b),'ru'))
 }
-function isExpandableSource(sourceKey){return sourceKey==='yandex_ads'||sourceKey==='instagram'}
 function provenance(row){
   if(row.spend_provenance==='direct_api')return 'Direct API';
   if(row.spend_provenance==='manual')return 'вручную';
@@ -161,7 +160,7 @@ function renderSources(){
   if(!rows.length){body.innerHTML='<tr><td colspan="6">Нет данных за выбранный период.</td></tr>';return}
   const html=rows.map(row=>{
     const campaigns=campaignRowsForSource(row.source_key);
-    const expandable=isExpandableSource(row.source_key)&&campaigns.length>0;
+    const expandable=campaigns.length>0;
     const label=expandable
       ?'<button type="button" class="source-expand" data-source-key="'+h(row.source_key)+'" aria-expanded="false">+</button><span>'+h(sourceName(row))+'</span>'
       :h(sourceName(row));
