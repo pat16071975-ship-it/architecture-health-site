@@ -607,6 +607,47 @@ def az186_blocker_identity_zip():
     return raw.getvalue()
 
 
+def az186_long_source_cost_zip(raw_source):
+    day="2026-11-07"
+    payload={
+        "metadata":{
+            "schema_version":"az_analytics_export_v1",
+            "fetched_at_utc":"2026-11-08T03:00:00+00:00",
+            "period_from":day,
+            "period_to":day,
+            "day_status":"completed_calendar_day_revisable",
+            "source_timezone":"Asia/Novosibirsk",
+            "counter_id":"113776005",
+            "sample_share":1.0,
+            "attribution":"cross_device_last_significant",
+            "campaign_identity_source":"traffic_direct_click_order",
+        },
+        "metrica_traffic_day":[
+            {
+                "row_id":"az186-04-long-source",
+                "date":day,
+                "day_status":"completed_calendar_day_revisable",
+                "traffic_source_id":"ad",
+                "traffic_source_name":"Переходы по рекламе",
+                "source_detail":"Future Ads Network",
+                "utm_source":raw_source,
+                "utm_medium":"cpc",
+                "utm_campaign":"long_source_launch",
+                "visits":3,
+                "is_test_tag":False,
+            },
+        ],
+        "metrica_goal_day":[],
+        "goal_registry":[],
+        "direct_campaign_day":None,
+        "daily_summary":{day:{"visits":3,"test_tag_visits":0}},
+    }
+    raw=io.BytesIO()
+    with zipfile.ZipFile(raw,"w",zipfile.ZIP_DEFLATED) as z:
+        z.writestr("az_analytics.json",json.dumps(payload,ensure_ascii=False))
+    return raw.getvalue()
+
+
 def auto_metrika_request(path, params):
     if path == "/management/v1/counter/113776005":
         return {
@@ -2393,6 +2434,122 @@ class AdvertisingReportTests(unittest.TestCase):
                 )
             finally:
                 c.close(); m.METRIKA_ARCHIVE_ROOT=old
+
+    def test_az186_04_long_dynamic_source_key_saves_through_costs_get_post(self):
+        raw_source="future_network_" + ("a" * 62)
+        self.assertEqual(len(raw_source),77)
+        parsed=m._parse_metrika_zip(
+            az186_long_source_cost_zip(raw_source),
+            "az186-long-source.zip",
+            now=datetime(2026,11,8,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+
+        traffic=[
+            (key,values)
+            for key,values in parsed["traffic_rows"].items()
+            if key[2]==raw_source
+        ]
+        self.assertEqual(len(traffic),1)
+        source_key=traffic[0][0][1]
+        self.assertLessEqual(len(source_key),120)
+        self.assertEqual(traffic[0][1]["visits"],3)
+
+        # Deterministic and collision-safe under the same bounded contract.
+        same=m._dynamic_source_identity(
+            "paid",raw_source,"Платная реклама","Платная реклама"
+        )[0]
+        other=m._dynamic_source_identity(
+            "paid",raw_source[:-1]+"b","Платная реклама","Платная реклама"
+        )[0]
+        self.assertEqual(source_key,same)
+        self.assertNotEqual(source_key,other)
+        self.assertLessEqual(len(other),120)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            old_archive=m.METRIKA_ARCHIVE_ROOT
+            old_db=m.db
+            old_ensure=m._ensure_schema
+            old_request=m.request
+            m.METRIKA_ARCHIVE_ROOT=Path(tmp)
+            c=conn()
+            try:
+                c.execute(
+                    "CREATE TABLE report_blobs("
+                    "key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+                )
+                m._store_metrika(c,parsed,1)
+                c.commit()
+
+                class FakeApp:
+                    def __init__(self):
+                        self.routes={}
+                    def get(self,path):
+                        return self._route("GET",path)
+                    def post(self,path):
+                        return self._route("POST",path)
+                    def _route(self,method,path):
+                        def decorator(fn):
+                            self.routes[(method,path)]=fn
+                            return fn
+                        return decorator
+
+                app=FakeApp()
+                m.db=lambda:c
+                m._ensure_schema=lambda path=m.DB_PATH:None
+                m.register_advertising_report(app)
+
+                m.request=types.SimpleNamespace(
+                    args={"from":"2026-11-07","to":"2026-11-07"},
+                    form={},
+                    get_json=lambda silent=True:{},
+                )
+                payload=app.routes[("GET","/api/reports/advertising/costs")]()
+                long_source=next(
+                    row for row in payload["sources"]
+                    if row["source_name"]==raw_source
+                )
+                self.assertEqual(long_source["source_key"],source_key)
+                self.assertLessEqual(len(long_source["source_key"]),120)
+
+                m.request=types.SimpleNamespace(
+                    args={},
+                    form={
+                        "from":"2026-11-07",
+                        "to":"2026-11-07",
+                        "advertising_payment":"100",
+                        "contractors_payment":"20",
+                        "total_spend":"120",
+                        "sources_json":json.dumps([
+                            {
+                                "source_key":long_source["source_key"],
+                                "source_name":long_source["source_name"],
+                                "channel_name":long_source["channel_name"],
+                                "manual":False,
+                                "spend":100,
+                            },
+                        ],ensure_ascii=False),
+                    },
+                    get_json=lambda silent=True:{},
+                )
+                response=app.routes[("POST","/api/reports/advertising/costs")]()
+                self.assertEqual(response["status"],"ok")
+
+                stored=json.loads(
+                    c.execute(
+                        "SELECT payload FROM report_blobs WHERE key=?",
+                        (m.ADVERTISING_COSTS_KEY,),
+                    ).fetchone()[0]
+                )
+                self.assertEqual(
+                    stored["periods"][0]["source_spend"][source_key],
+                    100,
+                )
+            finally:
+                m.METRIKA_ARCHIVE_ROOT=old_archive
+                m.db=old_db
+                m._ensure_schema=old_ensure
+                m.request=old_request
+                c.close()
 
     def test_native_direct_click_order_ids_override_legacy_campaign_report_fallback(self):
         raw=unknown_empty_id_with_campaign_report_zip()
