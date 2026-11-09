@@ -2845,6 +2845,158 @@ def _report_payload(conn, start, end, compare_mode, trend_metric):
         "crm": crm,
     }
 
+
+def _cost_values_payload(store, level, entity_key, start, end):
+    exact = _cost_exact_entity_period(store, level, entity_key, start, end)
+    summary = _cost_entity_summary(store, level, entity_key, start, end)
+    return {
+        "period": {"from": _iso(start), "to": _iso(end)},
+        "exact": {
+            "advertising_payment": (exact or {}).get("advertising_payment"),
+            "contractors_payment": (exact or {}).get("contractors_payment"),
+            "total_spend": (exact or {}).get("total_spend"),
+            "legacy_partial": bool((exact or {}).get("legacy_partial")),
+        },
+        "summary": {
+            "complete": bool(summary.get("complete")),
+            "advertising_payment": summary.get("advertising_payment"),
+            "contractors_payment": summary.get("contractors_payment"),
+            "total_spend": summary.get("total_spend"),
+            "legacy_partial": bool(summary.get("legacy_partial")),
+        },
+    }
+
+
+def _cost_hierarchy_payload(conn, start, end):
+    store = _load_cost_store(conn)
+    economics = _source_economics(conn, start, end, store)
+    campaign_economics = economics.get("campaigns") or {}
+    campaign_registry = _campaign_registry(conn, store)
+    campaigns_by_source = {}
+    for meta in campaign_registry:
+        key = meta["campaign_key"]
+        econ = campaign_economics.get(key) or {}
+        row = {
+            **meta,
+            **_cost_values_payload(store, "campaign", key, start, end),
+            "effective": {
+                "advertising_payment": econ.get("advertising_payment"),
+                "contractors_payment": econ.get("contractors_payment"),
+                "total_spend": econ.get("total_spend"),
+                "spend_provenance": econ.get("spend_provenance"),
+                "period_complete": bool(econ.get("period_complete")),
+            },
+        }
+        campaigns_by_source.setdefault(meta["source_key"], []).append(row)
+
+    sources = []
+    for meta in _source_registry(conn, store):
+        key = meta["source_key"]
+        econ = (economics.get("sources") or {}).get(key) or {}
+        children = campaigns_by_source.get(key, [])
+        sources.append({
+            **meta,
+            **_cost_values_payload(store, "source", key, start, end),
+            "effective": {
+                "advertising_payment": econ.get("advertising_payment"),
+                "contractors_payment": econ.get("contractors_payment"),
+                "total_spend": econ.get("total_spend"),
+                "spend_provenance": econ.get("spend_provenance"),
+                "period_complete": bool(econ.get("period_complete")),
+            },
+            "reconciliation": {
+                "distributed_total": econ.get("campaign_distributed_total"),
+                "parent_total": econ.get("total_spend"),
+                "delta": econ.get("campaign_reconciliation_delta"),
+                "complete": (
+                    econ.get("campaign_distributed_total") is not None
+                    and econ.get("total_spend") is not None
+                ),
+            },
+            "campaigns": children,
+        })
+
+    global_values = _cost_values_payload(store, "global", "", start, end)
+    budget = economics.get("budget") or {}
+    global_effective = {
+        "advertising_payment": budget.get("advertising_payment") if budget.get("complete") else None,
+        "contractors_payment": budget.get("contractors_payment") if budget.get("complete") else None,
+        "total_spend": budget.get("total_spend") if budget.get("complete") else None,
+        "spend_provenance": "manual" if budget.get("complete") else None,
+        "period_complete": bool(budget.get("complete")),
+    }
+    global_row = {
+        "entity_type": "global",
+        "entity_key": "",
+        **global_values,
+        "effective": global_effective,
+        "reconciliation": {
+            "distributed_total": economics.get("source_total_spend"),
+            "parent_total": global_effective.get("total_spend"),
+            "delta": economics.get("source_reconciliation_delta"),
+            "complete": (
+                economics.get("source_total_spend") is not None
+                and global_effective.get("total_spend") is not None
+            ),
+        },
+    }
+    return {
+        "period": {"from": _iso(start), "to": _iso(end)},
+        "global": global_row,
+        "sources": sources,
+    }
+
+
+def _replace_cost_entity_period(store, level, entity_key, period):
+    periods = store["periods"]
+    if level == "global":
+        target = list(periods.get("global") or [])
+        container = None
+    elif level == "source":
+        target = list((periods.get("sources") or {}).get(entity_key) or [])
+        container = periods.setdefault("sources", {})
+    elif level == "campaign":
+        target = list((periods.get("campaigns") or {}).get(entity_key) or [])
+        container = periods.setdefault("campaigns", {})
+    else:
+        raise ValueError("invalid advertising cost level")
+
+    target = [
+        item for item in target
+        if not (item["from"] == period["from"] and item["to"] == period["to"])
+    ]
+    if any(
+        period.get(field) is not None
+        for field in ("advertising_payment", "contractors_payment", "total_spend")
+    ):
+        target.append(period)
+
+    if level == "global":
+        periods["global"] = target
+    else:
+        if target:
+            container[entity_key] = target
+        else:
+            container.pop(entity_key, None)
+
+
+def _persist_cost_store(conn, store):
+    normalized = _normalize_hierarchical_cost_store(store)
+    payload = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
+    conn.execute(
+        """
+        INSERT INTO report_blobs(key,payload,updated_by,updated_at)
+        VALUES(?,?,?,?)
+        ON CONFLICT(key) DO UPDATE SET
+          payload=excluded.payload,
+          updated_by=excluded.updated_by,
+          updated_at=excluded.updated_at
+        """,
+        (ADVERTISING_COSTS_KEY, payload, g.user["id"], iso_now()),
+    )
+    return normalized
+
+
 def _metrika_sync_has_changes(completed_updated, current_result):
     return bool(completed_updated or current_result.get("updated"))
 
