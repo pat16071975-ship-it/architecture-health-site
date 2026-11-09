@@ -649,10 +649,15 @@ def _campaign_cost_key(source_key, campaign_id, campaign_name):
     factual = campaign_id or campaign_name
     if not source_key or not factual:
         return ""
-    digest = hashlib.sha256(
-        (source_key + "\0" + campaign_id + "\0" + campaign_name).encode("utf-8")
-    ).hexdigest()
-    label = _identity_slug(campaign_name or campaign_id) or "campaign"
+    if campaign_id:
+        # Factual ID is the stable technical identity. Display-name changes
+        # must never create another cost entity for the same campaign.
+        identity = source_key + "\0id\0" + campaign_id
+        label = "id_" + (_identity_slug(campaign_id) or "campaign")
+    else:
+        identity = source_key + "\0name\0" + campaign_name
+        label = _identity_slug(campaign_name) or "campaign"
+    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
     room = 120 - len("campaign__") - len(digest) - 1
     return ("campaign_" + label[:room] + "_" + digest)[:120]
 
@@ -1068,6 +1073,8 @@ def _summary(conn, start, end):
         "advertising_payment": budget.get("advertising_payment"),
         "contractors_payment": budget.get("contractors_payment"),
         "source_spend_total": economics.get("source_spend_total"),
+        "source_total_spend": economics.get("source_total_spend"),
+        "source_reconciliation_delta": economics.get("source_reconciliation_delta"),
         "cost_per_click": economics.get("cost_per_click"),
         "clicks": (
             sum(int(item.get("clicks") or 0) for item in economics["sources"].values() if item.get("clicks") is not None)
