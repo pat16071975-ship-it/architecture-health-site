@@ -3392,6 +3392,7 @@ def register_advertising_report(app):
                 completed_targets = metrika_auto.completed_sync_days(conn, sync_started)
 
                 client = metrika_auto.MetrikaClient(token)
+                campaign_evidence = _campaign_evidence_map(conn)
                 prepared_completed = []
                 for day in completed_targets:
                     core_raw, core_filename = client.fetch_day_archive(
@@ -3403,6 +3404,11 @@ def register_advertising_report(app):
                         core_raw,
                         core_filename,
                         now=sync_started,
+                        campaign_evidence=campaign_evidence,
+                    )
+                    campaign_evidence = _merge_campaign_evidence_maps(
+                        campaign_evidence,
+                        _campaign_evidence_map_from_rows(core_parsed.get("campaign_evidence")),
                     )
                     if core_parsed["completed_days"] != [day.isoformat()] or core_parsed.get("provisional_days"):
                         raise ValueError("API Метрики вернул неожиданный завершённый период.")
@@ -3418,6 +3424,11 @@ def register_advertising_report(app):
                             full_raw,
                             full_filename,
                             now=sync_started,
+                            campaign_evidence=campaign_evidence,
+                        )
+                        campaign_evidence = _merge_campaign_evidence_maps(
+                            campaign_evidence,
+                            _campaign_evidence_map_from_rows(full_parsed.get("campaign_evidence")),
                         )
                         if (
                             full_parsed["completed_days"] != [day.isoformat()]
@@ -3438,6 +3449,7 @@ def register_advertising_report(app):
                     current_filename,
                     allow_provisional=True,
                     now=sync_started,
+                    campaign_evidence=campaign_evidence,
                 )
                 if (
                     current_parsed.get("completed_days")
@@ -3518,8 +3530,12 @@ def register_advertising_report(app):
         if not uploaded or not uploaded.filename:
             return jsonify(status="error", message="Выберите ZIP Яндекс Метрики."), 400
         try:
-            parsed = _parse_metrika_zip(uploaded.read(), uploaded.filename)
             conn = db()
+            parsed = _parse_metrika_zip(
+                uploaded.read(),
+                uploaded.filename,
+                campaign_evidence=_campaign_evidence_map(conn),
+            )
             conn.execute("BEGIN IMMEDIATE")
             result = _store_metrika(conn, parsed, g.user["id"])
             conn.commit()
