@@ -2848,11 +2848,14 @@ class AdvertisingReportTests(unittest.TestCase):
             for key,values in parsed["traffic_rows"].items()
             if key[1]=="yandex_ads"
         ]
+        # The same ZIP contains factual same-row evidence that
+        # bruksizm_search_nsk belongs to campaign 999999999. The one
+        # fallback UTM visit is therefore evidence-merged into that ID.
         self.assertIn(
             (
                 "999999999",
                 "АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",
-                4,
+                5,
             ),
             yandex,
         )
@@ -3091,7 +3094,9 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("Стоимость рекламного первичного: <b>нет данных CRM</b>", js)
         self.assertIn("ROAS первичных: <b>нет данных CRM</b>", js)
         self.assertIn("function renderSources()", js)
-        self.assertIn("const expandable=campaigns.length>0;", js)
+        self.assertIn("const expanded=expandedSources.has(row.source_key);", js)
+        self.assertIn("report-cost-editor", js)
+        self.assertIn("data-cost-save", js)
         self.assertNotIn("sourceKey==='yandex_ads'||sourceKey==='instagram'", js)
         self.assertIn("class=\"source-expand\"", js)
         self.assertIn("class=\"child-row source-campaign-row\"", js)
