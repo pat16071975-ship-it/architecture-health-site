@@ -904,7 +904,8 @@ def _freshness(conn):
 
 CAMPAIGN_ID_SENTINELS = {"", "other", "unknown", "undefined", "not_set", "not set", "(not set)"}
 CAMPAIGN_NAME_SENTINELS = {
-    "", "чужие кампании", "не определено", "кампания не определена",
+    "", "чужие кампании", "другие кампании", "прочие кампании",
+    "не определено", "кампания не определена",
     "other", "unknown", "undefined", "not_set", "not set", "(not set)",
 }
 
@@ -915,9 +916,49 @@ def _identity_slug(value):
 
 def _dynamic_source_identity(prefix, raw_name, fallback_name, channel_name):
     name = str(raw_name or "").strip()
-    slug = _identity_slug(name)
-    key = (prefix + "_" + slug if slug else prefix)[:120]
-    return key, name or fallback_name, channel_name
+    if not name:
+        return prefix, fallback_name, channel_name
+
+    # Human-readable slug alone is not injective: future.network and
+    # future-network would collapse.  Keep a stable digest of the factual raw
+    # value so distinct source evidence can never merge merely because
+    # punctuation normalizes to the same slug.
+    slug = _identity_slug(name) or "source"
+    digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:12]
+    room = max(1, 120 - len(prefix) - len(digest) - 2)
+    key = f"{prefix}_{slug[:room]}_{digest}"
+    return key, name, channel_name
+
+
+def _evidence_label(value):
+    return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+
+def _is_exact_or_domain(value, exact=(), domains=(), prefixes=()):
+    raw = _evidence_label(value)
+    if not raw:
+        return False
+    if raw in set(exact):
+        return True
+
+    candidate = raw.rstrip(".")
+    for prefix in prefixes:
+        if candidate.startswith(prefix):
+            candidate = candidate[len(prefix):]
+            break
+    return any(candidate == domain or candidate.endswith("." + domain) for domain in domains)
+
+
+def _is_yandex_direct_label(value):
+    raw = _evidence_label(value)
+    if not raw:
+        return False
+    return bool(
+        re.fullmatch(
+            r"(?:ad\.)?(?:яндекс|yandex)\s*:?\s*(?:директ|direct)(?:\s*:\s*.*)?",
+            raw,
+        )
+    )
 
 
 def _meaningful_campaign_id(value):
@@ -948,21 +989,13 @@ def _metrika_source(row):
         # (native campaign identity or Yandex/Direct source evidence) keep the
         # established yandex_ads bucket; otherwise a new UTM/source becomes a
         # new source automatically without a Python registry entry.
-        source_probe = " ".join(
-            value for value in (detail_id, detail, traffic_name) if value
-        ).lower()
-        yandex_utm = (
-            utm_source in {"yandex", "yandex_direct", "yandex-direct", "ydirect"}
-            or "яндекс" in utm_source
-            or "yandex" in utm_source
-        )
+        yandex_utm = utm_source in {
+            "yandex", "yandex_direct", "yandex-direct", "yandexdirect", "ydirect",
+        }
         if (
             direct_campaign_id
             or direct_campaign_name
-            or "яндекс" in source_probe
-            or "yandex" in source_probe
-            or "директ" in source_probe
-            or "direct" in source_probe
+            or any(_is_yandex_direct_label(value) for value in (detail_id, detail, traffic_name))
             or yandex_utm
         ):
             return "yandex_ads", "Яндекс-реклама", "Платная реклама"
@@ -980,18 +1013,43 @@ def _metrika_source(row):
         return "direct", "Прямые заходы", "Прямые заходы"
 
     if traffic_id == "organic":
-        probe = (detail_id + " " + detail).lower()
-        if "google" in probe:
+        if any(
+            _is_exact_or_domain(
+                value,
+                exact=("google",),
+                domains=("google.com",),
+                prefixes=("organic.",),
+            )
+            for value in (detail_id, detail)
+        ):
             return "google_organic", "Google органика", "Поиск"
-        if "яндекс" in probe or "yandex" in probe:
+        if any(
+            _is_exact_or_domain(
+                value,
+                exact=("яндекс", "yandex"),
+                domains=("yandex.ru",),
+                prefixes=("organic.",),
+            )
+            for value in (detail_id, detail)
+        ):
             return "yandex_organic", "Яндекс органика", "Поиск"
         return _dynamic_source_identity(
             "organic", detail or detail_id, traffic_name or "Поиск", "Поиск"
         )
 
     if traffic_id == "social":
-        probe = (detail + " " + detail_id + " " + utm_source_raw).lower()
-        if "instagram" in probe or utm_source == "ig":
+        if (
+            utm_source in {"instagram", "ig"}
+            or any(
+                _is_exact_or_domain(
+                    value,
+                    exact=("instagram",),
+                    domains=("instagram.com",),
+                    prefixes=("social.",),
+                )
+                for value in (detail_id, detail)
+            )
+        ):
             return "instagram", "Instagram", "Социальные сети"
         return _dynamic_source_identity(
             "social",
@@ -1004,14 +1062,38 @@ def _metrika_source(row):
         return "internal", "Внутренние переходы", "Другие источники"
 
     if traffic_id == "referral":
-        probe = (detail + " " + detail_id + " " + utm_source_raw).lower()
-        if "2gis" in probe:
+        referral_values = (utm_source_raw, detail, detail_id)
+        if (
+            utm_source == "2gis"
+            or any(
+                _is_exact_or_domain(value, domains=("2gis.ru",), prefixes=("referral.",))
+                for value in referral_values
+            )
+        ):
             return "2gis", "2ГИС", "Карты"
-        if "taplink" in probe:
+        if (
+            utm_source == "taplink"
+            or any(
+                _is_exact_or_domain(value, domains=("taplink.cc",), prefixes=("referral.",))
+                for value in referral_values
+            )
+        ):
             return "taplink", "Taplink", "Другие источники"
-        if "napopravku" in probe:
+        if (
+            utm_source == "napopravku"
+            or any(
+                _is_exact_or_domain(value, domains=("napopravku.ru",), prefixes=("referral.",))
+                for value in referral_values
+            )
+        ):
             return "napopravku", "НаПоправку", "Другие источники"
-        if "prodoctorov" in probe:
+        if (
+            utm_source == "prodoctorov"
+            or any(
+                _is_exact_or_domain(value, domains=("prodoctorov.ru",), prefixes=("referral.",))
+                for value in referral_values
+            )
+        ):
             return "prodoctorov", "ПроДокторов", "Другие источники"
         return _dynamic_source_identity(
             "referral",
@@ -1021,8 +1103,9 @@ def _metrika_source(row):
         )
 
     raw_source = utm_source_raw or detail or traffic_name or traffic_id
-    key = _identity_slug(raw_source) or "other"
-    return key[:120], raw_source or "Другие источники", "Другие источники"
+    return _dynamic_source_identity(
+        "source", raw_source, "Другие источники", "Другие источники"
+    )
 
 
 def _instagram_campaign_name(row):
@@ -1086,19 +1169,25 @@ def _metrika_campaign_name(row, source_key):
 
 
 def _metrika_campaign_identity(row, source_key, source_name, channel_name):
-    # DirectClickOrder is preferred only when it contains factual identity.
-    # Yandex sentinels such as "other" / "Чужие кампании" are not campaign
-    # identities.  In that case the factual UTM campaign is the automatic
-    # fallback.  This is deliberately data-driven: no per-campaign registry is
-    # required for a newly created campaign to appear in the report.
-    campaign_id = _meaningful_campaign_id(row.get("direct_campaign_id"))
+    # DirectClickOrder is authoritative only when it contains a factual,
+    # non-sentinel ID.  When the ID is blank/sentinel, a factual UTM campaign
+    # outranks any generic DirectClickOrder display label, regardless of the
+    # language/wording of that placeholder.
+    raw_campaign_id = str(row.get("direct_campaign_id") or "").strip()
+    campaign_id = _meaningful_campaign_id(raw_campaign_id)
     direct_name = _meaningful_campaign_name(row.get("direct_campaign_name"))
     utm_campaign = str(row.get("utm_campaign") or "").strip()
 
     if source_key == "instagram":
         campaign_name = _instagram_campaign_name(row)
-    else:
+    elif campaign_id:
         campaign_name = direct_name or utm_campaign
+    elif utm_campaign:
+        campaign_name = utm_campaign
+    elif raw_campaign_id and not campaign_id:
+        campaign_name = ""
+    else:
+        campaign_name = direct_name
 
     return _canonical_metrika_identity(
         source_key,
