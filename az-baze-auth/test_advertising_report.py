@@ -2366,7 +2366,10 @@ class AdvertisingReportTests(unittest.TestCase):
                 }
                 self.assertEqual(dynamic_paid["launch_alpha"]["visits"],5)
                 self.assertEqual(dynamic_social["creator_launch"]["visits"],6)
-                self.assertEqual(dynamic_referral["clinic_profile"]["visits"],7)
+                # clinic_profile is a technical placement UTM, not a child
+                # marketing campaign. The source keeps all 7 visits above,
+                # but no campaign row is rendered for this marker.
+                self.assertEqual(dynamic_referral,{})
 
                 campaigns=[
                     row for row in m._group_breakdown(
@@ -2381,6 +2384,90 @@ class AdvertisingReportTests(unittest.TestCase):
                 self.assertEqual(by_name["Не определено"]["visits"],3)
             finally:
                 c.close(); m.METRIKA_ARCHIVE_ROOT=old
+
+    def test_clinic_profile_is_technical_utm_not_child_campaign(self):
+        parsed=m._parse_metrika_zip(
+            metrika_zip(),
+            "technical-clinic-profile.zip",
+            now=datetime(2026,10,28,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+
+        nap=[
+            (key,values)
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="napopravku"
+        ]
+        pro=[
+            (key,values)
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="prodoctorov"
+        ]
+        self.assertEqual(len(nap),1)
+        self.assertEqual(len(pro),1)
+        self.assertEqual(nap[0][0][5],"")
+        self.assertEqual(pro[0][0][5],"")
+        self.assertEqual(nap[0][1]["visits"],2)
+        self.assertEqual(pro[0][1]["visits"],1)
+
+        c=conn()
+        try:
+            historical=[
+                ("direct","Прямые заходы","Прямые заходы",2),
+                ("yandex_organic","Яндекс органика","Поиск",4),
+                ("2gis","2ГИС","Карты",14),
+                ("napopravku","НаПоправку","Другие источники",2),
+                ("prodoctorov","ПроДокторов","Другие источники",1),
+            ]
+            for source_key,source_name,channel,visits in historical:
+                c.execute(
+                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        "metrika","2026-11-08",source_key,source_name,channel,
+                        "","clinic_profile",None,None,visits,"t","legacy-profile",
+                    ),
+                )
+            c.commit()
+
+            sources={
+                row["source_key"]:row
+                for row in m._group_breakdown(
+                    c,date(2026,11,8),date(2026,11,8),"source"
+                )
+            }
+            self.assertEqual(sources["direct"]["visits"],2)
+            self.assertEqual(sources["yandex_organic"]["visits"],4)
+            self.assertEqual(sources["2gis"]["visits"],14)
+            self.assertEqual(sources["napopravku"]["visits"],2)
+            self.assertEqual(sources["prodoctorov"]["visits"],1)
+
+            campaigns=m._group_breakdown(
+                c,date(2026,11,8),date(2026,11,8),"campaign"
+            )
+            self.assertFalse(
+                any(row["campaign_name"]=="clinic_profile" for row in campaigns)
+            )
+        finally:
+            c.close()
+
+    def test_factual_campaign_id_named_clinic_profile_is_not_hidden(self):
+        identity=m._canonical_metrika_identity(
+            "yandex_ads",
+            "Яндекс-реклама",
+            "Платная реклама",
+            "123456789",
+            "clinic_profile",
+            allow_legacy_aliases=False,
+        )
+        self.assertEqual(
+            identity,
+            (
+                "yandex_ads",
+                "Яндекс-реклама",
+                "Платная реклама",
+                "123456789",
+                "clinic_profile",
+            ),
+        )
 
     def test_az186_01_sentinel_direct_name_cannot_outrank_factual_utm(self):
         parsed=m._parse_metrika_zip(
