@@ -177,6 +177,10 @@ CREATE TABLE IF NOT EXISTS advertising_campaign_identity_evidence (
 );
 CREATE INDEX IF NOT EXISTS idx_ad_campaign_evidence_utm
     ON advertising_campaign_identity_evidence(source_key,utm_campaign);
+CREATE TABLE IF NOT EXISTS advertising_metrika_import_formats (
+    import_id TEXT PRIMARY KEY,
+    campaign_identity_source TEXT NOT NULL
+);
 """
 
 
@@ -695,6 +699,88 @@ def _source_registry(conn, store=None):
             "manual": bool(meta.get("manual")),
         }
     return sorted(registry.values(), key=lambda item: item["source_name"].lower())
+
+
+def _store_metrika_import_format(conn, import_id, parsed):
+    source = str(
+        (parsed.get("metadata") or {}).get("campaign_identity_source") or ""
+    ).strip()
+    # Empty means the legacy campaign representation. The marker is explicit
+    # so the old Python alias dictionary can never become evidence for a new
+    # traffic_direct_click_order import.
+    source = source or "legacy"
+    conn.execute(
+        """
+        INSERT INTO advertising_metrika_import_formats(
+            import_id,campaign_identity_source
+        ) VALUES(?,?)
+        ON CONFLICT(import_id) DO UPDATE SET
+          campaign_identity_source=excluded.campaign_identity_source
+        WHERE campaign_identity_source<>excluded.campaign_identity_source
+        """,
+        (str(import_id or ""), source),
+    )
+
+
+def _native_campaign_import_ids(conn):
+    try:
+        rows = conn.execute(
+            """
+            SELECT import_id
+            FROM advertising_metrika_import_formats
+            WHERE campaign_identity_source='traffic_direct_click_order'
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return set()
+    return {str(row["import_id"]) for row in rows}
+
+
+def _canonical_stored_campaign_identity(
+    row,
+    campaign_evidence,
+    native_import_ids,
+):
+    source_key, source_name, channel_name, campaign_id, campaign_name = (
+        _canonical_metrika_identity(
+            row["source_key"],
+            row["source_name"],
+            row["channel_name"],
+            row["campaign_id"],
+            row["campaign_name"],
+            allow_legacy_aliases=False,
+        )
+    )
+
+    if source_key != "yandex_ads" or campaign_id or not campaign_name:
+        return source_key, source_name, channel_name, campaign_id, campaign_name
+
+    evidence = (campaign_evidence or {}).get((source_key, campaign_name))
+    if evidence:
+        return _canonical_metrika_identity(
+            source_key,
+            source_name,
+            channel_name,
+            evidence.get("campaign_id"),
+            evidence.get("campaign_name") or campaign_name,
+            allow_legacy_aliases=False,
+        )
+
+    provider = str(row["provider"] or "") if "provider" in row.keys() else ""
+    import_id = str(row["import_id"] or "") if "import_id" in row.keys() else ""
+    is_native = provider == "metrika" and import_id in (native_import_ids or set())
+    if is_native:
+        return source_key, source_name, channel_name, campaign_id, campaign_name
+
+    # Only unmarked/legacy stored rows retain the historical alias dictionary.
+    return _canonical_metrika_identity(
+        source_key,
+        source_name,
+        channel_name,
+        campaign_id,
+        campaign_name,
+        allow_legacy_aliases=True,
+    )
 
 
 def _campaign_registry(conn, store=None):
@@ -1581,7 +1667,15 @@ def _instagram_campaign_name(row):
     return INSTAGRAM_CAMPAIGN_LABELS.get(raw.lower(), raw)
 
 
-def _canonical_metrika_identity(source_key, source_name, channel_name, campaign_id, campaign_name):
+def _canonical_metrika_identity(
+    source_key,
+    source_name,
+    channel_name,
+    campaign_id,
+    campaign_name,
+    *,
+    allow_legacy_aliases=True,
+):
     source_key = str(source_key or "").strip()
     source_name = str(source_name or "").strip()
     channel_name = str(channel_name or "").strip()
@@ -1615,7 +1709,11 @@ def _canonical_metrika_identity(source_key, source_name, channel_name, campaign_
         # Legacy aliases remain migration compatibility only.  Any new UTM
         # that is absent from this map is still kept verbatim as its own
         # campaign, so future campaigns do not require Python edits.
-        canonical_id = YANDEX_CAMPAIGN_ALIASES.get(campaign_name.lower(), "") if campaign_name else ""
+        canonical_id = (
+            YANDEX_CAMPAIGN_ALIASES.get(campaign_name.lower(), "")
+            if allow_legacy_aliases and campaign_name
+            else ""
+        )
         if canonical_id:
             return (
                 source_key,
@@ -1843,6 +1941,7 @@ def _metrika_campaign_identity(
         channel_name,
         campaign_id,
         campaign_name,
+        allow_legacy_aliases=False,
     )
 
 
