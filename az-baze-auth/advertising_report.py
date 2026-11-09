@@ -919,12 +919,17 @@ def _dynamic_source_identity(prefix, raw_name, fallback_name, channel_name):
     if not name:
         return prefix, fallback_name, channel_name
 
-    # Slugging is lossy (future.network == future-network after ordinary
-    # normalization).  Encode the complete factual UTF-8 value instead.  Hex is
-    # deterministic and injective for byte strings, so distinct raw sources
-    # cannot collapse merely because punctuation/case differs.
-    encoded = name.encode("utf-8").hex()
-    key = f"{prefix}__{encoded}"
+    # The costs store has an established 120-character source_key contract.
+    # Keep a readable slug prefix, but put the complete SHA-256 digest of the
+    # factual raw value into the key.  We never truncate the digest: long UTM
+    # values therefore stay bounded while punctuation variants such as
+    # future.network / future-network remain distinct.
+    digest = hashlib.sha256(name.encode("utf-8")).hexdigest()
+    slug = _identity_slug(name) or "source"
+    room = 120 - len(prefix) - len(digest) - 2
+    if room < 1:
+        raise ValueError("dynamic source prefix too long")
+    key = f"{prefix}_{slug[:room]}_{digest}"
     return key, name, channel_name
 
 
