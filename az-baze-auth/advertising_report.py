@@ -165,6 +165,18 @@ CREATE TABLE IF NOT EXISTS advertising_metrika_imports (
     goal_rows INTEGER NOT NULL,
     archive_path TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS advertising_campaign_identity_evidence (
+    source_key TEXT NOT NULL,
+    utm_campaign TEXT NOT NULL,
+    campaign_id TEXT NOT NULL,
+    campaign_name TEXT NOT NULL,
+    first_seen_date TEXT NOT NULL,
+    last_seen_date TEXT NOT NULL,
+    evidence_rows INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY(source_key,utm_campaign,campaign_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ad_campaign_evidence_utm
+    ON advertising_campaign_identity_evidence(source_key,utm_campaign);
 """
 
 
