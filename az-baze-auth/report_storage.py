@@ -675,7 +675,7 @@ def _validate_blob_payload(key, payload):
         parsed = {"version": 1, "months": months}
     elif key == "az-advertising-costs-v1":
         try:
-            parsed = advertising_report._normalize_cost_store(parsed)
+            parsed = advertising_report._normalize_hierarchical_cost_store(parsed)
         except ValueError:
             abort(400)
     elif key in {"az-service-extra-payments-v1", "az-service-salary-v1"}:
