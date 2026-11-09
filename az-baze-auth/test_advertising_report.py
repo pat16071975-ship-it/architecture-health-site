@@ -2503,7 +2503,6 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertLessEqual(len(source_key),120)
         self.assertEqual(traffic[0][1]["visits"],3)
 
-        # Deterministic and collision-safe under the same bounded contract.
         same=m._dynamic_source_identity(
             "paid",raw_source,"Платная реклама","Платная реклама"
         )[0]
@@ -2563,25 +2562,21 @@ class AdvertisingReportTests(unittest.TestCase):
                 m.request=types.SimpleNamespace(
                     args={},
                     form={
+                        "entity_type":"source",
+                        "entity_key":long_source["source_key"],
+                        "source_name":long_source["source_name"],
+                        "channel_name":long_source["channel_name"],
                         "from":"2026-11-07",
                         "to":"2026-11-07",
                         "advertising_payment":"100",
                         "contractors_payment":"20",
                         "total_spend":"120",
-                        "sources_json":json.dumps([
-                            {
-                                "source_key":long_source["source_key"],
-                                "source_name":long_source["source_name"],
-                                "channel_name":long_source["channel_name"],
-                                "manual":False,
-                                "spend":100,
-                            },
-                        ],ensure_ascii=False),
                     },
                     get_json=lambda silent=True:{},
                 )
                 response=app.routes[("POST","/api/reports/advertising/costs")]()
                 self.assertEqual(response["status"],"ok")
+                self.assertEqual(response["version"],2)
 
                 stored=json.loads(
                     c.execute(
@@ -2589,16 +2584,243 @@ class AdvertisingReportTests(unittest.TestCase):
                         (m.ADVERTISING_COSTS_KEY,),
                     ).fetchone()[0]
                 )
-                self.assertEqual(
-                    stored["periods"][0]["source_spend"][source_key],
-                    100,
-                )
+                self.assertEqual(stored["version"],2)
+                period=stored["periods"]["sources"][source_key][0]
+                self.assertEqual(period["advertising_payment"],100)
+                self.assertEqual(period["contractors_payment"],20)
+                self.assertEqual(period["total_spend"],120)
             finally:
                 m.METRIKA_ARCHIVE_ROOT=old_archive
                 m.db=old_db
                 m._ensure_schema=old_ensure
                 m.request=old_request
                 c.close()
+
+    def test_hierarchical_costs_v1_migration_preserves_unknown_contractor(self):
+        c=conn()
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            legacy={
+                "version":1,
+                "sources":{
+                    "yandex_ads":{
+                        "name":"Яндекс-реклама",
+                        "channel_name":"Платная реклама",
+                        "manual":False,
+                    }
+                },
+                "periods":[{
+                    "from":"2026-11-01",
+                    "to":"2026-11-08",
+                    "advertising_payment":1000,
+                    "contractors_payment":200,
+                    "total_spend":1200,
+                    "source_spend":{"yandex_ads":900},
+                }],
+            }
+            c.execute(
+                "INSERT INTO report_blobs VALUES(?,?,?,?)",
+                (m.ADVERTISING_COSTS_KEY,json.dumps(legacy,ensure_ascii=False),1,"t"),
+            )
+            c.commit()
+            store=m._load_cost_store(c)
+            self.assertEqual(store["version"],2)
+            global_summary=m._cost_entity_summary(
+                store,"global","",date(2026,11,1),date(2026,11,8)
+            )
+            source_summary=m._cost_entity_summary(
+                store,"source","yandex_ads",date(2026,11,1),date(2026,11,8)
+            )
+            self.assertEqual(global_summary["total_spend"],1200)
+            self.assertEqual(source_summary["advertising_payment"],900)
+            self.assertIsNone(source_summary["contractors_payment"])
+            self.assertIsNone(source_summary["total_spend"])
+            self.assertTrue(source_summary["legacy_partial"])
+        finally:
+            c.close()
+
+    def test_hierarchical_costs_global_source_campaign_are_detail_not_double_count(self):
+        c=conn()
+        old_db=m.db
+        old_ensure=m._ensure_schema
+        old_request=m.request
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-11-08","yandex_ads","Яндекс-реклама","Платная реклама",
+                 "777","АЗ | Тестовая РК | Поиск | Новосибирск",None,None,10,"t","m"),
+            )
+            c.commit()
+
+            class FakeApp:
+                def __init__(self): self.routes={}
+                def get(self,path): return self._route("GET",path)
+                def post(self,path): return self._route("POST",path)
+                def _route(self,method,path):
+                    def decorator(fn):
+                        self.routes[(method,path)]=fn
+                        return fn
+                    return decorator
+
+            app=FakeApp();m.db=lambda:c;m._ensure_schema=lambda path=m.DB_PATH:None
+            m.register_advertising_report(app)
+
+            m.request=types.SimpleNamespace(
+                args={"from":"2026-11-08","to":"2026-11-08"},form={},
+                get_json=lambda silent=True:{},
+            )
+            hierarchy=app.routes[("GET","/api/reports/advertising/costs")]()
+            source=next(row for row in hierarchy["sources"] if row["source_key"]=="yandex_ads")
+            campaign=source["campaigns"][0]
+
+            def save(level,key,ad,contractor,total,extra=None):
+                form={
+                    "entity_type":level,"entity_key":key,
+                    "from":"2026-11-08","to":"2026-11-08",
+                    "advertising_payment":str(ad),
+                    "contractors_payment":str(contractor),
+                    "total_spend":str(total),
+                }
+                form.update(extra or {})
+                m.request=types.SimpleNamespace(args={},form=form,get_json=lambda silent=True:{})
+                response=app.routes[("POST","/api/reports/advertising/costs")]()
+                self.assertEqual(response["status"],"ok")
+
+            save("global","",100,20,120)
+            save(
+                "source","yandex_ads",100,20,120,
+                {"source_name":"Яндекс-реклама","channel_name":"Платная реклама"},
+            )
+            save("campaign",campaign["campaign_key"],80,10,90)
+
+            store=m._load_cost_store(c)
+            global_summary=m._cost_entity_summary(store,"global","",date(2026,11,8),date(2026,11,8))
+            source_summary=m._cost_entity_summary(store,"source","yandex_ads",date(2026,11,8),date(2026,11,8))
+            campaign_summary=m._cost_entity_summary(store,"campaign",campaign["campaign_key"],date(2026,11,8),date(2026,11,8))
+            self.assertEqual(global_summary["total_spend"],120)
+            self.assertEqual(source_summary["total_spend"],120)
+            self.assertEqual(campaign_summary["total_spend"],90)
+
+            economics=m._source_economics(c,date(2026,11,8),date(2026,11,8),store)
+            self.assertEqual(economics["source_total_spend"],120)
+            self.assertEqual(economics["source_reconciliation_delta"],0)
+            self.assertEqual(
+                economics["sources"]["yandex_ads"]["campaign_distributed_total"],90
+            )
+            self.assertEqual(
+                economics["sources"]["yandex_ads"]["campaign_reconciliation_delta"],30
+            )
+            # Child 90 is detail only: it is never added to source/global 120.
+            self.assertEqual(economics["budget"]["total_spend"],120)
+        finally:
+            m.db=old_db;m._ensure_schema=old_ensure;m.request=old_request;c.close()
+
+    def test_campaign_cost_key_is_stable_when_factual_id_name_changes(self):
+        a=m._campaign_cost_key("yandex_ads","777","Старое название")
+        b=m._campaign_cost_key("yandex_ads","777","Новое название")
+        self.assertEqual(a,b)
+        self.assertLessEqual(len(a),120)
+        self.assertNotEqual(
+            a,
+            m._campaign_cost_key("yandex_ads","778","Старое название"),
+        )
+
+    def test_factual_utm_direct_evidence_learns_cross_day_and_ambiguity_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old=m.METRIKA_ARCHIVE_ROOT;m.METRIKA_ARCHIVE_ROOT=Path(tmp)
+            c=conn()
+            try:
+                first=m._parse_metrika_zip(
+                    campaign_evidence_zip(
+                        "2026-11-06","gastro_search_nsk","777",
+                        "АЗ | Гастроэнтеролог | Поиск | Новосибирск",5,
+                    ),
+                    "evidence-first.zip",
+                    now=datetime(2026,11,9,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+                )
+                m._store_metrika(c,first,1);c.commit()
+                evidence=m._campaign_evidence_map(c)
+                self.assertEqual(
+                    evidence[("yandex_ads","gastro_search_nsk")]["campaign_id"],
+                    "777",
+                )
+
+                fallback=m._parse_metrika_zip(
+                    campaign_evidence_zip(
+                        "2026-11-07","gastro_search_nsk","other","Чужие кампании",3,
+                    ),
+                    "fallback.zip",
+                    now=datetime(2026,11,9,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+                    campaign_evidence=evidence,
+                )
+                identity=[
+                    (key[4],key[5],value["visits"])
+                    for key,value in fallback["traffic_rows"].items()
+                    if key[1]=="yandex_ads"
+                ]
+                self.assertEqual(
+                    identity,
+                    [("777","АЗ | Гастроэнтеролог | Поиск | Новосибирск",3)],
+                )
+
+                conflicting=m._parse_metrika_zip(
+                    campaign_evidence_zip(
+                        "2026-11-07","gastro_search_nsk","888",
+                        "Другая factual РК",1,
+                    ),
+                    "conflict.zip",
+                    now=datetime(2026,11,9,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+                )
+                m._store_campaign_evidence(c,conflicting["campaign_evidence"]);c.commit()
+                ambiguous=m._campaign_evidence_map(c)
+                self.assertIsNone(ambiguous[("yandex_ads","gastro_search_nsk")])
+
+                after_conflict=m._parse_metrika_zip(
+                    campaign_evidence_zip(
+                        "2026-11-08","gastro_search_nsk","other","Чужие кампании",2,
+                    ),
+                    "ambiguous-fallback.zip",
+                    now=datetime(2026,11,9,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+                    campaign_evidence=ambiguous,
+                )
+                identity=[
+                    (key[4],key[5],value["visits"])
+                    for key,value in after_conflict["traffic_rows"].items()
+                    if key[1]=="yandex_ads"
+                ]
+                self.assertEqual(identity,[("","gastro_search_nsk",2)])
+            finally:
+                c.close();m.METRIKA_ARCHIVE_ROOT=old
+
+    def test_group_breakdown_merges_same_factual_campaign_id_across_labels(self):
+        c=conn()
+        try:
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-11-08","yandex_ads","Яндекс-реклама","Платная реклама",
+                 "777","Короткое имя",None,None,3,"t","a"),
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-11-08","yandex_ads","Яндекс-реклама","Платная реклама",
+                 "777","АЗ | Полное имя кампании | Поиск | Новосибирск",None,None,4,"t","b"),
+            )
+            c.commit()
+            rows=m._group_breakdown(c,date(2026,11,8),date(2026,11,8),"campaign")
+            factual=[row for row in rows if row["campaign_id"]=="777"]
+            self.assertEqual(len(factual),1)
+            self.assertEqual(factual[0]["visits"],7)
+            self.assertEqual(
+                factual[0]["campaign_name"],
+                "АЗ | Полное имя кампании | Поиск | Новосибирск",
+            )
+        finally:
+            c.close()
 
     def test_native_direct_click_order_ids_override_legacy_campaign_report_fallback(self):
         raw=unknown_empty_id_with_campaign_report_zip()
