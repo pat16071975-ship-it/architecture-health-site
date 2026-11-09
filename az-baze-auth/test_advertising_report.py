@@ -3100,7 +3100,7 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertNotIn("sourceKey==='yandex_ads'||sourceKey==='instagram'", js)
         self.assertIn("class=\"source-expand\"", js)
         self.assertIn("class=\"child-row source-campaign-row\"", js)
-        self.assertIn("button.textContent=expanded?'+':'−'", js)
+        self.assertIn("(expanded?'−':'+')", js)
         self.assertIn("spend_provenance==='direct_api'", js)
         self.assertIn("spend_provenance==='manual'", js)
         self.assertIn('data-range="day">Сегодня</button>', html)
