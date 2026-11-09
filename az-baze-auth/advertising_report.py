@@ -2041,7 +2041,7 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     return rebuilt_traffic, rebuilt_goals
 
 
-def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
+def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None, campaign_evidence=None):
     if not raw:
         raise ValueError("Пустой ZIP Яндекс Метрики.")
     if len(raw) > 25 * 1024 * 1024:
@@ -2128,6 +2128,13 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
             else "В ZIP нет допустимых данных Яндекс Метрики."
         )
 
+    local_campaign_evidence_rows = _campaign_evidence_rows(traffic, accepted_days)
+    local_campaign_evidence = _campaign_evidence_map_from_rows(local_campaign_evidence_rows)
+    effective_campaign_evidence = _merge_campaign_evidence_maps(
+        campaign_evidence or {},
+        local_campaign_evidence,
+    )
+
     traffic_by_id = {}
     traffic_rows = {}
     for row in traffic:
@@ -2139,7 +2146,7 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
             continue
         source_key, source_name, channel_name = _metrika_source(row)
         source_key, source_name, channel_name, campaign_id, campaign_name = _metrika_campaign_identity(
-            row, source_key, source_name, channel_name
+            row, source_key, source_name, channel_name, effective_campaign_evidence
         )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name)
         target = traffic_rows.setdefault(key, {"visits": 0})
@@ -2159,7 +2166,7 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
             continue
         source_key, source_name, channel_name = _metrika_source(traffic_row)
         source_key, source_name, channel_name, campaign_id, campaign_name = _metrika_campaign_identity(
-            traffic_row, source_key, source_name, channel_name
+            traffic_row, source_key, source_name, channel_name, effective_campaign_evidence
         )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name, goal_key, goal_name)
         target = goal_rows.setdefault(key, {"goal_visits": 0, "reaches": 0})
@@ -2186,6 +2193,7 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
         "provisional_days": provisional_days,
         "traffic_rows": traffic_rows,
         "goal_rows": goal_rows,
+        "campaign_evidence": local_campaign_evidence_rows,
         "payload_sha256": hashlib.sha256(raw).hexdigest(),
         "raw": raw,
         "filename": filename or "metrika.zip",
