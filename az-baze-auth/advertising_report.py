@@ -288,10 +288,12 @@ def _manual_source_key(name):
 
 
 def _empty_cost_store():
+    # Legacy v1 shape retained for validation/backward compatibility.
     return {"version": 1, "sources": {}, "periods": []}
 
 
 def _normalize_cost_store(payload):
+    """Normalize the historical v1 advertising-cost payload."""
     if not isinstance(payload, dict) or payload.get("version") != 1:
         raise ValueError("invalid advertising costs")
     if not isinstance(payload.get("sources"), dict) or not isinstance(payload.get("periods"), list):
@@ -354,27 +356,230 @@ def _normalize_cost_store(payload):
     return {"version": 1, "sources": sources, "periods": periods}
 
 
+def _empty_hierarchical_cost_store():
+    return {
+        "version": 2,
+        "sources": {},
+        "campaigns": {},
+        "periods": {
+            "global": [],
+            "sources": {},
+            "campaigns": {},
+        },
+    }
+
+
+def _cost_period_triplet(raw, *, allow_legacy_partial=False):
+    if not isinstance(raw, dict):
+        raise ValueError("invalid advertising cost period")
+    start = str(raw.get("from") or "").strip()
+    end = str(raw.get("to") or "").strip()
+    if not DATE_RE.fullmatch(start) or not DATE_RE.fullmatch(end) or start > end:
+        raise ValueError("invalid advertising cost period")
+
+    advertising_payment = _cost_number(raw.get("advertising_payment"))
+    contractors_payment = _cost_number(raw.get("contractors_payment"))
+    total_spend = _cost_number(raw.get("total_spend"))
+    legacy_partial = bool(raw.get("legacy_partial"))
+
+    if legacy_partial:
+        if not allow_legacy_partial:
+            raise ValueError("legacy partial advertising cost is not writable")
+        if advertising_payment is None or contractors_payment is not None or total_spend is not None:
+            raise ValueError("invalid legacy partial advertising cost")
+    else:
+        totals = (advertising_payment, contractors_payment, total_spend)
+        if any(value is not None for value in totals):
+            if any(value is None for value in totals):
+                raise ValueError("advertising totals incomplete")
+            if abs(total_spend - advertising_payment - contractors_payment) > 0.01:
+                raise ValueError("total spend must equal advertising plus contractors")
+
+    result = {
+        "from": start,
+        "to": end,
+        "advertising_payment": advertising_payment,
+        "contractors_payment": contractors_payment,
+        "total_spend": total_spend,
+    }
+    if legacy_partial:
+        result["legacy_partial"] = True
+    return result
+
+
+def _normalize_cost_periods(raw_periods, *, allow_legacy_partial=False):
+    if not isinstance(raw_periods, list):
+        raise ValueError("invalid advertising cost periods")
+    periods = [
+        _cost_period_triplet(item, allow_legacy_partial=allow_legacy_partial)
+        for item in raw_periods
+    ]
+    periods.sort(key=lambda item: (item["from"], item["to"]))
+    for previous, current in zip(periods, periods[1:]):
+        if current["from"] <= previous["to"]:
+            raise ValueError("advertising cost periods overlap")
+    return periods
+
+
+def _migrate_cost_store_v1(payload):
+    legacy = _normalize_cost_store(payload)
+    store = _empty_hierarchical_cost_store()
+    store["sources"] = dict(legacy["sources"])
+
+    for period in legacy["periods"]:
+        store["periods"]["global"].append({
+            "from": period["from"],
+            "to": period["to"],
+            "advertising_payment": period["advertising_payment"],
+            "contractors_payment": period["contractors_payment"],
+            "total_spend": period["total_spend"],
+        })
+        for source_key, value in (period.get("source_spend") or {}).items():
+            if value is None:
+                continue
+            store["periods"]["sources"].setdefault(source_key, []).append({
+                "from": period["from"],
+                "to": period["to"],
+                "advertising_payment": value,
+                "contractors_payment": None,
+                "total_spend": None,
+                # v1 only stored source advertising spend. Do not invent
+                # contractor=0 or total=advertising while migrating.
+                "legacy_partial": True,
+            })
+
+    store["periods"]["global"] = _normalize_cost_periods(store["periods"]["global"])
+    for key, periods in list(store["periods"]["sources"].items()):
+        store["periods"]["sources"][key] = _normalize_cost_periods(
+            periods, allow_legacy_partial=True
+        )
+    return store
+
+
+def _normalize_hierarchical_cost_store(payload):
+    if isinstance(payload, dict) and payload.get("version") == 1:
+        return _migrate_cost_store_v1(payload)
+    if not isinstance(payload, dict) or payload.get("version") != 2:
+        raise ValueError("invalid hierarchical advertising costs")
+
+    raw_sources = payload.get("sources")
+    raw_campaigns = payload.get("campaigns")
+    raw_periods = payload.get("periods")
+    if (
+        not isinstance(raw_sources, dict)
+        or not isinstance(raw_campaigns, dict)
+        or not isinstance(raw_periods, dict)
+    ):
+        raise ValueError("invalid hierarchical advertising costs")
+
+    sources = {}
+    for raw_key, raw_meta in raw_sources.items():
+        key = str(raw_key or "").strip()
+        if not key or len(key) > 120 or not isinstance(raw_meta, dict):
+            raise ValueError("invalid advertising source")
+        name = str(raw_meta.get("name") or "").strip()
+        channel = str(raw_meta.get("channel_name") or "").strip()
+        if not name or len(name) > 240 or len(channel) > 240:
+            raise ValueError("invalid advertising source")
+        sources[key] = {
+            "name": name,
+            "channel_name": channel,
+            "manual": bool(raw_meta.get("manual")),
+        }
+
+    campaigns = {}
+    for raw_key, raw_meta in raw_campaigns.items():
+        key = str(raw_key or "").strip()
+        if not key or len(key) > 120 or not isinstance(raw_meta, dict):
+            raise ValueError("invalid advertising campaign")
+        source_key = str(raw_meta.get("source_key") or "").strip()
+        campaign_id = str(raw_meta.get("campaign_id") or "").strip()
+        campaign_name = str(raw_meta.get("campaign_name") or "").strip()
+        if (
+            source_key not in sources
+            or (not campaign_id and not campaign_name)
+            or len(campaign_id) > 240
+            or len(campaign_name) > 500
+        ):
+            raise ValueError("invalid advertising campaign")
+        campaigns[key] = {
+            "source_key": source_key,
+            "campaign_id": campaign_id,
+            "campaign_name": campaign_name,
+        }
+
+    global_periods = _normalize_cost_periods(raw_periods.get("global") or [])
+    source_periods = {}
+    raw_source_periods = raw_periods.get("sources") or {}
+    if not isinstance(raw_source_periods, dict):
+        raise ValueError("invalid source cost periods")
+    for source_key, periods in raw_source_periods.items():
+        source_key = str(source_key or "").strip()
+        if source_key not in sources:
+            raise ValueError("unknown advertising source")
+        source_periods[source_key] = _normalize_cost_periods(
+            periods, allow_legacy_partial=True
+        )
+
+    campaign_periods = {}
+    raw_campaign_periods = raw_periods.get("campaigns") or {}
+    if not isinstance(raw_campaign_periods, dict):
+        raise ValueError("invalid campaign cost periods")
+    for campaign_key, periods in raw_campaign_periods.items():
+        campaign_key = str(campaign_key or "").strip()
+        if campaign_key not in campaigns:
+            raise ValueError("unknown advertising campaign")
+        campaign_periods[campaign_key] = _normalize_cost_periods(periods)
+
+    return {
+        "version": 2,
+        "sources": sources,
+        "campaigns": campaigns,
+        "periods": {
+            "global": global_periods,
+            "sources": source_periods,
+            "campaigns": campaign_periods,
+        },
+    }
+
+
 def _load_cost_store(conn):
+    """Return the new v2 in-memory model, migrating v1 without data loss."""
     try:
         row = conn.execute(
             "SELECT payload FROM report_blobs WHERE key=?",
             (ADVERTISING_COSTS_KEY,),
         ).fetchone()
     except sqlite3.OperationalError:
-        return _empty_cost_store()
+        return _empty_hierarchical_cost_store()
     if not row:
-        return _empty_cost_store()
+        return _empty_hierarchical_cost_store()
     try:
-        return _normalize_cost_store(json.loads(row["payload"]))
+        return _normalize_hierarchical_cost_store(json.loads(row["payload"]))
     except (TypeError, ValueError, json.JSONDecodeError):
-        return _empty_cost_store()
+        return _empty_hierarchical_cost_store()
 
 
-def _cost_period_summary(store, start, end):
+def _cost_entity_periods(store, level, entity_key=""):
+    periods = store.get("periods") or {}
+    if level == "global":
+        return periods.get("global") or []
+    if level == "source":
+        return (periods.get("sources") or {}).get(entity_key) or []
+    if level == "campaign":
+        return (periods.get("campaigns") or {}).get(entity_key) or []
+    raise ValueError("invalid advertising cost level")
+
+
+def _cost_entity_summary(store, level, entity_key, start, end):
     start_s, end_s = _iso(start), _iso(end)
     overlapping = [
-        item for item in store.get("periods", [])
+        item for item in _cost_entity_periods(store, level, entity_key)
         if item["from"] <= end_s and item["to"] >= start_s
+    ]
+    selected = [
+        item for item in overlapping
+        if item["from"] >= start_s and item["to"] <= end_s
     ]
     if not overlapping:
         return {
@@ -383,13 +588,9 @@ def _cost_period_summary(store, start, end):
             "advertising_payment": None,
             "contractors_payment": None,
             "total_spend": None,
-            "source_spend": {},
+            "legacy_partial": False,
         }
 
-    selected = [
-        item for item in overlapping
-        if item["from"] >= start_s and item["to"] <= end_s
-    ]
     cursor = start
     complete = len(selected) == len(overlapping)
     for item in selected:
@@ -401,15 +602,6 @@ def _cost_period_summary(store, start, end):
         cursor = item_end + timedelta(days=1)
     if cursor <= end:
         complete = False
-    if not complete:
-        return {
-            "complete": False,
-            "periods": selected,
-            "advertising_payment": None,
-            "contractors_payment": None,
-            "total_spend": None,
-            "source_spend": {},
-        }
 
     def sum_field(field):
         values = [item.get(field) for item in selected]
@@ -417,22 +609,40 @@ def _cost_period_summary(store, start, end):
             return None
         return round(sum(values), 2)
 
-    source_spend = {}
-    for key in store.get("sources", {}):
-        values = [(item.get("source_spend") or {}).get(key) for item in selected]
-        source_spend[key] = (
-            round(sum(values), 2)
-            if values and all(value is not None for value in values)
-            else None
-        )
     return {
-        "complete": True,
+        "complete": bool(complete),
         "periods": selected,
-        "advertising_payment": sum_field("advertising_payment"),
-        "contractors_payment": sum_field("contractors_payment"),
-        "total_spend": sum_field("total_spend"),
-        "source_spend": source_spend,
+        "advertising_payment": sum_field("advertising_payment") if complete else None,
+        "contractors_payment": sum_field("contractors_payment") if complete else None,
+        "total_spend": sum_field("total_spend") if complete else None,
+        "legacy_partial": bool(complete and any(item.get("legacy_partial") for item in selected)),
     }
+
+
+def _cost_exact_entity_period(store, level, entity_key, start, end):
+    start_s, end_s = _iso(start), _iso(end)
+    return next(
+        (
+            item for item in _cost_entity_periods(store, level, entity_key)
+            if item["from"] == start_s and item["to"] == end_s
+        ),
+        None,
+    )
+
+
+def _campaign_cost_key(source_key, campaign_id, campaign_name):
+    source_key = str(source_key or "").strip()
+    campaign_id = str(campaign_id or "").strip()
+    campaign_name = str(campaign_name or "").strip()
+    factual = campaign_id or campaign_name
+    if not source_key or not factual:
+        return ""
+    digest = hashlib.sha256(
+        (source_key + "\0" + campaign_id + "\0" + campaign_name).encode("utf-8")
+    ).hexdigest()
+    label = _identity_slug(campaign_name or campaign_id) or "campaign"
+    room = 120 - len("campaign__") - len(digest) - 1
+    return ("campaign_" + label[:room] + "_" + digest)[:120]
 
 
 def _source_registry(conn, store=None):
@@ -468,6 +678,52 @@ def _source_registry(conn, store=None):
             "manual": bool(meta.get("manual")),
         }
     return sorted(registry.values(), key=lambda item: item["source_name"].lower())
+
+
+def _campaign_registry(conn, store=None):
+    store = store or _load_cost_store(conn)
+    registry = {}
+    try:
+        rows = conn.execute(
+            """
+            SELECT source_key,source_name,channel_name,campaign_id,campaign_name
+            FROM advertising_traffic_daily
+            WHERE provider='metrika'
+              AND (campaign_id<>'' OR campaign_name<>'')
+            ORDER BY metric_date
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = []
+    for row in rows:
+        source_key, _source_name, _channel, campaign_id, campaign_name = _canonical_metrika_identity(
+            row["source_key"], row["source_name"], row["channel_name"],
+            row["campaign_id"], row["campaign_name"],
+        )
+        if not campaign_id and not campaign_name:
+            continue
+        key = _campaign_cost_key(source_key, campaign_id, campaign_name)
+        if key and key not in registry:
+            registry[key] = {
+                "campaign_key": key,
+                "source_key": source_key,
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name or ("Кампания " + campaign_id if campaign_id else "Не определено"),
+            }
+    for key, meta in (store.get("campaigns") or {}).items():
+        registry[key] = {
+            "campaign_key": key,
+            "source_key": str(meta.get("source_key") or ""),
+            "campaign_id": str(meta.get("campaign_id") or ""),
+            "campaign_name": str(meta.get("campaign_name") or ""),
+        }
+    return sorted(
+        registry.values(),
+        key=lambda item: (
+            item["source_key"],
+            (item["campaign_name"] or item["campaign_id"]).lower(),
+        ),
+    )
 
 
 def _dataset_period_complete(conn, dataset, start, end):
@@ -550,29 +806,175 @@ def _direct_source_values(conn, start, end):
     return values
 
 
+def _direct_campaign_values(conn, start, end):
+    try:
+        rows = conn.execute(
+            """
+            SELECT source_key,source_name,channel_name,campaign_id,campaign_name,
+                   spend,clicks
+            FROM advertising_traffic_daily
+            WHERE provider='direct' AND metric_date BETWEEN ? AND ?
+              AND (campaign_id<>'' OR campaign_name<>'')
+            """,
+            (_iso(start), _iso(end)),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = []
+    values = {}
+    for row in rows:
+        source_key, _name, _channel, campaign_id, campaign_name = _canonical_metrika_identity(
+            row["source_key"], row["source_name"], row["channel_name"],
+            row["campaign_id"], row["campaign_name"],
+        )
+        key = _campaign_cost_key(source_key, campaign_id, campaign_name)
+        if not key:
+            continue
+        target = values.setdefault(
+            key,
+            {
+                "spend": 0.0,
+                "clicks": 0,
+                "spend_complete": True,
+                "clicks_complete": True,
+                "rows": 0,
+            },
+        )
+        target["rows"] += 1
+        if row["spend"] is None:
+            target["spend_complete"] = False
+        else:
+            target["spend"] += float(row["spend"])
+        if row["clicks"] is None:
+            target["clicks_complete"] = False
+        else:
+            target["clicks"] += int(row["clicks"])
+    for target in values.values():
+        target["spend"] = (
+            round(float(target["spend"]), 2)
+            if target["rows"] and target["spend_complete"]
+            else None
+        )
+        target["clicks"] = (
+            int(target["clicks"])
+            if target["rows"] and target["clicks_complete"]
+            else None
+        )
+    return values
+
+
+def _effective_cost_components(summary, direct_spend=None):
+    manual_advertising = summary.get("advertising_payment") if summary.get("complete") else None
+    contractors = summary.get("contractors_payment") if summary.get("complete") else None
+    advertising = direct_spend if direct_spend is not None else manual_advertising
+    total = (
+        round(float(advertising) + float(contractors), 2)
+        if advertising is not None and contractors is not None
+        else (
+            summary.get("total_spend")
+            if direct_spend is None and summary.get("complete")
+            else None
+        )
+    )
+    return {
+        "advertising_payment": advertising,
+        "manual_advertising_payment": manual_advertising,
+        "contractors_payment": contractors,
+        "total_spend": total,
+        "spend_provenance": (
+            "direct_api"
+            if direct_spend is not None
+            else (
+                "legacy_manual"
+                if summary.get("legacy_partial") and manual_advertising is not None
+                else ("manual" if manual_advertising is not None else None)
+            )
+        ),
+        "period_complete": bool(summary.get("complete")),
+    }
+
+
+def _campaign_economics(conn, start, end, store=None):
+    store = store or _load_cost_store(conn)
+    direct_complete = _dataset_period_complete(conn, "direct", start, end)
+    direct = _direct_campaign_values(conn, start, end) if direct_complete else {}
+    result = {}
+    for meta in _campaign_registry(conn, store):
+        key = meta["campaign_key"]
+        summary = _cost_entity_summary(store, "campaign", key, start, end)
+        direct_value = direct.get(key) or {}
+        components = _effective_cost_components(
+            summary,
+            direct_value.get("spend") if direct_complete else None,
+        )
+        result[key] = {
+            **meta,
+            **components,
+            # Existing per-click economics intentionally continue to use the
+            # advertising component only; contractor allocation is visible
+            # separately and does not silently redefine CPC.
+            "spend": components["advertising_payment"],
+            "clicks": direct_value.get("clicks") if direct_complete else None,
+        }
+    return {
+        "campaigns": result,
+        "direct_period_complete": direct_complete,
+    }
+
+
 def _source_economics(conn, start, end, store=None):
     store = store or _load_cost_store(conn)
-    budget = _cost_period_summary(store, start, end)
+    budget = _cost_entity_summary(store, "global", "", start, end)
     direct_complete = _dataset_period_complete(conn, "direct", start, end)
     direct = _direct_source_values(conn, start, end) if direct_complete else {}
+    campaigns = _campaign_economics(conn, start, end, store)["campaigns"]
     result = {}
     for meta in _source_registry(conn, store):
         key = meta["source_key"]
+        summary = _cost_entity_summary(store, "source", key, start, end)
         direct_value = direct.get(key) or {}
-        manual_spend = budget["source_spend"].get(key) if budget["complete"] else None
-        direct_spend = direct_value.get("spend")
-        spend = direct_spend if direct_spend is not None else manual_spend
+        components = _effective_cost_components(
+            summary,
+            direct_value.get("spend") if direct_complete else None,
+        )
+        children = [item for item in campaigns.values() if item["source_key"] == key]
+        child_totals = [item.get("total_spend") for item in children]
+        distributed_total = (
+            round(sum(float(value) for value in child_totals), 2)
+            if children and all(value is not None for value in child_totals)
+            else None
+        )
         result[key] = {
             **meta,
-            "spend": None if spend is None else round(float(spend), 2),
-            "manual_spend": manual_spend,
-            "direct_spend": None if direct_spend is None else round(float(direct_spend), 2),
-            "clicks": direct_value.get("clicks"),
-            "spend_provenance": "direct_api" if direct_spend is not None else ("manual" if manual_spend is not None else None),
+            **components,
+            "spend": components["advertising_payment"],
+            "manual_spend": components["manual_advertising_payment"],
+            "direct_spend": (
+                None
+                if not direct_complete or direct_value.get("spend") is None
+                else round(float(direct_value["spend"]), 2)
+            ),
+            "clicks": direct_value.get("clicks") if direct_complete else None,
+            "campaign_distributed_total": distributed_total,
+            "campaign_reconciliation_delta": (
+                round(float(components["total_spend"]) - distributed_total, 2)
+                if components["total_spend"] is not None and distributed_total is not None
+                else None
+            ),
         }
 
-    source_values = [item["spend"] for item in result.values() if item["spend"] is not None]
-    source_spend_total = round(sum(source_values), 2) if source_values else None
+    source_ad_values = [
+        item["advertising_payment"]
+        for item in result.values()
+        if item["advertising_payment"] is not None
+    ]
+    source_total_values = [
+        item["total_spend"]
+        for item in result.values()
+        if item["total_spend"] is not None
+    ]
+    source_spend_total = round(sum(source_ad_values), 2) if source_ad_values else None
+    source_total_spend = round(sum(source_total_values), 2) if source_total_values else None
+
     cpc_scope = [
         item for item in result.values()
         if item.get("manual")
@@ -584,7 +986,7 @@ def _source_economics(conn, start, end, store=None):
         item.get("spend") is not None and item.get("clicks") is not None
         for item in cpc_scope
     )
-    advertising_payment = budget.get("advertising_payment")
+    advertising_payment = budget.get("advertising_payment") if budget.get("complete") else None
     if (
         click_scope_complete
         and advertising_payment is not None
@@ -595,10 +997,20 @@ def _source_economics(conn, start, end, store=None):
         cost_per_click = advertising_payment / clicks if clicks else None
     else:
         cost_per_click = None
+
     return {
         "budget": budget,
         "sources": result,
+        "campaigns": campaigns,
         "source_spend_total": source_spend_total,
+        "source_total_spend": source_total_spend,
+        "source_reconciliation_delta": (
+            round(float(budget["total_spend"]) - source_total_spend, 2)
+            if budget.get("complete")
+            and budget.get("total_spend") is not None
+            and source_total_spend is not None
+            else None
+        ),
         "cost_per_click": cost_per_click,
         "click_scope_complete": click_scope_complete,
         "direct_period_complete": direct_complete,
