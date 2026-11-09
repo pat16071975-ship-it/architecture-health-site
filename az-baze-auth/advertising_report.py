@@ -3258,6 +3258,11 @@ def register_advertising_report(app):
         payload = _report_payload(db(), start, end, compare_mode, trend_metric)
         payload["today"] = _iso(today)
         payload["availableComparisons"] = ["previous_period", *(["previous_quarter_avg", "year_avg"] if _same_month(start, end) else []), "last_year"]
+        perms = user_permissions(g.user)
+        payload["costEditor"] = {
+            "canEdit": "upload_services" in perms,
+            "csrf": csrf_token() if "upload_services" in perms else "",
+        }
         return jsonify(payload)
 
     @app.get("/api/reports/advertising/costs")
