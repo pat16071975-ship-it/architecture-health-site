@@ -27,10 +27,12 @@ fake_app.DB_PATH=":memory:"
 fake_app.SITE_ROOT=Path("/tmp")
 fake_app.admin_required=lambda fn:fn
 fake_app.audit=lambda *a,**k:None
+fake_app.csrf_token=lambda:"csrf"
 fake_app.db=lambda:None
 fake_app.iso_now=lambda:"2026-10-26T00:00:00+00:00"
 fake_app.permission_required=lambda _key:(lambda fn:fn)
 fake_app.require_csrf=lambda:None
+fake_app.user_permissions=lambda _user:{"reports","upload_services"}
 sys.modules["app"]=fake_app
 
 spec=importlib.util.spec_from_file_location("advertising_report",Path(__file__).with_name("advertising_report.py"))
