@@ -1,0 +1,10 @@
+09.11.2026 — SEO directions installed by owner on vdska.
+Installer d9212bb7e69985888c58558e273e1f5863c8df88, SHA256 69b3ba60e6626092aaa34e481d98a0abd1d6fdd9955c141049e614a546203a74.
+Owner output: PREFLIGHT PASS; PAGES_UPDATED 53; HTTPS PASS.
+Backup: /var/backups/azmednsk/seo-directions-20261109T105826716044Z
+Independent external GET verification: all 53 pages HTTP200, exact SHA256 match to expected AFTER bytes. No mismatches.
+Browser after reload /uslugi/prosthetics/: one calendar year crown warranty visible; all four new FAQ summaries visible; first FAQ expands and shows expected answer. Click to Nazirov profile succeeded; click back through new service link succeeded.
+Desktop width 1363, document clientWidth=1348, scrollWidth=1348: no horizontal overflow on prosthetics.
+Mobile rendering NOT VERIFIED: attempted data-URL iframe harness blocked by browser URL policy; no bypass attempted. Do not report mobile PASS.
+Existing content and analytics/booking scripts exact-match reviewed package. Full Medflex booking not tested and no patient appointment created.
+This completes installation and source verification, not all ongoing SEO/GEO work. Position automation still blocked by Webmaster API access and Google authentication.
