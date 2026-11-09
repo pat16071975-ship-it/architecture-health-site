@@ -900,11 +900,7 @@ def _effective_cost_components(summary, direct_spend=None):
         "spend_provenance": (
             "direct_api"
             if direct_spend is not None
-            else (
-                "legacy_manual"
-                if summary.get("legacy_partial") and manual_advertising is not None
-                else ("manual" if manual_advertising is not None else None)
-            )
+            else ("manual" if manual_advertising is not None else None)
         ),
         "period_complete": bool(summary.get("complete")),
     }
