@@ -2822,6 +2822,212 @@ class AdvertisingReportTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_az188_01_native_api_fallback_never_uses_legacy_alias_without_evidence(self):
+        parsed=m._parse_metrika_zip(
+            campaign_evidence_zip(
+                "2026-11-07",
+                "bruksizm_search_nsk",
+                "other",
+                "Чужие кампании",
+                8,
+            ),
+            "native-fallback-no-evidence.zip",
+            now=datetime(2026,11,9,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+        yandex=[
+            (key[4],key[5],values["visits"])
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="yandex_ads"
+        ]
+        self.assertEqual(yandex,[("","bruksizm_search_nsk",8)])
+        self.assertEqual(parsed["campaign_evidence"],[])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            old=m.METRIKA_ARCHIVE_ROOT;m.METRIKA_ARCHIVE_ROOT=Path(tmp)
+            c=conn()
+            try:
+                m._store_metrika(c,parsed,1);c.commit()
+                marker=c.execute(
+                    "SELECT campaign_identity_source FROM advertising_metrika_import_formats"
+                ).fetchone()[0]
+                self.assertEqual(marker,"traffic_direct_click_order")
+                rows=m._group_breakdown(
+                    c,date(2026,11,7),date(2026,11,7),"campaign"
+                )
+                yandex=[
+                    row for row in rows if row["source_key"]=="yandex_ads"
+                ]
+                self.assertEqual(len(yandex),1)
+                self.assertEqual(yandex[0]["campaign_id"],"")
+                self.assertEqual(yandex[0]["campaign_name"],"bruksizm_search_nsk")
+                self.assertEqual(yandex[0]["visits"],8)
+            finally:
+                c.close();m.METRIKA_ARCHIVE_ROOT=old
+
+    def test_az188_02_late_factual_evidence_merges_already_stored_fallback_at_read_time(self):
+        fallback=m._parse_metrika_zip(
+            campaign_evidence_zip(
+                "2026-11-07","future_delayed_evidence",
+                "other","Чужие кампании",8,
+            ),
+            "delayed-fallback.zip",
+            now=datetime(2026,11,9,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+        factual=m._parse_metrika_zip(
+            campaign_evidence_zip(
+                "2026-11-08","future_delayed_evidence",
+                "918222","АЗ | Позднее доказательство | Поиск | Новосибирск",3,
+            ),
+            "delayed-factual.zip",
+            now=datetime(2026,11,9,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            old=m.METRIKA_ARCHIVE_ROOT;m.METRIKA_ARCHIVE_ROOT=Path(tmp)
+            c=conn()
+            try:
+                m._store_metrika(c,fallback,1);c.commit()
+                before=m._group_breakdown(
+                    c,date(2026,11,7),date(2026,11,7),"campaign"
+                )
+                self.assertEqual(
+                    [
+                        (row["campaign_id"],row["campaign_name"],row["visits"])
+                        for row in before if row["source_key"]=="yandex_ads"
+                    ],
+                    [("","future_delayed_evidence",8)],
+                )
+
+                m._store_metrika(c,factual,1);c.commit()
+                evidence=m._campaign_evidence_map(c)
+                self.assertEqual(
+                    evidence[("yandex_ads","future_delayed_evidence")]["campaign_id"],
+                    "918222",
+                )
+
+                combined=[
+                    row for row in m._group_breakdown(
+                        c,date(2026,11,7),date(2026,11,8),"campaign"
+                    )
+                    if row["source_key"]=="yandex_ads"
+                ]
+                self.assertEqual(len(combined),1)
+                self.assertEqual(combined[0]["campaign_id"],"918222")
+                self.assertEqual(
+                    combined[0]["campaign_name"],
+                    "АЗ | Позднее доказательство | Поиск | Новосибирск",
+                )
+                self.assertEqual(combined[0]["visits"],11)
+
+                # The old day itself is also resolved at read time; no archive
+                # replay is required merely to make the report canonical.
+                old_day=[
+                    row for row in m._group_breakdown(
+                        c,date(2026,11,7),date(2026,11,7),"campaign"
+                    )
+                    if row["source_key"]=="yandex_ads"
+                ]
+                self.assertEqual(len(old_day),1)
+                self.assertEqual(old_day[0]["campaign_id"],"918222")
+                self.assertEqual(old_day[0]["visits"],8)
+            finally:
+                c.close();m.METRIKA_ARCHIVE_ROOT=old
+
+    def test_az188_03_campaign_cost_row_is_visible_without_selected_period_visits(self):
+        c=conn()
+        old_db=m.db
+        old_ensure=m._ensure_schema
+        old_request=m.request
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            c.execute(
+                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    "metrika","2026-11-07","yandex_ads","Яндекс-реклама","Платная реклама",
+                    "701","АЗ | РК без визитов сегодня | Поиск | Новосибирск",
+                    None,None,5,"t","metrika-history",
+                ),
+            )
+            c.commit()
+
+            class FakeApp:
+                def __init__(self): self.routes={}
+                def get(self,path): return self._route("GET",path)
+                def post(self,path): return self._route("POST",path)
+                def _route(self,method,path):
+                    def decorator(fn):
+                        self.routes[(method,path)]=fn
+                        return fn
+                    return decorator
+
+            app=FakeApp()
+            m.db=lambda:c
+            m._ensure_schema=lambda path=m.DB_PATH:None
+            m.register_advertising_report(app)
+
+            m.request=types.SimpleNamespace(
+                args={"from":"2026-11-08","to":"2026-11-08"},
+                form={},
+                get_json=lambda silent=True:{},
+            )
+            hierarchy=app.routes[("GET","/api/reports/advertising/costs")]()
+            source=next(
+                row for row in hierarchy["sources"]
+                if row["source_key"]=="yandex_ads"
+            )
+            campaign=next(
+                row for row in source["campaigns"]
+                if row["campaign_id"]=="701"
+            )
+
+            m.request=types.SimpleNamespace(
+                args={},
+                form={
+                    "entity_type":"campaign",
+                    "entity_key":campaign["campaign_key"],
+                    "from":"2026-11-08",
+                    "to":"2026-11-08",
+                    "advertising_payment":"70",
+                    "contractors_payment":"10",
+                    "total_spend":"80",
+                },
+                get_json=lambda silent=True:{},
+            )
+            response=app.routes[("POST","/api/reports/advertising/costs")]()
+            self.assertEqual(response["status"],"ok")
+
+            rows=[
+                row for row in m._group_breakdown(
+                    c,date(2026,11,8),date(2026,11,8),"campaign"
+                )
+                if row["source_key"]=="yandex_ads"
+            ]
+            self.assertEqual(len(rows),1)
+            row=rows[0]
+            self.assertEqual(row["campaign_id"],"701")
+            self.assertEqual(row["advertising_payment"],70)
+            self.assertEqual(row["contractors_payment"],10)
+            self.assertEqual(row["total_spend"],80)
+            self.assertEqual(row["spend"],70)
+            self.assertIsNone(row["visits"])
+            self.assertTrue(row["campaign_key"])
+
+            payload=m._report_payload(
+                c,date(2026,11,8),date(2026,11,8),"none","visits"
+            )
+            report_campaign=next(
+                item for item in payload["campaigns"]
+                if item["campaign_id"]=="701"
+            )
+            self.assertEqual(report_campaign["total_spend"],80)
+        finally:
+            m.db=old_db
+            m._ensure_schema=old_ensure
+            m.request=old_request
+            c.close()
+
     def test_native_direct_click_order_ids_override_legacy_campaign_report_fallback(self):
         raw=unknown_empty_id_with_campaign_report_zip()
         parsed=m._parse_metrika_zip(raw,"native-id-with-report.zip")
