@@ -2292,6 +2292,7 @@ def _store_metrika_provisional(conn, parsed, actor_user_id):
     day = provisional_days[0]
     if _metrika_day_is_completed(conn, day):
         raise ValueError("Этот день уже сохранён как завершённый и не может быть заменён оперативным срезом.")
+    _store_campaign_evidence(conn, parsed.get("campaign_evidence"))
     if _stored_metrika_matches(conn, parsed):
         return {
             "reused": True,
@@ -2361,6 +2362,7 @@ def _store_metrika(conn, parsed, actor_user_id):
         "SELECT payload_sha256 FROM advertising_metrika_imports WHERE payload_sha256=?",
         (sha,),
     ).fetchone()
+    _store_campaign_evidence(conn, parsed.get("campaign_evidence"))
     if existing and _stored_metrika_matches(conn, parsed):
         return {
             "reused": True,
