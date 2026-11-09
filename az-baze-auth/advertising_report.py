@@ -2461,7 +2461,9 @@ def _store_metrika_provisional(conn, parsed, actor_user_id):
     day = provisional_days[0]
     if _metrika_day_is_completed(conn, day):
         raise ValueError("Этот день уже сохранён как завершённый и не может быть заменён оперативным срезом.")
+    import_id = "metrika-live-" + day
     _store_campaign_evidence(conn, parsed.get("campaign_evidence"))
+    _store_metrika_import_format(conn, import_id, parsed)
     if _stored_metrika_matches(conn, parsed):
         return {
             "reused": True,
@@ -2471,7 +2473,6 @@ def _store_metrika_provisional(conn, parsed, actor_user_id):
         }
 
     imported_at = iso_now()
-    import_id = "metrika-live-" + day
     conn.execute(
         "DELETE FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date=?",
         (day,),
@@ -2527,11 +2528,13 @@ def _completed_metrika_matches_registered(conn, parsed):
 
 def _store_metrika(conn, parsed, actor_user_id):
     sha = parsed["payload_sha256"]
+    import_id = "metrika-" + sha[:16]
     existing = conn.execute(
         "SELECT payload_sha256 FROM advertising_metrika_imports WHERE payload_sha256=?",
         (sha,),
     ).fetchone()
     _store_campaign_evidence(conn, parsed.get("campaign_evidence"))
+    _store_metrika_import_format(conn, import_id, parsed)
     if existing and _stored_metrika_matches(conn, parsed):
         return {
             "reused": True,
@@ -2542,7 +2545,6 @@ def _store_metrika(conn, parsed, actor_user_id):
 
     archive_path = _archive_metrika(parsed["raw"], sha)
     imported_at = iso_now()
-    import_id = "metrika-" + sha[:16]
     for day in parsed["completed_days"]:
         conn.execute("DELETE FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date=?", (day,))
         conn.execute("DELETE FROM advertising_metrika_goal_daily WHERE provider='metrika' AND metric_date=?", (day,))
