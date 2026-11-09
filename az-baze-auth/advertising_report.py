@@ -3291,7 +3291,7 @@ def register_advertising_report(app):
             abort(400)
         if start > end or (end - start).days > 730:
             abort(400)
-        return jsonify(_cost_hierarchy_payload(db(), start, end))
+        return jsonify(**_cost_hierarchy_payload(db(), start, end))
 
     @app.post("/api/reports/advertising/costs")
     @permission_required("upload_services")
