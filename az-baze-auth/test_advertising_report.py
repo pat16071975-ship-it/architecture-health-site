@@ -648,6 +648,53 @@ def az186_long_source_cost_zip(raw_source):
     return raw.getvalue()
 
 
+def campaign_evidence_zip(
+    day,
+    utm_campaign,
+    campaign_id,
+    campaign_name,
+    visits=3,
+):
+    payload={
+        "metadata":{
+            "schema_version":"az_analytics_export_v1",
+            "fetched_at_utc":day+"T03:00:00+00:00",
+            "period_from":day,
+            "period_to":day,
+            "day_status":"completed_calendar_day_revisable",
+            "source_timezone":"Asia/Novosibirsk",
+            "counter_id":"113776005",
+            "sample_share":1.0,
+            "attribution":"cross_device_last_significant",
+            "campaign_identity_source":"traffic_direct_click_order",
+        },
+        "metrica_traffic_day":[{
+            "row_id":"evidence-"+day+"-"+str(campaign_id or "fallback"),
+            "date":day,
+            "day_status":"completed_calendar_day_revisable",
+            "traffic_source_id":"ad",
+            "traffic_source_name":"Переходы по рекламе",
+            "source_detail":"Яндекс: Директ",
+            "source_detail_id":"ad.Яндекс: Директ",
+            "utm_source":"yandex",
+            "utm_medium":"cpc",
+            "utm_campaign":utm_campaign,
+            "direct_campaign_id":campaign_id,
+            "direct_campaign_name":campaign_name,
+            "visits":visits,
+            "is_test_tag":False,
+        }],
+        "metrica_goal_day":[],
+        "goal_registry":[],
+        "direct_campaign_day":None,
+        "daily_summary":{day:{"visits":visits,"test_tag_visits":0}},
+    }
+    raw=io.BytesIO()
+    with zipfile.ZipFile(raw,"w",zipfile.ZIP_DEFLATED) as z:
+        z.writestr("az_analytics.json",json.dumps(payload,ensure_ascii=False))
+    return raw.getvalue()
+
+
 def auto_metrika_request(path, params):
     if path == "/management/v1/counter/113776005":
         return {
