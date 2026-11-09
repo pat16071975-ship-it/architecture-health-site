@@ -3314,12 +3314,9 @@ class AdvertisingReportTests(unittest.TestCase):
             c.commit()
 
             class FakeApp:
-                def __init__(self):
-                    self.routes={}
-                def get(self,path):
-                    return self._route("GET",path)
-                def post(self,path):
-                    return self._route("POST",path)
+                def __init__(self): self.routes={}
+                def get(self,path): return self._route("GET",path)
+                def post(self,path): return self._route("POST",path)
                 def _route(self,method,path):
                     def decorator(fn):
                         self.routes[(method,path)]=fn
@@ -3329,36 +3326,26 @@ class AdvertisingReportTests(unittest.TestCase):
             app=FakeApp()
             m.db=lambda:c
             m._ensure_schema=lambda path=m.DB_PATH:None
-            m.request=types.SimpleNamespace(
-                args={},
-                form={
-                    "from":"2026-10-27",
-                    "to":"2026-10-27",
-                    "advertising_payment":"100",
-                    "contractors_payment":"20",
-                    "total_spend":"120",
-                    "sources_json":json.dumps([
-                        {
-                            "source_key":"yandex_ads",
-                            "source_name":"Яндекс-реклама",
-                            "channel_name":"Платная реклама",
-                            "manual":False,
-                            "spend":100,
-                        },
-                        {
-                            "source_key":"",
-                            "source_name":"Ручной новый рекламный источник",
-                            "channel_name":"Другие источники",
-                            "manual":True,
-                            "spend":None,
-                        },
-                    ],ensure_ascii=False),
-                },
-                get_json=lambda silent=True:{},
-            )
             m.register_advertising_report(app)
-            response=app.routes[("POST","/api/reports/advertising/costs")]()
-            self.assertEqual(response["status"],"ok")
+
+            def post(form):
+                m.request=types.SimpleNamespace(args={},form=form,get_json=lambda silent=True:{})
+                response=app.routes[("POST","/api/reports/advertising/costs")]()
+                self.assertEqual(response["status"],"ok")
+                return response
+
+            post({
+                "entity_type":"global","entity_key":"",
+                "from":"2026-10-27","to":"2026-10-27",
+                "advertising_payment":"100","contractors_payment":"20","total_spend":"120",
+            })
+            post({
+                "entity_type":"source","entity_key":"",
+                "source_name":"Ручной новый рекламный источник",
+                "channel_name":"Другие источники",
+                "from":"2026-10-27","to":"2026-10-27",
+                "advertising_payment":"","contractors_payment":"","total_spend":"",
+            })
 
             stored=json.loads(
                 c.execute(
@@ -3366,6 +3353,7 @@ class AdvertisingReportTests(unittest.TestCase):
                     (m.ADVERTISING_COSTS_KEY,),
                 ).fetchone()[0]
             )
+            self.assertEqual(stored["version"],2)
             manual=[
                 (key,value)
                 for key,value in stored["sources"].items()
@@ -3374,9 +3362,7 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(len(manual),1)
             manual_key,manual_meta=manual[0]
             self.assertEqual(manual_meta["channel_name"],"Другие источники")
-            saved_period=stored["periods"][0]
-            self.assertIn(manual_key,saved_period["source_spend"])
-            self.assertIsNone(saved_period["source_spend"][manual_key])
+            self.assertNotIn(manual_key,stored["periods"]["sources"])
 
             c.execute(
                 "INSERT INTO advertising_report_imports VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
