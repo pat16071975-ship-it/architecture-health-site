@@ -727,6 +727,12 @@ def _campaign_registry(conn, store=None):
                 "campaign_id": campaign_id,
                 "campaign_name": campaign_name or ("Кампания " + campaign_id if campaign_id else "Не определено"),
             }
+        elif (
+            key
+            and campaign_name
+            and len(campaign_name) > len(str(registry[key].get("campaign_name") or ""))
+        ):
+            registry[key]["campaign_name"] = campaign_name
     for key, meta in (store.get("campaigns") or {}).items():
         registry[key] = {
             "campaign_key": key,
@@ -1773,7 +1779,12 @@ def _store_campaign_evidence(conn, rows):
                 THEN excluded.campaign_name ELSE campaign_name END,
               first_seen_date=MIN(first_seen_date,excluded.first_seen_date),
               last_seen_date=MAX(last_seen_date,excluded.last_seen_date),
-              evidence_rows=evidence_rows+excluded.evidence_rows
+              evidence_rows=MAX(evidence_rows,excluded.evidence_rows)
+            WHERE
+              length(excluded.campaign_name)>length(campaign_name)
+              OR excluded.first_seen_date<first_seen_date
+              OR excluded.last_seen_date>last_seen_date
+              OR excluded.evidence_rows>evidence_rows
             """,
             (
                 source_key, utm_campaign, campaign_id, campaign_name,
