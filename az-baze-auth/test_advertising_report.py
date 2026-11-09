@@ -2449,6 +2449,128 @@ class AdvertisingReportTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_future_arbitrary_utm_is_not_promoted_on_non_campaign_sources(self):
+        cases=[
+            (
+                {
+                    "traffic_source_id":"direct",
+                    "traffic_source_name":"Прямые заходы",
+                    "utm_source":"future_source",
+                    "utm_campaign":"future_technical_marker",
+                },
+                "direct",
+            ),
+            (
+                {
+                    "traffic_source_id":"organic",
+                    "traffic_source_name":"Переходы из поисковых систем",
+                    "source_detail":"Яндекс",
+                    "source_detail_id":"organic.yandex",
+                    "utm_source":"future_source",
+                    "utm_campaign":"future_technical_marker",
+                },
+                "yandex_organic",
+            ),
+            (
+                {
+                    "traffic_source_id":"referral",
+                    "traffic_source_name":"Переходы по ссылкам на сайтах",
+                    "source_detail":"link.2gis.ru",
+                    "source_detail_id":"referral.link.2gis.ru",
+                    "utm_source":"future_source",
+                    "utm_campaign":"future_technical_marker",
+                },
+                "2gis",
+            ),
+            (
+                {
+                    "traffic_source_id":"internal",
+                    "traffic_source_name":"Внутренние переходы",
+                    "utm_campaign":"future_technical_marker",
+                },
+                "internal",
+            ),
+        ]
+        for row,expected_source in cases:
+            source_key,source_name,channel=m._metrika_source(row)
+            identity=m._metrika_campaign_identity(
+                row,source_key,source_name,channel,{}
+            )
+            self.assertEqual(identity[0],expected_source)
+            self.assertEqual(identity[4],"")
+
+        # Paid and social traffic remain campaign-bearing. This prevents the
+        # future-proof guard from flattening real campaign structures.
+        paid={
+            "traffic_source_id":"ad",
+            "traffic_source_name":"Переходы по рекламе",
+            "utm_source":"future_paid_network",
+            "utm_campaign":"future_real_campaign",
+        }
+        source_key,source_name,channel=m._metrika_source(paid)
+        identity=m._metrika_campaign_identity(
+            paid,source_key,source_name,channel,{}
+        )
+        self.assertEqual(identity[4],"future_real_campaign")
+
+        social={
+            "traffic_source_id":"social",
+            "traffic_source_name":"Переходы из социальных сетей",
+            "source_detail":"future.social",
+            "utm_source":"future_social_network",
+            "utm_campaign":"future_social_campaign",
+        }
+        source_key,source_name,channel=m._metrika_source(social)
+        identity=m._metrika_campaign_identity(
+            social,source_key,source_name,channel,{}
+        )
+        self.assertEqual(identity[4],"future_social_campaign")
+
+    def test_future_historical_utm_marker_is_hidden_by_source_semantics_not_name(self):
+        c=conn()
+        try:
+            rows=[
+                ("direct","Прямые заходы","Прямые заходы",2),
+                ("yandex_organic","Яндекс органика","Поиск",4),
+                ("2gis","2ГИС","Карты",14),
+                ("napopravku","НаПоправку","Другие источники",2),
+                ("prodoctorov","ПроДокторов","Другие источники",1),
+            ]
+            for source_key,source_name,channel,visits in rows:
+                c.execute(
+                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        "metrika","2026-11-08",source_key,source_name,channel,
+                        "","future_unknown_placement_tag",None,None,visits,
+                        "t","historical-future-marker",
+                    ),
+                )
+            c.commit()
+
+            source_rows={
+                row["source_key"]:row
+                for row in m._group_breakdown(
+                    c,date(2026,11,8),date(2026,11,8),"source"
+                )
+            }
+            self.assertEqual(source_rows["direct"]["visits"],2)
+            self.assertEqual(source_rows["yandex_organic"]["visits"],4)
+            self.assertEqual(source_rows["2gis"]["visits"],14)
+            self.assertEqual(source_rows["napopravku"]["visits"],2)
+            self.assertEqual(source_rows["prodoctorov"]["visits"],1)
+
+            campaigns=m._group_breakdown(
+                c,date(2026,11,8),date(2026,11,8),"campaign"
+            )
+            self.assertFalse(
+                any(
+                    row["campaign_name"]=="future_unknown_placement_tag"
+                    for row in campaigns
+                )
+            )
+        finally:
+            c.close()
+
     def test_factual_campaign_id_named_clinic_profile_is_not_hidden(self):
         identity=m._canonical_metrika_identity(
             "yandex_ads",
