@@ -736,6 +736,18 @@ def _native_campaign_import_ids(conn):
     return {str(row["import_id"]) for row in rows}
 
 
+def _stored_source_allows_utm_campaign(row, source_key, channel_name):
+    """Fail closed for historical UTM-only rows from non-campaign sources."""
+    if source_key == "instagram":
+        return True
+    if source_key == "yandex_ads":
+        return True
+    if str(channel_name or "").strip() == "Платная реклама":
+        return True
+    raw_source = str(source_key or "")
+    return raw_source.startswith("paid_") or raw_source.startswith("social_")
+
+
 def _canonical_stored_campaign_identity(
     row,
     campaign_evidence,
@@ -765,6 +777,9 @@ def _canonical_stored_campaign_identity(
             evidence.get("campaign_name") or campaign_name,
             allow_legacy_aliases=False,
         )
+
+    if not _stored_source_allows_utm_campaign(row, source_key, channel_name):
+        return source_key, source_name, channel_name, "", ""
 
     provider = str(row["provider"] or "") if "provider" in row.keys() else ""
     import_id = str(row["import_id"] or "") if "import_id" in row.keys() else ""
@@ -1483,8 +1498,9 @@ CAMPAIGN_NAME_SENTINELS = {
     "не определено", "кампания не определена",
     "other", "unknown", "undefined", "not_set", "not set", "(not set)",
 }
-TECHNICAL_UTM_CAMPAIGNS = {
-    "clinic_profile",
+CAMPAIGN_BEARING_TRAFFIC_SOURCES = {
+    "ad",
+    "social",
 }
 
 
@@ -1713,15 +1729,6 @@ def _canonical_metrika_identity(
     campaign_id = str(campaign_id or "").strip()
     campaign_name = str(campaign_name or "").strip()
 
-    # Technical UTM labels describe the placement/link, not a marketing
-    # campaign. Keep them in raw Metrika evidence, but do not expose them as a
-    # child campaign unless a factual campaign ID exists.
-    if (
-        not campaign_id
-        and campaign_name.lower() in TECHNICAL_UTM_CAMPAIGNS
-    ):
-        campaign_name = ""
-
     legacy_instagram_tag = LEGACY_INSTAGRAM_SOURCE_KEYS.get(source_key)
     if source_key == "instagram" or source_key in LEGACY_INSTAGRAM_SOURCE_KEYS:
         source_key = "instagram"
@@ -1937,6 +1944,21 @@ def _metrika_campaign_name(row, source_key):
     return str(row.get("direct_campaign_name") or row.get("utm_campaign") or "").strip()
 
 
+def _utm_campaign_is_reportable(row, source_key):
+    """Return whether a UTM-only label is meaningful as a child campaign.
+
+    UTM parameters can survive attribution into organic/direct/referral visits.
+    Those values describe the tagged link/placement, not necessarily a
+    marketing campaign. Only traffic classes where campaign hierarchy is
+    intentional may promote an otherwise-unproven utm_campaign into a child
+    campaign row.
+    """
+    traffic_id = str(row.get("traffic_source_id") or "").strip().lower()
+    if source_key == "instagram":
+        return True
+    return traffic_id in CAMPAIGN_BEARING_TRAFFIC_SOURCES
+
+
 def _metrika_campaign_identity(
     row,
     source_key,
@@ -1968,8 +1990,10 @@ def _metrika_campaign_identity(
             str(evidence.get("campaign_name") or "").strip()
             or utm_campaign
         )
-    elif utm_campaign:
+    elif utm_campaign and _utm_campaign_is_reportable(row, source_key):
         campaign_name = utm_campaign
+    elif utm_campaign:
+        campaign_name = ""
     elif raw_campaign_id and not campaign_id:
         campaign_name = ""
     else:
