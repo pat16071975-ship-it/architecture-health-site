@@ -736,6 +736,18 @@ def _native_campaign_import_ids(conn):
     return {str(row["import_id"]) for row in rows}
 
 
+def _source_allows_name_only_campaign(source_key, channel_name):
+    """Whether a source may expose campaign identity without a factual ID."""
+    if source_key == "instagram":
+        return True
+    if source_key == "yandex_ads":
+        return True
+    if str(channel_name or "").strip() == "Платная реклама":
+        return True
+    raw_source = str(source_key or "")
+    return raw_source.startswith("paid_") or raw_source.startswith("social_")
+
+
 def _canonical_stored_campaign_identity(
     row,
     campaign_evidence,
@@ -752,7 +764,16 @@ def _canonical_stored_campaign_identity(
         )
     )
 
-    if source_key != "yandex_ads" or campaign_id or not campaign_name:
+    if campaign_id or not campaign_name:
+        return source_key, source_name, channel_name, campaign_id, campaign_name
+
+    # Historical stored rows must obey the same source-aware campaign rule as
+    # fresh parser rows. Otherwise arbitrary UTM placement tags survive forever
+    # under referral/direct/organic sources even after the parser is fixed.
+    if not _source_allows_name_only_campaign(source_key, channel_name):
+        return source_key, source_name, channel_name, "", ""
+
+    if source_key != "yandex_ads":
         return source_key, source_name, channel_name, campaign_id, campaign_name
 
     evidence = (campaign_evidence or {}).get((source_key, campaign_name))
@@ -823,12 +844,33 @@ def _campaign_registry(conn, store=None):
             and len(campaign_name) > len(str(registry[key].get("campaign_name") or ""))
         ):
             registry[key]["campaign_name"] = campaign_name
+    source_registry = {
+        item["source_key"]: item
+        for item in _source_registry(conn, store)
+    }
     for key, meta in (store.get("campaigns") or {}).items():
+        source_key = str(meta.get("source_key") or "")
+        campaign_id = str(meta.get("campaign_id") or "")
+        campaign_name = str(meta.get("campaign_name") or "")
+        if not source_key or (not campaign_id and not campaign_name):
+            continue
+        source_meta = source_registry.get(source_key) or {}
+        channel_name = str(source_meta.get("channel_name") or "")
+        # Persisted cost metadata is not evidence that a name-only value is a
+        # real campaign. Keep the saved cost record untouched, but do not
+        # promote it into report/editor campaign hierarchy for a source class
+        # that does not support name-only campaigns. A factual non-empty ID
+        # remains authoritative regardless of source class.
+        if (
+            not campaign_id
+            and not _source_allows_name_only_campaign(source_key, channel_name)
+        ):
+            continue
         registry[key] = {
             "campaign_key": key,
-            "source_key": str(meta.get("source_key") or ""),
-            "campaign_id": str(meta.get("campaign_id") or ""),
-            "campaign_name": str(meta.get("campaign_name") or ""),
+            "source_key": source_key,
+            "campaign_id": campaign_id,
+            "campaign_name": campaign_name,
         }
     return sorted(
         registry.values(),
@@ -1483,6 +1525,10 @@ CAMPAIGN_NAME_SENTINELS = {
     "не определено", "кампания не определена",
     "other", "unknown", "undefined", "not_set", "not set", "(not set)",
 }
+CAMPAIGN_BEARING_TRAFFIC_SOURCES = {
+    "ad",
+    "social",
+}
 
 
 def _identity_slug(value):
@@ -1925,6 +1971,21 @@ def _metrika_campaign_name(row, source_key):
     return str(row.get("direct_campaign_name") or row.get("utm_campaign") or "").strip()
 
 
+def _utm_campaign_is_reportable(row, source_key):
+    """Return whether a UTM-only label is meaningful as a child campaign.
+
+    UTM parameters can survive attribution into organic/direct/referral visits.
+    Those values describe the tagged link/placement, not necessarily a
+    marketing campaign. Only traffic classes where campaign hierarchy is
+    intentional may promote an otherwise-unproven utm_campaign into a child
+    campaign row.
+    """
+    traffic_id = str(row.get("traffic_source_id") or "").strip().lower()
+    if source_key == "instagram":
+        return True
+    return traffic_id in CAMPAIGN_BEARING_TRAFFIC_SOURCES
+
+
 def _metrika_campaign_identity(
     row,
     source_key,
@@ -1956,8 +2017,10 @@ def _metrika_campaign_identity(
             str(evidence.get("campaign_name") or "").strip()
             or utm_campaign
         )
-    elif utm_campaign:
+    elif utm_campaign and _utm_campaign_is_reportable(row, source_key):
         campaign_name = utm_campaign
+    elif utm_campaign:
+        campaign_name = ""
     elif raw_campaign_id and not campaign_id:
         campaign_name = ""
     else:

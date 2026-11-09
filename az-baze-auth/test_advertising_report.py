@@ -2366,7 +2366,10 @@ class AdvertisingReportTests(unittest.TestCase):
                 }
                 self.assertEqual(dynamic_paid["launch_alpha"]["visits"],5)
                 self.assertEqual(dynamic_social["creator_launch"]["visits"],6)
-                self.assertEqual(dynamic_referral["clinic_profile"]["visits"],7)
+                # clinic_profile is a technical placement UTM, not a child
+                # marketing campaign. The source keeps all 7 visits above,
+                # but no campaign row is rendered for this marker.
+                self.assertEqual(dynamic_referral,{})
 
                 campaigns=[
                     row for row in m._group_breakdown(
@@ -2381,6 +2384,212 @@ class AdvertisingReportTests(unittest.TestCase):
                 self.assertEqual(by_name["Не определено"]["visits"],3)
             finally:
                 c.close(); m.METRIKA_ARCHIVE_ROOT=old
+
+    def test_clinic_profile_is_technical_utm_not_child_campaign(self):
+        parsed=m._parse_metrika_zip(
+            metrika_zip(),
+            "technical-clinic-profile.zip",
+            now=datetime(2026,10,28,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+
+        nap=[
+            (key,values)
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="napopravku"
+        ]
+        pro=[
+            (key,values)
+            for key,values in parsed["traffic_rows"].items()
+            if key[1]=="prodoctorov"
+        ]
+        self.assertEqual(len(nap),1)
+        self.assertEqual(len(pro),1)
+        self.assertEqual(nap[0][0][5],"")
+        self.assertEqual(pro[0][0][5],"")
+        self.assertEqual(nap[0][1]["visits"],2)
+        self.assertEqual(pro[0][1]["visits"],1)
+
+        c=conn()
+        try:
+            historical=[
+                ("direct","Прямые заходы","Прямые заходы",2),
+                ("yandex_organic","Яндекс органика","Поиск",4),
+                ("2gis","2ГИС","Карты",14),
+                ("napopravku","НаПоправку","Другие источники",2),
+                ("prodoctorov","ПроДокторов","Другие источники",1),
+            ]
+            for source_key,source_name,channel,visits in historical:
+                c.execute(
+                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        "metrika","2026-11-08",source_key,source_name,channel,
+                        "","clinic_profile",None,None,visits,"t","legacy-profile",
+                    ),
+                )
+            c.commit()
+
+            sources={
+                row["source_key"]:row
+                for row in m._group_breakdown(
+                    c,date(2026,11,8),date(2026,11,8),"source"
+                )
+            }
+            self.assertEqual(sources["direct"]["visits"],2)
+            self.assertEqual(sources["yandex_organic"]["visits"],4)
+            self.assertEqual(sources["2gis"]["visits"],14)
+            self.assertEqual(sources["napopravku"]["visits"],2)
+            self.assertEqual(sources["prodoctorov"]["visits"],1)
+
+            campaigns=m._group_breakdown(
+                c,date(2026,11,8),date(2026,11,8),"campaign"
+            )
+            self.assertFalse(
+                any(row["campaign_name"]=="clinic_profile" for row in campaigns)
+            )
+        finally:
+            c.close()
+
+    def test_future_arbitrary_utm_is_not_promoted_on_non_campaign_sources(self):
+        cases=[
+            (
+                {
+                    "traffic_source_id":"direct",
+                    "traffic_source_name":"Прямые заходы",
+                    "utm_source":"future_source",
+                    "utm_campaign":"future_technical_marker",
+                },
+                "direct",
+            ),
+            (
+                {
+                    "traffic_source_id":"organic",
+                    "traffic_source_name":"Переходы из поисковых систем",
+                    "source_detail":"Яндекс",
+                    "source_detail_id":"organic.yandex",
+                    "utm_source":"future_source",
+                    "utm_campaign":"future_technical_marker",
+                },
+                "yandex_organic",
+            ),
+            (
+                {
+                    "traffic_source_id":"referral",
+                    "traffic_source_name":"Переходы по ссылкам на сайтах",
+                    "source_detail":"link.2gis.ru",
+                    "source_detail_id":"referral.link.2gis.ru",
+                    "utm_source":"future_source",
+                    "utm_campaign":"future_technical_marker",
+                },
+                "2gis",
+            ),
+            (
+                {
+                    "traffic_source_id":"internal",
+                    "traffic_source_name":"Внутренние переходы",
+                    "utm_campaign":"future_technical_marker",
+                },
+                "internal",
+            ),
+        ]
+        for row,expected_source in cases:
+            source_key,source_name,channel=m._metrika_source(row)
+            identity=m._metrika_campaign_identity(
+                row,source_key,source_name,channel,{}
+            )
+            self.assertEqual(identity[0],expected_source)
+            self.assertEqual(identity[4],"")
+
+        # Paid and social traffic remain campaign-bearing. This prevents the
+        # future-proof guard from flattening real campaign structures.
+        paid={
+            "traffic_source_id":"ad",
+            "traffic_source_name":"Переходы по рекламе",
+            "utm_source":"future_paid_network",
+            "utm_campaign":"future_real_campaign",
+        }
+        source_key,source_name,channel=m._metrika_source(paid)
+        identity=m._metrika_campaign_identity(
+            paid,source_key,source_name,channel,{}
+        )
+        self.assertEqual(identity[4],"future_real_campaign")
+
+        social={
+            "traffic_source_id":"social",
+            "traffic_source_name":"Переходы из социальных сетей",
+            "source_detail":"future.social",
+            "utm_source":"future_social_network",
+            "utm_campaign":"future_social_campaign",
+        }
+        source_key,source_name,channel=m._metrika_source(social)
+        identity=m._metrika_campaign_identity(
+            social,source_key,source_name,channel,{}
+        )
+        self.assertEqual(identity[4],"future_social_campaign")
+
+    def test_future_historical_utm_marker_is_hidden_by_source_semantics_not_name(self):
+        c=conn()
+        try:
+            rows=[
+                ("direct","Прямые заходы","Прямые заходы",2),
+                ("yandex_organic","Яндекс органика","Поиск",4),
+                ("2gis","2ГИС","Карты",14),
+                ("napopravku","НаПоправку","Другие источники",2),
+                ("prodoctorov","ПроДокторов","Другие источники",1),
+            ]
+            for source_key,source_name,channel,visits in rows:
+                c.execute(
+                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        "metrika","2026-11-08",source_key,source_name,channel,
+                        "","future_unknown_placement_tag",None,None,visits,
+                        "t","historical-future-marker",
+                    ),
+                )
+            c.commit()
+
+            source_rows={
+                row["source_key"]:row
+                for row in m._group_breakdown(
+                    c,date(2026,11,8),date(2026,11,8),"source"
+                )
+            }
+            self.assertEqual(source_rows["direct"]["visits"],2)
+            self.assertEqual(source_rows["yandex_organic"]["visits"],4)
+            self.assertEqual(source_rows["2gis"]["visits"],14)
+            self.assertEqual(source_rows["napopravku"]["visits"],2)
+            self.assertEqual(source_rows["prodoctorov"]["visits"],1)
+
+            campaigns=m._group_breakdown(
+                c,date(2026,11,8),date(2026,11,8),"campaign"
+            )
+            self.assertFalse(
+                any(
+                    row["campaign_name"]=="future_unknown_placement_tag"
+                    for row in campaigns
+                )
+            )
+        finally:
+            c.close()
+
+    def test_factual_campaign_id_named_clinic_profile_is_not_hidden(self):
+        identity=m._canonical_metrika_identity(
+            "yandex_ads",
+            "Яндекс-реклама",
+            "Платная реклама",
+            "123456789",
+            "clinic_profile",
+            allow_legacy_aliases=False,
+        )
+        self.assertEqual(
+            identity,
+            (
+                "yandex_ads",
+                "Яндекс-реклама",
+                "Платная реклама",
+                "123456789",
+                "clinic_profile",
+            ),
+        )
 
     def test_az186_01_sentinel_direct_name_cannot_outrank_factual_utm(self):
         parsed=m._parse_metrika_zip(
@@ -2933,6 +3142,139 @@ class AdvertisingReportTests(unittest.TestCase):
                 self.assertEqual(old_day[0]["visits"],8)
             finally:
                 c.close();m.METRIKA_ARCHIVE_ROOT=old
+
+    def test_az190_02_cost_only_name_metadata_cannot_create_campaign_under_non_campaign_source(self):
+        c=conn()
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            hidden_key=m._campaign_cost_key(
+                "napopravku","","future_unknown_placement_tag"
+            )
+            factual_key=m._campaign_cost_key(
+                "napopravku","123456789","future_unknown_placement_tag"
+            )
+            payload={
+                "version":2,
+                "sources":{
+                    "napopravku":{
+                        "name":"НаПоправку",
+                        "channel_name":"Другие источники",
+                        "manual":False,
+                    },
+                },
+                "campaigns":{
+                    hidden_key:{
+                        "source_key":"napopravku",
+                        "campaign_id":"",
+                        "campaign_name":"future_unknown_placement_tag",
+                    },
+                    factual_key:{
+                        "source_key":"napopravku",
+                        "campaign_id":"123456789",
+                        "campaign_name":"future_unknown_placement_tag",
+                    },
+                },
+                "periods":{
+                    "global":[],
+                    "sources":{},
+                    "campaigns":{
+                        hidden_key:[{
+                            "from":"2026-11-08",
+                            "to":"2026-11-08",
+                            "advertising_payment":50,
+                            "contractors_payment":10,
+                            "total_spend":60,
+                            "legacy_partial":False,
+                        }],
+                        factual_key:[{
+                            "from":"2026-11-08",
+                            "to":"2026-11-08",
+                            "advertising_payment":70,
+                            "contractors_payment":10,
+                            "total_spend":80,
+                            "legacy_partial":False,
+                        }],
+                    },
+                },
+            }
+            original=json.dumps(payload,ensure_ascii=False,sort_keys=True)
+            c.execute(
+                "INSERT INTO report_blobs VALUES(?,?,?,?)",
+                (
+                    m.ADVERTISING_COSTS_KEY,
+                    json.dumps(payload,ensure_ascii=False),
+                    1,
+                    "t",
+                ),
+            )
+            c.commit()
+
+            store=m._load_cost_store(c)
+            self.assertIn(hidden_key,store["campaigns"])
+            self.assertEqual(
+                store["periods"]["campaigns"][hidden_key][0]["total_spend"],
+                60,
+            )
+
+            registry=m._campaign_registry(c,store)
+            self.assertFalse(
+                any(item["campaign_key"]==hidden_key for item in registry)
+            )
+            self.assertTrue(
+                any(item["campaign_key"]==factual_key for item in registry)
+            )
+
+            rows=m._group_breakdown(
+                c,date(2026,11,8),date(2026,11,8),"campaign"
+            )
+            self.assertFalse(
+                any(item["campaign_key"]==hidden_key for item in rows)
+            )
+            factual=next(
+                item for item in rows
+                if item["campaign_key"]==factual_key
+            )
+            self.assertEqual(factual["campaign_id"],"123456789")
+            self.assertEqual(factual["total_spend"],80)
+            self.assertIsNone(factual["visits"])
+
+            hierarchy=m._cost_hierarchy_payload(
+                c,date(2026,11,8),date(2026,11,8)
+            )
+            source=next(
+                item for item in hierarchy["sources"]
+                if item["source_key"]=="napopravku"
+            )
+            self.assertFalse(
+                any(
+                    item["campaign_key"]==hidden_key
+                    for item in source["campaigns"]
+                )
+            )
+            self.assertTrue(
+                any(
+                    item["campaign_key"]==factual_key
+                    for item in source["campaigns"]
+                )
+            )
+
+            # The fix is read-only with respect to persisted cost metadata.
+            row=c.execute(
+                "SELECT payload FROM report_blobs WHERE key=?",
+                (m.ADVERTISING_COSTS_KEY,),
+            ).fetchone()
+            self.assertEqual(
+                json.dumps(
+                    json.loads(row["payload"]),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                original,
+            )
+        finally:
+            c.close()
 
     def test_az188_03_campaign_cost_row_is_visible_without_selected_period_visits(self):
         c=conn()
