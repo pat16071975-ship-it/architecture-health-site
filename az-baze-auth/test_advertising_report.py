@@ -2141,10 +2141,14 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertEqual(
             yandex,
             [
-                ("715444498","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",6),
+                ("","bruksizm_search_nsk",1),
+                ("715444498","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",5),
                 ("999999999","АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",4),
             ],
         )
+        # Two factual IDs for the same UTM make that UTM ambiguous. The
+        # fallback visit must remain separate rather than being assigned by
+        # the historical alias dictionary.
         self.assertEqual(sum(row[2] for row in yandex),10)
 
     def test_group_breakdown_keeps_two_distinct_nonempty_ids_with_same_name(self):
@@ -2260,10 +2264,7 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertEqual(
             yandex,
             {
-                (
-                    "715444498",
-                    "АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск",
-                ):7,
+                ("","bruksizm_search_nsk"):7,
             },
         )
         self.assertNotIn(("999999999","Тестовая кампания"),yandex)
