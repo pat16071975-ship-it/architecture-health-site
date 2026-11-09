@@ -68,6 +68,16 @@ button,input,select{font:inherit}
 .child-row td:first-child:before{content:"";position:absolute;left:14px;top:15px;width:6px;height:6px;border-radius:50%;background:var(--az-gold)}
 .source-expand{border:0;background:none;padding:0 5px 0 0;color:var(--az-main);font-weight:700;cursor:pointer}
 .campaign-name{font-weight:600}
+.cost-detail-row td{padding:4px 8px;background:#fbf8f2!important}
+.report-cost-readonly{font-size:10px;color:var(--az-muted);text-align:left;white-space:normal}
+.report-cost-editor{display:grid;grid-template-columns:62px 112px 112px 112px 112px 112px 82px;gap:6px;align-items:center;min-width:820px;text-align:left}
+.report-cost-editor>span.report-cost-label{font-size:9px;font-weight:700;color:var(--az-main)}
+.report-cost-editor input{height:27px;border:1px solid var(--az-line-strong);border-radius:5px;background:#fff;padding:2px 6px;font-size:9px;color:var(--az-ink);min-width:0}
+.report-cost-editor button{height:27px;border:1px solid var(--az-main);border-radius:5px;background:var(--az-main);color:#fff;font-size:9px;font-weight:700;cursor:pointer}
+.report-cost-editor button:disabled{opacity:.55;cursor:default}
+.report-cost-editor small{grid-column:1/-1;margin:0!important;font-size:8.5px!important;white-space:normal!important;color:var(--az-muted)!important}
+.report-cost-editor .cost-ok{color:var(--az-main)}
+.report-cost-editor .cost-warn{color:var(--bad)}
 .freshness{margin-top:10px;color:var(--az-muted);font-size:11px;line-height:1.5}
 .empty{height:100%;display:grid;place-items:center;color:var(--az-muted);font-size:13px}.loading{opacity:.58}.error{color:var(--bad)}
 @media(max-width:1050px){.kpis{grid-template-columns:repeat(3,1fr)}.money-grid{grid-template-columns:1fr}}
@@ -139,6 +149,6 @@ button,input,select{font:inherit}
   <div class="freshness" id="coverage"></div>
   <div class="freshness" id="freshness"></div>
 </main>
-<script src="/reports/advertising.js?v=20261102-integrated-costs-1"></script>
+<script src="/reports/advertising.js?v=20261109-hierarchical-costs-1"></script>
 </body>
 </html>
