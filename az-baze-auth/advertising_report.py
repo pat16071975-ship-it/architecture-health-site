@@ -1591,17 +1591,182 @@ def _canonical_metrika_identity(source_key, source_name, channel_name, campaign_
     return source_key, source_name, channel_name, campaign_id, campaign_name
 
 
+def _campaign_evidence_rows(traffic, accepted_days):
+    grouped = {}
+    accepted = set(accepted_days or [])
+    for row in traffic or []:
+        if not isinstance(row, dict):
+            continue
+        day = str(row.get("date") or "")
+        if day not in accepted or bool(row.get("is_test_tag")):
+            continue
+        source_key, _source_name, _channel_name = _metrika_source(row)
+        if source_key != "yandex_ads":
+            continue
+        utm_campaign = str(row.get("utm_campaign") or "").strip()
+        campaign_id = _meaningful_campaign_id(row.get("direct_campaign_id"))
+        campaign_name = _meaningful_campaign_name(row.get("direct_campaign_name"))
+        if not utm_campaign or not campaign_id:
+            continue
+        key = (source_key, utm_campaign, campaign_id)
+        target = grouped.setdefault(
+            key,
+            {
+                "source_key": source_key,
+                "utm_campaign": utm_campaign,
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name,
+                "first_seen_date": day,
+                "last_seen_date": day,
+                "evidence_rows": 0,
+            },
+        )
+        if campaign_name and (
+            not target["campaign_name"]
+            or len(campaign_name) > len(target["campaign_name"])
+        ):
+            target["campaign_name"] = campaign_name
+        target["first_seen_date"] = min(target["first_seen_date"], day)
+        target["last_seen_date"] = max(target["last_seen_date"], day)
+        target["evidence_rows"] += 1
+    return list(grouped.values())
+
+
+def _campaign_evidence_map_from_rows(rows):
+    grouped = {}
+    for raw in rows or []:
+        if not isinstance(raw, dict):
+            continue
+        source_key = str(raw.get("source_key") or "").strip()
+        utm_campaign = str(raw.get("utm_campaign") or "").strip()
+        campaign_id = _meaningful_campaign_id(raw.get("campaign_id"))
+        campaign_name = _meaningful_campaign_name(raw.get("campaign_name"))
+        if not source_key or not utm_campaign or not campaign_id:
+            continue
+        key = (source_key, utm_campaign)
+        target = grouped.setdefault(key, {})
+        names = target.setdefault(campaign_id, set())
+        if campaign_name:
+            names.add(campaign_name)
+
+    result = {}
+    for key, by_id in grouped.items():
+        if len(by_id) != 1:
+            # One factual UTM linked to multiple factual campaign IDs is
+            # ambiguous. Never guess or merge it.
+            result[key] = None
+            continue
+        campaign_id, names = next(iter(by_id.items()))
+        campaign_name = (
+            max(names, key=lambda value: (len(value), value))
+            if names else ""
+        )
+        result[key] = {
+            "campaign_id": campaign_id,
+            "campaign_name": campaign_name,
+        }
+    return result
+
+
+def _campaign_evidence_map(conn):
+    try:
+        rows = conn.execute(
+            """
+            SELECT source_key,utm_campaign,campaign_id,campaign_name,
+                   first_seen_date,last_seen_date,evidence_rows
+            FROM advertising_campaign_identity_evidence
+            ORDER BY source_key,utm_campaign,campaign_id
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    return _campaign_evidence_map_from_rows([dict(row) for row in rows])
+
+
+def _merge_campaign_evidence_maps(*maps):
+    result = {}
+    keys = set()
+    for mapping in maps:
+        keys.update((mapping or {}).keys())
+    for key in keys:
+        values = [mapping.get(key) for mapping in maps if key in (mapping or {})]
+        if not values or any(value is None for value in values):
+            result[key] = None
+            continue
+        ids = {str(value.get("campaign_id") or "") for value in values}
+        ids.discard("")
+        if len(ids) != 1:
+            result[key] = None
+            continue
+        names = {
+            str(value.get("campaign_name") or "").strip()
+            for value in values
+            if str(value.get("campaign_name") or "").strip()
+        }
+        result[key] = {
+            "campaign_id": next(iter(ids)),
+            "campaign_name": (
+                max(names, key=lambda value: (len(value), value))
+                if names else ""
+            ),
+        }
+    return result
+
+
+def _store_campaign_evidence(conn, rows):
+    for raw in rows or []:
+        source_key = str(raw.get("source_key") or "").strip()
+        utm_campaign = str(raw.get("utm_campaign") or "").strip()
+        campaign_id = _meaningful_campaign_id(raw.get("campaign_id"))
+        campaign_name = _meaningful_campaign_name(raw.get("campaign_name"))
+        first_seen = str(raw.get("first_seen_date") or "").strip()
+        last_seen = str(raw.get("last_seen_date") or "").strip()
+        evidence_rows = max(1, int(raw.get("evidence_rows") or 1))
+        if (
+            not source_key
+            or not utm_campaign
+            or not campaign_id
+            or not DATE_RE.fullmatch(first_seen)
+            or not DATE_RE.fullmatch(last_seen)
+        ):
+            continue
+        conn.execute(
+            """
+            INSERT INTO advertising_campaign_identity_evidence(
+                source_key,utm_campaign,campaign_id,campaign_name,
+                first_seen_date,last_seen_date,evidence_rows
+            ) VALUES(?,?,?,?,?,?,?)
+            ON CONFLICT(source_key,utm_campaign,campaign_id) DO UPDATE SET
+              campaign_name=CASE
+                WHEN length(excluded.campaign_name)>length(campaign_name)
+                THEN excluded.campaign_name ELSE campaign_name END,
+              first_seen_date=MIN(first_seen_date,excluded.first_seen_date),
+              last_seen_date=MAX(last_seen_date,excluded.last_seen_date),
+              evidence_rows=evidence_rows+excluded.evidence_rows
+            """,
+            (
+                source_key, utm_campaign, campaign_id, campaign_name,
+                first_seen, last_seen, evidence_rows,
+            ),
+        )
+
+
 def _metrika_campaign_name(row, source_key):
     if source_key == "instagram":
         return _instagram_campaign_name(row)
     return str(row.get("direct_campaign_name") or row.get("utm_campaign") or "").strip()
 
 
-def _metrika_campaign_identity(row, source_key, source_name, channel_name):
+def _metrika_campaign_identity(
+    row,
+    source_key,
+    source_name,
+    channel_name,
+    campaign_evidence=None,
+):
     # DirectClickOrder is authoritative only when it contains a factual,
-    # non-sentinel ID.  When the ID is blank/sentinel, a factual UTM campaign
-    # outranks any generic DirectClickOrder display label, regardless of the
-    # language/wording of that placeholder.
+    # non-sentinel ID. When the ID is blank/sentinel, factual UTM remains
+    # visible unless a unique factual UTM->Direct-ID relation was observed.
     raw_campaign_id = str(row.get("direct_campaign_id") or "").strip()
     campaign_id = _meaningful_campaign_id(raw_campaign_id)
     direct_name = _meaningful_campaign_name(row.get("direct_campaign_name"))
@@ -1611,6 +1776,18 @@ def _metrika_campaign_identity(row, source_key, source_name, channel_name):
         campaign_name = _instagram_campaign_name(row)
     elif campaign_id:
         campaign_name = direct_name or utm_campaign
+    elif (
+        source_key == "yandex_ads"
+        and utm_campaign
+        and campaign_evidence
+        and campaign_evidence.get((source_key, utm_campaign))
+    ):
+        evidence = campaign_evidence[(source_key, utm_campaign)]
+        campaign_id = str(evidence.get("campaign_id") or "").strip()
+        campaign_name = (
+            str(evidence.get("campaign_name") or "").strip()
+            or utm_campaign
+        )
     elif utm_campaign:
         campaign_name = utm_campaign
     elif raw_campaign_id and not campaign_id:
