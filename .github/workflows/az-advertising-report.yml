@@ -80,7 +80,9 @@ jobs:
           assert all(x not in text for x in forbidden)
           js=Path('reports/advertising.js').read_text(encoding='utf-8')
           assert 'function renderSources()' in js
-          assert "const expandable=campaigns.length>0;" in js
+          assert "const expanded=expandedSources.has(row.source_key);" in js
+          assert "report-cost-editor" in js
+          assert "data-cost-save" in js
           assert "sourceKey==='yandex_ads'||sourceKey==='instagram'" not in js
           assert 'spend_provenance' in js
           assert 'Стоимость клика не считается, пока охват расходов и кликов не совпадает.' in js
