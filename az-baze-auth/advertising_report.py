@@ -16,7 +16,7 @@ import advertising_mis_bridge
 
 from flask import Response, abort, g, jsonify, request
 
-from app import DB_PATH, SITE_ROOT, admin_required, audit, db, iso_now, permission_required, require_csrf
+from app import DB_PATH, SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, require_csrf, user_permissions
 
 
 SCHEMA_VERSION = 1
@@ -165,6 +165,22 @@ CREATE TABLE IF NOT EXISTS advertising_metrika_imports (
     goal_rows INTEGER NOT NULL,
     archive_path TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS advertising_campaign_identity_evidence (
+    source_key TEXT NOT NULL,
+    utm_campaign TEXT NOT NULL,
+    campaign_id TEXT NOT NULL,
+    campaign_name TEXT NOT NULL,
+    first_seen_date TEXT NOT NULL,
+    last_seen_date TEXT NOT NULL,
+    evidence_rows INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY(source_key,utm_campaign,campaign_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ad_campaign_evidence_utm
+    ON advertising_campaign_identity_evidence(source_key,utm_campaign);
+CREATE TABLE IF NOT EXISTS advertising_metrika_import_formats (
+    import_id TEXT PRIMARY KEY,
+    campaign_identity_source TEXT NOT NULL
+);
 """
 
 
@@ -288,10 +304,12 @@ def _manual_source_key(name):
 
 
 def _empty_cost_store():
+    # Legacy v1 shape retained for validation/backward compatibility.
     return {"version": 1, "sources": {}, "periods": []}
 
 
 def _normalize_cost_store(payload):
+    """Normalize the historical v1 advertising-cost payload."""
     if not isinstance(payload, dict) or payload.get("version") != 1:
         raise ValueError("invalid advertising costs")
     if not isinstance(payload.get("sources"), dict) or not isinstance(payload.get("periods"), list):
@@ -354,27 +372,230 @@ def _normalize_cost_store(payload):
     return {"version": 1, "sources": sources, "periods": periods}
 
 
+def _empty_hierarchical_cost_store():
+    return {
+        "version": 2,
+        "sources": {},
+        "campaigns": {},
+        "periods": {
+            "global": [],
+            "sources": {},
+            "campaigns": {},
+        },
+    }
+
+
+def _cost_period_triplet(raw, *, allow_legacy_partial=False):
+    if not isinstance(raw, dict):
+        raise ValueError("invalid advertising cost period")
+    start = str(raw.get("from") or "").strip()
+    end = str(raw.get("to") or "").strip()
+    if not DATE_RE.fullmatch(start) or not DATE_RE.fullmatch(end) or start > end:
+        raise ValueError("invalid advertising cost period")
+
+    advertising_payment = _cost_number(raw.get("advertising_payment"))
+    contractors_payment = _cost_number(raw.get("contractors_payment"))
+    total_spend = _cost_number(raw.get("total_spend"))
+    legacy_partial = bool(raw.get("legacy_partial"))
+
+    if legacy_partial:
+        if not allow_legacy_partial:
+            raise ValueError("legacy partial advertising cost is not writable")
+        if advertising_payment is None or contractors_payment is not None or total_spend is not None:
+            raise ValueError("invalid legacy partial advertising cost")
+    else:
+        totals = (advertising_payment, contractors_payment, total_spend)
+        if any(value is not None for value in totals):
+            if any(value is None for value in totals):
+                raise ValueError("advertising totals incomplete")
+            if abs(total_spend - advertising_payment - contractors_payment) > 0.01:
+                raise ValueError("total spend must equal advertising plus contractors")
+
+    result = {
+        "from": start,
+        "to": end,
+        "advertising_payment": advertising_payment,
+        "contractors_payment": contractors_payment,
+        "total_spend": total_spend,
+    }
+    if legacy_partial:
+        result["legacy_partial"] = True
+    return result
+
+
+def _normalize_cost_periods(raw_periods, *, allow_legacy_partial=False):
+    if not isinstance(raw_periods, list):
+        raise ValueError("invalid advertising cost periods")
+    periods = [
+        _cost_period_triplet(item, allow_legacy_partial=allow_legacy_partial)
+        for item in raw_periods
+    ]
+    periods.sort(key=lambda item: (item["from"], item["to"]))
+    for previous, current in zip(periods, periods[1:]):
+        if current["from"] <= previous["to"]:
+            raise ValueError("advertising cost periods overlap")
+    return periods
+
+
+def _migrate_cost_store_v1(payload):
+    legacy = _normalize_cost_store(payload)
+    store = _empty_hierarchical_cost_store()
+    store["sources"] = dict(legacy["sources"])
+
+    for period in legacy["periods"]:
+        store["periods"]["global"].append({
+            "from": period["from"],
+            "to": period["to"],
+            "advertising_payment": period["advertising_payment"],
+            "contractors_payment": period["contractors_payment"],
+            "total_spend": period["total_spend"],
+        })
+        for source_key, value in (period.get("source_spend") or {}).items():
+            if value is None:
+                continue
+            store["periods"]["sources"].setdefault(source_key, []).append({
+                "from": period["from"],
+                "to": period["to"],
+                "advertising_payment": value,
+                "contractors_payment": None,
+                "total_spend": None,
+                # v1 only stored source advertising spend. Do not invent
+                # contractor=0 or total=advertising while migrating.
+                "legacy_partial": True,
+            })
+
+    store["periods"]["global"] = _normalize_cost_periods(store["periods"]["global"])
+    for key, periods in list(store["periods"]["sources"].items()):
+        store["periods"]["sources"][key] = _normalize_cost_periods(
+            periods, allow_legacy_partial=True
+        )
+    return store
+
+
+def _normalize_hierarchical_cost_store(payload):
+    if isinstance(payload, dict) and payload.get("version") == 1:
+        return _migrate_cost_store_v1(payload)
+    if not isinstance(payload, dict) or payload.get("version") != 2:
+        raise ValueError("invalid hierarchical advertising costs")
+
+    raw_sources = payload.get("sources")
+    raw_campaigns = payload.get("campaigns")
+    raw_periods = payload.get("periods")
+    if (
+        not isinstance(raw_sources, dict)
+        or not isinstance(raw_campaigns, dict)
+        or not isinstance(raw_periods, dict)
+    ):
+        raise ValueError("invalid hierarchical advertising costs")
+
+    sources = {}
+    for raw_key, raw_meta in raw_sources.items():
+        key = str(raw_key or "").strip()
+        if not key or len(key) > 120 or not isinstance(raw_meta, dict):
+            raise ValueError("invalid advertising source")
+        name = str(raw_meta.get("name") or "").strip()
+        channel = str(raw_meta.get("channel_name") or "").strip()
+        if not name or len(name) > 240 or len(channel) > 240:
+            raise ValueError("invalid advertising source")
+        sources[key] = {
+            "name": name,
+            "channel_name": channel,
+            "manual": bool(raw_meta.get("manual")),
+        }
+
+    campaigns = {}
+    for raw_key, raw_meta in raw_campaigns.items():
+        key = str(raw_key or "").strip()
+        if not key or len(key) > 120 or not isinstance(raw_meta, dict):
+            raise ValueError("invalid advertising campaign")
+        source_key = str(raw_meta.get("source_key") or "").strip()
+        campaign_id = str(raw_meta.get("campaign_id") or "").strip()
+        campaign_name = str(raw_meta.get("campaign_name") or "").strip()
+        if (
+            source_key not in sources
+            or (not campaign_id and not campaign_name)
+            or len(campaign_id) > 240
+            or len(campaign_name) > 500
+        ):
+            raise ValueError("invalid advertising campaign")
+        campaigns[key] = {
+            "source_key": source_key,
+            "campaign_id": campaign_id,
+            "campaign_name": campaign_name,
+        }
+
+    global_periods = _normalize_cost_periods(raw_periods.get("global") or [])
+    source_periods = {}
+    raw_source_periods = raw_periods.get("sources") or {}
+    if not isinstance(raw_source_periods, dict):
+        raise ValueError("invalid source cost periods")
+    for source_key, periods in raw_source_periods.items():
+        source_key = str(source_key or "").strip()
+        if source_key not in sources:
+            raise ValueError("unknown advertising source")
+        source_periods[source_key] = _normalize_cost_periods(
+            periods, allow_legacy_partial=True
+        )
+
+    campaign_periods = {}
+    raw_campaign_periods = raw_periods.get("campaigns") or {}
+    if not isinstance(raw_campaign_periods, dict):
+        raise ValueError("invalid campaign cost periods")
+    for campaign_key, periods in raw_campaign_periods.items():
+        campaign_key = str(campaign_key or "").strip()
+        if campaign_key not in campaigns:
+            raise ValueError("unknown advertising campaign")
+        campaign_periods[campaign_key] = _normalize_cost_periods(periods)
+
+    return {
+        "version": 2,
+        "sources": sources,
+        "campaigns": campaigns,
+        "periods": {
+            "global": global_periods,
+            "sources": source_periods,
+            "campaigns": campaign_periods,
+        },
+    }
+
+
 def _load_cost_store(conn):
+    """Return the new v2 in-memory model, migrating v1 without data loss."""
     try:
         row = conn.execute(
             "SELECT payload FROM report_blobs WHERE key=?",
             (ADVERTISING_COSTS_KEY,),
         ).fetchone()
     except sqlite3.OperationalError:
-        return _empty_cost_store()
+        return _empty_hierarchical_cost_store()
     if not row:
-        return _empty_cost_store()
+        return _empty_hierarchical_cost_store()
     try:
-        return _normalize_cost_store(json.loads(row["payload"]))
+        return _normalize_hierarchical_cost_store(json.loads(row["payload"]))
     except (TypeError, ValueError, json.JSONDecodeError):
-        return _empty_cost_store()
+        return _empty_hierarchical_cost_store()
 
 
-def _cost_period_summary(store, start, end):
+def _cost_entity_periods(store, level, entity_key=""):
+    periods = store.get("periods") or {}
+    if level == "global":
+        return periods.get("global") or []
+    if level == "source":
+        return (periods.get("sources") or {}).get(entity_key) or []
+    if level == "campaign":
+        return (periods.get("campaigns") or {}).get(entity_key) or []
+    raise ValueError("invalid advertising cost level")
+
+
+def _cost_entity_summary(store, level, entity_key, start, end):
     start_s, end_s = _iso(start), _iso(end)
     overlapping = [
-        item for item in store.get("periods", [])
+        item for item in _cost_entity_periods(store, level, entity_key)
         if item["from"] <= end_s and item["to"] >= start_s
+    ]
+    selected = [
+        item for item in overlapping
+        if item["from"] >= start_s and item["to"] <= end_s
     ]
     if not overlapping:
         return {
@@ -383,13 +604,9 @@ def _cost_period_summary(store, start, end):
             "advertising_payment": None,
             "contractors_payment": None,
             "total_spend": None,
-            "source_spend": {},
+            "legacy_partial": False,
         }
 
-    selected = [
-        item for item in overlapping
-        if item["from"] >= start_s and item["to"] <= end_s
-    ]
     cursor = start
     complete = len(selected) == len(overlapping)
     for item in selected:
@@ -401,15 +618,6 @@ def _cost_period_summary(store, start, end):
         cursor = item_end + timedelta(days=1)
     if cursor <= end:
         complete = False
-    if not complete:
-        return {
-            "complete": False,
-            "periods": selected,
-            "advertising_payment": None,
-            "contractors_payment": None,
-            "total_spend": None,
-            "source_spend": {},
-        }
 
     def sum_field(field):
         values = [item.get(field) for item in selected]
@@ -417,22 +625,45 @@ def _cost_period_summary(store, start, end):
             return None
         return round(sum(values), 2)
 
-    source_spend = {}
-    for key in store.get("sources", {}):
-        values = [(item.get("source_spend") or {}).get(key) for item in selected]
-        source_spend[key] = (
-            round(sum(values), 2)
-            if values and all(value is not None for value in values)
-            else None
-        )
     return {
-        "complete": True,
+        "complete": bool(complete),
         "periods": selected,
-        "advertising_payment": sum_field("advertising_payment"),
-        "contractors_payment": sum_field("contractors_payment"),
-        "total_spend": sum_field("total_spend"),
-        "source_spend": source_spend,
+        "advertising_payment": sum_field("advertising_payment") if complete else None,
+        "contractors_payment": sum_field("contractors_payment") if complete else None,
+        "total_spend": sum_field("total_spend") if complete else None,
+        "legacy_partial": bool(complete and any(item.get("legacy_partial") for item in selected)),
     }
+
+
+def _cost_exact_entity_period(store, level, entity_key, start, end):
+    start_s, end_s = _iso(start), _iso(end)
+    return next(
+        (
+            item for item in _cost_entity_periods(store, level, entity_key)
+            if item["from"] == start_s and item["to"] == end_s
+        ),
+        None,
+    )
+
+
+def _campaign_cost_key(source_key, campaign_id, campaign_name):
+    source_key = str(source_key or "").strip()
+    campaign_id = str(campaign_id or "").strip()
+    campaign_name = str(campaign_name or "").strip()
+    factual = campaign_id or campaign_name
+    if not source_key or not factual:
+        return ""
+    if campaign_id:
+        # Factual ID is the stable technical identity. Display-name changes
+        # must never create another cost entity for the same campaign.
+        identity = source_key + "\0id\0" + campaign_id
+        label = "id_" + (_identity_slug(campaign_id) or "campaign")
+    else:
+        identity = source_key + "\0name\0" + campaign_name
+        label = _identity_slug(campaign_name) or "campaign"
+    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+    room = 120 - len("campaign__") - len(digest) - 1
+    return ("campaign_" + label[:room] + "_" + digest)[:120]
 
 
 def _source_registry(conn, store=None):
@@ -468,6 +699,144 @@ def _source_registry(conn, store=None):
             "manual": bool(meta.get("manual")),
         }
     return sorted(registry.values(), key=lambda item: item["source_name"].lower())
+
+
+def _store_metrika_import_format(conn, import_id, parsed):
+    source = str(
+        (parsed.get("metadata") or {}).get("campaign_identity_source") or ""
+    ).strip()
+    # Empty means the legacy campaign representation. The marker is explicit
+    # so the old Python alias dictionary can never become evidence for a new
+    # traffic_direct_click_order import.
+    source = source or "legacy"
+    conn.execute(
+        """
+        INSERT INTO advertising_metrika_import_formats(
+            import_id,campaign_identity_source
+        ) VALUES(?,?)
+        ON CONFLICT(import_id) DO UPDATE SET
+          campaign_identity_source=excluded.campaign_identity_source
+        WHERE campaign_identity_source<>excluded.campaign_identity_source
+        """,
+        (str(import_id or ""), source),
+    )
+
+
+def _native_campaign_import_ids(conn):
+    try:
+        rows = conn.execute(
+            """
+            SELECT import_id
+            FROM advertising_metrika_import_formats
+            WHERE campaign_identity_source='traffic_direct_click_order'
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return set()
+    return {str(row["import_id"]) for row in rows}
+
+
+def _canonical_stored_campaign_identity(
+    row,
+    campaign_evidence,
+    native_import_ids,
+):
+    source_key, source_name, channel_name, campaign_id, campaign_name = (
+        _canonical_metrika_identity(
+            row["source_key"],
+            row["source_name"],
+            row["channel_name"],
+            row["campaign_id"],
+            row["campaign_name"],
+            allow_legacy_aliases=False,
+        )
+    )
+
+    if source_key != "yandex_ads" or campaign_id or not campaign_name:
+        return source_key, source_name, channel_name, campaign_id, campaign_name
+
+    evidence = (campaign_evidence or {}).get((source_key, campaign_name))
+    if evidence:
+        return _canonical_metrika_identity(
+            source_key,
+            source_name,
+            channel_name,
+            evidence.get("campaign_id"),
+            evidence.get("campaign_name") or campaign_name,
+            allow_legacy_aliases=False,
+        )
+
+    provider = str(row["provider"] or "") if "provider" in row.keys() else ""
+    import_id = str(row["import_id"] or "") if "import_id" in row.keys() else ""
+    is_native = provider == "metrika" and import_id in (native_import_ids or set())
+    if is_native:
+        return source_key, source_name, channel_name, campaign_id, campaign_name
+
+    # Only unmarked/legacy stored rows retain the historical alias dictionary.
+    return _canonical_metrika_identity(
+        source_key,
+        source_name,
+        channel_name,
+        campaign_id,
+        campaign_name,
+        allow_legacy_aliases=True,
+    )
+
+
+def _campaign_registry(conn, store=None):
+    store = store or _load_cost_store(conn)
+    registry = {}
+    campaign_evidence = _campaign_evidence_map(conn)
+    native_import_ids = _native_campaign_import_ids(conn)
+    try:
+        rows = conn.execute(
+            """
+            SELECT provider,import_id,
+                   source_key,source_name,channel_name,campaign_id,campaign_name
+            FROM advertising_traffic_daily
+            WHERE provider='metrika'
+              AND (campaign_id<>'' OR campaign_name<>'')
+            ORDER BY metric_date
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = []
+    for row in rows:
+        source_key, _source_name, _channel, campaign_id, campaign_name = (
+            _canonical_stored_campaign_identity(
+                row, campaign_evidence, native_import_ids
+            )
+        )
+        if not campaign_id and not campaign_name:
+            continue
+        key = _campaign_cost_key(source_key, campaign_id, campaign_name)
+        if key and key not in registry:
+            registry[key] = {
+                "campaign_key": key,
+                "source_key": source_key,
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name or ("Кампания " + campaign_id if campaign_id else "Не определено"),
+            }
+        elif (
+            key
+            and campaign_name
+            and len(campaign_name) > len(str(registry[key].get("campaign_name") or ""))
+        ):
+            registry[key]["campaign_name"] = campaign_name
+    for key, meta in (store.get("campaigns") or {}).items():
+        registry[key] = {
+            "campaign_key": key,
+            "source_key": str(meta.get("source_key") or ""),
+            "campaign_id": str(meta.get("campaign_id") or ""),
+            "campaign_name": str(meta.get("campaign_name") or ""),
+        }
+    return sorted(
+        registry.values(),
+        key=lambda item: (
+            item["source_key"],
+            (item["campaign_name"] or item["campaign_id"]).lower(),
+        ),
+    )
 
 
 def _dataset_period_complete(conn, dataset, start, end):
@@ -550,29 +919,171 @@ def _direct_source_values(conn, start, end):
     return values
 
 
+def _direct_campaign_values(conn, start, end):
+    try:
+        rows = conn.execute(
+            """
+            SELECT source_key,source_name,channel_name,campaign_id,campaign_name,
+                   spend,clicks
+            FROM advertising_traffic_daily
+            WHERE provider='direct' AND metric_date BETWEEN ? AND ?
+              AND (campaign_id<>'' OR campaign_name<>'')
+            """,
+            (_iso(start), _iso(end)),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        rows = []
+    values = {}
+    for row in rows:
+        source_key, _name, _channel, campaign_id, campaign_name = _canonical_metrika_identity(
+            row["source_key"], row["source_name"], row["channel_name"],
+            row["campaign_id"], row["campaign_name"],
+        )
+        key = _campaign_cost_key(source_key, campaign_id, campaign_name)
+        if not key:
+            continue
+        target = values.setdefault(
+            key,
+            {
+                "spend": 0.0,
+                "clicks": 0,
+                "spend_complete": True,
+                "clicks_complete": True,
+                "rows": 0,
+            },
+        )
+        target["rows"] += 1
+        if row["spend"] is None:
+            target["spend_complete"] = False
+        else:
+            target["spend"] += float(row["spend"])
+        if row["clicks"] is None:
+            target["clicks_complete"] = False
+        else:
+            target["clicks"] += int(row["clicks"])
+    for target in values.values():
+        target["spend"] = (
+            round(float(target["spend"]), 2)
+            if target["rows"] and target["spend_complete"]
+            else None
+        )
+        target["clicks"] = (
+            int(target["clicks"])
+            if target["rows"] and target["clicks_complete"]
+            else None
+        )
+    return values
+
+
+def _effective_cost_components(summary, direct_spend=None):
+    manual_advertising = summary.get("advertising_payment") if summary.get("complete") else None
+    contractors = summary.get("contractors_payment") if summary.get("complete") else None
+    advertising = direct_spend if direct_spend is not None else manual_advertising
+    total = (
+        round(float(advertising) + float(contractors), 2)
+        if advertising is not None and contractors is not None
+        else (
+            summary.get("total_spend")
+            if direct_spend is None and summary.get("complete")
+            else None
+        )
+    )
+    return {
+        "advertising_payment": advertising,
+        "manual_advertising_payment": manual_advertising,
+        "contractors_payment": contractors,
+        "total_spend": total,
+        "spend_provenance": (
+            "direct_api"
+            if direct_spend is not None
+            else ("manual" if manual_advertising is not None else None)
+        ),
+        "period_complete": bool(summary.get("complete")),
+    }
+
+
+def _campaign_economics(conn, start, end, store=None):
+    store = store or _load_cost_store(conn)
+    direct_complete = _dataset_period_complete(conn, "direct", start, end)
+    direct = _direct_campaign_values(conn, start, end) if direct_complete else {}
+    result = {}
+    for meta in _campaign_registry(conn, store):
+        key = meta["campaign_key"]
+        summary = _cost_entity_summary(store, "campaign", key, start, end)
+        direct_value = direct.get(key) or {}
+        components = _effective_cost_components(
+            summary,
+            direct_value.get("spend") if direct_complete else None,
+        )
+        result[key] = {
+            **meta,
+            **components,
+            # Existing per-click economics intentionally continue to use the
+            # advertising component only; contractor allocation is visible
+            # separately and does not silently redefine CPC.
+            "spend": components["advertising_payment"],
+            "clicks": direct_value.get("clicks") if direct_complete else None,
+        }
+    return {
+        "campaigns": result,
+        "direct_period_complete": direct_complete,
+    }
+
+
 def _source_economics(conn, start, end, store=None):
     store = store or _load_cost_store(conn)
-    budget = _cost_period_summary(store, start, end)
+    budget = _cost_entity_summary(store, "global", "", start, end)
     direct_complete = _dataset_period_complete(conn, "direct", start, end)
     direct = _direct_source_values(conn, start, end) if direct_complete else {}
+    campaigns = _campaign_economics(conn, start, end, store)["campaigns"]
     result = {}
     for meta in _source_registry(conn, store):
         key = meta["source_key"]
+        summary = _cost_entity_summary(store, "source", key, start, end)
         direct_value = direct.get(key) or {}
-        manual_spend = budget["source_spend"].get(key) if budget["complete"] else None
-        direct_spend = direct_value.get("spend")
-        spend = direct_spend if direct_spend is not None else manual_spend
+        components = _effective_cost_components(
+            summary,
+            direct_value.get("spend") if direct_complete else None,
+        )
+        children = [item for item in campaigns.values() if item["source_key"] == key]
+        child_totals = [item.get("total_spend") for item in children]
+        distributed_total = (
+            round(sum(float(value) for value in child_totals), 2)
+            if children and all(value is not None for value in child_totals)
+            else None
+        )
         result[key] = {
             **meta,
-            "spend": None if spend is None else round(float(spend), 2),
-            "manual_spend": manual_spend,
-            "direct_spend": None if direct_spend is None else round(float(direct_spend), 2),
-            "clicks": direct_value.get("clicks"),
-            "spend_provenance": "direct_api" if direct_spend is not None else ("manual" if manual_spend is not None else None),
+            **components,
+            "spend": components["advertising_payment"],
+            "manual_spend": components["manual_advertising_payment"],
+            "direct_spend": (
+                None
+                if not direct_complete or direct_value.get("spend") is None
+                else round(float(direct_value["spend"]), 2)
+            ),
+            "clicks": direct_value.get("clicks") if direct_complete else None,
+            "campaign_distributed_total": distributed_total,
+            "campaign_reconciliation_delta": (
+                round(float(components["total_spend"]) - distributed_total, 2)
+                if components["total_spend"] is not None and distributed_total is not None
+                else None
+            ),
         }
 
-    source_values = [item["spend"] for item in result.values() if item["spend"] is not None]
-    source_spend_total = round(sum(source_values), 2) if source_values else None
+    source_ad_values = [
+        item["advertising_payment"]
+        for item in result.values()
+        if item["advertising_payment"] is not None
+    ]
+    source_total_values = [
+        item["total_spend"]
+        for item in result.values()
+        if item["total_spend"] is not None
+    ]
+    source_spend_total = round(sum(source_ad_values), 2) if source_ad_values else None
+    source_total_spend = round(sum(source_total_values), 2) if source_total_values else None
+
     cpc_scope = [
         item for item in result.values()
         if item.get("manual")
@@ -584,7 +1095,7 @@ def _source_economics(conn, start, end, store=None):
         item.get("spend") is not None and item.get("clicks") is not None
         for item in cpc_scope
     )
-    advertising_payment = budget.get("advertising_payment")
+    advertising_payment = budget.get("advertising_payment") if budget.get("complete") else None
     if (
         click_scope_complete
         and advertising_payment is not None
@@ -595,10 +1106,20 @@ def _source_economics(conn, start, end, store=None):
         cost_per_click = advertising_payment / clicks if clicks else None
     else:
         cost_per_click = None
+
     return {
         "budget": budget,
         "sources": result,
+        "campaigns": campaigns,
         "source_spend_total": source_spend_total,
+        "source_total_spend": source_total_spend,
+        "source_reconciliation_delta": (
+            round(float(budget["total_spend"]) - source_total_spend, 2)
+            if budget.get("complete")
+            and budget.get("total_spend") is not None
+            and source_total_spend is not None
+            else None
+        ),
         "cost_per_click": cost_per_click,
         "click_scope_complete": click_scope_complete,
         "direct_period_complete": direct_complete,
@@ -644,6 +1165,8 @@ def _summary(conn, start, end):
         "advertising_payment": budget.get("advertising_payment"),
         "contractors_payment": budget.get("contractors_payment"),
         "source_spend_total": economics.get("source_spend_total"),
+        "source_total_spend": economics.get("source_total_spend"),
+        "source_reconciliation_delta": economics.get("source_reconciliation_delta"),
         "cost_per_click": economics.get("cost_per_click"),
         "clicks": (
             sum(int(item.get("clicks") or 0) for item in economics["sources"].values() if item.get("clicks") is not None)
@@ -767,24 +1290,27 @@ def _trend(conn, start, end, metric, comparison_ranges):
 
 def _group_breakdown(conn, start, end, level):
     start_s, end_s = _iso(start), _iso(end)
+    campaign_evidence = _campaign_evidence_map(conn)
+    native_import_ids = _native_campaign_import_ids(conn)
     traffic = conn.execute(
-        "SELECT source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits "
+        "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits "
         "FROM advertising_traffic_daily WHERE metric_date BETWEEN ? AND ?", (start_s, end_s)
     ).fetchall()
     clinic = conn.execute(
-        "SELECT source_key,source_name,channel_name,campaign_id,campaign_name,target_leads,leads_with_primary,"
+        "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,target_leads,leads_with_primary,"
         "primary_visits,primary_paid,primary_services,repeat_visits,repeat_paid FROM advertising_clinic_daily "
         "WHERE metric_date BETWEEN ? AND ?", (start_s, end_s)
     ).fetchall()
     cohort = conn.execute(
-        "SELECT source_key,source_name,channel_name,campaign_id,campaign_name,new_patients,new_patient_30d_paid "
+        "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,new_patients,new_patient_30d_paid "
         "FROM advertising_cohort_daily WHERE cohort_date BETWEEN ? AND ?", (start_s, end_s)
     ).fetchall()
     try:
         goals = conn.execute(
-            "SELECT source_key,source_name,channel_name,campaign_id,campaign_name,goal_key,SUM(goal_visits) AS goal_visits "
+            "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,"
+            "goal_key,SUM(goal_visits) AS goal_visits "
             "FROM advertising_metrika_goal_daily WHERE provider='metrika' AND metric_date BETWEEN ? AND ? "
-            "GROUP BY source_key,source_name,channel_name,campaign_id,campaign_name,goal_key",
+            "GROUP BY provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,goal_key",
             (start_s, end_s),
         ).fetchall()
     except sqlite3.OperationalError:
@@ -792,9 +1318,10 @@ def _group_breakdown(conn, start, end, level):
     groups = {}
 
     def identity_for(row):
-        source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
-            row["source_key"], row["source_name"], row["channel_name"],
-            row["campaign_id"], row["campaign_name"],
+        source_key, source_name, channel_name, campaign_id, campaign_name = (
+            _canonical_stored_campaign_identity(
+                row, campaign_evidence, native_import_ids
+            )
         )
         if campaign_id and not campaign_name:
             # A factual ID without a label is still a distinct campaign and
@@ -807,12 +1334,14 @@ def _group_breakdown(conn, start, end, level):
     def key_for(identity):
         source_key, _source_name, _channel_name, campaign_id, campaign_name = identity
         if level == "campaign":
-            return None if not campaign_id and not campaign_name else (source_key, campaign_id, campaign_name)
+            if campaign_id:
+                return (source_key, "id", campaign_id)
+            return None if not campaign_name else (source_key, "name", campaign_name)
         return (source_key,)
 
     def ensure(identity, key):
+        source_key, source_name, channel_name, campaign_id, campaign_name = identity
         if key not in groups:
-            source_key, source_name, channel_name, campaign_id, campaign_name = identity
             groups[key] = {
                 "source_key": source_key, "source_name": source_name,
                 "channel_name": channel_name,
@@ -820,6 +1349,13 @@ def _group_breakdown(conn, start, end, level):
                 "campaign_name": campaign_name if level == "campaign" else "",
                 **{metric: None for metric in METRIC_KEYS},
             }
+        elif (
+            level == "campaign"
+            and campaign_name
+            and len(campaign_name) > len(str(groups[key].get("campaign_name") or ""))
+        ):
+            # Same factual campaign ID with a better label remains one row.
+            groups[key]["campaign_name"] = campaign_name
         return groups[key]
 
     def add(row, fields):
@@ -866,17 +1402,56 @@ def _group_breakdown(conn, start, end, level):
                     "",
                 )
                 ensure(identity, key)
+    elif level == "campaign":
+        for campaign_value in economics.get("campaigns", {}).values():
+            identity = (
+                campaign_value["source_key"],
+                (
+                    (economics["sources"].get(campaign_value["source_key"]) or {})
+                    .get("source_name")
+                    or campaign_value["source_key"]
+                ),
+                (
+                    (economics["sources"].get(campaign_value["source_key"]) or {})
+                    .get("channel_name")
+                    or ""
+                ),
+                campaign_value.get("campaign_id") or "",
+                campaign_value.get("campaign_name") or "",
+            )
+            key = key_for(identity)
+            if key is not None and key not in groups:
+                ensure(identity, key)
 
     result = []
     for item in groups.values():
         if level == "source":
             source_value = economics["sources"].get(item["source_key"]) or {}
             item["spend"] = source_value.get("spend")
+            item["advertising_payment"] = source_value.get("advertising_payment")
+            item["contractors_payment"] = source_value.get("contractors_payment")
+            item["total_spend"] = source_value.get("total_spend")
+            item["cost_period_complete"] = bool(source_value.get("period_complete"))
+            item["campaign_distributed_total"] = source_value.get("campaign_distributed_total")
+            item["campaign_reconciliation_delta"] = source_value.get("campaign_reconciliation_delta")
             if source_value.get("clicks") is not None:
                 item["clicks"] = source_value.get("clicks")
             item["spend_provenance"] = source_value.get("spend_provenance")
+            item["campaign_key"] = ""
         else:
-            item["spend_provenance"] = "direct_api" if item["spend"] is not None else None
+            campaign_key = _campaign_cost_key(
+                item["source_key"], item["campaign_id"], item["campaign_name"]
+            )
+            campaign_value = economics.get("campaigns", {}).get(campaign_key) or {}
+            item["campaign_key"] = campaign_key
+            item["spend"] = campaign_value.get("spend")
+            item["advertising_payment"] = campaign_value.get("advertising_payment")
+            item["contractors_payment"] = campaign_value.get("contractors_payment")
+            item["total_spend"] = campaign_value.get("total_spend")
+            item["cost_period_complete"] = bool(campaign_value.get("period_complete"))
+            if campaign_value.get("clicks") is not None:
+                item["clicks"] = campaign_value.get("clicks")
+            item["spend_provenance"] = campaign_value.get("spend_provenance")
 
         item["total_paid"] = _combine_money(item["primary_paid"], item["repeat_paid"])
         item["total_visits"] = None if item["primary_visits"] is None and item["repeat_visits"] is None else (item["primary_visits"] or 0) + (item["repeat_visits"] or 0)
@@ -1120,7 +1695,15 @@ def _instagram_campaign_name(row):
     return INSTAGRAM_CAMPAIGN_LABELS.get(raw.lower(), raw)
 
 
-def _canonical_metrika_identity(source_key, source_name, channel_name, campaign_id, campaign_name):
+def _canonical_metrika_identity(
+    source_key,
+    source_name,
+    channel_name,
+    campaign_id,
+    campaign_name,
+    *,
+    allow_legacy_aliases=True,
+):
     source_key = str(source_key or "").strip()
     source_name = str(source_name or "").strip()
     channel_name = str(channel_name or "").strip()
@@ -1154,7 +1737,11 @@ def _canonical_metrika_identity(source_key, source_name, channel_name, campaign_
         # Legacy aliases remain migration compatibility only.  Any new UTM
         # that is absent from this map is still kept verbatim as its own
         # campaign, so future campaigns do not require Python edits.
-        canonical_id = YANDEX_CAMPAIGN_ALIASES.get(campaign_name.lower(), "") if campaign_name else ""
+        canonical_id = (
+            YANDEX_CAMPAIGN_ALIASES.get(campaign_name.lower(), "")
+            if allow_legacy_aliases and campaign_name
+            else ""
+        )
         if canonical_id:
             return (
                 source_key,
@@ -1167,17 +1754,187 @@ def _canonical_metrika_identity(source_key, source_name, channel_name, campaign_
     return source_key, source_name, channel_name, campaign_id, campaign_name
 
 
+def _campaign_evidence_rows(traffic, accepted_days):
+    grouped = {}
+    accepted = set(accepted_days or [])
+    for row in traffic or []:
+        if not isinstance(row, dict):
+            continue
+        day = str(row.get("date") or "")
+        if day not in accepted or bool(row.get("is_test_tag")):
+            continue
+        source_key, _source_name, _channel_name = _metrika_source(row)
+        if source_key != "yandex_ads":
+            continue
+        utm_campaign = str(row.get("utm_campaign") or "").strip()
+        campaign_id = _meaningful_campaign_id(row.get("direct_campaign_id"))
+        campaign_name = _meaningful_campaign_name(row.get("direct_campaign_name"))
+        if not utm_campaign or not campaign_id:
+            continue
+        key = (source_key, utm_campaign, campaign_id)
+        target = grouped.setdefault(
+            key,
+            {
+                "source_key": source_key,
+                "utm_campaign": utm_campaign,
+                "campaign_id": campaign_id,
+                "campaign_name": campaign_name,
+                "first_seen_date": day,
+                "last_seen_date": day,
+                "evidence_rows": 0,
+            },
+        )
+        if campaign_name and (
+            not target["campaign_name"]
+            or len(campaign_name) > len(target["campaign_name"])
+        ):
+            target["campaign_name"] = campaign_name
+        target["first_seen_date"] = min(target["first_seen_date"], day)
+        target["last_seen_date"] = max(target["last_seen_date"], day)
+        target["evidence_rows"] += 1
+    return list(grouped.values())
+
+
+def _campaign_evidence_map_from_rows(rows):
+    grouped = {}
+    for raw in rows or []:
+        if not isinstance(raw, dict):
+            continue
+        source_key = str(raw.get("source_key") or "").strip()
+        utm_campaign = str(raw.get("utm_campaign") or "").strip()
+        campaign_id = _meaningful_campaign_id(raw.get("campaign_id"))
+        campaign_name = _meaningful_campaign_name(raw.get("campaign_name"))
+        if not source_key or not utm_campaign or not campaign_id:
+            continue
+        key = (source_key, utm_campaign)
+        target = grouped.setdefault(key, {})
+        names = target.setdefault(campaign_id, set())
+        if campaign_name:
+            names.add(campaign_name)
+
+    result = {}
+    for key, by_id in grouped.items():
+        if len(by_id) != 1:
+            # One factual UTM linked to multiple factual campaign IDs is
+            # ambiguous. Never guess or merge it.
+            result[key] = None
+            continue
+        campaign_id, names = next(iter(by_id.items()))
+        campaign_name = (
+            max(names, key=lambda value: (len(value), value))
+            if names else ""
+        )
+        result[key] = {
+            "campaign_id": campaign_id,
+            "campaign_name": campaign_name,
+        }
+    return result
+
+
+def _campaign_evidence_map(conn):
+    try:
+        rows = conn.execute(
+            """
+            SELECT source_key,utm_campaign,campaign_id,campaign_name,
+                   first_seen_date,last_seen_date,evidence_rows
+            FROM advertising_campaign_identity_evidence
+            ORDER BY source_key,utm_campaign,campaign_id
+            """
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    return _campaign_evidence_map_from_rows([dict(row) for row in rows])
+
+
+def _merge_campaign_evidence_maps(*maps):
+    result = {}
+    keys = set()
+    for mapping in maps:
+        keys.update((mapping or {}).keys())
+    for key in keys:
+        values = [mapping.get(key) for mapping in maps if key in (mapping or {})]
+        if not values or any(value is None for value in values):
+            result[key] = None
+            continue
+        ids = {str(value.get("campaign_id") or "") for value in values}
+        ids.discard("")
+        if len(ids) != 1:
+            result[key] = None
+            continue
+        names = {
+            str(value.get("campaign_name") or "").strip()
+            for value in values
+            if str(value.get("campaign_name") or "").strip()
+        }
+        result[key] = {
+            "campaign_id": next(iter(ids)),
+            "campaign_name": (
+                max(names, key=lambda value: (len(value), value))
+                if names else ""
+            ),
+        }
+    return result
+
+
+def _store_campaign_evidence(conn, rows):
+    for raw in rows or []:
+        source_key = str(raw.get("source_key") or "").strip()
+        utm_campaign = str(raw.get("utm_campaign") or "").strip()
+        campaign_id = _meaningful_campaign_id(raw.get("campaign_id"))
+        campaign_name = _meaningful_campaign_name(raw.get("campaign_name"))
+        first_seen = str(raw.get("first_seen_date") or "").strip()
+        last_seen = str(raw.get("last_seen_date") or "").strip()
+        evidence_rows = max(1, int(raw.get("evidence_rows") or 1))
+        if (
+            not source_key
+            or not utm_campaign
+            or not campaign_id
+            or not DATE_RE.fullmatch(first_seen)
+            or not DATE_RE.fullmatch(last_seen)
+        ):
+            continue
+        conn.execute(
+            """
+            INSERT INTO advertising_campaign_identity_evidence(
+                source_key,utm_campaign,campaign_id,campaign_name,
+                first_seen_date,last_seen_date,evidence_rows
+            ) VALUES(?,?,?,?,?,?,?)
+            ON CONFLICT(source_key,utm_campaign,campaign_id) DO UPDATE SET
+              campaign_name=CASE
+                WHEN length(excluded.campaign_name)>length(campaign_name)
+                THEN excluded.campaign_name ELSE campaign_name END,
+              first_seen_date=MIN(first_seen_date,excluded.first_seen_date),
+              last_seen_date=MAX(last_seen_date,excluded.last_seen_date),
+              evidence_rows=MAX(evidence_rows,excluded.evidence_rows)
+            WHERE
+              length(excluded.campaign_name)>length(campaign_name)
+              OR excluded.first_seen_date<first_seen_date
+              OR excluded.last_seen_date>last_seen_date
+              OR excluded.evidence_rows>evidence_rows
+            """,
+            (
+                source_key, utm_campaign, campaign_id, campaign_name,
+                first_seen, last_seen, evidence_rows,
+            ),
+        )
+
+
 def _metrika_campaign_name(row, source_key):
     if source_key == "instagram":
         return _instagram_campaign_name(row)
     return str(row.get("direct_campaign_name") or row.get("utm_campaign") or "").strip()
 
 
-def _metrika_campaign_identity(row, source_key, source_name, channel_name):
+def _metrika_campaign_identity(
+    row,
+    source_key,
+    source_name,
+    channel_name,
+    campaign_evidence=None,
+):
     # DirectClickOrder is authoritative only when it contains a factual,
-    # non-sentinel ID.  When the ID is blank/sentinel, a factual UTM campaign
-    # outranks any generic DirectClickOrder display label, regardless of the
-    # language/wording of that placeholder.
+    # non-sentinel ID. When the ID is blank/sentinel, factual UTM remains
+    # visible unless a unique factual UTM->Direct-ID relation was observed.
     raw_campaign_id = str(row.get("direct_campaign_id") or "").strip()
     campaign_id = _meaningful_campaign_id(raw_campaign_id)
     direct_name = _meaningful_campaign_name(row.get("direct_campaign_name"))
@@ -1187,6 +1944,18 @@ def _metrika_campaign_identity(row, source_key, source_name, channel_name):
         campaign_name = _instagram_campaign_name(row)
     elif campaign_id:
         campaign_name = direct_name or utm_campaign
+    elif (
+        source_key == "yandex_ads"
+        and utm_campaign
+        and campaign_evidence
+        and campaign_evidence.get((source_key, utm_campaign))
+    ):
+        evidence = campaign_evidence[(source_key, utm_campaign)]
+        campaign_id = str(evidence.get("campaign_id") or "").strip()
+        campaign_name = (
+            str(evidence.get("campaign_name") or "").strip()
+            or utm_campaign
+        )
     elif utm_campaign:
         campaign_name = utm_campaign
     elif raw_campaign_id and not campaign_id:
@@ -1200,6 +1969,7 @@ def _metrika_campaign_identity(row, source_key, source_name, channel_name):
         channel_name,
         campaign_id,
         campaign_name,
+        allow_legacy_aliases=False,
     )
 
 
@@ -1440,7 +2210,7 @@ def _apply_yandex_campaign_report(traffic_rows, goal_rows, completed_days, campa
     return rebuilt_traffic, rebuilt_goals
 
 
-def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
+def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None, campaign_evidence=None):
     if not raw:
         raise ValueError("Пустой ZIP Яндекс Метрики.")
     if len(raw) > 25 * 1024 * 1024:
@@ -1527,6 +2297,13 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
             else "В ZIP нет допустимых данных Яндекс Метрики."
         )
 
+    local_campaign_evidence_rows = _campaign_evidence_rows(traffic, accepted_days)
+    local_campaign_evidence = _campaign_evidence_map_from_rows(local_campaign_evidence_rows)
+    effective_campaign_evidence = _merge_campaign_evidence_maps(
+        campaign_evidence or {},
+        local_campaign_evidence,
+    )
+
     traffic_by_id = {}
     traffic_rows = {}
     for row in traffic:
@@ -1538,7 +2315,7 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
             continue
         source_key, source_name, channel_name = _metrika_source(row)
         source_key, source_name, channel_name, campaign_id, campaign_name = _metrika_campaign_identity(
-            row, source_key, source_name, channel_name
+            row, source_key, source_name, channel_name, effective_campaign_evidence
         )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name)
         target = traffic_rows.setdefault(key, {"visits": 0})
@@ -1558,7 +2335,7 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
             continue
         source_key, source_name, channel_name = _metrika_source(traffic_row)
         source_key, source_name, channel_name, campaign_id, campaign_name = _metrika_campaign_identity(
-            traffic_row, source_key, source_name, channel_name
+            traffic_row, source_key, source_name, channel_name, effective_campaign_evidence
         )
         key = (day, source_key, source_name, channel_name, campaign_id, campaign_name, goal_key, goal_name)
         target = goal_rows.setdefault(key, {"goal_visits": 0, "reaches": 0})
@@ -1585,6 +2362,7 @@ def _parse_metrika_zip(raw, filename="", allow_provisional=False, now=None):
         "provisional_days": provisional_days,
         "traffic_rows": traffic_rows,
         "goal_rows": goal_rows,
+        "campaign_evidence": local_campaign_evidence_rows,
         "payload_sha256": hashlib.sha256(raw).hexdigest(),
         "raw": raw,
         "filename": filename or "metrika.zip",
@@ -1683,6 +2461,9 @@ def _store_metrika_provisional(conn, parsed, actor_user_id):
     day = provisional_days[0]
     if _metrika_day_is_completed(conn, day):
         raise ValueError("Этот день уже сохранён как завершённый и не может быть заменён оперативным срезом.")
+    import_id = "metrika-live-" + day
+    _store_campaign_evidence(conn, parsed.get("campaign_evidence"))
+    _store_metrika_import_format(conn, import_id, parsed)
     if _stored_metrika_matches(conn, parsed):
         return {
             "reused": True,
@@ -1692,7 +2473,6 @@ def _store_metrika_provisional(conn, parsed, actor_user_id):
         }
 
     imported_at = iso_now()
-    import_id = "metrika-live-" + day
     conn.execute(
         "DELETE FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date=?",
         (day,),
@@ -1748,10 +2528,13 @@ def _completed_metrika_matches_registered(conn, parsed):
 
 def _store_metrika(conn, parsed, actor_user_id):
     sha = parsed["payload_sha256"]
+    import_id = "metrika-" + sha[:16]
     existing = conn.execute(
         "SELECT payload_sha256 FROM advertising_metrika_imports WHERE payload_sha256=?",
         (sha,),
     ).fetchone()
+    _store_campaign_evidence(conn, parsed.get("campaign_evidence"))
+    _store_metrika_import_format(conn, import_id, parsed)
     if existing and _stored_metrika_matches(conn, parsed):
         return {
             "reused": True,
@@ -1762,7 +2545,6 @@ def _store_metrika(conn, parsed, actor_user_id):
 
     archive_path = _archive_metrika(parsed["raw"], sha)
     imported_at = iso_now()
-    import_id = "metrika-" + sha[:16]
     for day in parsed["completed_days"]:
         conn.execute("DELETE FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date=?", (day,))
         conn.execute("DELETE FROM advertising_metrika_goal_daily WHERE provider='metrika' AND metric_date=?", (day,))
@@ -2409,7 +3191,7 @@ def _report_payload(conn, start, end, compare_mode, trend_metric):
     deltas = {key: _delta_pct(current.get(key), comparison.get(key)) for key in current if key != "new_patient_30d_paid"}
     revenue = _revenue_summary(conn, start, end)
     crm = _crm_status(conn, start, end)
-    budget = _cost_period_summary(_load_cost_store(conn), start, end)
+    budget = _cost_entity_summary(_load_cost_store(conn), "global", "", start, end)
     return {
         "period": {"from": _iso(start), "to": _iso(end)},
         "compare": {"mode": compare_mode, "label": _comparison_label(compare_mode), "ranges": [{"from": _iso(a), "to": _iso(b)} for a, b in ranges], "summary": comparison, "delta_pct": deltas},
@@ -2432,6 +3214,158 @@ def _report_payload(conn, start, end, compare_mode, trend_metric):
         "revenue": revenue,
         "crm": crm,
     }
+
+
+def _cost_values_payload(store, level, entity_key, start, end):
+    exact = _cost_exact_entity_period(store, level, entity_key, start, end)
+    summary = _cost_entity_summary(store, level, entity_key, start, end)
+    return {
+        "period": {"from": _iso(start), "to": _iso(end)},
+        "exact": {
+            "advertising_payment": (exact or {}).get("advertising_payment"),
+            "contractors_payment": (exact or {}).get("contractors_payment"),
+            "total_spend": (exact or {}).get("total_spend"),
+            "legacy_partial": bool((exact or {}).get("legacy_partial")),
+        },
+        "summary": {
+            "complete": bool(summary.get("complete")),
+            "advertising_payment": summary.get("advertising_payment"),
+            "contractors_payment": summary.get("contractors_payment"),
+            "total_spend": summary.get("total_spend"),
+            "legacy_partial": bool(summary.get("legacy_partial")),
+        },
+    }
+
+
+def _cost_hierarchy_payload(conn, start, end):
+    store = _load_cost_store(conn)
+    economics = _source_economics(conn, start, end, store)
+    campaign_economics = economics.get("campaigns") or {}
+    campaign_registry = _campaign_registry(conn, store)
+    campaigns_by_source = {}
+    for meta in campaign_registry:
+        key = meta["campaign_key"]
+        econ = campaign_economics.get(key) or {}
+        row = {
+            **meta,
+            **_cost_values_payload(store, "campaign", key, start, end),
+            "effective": {
+                "advertising_payment": econ.get("advertising_payment"),
+                "contractors_payment": econ.get("contractors_payment"),
+                "total_spend": econ.get("total_spend"),
+                "spend_provenance": econ.get("spend_provenance"),
+                "period_complete": bool(econ.get("period_complete")),
+            },
+        }
+        campaigns_by_source.setdefault(meta["source_key"], []).append(row)
+
+    sources = []
+    for meta in _source_registry(conn, store):
+        key = meta["source_key"]
+        econ = (economics.get("sources") or {}).get(key) or {}
+        children = campaigns_by_source.get(key, [])
+        sources.append({
+            **meta,
+            **_cost_values_payload(store, "source", key, start, end),
+            "effective": {
+                "advertising_payment": econ.get("advertising_payment"),
+                "contractors_payment": econ.get("contractors_payment"),
+                "total_spend": econ.get("total_spend"),
+                "spend_provenance": econ.get("spend_provenance"),
+                "period_complete": bool(econ.get("period_complete")),
+            },
+            "reconciliation": {
+                "distributed_total": econ.get("campaign_distributed_total"),
+                "parent_total": econ.get("total_spend"),
+                "delta": econ.get("campaign_reconciliation_delta"),
+                "complete": (
+                    econ.get("campaign_distributed_total") is not None
+                    and econ.get("total_spend") is not None
+                ),
+            },
+            "campaigns": children,
+        })
+
+    global_values = _cost_values_payload(store, "global", "", start, end)
+    budget = economics.get("budget") or {}
+    global_effective = {
+        "advertising_payment": budget.get("advertising_payment") if budget.get("complete") else None,
+        "contractors_payment": budget.get("contractors_payment") if budget.get("complete") else None,
+        "total_spend": budget.get("total_spend") if budget.get("complete") else None,
+        "spend_provenance": "manual" if budget.get("complete") else None,
+        "period_complete": bool(budget.get("complete")),
+    }
+    global_row = {
+        "entity_type": "global",
+        "entity_key": "",
+        **global_values,
+        "effective": global_effective,
+        "reconciliation": {
+            "distributed_total": economics.get("source_total_spend"),
+            "parent_total": global_effective.get("total_spend"),
+            "delta": economics.get("source_reconciliation_delta"),
+            "complete": (
+                economics.get("source_total_spend") is not None
+                and global_effective.get("total_spend") is not None
+            ),
+        },
+    }
+    return {
+        "period": {"from": _iso(start), "to": _iso(end)},
+        "global": global_row,
+        "sources": sources,
+    }
+
+
+def _replace_cost_entity_period(store, level, entity_key, period):
+    periods = store["periods"]
+    if level == "global":
+        target = list(periods.get("global") or [])
+        container = None
+    elif level == "source":
+        target = list((periods.get("sources") or {}).get(entity_key) or [])
+        container = periods.setdefault("sources", {})
+    elif level == "campaign":
+        target = list((periods.get("campaigns") or {}).get(entity_key) or [])
+        container = periods.setdefault("campaigns", {})
+    else:
+        raise ValueError("invalid advertising cost level")
+
+    target = [
+        item for item in target
+        if not (item["from"] == period["from"] and item["to"] == period["to"])
+    ]
+    if any(
+        period.get(field) is not None
+        for field in ("advertising_payment", "contractors_payment", "total_spend")
+    ):
+        target.append(period)
+
+    if level == "global":
+        periods["global"] = target
+    else:
+        if target:
+            container[entity_key] = target
+        else:
+            container.pop(entity_key, None)
+
+
+def _persist_cost_store(conn, store):
+    normalized = _normalize_hierarchical_cost_store(store)
+    payload = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
+    conn.execute(
+        """
+        INSERT INTO report_blobs(key,payload,updated_by,updated_at)
+        VALUES(?,?,?,?)
+        ON CONFLICT(key) DO UPDATE SET
+          payload=excluded.payload,
+          updated_by=excluded.updated_by,
+          updated_at=excluded.updated_at
+        """,
+        (ADVERTISING_COSTS_KEY, payload, g.user["id"], iso_now()),
+    )
+    return normalized
+
 
 def _metrika_sync_has_changes(completed_updated, current_result):
     return bool(completed_updated or current_result.get("updated"))
@@ -2467,6 +3401,11 @@ def register_advertising_report(app):
         payload = _report_payload(db(), start, end, compare_mode, trend_metric)
         payload["today"] = _iso(today)
         payload["availableComparisons"] = ["previous_period", *(["previous_quarter_avg", "year_avg"] if _same_month(start, end) else []), "last_year"]
+        perms = user_permissions(g.user)
+        payload["costEditor"] = {
+            "canEdit": "upload_services" in perms,
+            "csrf": csrf_token() if "upload_services" in perms else "",
+        }
         return jsonify(payload)
 
     @app.get("/api/reports/advertising/costs")
@@ -2481,160 +3420,134 @@ def register_advertising_report(app):
             abort(400)
         if start > end or (end - start).days > 730:
             abort(400)
-        store = _load_cost_store(db())
-        summary = _cost_period_summary(store, start, end)
-        exact = next(
-            (
-                item for item in store["periods"]
-                if item["from"] == _iso(start) and item["to"] == _iso(end)
-            ),
-            None,
-        )
-        source_spend = (exact or {}).get("source_spend") or {}
-        sources = []
-        for item in _source_registry(db(), store):
-            row = dict(item)
-            row["spend"] = source_spend.get(item["source_key"])
-            sources.append(row)
-        return jsonify(
-            period={"from": _iso(start), "to": _iso(end)},
-            values={
-                "advertising_payment": (exact or {}).get("advertising_payment"),
-                "contractors_payment": (exact or {}).get("contractors_payment"),
-                "total_spend": (exact or {}).get("total_spend"),
-            },
-            sources=sources,
-            coverage_complete=summary.get("complete", False),
-        )
+        return jsonify(**_cost_hierarchy_payload(db(), start, end))
 
     @app.post("/api/reports/advertising/costs")
     @permission_required("upload_services")
     def advertising_costs_save():
         require_csrf()
         try:
+            level = str(request.form.get("entity_type") or "").strip()
+            entity_key = str(request.form.get("entity_key") or "").strip()
             start = _parse_date(str(request.form.get("from") or ""))
             end = _parse_date(str(request.form.get("to") or ""))
+            if level not in {"global", "source", "campaign"}:
+                raise ValueError("invalid advertising cost level")
             if start > end or (end - start).days > 730:
                 raise ValueError("invalid period")
-            source_rows = json.loads(request.form.get("sources_json") or "[]")
-            if not isinstance(source_rows, list):
-                raise ValueError("invalid sources")
-        except (ValueError, TypeError, json.JSONDecodeError):
-            return jsonify(status="error", message="Проверьте период и расходы на рекламу."), 400
+            period = _cost_period_triplet({
+                "from": _iso(start),
+                "to": _iso(end),
+                "advertising_payment": request.form.get("advertising_payment"),
+                "contractors_payment": request.form.get("contractors_payment"),
+                "total_spend": request.form.get("total_spend"),
+            })
+        except (ValueError, TypeError):
+            return jsonify(
+                status="error",
+                message=(
+                    "Проверьте период. Если вводите расходы, заполните "
+                    "«Оплата рекламы», «Подрядчики» и «Всего»; "
+                    "«Всего» должно равняться рекламе плюс подрядчики."
+                ),
+            ), 400
 
         conn = db()
         store = _load_cost_store(conn)
-        registry = {item["source_key"]: item for item in _source_registry(conn, store)}
-        clean_spend = {}
-        for raw in source_rows:
-            if not isinstance(raw, dict):
-                return jsonify(status="error", message="Некорректный источник рекламы."), 400
-            name = str(raw.get("source_name") or "").strip()
-            key = str(raw.get("source_key") or "").strip()
-            channel = str(raw.get("channel_name") or "").strip()
-            manual = bool(raw.get("manual"))
-            if not name:
-                return jsonify(status="error", message="Укажите название источника."), 400
-            if not key:
+        source_registry = {
+            item["source_key"]: item
+            for item in _source_registry(conn, store)
+        }
+        campaign_registry = {
+            item["campaign_key"]: item
+            for item in _campaign_registry(conn, store)
+        }
+
+        if level == "global":
+            entity_key = ""
+
+        elif level == "source":
+            source_name = str(request.form.get("source_name") or "").strip()
+            channel_name = str(request.form.get("channel_name") or "").strip()
+            if not entity_key:
+                if not source_name:
+                    return jsonify(status="error", message="Укажите название источника."), 400
                 existing = next(
                     (
-                        item for item in registry.values()
-                        if item["source_name"].strip().lower() == name.lower()
+                        item for item in source_registry.values()
+                        if item["source_name"].strip().lower() == source_name.lower()
                     ),
                     None,
                 )
-                key = existing["source_key"] if existing else _manual_source_key(name)
-                manual = existing["manual"] if existing else True
-            if key not in registry:
-                registry[key] = {
-                    "source_key": key,
-                    "source_name": name,
-                    "channel_name": channel or "Другие источники",
-                    "manual": manual,
-                }
-            try:
-                clean_spend[key] = _cost_number(raw.get("spend"))
-            except ValueError:
-                return jsonify(status="error", message=f"Некорректная сумма для «{name}»."), 400
-
-        store["sources"] = {
-            key: {
-                "name": item["source_name"],
-                "channel_name": item["channel_name"],
-                "manual": bool(item["manual"]),
+                entity_key = existing["source_key"] if existing else _manual_source_key(source_name)
+                if not existing:
+                    source_registry[entity_key] = {
+                        "source_key": entity_key,
+                        "source_name": source_name,
+                        "channel_name": channel_name or "Другие источники",
+                        "manual": True,
+                    }
+            if entity_key not in source_registry:
+                return jsonify(status="error", message="Неизвестный рекламный источник."), 400
+            meta = source_registry[entity_key]
+            store["sources"][entity_key] = {
+                "name": meta["source_name"],
+                "channel_name": meta["channel_name"],
+                "manual": bool(meta["manual"]),
             }
-            for key, item in registry.items()
-        }
-        period = {
-            "from": _iso(start),
-            "to": _iso(end),
-            "advertising_payment": None,
-            "contractors_payment": None,
-            "total_spend": None,
-            "source_spend": clean_spend,
-        }
-        try:
-            period["advertising_payment"] = _cost_number(request.form.get("advertising_payment"))
-            period["contractors_payment"] = _cost_number(request.form.get("contractors_payment"))
-            period["total_spend"] = _cost_number(request.form.get("total_spend"))
-        except ValueError:
-            return jsonify(status="error", message="Расходы должны быть неотрицательными числами."), 400
-        totals = (
-            period["advertising_payment"],
-            period["contractors_payment"],
-            period["total_spend"],
-        )
-        if any(value is not None for value in totals):
-            if any(value is None for value in totals):
-                return jsonify(
-                    status="error",
-                    message="Заполните «Оплата рекламы», «Подрядчики» и «Всего расходов на рекламу».",
-                ), 400
-            expected_total = round(
-                period["advertising_payment"] + period["contractors_payment"],
-                2,
-            )
-            if abs(period["total_spend"] - expected_total) > 0.01:
-                return jsonify(
-                    status="error",
-                    message="«Всего расходов на рекламу» должно равняться оплате рекламы плюс подрядчики.",
-                ), 400
 
-        store["periods"] = [
-            item for item in store.get("periods", [])
-            if not (item["from"] == period["from"] and item["to"] == period["to"])
-        ]
-        store["periods"].append(period)
+        else:
+            if entity_key not in campaign_registry:
+                return jsonify(status="error", message="Неизвестная рекламная кампания."), 400
+            meta = campaign_registry[entity_key]
+            source_key = meta["source_key"]
+            if source_key not in source_registry:
+                return jsonify(status="error", message="Неизвестный источник кампании."), 400
+            source_meta = source_registry[source_key]
+            store["sources"][source_key] = {
+                "name": source_meta["source_name"],
+                "channel_name": source_meta["channel_name"],
+                "manual": bool(source_meta["manual"]),
+            }
+            store["campaigns"][entity_key] = {
+                "source_key": source_key,
+                "campaign_id": meta["campaign_id"],
+                "campaign_name": meta["campaign_name"],
+            }
+
         try:
-            normalized = _normalize_cost_store(store)
+            _replace_cost_entity_period(store, level, entity_key, period)
+            normalized = _persist_cost_store(conn, store)
+            conn.commit()
         except ValueError as exc:
+            conn.rollback()
             message = (
-                "Периоды расходов не должны пересекаться. Измените существующий период "
-                "или сохраните новый непересекающийся диапазон."
+                "Периоды расходов одной строки не должны пересекаться. "
+                "Измените существующий период или выберите непересекающийся диапазон."
                 if "overlap" in str(exc)
                 else "Не удалось сохранить рекламные расходы."
             )
             return jsonify(status="error", message=message), 409
+        except sqlite3.DatabaseError:
+            conn.rollback()
+            return jsonify(status="error", message="Не удалось сохранить рекламные расходы."), 500
 
-        payload = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
-        conn.execute(
-            """
-            INSERT INTO report_blobs(key,payload,updated_by,updated_at)
-            VALUES(?,?,?,?)
-            ON CONFLICT(key) DO UPDATE SET
-              payload=excluded.payload,
-              updated_by=excluded.updated_by,
-              updated_at=excluded.updated_at
-            """,
-            (ADVERTISING_COSTS_KEY, payload, g.user["id"], iso_now()),
-        )
-        conn.commit()
         audit(
             "advertising_costs_saved",
             target_user_id=g.user["id"],
-            details=f"period={period['from']}..{period['to']}; sources={len(clean_spend)}",
+            details=(
+                f"entity={level}:{entity_key};"
+                f"period={period['from']}..{period['to']}"
+            ),
         )
-        return jsonify(status="ok", message="Расходы на рекламу сохранены.")
+        return jsonify(
+            status="ok",
+            message="Расходы сохранены.",
+            entity_type=level,
+            entity_key=entity_key,
+            hierarchy=_cost_hierarchy_payload(conn, start, end),
+            version=normalized["version"],
+        )
 
     @app.post("/api/reports/advertising/metrika/sync")
     @permission_required("upload_services")
@@ -2655,6 +3568,7 @@ def register_advertising_report(app):
                 completed_targets = metrika_auto.completed_sync_days(conn, sync_started)
 
                 client = metrika_auto.MetrikaClient(token)
+                campaign_evidence = _campaign_evidence_map(conn)
                 prepared_completed = []
                 for day in completed_targets:
                     core_raw, core_filename = client.fetch_day_archive(
@@ -2666,6 +3580,11 @@ def register_advertising_report(app):
                         core_raw,
                         core_filename,
                         now=sync_started,
+                        campaign_evidence=campaign_evidence,
+                    )
+                    campaign_evidence = _merge_campaign_evidence_maps(
+                        campaign_evidence,
+                        _campaign_evidence_map_from_rows(core_parsed.get("campaign_evidence")),
                     )
                     if core_parsed["completed_days"] != [day.isoformat()] or core_parsed.get("provisional_days"):
                         raise ValueError("API Метрики вернул неожиданный завершённый период.")
@@ -2681,6 +3600,11 @@ def register_advertising_report(app):
                             full_raw,
                             full_filename,
                             now=sync_started,
+                            campaign_evidence=campaign_evidence,
+                        )
+                        campaign_evidence = _merge_campaign_evidence_maps(
+                            campaign_evidence,
+                            _campaign_evidence_map_from_rows(full_parsed.get("campaign_evidence")),
                         )
                         if (
                             full_parsed["completed_days"] != [day.isoformat()]
@@ -2701,6 +3625,7 @@ def register_advertising_report(app):
                     current_filename,
                     allow_provisional=True,
                     now=sync_started,
+                    campaign_evidence=campaign_evidence,
                 )
                 if (
                     current_parsed.get("completed_days")
@@ -2781,8 +3706,12 @@ def register_advertising_report(app):
         if not uploaded or not uploaded.filename:
             return jsonify(status="error", message="Выберите ZIP Яндекс Метрики."), 400
         try:
-            parsed = _parse_metrika_zip(uploaded.read(), uploaded.filename)
             conn = db()
+            parsed = _parse_metrika_zip(
+                uploaded.read(),
+                uploaded.filename,
+                campaign_evidence=_campaign_evidence_map(conn),
+            )
             conn.execute("BEGIN IMMEDIATE")
             result = _store_metrika(conn, parsed, g.user["id"])
             conn.commit()
