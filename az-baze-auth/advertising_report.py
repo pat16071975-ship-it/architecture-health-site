@@ -919,14 +919,12 @@ def _dynamic_source_identity(prefix, raw_name, fallback_name, channel_name):
     if not name:
         return prefix, fallback_name, channel_name
 
-    # Human-readable slug alone is not injective: future.network and
-    # future-network would collapse.  Keep a stable digest of the factual raw
-    # value so distinct source evidence can never merge merely because
-    # punctuation normalizes to the same slug.
-    slug = _identity_slug(name) or "source"
-    digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:12]
-    room = max(1, 120 - len(prefix) - len(digest) - 2)
-    key = f"{prefix}_{slug[:room]}_{digest}"
+    # Slugging is lossy (future.network == future-network after ordinary
+    # normalization).  Encode the complete factual UTF-8 value instead.  Hex is
+    # deterministic and injective for byte strings, so distinct raw sources
+    # cannot collapse merely because punctuation/case differs.
+    encoded = name.encode("utf-8").hex()
+    key = f"{prefix}__{encoded}"
     return key, name, channel_name
 
 
@@ -946,6 +944,8 @@ def _is_exact_or_domain(value, exact=(), domains=(), prefixes=()):
         if candidate.startswith(prefix):
             candidate = candidate[len(prefix):]
             break
+    if candidate in set(exact):
+        return True
     return any(candidate == domain or candidate.endswith("." + domain) for domain in domains)
 
 
