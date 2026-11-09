@@ -1,0 +1,10 @@
+09.11.2026. Used previously authorized existing HTTPS test page https://azmednsk.ru/az-mobile-check-20261108.html via its path input and width buttons. No data URL, no security bypass, no site changes during checking.
+All 53 pages from SEO package checked in browser iframes at 320,390,430 CSS px: 159 measurements. Validated target heading and measured URL per page. This is responsive iframe testing, not a physical phone or top-level mobile viewport.
+157 measurements: documentWidth equals contentWidth; no horizontal overflow.
+2 failures at 320:
+/uslugi/functional_dentistry/: viewport320, document305, content372. Cause: .az-doctor-price strong, text '3 000 ₽, по акции — 2 000 ₽', client241 scroll340 in Filatova card.
+/uslugi/miofunkcionalnaya-terapiya/: viewport320, document305, content321. Cause: long H1 client275 scroll306; H2 client243 scroll254.
+All 53 pages passed horizontal overflow check at 390 and430.
+Additional behavior at320: prosthetics first FAQ expanded with Enter, expected answer visible; no overflow after expansion; link to Nazirov profile opened and directions section visible.
+Earlier statement that mobile testing was blocked is superseded: existing authorized HTTPS test interface was recovered from conversation history and used successfully.
+Next action: scoped CSS wrapping fix for two pages, then independent browser recheck after installation. No claim all visual/booking behavior verified.
