@@ -786,10 +786,13 @@ def _canonical_stored_campaign_identity(
 def _campaign_registry(conn, store=None):
     store = store or _load_cost_store(conn)
     registry = {}
+    campaign_evidence = _campaign_evidence_map(conn)
+    native_import_ids = _native_campaign_import_ids(conn)
     try:
         rows = conn.execute(
             """
-            SELECT source_key,source_name,channel_name,campaign_id,campaign_name
+            SELECT provider,import_id,
+                   source_key,source_name,channel_name,campaign_id,campaign_name
             FROM advertising_traffic_daily
             WHERE provider='metrika'
               AND (campaign_id<>'' OR campaign_name<>'')
@@ -799,9 +802,10 @@ def _campaign_registry(conn, store=None):
     except sqlite3.OperationalError:
         rows = []
     for row in rows:
-        source_key, _source_name, _channel, campaign_id, campaign_name = _canonical_metrika_identity(
-            row["source_key"], row["source_name"], row["channel_name"],
-            row["campaign_id"], row["campaign_name"],
+        source_key, _source_name, _channel, campaign_id, campaign_name = (
+            _canonical_stored_campaign_identity(
+                row, campaign_evidence, native_import_ids
+            )
         )
         if not campaign_id and not campaign_name:
             continue
@@ -1286,24 +1290,27 @@ def _trend(conn, start, end, metric, comparison_ranges):
 
 def _group_breakdown(conn, start, end, level):
     start_s, end_s = _iso(start), _iso(end)
+    campaign_evidence = _campaign_evidence_map(conn)
+    native_import_ids = _native_campaign_import_ids(conn)
     traffic = conn.execute(
-        "SELECT source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits "
+        "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits "
         "FROM advertising_traffic_daily WHERE metric_date BETWEEN ? AND ?", (start_s, end_s)
     ).fetchall()
     clinic = conn.execute(
-        "SELECT source_key,source_name,channel_name,campaign_id,campaign_name,target_leads,leads_with_primary,"
+        "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,target_leads,leads_with_primary,"
         "primary_visits,primary_paid,primary_services,repeat_visits,repeat_paid FROM advertising_clinic_daily "
         "WHERE metric_date BETWEEN ? AND ?", (start_s, end_s)
     ).fetchall()
     cohort = conn.execute(
-        "SELECT source_key,source_name,channel_name,campaign_id,campaign_name,new_patients,new_patient_30d_paid "
+        "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,new_patients,new_patient_30d_paid "
         "FROM advertising_cohort_daily WHERE cohort_date BETWEEN ? AND ?", (start_s, end_s)
     ).fetchall()
     try:
         goals = conn.execute(
-            "SELECT source_key,source_name,channel_name,campaign_id,campaign_name,goal_key,SUM(goal_visits) AS goal_visits "
+            "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,"
+            "goal_key,SUM(goal_visits) AS goal_visits "
             "FROM advertising_metrika_goal_daily WHERE provider='metrika' AND metric_date BETWEEN ? AND ? "
-            "GROUP BY source_key,source_name,channel_name,campaign_id,campaign_name,goal_key",
+            "GROUP BY provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,goal_key",
             (start_s, end_s),
         ).fetchall()
     except sqlite3.OperationalError:
@@ -1311,9 +1318,10 @@ def _group_breakdown(conn, start, end, level):
     groups = {}
 
     def identity_for(row):
-        source_key, source_name, channel_name, campaign_id, campaign_name = _canonical_metrika_identity(
-            row["source_key"], row["source_name"], row["channel_name"],
-            row["campaign_id"], row["campaign_name"],
+        source_key, source_name, channel_name, campaign_id, campaign_name = (
+            _canonical_stored_campaign_identity(
+                row, campaign_evidence, native_import_ids
+            )
         )
         if campaign_id and not campaign_name:
             # A factual ID without a label is still a distinct campaign and
@@ -1393,6 +1401,26 @@ def _group_breakdown(conn, start, end, level):
                     "",
                     "",
                 )
+                ensure(identity, key)
+    elif level == "campaign":
+        for campaign_value in economics.get("campaigns", {}).values():
+            identity = (
+                campaign_value["source_key"],
+                (
+                    (economics["sources"].get(campaign_value["source_key"]) or {})
+                    .get("source_name")
+                    or campaign_value["source_key"]
+                ),
+                (
+                    (economics["sources"].get(campaign_value["source_key"]) or {})
+                    .get("channel_name")
+                    or ""
+                ),
+                campaign_value.get("campaign_id") or "",
+                campaign_value.get("campaign_name") or "",
+            )
+            key = key_for(identity)
+            if key is not None and key not in groups:
                 ensure(identity, key)
 
     result = []
