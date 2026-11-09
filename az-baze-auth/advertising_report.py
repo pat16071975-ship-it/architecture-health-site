@@ -1231,12 +1231,14 @@ def _group_breakdown(conn, start, end, level):
     def key_for(identity):
         source_key, _source_name, _channel_name, campaign_id, campaign_name = identity
         if level == "campaign":
-            return None if not campaign_id and not campaign_name else (source_key, campaign_id, campaign_name)
+            if campaign_id:
+                return (source_key, "id", campaign_id)
+            return None if not campaign_name else (source_key, "name", campaign_name)
         return (source_key,)
 
     def ensure(identity, key):
+        source_key, source_name, channel_name, campaign_id, campaign_name = identity
         if key not in groups:
-            source_key, source_name, channel_name, campaign_id, campaign_name = identity
             groups[key] = {
                 "source_key": source_key, "source_name": source_name,
                 "channel_name": channel_name,
@@ -1244,6 +1246,13 @@ def _group_breakdown(conn, start, end, level):
                 "campaign_name": campaign_name if level == "campaign" else "",
                 **{metric: None for metric in METRIC_KEYS},
             }
+        elif (
+            level == "campaign"
+            and campaign_name
+            and len(campaign_name) > len(str(groups[key].get("campaign_name") or ""))
+        ):
+            # Same factual campaign ID with a better label remains one row.
+            groups[key]["campaign_name"] = campaign_name
         return groups[key]
 
     def add(row, fields):
@@ -1296,11 +1305,30 @@ def _group_breakdown(conn, start, end, level):
         if level == "source":
             source_value = economics["sources"].get(item["source_key"]) or {}
             item["spend"] = source_value.get("spend")
+            item["advertising_payment"] = source_value.get("advertising_payment")
+            item["contractors_payment"] = source_value.get("contractors_payment")
+            item["total_spend"] = source_value.get("total_spend")
+            item["cost_period_complete"] = bool(source_value.get("period_complete"))
+            item["campaign_distributed_total"] = source_value.get("campaign_distributed_total")
+            item["campaign_reconciliation_delta"] = source_value.get("campaign_reconciliation_delta")
             if source_value.get("clicks") is not None:
                 item["clicks"] = source_value.get("clicks")
             item["spend_provenance"] = source_value.get("spend_provenance")
+            item["campaign_key"] = ""
         else:
-            item["spend_provenance"] = "direct_api" if item["spend"] is not None else None
+            campaign_key = _campaign_cost_key(
+                item["source_key"], item["campaign_id"], item["campaign_name"]
+            )
+            campaign_value = economics.get("campaigns", {}).get(campaign_key) or {}
+            item["campaign_key"] = campaign_key
+            item["spend"] = campaign_value.get("spend")
+            item["advertising_payment"] = campaign_value.get("advertising_payment")
+            item["contractors_payment"] = campaign_value.get("contractors_payment")
+            item["total_spend"] = campaign_value.get("total_spend")
+            item["cost_period_complete"] = bool(campaign_value.get("period_complete"))
+            if campaign_value.get("clicks") is not None:
+                item["clicks"] = campaign_value.get("clicks")
+            item["spend_provenance"] = campaign_value.get("spend_provenance")
 
         item["total_paid"] = _combine_money(item["primary_paid"], item["repeat_paid"])
         item["total_visits"] = None if item["primary_visits"] is None and item["repeat_visits"] is None else (item["primary_visits"] or 0) + (item["repeat_visits"] or 0)
