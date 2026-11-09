@@ -764,7 +764,16 @@ def _canonical_stored_campaign_identity(
         )
     )
 
-    if source_key != "yandex_ads" or campaign_id or not campaign_name:
+    if campaign_id or not campaign_name:
+        return source_key, source_name, channel_name, campaign_id, campaign_name
+
+    # Historical stored rows must obey the same source-aware campaign rule as
+    # fresh parser rows. Otherwise arbitrary UTM placement tags survive forever
+    # under referral/direct/organic sources even after the parser is fixed.
+    if not _stored_source_allows_utm_campaign(row, source_key, channel_name):
+        return source_key, source_name, channel_name, "", ""
+
+    if source_key != "yandex_ads":
         return source_key, source_name, channel_name, campaign_id, campaign_name
 
     evidence = (campaign_evidence or {}).get((source_key, campaign_name))
@@ -777,9 +786,6 @@ def _canonical_stored_campaign_identity(
             evidence.get("campaign_name") or campaign_name,
             allow_legacy_aliases=False,
         )
-
-    if not _stored_source_allows_utm_campaign(row, source_key, channel_name):
-        return source_key, source_name, channel_name, "", ""
 
     provider = str(row["provider"] or "") if "provider" in row.keys() else ""
     import_id = str(row["import_id"] or "") if "import_id" in row.keys() else ""
