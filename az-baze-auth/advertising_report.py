@@ -3045,160 +3045,134 @@ def register_advertising_report(app):
             abort(400)
         if start > end or (end - start).days > 730:
             abort(400)
-        store = _load_cost_store(db())
-        summary = _cost_period_summary(store, start, end)
-        exact = next(
-            (
-                item for item in store["periods"]
-                if item["from"] == _iso(start) and item["to"] == _iso(end)
-            ),
-            None,
-        )
-        source_spend = (exact or {}).get("source_spend") or {}
-        sources = []
-        for item in _source_registry(db(), store):
-            row = dict(item)
-            row["spend"] = source_spend.get(item["source_key"])
-            sources.append(row)
-        return jsonify(
-            period={"from": _iso(start), "to": _iso(end)},
-            values={
-                "advertising_payment": (exact or {}).get("advertising_payment"),
-                "contractors_payment": (exact or {}).get("contractors_payment"),
-                "total_spend": (exact or {}).get("total_spend"),
-            },
-            sources=sources,
-            coverage_complete=summary.get("complete", False),
-        )
+        return jsonify(_cost_hierarchy_payload(db(), start, end))
 
     @app.post("/api/reports/advertising/costs")
     @permission_required("upload_services")
     def advertising_costs_save():
         require_csrf()
         try:
+            level = str(request.form.get("entity_type") or "").strip()
+            entity_key = str(request.form.get("entity_key") or "").strip()
             start = _parse_date(str(request.form.get("from") or ""))
             end = _parse_date(str(request.form.get("to") or ""))
+            if level not in {"global", "source", "campaign"}:
+                raise ValueError("invalid advertising cost level")
             if start > end or (end - start).days > 730:
                 raise ValueError("invalid period")
-            source_rows = json.loads(request.form.get("sources_json") or "[]")
-            if not isinstance(source_rows, list):
-                raise ValueError("invalid sources")
-        except (ValueError, TypeError, json.JSONDecodeError):
-            return jsonify(status="error", message="Проверьте период и расходы на рекламу."), 400
+            period = _cost_period_triplet({
+                "from": _iso(start),
+                "to": _iso(end),
+                "advertising_payment": request.form.get("advertising_payment"),
+                "contractors_payment": request.form.get("contractors_payment"),
+                "total_spend": request.form.get("total_spend"),
+            })
+        except (ValueError, TypeError):
+            return jsonify(
+                status="error",
+                message=(
+                    "Проверьте период. Если вводите расходы, заполните "
+                    "«Оплата рекламы», «Подрядчики» и «Всего»; "
+                    "«Всего» должно равняться рекламе плюс подрядчики."
+                ),
+            ), 400
 
         conn = db()
         store = _load_cost_store(conn)
-        registry = {item["source_key"]: item for item in _source_registry(conn, store)}
-        clean_spend = {}
-        for raw in source_rows:
-            if not isinstance(raw, dict):
-                return jsonify(status="error", message="Некорректный источник рекламы."), 400
-            name = str(raw.get("source_name") or "").strip()
-            key = str(raw.get("source_key") or "").strip()
-            channel = str(raw.get("channel_name") or "").strip()
-            manual = bool(raw.get("manual"))
-            if not name:
-                return jsonify(status="error", message="Укажите название источника."), 400
-            if not key:
+        source_registry = {
+            item["source_key"]: item
+            for item in _source_registry(conn, store)
+        }
+        campaign_registry = {
+            item["campaign_key"]: item
+            for item in _campaign_registry(conn, store)
+        }
+
+        if level == "global":
+            entity_key = ""
+
+        elif level == "source":
+            source_name = str(request.form.get("source_name") or "").strip()
+            channel_name = str(request.form.get("channel_name") or "").strip()
+            if not entity_key:
+                if not source_name:
+                    return jsonify(status="error", message="Укажите название источника."), 400
                 existing = next(
                     (
-                        item for item in registry.values()
-                        if item["source_name"].strip().lower() == name.lower()
+                        item for item in source_registry.values()
+                        if item["source_name"].strip().lower() == source_name.lower()
                     ),
                     None,
                 )
-                key = existing["source_key"] if existing else _manual_source_key(name)
-                manual = existing["manual"] if existing else True
-            if key not in registry:
-                registry[key] = {
-                    "source_key": key,
-                    "source_name": name,
-                    "channel_name": channel or "Другие источники",
-                    "manual": manual,
-                }
-            try:
-                clean_spend[key] = _cost_number(raw.get("spend"))
-            except ValueError:
-                return jsonify(status="error", message=f"Некорректная сумма для «{name}»."), 400
-
-        store["sources"] = {
-            key: {
-                "name": item["source_name"],
-                "channel_name": item["channel_name"],
-                "manual": bool(item["manual"]),
+                entity_key = existing["source_key"] if existing else _manual_source_key(source_name)
+                if not existing:
+                    source_registry[entity_key] = {
+                        "source_key": entity_key,
+                        "source_name": source_name,
+                        "channel_name": channel_name or "Другие источники",
+                        "manual": True,
+                    }
+            if entity_key not in source_registry:
+                return jsonify(status="error", message="Неизвестный рекламный источник."), 400
+            meta = source_registry[entity_key]
+            store["sources"][entity_key] = {
+                "name": meta["source_name"],
+                "channel_name": meta["channel_name"],
+                "manual": bool(meta["manual"]),
             }
-            for key, item in registry.items()
-        }
-        period = {
-            "from": _iso(start),
-            "to": _iso(end),
-            "advertising_payment": None,
-            "contractors_payment": None,
-            "total_spend": None,
-            "source_spend": clean_spend,
-        }
-        try:
-            period["advertising_payment"] = _cost_number(request.form.get("advertising_payment"))
-            period["contractors_payment"] = _cost_number(request.form.get("contractors_payment"))
-            period["total_spend"] = _cost_number(request.form.get("total_spend"))
-        except ValueError:
-            return jsonify(status="error", message="Расходы должны быть неотрицательными числами."), 400
-        totals = (
-            period["advertising_payment"],
-            period["contractors_payment"],
-            period["total_spend"],
-        )
-        if any(value is not None for value in totals):
-            if any(value is None for value in totals):
-                return jsonify(
-                    status="error",
-                    message="Заполните «Оплата рекламы», «Подрядчики» и «Всего расходов на рекламу».",
-                ), 400
-            expected_total = round(
-                period["advertising_payment"] + period["contractors_payment"],
-                2,
-            )
-            if abs(period["total_spend"] - expected_total) > 0.01:
-                return jsonify(
-                    status="error",
-                    message="«Всего расходов на рекламу» должно равняться оплате рекламы плюс подрядчики.",
-                ), 400
 
-        store["periods"] = [
-            item for item in store.get("periods", [])
-            if not (item["from"] == period["from"] and item["to"] == period["to"])
-        ]
-        store["periods"].append(period)
+        else:
+            if entity_key not in campaign_registry:
+                return jsonify(status="error", message="Неизвестная рекламная кампания."), 400
+            meta = campaign_registry[entity_key]
+            source_key = meta["source_key"]
+            if source_key not in source_registry:
+                return jsonify(status="error", message="Неизвестный источник кампании."), 400
+            source_meta = source_registry[source_key]
+            store["sources"][source_key] = {
+                "name": source_meta["source_name"],
+                "channel_name": source_meta["channel_name"],
+                "manual": bool(source_meta["manual"]),
+            }
+            store["campaigns"][entity_key] = {
+                "source_key": source_key,
+                "campaign_id": meta["campaign_id"],
+                "campaign_name": meta["campaign_name"],
+            }
+
         try:
-            normalized = _normalize_cost_store(store)
+            _replace_cost_entity_period(store, level, entity_key, period)
+            normalized = _persist_cost_store(conn, store)
+            conn.commit()
         except ValueError as exc:
+            conn.rollback()
             message = (
-                "Периоды расходов не должны пересекаться. Измените существующий период "
-                "или сохраните новый непересекающийся диапазон."
+                "Периоды расходов одной строки не должны пересекаться. "
+                "Измените существующий период или выберите непересекающийся диапазон."
                 if "overlap" in str(exc)
                 else "Не удалось сохранить рекламные расходы."
             )
             return jsonify(status="error", message=message), 409
+        except sqlite3.DatabaseError:
+            conn.rollback()
+            return jsonify(status="error", message="Не удалось сохранить рекламные расходы."), 500
 
-        payload = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"))
-        conn.execute(
-            """
-            INSERT INTO report_blobs(key,payload,updated_by,updated_at)
-            VALUES(?,?,?,?)
-            ON CONFLICT(key) DO UPDATE SET
-              payload=excluded.payload,
-              updated_by=excluded.updated_by,
-              updated_at=excluded.updated_at
-            """,
-            (ADVERTISING_COSTS_KEY, payload, g.user["id"], iso_now()),
-        )
-        conn.commit()
         audit(
             "advertising_costs_saved",
             target_user_id=g.user["id"],
-            details=f"period={period['from']}..{period['to']}; sources={len(clean_spend)}",
+            details=(
+                f"entity={level}:{entity_key};"
+                f"period={period['from']}..{period['to']}"
+            ),
         )
-        return jsonify(status="ok", message="Расходы на рекламу сохранены.")
+        return jsonify(
+            status="ok",
+            message="Расходы сохранены.",
+            entity_type=level,
+            entity_key=entity_key,
+            hierarchy=_cost_hierarchy_payload(conn, start, end),
+            version=normalized["version"],
+        )
 
     @app.post("/api/reports/advertising/metrika/sync")
     @permission_required("upload_services")
