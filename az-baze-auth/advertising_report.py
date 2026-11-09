@@ -16,7 +16,7 @@ import advertising_mis_bridge
 
 from flask import Response, abort, g, jsonify, request
 
-from app import DB_PATH, SITE_ROOT, admin_required, audit, db, iso_now, permission_required, require_csrf
+from app import DB_PATH, SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, require_csrf, user_permissions
 
 
 SCHEMA_VERSION = 1
@@ -2821,7 +2821,7 @@ def _report_payload(conn, start, end, compare_mode, trend_metric):
     deltas = {key: _delta_pct(current.get(key), comparison.get(key)) for key in current if key != "new_patient_30d_paid"}
     revenue = _revenue_summary(conn, start, end)
     crm = _crm_status(conn, start, end)
-    budget = _cost_period_summary(_load_cost_store(conn), start, end)
+    budget = _cost_entity_summary(_load_cost_store(conn), "global", "", start, end)
     return {
         "period": {"from": _iso(start), "to": _iso(end)},
         "compare": {"mode": compare_mode, "label": _comparison_label(compare_mode), "ranges": [{"from": _iso(a), "to": _iso(b)} for a, b in ranges], "summary": comparison, "delta_pct": deltas},
