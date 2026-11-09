@@ -1,146 +1,311 @@
 <style>
 .advertising-costs-card{margin-top:12px}
-.advertising-costs-box{border-top:3px solid #44634f}
-.ad-cost-period,.ad-cost-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
-.ad-cost-period{grid-template-columns:repeat(2,minmax(0,1fr))}
-.ad-cost-field{display:grid;gap:4px}
-.ad-cost-field label{font-size:10px;font-weight:600;color:#5f675f}
-.ad-cost-field input{width:100%;box-sizing:border-box;padding:8px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}
-.ad-cost-source-head,.ad-cost-source-row{display:grid;grid-template-columns:minmax(150px,1fr) 140px 34px;gap:7px;align-items:center}
-.ad-cost-source-head{margin-top:12px;padding:0 2px;font-size:9px;font-weight:700;color:#747a73}
-.ad-cost-source-row{margin-top:6px}
-.ad-cost-source-row input{width:100%;box-sizing:border-box;padding:8px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}
-.ad-cost-source-row .source-name{font-size:11px;font-weight:600;color:#354039}
-.ad-cost-source-row .source-meta{display:block;margin-top:2px;font-size:9px;color:#858a84}
-.ad-cost-remove{width:34px;height:34px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;cursor:pointer}
-.ad-cost-control{margin-top:10px;padding:8px 10px;border-radius:8px;background:#f6f1e8;font-size:10px;line-height:1.45;color:#646b64}
-@media(max-width:680px){.ad-cost-period,.ad-cost-totals{grid-template-columns:1fr}.ad-cost-source-head,.ad-cost-source-row{grid-template-columns:minmax(0,1fr) 120px 34px}}
+.advertising-costs-box{border-top:3px solid #44634f;padding:10px!important}
+.ad-cost-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ad-cost-title{display:flex;align-items:center;gap:7px;margin:0;font-size:14px;color:#354039}
+.ad-cost-toggle,.ad-cost-expand{border:0;background:none;color:#44634f;font-weight:800;cursor:pointer;padding:0;min-width:18px;text-align:left}
+.ad-cost-body[hidden],.ad-cost-children[hidden]{display:none!important}
+.ad-cost-help{margin:5px 0 9px;color:#747a73;font-size:9.5px;line-height:1.35}
+.ad-cost-table{border:1px solid #ded4c4;border-radius:8px;overflow:auto;background:#fff}
+.ad-cost-head,.ad-cost-row{display:grid;grid-template-columns:minmax(155px,1.45fr) 112px 112px 112px 112px 112px 84px;gap:6px;align-items:center;min-width:900px}
+.ad-cost-head{padding:6px 8px;background:#faf7f1;border-bottom:1px solid #ded4c4;font-size:8.5px;font-weight:700;color:#667169}
+.ad-cost-row{padding:5px 8px;border-bottom:1px solid #ede6da;min-height:39px}
+.ad-cost-row:last-child{border-bottom:0}
+.ad-cost-row.global{background:#f6f1e8;font-weight:700}
+.ad-cost-row.source{background:#fffdf8}
+.ad-cost-row.campaign{background:#faf7f1}
+.ad-cost-row.campaign .ad-cost-name{padding-left:20px;position:relative}
+.ad-cost-row.campaign .ad-cost-name:before{content:"";position:absolute;left:8px;top:50%;width:5px;height:5px;border-radius:50%;background:#b59662;transform:translateY(-50%)}
+.ad-cost-name{min-width:0;font-size:10.5px;font-weight:600;color:#354039;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-cost-name small{display:block;margin-top:2px;font-size:8px;font-weight:500;color:#858a84;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-cost-name-line{display:flex;align-items:center;gap:3px;min-width:0}
+.ad-cost-input{width:100%;height:28px;box-sizing:border-box;border:1px solid #d8cdbb;border-radius:6px;background:#fff;padding:3px 6px;font:500 9.5px Montserrat,Arial,sans-serif;color:#354039}
+.ad-cost-input[readonly]{background:#f3efe7;color:#667169}
+.ad-cost-save{height:28px;border:1px solid #44634f;border-radius:6px;background:#44634f;color:white;padding:0 8px;font:700 9px Montserrat,Arial,sans-serif;cursor:pointer}
+.ad-cost-save:disabled{opacity:.55;cursor:default}
+.ad-cost-note{grid-column:1/-1;font-size:8.5px;color:#747a73;line-height:1.3;margin-top:-1px}
+.ad-cost-note.bad{color:#9a4b48}
+.ad-cost-note.good{color:#44634f}
+.ad-cost-actions{display:flex;gap:7px;align-items:center;margin-top:8px}
+.ad-cost-add{height:28px;border:1px solid #d8cdbb;border-radius:6px;background:#fffdf8;padding:0 10px;font:600 9px Montserrat,Arial,sans-serif;cursor:pointer}
+.ad-cost-result{font-size:9px;color:#667169}
+.ad-cost-result.error{color:#9a4b48}
+@media(max-width:700px){
+  .advertising-costs-box{padding:8px!important}
+  .ad-cost-table{overflow-x:auto}
+  .ad-cost-head,.ad-cost-row{min-width:820px;grid-template-columns:minmax(140px,1.4fr) 104px 104px 104px 104px 104px 76px}
+}
 </style>
+
 <div class="card advertising-costs-card">
-<form class="upload-box advertising-costs-box" id="advertisingCostsForm">
-    <input type="hidden" name="csrf" value="{{ csrf }}">
-    <h3>6. Расходы на рекламу</h3>
-    <p>Ручной ввод расходов за конкретный период. Источники из Метрики подставляются автоматически; дополнительный источник можно добавить вручную.</p>
+  <div class="upload-box advertising-costs-box">
+    <input type="hidden" id="advertisingCostsCsrf" value="{{ csrf }}">
+    <div class="ad-cost-title-row">
+      <h3 class="ad-cost-title">
+        <button type="button" class="ad-cost-toggle" id="adCostToggle" aria-expanded="false">+</button>
+        <span>6. Расходы на рекламу</span>
+      </h3>
+    </div>
+    <p class="ad-cost-help">Расходы вводятся отдельно на общем уровне, по источникам и по РК. Дочерние суммы — детализация, а не дополнительные деньги поверх родительской строки.</p>
+
     {% if 'upload_services' in perms %}
-      <div class="ad-cost-period">
-        <div class="ad-cost-field"><label for="adCostFrom">Период с</label><input id="adCostFrom" name="from" type="date"></div>
-        <div class="ad-cost-field"><label for="adCostTo">По</label><input id="adCostTo" name="to" type="date"></div>
+    <div class="ad-cost-body" id="adCostBody" hidden>
+      <div class="ad-cost-table">
+        <div class="ad-cost-head">
+          <span>Уровень</span><span>Период с</span><span>По</span>
+          <span>Реклама</span><span>Подрядчик</span><span>Всего</span><span></span>
+        </div>
+        <div id="adCostRows"></div>
       </div>
-      <div class="ad-cost-totals">
-        <div class="ad-cost-field"><label for="adCostAdvertising">Оплата рекламы</label><input id="adCostAdvertising" inputmode="decimal" placeholder="₽"></div>
-        <div class="ad-cost-field"><label for="adCostContractors">Подрядчики</label><input id="adCostContractors" inputmode="decimal" placeholder="₽"></div>
-        <div class="ad-cost-field"><label for="adCostTotal">Всего расходов на рекламу</label><input id="adCostTotal" inputmode="decimal" placeholder="₽"></div>
+      <div class="ad-cost-actions">
+        <button type="button" class="ad-cost-add" id="adCostAddSource">Добавить источник</button>
+        <span class="ad-cost-result" id="adCostResult"></span>
       </div>
-      <div class="ad-cost-source-head"><span>Источник</span><span>Расход</span><span></span></div>
-      <div id="adCostSources"></div>
-      <div class="ad-cost-control" id="adCostControl">Пустая сумма означает «расход не указан», а не 0 ₽. Подрядчики по источникам автоматически не распределяются.</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        <button class="btn" type="button" id="adCostAddSource">Добавить источник</button>
-        <button class="btn primary" type="submit">Сохранить расходы</button>
-      </div>
-    {% else %}<div class="lock">Нет права на ввод рекламных расходов.</div>{% endif %}
-    <div id="adCostResult" class="result hidden"></div>
-  </form>
+    </div>
+    {% else %}
+      <div class="lock">Нет права на ввод рекламных расходов.</div>
+    {% endif %}
+  </div>
 </div>
+
+{% if 'upload_services' in perms %}
 <script>
 (()=>{
-  const form=document.getElementById('advertisingCostsForm');
-  if(!form)return;
-  const from=document.getElementById('adCostFrom');
-  const to=document.getElementById('adCostTo');
-  const advertising=document.getElementById('adCostAdvertising');
-  const contractors=document.getElementById('adCostContractors');
-  const total=document.getElementById('adCostTotal');
-  const sourcesBox=document.getElementById('adCostSources');
+  const toggle=document.getElementById('adCostToggle');
+  const body=document.getElementById('adCostBody');
+  const rowsBox=document.getElementById('adCostRows');
   const addBtn=document.getElementById('adCostAddSource');
   const result=document.getElementById('adCostResult');
-  const control=document.getElementById('adCostControl');
-  let sources=[];
+  const csrf=document.getElementById('advertisingCostsCsrf')?.value||'';
+  if(!toggle||!body||!rowsBox)return;
+
+  let hierarchy=null;
+  const expandedSources=new Set();
 
   const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  function numberValue(raw){
+  const numberValue=raw=>{
     const text=String(raw??'').trim().replace(/\u00a0/g,'').replace(/\s+/g,'').replace(',','.');
     if(!text)return null;
     const value=Number(text);
     return Number.isFinite(value)&&value>=0?value:null;
+  };
+  const fmt=value=>value==null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Number(value))+' ₽';
+
+  function reconciliation(row,kind){
+    const rec=row?.reconciliation||{};
+    if(!rec.complete)return '';
+    const label=kind==='global'?'по источникам':'по РК';
+    const delta=Number(rec.delta||0);
+    const cls=Math.abs(delta)<=0.01?'good':'bad';
+    return '<div class="ad-cost-note '+cls+'">Распределено '+label+': '+fmt(rec.distributed_total)+' из '+fmt(rec.parent_total)+(Math.abs(delta)<=0.01?' · сходится':' · разница '+fmt(delta))+'</div>';
   }
+
+  function rowHtml({type,key,name,meta='',values={},rowClass='',expandable=false,expanded=false,reconcile=''}) {
+    const exact=values?.exact||{};
+    const period=values?.period||hierarchy?.period||{};
+    return '<div class="ad-cost-row '+rowClass+'" data-entity-type="'+esc(type)+'" data-entity-key="'+esc(key||'')+'">'+
+      '<div class="ad-cost-name"><div class="ad-cost-name-line">'+
+        (expandable?'<button type="button" class="ad-cost-expand" data-expand-source="'+esc(key)+'" aria-expanded="'+(expanded?'true':'false')+'">'+(expanded?'−':'+')+'</button>':'')+
+        '<span>'+esc(name)+'</span></div>'+(meta?'<small>'+esc(meta)+'</small>':'')+'</div>'+
+      '<input class="ad-cost-input" data-field="from" type="date" value="'+esc(period.from||'')+'">'+
+      '<input class="ad-cost-input" data-field="to" type="date" value="'+esc(period.to||'')+'">'+
+      '<input class="ad-cost-input" data-field="advertising_payment" inputmode="decimal" placeholder="₽" value="'+esc(exact.advertising_payment??'')+'">'+
+      '<input class="ad-cost-input" data-field="contractors_payment" inputmode="decimal" placeholder="₽" value="'+esc(exact.contractors_payment??'')+'">'+
+      '<input class="ad-cost-input" data-field="total_spend" inputmode="decimal" placeholder="₽" value="'+esc(exact.total_spend??'')+'">'+
+      '<button type="button" class="ad-cost-save" data-save>Сохранить</button>'+
+      (reconcile||'')+
+      (exact.legacy_partial?'<div class="ad-cost-note">Старый расход источника сохранён как реклама; подрядчик и итог ещё не заданы.</div>':'')+
+      '</div>';
+  }
+
   function render(){
-    sourcesBox.innerHTML=sources.map((item,index)=>
-      '<div class="ad-cost-source-row" data-index="'+index+'>'+
-        '<div><span class="source-name">'+esc(item.source_name||'Новый источник')+'</span>'+
-        '<span class="source-meta">'+esc(item.channel_name||'Другие источники')+(item.manual?' · вручную':' · Метрика')+'</span></div>'+
-        '<input inputmode="decimal" data-ad-spend value="'+esc(item.spend??'')+'" placeholder="₽">'+
-        (item.manual?'<button type="button" class="ad-cost-remove" data-remove aria-label="Удалить">×</button>':'<span></span>')+
-      '</div>'
-    ).join('');
-    updateControl();
+    if(!hierarchy)return;
+    const global=hierarchy.global||{};
+    let html=rowHtml({
+      type:'global',key:'',name:'Все расходы на рекламу',values:global,rowClass:'global',
+      reconcile:reconciliation(global,'global')
+    });
+
+    for(const source of hierarchy.sources||[]){
+      const campaigns=source.campaigns||[];
+      const expanded=expandedSources.has(source.source_key);
+      html+=rowHtml({
+        type:'source',
+        key:source.source_key,
+        name:source.source_name||source.source_key,
+        meta:(source.channel_name||'')+(source.manual?' · вручную':' · Метрика'),
+        values:source,
+        rowClass:'source',
+        expandable:campaigns.length>0,
+        expanded,
+        reconcile:reconciliation(source,'source')
+      });
+      if(expanded){
+        for(const campaign of campaigns){
+          html+=rowHtml({
+            type:'campaign',
+            key:campaign.campaign_key,
+            name:campaign.campaign_name||('Кампания '+(campaign.campaign_id||'')),
+            meta:campaign.campaign_id?'ID '+campaign.campaign_id:'',
+            values:campaign,
+            rowClass:'campaign'
+          });
+        }
+      }
+    }
+    rowsBox.innerHTML=html;
   }
-  function updateControl(){
-    const sourceSum=[...sourcesBox.querySelectorAll('[data-ad-spend]')]
-      .map(input=>numberValue(input.value))
-      .filter(value=>value!==null)
-      .reduce((a,b)=>a+b,0);
-    const ads=numberValue(advertising.value),vendor=numberValue(contractors.value),all=numberValue(total.value);
-    const parts=[];
-    if(ads!==null)parts.push('По источникам указано '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(sourceSum)+' ₽; «Оплата рекламы» '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(ads)+' ₽; разница '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(ads-sourceSum)+' ₽.');
-    if(ads!==null&&vendor!==null&&all!==null)parts.push('Реклама + подрядчики = '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(ads+vendor)+' ₽; введено «Всего» '+new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(all)+' ₽.');
-    control.textContent=parts.join(' ')||'Пустая сумма означает «расход не указан», а не 0 ₽. Подрядчики по источникам автоматически не распределяются.';
-  }
-  async function load(){
+
+  async function loadPeriod(from,to){
     const q=new URLSearchParams();
-    if(from.value&&to.value){q.set('from',from.value);q.set('to',to.value)}
-    const response=await fetch('/api/reports/advertising/costs'+(q.toString()?'?'+q:''),{credentials:'same-origin',cache:'no-store'});
+    if(from&&to){q.set('from',from);q.set('to',to)}
+    const response=await fetch('/api/reports/advertising/costs?'+q,{credentials:'same-origin',cache:'no-store'});
     const payload=await response.json();
     if(!response.ok)throw new Error(payload.message||'Не удалось загрузить расходы.');
-    from.value=payload.period.from;to.value=payload.period.to;
-    advertising.value=payload.values?.advertising_payment??'';
-    contractors.value=payload.values?.contractors_payment??'';
-    total.value=payload.values?.total_spend??'';
-    sources=(payload.sources||[]).map(item=>({...item}));
+    hierarchy=payload;
     render();
   }
-  addBtn?.addEventListener('click',()=>{
-    const name=prompt('Название источника');
-    if(!name||!name.trim())return;
-    sources.push({source_key:'',source_name:name.trim(),channel_name:'Другие источники',manual:true,spend:null});
-    render();
-  });
-  sourcesBox.addEventListener('click',event=>{
-    const button=event.target.closest('[data-remove]');
-    if(!button)return;
-    const row=button.closest('[data-index]');
-    if(!row)return;
-    sources.splice(Number(row.dataset.index),1);render();
-  });
-  sourcesBox.addEventListener('input',updateControl);
-  [advertising,contractors,total].forEach(input=>input?.addEventListener('input',updateControl));
-  [from,to].forEach(input=>input?.addEventListener('change',()=>{if(from.value&&to.value&&from.value<=to.value)load().catch(showError)}));
-  function showError(error){
-    result.textContent=error?.message||String(error||'Ошибка');
-    result.className='result error';
+
+  function findEntity(payload,type,key){
+    if(type==='global')return payload.global;
+    for(const source of payload.sources||[]){
+      if(type==='source'&&source.source_key===key)return source;
+      if(type==='campaign'){
+        const found=(source.campaigns||[]).find(item=>item.campaign_key===key);
+        if(found)return found;
+      }
+    }
+    return null;
   }
-  form.addEventListener('submit',async event=>{
-    event.preventDefault();
+
+  async function reloadRow(row){
+    const from=row.querySelector('[data-field="from"]')?.value||'';
+    const to=row.querySelector('[data-field="to"]')?.value||'';
+    if(!from||!to||from>to)return;
+    const q=new URLSearchParams({from,to});
+    const response=await fetch('/api/reports/advertising/costs?'+q,{credentials:'same-origin',cache:'no-store'});
+    const payload=await response.json();
+    if(!response.ok)throw new Error(payload.message||'Не удалось загрузить расходы.');
+    const entity=findEntity(payload,row.dataset.entityType||'',row.dataset.entityKey||'');
+    if(!entity)return;
+    const exact=entity.exact||{};
+    for(const field of ['advertising_payment','contractors_payment','total_spend']){
+      const input=row.querySelector('[data-field="'+field+'"]');
+      if(input)input.value=exact[field]??'';
+    }
+  }
+
+  async function saveRow(row){
+    const button=row.querySelector('[data-save]');
+    button.disabled=true;
     try{
-      const rows=[...sourcesBox.querySelectorAll('[data-index]')].map(row=>{
-        const index=Number(row.dataset.index),item=sources[index],input=row.querySelector('[data-ad-spend]');
-        return {...item,spend:numberValue(input?.value)};
-      });
       const data=new FormData();
-      data.set('csrf',form.querySelector('[name=csrf]')?.value||'');
-      data.set('from',from.value);data.set('to',to.value);
-      data.set('advertising_payment',advertising.value);
-      data.set('contractors_payment',contractors.value);
-      data.set('total_spend',total.value);
-      data.set('sources_json',JSON.stringify(rows));
+      data.set('csrf',csrf);
+      data.set('entity_type',row.dataset.entityType||'');
+      data.set('entity_key',row.dataset.entityKey||'');
+      for(const field of ['from','to','advertising_payment','contractors_payment','total_spend']){
+        data.set(field,row.querySelector('[data-field="'+field+'"]')?.value||'');
+      }
+      if(row.dataset.entityType==='source'){
+        const source=(hierarchy?.sources||[]).find(item=>item.source_key===row.dataset.entityKey);
+        if(source){
+          data.set('source_name',source.source_name||'');
+          data.set('channel_name',source.channel_name||'');
+        }
+      }
       const response=await fetch('/api/reports/advertising/costs',{method:'POST',body:data,credentials:'same-origin'});
       const payload=await response.json();
       if(!response.ok)throw new Error(payload.message||'Не удалось сохранить расходы.');
-      result.textContent=payload.message||'Расходы сохранены.';
-      result.className='result ok';
-      await load();
-    }catch(error){showError(error)}
+      hierarchy=payload.hierarchy||hierarchy;
+      result.textContent='Сохранено';
+      result.className='ad-cost-result';
+      render();
+    }catch(error){
+      result.textContent=error?.message||String(error||'Ошибка');
+      result.className='ad-cost-result error';
+    }finally{
+      button.disabled=false;
+    }
+  }
+
+  toggle.addEventListener('click',async()=>{
+    const expanded=toggle.getAttribute('aria-expanded')==='true';
+    toggle.setAttribute('aria-expanded',expanded?'false':'true');
+    toggle.textContent=expanded?'+':'−';
+    body.hidden=expanded;
+    if(!expanded&&!hierarchy){
+      try{await loadPeriod('','')}catch(error){
+        result.textContent=error?.message||'Не удалось загрузить расходы.';
+        result.className='ad-cost-result error';
+      }
+    }
   });
-  load().catch(showError);
+
+  rowsBox.addEventListener('click',event=>{
+    const expand=event.target.closest('[data-expand-source]');
+    if(expand){
+      const key=expand.dataset.expandSource||'';
+      if(expandedSources.has(key))expandedSources.delete(key);else expandedSources.add(key);
+      render();return;
+    }
+    const save=event.target.closest('[data-save]');
+    if(save){
+      const row=save.closest('.ad-cost-row');
+      if(row)saveRow(row);
+    }
+  });
+
+  rowsBox.addEventListener('change',event=>{
+    if(!event.target.matches('[data-field="from"],[data-field="to"]'))return;
+    const row=event.target.closest('.ad-cost-row');
+    if(row)reloadRow(row).catch(error=>{
+      result.textContent=error?.message||'Не удалось загрузить период.';
+      result.className='ad-cost-result error';
+    });
+  });
+
+  rowsBox.addEventListener('input',event=>{
+    if(!event.target.matches('[data-field="advertising_payment"],[data-field="contractors_payment"]'))return;
+    const row=event.target.closest('.ad-cost-row');
+    if(!row)return;
+    const ad=numberValue(row.querySelector('[data-field="advertising_payment"]')?.value);
+    const contractor=numberValue(row.querySelector('[data-field="contractors_payment"]')?.value);
+    const total=row.querySelector('[data-field="total_spend"]');
+    if(total&&ad!==null&&contractor!==null)total.value=String(Math.round((ad+contractor)*100)/100);
+  });
+
+  addBtn?.addEventListener('click',()=>{
+    const name=prompt('Название источника');
+    if(!name||!name.trim())return;
+    if(!hierarchy)hierarchy={period:{},global:{},sources:[]};
+    hierarchy.sources.push({
+      source_key:'',
+      source_name:name.trim(),
+      channel_name:'Другие источники',
+      manual:true,
+      period:hierarchy.period,
+      exact:{advertising_payment:null,contractors_payment:null,total_spend:null},
+      campaigns:[]
+    });
+    render();
+    const manual=[...rowsBox.querySelectorAll('.ad-cost-row.source')].find(row=>row.dataset.entityKey==='');
+    if(manual){
+      manual.dataset.manualSourceName=name.trim();
+      manual.querySelector('[data-save]')?.addEventListener('click',async event=>{
+        event.stopPropagation();
+        const data=new FormData();
+        data.set('csrf',csrf);data.set('entity_type','source');data.set('entity_key','');
+        data.set('source_name',name.trim());data.set('channel_name','Другие источники');
+        for(const field of ['from','to','advertising_payment','contractors_payment','total_spend']){
+          data.set(field,manual.querySelector('[data-field="'+field+'"]')?.value||'');
+        }
+        const response=await fetch('/api/reports/advertising/costs',{method:'POST',body:data,credentials:'same-origin'});
+        const payload=await response.json();
+        if(!response.ok){result.textContent=payload.message||'Не удалось сохранить источник.';result.className='ad-cost-result error';return}
+        hierarchy=payload.hierarchy;result.textContent='Источник сохранён';result.className='ad-cost-result';render();
+      },{once:true});
+    }
+  });
 })();
 </script>
+{% endif %}
