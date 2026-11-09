@@ -1483,6 +1483,9 @@ CAMPAIGN_NAME_SENTINELS = {
     "не определено", "кампания не определена",
     "other", "unknown", "undefined", "not_set", "not set", "(not set)",
 }
+TECHNICAL_UTM_CAMPAIGNS = {
+    "clinic_profile",
+}
 
 
 def _identity_slug(value):
@@ -1709,6 +1712,15 @@ def _canonical_metrika_identity(
     channel_name = str(channel_name or "").strip()
     campaign_id = str(campaign_id or "").strip()
     campaign_name = str(campaign_name or "").strip()
+
+    # Technical UTM labels describe the placement/link, not a marketing
+    # campaign. Keep them in raw Metrika evidence, but do not expose them as a
+    # child campaign unless a factual campaign ID exists.
+    if (
+        not campaign_id
+        and campaign_name.lower() in TECHNICAL_UTM_CAMPAIGNS
+    ):
+        campaign_name = ""
 
     legacy_instagram_tag = LEGACY_INSTAGRAM_SOURCE_KEYS.get(source_key)
     if source_key == "instagram" or source_key in LEGACY_INSTAGRAM_SOURCE_KEYS:
