@@ -1343,6 +1343,7 @@ def register_daily_upload(app):
             fragment = render_template(
                 "advertising_costs_fragment.html",
                 csrf=csrf_token(),
+                perms=perms,
             )
             marker = '<div id="reconcileOverlay"'
             if marker in page:

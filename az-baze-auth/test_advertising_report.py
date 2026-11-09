@@ -2846,6 +2846,7 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("/api/reports/advertising/costs", cost_fragment)
         self.assertIn("Подрядчики по источникам автоматически не распределяются", cost_fragment)
         self.assertIn('render_template(\n                "advertising_costs_fragment.html"', daily)
+        self.assertIn('perms=perms,', daily)
         self.assertIn('if "upload_services" in perms:', daily)
 
     def test_manual_cost_store_requires_exact_coverage_without_proration(self):
