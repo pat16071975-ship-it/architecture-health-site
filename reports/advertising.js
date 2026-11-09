@@ -335,6 +335,11 @@ async function load(options={}){
     if(!r.ok)throw new Error('HTTP '+r.status);
     payload=await r.json();clinicToday=payload.today||clinicToday;
     $('#fromDate').value=payload.period.from;$('#toDate').value=payload.period.to;
+    costHierarchy=null;
+    if(payload?.costEditor?.canEdit){
+      try{costHierarchy=await fetchCostHierarchy(payload.period.from,payload.period.to)}
+      catch(error){console.error('Advertising costs hierarchy load failed',error)}
+    }
     comparisonOptions(payload.compare?.mode||$('#compareMode').value);syncUrl();render()
   }catch(e){console.error(e);showPeriodError('Не удалось загрузить рекламный отчёт.')}
   finally{$('#page').classList.remove('loading')}
