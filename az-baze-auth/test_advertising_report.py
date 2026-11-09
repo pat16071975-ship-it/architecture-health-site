@@ -3143,6 +3143,139 @@ class AdvertisingReportTests(unittest.TestCase):
             finally:
                 c.close();m.METRIKA_ARCHIVE_ROOT=old
 
+    def test_az190_02_cost_only_name_metadata_cannot_create_campaign_under_non_campaign_source(self):
+        c=conn()
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            hidden_key=m._campaign_cost_key(
+                "napopravku","","future_unknown_placement_tag"
+            )
+            factual_key=m._campaign_cost_key(
+                "napopravku","123456789","future_unknown_placement_tag"
+            )
+            payload={
+                "version":2,
+                "sources":{
+                    "napopravku":{
+                        "name":"НаПоправку",
+                        "channel_name":"Другие источники",
+                        "manual":False,
+                    },
+                },
+                "campaigns":{
+                    hidden_key:{
+                        "source_key":"napopravku",
+                        "campaign_id":"",
+                        "campaign_name":"future_unknown_placement_tag",
+                    },
+                    factual_key:{
+                        "source_key":"napopravku",
+                        "campaign_id":"123456789",
+                        "campaign_name":"future_unknown_placement_tag",
+                    },
+                },
+                "periods":{
+                    "global":[],
+                    "sources":{},
+                    "campaigns":{
+                        hidden_key:[{
+                            "from":"2026-11-08",
+                            "to":"2026-11-08",
+                            "advertising_payment":50,
+                            "contractors_payment":10,
+                            "total_spend":60,
+                            "legacy_partial":False,
+                        }],
+                        factual_key:[{
+                            "from":"2026-11-08",
+                            "to":"2026-11-08",
+                            "advertising_payment":70,
+                            "contractors_payment":10,
+                            "total_spend":80,
+                            "legacy_partial":False,
+                        }],
+                    },
+                },
+            }
+            original=json.dumps(payload,ensure_ascii=False,sort_keys=True)
+            c.execute(
+                "INSERT INTO report_blobs VALUES(?,?,?,?)",
+                (
+                    m.ADVERTISING_COSTS_KEY,
+                    json.dumps(payload,ensure_ascii=False),
+                    1,
+                    "t",
+                ),
+            )
+            c.commit()
+
+            store=m._load_cost_store(c)
+            self.assertIn(hidden_key,store["campaigns"])
+            self.assertEqual(
+                store["periods"]["campaigns"][hidden_key][0]["total_spend"],
+                60,
+            )
+
+            registry=m._campaign_registry(c,store)
+            self.assertFalse(
+                any(item["campaign_key"]==hidden_key for item in registry)
+            )
+            self.assertTrue(
+                any(item["campaign_key"]==factual_key for item in registry)
+            )
+
+            rows=m._group_breakdown(
+                c,date(2026,11,8),date(2026,11,8),"campaign"
+            )
+            self.assertFalse(
+                any(item["campaign_key"]==hidden_key for item in rows)
+            )
+            factual=next(
+                item for item in rows
+                if item["campaign_key"]==factual_key
+            )
+            self.assertEqual(factual["campaign_id"],"123456789")
+            self.assertEqual(factual["total_spend"],80)
+            self.assertIsNone(factual["visits"])
+
+            hierarchy=m._cost_hierarchy_payload(
+                c,date(2026,11,8),date(2026,11,8)
+            )
+            source=next(
+                item for item in hierarchy["sources"]
+                if item["source_key"]=="napopravku"
+            )
+            self.assertFalse(
+                any(
+                    item["campaign_key"]==hidden_key
+                    for item in source["campaigns"]
+                )
+            )
+            self.assertTrue(
+                any(
+                    item["campaign_key"]==factual_key
+                    for item in source["campaigns"]
+                )
+            )
+
+            # The fix is read-only with respect to persisted cost metadata.
+            row=c.execute(
+                "SELECT payload FROM report_blobs WHERE key=?",
+                (m.ADVERTISING_COSTS_KEY,),
+            ).fetchone()
+            self.assertEqual(
+                json.dumps(
+                    json.loads(row["payload"]),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                original,
+            )
+        finally:
+            c.close()
+
     def test_az188_03_campaign_cost_row_is_visible_without_selected_period_visits(self):
         c=conn()
         old_db=m.db
