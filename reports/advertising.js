@@ -6,7 +6,8 @@ const pct=v=>v==null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:
 const h=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''));
 const sameMonth=(a,b)=>validDate(a)&&validDate(b)&&a.slice(0,7)===b.slice(0,7);
-let payload=null,clinicToday='';
+let payload=null,clinicToday='',costHierarchy=null;
+const expandedSources=new Set();
 
 function monthStart(day){return day.slice(0,7)+'-01'}
 function previousMonth(day){
@@ -132,17 +133,18 @@ function sourceName(row){return (row.source_name||row.campaign_name||row.channel
 function campaignName(row){const name=String(row.campaign_name||'').trim();if(name)return name;const id=String(row.campaign_id||'').trim();return id?'Кампания '+id:'Не определено'}
 function sourceRows(){
   return (payload?.sources||[])
-    .filter(row=>row.spend!=null||row.clicks!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null)
+    .filter(row=>row.spend!=null||row.total_spend!=null||row.clicks!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null)
     .sort((a,b)=>(Number(b.spend)||0)-(Number(a.spend)||0)||(Number(b.visits)||0)-(Number(a.visits)||0)||sourceName(a).localeCompare(sourceName(b),'ru'))
 }
 function campaignRowsForSource(sourceKey){
   return (payload?.campaigns||[])
-    .filter(row=>row.source_key===sourceKey&&(row.spend!=null||row.clicks!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null))
+    .filter(row=>row.source_key===sourceKey&&(row.spend!=null||row.total_spend!=null||row.clicks!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null))
     .sort((a,b)=>(Number(b.spend)||0)-(Number(a.spend)||0)||(Number(b.visits)||0)-(Number(a.visits)||0)||campaignName(a).localeCompare(campaignName(b),'ru'))
 }
 function provenance(row){
   if(row.spend_provenance==='direct_api')return 'Direct API';
   if(row.spend_provenance==='manual')return 'вручную';
+  if(row.spend_provenance==='legacy_manual')return 'старый ручной расход';
   return ''
 }
 function metricCell(value,cost,label){
@@ -155,29 +157,134 @@ function sourceCells(row){
     metricCell(row.booking_open_visits,row.cost_per_booking_open,'открытие')+
     metricCell(row.medflex_visits,row.cost_per_medflex,'переход')
 }
+function costCanEdit(){return Boolean(payload?.costEditor?.canEdit)}
+function costCsrf(){return String(payload?.costEditor?.csrf||'')}
+function costHierarchyEntity(type,key,hierarchy=costHierarchy){
+  if(!hierarchy)return null;
+  if(type==='global')return hierarchy.global||null;
+  for(const source of hierarchy.sources||[]){
+    if(type==='source'&&source.source_key===key)return source;
+    if(type==='campaign'){
+      const found=(source.campaigns||[]).find(item=>item.campaign_key===key);
+      if(found)return found
+    }
+  }
+  return null
+}
+async function fetchCostHierarchy(from,to){
+  const q=new URLSearchParams({from,to});
+  const r=await fetch('/api/reports/advertising/costs?'+q,{credentials:'same-origin',cache:'no-store'});
+  if(!r.ok)throw new Error('Не удалось загрузить расходы.');
+  return await r.json()
+}
+function costReadonlyText(row){
+  return 'Реклама: <b>'+money(row?.advertising_payment)+'</b> · Подрядчик: <b>'+money(row?.contractors_payment)+'</b> · Всего: <b>'+money(row?.total_spend)+'</b>'
+}
+function costReconciliationText(row,type){
+  if(type==='campaign')return'';
+  const distributed=type==='source'?row?.campaign_distributed_total:payload?.summary?.source_total_spend;
+  const parent=row?.total_spend;
+  const delta=type==='source'?row?.campaign_reconciliation_delta:payload?.summary?.source_reconciliation_delta;
+  if(distributed==null||parent==null)return'';
+  const label=type==='source'?'по РК':'по источникам';
+  return '<span class="'+(Math.abs(Number(delta||0))<=.01?'cost-ok':'cost-warn')+'">Распределено '+label+': '+money(distributed)+' из '+money(parent)+(Math.abs(Number(delta||0))<=.01?' · сходится':' · разница '+money(delta))+'</span>'
+}
+function costEditRow(type,key,row){
+  const entity=costHierarchyEntity(type,key);
+  if(!costCanEdit()){
+    return '<tr class="cost-detail-row"><td colspan="6"><div class="report-cost-readonly">'+costReadonlyText(row)+' '+costReconciliationText(row,type)+'</div></td></tr>'
+  }
+  const exact=entity?.exact||{};
+  const period=entity?.period||payload?.period||{};
+  const meta=type==='source'
+    ?' data-source-name="'+h(row?.source_name||'')+'" data-channel-name="'+h(row?.channel_name||'')+'"'
+    :'';
+  return '<tr class="cost-detail-row"><td colspan="6">'+
+    '<div class="report-cost-editor" data-cost-type="'+h(type)+'" data-cost-key="'+h(key||'')+'"'+meta+'>'+
+      '<span class="report-cost-label">Расходы</span>'+
+      '<input data-cost-field="from" type="date" value="'+h(period.from||'')+'">'+
+      '<input data-cost-field="to" type="date" value="'+h(period.to||'')+'">'+
+      '<input data-cost-field="advertising_payment" inputmode="decimal" placeholder="Реклама ₽" value="'+h(exact.advertising_payment??'')+'">'+
+      '<input data-cost-field="contractors_payment" inputmode="decimal" placeholder="Подрядчик ₽" value="'+h(exact.contractors_payment??'')+'">'+
+      '<input data-cost-field="total_spend" inputmode="decimal" placeholder="Всего ₽" value="'+h(exact.total_spend??'')+'">'+
+      '<button type="button" data-cost-save>Сохранить</button>'+
+      (exact.legacy_partial?'<small>Старый расход источника сохранён как реклама; подрядчик и итог не были заданы.</small>':'')+
+      '<small class="report-cost-reconcile">'+costReconciliationText(row,type)+'</small>'+
+    '</div></td></tr>'
+}
+async function saveReportCost(editor){
+  const data=new FormData();
+  const type=editor.dataset.costType||'',key=editor.dataset.costKey||'';
+  data.set('csrf',costCsrf());data.set('entity_type',type);data.set('entity_key',key);
+  for(const field of ['from','to','advertising_payment','contractors_payment','total_spend']){
+    data.set(field,editor.querySelector('[data-cost-field="'+field+'"]')?.value||'')
+  }
+  if(type==='source'){
+    data.set('source_name',editor.dataset.sourceName||'');
+    data.set('channel_name',editor.dataset.channelName||'')
+  }
+  const r=await fetch('/api/reports/advertising/costs',{method:'POST',body:data,credentials:'same-origin'});
+  const response=await r.json();
+  if(!r.ok)throw new Error(response.message||'Не удалось сохранить расходы.');
+  await load()
+}
+async function refreshReportCostEditor(editor){
+  const from=editor.querySelector('[data-cost-field="from"]')?.value||'';
+  const to=editor.querySelector('[data-cost-field="to"]')?.value||'';
+  if(!validDate(from)||!validDate(to)||from>to)return;
+  const hierarchy=await fetchCostHierarchy(from,to);
+  const entity=costHierarchyEntity(editor.dataset.costType||'',editor.dataset.costKey||'',hierarchy);
+  if(!entity)return;
+  const exact=entity.exact||{};
+  for(const field of ['advertising_payment','contractors_payment','total_spend']){
+    const input=editor.querySelector('[data-cost-field="'+field+'"]');
+    if(input)input.value=exact[field]??''
+  }
+}
 function renderSources(){
   const rows=sourceRows(),body=$('#sourceRows');
   if(!rows.length){body.innerHTML='<tr><td colspan="6">Нет данных за выбранный период.</td></tr>';return}
   const html=rows.map(row=>{
     const campaigns=campaignRowsForSource(row.source_key);
-    const expandable=campaigns.length>0;
-    const label=expandable
-      ?'<button type="button" class="source-expand" data-source-key="'+h(row.source_key)+'" aria-expanded="false">+</button><span>'+h(sourceName(row))+'</span>'
-      :h(sourceName(row));
+    const expanded=expandedSources.has(row.source_key);
+    const expandable=true;
+    const label='<button type="button" class="source-expand" data-source-key="'+h(row.source_key)+'" aria-expanded="'+(expanded?'true':'false')+'">'+(expanded?'−':'+')+'</button><span>'+h(sourceName(row))+'</span>';
     const parent='<tr class="group-row"><td>'+label+'</td>'+sourceCells(row)+'</tr>';
-    if(!expandable)return parent;
+    if(!expanded)return parent;
+    const sourceCost=costEditRow('source',row.source_key,row);
     const children=campaigns.map(c=>
-      '<tr class="child-row source-campaign-row" data-source-key="'+h(row.source_key)+'" hidden><td><span class="campaign-name">'+h(campaignName(c))+'</span></td>'+sourceCells(c)+'</tr>'
+      '<tr class="child-row source-campaign-row" data-source-key="'+h(row.source_key)+'"><td><span class="campaign-name">'+h(campaignName(c))+'</span></td>'+sourceCells(c)+'</tr>'+
+      costEditRow('campaign',c.campaign_key||'',c)
     ).join('');
-    return parent+children
+    return parent+sourceCost+children
   }).join('');
   const s=payload?.summary||{};
   const total='<tr class="group-row"><td>Разнесено по источникам</td><td>'+money(s.source_spend_total)+'</td><td>'+number(s.clicks)+'</td><td>'+number(s.visits)+'</td><td>'+number(s.booking_open_visits)+'</td><td>'+number(s.medflex_visits)+'</td></tr>';
   body.innerHTML=html+total;
   body.querySelectorAll('.source-expand').forEach(button=>button.addEventListener('click',()=>{
-    const expanded=button.getAttribute('aria-expanded')==='true',key=button.dataset.sourceKey||'';
-    button.setAttribute('aria-expanded',expanded?'false':'true');button.textContent=expanded?'+':'−';
-    body.querySelectorAll('.source-campaign-row').forEach(row=>{if(row.dataset.sourceKey===key)row.hidden=expanded})
+    const key=button.dataset.sourceKey||'';
+    if(expandedSources.has(key))expandedSources.delete(key);else expandedSources.add(key);
+    renderSources()
+  }));
+  body.querySelectorAll('[data-cost-save]').forEach(button=>button.addEventListener('click',async()=>{
+    const editor=button.closest('.report-cost-editor');
+    if(!editor)return;
+    button.disabled=true;
+    try{await saveReportCost(editor)}
+    catch(error){alert(error?.message||String(error||'Ошибка'))}
+    finally{button.disabled=false}
+  }));
+  body.querySelectorAll('[data-cost-field="from"],[data-cost-field="to"]').forEach(input=>input.addEventListener('change',()=>{
+    const editor=input.closest('.report-cost-editor');
+    if(editor)refreshReportCostEditor(editor).catch(error=>console.error(error))
+  }));
+  body.querySelectorAll('[data-cost-field="advertising_payment"],[data-cost-field="contractors_payment"]').forEach(input=>input.addEventListener('input',()=>{
+    const editor=input.closest('.report-cost-editor');if(!editor)return;
+    const parse=v=>{const x=String(v||'').trim().replace(/\s+/g,'').replace(',','.');return x===''?null:Number(x)};
+    const ad=parse(editor.querySelector('[data-cost-field="advertising_payment"]')?.value);
+    const contractor=parse(editor.querySelector('[data-cost-field="contractors_payment"]')?.value);
+    const total=editor.querySelector('[data-cost-field="total_spend"]');
+    if(total&&Number.isFinite(ad)&&Number.isFinite(contractor))total.value=String(Math.round((ad+contractor)*100)/100)
   }))
 }
 function shortDate(value){
