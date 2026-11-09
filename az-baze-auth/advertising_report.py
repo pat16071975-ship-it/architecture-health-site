@@ -736,8 +736,8 @@ def _native_campaign_import_ids(conn):
     return {str(row["import_id"]) for row in rows}
 
 
-def _stored_source_allows_utm_campaign(row, source_key, channel_name):
-    """Fail closed for historical UTM-only rows from non-campaign sources."""
+def _source_allows_name_only_campaign(source_key, channel_name):
+    """Whether a source may expose campaign identity without a factual ID."""
     if source_key == "instagram":
         return True
     if source_key == "yandex_ads":
@@ -770,7 +770,7 @@ def _canonical_stored_campaign_identity(
     # Historical stored rows must obey the same source-aware campaign rule as
     # fresh parser rows. Otherwise arbitrary UTM placement tags survive forever
     # under referral/direct/organic sources even after the parser is fixed.
-    if not _stored_source_allows_utm_campaign(row, source_key, channel_name):
+    if not _source_allows_name_only_campaign(source_key, channel_name):
         return source_key, source_name, channel_name, "", ""
 
     if source_key != "yandex_ads":
@@ -844,12 +844,33 @@ def _campaign_registry(conn, store=None):
             and len(campaign_name) > len(str(registry[key].get("campaign_name") or ""))
         ):
             registry[key]["campaign_name"] = campaign_name
+    source_registry = {
+        item["source_key"]: item
+        for item in _source_registry(conn, store)
+    }
     for key, meta in (store.get("campaigns") or {}).items():
+        source_key = str(meta.get("source_key") or "")
+        campaign_id = str(meta.get("campaign_id") or "")
+        campaign_name = str(meta.get("campaign_name") or "")
+        if not source_key or (not campaign_id and not campaign_name):
+            continue
+        source_meta = source_registry.get(source_key) or {}
+        channel_name = str(source_meta.get("channel_name") or "")
+        # Persisted cost metadata is not evidence that a name-only value is a
+        # real campaign. Keep the saved cost record untouched, but do not
+        # promote it into report/editor campaign hierarchy for a source class
+        # that does not support name-only campaigns. A factual non-empty ID
+        # remains authoritative regardless of source class.
+        if (
+            not campaign_id
+            and not _source_allows_name_only_campaign(source_key, channel_name)
+        ):
+            continue
         registry[key] = {
             "campaign_key": key,
-            "source_key": str(meta.get("source_key") or ""),
-            "campaign_id": str(meta.get("campaign_id") or ""),
-            "campaign_name": str(meta.get("campaign_name") or ""),
+            "source_key": source_key,
+            "campaign_id": campaign_id,
+            "campaign_name": campaign_name,
         }
     return sorted(
         registry.values(),
