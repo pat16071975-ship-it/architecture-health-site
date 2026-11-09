@@ -1,0 +1,9 @@
+09.11.2026: owner installed mobile-directions patch; PAGES_UPDATED=2; HTTPS=PASS.
+Backup /var/backups/azmednsk/mobile-directions-20261109T112152999197Z.
+External browser recheck through existing https://azmednsk.ru/az-mobile-check-20261108.html, cache-busting verify=20261109-installed.
+/uslugi/functional_dentistry/: viewport320 document305 content305; viewport390 document375 content375; viewport430 document415 content415. horizontalOverflow=false for all.
+/uslugi/miofunkcionalnaya-terapiya/: viewport320 document305 content305; viewport390 document375 content375; viewport430 document415 content415. horizontalOverflow=false for all.
+Myo 320 screenshot inspected: heading wraps within content. Previous failures (372 vs305;321 vs305) resolved.
+Combined with prior 157 successful measurements, all53 updated pages have passed responsive horizontal-overflow checks at320,390,430. Two affected pages rechecked after this patch; unaffected pages were not unnecessarily retested.
+This verifies responsive iframe layout, not physical phone/browser compatibility or completed Medflex booking.
+No additional installation required for these two issues.
