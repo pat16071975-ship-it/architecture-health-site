@@ -16,7 +16,7 @@ import advertising_mis_bridge
 
 from flask import Response, abort, g, jsonify, request
 
-from app import DB_PATH, SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, require_csrf, user_permissions
+from app import DB_PATH, SITE_ROOT, admin_required, audit, db, iso_now, permission_required, require_csrf
 
 
 SCHEMA_VERSION = 1
@@ -3401,11 +3401,6 @@ def register_advertising_report(app):
         payload = _report_payload(db(), start, end, compare_mode, trend_metric)
         payload["today"] = _iso(today)
         payload["availableComparisons"] = ["previous_period", *(["previous_quarter_avg", "year_avg"] if _same_month(start, end) else []), "last_year"]
-        perms = user_permissions(g.user)
-        payload["costEditor"] = {
-            "canEdit": "upload_services" in perms,
-            "csrf": csrf_token() if "upload_services" in perms else "",
-        }
         return jsonify(payload)
 
     @app.get("/api/reports/advertising/costs")
