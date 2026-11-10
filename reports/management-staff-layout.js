@@ -88,8 +88,8 @@
     const style = document.createElement('style');
     style.id = 'azManagementStaffStyle';
     style.textContent = `
-      .az-management-staff-hidden-row{display:none}
-      .az-management-staff-hidden-row.az-management-staff-hidden-revealed{display:table-row}
+      .az-management-staff-hidden-row{display:none!important}
+      .az-management-staff-hidden-row.az-management-staff-hidden-revealed{display:table-row!important}
       .az-management-staff-hidden-row td{background:#f1f1ee!important;color:#7c817c!important}
       .az-management-staff-row-controls{display:inline-flex;align-items:center;gap:3px;margin-right:7px;vertical-align:middle}
       .az-management-staff-action,.az-management-hidden-toggle{
