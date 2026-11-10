@@ -165,6 +165,51 @@ class ManagementStaffLayoutTests(unittest.TestCase):
             layout["directions"]["dentists"]["hidden"],
         )
 
+    def test_new_staff_is_appended_last_among_visible_before_hidden(self):
+        conn = self.conn()
+        self.addCleanup(conn.close)
+        saved = {
+            "version": 1,
+            "directions": {
+                "dentists": {
+                    "order": ["Стоматолог Б", "Стоматолог А"],
+                    "hidden": ["Стоматолог А"],
+                },
+                "clinicDocs": {
+                    "order": ["Специалист А", "Специалист Б"],
+                    "hidden": [],
+                },
+            },
+        }
+        conn.execute(
+            "INSERT INTO report_blobs(key,payload,updated_by,updated_at) VALUES(?,?,?,?)",
+            (
+                report_storage.MANAGEMENT_STAFF_LAYOUT_KEY,
+                json.dumps(saved, ensure_ascii=False),
+                1,
+                "2026-11-10T01:00:00+00:00",
+            ),
+        )
+        row = conn.execute(
+            "SELECT payload FROM report_data WHERE date='2026-01-31'"
+        ).fetchone()
+        payload = json.loads(row["payload"])
+        payload["dentists"]["Новый стоматолог"] = 0
+        conn.execute(
+            "UPDATE report_data SET payload=? WHERE date='2026-01-31'",
+            (json.dumps(payload, ensure_ascii=False),),
+        )
+
+        layout, _ = report_storage._load_management_staff_layout(conn)
+        self.assertEqual(
+            layout["directions"]["dentists"]["order"],
+            ["Стоматолог Б", "Новый стоматолог", "Стоматолог А"],
+        )
+        self.assertEqual(
+            layout["directions"]["dentists"]["hidden"],
+            ["Стоматолог А"],
+        )
+
     def test_management_ui_uses_visible_order_but_totals_keep_full_source(self):
         index = (REPORTS / "index.html").read_text(encoding="utf-8")
         period = (REPORTS / "period-view.js").read_text(encoding="utf-8")
@@ -176,19 +221,23 @@ class ManagementStaffLayoutTests(unittest.TestCase):
         self.assertIn("window.azManagementStaffNames('clinicDocs')", index)
 
         self.assertIn(
-            "managementStaffNames('dentists').forEach(name=>addDateDoctorMetric",
+            "managementStaffEntries('dentists').forEach(entry=>addDateManagementStaffMetric",
             period,
         )
         self.assertIn(
-            "managementStaffNames('clinicDocs').forEach(name=>addDateDoctorMetric",
+            "managementStaffEntries('clinicDocs').forEach(entry=>addDateManagementStaffMetric",
             period,
         )
         self.assertIn(
-            "managementStaffNames('dentists').forEach(name=>addMetric",
+            "managementStaffEntries('dentists').forEach(entry=>addManagementStaffMetric",
             period,
         )
         self.assertIn(
-            "managementStaffNames('clinicDocs').forEach(name=>addMetric",
+            "managementStaffEntries('clinicDocs').forEach(entry=>addManagementStaffMetric",
+            period,
+        )
+        self.assertIn(
+            ".az-management-staff-hidden-row{display:none!important}",
             period,
         )
 
@@ -206,13 +255,18 @@ class ManagementStaffLayoutTests(unittest.TestCase):
             index,
         )
 
-        self.assertIn("Настроить персонал", layout)
-        self.assertIn("Сохранить для всех", layout)
+        self.assertNotIn("Настроить персонал", layout)
+        self.assertNotIn("Сохранить для всех", layout)
+        self.assertNotIn('draggable="true"', layout)
         self.assertIn("CAN_EDIT_MANAGEMENT_STAFF_LAYOUT", layout)
         self.assertIn("/api/reports/management-staff-layout", layout)
-        self.assertIn("draggable=\"true\"", layout)
-        self.assertIn("data-hide=", layout)
-        self.assertIn("data-show=", layout)
+        self.assertIn("Скрытые сотрудники", layout)
+        self.assertIn("makeAction(info.kind, info.name, 'up', '↑'", layout)
+        self.assertIn("info.hidden ? 'restore' : 'hide'", layout)
+        self.assertIn("info.hidden ? '+' : '−'", layout)
+        self.assertIn("makeAction(info.kind, info.name, 'down', '↓'", layout)
+        self.assertIn("saveMutation(action.dataset.kind", layout)
+        self.assertIn("visible.push(name)", layout)
 
     def test_wrong_pr196_service_analytics_artifacts_are_gone(self):
         self.assertFalse((REPORTS / "services-staff-layout.js").exists())
