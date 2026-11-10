@@ -539,10 +539,13 @@ def _commit(decision=None):
 
 
 
-def inject_uploads_page(page_html):
-    try:
-        _require_history_access()
-    except Exception:
+def inject_uploads_page(page_html, authorized=None):
+    if authorized is None:
+        try:
+            _require_history_access()
+        except Exception:
+            return page_html
+    elif not authorized:
         return page_html
 
     marker = '<form method="post" action="/uploads/cash"'
