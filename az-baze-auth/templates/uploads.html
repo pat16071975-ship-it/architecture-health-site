@@ -412,7 +412,7 @@
     }
 
     const unknown=payload.unknown_providers||[];
-    const visits=[];
+    const visits=type==='services'?(payload.unassigned_visits||[]):[];
     const visitTable=visits.length
       ? '<div class="visit-direction-wrap"><table class="visit-direction-table"><thead><tr>'+
         '<th>Дата</th><th>Пациент</th><th>Тип приёма</th><th>Что нашли в источниках</th><th>Куда отнести</th>'+
@@ -497,6 +497,10 @@
       if(context.type==='services'||(context.type==='paid'&&choice!=='keep_old')){
         const choices=providerDecisions();
         if(Object.keys(choices).length)extra.provider_decisions=JSON.stringify(choices);
+      }
+      if(context.type==='services'){
+        const visitChoices=visitDirectionDecisions();
+        if(Object.keys(visitChoices).length)extra.visit_direction_decisions=JSON.stringify(visitChoices);
       }
       keepBtn.disabled=true;newBtn.disabled=true;continueBtn.disabled=true;
       const out=await send(url,context.form,extra);
