@@ -722,14 +722,15 @@ def _management_staff_source_names(conn):
     return result
 
 
-def _normalize_management_staff_layout(payload, conn):
+def _normalize_management_staff_layout(payload, conn, strict=True):
     if not isinstance(payload, dict) or payload.get("version") != 1:
         abort(400)
     raw_directions = payload.get("directions")
     if not isinstance(raw_directions, dict):
         abort(400)
     if set(raw_directions) - {"dentists", "clinicDocs"}:
-        abort(400)
+        if strict:
+            abort(400)
 
     source = _management_staff_source_names(conn)
     normalized = {}
@@ -755,8 +756,14 @@ def _normalize_management_staff_layout(payload, conn):
                 if not isinstance(raw, str):
                     abort(400)
                 name = raw.strip()
-                if not name or len(name) > 240 or name not in allowed:
-                    abort(400)
+                if not name or len(name) > 240:
+                    if strict:
+                        abort(400)
+                    continue
+                if name not in allowed:
+                    if strict:
+                        abort(400)
+                    continue
                 if name in seen_names:
                     continue
                 seen_names.add(name)
@@ -784,8 +791,8 @@ def _load_management_staff_layout(conn):
     default = {
         "version": 1,
         "directions": {
-            kind: {"order": list(names), "hidden": []}
-            for kind, names in source.items()
+            "dentists": {"order": [], "hidden": []},
+            "clinicDocs": {"order": [], "hidden": []},
         },
     }
     row = conn.execute(
@@ -797,7 +804,11 @@ def _load_management_staff_layout(conn):
 
     try:
         parsed = json.loads(row["payload"])
-        normalized = _normalize_management_staff_layout(parsed, conn)
+        normalized = _normalize_management_staff_layout(
+            parsed,
+            conn,
+            strict=False,
+        )
     except Exception:
         return default, row["updated_at"]
     return normalized, row["updated_at"]
