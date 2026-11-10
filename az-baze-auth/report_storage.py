@@ -948,6 +948,8 @@ async function loadServerStore(){
   DOCTOR_PAID_PERIODS=Array.isArray(payload.doctorPaidPeriods)?payload.doctorPaidPeriods:[];
   PAID_PATIENTS_MONTHLY=payload.paidPatientsMonthly||{};
   PAID_PATIENTS_BY_DATE=payload.paidPatientsByDate||{};
+  MANAGEMENT_STAFF_LAYOUT=payload.managementStaffLayout||{version:1,directions:{}};
+  CAN_EDIT_MANAGEMENT_STAFF_LAYOUT=!!payload.canEditManagementStaffLayout;
   REPORT_CSRF=payload.csrf||'';
   if(typeof syncProviderNames==='function'){
     syncProviderNames(SERVER_STORE);
@@ -957,6 +959,7 @@ async function loadServerStore(){
       syncProviderNames({[r.to]:{dentists:r.dentists,clinicDocs:r.clinicDocs}}));
   }
   if(typeof renderStructure==='function')renderStructure();
+  window.dispatchEvent(new CustomEvent('az-management-staff-layout-loaded'));
 }"""
     html = html.replace(old_store, new_store)
 
