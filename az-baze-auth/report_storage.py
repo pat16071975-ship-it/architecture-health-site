@@ -15,7 +15,7 @@ import advertising_report
 import paid_period_confirmation
 
 MANAGEMENT_KEY = "az-management-report-v1"
-SERVICE_STAFF_LAYOUT_KEY = "az-service-staff-layout-v1"
+MANAGEMENT_STAFF_LAYOUT_KEY = "az-management-staff-layout-v1"
 REPORT_BLOB_KEYS = {
     "az-service-analytics-v1",
     "az-patient-transitions-v1",
@@ -25,7 +25,6 @@ REPORT_BLOB_KEYS = {
     "az-management-monthly-plan-v1",
     "az-advertising-costs-v1",
 }
-BOOTSTRAP_BLOB_KEYS = set(REPORT_BLOB_KEYS) | {SERVICE_STAFF_LAYOUT_KEY}
 WRITABLE_BLOB_KEYS = set(REPORT_BLOB_KEYS)
 
 REPORT_SCHEMA = """
@@ -600,9 +599,9 @@ def _render_reports_menu():
 def _storage_map():
     rows = db().execute(
         "SELECT key, payload FROM report_blobs WHERE key IN ({}) ORDER BY key".format(
-            ",".join("?" for _ in BOOTSTRAP_BLOB_KEYS)
+            ",".join("?" for _ in REPORT_BLOB_KEYS)
         ),
-        tuple(sorted(BOOTSTRAP_BLOB_KEYS)),
+        tuple(sorted(REPORT_BLOB_KEYS)),
     ).fetchall()
     return {row["key"]: row["payload"] for row in rows}
 
@@ -636,123 +635,6 @@ def management_monthly_plans():
             continue
         result[month] = int(value) if value.is_integer() else value
     return result
-
-
-
-def _service_staff_source_names(conn):
-    row = conn.execute(
-        "SELECT payload FROM report_blobs WHERE key=?",
-        ("az-service-analytics-v1",),
-    ).fetchone()
-    if not row:
-        return {}
-    try:
-        parsed = json.loads(row["payload"])
-    except (TypeError, ValueError):
-        return {}
-    directions = parsed.get("directions") if isinstance(parsed, dict) else None
-    if not isinstance(directions, dict):
-        return {}
-
-    result = {}
-    for raw_direction, raw_value in directions.items():
-        direction = str(raw_direction or "").strip()
-        doctors = raw_value.get("doctors") if isinstance(raw_value, dict) else None
-        if not direction or not isinstance(doctors, dict):
-            continue
-        result[direction] = [str(name) for name in doctors if str(name).strip()]
-    return result
-
-
-def _normalize_service_staff_layout(payload, conn):
-    if not isinstance(payload, dict) or payload.get("version") != 1:
-        abort(400)
-    raw_directions = payload.get("directions")
-    if not isinstance(raw_directions, dict):
-        abort(400)
-
-    source = _service_staff_source_names(conn)
-    if not source:
-        abort(409)
-
-    unknown_directions = {
-        str(name)
-        for name in raw_directions
-        if str(name) not in source
-    }
-    if unknown_directions:
-        abort(400)
-
-    normalized = {}
-    for direction, source_names in source.items():
-        config = raw_directions.get(direction) or {}
-        if not isinstance(config, dict):
-            abort(400)
-        raw_order = config.get("order") or []
-        raw_hidden = config.get("hidden") or []
-        if not isinstance(raw_order, list) or not isinstance(raw_hidden, list):
-            abort(400)
-        if len(raw_order) > 1000 or len(raw_hidden) > 1000:
-            abort(400)
-
-        allowed = set(source_names)
-
-        def clean_list(values):
-            result = []
-            seen = set()
-            for raw in values:
-                if not isinstance(raw, str):
-                    abort(400)
-                name = raw.strip()
-                if not name or len(name) > 240 or name not in allowed:
-                    abort(400)
-                if name in seen:
-                    continue
-                seen.add(name)
-                result.append(name)
-            return result
-
-        order = clean_list(raw_order)
-        hidden = clean_list(raw_hidden)
-
-        for name in source_names:
-            if name not in order:
-                order.append(name)
-
-        hidden_set = set(hidden)
-        normalized[direction] = {
-            "order": order,
-            "hidden": [name for name in order if name in hidden_set],
-        }
-
-    return {
-        "version": 1,
-        "directions": normalized,
-    }
-
-
-def _load_service_staff_layout(conn):
-    source = _service_staff_source_names(conn)
-    default_payload = {
-        "version": 1,
-        "directions": {
-            direction: {"order": list(names), "hidden": []}
-            for direction, names in source.items()
-        },
-    }
-    row = conn.execute(
-        "SELECT payload,updated_at FROM report_blobs WHERE key=?",
-        (SERVICE_STAFF_LAYOUT_KEY,),
-    ).fetchone()
-    if not row:
-        return default_payload, None
-
-    try:
-        parsed = json.loads(row["payload"])
-        normalized = _normalize_service_staff_layout(parsed, conn)
-    except Exception:
-        return default_payload, row["updated_at"]
-    return normalized, row["updated_at"]
 
 
 def _validate_blob_payload(key, payload):
@@ -802,6 +684,145 @@ def _validate_blob_payload(key, payload):
             abort(400)
 
     return json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
+
+
+def _management_staff_source_names(conn):
+    result = {"dentists": [], "clinicDocs": []}
+    seen = {"dentists": set(), "clinicDocs": set()}
+
+    def append(kind, name):
+        name = str(name or "").strip()
+        if not name or name in seen[kind]:
+            return
+        seen[kind].add(name)
+        result[kind].append(name)
+
+    mappings, _ignored = _management_doctor_provider_mappings(conn)
+    for name in mappings.get("dent", {}).values():
+        append("dentists", name)
+    for name in mappings.get("structure", {}).values():
+        append("clinicDocs", name)
+
+    rows = conn.execute(
+        "SELECT payload FROM report_data ORDER BY date"
+    ).fetchall()
+    for row in rows:
+        try:
+            record = json.loads(row["payload"])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(record, dict):
+            continue
+        for kind in ("dentists", "clinicDocs"):
+            values = record.get(kind)
+            if isinstance(values, dict):
+                for name in values:
+                    append(kind, name)
+
+    return result
+
+
+def _normalize_management_staff_layout(payload, conn, strict=True):
+    if not isinstance(payload, dict) or payload.get("version") != 1:
+        abort(400)
+    raw_directions = payload.get("directions")
+    if not isinstance(raw_directions, dict):
+        abort(400)
+    if set(raw_directions) - {"dentists", "clinicDocs"}:
+        if strict:
+            abort(400)
+
+    source = _management_staff_source_names(conn)
+    normalized = {}
+
+    for kind in ("dentists", "clinicDocs"):
+        source_names = source[kind]
+        allowed = set(source_names)
+        config = raw_directions.get(kind) or {}
+        if not isinstance(config, dict):
+            abort(400)
+
+        raw_order = config.get("order") or []
+        raw_hidden = config.get("hidden") or []
+        if not isinstance(raw_order, list) or not isinstance(raw_hidden, list):
+            abort(400)
+        if len(raw_order) > 1000 or len(raw_hidden) > 1000:
+            abort(400)
+
+        def clean(values):
+            out = []
+            seen_names = set()
+            for raw in values:
+                if not isinstance(raw, str):
+                    abort(400)
+                name = raw.strip()
+                if not name or len(name) > 240:
+                    if strict:
+                        abort(400)
+                    continue
+                if name not in allowed:
+                    if strict:
+                        abort(400)
+                    continue
+                if name in seen_names:
+                    continue
+                seen_names.add(name)
+                out.append(name)
+            return out
+
+        order = clean(raw_order)
+        hidden = clean(raw_hidden)
+        hidden_set = set(hidden)
+
+        visible_order = [name for name in order if name not in hidden_set]
+        hidden_order = [name for name in order if name in hidden_set]
+
+        for name in source_names:
+            if name not in visible_order and name not in hidden_order:
+                visible_order.append(name)
+
+        order = visible_order + hidden_order
+        normalized[kind] = {
+            "order": order,
+            "hidden": hidden_order,
+        }
+
+    return {"version": 1, "directions": normalized}
+
+
+def _load_management_staff_layout(conn):
+    source = _management_staff_source_names(conn)
+    default = {
+        "version": 1,
+        "directions": {
+            "dentists": {"order": [], "hidden": []},
+            "clinicDocs": {"order": [], "hidden": []},
+        },
+    }
+    row = conn.execute(
+        "SELECT payload,updated_at FROM report_blobs WHERE key=?",
+        (MANAGEMENT_STAFF_LAYOUT_KEY,),
+    ).fetchone()
+    if not row:
+        return default, None
+
+    try:
+        parsed = json.loads(row["payload"])
+        normalized = _normalize_management_staff_layout(
+            parsed,
+            conn,
+            strict=False,
+        )
+    except Exception:
+        return default, row["updated_at"]
+    return normalized, row["updated_at"]
+
+
+def _current_user_is_admin():
+    try:
+        return bool(g.user["is_admin"])
+    except (KeyError, IndexError, TypeError):
+        return False
 
 
 def _script_json(value):
@@ -928,7 +949,7 @@ def _render_server_reports():
 
     old_store = """function loadStore(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}}
 function saveStore(v){localStorage.setItem(STORAGE_KEY,JSON.stringify(v))}"""
-    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={},DOCTOR_PAID_PERIODS=[],PAID_PATIENTS_MONTHLY={},PAID_PATIENTS_BY_DATE={};
+    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={},DOCTOR_PAID_PERIODS=[],PAID_PATIENTS_MONTHLY={},PAID_PATIENTS_BY_DATE={},MANAGEMENT_STAFF_LAYOUT={version:1,directions:{}},CAN_EDIT_MANAGEMENT_STAFF_LAYOUT=false;
 function loadStore(){return SERVER_STORE}
 function saveStore(v){SERVER_STORE=v}
 async function reportApi(url,options={}){
@@ -949,6 +970,8 @@ async function loadServerStore(){
   DOCTOR_PAID_PERIODS=Array.isArray(payload.doctorPaidPeriods)?payload.doctorPaidPeriods:[];
   PAID_PATIENTS_MONTHLY=payload.paidPatientsMonthly||{};
   PAID_PATIENTS_BY_DATE=payload.paidPatientsByDate||{};
+  MANAGEMENT_STAFF_LAYOUT=payload.managementStaffLayout||{version:1,directions:{}};
+  CAN_EDIT_MANAGEMENT_STAFF_LAYOUT=!!payload.canEditManagementStaffLayout;
   REPORT_CSRF=payload.csrf||'';
   if(typeof syncProviderNames==='function'){
     syncProviderNames(SERVER_STORE);
@@ -958,6 +981,7 @@ async function loadServerStore(){
       syncProviderNames({[r.to]:{dentists:r.dentists,clinicDocs:r.clinicDocs}}));
   }
   if(typeof renderStructure==='function')renderStructure();
+  window.dispatchEvent(new CustomEvent('az-management-staff-layout-loaded'));
 }"""
     html = html.replace(old_store, new_store)
 
@@ -1096,8 +1120,56 @@ def register_report_storage(app):
             doctorPaidPeriods=_management_doctor_paid_periods(db()),
             paidPatientsMonthly=_management_paid_patients_monthly(db(), payer_intervals),
             paidPatientsByDate=payer_by_date,
+            managementStaffLayout=_load_management_staff_layout(db())[0],
+            canEditManagementStaffLayout=_current_user_is_admin(),
             csrf=csrf_token(),
         )
+
+    @app.put("/api/reports/management-staff-layout")
+    @admin_required
+    def management_staff_layout_put():
+        _require_api_csrf()
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            abort(400)
+        layout = _normalize_management_staff_layout(
+            body.get("layout"),
+            db(),
+        )
+        now = iso_now()
+        payload = json.dumps(
+            layout,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        db().execute(
+            """
+            INSERT INTO report_blobs(key,payload,updated_by,updated_at)
+            VALUES(?,?,?,?)
+            ON CONFLICT(key) DO UPDATE SET
+              payload=excluded.payload,
+              updated_by=excluded.updated_by,
+              updated_at=excluded.updated_at
+            """,
+            (
+                MANAGEMENT_STAFF_LAYOUT_KEY,
+                payload,
+                g.user["id"],
+                now,
+            ),
+        )
+        db().commit()
+        audit(
+            "management_staff_layout_saved",
+            target_user_id=g.user["id"],
+            details=(
+                "dent_hidden="
+                + str(len(layout["directions"]["dentists"]["hidden"]))
+                + "; clinic_hidden="
+                + str(len(layout["directions"]["clinicDocs"]["hidden"]))
+            ),
+        )
+        return jsonify(ok=True, layout=layout, updated_at=now)
 
     @app.put("/api/reports/data/<date>")
     @permission_required("reports")
@@ -1150,61 +1222,6 @@ def register_report_storage(app):
         db().commit()
         audit("report_deleted", target_user_id=g.user["id"], details=f"date={date}")
         return jsonify(ok=True)
-
-    @app.get("/api/reports/services-staff-layout")
-    @permission_required("reports")
-    def services_staff_layout_get():
-        layout, updated_at = _load_service_staff_layout(db())
-        return jsonify(
-            layout=layout,
-            can_edit=bool(g.user["is_admin"]),
-            csrf=csrf_token(),
-            updated_at=updated_at,
-        )
-
-    @app.put("/api/reports/services-staff-layout")
-    @admin_required
-    def services_staff_layout_put():
-        _require_api_csrf()
-        body = request.get_json(silent=True)
-        if not isinstance(body, dict):
-            abort(400)
-        layout = _normalize_service_staff_layout(body.get("layout"), db())
-        payload = json.dumps(
-            layout,
-            ensure_ascii=False,
-            separators=(",", ":"),
-        )
-        now = iso_now()
-        db().execute(
-            """
-            INSERT INTO report_blobs(key,payload,updated_by,updated_at)
-            VALUES(?,?,?,?)
-            ON CONFLICT(key) DO UPDATE SET
-              payload=excluded.payload,
-              updated_by=excluded.updated_by,
-              updated_at=excluded.updated_at
-            """,
-            (SERVICE_STAFF_LAYOUT_KEY, payload, g.user["id"], now),
-        )
-        db().commit()
-        hidden_count = sum(
-            len(config.get("hidden") or [])
-            for config in layout["directions"].values()
-        )
-        audit(
-            "service_staff_layout_saved",
-            target_user_id=g.user["id"],
-            details=(
-                f"directions={len(layout['directions'])}; "
-                f"hidden={hidden_count}"
-            ),
-        )
-        return jsonify(
-            ok=True,
-            layout=layout,
-            updated_at=now,
-        )
 
     @app.get("/api/reports/storage")
     @permission_required("reports")
