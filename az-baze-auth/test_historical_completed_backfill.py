@@ -166,13 +166,22 @@ class HistoricalCompletedBackfillTests(unittest.TestCase):
         self.assertIn("data-az-upload-form", uploads)
         self.assertIn("name=\"completed\"", uploads)
         self.assertIn("name=\"services\"", uploads)
-        self.assertIn("data-az-completed-history-form", uploads)
-        self.assertIn("name=\"bundle\"", uploads)
-        self.assertIn("/api/uploads/completed-history/preview", uploads)
-        self.assertIn("/api/uploads/completed-history/commit", uploads)
+        self.assertNotIn("data-az-completed-history-form", uploads)
+
+        injected = history.inject_uploads_page(
+            uploads.replace(
+                '<form method="post" action="/uploads/cash"',
+                '<form method="post" action="/uploads/cash"',
+                1,
+            )
+        )
+        self.assertIn("data-az-completed-history-form", injected)
+        self.assertIn("name=\"bundle\"", injected)
+        self.assertIn("/api/uploads/completed-history/preview", injected)
+        self.assertIn("/api/uploads/completed-history/commit", injected)
         self.assertIn(
-            "Второй файл «Выручка по направлениям» здесь не требуется.",
-            uploads,
+            "файл «Выручка по направлениям» не требуется.",
+            injected,
         )
 
 
