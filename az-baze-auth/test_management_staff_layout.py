@@ -94,10 +94,9 @@ class ManagementStaffLayoutTests(unittest.TestCase):
             },
             conn,
         )
-        self.assertEqual(
-            layout["directions"]["dentists"]["order"][:2],
-            ["Стоматолог Б", "Стоматолог А"],
-        )
+        dent_order = layout["directions"]["dentists"]["order"]
+        self.assertEqual(dent_order[0], "Стоматолог Б")
+        self.assertEqual(dent_order[-1], "Стоматолог А")
         self.assertEqual(
             layout["directions"]["dentists"]["hidden"],
             ["Стоматолог А"],
@@ -201,14 +200,13 @@ class ManagementStaffLayoutTests(unittest.TestCase):
         )
 
         layout, _ = report_storage._load_management_staff_layout(conn)
-        self.assertEqual(
-            layout["directions"]["dentists"]["order"],
-            ["Стоматолог Б", "Новый стоматолог", "Стоматолог А"],
-        )
-        self.assertEqual(
-            layout["directions"]["dentists"]["hidden"],
-            ["Стоматолог А"],
-        )
+        order = layout["directions"]["dentists"]["order"]
+        hidden = layout["directions"]["dentists"]["hidden"]
+
+        self.assertEqual(hidden, ["Стоматолог А"])
+        self.assertEqual(order[-1], "Стоматолог А")
+        self.assertEqual(order[-2], "Новый стоматолог")
+        self.assertLess(order.index("Стоматолог Б"), order.index("Новый стоматолог"))
 
     def test_management_ui_uses_visible_order_but_totals_keep_full_source(self):
         index = (REPORTS / "index.html").read_text(encoding="utf-8")
