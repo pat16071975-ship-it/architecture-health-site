@@ -1,0 +1,91 @@
+name: AZ management staff layout delivery
+
+on:
+  push:
+    branches:
+      - 'deploy/az-management-staff-layout-production-20261110'
+    paths:
+      - 'az-baze-auth/deploy/management-staff-layout-production-20261110.sh'
+      - '.github/workflows/az-management-staff-layout-delivery.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-delivery-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bash syntax
+        run: bash -n az-baze-auth/deploy/management-staff-layout-production-20261110.sh
+
+      - name: Exact deploy contract
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+
+          p=Path('az-baze-auth/deploy/management-staff-layout-production-20261110.sh')
+          text=p.read_text(encoding='utf-8')
+
+          required=[
+              "TARGET_COMMIT='a437dd76a5cc38b39bd4e55f30c42af5d8d76fa6'",
+              "CONFIRM_TOKEN='MANAGEMENT-STAFF-LAYOUT-A437DD76'",
+              "EXPECTED_HOST='vdska'",
+              "SERVICE='az-baze-auth.service'",
+              "HEALTH_URL='http://127.0.0.1:8001/health'",
+              "BASE_STORAGE='44790d1ee20623c9312d552925262ce47decfa44'",
+              "BASE_INDEX='3e43b1124cc7f526ece4a5bc6ceaef8ad19f06b7'",
+              "BASE_PERIOD='153b1bba79fe506494ae941dc09254a8cc698988'",
+              "TARGET_STORAGE='de3e5a5167a4c454dc5ff700a06ae1b88c5234aa'",
+              "TARGET_INDEX='9eec90a944b55609fb4037053632d0f6da2862f4'",
+              "TARGET_PERIOD='39de3f683e2fa6323f30b8465a77f951155af3ed'",
+              "TARGET_LAYOUT='2d31aca285c31ceb112c7dc8cadb7a77140bef01'",
+              "MANAGEMENT_STAFF_LAYOUT_PREFLIGHT=PASS",
+              "GLOBAL_MANAGEMENT_STAFF_LAYOUT_DEPLOY=PASS",
+              "BUSINESS_DATA_BACKFILL=NOT_PERFORMED",
+              "DB_RESTORE=NOT_PERFORMED",
+              "OPTIMISTIC_UI=YES",
+              "SERVER_PERSISTENCE=YES",
+          ]
+          for needle in required:
+              assert needle in text, needle
+
+          assert 'case "$MODE" in' in text
+          assert '--preflight)' in text
+          assert '--apply)' in text
+          assert 'LIVE_BASE_GUARD=PASS' in text
+          assert 'TARGET_BLOBS=PASS' in text
+          assert 'TARGET_CONTRACT=PASS' in text
+          assert 'DB_BACKUP_VERIFY=PASS' in text
+          assert 'ROLLBACK: FILES ONLY' in text
+          assert 'ROLLBACK_DB_RESTORE=NOT_PERFORMED' in text
+
+          target='a437dd76a5cc38b39bd4e55f30c42af5d8d76fa6'
+          paths={
+              'az-baze-auth/report_storage.py':'de3e5a5167a4c454dc5ff700a06ae1b88c5234aa',
+              'reports/index.html':'9eec90a944b55609fb4037053632d0f6da2862f4',
+              'reports/period-view.js':'39de3f683e2fa6323f30b8465a77f951155af3ed',
+              'reports/management-staff-layout.js':'2d31aca285c31ceb112c7dc8cadb7a77140bef01',
+          }
+          for path, expected in paths.items():
+              actual=subprocess.check_output(
+                  ['git','rev-parse',f'{target}:{path}'],
+                  text=True,
+              ).strip()
+              assert actual==expected,(path,actual,expected)
+
+          forbidden=[
+              'services-staff-layout.js',
+              'SERVICE_STAFF_LAYOUT_KEY',
+              '/api/reports/services-staff-layout',
+          ]
+          for value in forbidden:
+              assert value not in text, value
+
+          print('AZ_MANAGEMENT_STAFF_LAYOUT_DELIVERY_CONTRACT=PASS')
+          PY
