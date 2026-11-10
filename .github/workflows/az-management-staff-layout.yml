@@ -1,6 +1,9 @@
 name: AZ management global staff layout
 
 on:
+  push:
+    branches:
+      - 'fix/az-management-staff-layout-correct-target-20261110'
   pull_request:
     paths:
       - 'az-baze-auth/report_storage.py'
@@ -80,17 +83,26 @@ jobs:
           assert 'management-staff-layout.js?v=20261110-1' in index
           assert "window.azManagementStaffNames('dentists')" in index
           assert "window.azManagementStaffNames('clinicDocs')" in index
-          assert "managementStaffNames('dentists').forEach(name=>addDateDoctorMetric" in period
-          assert "managementStaffNames('clinicDocs').forEach(name=>addDateDoctorMetric" in period
+          assert "managementStaffEntries('dentists').forEach(entry=>addDateManagementStaffMetric" in period
+          assert "managementStaffEntries('clinicDocs').forEach(entry=>addDateManagementStaffMetric" in period
+          assert "managementStaffEntries('dentists').forEach(entry=>addManagementStaffMetric" in period
+          assert "managementStaffEntries('clinicDocs').forEach(entry=>addManagementStaffMetric" in period
+          assert ".az-management-staff-hidden-row{display:none!important}" in period
 
           assert "const names=type==='dentists'?dentists:type==='clinicDocs'?clinicDocs:[];" in period
           assert 'dentists.forEach(n=>out.dentists[n]=' in index
           assert 'clinicDocs.forEach(n=>out.clinicDocs[n]=' in index
 
-          assert 'Настроить персонал' in layout
-          assert 'Сохранить для всех' in layout
+          assert 'Настроить персонал' not in layout
+          assert 'Сохранить для всех' not in layout
+          assert 'draggable="true"' not in layout
           assert 'CAN_EDIT_MANAGEMENT_STAFF_LAYOUT' in layout
-          assert 'draggable="true"' in layout
+          assert 'Скрытые сотрудники' in layout
+          assert "makeAction(info.kind, info.name, 'up', '↑'" in layout
+          assert "info.hidden ? 'restore' : 'hide'" in layout
+          assert "info.hidden ? '+' : '−'" in layout
+          assert "makeAction(info.kind, info.name, 'down', '↓'" in layout
+          assert 'saveMutation(action.dataset.kind' in layout
 
           assert not Path('reports/services-staff-layout.js').exists()
           assert not Path('az-baze-auth/test_service_staff_layout.py').exists()
