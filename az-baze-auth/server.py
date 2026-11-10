@@ -9,7 +9,8 @@ import attention
 import credentials_store
 import clinic_structure_settings
 import daily_upload
-import historical_completed_backfill
+import completed_upload
+import services_upload
 import cash_upload
 import paid_services_upload
 import economics_control
@@ -53,6 +54,8 @@ def _user_permissions_with_upload_section(user):
 
 app_core.user_permissions = _user_permissions_with_upload_section
 daily_upload.user_permissions = _user_permissions_with_upload_section
+completed_upload.user_permissions = _user_permissions_with_upload_section
+services_upload.user_permissions = _user_permissions_with_upload_section
 
 # Persistent provider decisions extend the built-in IDENT provider maps.
 # They are loaded before upload routes so clinical and cash attribution share one registry.
@@ -71,7 +74,8 @@ ident_import.register_ident_import(app)
 finrez.register_finrez(app)
 economics_control.register_economics_control(app)
 daily_upload.register_daily_upload(app)
-historical_completed_backfill.register(app)
+completed_upload.register_completed_upload(app)
+services_upload.register_services_upload(app)
 cash_upload.register_cash_upload(app)
 paid_services_upload.register_paid_services_upload(app)
 credentials_store.register_credentials(app)
@@ -241,13 +245,6 @@ def tune_report_response(response):
         html = response.get_data(as_text=True)
         html = _inject_before_head_close(html, TRANSITIONS_COMPACT_CSS)
         response.set_data(html)
-
-    if request.path == "/uploads/" and response.mimetype == "text/html":
-        response.set_data(
-            historical_completed_backfill.inject_uploads_page(
-                response.get_data(as_text=True)
-            )
-        )
 
     if request.path == "/" and response.mimetype == "text/html":
         html = response.get_data(as_text=True)
