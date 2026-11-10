@@ -4,13 +4,13 @@ import json
 import zipfile
 from collections import Counter, defaultdict
 
-from flask import abort, g, jsonify, render_template, request
+from flask import abort, g, jsonify, request
 
 import advertising_mis_bridge
 import daily_upload
 import daily_upload_core as core
 import upload_reconcile
-from app import audit, csrf_token, db, iso_now, permission_required, require_csrf, user_permissions
+from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
 
 
 HISTORY_BUNDLE_SCHEMA = "az_completed_history_source_bundle_v1"
@@ -538,12 +538,6 @@ def _commit(decision=None):
 
 
 def register(app):
-    @app.get("/uploads/completed-history/")
-    @permission_required("section5")
-    def historical_completed_page():
-        _require_history_access()
-        return render_template("completed_history_upload.html", csrf=csrf_token())
-
     @app.post("/api/uploads/completed-history/preview")
     @permission_required("section5")
     def historical_completed_preview():
