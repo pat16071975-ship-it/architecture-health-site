@@ -168,13 +168,7 @@ class HistoricalCompletedBackfillTests(unittest.TestCase):
         self.assertIn("name=\"services\"", uploads)
         self.assertNotIn("data-az-completed-history-form", uploads)
 
-        injected = history.inject_uploads_page(
-            uploads.replace(
-                '<form method="post" action="/uploads/cash"',
-                '<form method="post" action="/uploads/cash"',
-                1,
-            )
-        )
+        injected = history.inject_uploads_page(uploads, authorized=True)
         self.assertIn("data-az-completed-history-form", injected)
         self.assertIn("name=\"bundle\"", injected)
         self.assertIn("/api/uploads/completed-history/preview", injected)
