@@ -265,6 +265,10 @@ class ManagementStaffLayoutTests(unittest.TestCase):
         self.assertIn("makeAction(info.kind, info.name, 'down', '↓'", layout)
         self.assertIn("saveMutation(action.dataset.kind", layout)
         self.assertIn("visible.push(name)", layout)
+        self.assertIn("const previous = normalize(currentLayout());", layout)
+        self.assertIn("setLayout(next);\n    refreshViews();", layout)
+        self.assertIn("setLayout(previous);\n      refreshViews();", layout)
+        self.assertIn("body:JSON.stringify({layout:next})", layout)
 
     def test_wrong_pr196_service_analytics_artifacts_are_gone(self):
         self.assertFalse((REPORTS / "services-staff-layout.js").exists())
