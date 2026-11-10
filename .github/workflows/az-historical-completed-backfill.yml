@@ -42,7 +42,9 @@ jobs:
           grep -F 'data-az-upload-form' az-baze-auth/templates/uploads.html
           grep -F '/api/uploads/clinical/preview' az-baze-auth/templates/uploads.html
           grep -F '/api/uploads/clinical/commit' az-baze-auth/templates/uploads.html
-          grep -F 'data-az-completed-history-form' az-baze-auth/templates/uploads.html
-          grep -F '/api/uploads/completed-history/preview' az-baze-auth/templates/uploads.html
-          grep -F '/api/uploads/completed-history/commit' az-baze-auth/templates/uploads.html
+          git diff --exit-code 1bc6f72c604d538ce404ce80cd6b3484ebee48fd -- az-baze-auth/templates/uploads.html
+          grep -F 'historical_completed_backfill.inject_uploads_page' az-baze-auth/server.py
+          grep -F 'data-az-completed-history-form' az-baze-auth/historical_completed_backfill.py
+          grep -F '/api/uploads/completed-history/preview' az-baze-auth/historical_completed_backfill.py
+          grep -F '/api/uploads/completed-history/commit' az-baze-auth/historical_completed_backfill.py
           echo 'HISTORICAL_COMPLETED_SCOPE=PASS'
