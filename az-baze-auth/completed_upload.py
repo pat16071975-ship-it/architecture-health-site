@@ -6,10 +6,10 @@ import advertising_mis_bridge
 import cash_payments
 import daily_upload
 import daily_upload_core as core
-import paid_services
 import upload_reconcile
-from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
+from app import audit, db, iso_now, permission_required, require_csrf
 
+user_permissions = core.user_permissions
 
 
 def _file_from_request():
@@ -70,7 +70,7 @@ def _existing_completed_dates(conn, month):
     result = {}
     rows = conn.execute(
         """
-        SELECT data_date,completed_hash,normalized_json
+        SELECT data_date,completed_sha256 AS completed_hash,normalized_json
         FROM daily_uploads
         WHERE substr(data_date,1,7)=?
         ORDER BY data_date
@@ -154,8 +154,8 @@ def _merge_normalized(existing_normalized, day=None, removed=False):
     value.setdefault("items", [])
     value.setdefault("retail_items", [])
     value.setdefault("lab_invoices", [])
-    value["doctors"] = {}
     if removed:
+        value["doctors"] = {}
         data_date = str(value.get("data_date") or "")
         value["overall"] = {data_date: {}} if data_date else {}
         value["visits"] = []
@@ -164,6 +164,12 @@ def _merge_normalized(existing_normalized, day=None, removed=False):
     value["data_date"] = day["data_date"]
     value["overall"] = day["overall"]
     value["visits"] = day["visits"]
+    value["doctors"] = core._plain(
+        daily_upload._doctor_attribution(
+            value.get("visits") or [],
+            value.get("items") or [],
+        )
+    )
     return value
 
 
@@ -176,11 +182,9 @@ def _preview():
     prepared = _parse(raw, filename)
     conn = db()
     cash_payments.init_schema(conn)
-    paid_services.init_schema(conn)
     upload_reconcile.init_schema(conn)
     comparison = _comparison(conn, prepared)
     conflicts = sorted(set(comparison["conflict"]) | set(comparison["removed"]))
-    paid_snapshot = paid_services.latest_snapshot_for_month(conn, prepared["month"])
     return {
         "status": "preview",
         "period": {"from": prepared["dates"][0], "to": prepared["dates"][-1]},
@@ -189,7 +193,6 @@ def _preview():
         "requires_choice": bool(conflicts),
         "requires_provider_mapping": False,
         "can_replace": "upload_replace" in perms,
-        "paid_source_ready": bool(paid_snapshot),
     }
 
 
@@ -319,7 +322,6 @@ def _commit(decision=None):
     prepared = _parse(raw, filename)
     conn = db()
     cash_payments.init_schema(conn)
-    paid_services.init_schema(conn)
     upload_reconcile.init_schema(conn)
     comparison = _comparison(conn, prepared)
     has_conflict = bool(comparison["conflict"] or comparison["removed"])
@@ -361,13 +363,6 @@ def _commit(decision=None):
 
         source = f"AZ-BAZE completed visits: {prepared['filename']}"
         management = core._rebuild_management(prepared["month"], source)
-        # Discounts/gross revenue are no longer sourced from the completed-visits
-        # path. Finrez receives them from the economists' workbook. If that source
-        # is absent, the UI must show no data rather than a synthetic zero.
-        for record in management.values():
-            record["discountDataComplete"] = False
-            record["grossRevenue"] = 0
-            record["discountAmount"] = 0
         cash_payments.overlay_record_map(conn, prepared["month"], management)
 
         for data_date, record in management.items():
@@ -394,24 +389,6 @@ def _commit(decision=None):
             g.user["id"],
             now,
         )
-        paid_services.overlay_stored_month(
-            conn,
-            prepared["month"],
-            g.user["id"],
-            now,
-            core.ident_import.DENTISTS,
-            core.ident_import.STRUCTURE_DOCTORS,
-            core.ident_import.LAB_DOCTORS,
-            ignored=(
-                upload_reconcile.provider_names_by_direction(conn, "ignore")
-                | (
-                    set(core.ident_import.KNOWN_STAFF)
-                    - set(core.ident_import.DENTISTS)
-                    - set(core.ident_import.STRUCTURE_DOCTORS)
-                    - set(core.ident_import.LAB_DOCTORS)
-                )
-            ),
-        )
         conn.commit()
     except Exception:
         conn.rollback()
@@ -425,7 +402,7 @@ def _commit(decision=None):
             f"month={prepared['month']}; decision={decision or 'append'}; "
             f"new={len(comparison['new'])}; identical={len(comparison['identical'])}; "
             f"conflict={len(comparison['conflict'])}; removed={len(comparison['removed'])}; "
-            f"backup={backup or ''}; paid_source_separate=1"
+            f"backup={backup or ''}; split_completed=1"
         ),
     )
 
@@ -433,7 +410,8 @@ def _commit(decision=None):
         "status": "replaced" if decision == "use_new" and has_conflict else "imported",
         "message": (
             "«Завершённые приёмы» загружены отдельно. "
-            "Денежный Факт, ООО/ИП и новый MIS-источник «Оплачено» сохранены независимо."
+            "Если «Выручка по направлениям» за эти даты уже загружена, "
+            "привязка врачей пересчитана автоматически. Денежные данные сохранены независимо."
         ),
         "backup": backup,
     }
