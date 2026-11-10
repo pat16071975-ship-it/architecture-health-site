@@ -142,12 +142,12 @@
     });
 
     if (state.direction === LAB_DIRECTION) renderLaboratory(d, months);
-    else renderDoctors(data, d, months);
+    else renderDoctors(w, data, d, months);
   }
 
-  function renderDoctors(data, d, months) {
-    d.getElementById('azPayrollNote').textContent = 'Вносишь выплаты сразу по всем врачам выбранного месяца. «Иные выплаты» — отпускные, больничные, премии и прочие доплаты. Переключай месяцы — введённые значения не потеряются до нажатия «Сохранить всё».';
-    const doctors = Object.keys(data.directions?.[state.direction]?.doctors || {});
+  function renderDoctors(w, data, d, months) {
+    d.getElementById('azPayrollNote').textContent = 'Вносишь выплаты сразу по всем видимым врачам выбранного месяца. Скрытые строки не удаляются и их сохранённые выплаты остаются в данных. «Иные выплаты» — отпускные, больничные, премии и прочие доплаты.';
+    const doctors = staffNames(w, state.direction, data.directions?.[state.direction]);
     const rows = doctors.map(name => {
       const rec = ensureDraftRecord(state.direction, name, months.length);
       const base = rec.salary[state.month];
@@ -290,6 +290,17 @@
     draft[LAB_DIRECTION] ||= {};
     draft[LAB_DIRECTION][LAB_TOTAL_KEY] ||= { salary: Array(n).fill(null), extra: Array(n).fill(0) };
     return draft[LAB_DIRECTION][LAB_TOTAL_KEY];
+  }
+
+  function staffNames(w, direction, dir) {
+    try {
+      const api = w.AZServiceStaffLayout;
+      if (api && typeof api.names === 'function') {
+        const names = api.names(direction, false);
+        if (Array.isArray(names)) return names;
+      }
+    } catch {}
+    return Object.keys(dir?.doctors || {});
   }
 
   function payrollDirections(data) {
