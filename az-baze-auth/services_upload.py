@@ -395,22 +395,12 @@ def _commit(decision=None, provider_decisions=None):
     service_data = core.ident_import._load_blob("az-service-analytics-v1")
     if not service_data:
         service_data = _empty_service_data(prepared["year"])
-    daily_upload._ensure_extra_service_doctors(
-        service_data, prepared["year"], prepared["month"]
-    )
     month_index = _ensure_months_through(
         service_data, prepared["year"], prepared["month"]
     )
-    daily_upload._reset_service_month(service_data, month_index)
-
-    for data_date in prepared["dates"]:
-        core._apply_service_items(
-            service_data,
-            prepared["days"][data_date]["normalized"].get("items") or [],
-            prepared["year"],
-            prepared["month"],
-            +1,
-        )
+    daily_upload._ensure_extra_service_doctors(
+        service_data, prepared["year"], prepared["month"]
+    )
 
     old_through = core._service_through(service_data)
     candidates = list(prepared["dates"])
@@ -536,6 +526,32 @@ def _commit(decision=None, provider_decisions=None):
                     now,
                     data_date,
                 ),
+            )
+
+        # Rebuild the service-analytics month from the final merged DB state.
+        # This makes append / keep_old / use_new all converge on the same truth
+        # and prevents a partial source decision from silently erasing old data.
+        daily_upload._reset_service_month(service_data, month_index)
+        month_rows = conn.execute(
+            """
+            SELECT normalized_json
+            FROM daily_uploads
+            WHERE substr(data_date,1,7)=?
+            ORDER BY data_date
+            """,
+            (prepared["month_key"],),
+        ).fetchall()
+        for month_row in month_rows:
+            try:
+                month_normalized = json.loads(month_row["normalized_json"])
+            except (TypeError, ValueError):
+                continue
+            core._apply_service_items(
+                service_data,
+                month_normalized.get("items") or [],
+                prepared["year"],
+                prepared["month"],
+                +1,
             )
 
         management = core._rebuild_management(
