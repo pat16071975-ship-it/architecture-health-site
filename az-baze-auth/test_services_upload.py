@@ -1,5 +1,6 @@
 import os
 import unittest
+from unittest.mock import patch
 
 os.environ.setdefault("AZBAZE_SECRET_KEY", "split-services-test")
 os.environ.setdefault("AZBAZE_DB", "/tmp/az-split-services-test.db")
@@ -9,6 +10,52 @@ import services_upload
 
 
 class ServicesUploadTests(unittest.TestCase):
+    def test_parse_services_does_not_require_completed_dates(self):
+        parsed = (
+            [
+                {
+                    "staff": "Чирков М. С.",
+                    "patient": "Пациент А",
+                    "date": "2026-01-09",
+                    "group": "Терапия",
+                    "service": "Лечение",
+                    "qty": 1,
+                    "amount": 1000,
+                    "invoice": "1",
+                },
+                {
+                    "staff": "Администраторы -.",
+                    "patient": "Пациент Б",
+                    "date": "2026-01-20",
+                    "group": "Сопутствующие товары",
+                    "service": "Паста",
+                    "qty": 1,
+                    "amount": 1500,
+                    "invoice": "2",
+                },
+            ],
+            [],
+            (2026, 1),
+        )
+        with patch.object(
+            services_upload.daily_upload,
+            "_parse_fixed_raw",
+            return_value=(parsed, "Выручка по направлениям"),
+        ):
+            prepared = services_upload._parse(b"xlsx", "revenue.xlsx")
+
+        self.assertEqual(
+            prepared["dates"],
+            ["2026-01-09", "2026-01-20"],
+        )
+        first = prepared["days"]["2026-01-09"]["normalized"]
+        second = prepared["days"]["2026-01-20"]["normalized"]
+        self.assertEqual(len(first["items"]), 1)
+        self.assertEqual(first["visits"], [])
+        self.assertEqual(first["overall"], {"2026-01-09": {}})
+        self.assertEqual(len(second["retail_items"]), 1)
+        self.assertEqual(second["overall"], {"2026-01-20": {}})
+
     def test_compare_services_treats_month_as_authoritative(self):
         existing = {
             "2026-01-05": {"has_services": True, "services_hash": "same"},
