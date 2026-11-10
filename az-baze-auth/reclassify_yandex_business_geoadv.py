@@ -15,13 +15,14 @@ from app import DB_PATH
 
 CONFIRM_TOKEN = "RECLASSIFY-YANDEX-BUSINESS-GEOADV"
 TARGET_SOURCE = "yandex_business"
+_CANDIDATE_METRIKA_SOURCE = ar._metrika_source
 
 
 def _legacy_metrika_source(row):
     """Exact pre-fix paid-source semantics for geoadv replay comparison."""
     traffic_id = str(row.get("traffic_source_id") or "").strip()
     if traffic_id != "ad":
-        return ar._metrika_source(row)
+        return _CANDIDATE_METRIKA_SOURCE(row)
 
     traffic_name = str(row.get("traffic_source_name") or "").strip()
     detail = str(row.get("source_detail") or "").strip()
