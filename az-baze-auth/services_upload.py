@@ -246,6 +246,24 @@ def _merged_normalized(existing, incoming):
     return value
 
 
+def _merged_period_with_completed(conn, prepared):
+    period = []
+    for data_date in prepared["dates"]:
+        incoming = prepared["days"][data_date]["normalized"]
+        row = conn.execute(
+            "SELECT normalized_json FROM daily_uploads WHERE data_date=?",
+            (data_date,),
+        ).fetchone()
+        existing = _read_normalized(row)
+        period.append(
+            {
+                "data_date": data_date,
+                "normalized": _merged_normalized(existing, incoming),
+            }
+        )
+    return period
+
+
 def _clear_services(existing):
     value = dict(existing or {})
     data_date = str(value.get("data_date") or "")
@@ -275,6 +293,11 @@ def _preview():
         _existing_services(conn, prepared["month_key"]),
         prepared,
     )
+    merged_period = _merged_period_with_completed(conn, prepared)
+    visit_rows = daily_upload._visit_direction_rows(merged_period, conn)
+    unresolved_visits = [
+        row for row in visit_rows if not row.get("saved_direction")
+    ]
     conflicts = sorted(
         set(comparison["conflict"]) | set(comparison["removed"])
     )
@@ -289,6 +312,8 @@ def _preview():
         "unknown_providers": unknown,
         "requires_choice": bool(conflicts),
         "requires_provider_mapping": bool(unknown),
+        "requires_review": bool(unresolved_visits),
+        "unassigned_visits": unresolved_visits,
         "can_replace": "upload_replace" in perms,
         "analytics_will_initialize": (
             core.ident_import._load_blob("az-service-analytics-v1") is None
@@ -314,7 +339,11 @@ def _refresh_advertising_mis():
         return {"status": "error", "error": type(exc).__name__}
 
 
-def _commit(decision=None, provider_decisions=None):
+def _commit(
+    decision=None,
+    provider_decisions=None,
+    visit_direction_decisions=None,
+):
     perms = user_permissions(g.user)
     if "upload_services" not in perms:
         abort(403)
@@ -373,6 +402,30 @@ def _commit(decision=None, provider_decisions=None):
     if decision == "use_new" and "upload_replace" not in perms:
         abort(403)
 
+    merged_period = _merged_period_with_completed(conn, prepared)
+    visit_rows = daily_upload._visit_direction_rows(merged_period, conn)
+    visit_direction_decisions = visit_direction_decisions or {}
+    all_visit_ids = {
+        str(row.get("visit_id") or "") for row in visit_rows
+    }
+    unknown_visit_ids = sorted(
+        set(visit_direction_decisions) - all_visit_ids
+    )
+    if unknown_visit_ids:
+        raise ValueError("В распределении приёмов есть неизвестная строка.")
+
+    unresolved_visits, resolved_visit_directions = (
+        daily_upload._apply_visit_direction_rows(
+            merged_period,
+            visit_rows,
+            visit_direction_decisions,
+        )
+    )
+    merged_by_date = {
+        str(row["data_date"]): row["normalized"]
+        for row in merged_period
+    }
+
     if has_conflict and decision == "keep_old":
         apply_dates = set(comparison["new"])
         removed_dates = set()
@@ -421,8 +474,30 @@ def _commit(decision=None, provider_decisions=None):
 
     conn.execute("BEGIN")
     try:
+        new_visit_rows = [
+            row
+            for row in visit_rows
+            if str(row.get("visit_id") or "")
+            in visit_direction_decisions
+        ]
+        if new_visit_rows:
+            if "upload_replace" not in perms:
+                abort(403)
+            upload_reconcile.save_visit_direction_overrides(
+                conn,
+                {
+                    str(row.get("visit_id") or ""):
+                    resolved_visit_directions[
+                        str(row.get("visit_id") or "")
+                    ]
+                    for row in new_visit_rows
+                },
+                new_visit_rows,
+                g.user["id"],
+            )
+
         for data_date in sorted(apply_dates):
-            incoming = prepared["days"][data_date]["normalized"]
+            incoming = merged_by_date[data_date]
             existing = conn.execute(
                 "SELECT * FROM daily_uploads WHERE data_date=?",
                 (data_date,),
@@ -431,9 +506,7 @@ def _commit(decision=None, provider_decisions=None):
                 upload_reconcile.archive_daily_row(
                     conn, existing, g.user["id"], "services_source_update"
                 )
-                normalized = _merged_normalized(
-                    _read_normalized(existing), incoming
-                )
+                normalized = core._plain(incoming)
                 conn.execute(
                     """
                     UPDATE daily_uploads
@@ -456,7 +529,7 @@ def _commit(decision=None, provider_decisions=None):
                     ),
                 )
             else:
-                normalized = _merged_normalized({}, incoming)
+                normalized = core._plain(incoming)
                 conn.execute(
                     """
                     INSERT INTO daily_uploads(
@@ -636,6 +709,7 @@ def register_services_upload(app):
             result = _commit(
                 request.form.get("decision") or None,
                 _provider_decisions_from_form(),
+                daily_upload._visit_direction_decisions_from_form(),
             )
             result["advertising_sync"] = _refresh_advertising_mis()
             return jsonify(result)
