@@ -79,13 +79,9 @@ jobs:
               ).strip()
               assert actual==expected,(path,actual,expected)
 
-          forbidden=[
-              'services-staff-layout.js',
-              'SERVICE_STAFF_LAYOUT_KEY',
-              '/api/reports/services-staff-layout',
-          ]
-          for value in forbidden:
-              assert value not in text, value
+          assert 'services-staff-layout.js' not in text
+          assert '/api/reports/services-staff-layout' not in text
+          assert "! grep -Fq 'SERVICE_STAFF_LAYOUT_KEY' \"$TMP/report_storage.py\"" in text
 
           print('AZ_MANAGEMENT_STAFF_LAYOUT_DELIVERY_CONTRACT=PASS')
           PY
