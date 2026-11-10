@@ -539,7 +539,7 @@ def _commit(decision=None):
 
 
 
-def inject_uploads_page(page_html, authorized=None):
+def inject_uploads_page(page_html, authorized=None, csrf_value=None):
     if authorized is None:
         try:
             _require_history_access()
@@ -552,7 +552,7 @@ def inject_uploads_page(page_html, authorized=None):
     if marker not in page_html or 'data-az-completed-history-form' in page_html:
         return page_html
 
-    csrf = html.escape(csrf_token(), quote=True)
+    csrf = html.escape(csrf_value if csrf_value is not None else csrf_token(), quote=True)
     block = """
 <style id="az-completed-history-inline-style">
 .az-history-box{margin-top:12px;border:1px solid #ded5c8;border-left:4px solid #44634f;border-radius:11px;background:#fff;padding:14px}
