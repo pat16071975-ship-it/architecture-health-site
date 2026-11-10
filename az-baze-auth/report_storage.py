@@ -814,6 +814,13 @@ def _load_management_staff_layout(conn):
     return normalized, row["updated_at"]
 
 
+def _current_user_is_admin():
+    try:
+        return bool(g.user["is_admin"])
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
 def _script_json(value):
     return (
         json.dumps(value, ensure_ascii=False, separators=(",", ":"))
@@ -1110,7 +1117,7 @@ def register_report_storage(app):
             paidPatientsMonthly=_management_paid_patients_monthly(db(), payer_intervals),
             paidPatientsByDate=payer_by_date,
             managementStaffLayout=_load_management_staff_layout(db())[0],
-            canEditManagementStaffLayout=bool(g.user["is_admin"]),
+            canEditManagementStaffLayout=_current_user_is_admin(),
             csrf=csrf_token(),
         )
 
