@@ -1,4 +1,5 @@
 import hashlib
+import html
 import io
 import json
 import zipfile
@@ -10,7 +11,7 @@ import advertising_mis_bridge
 import daily_upload
 import daily_upload_core as core
 import upload_reconcile
-from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
+from app import audit, csrf_token, db, iso_now, permission_required, require_csrf, user_permissions
 
 
 HISTORY_BUNDLE_SCHEMA = "az_completed_history_source_bundle_v1"
@@ -536,6 +537,93 @@ def _commit(decision=None):
         "advertising_sync": advertising_sync,
     }
 
+
+
+def inject_uploads_page(page_html):
+    try:
+        _require_history_access()
+    except Exception:
+        return page_html
+
+    marker = '<form method="post" action="/uploads/cash"'
+    if marker not in page_html or 'data-az-completed-history-form' in page_html:
+        return page_html
+
+    csrf = html.escape(csrf_token(), quote=True)
+    block = f"""
+<style id="az-completed-history-inline-style">
+.az-history-box{{margin-top:12px;border:1px solid #ded5c8;border-left:4px solid #44634f;border-radius:11px;background:#fff;padding:14px}}
+.az-history-box h3{{margin:0 0 5px;font-size:14px}}
+.az-history-box p{{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}}
+.az-history-box input[type=file]{{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}}
+.az-history-box .result{{margin-top:12px}}
+</style>
+<form method="post" enctype="multipart/form-data" class="az-history-box" data-az-completed-history-form>
+  <input type="hidden" name="csrf" value="{csrf}">
+  <h3>История завершённых приёмов</h3>
+  <p>Восстановление истории после переезда. Здесь нужен только один ZIP; файл «Выручка по направлениям» не требуется.</p>
+  <input type="file" name="bundle" accept=".zip,application/zip" required>
+  <button class="btn primary" type="submit" style="margin-top:12px">Восстановить историю</button>
+  <div class="hint">Сначала пакет будет проверен. Перед записью автоматически создаётся резервная копия базы.</div>
+  <div id="completedHistoryClientResult" class="result hidden"></div>
+</form>
+<script id="az-completed-history-inline-js">
+(()=>{
+  const form=document.querySelector('[data-az-completed-history-form]');
+  if(!form)return;
+  const result=document.getElementById('completedHistoryClientResult');
+  const button=form.querySelector('button[type="submit"]');
+  const show=(text,ok=true)=>{
+    if(!result)return;
+    result.textContent=text||'';
+    result.className='result '+(ok?'ok':'error');
+  };
+  const send=async(url,extra={})=>{
+    const data=new FormData(form);
+    Object.entries(extra).forEach(([key,value])=>data.set(key,value));
+    const response=await fetch(url,{method:'POST',body:data,credentials:'same-origin'});
+    let payload={};
+    try{payload=await response.json()}catch{}
+    if(!response.ok)throw new Error(payload.message||'Сервер не принял исторический пакет.');
+    return payload;
+  };
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(button)button.disabled=true;
+    show('Проверяю исторические завершённые приёмы…',true);
+    try{
+      const preview=await send('/api/uploads/completed-history/preview');
+      const counts=preview.counts||{};
+      const types=preview.type_counts||{};
+      const summary=
+        'Проверено: '+(preview.visits||0)+' приёмов, '+
+        (preview.days||0)+' дней, период '+preview.period.from+' — '+preview.period.to+
+        '. Первичные '+(types['Первичные']||0)+
+        ', повторные '+(types['Повторные']||0)+
+        ', отконсультированные '+(types['Отконсультированные']||0)+
+        '. Новые дни '+(counts.new||0)+
+        ', совпали '+(counts.identical||0)+
+        ', отличаются '+(counts.conflict||0)+'.';
+      show(summary,true);
+      if(!window.confirm(summary+'\n\nЗаписать историю в AZ BAZE? Перед записью будет создан backup.')){
+        show('Проверка завершена. Запись не выполнялась.',true);
+        return;
+      }
+      show('Создаю backup и восстанавливаю историю…',true);
+      const decision=(counts.conflict||0)?'use_new':'append';
+      const out=await send('/api/uploads/completed-history/commit',{decision});
+      show((out.message||'История восстановлена.')+(out.backup?' Backup: '+out.backup:''),true);
+      setTimeout(()=>location.reload(),1200);
+    }catch(error){
+      show(error.message||'Ошибка восстановления истории.',false);
+    }finally{
+      if(button)button.disabled=false;
+    }
+  });
+})();
+</script>
+"""
+    return page_html.replace(marker, block + "\n" + marker, 1)
 
 def register(app):
     @app.post("/api/uploads/completed-history/preview")
