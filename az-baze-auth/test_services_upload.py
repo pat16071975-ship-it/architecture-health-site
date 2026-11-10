@@ -56,6 +56,59 @@ class ServicesUploadTests(unittest.TestCase):
         self.assertEqual(len(second["retail_items"]), 1)
         self.assertEqual(second["overall"], {"2026-01-20": {}})
 
+
+    def test_current_dental_providers_are_known_without_manual_direction(self):
+        self.assertIn("Морозова А. П.", services_upload.core.ident_import.DENTISTS)
+        self.assertIn("Игнатенко Д. С.", services_upload.core.ident_import.DENTISTS)
+
+    def test_two_repeat_visits_across_two_departments_auto_split_one_each(self):
+        visits = [
+            {"date": "2026-01-06", "patient": "Пациент А", "kind": "Повторные"},
+            {"date": "2026-01-06", "patient": "Пациент А", "kind": "Повторные"},
+        ]
+        items = [
+            {
+                "staff": "Зубачев Р. Н.",
+                "patient": "Пациент А",
+                "date": "2026-01-06",
+                "service": "Повторный осмотр-приём",
+                "amount": 1000,
+            },
+            {
+                "staff": "Старостенко В. А.",
+                "patient": "Пациент А",
+                "date": "2026-01-06",
+                "service": "Остеопатическое лечение",
+                "amount": 7000,
+            },
+        ]
+        doctors = services_upload.daily_upload._doctor_attribution(visits, items)
+        self.assertEqual(doctors["2026-01-06"]["Повторные"]["Зубачев Р. Н."], 1)
+        self.assertEqual(doctors["2026-01-06"]["Повторные"]["Старостенко В. А."], 1)
+
+    def test_one_visit_across_two_departments_stays_unassigned_without_guess(self):
+        visits = [
+            {"date": "2026-01-06", "patient": "Пациент А", "kind": "Повторные"},
+        ]
+        items = [
+            {
+                "staff": "Зубачев Р. Н.",
+                "patient": "Пациент А",
+                "date": "2026-01-06",
+                "service": "Осмотр",
+                "amount": 1000,
+            },
+            {
+                "staff": "Старостенко В. А.",
+                "patient": "Пациент А",
+                "date": "2026-01-06",
+                "service": "Лечение",
+                "amount": 7000,
+            },
+        ]
+        doctors = services_upload.daily_upload._doctor_attribution(visits, items)
+        self.assertEqual(dict(doctors), {})
+
     def test_compare_services_treats_month_as_authoritative(self):
         existing = {
             "2026-01-05": {"has_services": True, "services_hash": "same"},
