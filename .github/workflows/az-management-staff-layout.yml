@@ -1,9 +1,6 @@
 name: AZ management global staff layout
 
 on:
-  push:
-    branches:
-      - 'fix/az-management-staff-layout-optimistic-ui-20261110'
   pull_request:
     paths:
       - 'az-baze-auth/report_storage.py'
