@@ -265,8 +265,14 @@
 
   async function saveMutation(kind, name, action) {
     if (saving || !canEdit()) return;
+    const previous = normalize(currentLayout());
     const next = mutateLayout(kind, name, action);
     if (!next) return;
+
+    // Apply the visual change immediately. Persistence is one short server PUT.
+    // If persistence fails, restore the previous global layout.
+    setLayout(next);
+    refreshViews();
 
     saving = true;
     document.body.classList.add('az-management-staff-saving');
@@ -284,11 +290,16 @@
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.message || ('HTTP ' + response.status));
 
-      setLayout(normalize(payload.layout));
-      refreshViews();
+      const canonical = normalize(payload.layout);
+      if (JSON.stringify(canonical) !== JSON.stringify(next)) {
+        setLayout(canonical);
+        refreshViews();
+      }
     } catch (error) {
       console.error('AZ management staff layout save failed', error);
-      alert('Не удалось сохранить порядок персонала. Изменение не применено.');
+      setLayout(previous);
+      refreshViews();
+      alert('Не удалось сохранить порядок персонала. Изменение отменено.');
     } finally {
       saving = false;
       document.body.classList.remove('az-management-staff-saving');
