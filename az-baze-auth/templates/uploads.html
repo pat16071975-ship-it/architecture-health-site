@@ -23,34 +23,31 @@
     {% if latest %}Ежедневные данные загружены по <strong>{{ latest['data_date'] }}</strong>{% if latest['revision']|int > 1 %} · версия {{ latest['revision'] }}{% endif %}.{% else %}Отдельных ежедневных загрузок через этот раздел пока нет. Дата выше определяется по уже загруженной сводной базе.{% endif %}
   </div>
 
-  <form method="post" enctype="multipart/form-data" data-az-upload-form>
-    <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div class="upload-grid">
-      <div class="upload-box">
-        <h3>1. Завершённые приёмы</h3>
-        <p>Выгрузка из МИС за нужный период.</p>
-        {% if 'upload_completed' in perms %}
-          <input type="file" name="completed" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
-        {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
-      </div>
-      <div class="upload-box">
-        <h3>2. Выручка по направлениям</h3>
-        <p>Выгрузка из МИС за тот же календарный месяц. Отдельные даты могут отсутствовать в одном из двух файлов.</p>
-        {% if 'upload_services' in perms %}
-          <input type="file" name="services" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
-        {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
-      </div>
-    </div>
-    {% if can_daily %}
-      <button class="btn primary" type="submit" style="margin-top:14px">Загрузить данные</button>
-    {% else %}
-      <div class="hint">Для загрузки комплекта нужны права на оба обязательных файла.</div>
-    {% endif %}
-    <div class="hint">Защита от задвоения действует по каждой дате отдельно. День, уже входящий в ранее загруженную сводную базу, будет пропущен без повторного начисления. Полностью совпадающий ежедневный день тоже будет пропущен. Если за уже сохранённую ежедневную дату пришли другие данные, замена разрешается только отдельным правом.</div>
-    {% if result %}<div class="result ok">{{ result['message'] }}</div>{% endif %}
-    {% if error %}<div class="result error">{{ error }}</div>{% endif %}
-    <div id="clinicalClientResult" class="result hidden"></div>
-  </form>
+  <div class="upload-grid">
+    <form method="post" enctype="multipart/form-data" class="upload-box" data-az-upload-form data-az-completed-upload-form>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <h3>1. Завершённые приёмы</h3>
+      <p>Выгрузка из МИС за один календарный месяц или его часть. Загружается независимо от «Выручки по направлениям».</p>
+      {% if 'upload_completed' in perms %}
+        <input type="file" name="completed" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
+        <button class="btn primary" type="submit" style="margin-top:12px">Проверить и загрузить завершённые приёмы</button>
+      {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
+      <div class="hint">Повторная загрузка идентичного периода не задваивает данные. При отличиях сайт сначала покажет проверку.</div>
+      <div id="completedClientResult" class="result hidden"></div>
+    </form>
+
+    <form method="post" enctype="multipart/form-data" class="upload-box" data-az-upload-form data-az-services-upload-form>
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <h3>2. Выручка по направлениям</h3>
+      <p>Выгрузка из МИС за один календарный месяц. Загружается независимо от «Завершённых приёмов».</p>
+      {% if 'upload_services' in perms %}
+        <input type="file" name="services" accept=".xlsx,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" required>
+        <button class="btn primary" type="submit" style="margin-top:12px">Проверить и загрузить выручку по направлениям</button>
+      {% else %}<div class="lock">Нет права на загрузку этого файла.</div>{% endif %}
+      <div class="hint">Если база «Аналитики услуг» ещё пуста после переезда, она будет создана автоматически при первой загрузке.</div>
+      <div id="servicesClientResult" class="result hidden"></div>
+    </form>
+  </div>
 
   {% if pending_providers %}
   <div class="provider-pending">
@@ -301,7 +298,8 @@
 
 <script>
 (()=>{
-  const clinicalForm=document.querySelector('[data-az-upload-form]');
+  const completedForm=document.querySelector('[data-az-completed-upload-form]');
+  const servicesForm=document.querySelector('[data-az-services-upload-form]');
   const cashForm=document.querySelector('[data-az-cash-upload-form]');
   const paidForm=document.querySelector('[data-az-paid-upload-form]');
   const metrikaForm=document.querySelector('[data-az-metrika-form]');
@@ -323,7 +321,7 @@
   const money=value=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Number(value)||0)+' ₽';
 
   function resultBox(type,text,ok){
-    const ids={clinical:'clinicalClientResult',cash:'cashClientResult',paid:'paidClientResult',metrika:'metrikaClientResult'};
+    const ids={completed:'completedClientResult',services:'servicesClientResult',cash:'cashClientResult',paid:'paidClientResult',metrika:'metrikaClientResult'};
     const el=document.getElementById(ids[type]||'');
     if(!el)return;
     el.textContent=text||'';
@@ -346,7 +344,7 @@
 
   function openPreview(type,form,payload){
     context={type,form,payload};
-    title.textContent=type==='clinical'?'Проверка клинического периода':type==='cash'?'Проверка файла «Счета и оплаты»':'Проверка нового отчёта МИС';
+    title.textContent=type==='completed'?'Проверка «Завершённых приёмов»':type==='services'?'Проверка «Выручки по направлениям»':type==='cash'?'Проверка файла «Счета и оплаты»':'Проверка нового отчёта МИС';
     const c=payload.counts||{};
     if(type==='paid'){
       stats.innerHTML=
@@ -398,7 +396,7 @@
     }else{
       message.innerHTML='Период <strong>'+esc(payload.period.from)+' — '+esc(payload.period.to)+'</strong>.'+
         (payload.requires_choice?'<br>В существующих данных есть отличия. Один выбранный вариант будет применён ко всему пересекающемуся периоду.':'<br>Конфликтов с существующими данными нет.');
-      if(type==='clinical'){
+      if(type==='services'){
         const gaps=payload.source_gaps||{}, completedOnly=gaps.completed_only||[], revenueOnly=gaps.revenue_only||[];
         if(completedOnly.length||revenueOnly.length){
           const parts=[];
@@ -414,7 +412,7 @@
     }
 
     const unknown=payload.unknown_providers||[];
-    const visits=type==='clinical'?(payload.unassigned_visits||[]):[];
+    const visits=type==='services'?(payload.unassigned_visits||[]):[];
     const visitTable=visits.length
       ? '<div class="visit-direction-wrap"><table class="visit-direction-table"><thead><tr>'+
         '<th>Дата</th><th>Пациент</th><th>Тип приёма</th><th>Что нашли в источниках</th><th>Куда отнести</th>'+
@@ -458,7 +456,7 @@
     newBtn.classList.toggle('hidden',!payload.requires_choice);
     continueBtn.classList.toggle('hidden',payload.requires_choice);
     const visitsNeedDecision=visits.length>0;
-    keepBtn.disabled=type!=='paid'&&unknown.length>0&&!payload.can_replace;
+    keepBtn.disabled=type==='services'&&unknown.length>0&&!payload.can_replace;
     newBtn.disabled=!payload.can_replace;
     continueBtn.disabled=unknown.length>0&&!payload.can_replace;
     if(unknown.length&&!payload.can_replace){
@@ -494,13 +492,13 @@
       extra.expected_revision=context.payload.revision;
       extra.expected_overlap_revision=context.payload.overlap_revision;
     }
-    const url=context.type==='clinical'?'/api/uploads/clinical/commit':context.type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit';
+    const url=context.type==='completed'?'/api/uploads/completed/commit':context.type==='services'?'/api/uploads/services/commit':context.type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit';
     try{
-      if(context.type==='clinical'||(context.type==='paid'&&choice!=='keep_old')){
+      if(context.type==='services'||(context.type==='paid'&&choice!=='keep_old')){
         const choices=providerDecisions();
         if(Object.keys(choices).length)extra.provider_decisions=JSON.stringify(choices);
       }
-      if(context.type==='clinical'){
+      if(context.type==='services'){
         const visitChoices=visitDirectionDecisions();
         if(Object.keys(visitChoices).length)extra.visit_direction_decisions=JSON.stringify(visitChoices);
       }
@@ -520,16 +518,16 @@
 
   async function preview(type,form){
     resultBox(type,'Проверяю файл перед записью…',true);
-    const url=type==='clinical'?'/api/uploads/clinical/preview':type==='cash'?'/api/uploads/cash/preview':'/api/uploads/paid-services/preview';
+    const url=type==='completed'?'/api/uploads/completed/preview':type==='services'?'/api/uploads/services/preview':type==='cash'?'/api/uploads/cash/preview':'/api/uploads/paid-services/preview';
     try{
       const out=await send(url,form);
-      const needs=out.requires_choice||out.requires_provider_mapping||(type!=='clinical'&&out.requires_review);
+      const needs=out.requires_choice||out.requires_provider_mapping||out.requires_review;
       if(needs){
         resultBox(type,'Обнаружены данные, требующие подтверждения.',true);
         openPreview(type,form,out);
       }else{
         const committed=await send(
-          type==='clinical'?'/api/uploads/clinical/commit':type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit',
+          type==='completed'?'/api/uploads/completed/commit':type==='services'?'/api/uploads/services/commit':type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit',
           form,
           type==='paid'?{
             decision:'append',
@@ -545,7 +543,8 @@
     }
   }
 
-  clinicalForm?.addEventListener('submit',event=>{event.preventDefault();preview('clinical',clinicalForm)});
+  completedForm?.addEventListener('submit',event=>{event.preventDefault();preview('completed',completedForm)});
+  servicesForm?.addEventListener('submit',event=>{event.preventDefault();preview('services',servicesForm)});
   cashForm?.addEventListener('submit',event=>{event.preventDefault();preview('cash',cashForm)});
   paidForm?.addEventListener('submit',event=>{event.preventDefault();preview('paid',paidForm)});
   metrikaAutoBtn?.addEventListener('click',async()=>{

@@ -1,0 +1,81 @@
+name: AZ split completed and services uploads
+
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/completed_upload.py'
+      - 'az-baze-auth/services_upload.py'
+      - 'az-baze-auth/server.py'
+      - 'az-baze-auth/templates/uploads.html'
+      - 'az-baze-auth/test_completed_upload.py'
+      - 'az-baze-auth/test_services_upload.py'
+      - 'az-baze-auth/test_upload_reconcile.py'
+      - 'az-baze-auth/test_pr71_approved_restoration.py'
+      - '.github/workflows/az-split-clinical-uploads.yml'
+  workflow_dispatch:
+
+jobs:
+  split-clinical:
+    runs-on: ubuntu-latest
+    env:
+      AZBAZE_SECRET_KEY: split-clinical-ci-only
+      AZBAZE_DB: /tmp/az-split-clinical-ci.db
+      AZBAZE_SITE_ROOT: /tmp/az-split-clinical-site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r az-baze-auth/requirements.txt
+
+      - name: Python syntax
+        run: |
+          python -m py_compile             az-baze-auth/completed_upload.py             az-baze-auth/services_upload.py             az-baze-auth/daily_upload.py             az-baze-auth/server.py
+
+      - name: Split upload tests
+        working-directory: az-baze-auth
+        run: |
+          python -m unittest -v             test_completed_upload.py             test_services_upload.py             test_upload_reconcile.py             test_pr71_approved_restoration.py
+
+      - name: Upload page JavaScript syntax
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          html=Path('az-baze-auth/templates/uploads.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script>(.*?)</script>',html,re.S)
+          Path('/tmp/az-uploads-inline.js').write_text('\n'.join(scripts),encoding='utf-8')
+          PY
+          node --check /tmp/az-uploads-inline.js
+
+      - name: Owner-approved split source contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          html=Path('az-baze-auth/templates/uploads.html').read_text(encoding='utf-8')
+          server=Path('az-baze-auth/server.py').read_text(encoding='utf-8')
+          completed=Path('az-baze-auth/completed_upload.py').read_text(encoding='utf-8')
+          services=Path('az-baze-auth/services_upload.py').read_text(encoding='utf-8')
+
+          assert 'data-az-completed-upload-form' in html
+          assert 'data-az-services-upload-form' in html
+          assert '/api/uploads/completed/preview' in html
+          assert '/api/uploads/completed/commit' in html
+          assert '/api/uploads/services/preview' in html
+          assert '/api/uploads/services/commit' in html
+          assert '/api/uploads/clinical/preview' not in html
+          assert '/api/uploads/clinical/commit' not in html
+          assert 'completed_upload.register_completed_upload(app)' in server
+          assert 'services_upload.register_services_upload(app)' in server
+          assert 'historical_completed_backfill' not in server
+          assert 'completed_sha256 AS completed_hash' in completed
+          assert '_doctor_attribution' in completed
+          assert 'def _empty_service_data' in services
+          assert 'analytics_will_initialize' in services
+          assert 'split «Выручка по направлениям»' in services
+          assert not Path('az-baze-auth/historical_completed_backfill.py').exists()
+          print('AZ_SPLIT_CLINICAL_UPLOADS=PASS')
+          PY

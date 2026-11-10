@@ -230,7 +230,7 @@ class UploadReconcileTests(unittest.TestCase):
             html,
         )
 
-    def test_upload_ui_preserves_paired_clinical_source_and_separate_new_mis(self):
+    def test_upload_ui_splits_completed_and_services_and_keeps_other_sources(self):
         html = (
             Path(__file__).parent / "templates" / "uploads.html"
         ).read_text(encoding="utf-8")
@@ -241,13 +241,17 @@ class UploadReconcileTests(unittest.TestCase):
         self.assertIn("5. Яндекс Метрика", html)
         self.assertIn("data-az-metrika-form", html)
         self.assertIn('name="metrika_zip"', html)
-        self.assertIn("data-az-upload-form", html)
+        self.assertIn("data-az-completed-upload-form", html)
+        self.assertIn("data-az-services-upload-form", html)
         self.assertIn("data-az-paid-upload-form", html)
         self.assertIn('name="completed"', html)
         self.assertIn('name="services"', html)
-        self.assertNotIn("data-az-completed-upload-form", html)
-        self.assertIn("/api/uploads/clinical/preview", html)
-        self.assertIn("/api/uploads/clinical/commit", html)
+        self.assertIn("/api/uploads/completed/preview", html)
+        self.assertIn("/api/uploads/completed/commit", html)
+        self.assertIn("/api/uploads/services/preview", html)
+        self.assertIn("/api/uploads/services/commit", html)
+        self.assertNotIn("/api/uploads/clinical/preview", html)
+        self.assertNotIn("/api/uploads/clinical/commit", html)
 
     def test_period_union_allows_dates_present_in_only_one_source(self):
         overall = {

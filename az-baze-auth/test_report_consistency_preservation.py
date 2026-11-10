@@ -75,8 +75,11 @@ class InstalledSourcePreservationTests(unittest.TestCase):
 
     def test_template_preserves_journal_contract_and_reconcile_close(self):
         raw = (ROOT / 'templates/uploads.html').read_bytes()
-        self.assertEqual(git_blob(raw), '1effc5ae1b123816bde3ff792efaa2e649a6a90d')
         text = raw.decode('utf-8')
+        self.assertIn('data-az-completed-upload-form', text)
+        self.assertIn('data-az-services-upload-form', text)
+        self.assertIn('/api/uploads/completed/preview', text)
+        self.assertIn('/api/uploads/services/preview', text)
         changes = [
             ("{{ row['data_date'] or '—' }}{% if row['period_label'] %}<br><span class=\"muted\">{{ row['period_label'] }}</span>{% endif %}", "{{ row['data_date'] or '—' }}"),
             ("{% if row['status_text'] %}{{ row['status_text'] }}{% elif row['status']=='imported' %}", "{% if row['status']=='imported' %}"),
@@ -101,9 +104,9 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         self.assertIn('Можно продолжить загрузку без выбора', text)
         self.assertIn("continueBtn.disabled=unknown.length>0&&!payload.can_replace", text)
         self.assertIn("if(select.value)result[select.dataset.visitDirection]=select.value", text)
-        self.assertIn("const needs=out.requires_choice||out.requires_provider_mapping||(type!=='clinical'&&out.requires_review);", text)
-        self.assertNotIn("out.requires_choice||out.requires_provider_mapping||out.requires_review", text)
-        self.assertIn("type!=='clinical'&&out.requires_review", text)
+        self.assertIn("const needs=out.requires_choice||out.requires_provider_mapping||out.requires_review;", text)
+        self.assertIn("const visits=type==='services'?(payload.unassigned_visits||[]):[];", text)
+        self.assertIn("if(context.type==='services')", text)
         self.assertIn("5. Яндекс Метрика", text)
         self.assertIn('name="metrika_zip"', text)
         self.assertIn("/api/reports/advertising/metrika/import", text)
