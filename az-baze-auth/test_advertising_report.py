@@ -4146,6 +4146,37 @@ class AdvertisingReportTests(unittest.TestCase):
             }
             self.assertNotEqual(m._metrika_source(row)[0], "yandex_business")
 
+    def test_geoadv_legacy_classifier_does_not_recurse_for_non_paid_rows(self):
+        module_name = "reclassify_yandex_business_geoadv_test"
+        old_module = sys.modules.get("advertising_report")
+        sys.modules["advertising_report"] = m
+        try:
+            spec = importlib.util.spec_from_file_location(
+                module_name,
+                Path(__file__).with_name("reclassify_yandex_business_geoadv.py"),
+            )
+            helper = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(helper)
+        finally:
+            if old_module is None:
+                sys.modules.pop("advertising_report", None)
+            else:
+                sys.modules["advertising_report"] = old_module
+
+        original = m._metrika_source
+        m._metrika_source = helper._legacy_metrika_source
+        try:
+            row = {
+                "traffic_source_id": "organic",
+                "traffic_source_name": "Переходы из поисковых систем",
+                "source_detail": "Яндекс",
+                "source_detail_id": "organic.Яндекс",
+                "utm_source": "",
+            }
+            self.assertEqual(helper._legacy_metrika_source(row), original(row))
+        finally:
+            m._metrika_source = original
+
     def test_geoadv_search_yabs_zip_moves_visits_and_goals_without_changing_totals(self):
         parsed = m._parse_metrika_zip(
             metrika_geoadv_search_yabs_zip(),
