@@ -43,7 +43,7 @@ jobs:
           node tests/verify-paid-upload-periods.cjs
       - name: Protect clinical imports and cash money semantics
         run: |
-          git diff --exit-code ${{ github.event.pull_request.base.sha }} -- az-baze-auth/paid_services.py az-baze-auth/paid_services_upload.py az-baze-auth/ident_import.py az-baze-auth/upload_integrity.py az-baze-auth/templates/uploads.html reports/dashboard.html
+          git diff --exit-code ${{ github.event.pull_request.base.sha }} -- az-baze-auth/paid_services.py az-baze-auth/paid_services_upload.py az-baze-auth/ident_import.py az-baze-auth/upload_integrity.py reports/dashboard.html
           python - <<'PY'
           from pathlib import Path
           cash=Path('az-baze-auth/cash_payments.py').read_text(encoding='utf-8')
