@@ -9,7 +9,7 @@ import attention
 import credentials_store
 import clinic_structure_settings
 import daily_upload
-import completed_upload
+import historical_completed_backfill
 import cash_upload
 import paid_services_upload
 import economics_control
@@ -71,7 +71,7 @@ ident_import.register_ident_import(app)
 finrez.register_finrez(app)
 economics_control.register_economics_control(app)
 daily_upload.register_daily_upload(app)
-completed_upload.register_completed_upload(app)
+historical_completed_backfill.register(app)
 cash_upload.register_cash_upload(app)
 paid_services_upload.register_paid_services_upload(app)
 credentials_store.register_credentials(app)
