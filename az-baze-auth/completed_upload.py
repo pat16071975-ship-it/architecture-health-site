@@ -156,6 +156,11 @@ def _merge_normalized(existing_normalized, day=None, removed=False):
     value.setdefault("lab_invoices", [])
     if removed:
         value["doctors"] = {}
+        value["manual_direction_counts"] = {
+            "dent": {},
+            "structure": {},
+        }
+        value["manual_visit_directions"] = []
         data_date = str(value.get("data_date") or "")
         value["overall"] = {data_date: {}} if data_date else {}
         value["visits"] = []
@@ -221,6 +226,10 @@ def _insert_or_update_day(conn, prepared, data_date, actor_id, now):
             "completed_source_update",
         )
         normalized = _merge_normalized(_read_normalized(existing), day=day)
+        period = [{"data_date": data_date, "normalized": normalized}]
+        visit_rows = daily_upload._visit_direction_rows(period, conn)
+        daily_upload._apply_visit_direction_rows(period, visit_rows, {})
+        normalized = period[0]["normalized"]
         revision = int(existing["revision"] or 1) + 1
         conn.execute(
             """
@@ -251,6 +260,10 @@ def _insert_or_update_day(conn, prepared, data_date, actor_id, now):
         },
         day=day,
     )
+    period = [{"data_date": data_date, "normalized": normalized}]
+    visit_rows = daily_upload._visit_direction_rows(period, conn)
+    daily_upload._apply_visit_direction_rows(period, visit_rows, {})
+    normalized = period[0]["normalized"]
     conn.execute(
         """
         INSERT INTO daily_uploads(
