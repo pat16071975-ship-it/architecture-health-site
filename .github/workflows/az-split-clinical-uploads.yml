@@ -76,6 +76,14 @@ jobs:
           assert 'def _empty_service_data' in services
           assert 'analytics_will_initialize' in services
           assert 'split «Выручка по направлениям»' in services
+          assert '"requires_review": False' in services
+          assert '"unassigned_visits": []' in services
+          assert 'visit_direction_decisions=None' not in services
+          assert 'save_visit_direction_overrides' not in services
+          daily=Path('az-baze-auth/daily_upload.py').read_text(encoding='utf-8')
+          assert '"Морозова А. П."' in daily
+          assert '"Игнатенко Д. С."' in daily
+          assert 'len(kinds) >= len(directions)' in daily
           assert not Path('az-baze-auth/historical_completed_backfill.py').exists()
           print('AZ_SPLIT_CLINICAL_UPLOADS=PASS')
           PY
