@@ -7,24 +7,30 @@ REPORTS = ROOT.parent / "reports"
 
 class ApprovedSourceRestoration(unittest.TestCase):
     def test_python_syntax(self):
-        for name in ("server.py", "daily_upload.py", "paid_services_upload.py",
+        for name in ("server.py", "daily_upload.py", "completed_upload.py",
+                     "services_upload.py", "paid_services_upload.py",
                      "attention.py", "finrez.py"):
             ast.parse((ROOT / name).read_text(encoding="utf-8"), filename=name)
 
-    def test_paired_clinical_and_separate_mis_upload(self):
+    def test_owner_approved_split_clinical_sources_and_separate_mis_upload(self):
         html = (ROOT / "templates/uploads.html").read_text(encoding="utf-8")
-        self.assertIn('data-az-upload-form', html)
+        self.assertIn('data-az-completed-upload-form', html)
+        self.assertIn('data-az-services-upload-form', html)
         self.assertIn('name="completed"', html)
         self.assertIn('name="services"', html)
         self.assertIn('2. Выручка по направлениям', html)
         self.assertIn('3. Счета и оплаты', html)
         self.assertIn('4. Новый отчёт МИС', html)
-        self.assertIn('/api/uploads/clinical/preview', html)
-        self.assertIn('/api/uploads/clinical/commit', html)
+        self.assertIn('/api/uploads/completed/preview', html)
+        self.assertIn('/api/uploads/completed/commit', html)
+        self.assertIn('/api/uploads/services/preview', html)
+        self.assertIn('/api/uploads/services/commit', html)
+        self.assertNotIn('/api/uploads/clinical/preview', html)
+        self.assertNotIn('/api/uploads/clinical/commit', html)
         self.assertIn('data-az-paid-upload-form', html)
-        self.assertNotIn('data-az-completed-upload-form', html)
         server = (ROOT / "server.py").read_text(encoding="utf-8")
-        self.assertNotIn('completed_upload.register_completed_upload(app)', server)
+        self.assertIn('completed_upload.register_completed_upload(app)', server)
+        self.assertIn('services_upload.register_services_upload(app)', server)
 
     def test_paid_upload_is_storage_only(self):
         source = (ROOT / "paid_services_upload.py").read_text(encoding="utf-8")
