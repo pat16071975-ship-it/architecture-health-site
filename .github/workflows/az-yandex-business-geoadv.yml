@@ -1,9 +1,6 @@
 name: AZ Yandex Business geoadv classification
 
 on:
-  push:
-    branches:
-      - 'fix/az-yandex-business-geoadv-20261110'
   pull_request:
     paths:
       - 'az-baze-auth/advertising_report.py'
