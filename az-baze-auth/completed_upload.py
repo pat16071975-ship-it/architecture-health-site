@@ -1,6 +1,9 @@
 import hashlib
+import io
 import json
-from flask import abort, g, jsonify, request
+import zipfile
+from collections import Counter, defaultdict
+from flask import abort, g, jsonify, render_template, request
 
 import advertising_mis_bridge
 import cash_payments
@@ -8,7 +11,7 @@ import daily_upload
 import daily_upload_core as core
 import paid_services
 import upload_reconcile
-from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
+from app import audit, csrf_token, db, iso_now, permission_required, require_csrf, user_permissions
 
 
 
@@ -70,7 +73,7 @@ def _existing_completed_dates(conn, month):
     result = {}
     rows = conn.execute(
         """
-        SELECT data_date,completed_hash,normalized_json
+        SELECT data_date,completed_sha256 AS completed_hash,normalized_json
         FROM daily_uploads
         WHERE substr(data_date,1,7)=?
         ORDER BY data_date
@@ -457,6 +460,388 @@ def _refresh_advertising_mis():
         return {"status": "error", "error": type(exc).__name__}
 
 
+
+HISTORY_BUNDLE_SCHEMA = "az_completed_history_source_bundle_v1"
+HISTORY_BUNDLE_MAX_FILES = 100
+HISTORY_BUNDLE_MAX_MEMBER_BYTES = 25 * 1024 * 1024
+
+
+def _history_bundle_from_request():
+    file_storage = request.files.get("bundle")
+    if not file_storage or not file_storage.filename:
+        raise ValueError("Выберите ZIP-пакет исторических завершённых приёмов.")
+    raw = file_storage.read()
+    if not raw:
+        raise ValueError("Выбран пустой ZIP-пакет.")
+    if len(raw) > 25 * 1024 * 1024:
+        raise ValueError("Размер ZIP-пакета превышает 25 МБ.")
+    return file_storage.filename, raw
+
+
+def _history_source_days(raw, filename):
+    parsed, _sheet = daily_upload._parse_fixed_raw(raw, filename, "completed")
+    overall, visits = parsed
+    visits_by_date = defaultdict(list)
+    for row in visits:
+        data_date = str(row.get("date") or "")
+        if data_date:
+            visits_by_date[data_date].append(core._plain(row))
+
+    days = {}
+    for data_date, raw_counts in overall.items():
+        counts = {
+            str(kind): int(value or 0)
+            for kind, value in (raw_counts or {}).items()
+            if int(value or 0) > 0
+        }
+        # Large IDENT exports can keep old days only as collapsed daily summary
+        # rows. Those rows have no type/detail layer and must never erase a more
+        # complete source for the same date.
+        if not counts:
+            continue
+        day_visits = visits_by_date.get(str(data_date), [])
+        expected = sum(counts.values())
+        if len(day_visits) != expected:
+            raise ValueError(
+                f"{filename}: за {data_date} найдено {len(day_visits)} строк приёмов "
+                f"при контрольном итоге {expected}."
+            )
+        day_overall = {str(data_date): counts}
+        completed_hash = daily_upload._payload_hash(
+            {
+                "data_date": str(data_date),
+                "overall": day_overall,
+                "visits": day_visits,
+            }
+        )
+        days[str(data_date)] = {
+            "data_date": str(data_date),
+            "overall": day_overall,
+            "visits": day_visits,
+            "completed_hash": completed_hash,
+            "source_filename": filename,
+        }
+    return days
+
+
+def _history_kind_counts(day):
+    overall = day.get("overall") or {}
+    counts = overall.get(day.get("data_date")) or {}
+    return {str(key): int(value or 0) for key, value in counts.items()}
+
+
+def _history_visit_counter(day):
+    return Counter(
+        (
+            str(row.get("patient") or ""),
+            str(row.get("kind") or ""),
+        )
+        for row in (day.get("visits") or [])
+    )
+
+
+def _history_day_subset(left, right):
+    left_counts = _history_kind_counts(left)
+    right_counts = _history_kind_counts(right)
+    if any(
+        left_counts.get(kind, 0) > right_counts.get(kind, 0)
+        for kind in set(left_counts) | set(right_counts)
+    ):
+        return False
+    left_visits = _history_visit_counter(left)
+    right_visits = _history_visit_counter(right)
+    return all(
+        count <= right_visits.get(key, 0)
+        for key, count in left_visits.items()
+    )
+
+
+def merge_history_day(existing, candidate):
+    same_counts = _history_kind_counts(existing) == _history_kind_counts(candidate)
+    same_visits = _history_visit_counter(existing) == _history_visit_counter(candidate)
+    if same_counts and same_visits:
+        return existing, "duplicate"
+    if _history_day_subset(candidate, existing):
+        return existing, "subset_ignored"
+    if _history_day_subset(existing, candidate):
+        return candidate, "superset_replaced"
+    raise ValueError(
+        "Конфликтующие выгрузки «Завершённых приёмов» за "
+        f"{candidate.get('data_date')}: "
+        f"{existing.get('source_filename')} / {candidate.get('source_filename')}."
+    )
+
+
+def _parse_history_bundle(raw, filename):
+    stream = io.BytesIO(raw)
+    if not zipfile.is_zipfile(stream):
+        raise ValueError("Исторический пакет должен быть ZIP-файлом.")
+
+    stream.seek(0)
+    try:
+        archive = zipfile.ZipFile(stream)
+    except zipfile.BadZipFile as exc:
+        raise ValueError("ZIP-пакет повреждён.") from exc
+
+    with archive:
+        names = archive.namelist()
+        if "manifest.json" not in names:
+            raise ValueError("В ZIP-пакете отсутствует manifest.json.")
+        try:
+            manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("manifest.json повреждён.") from exc
+
+        if manifest.get("schema") != HISTORY_BUNDLE_SCHEMA:
+            raise ValueError("Неподдерживаемый формат исторического пакета.")
+
+        manifest_sources = {
+            str(item.get("name") or ""): item
+            for item in (manifest.get("source_files") or [])
+            if isinstance(item, dict) and str(item.get("name") or "")
+        }
+        members = [
+            name for name in names
+            if name.lower().endswith(".xlsx") and not name.endswith("/")
+        ]
+        if not members or len(members) > HISTORY_BUNDLE_MAX_FILES:
+            raise ValueError("Некорректное количество XLSX-файлов в пакете.")
+        if len(members) != int(manifest.get("source_file_count") or 0):
+            raise ValueError("Количество файлов в ZIP не совпадает с manifest.json.")
+
+        canonical = {}
+        duplicate_days = 0
+        subset_days = 0
+        source_sha256 = {}
+        for member in members:
+            basename = member.rsplit("/", 1)[-1]
+            spec = manifest_sources.get(basename)
+            if not spec:
+                raise ValueError(f"{basename}: файл отсутствует в manifest.json.")
+            info = archive.getinfo(member)
+            if info.file_size > HISTORY_BUNDLE_MAX_MEMBER_BYTES:
+                raise ValueError(f"{basename}: размер файла превышает 25 МБ.")
+            member_raw = archive.read(member)
+            digest = hashlib.sha256(member_raw).hexdigest()
+            if digest != str(spec.get("sha256") or ""):
+                raise ValueError(f"{basename}: SHA256 не совпадает с manifest.json.")
+            source_sha256[basename] = digest
+            for data_date, candidate in _history_source_days(member_raw, basename).items():
+                old = canonical.get(data_date)
+                if old is None:
+                    canonical[data_date] = candidate
+                    continue
+                merged, action = merge_history_day(old, candidate)
+                canonical[data_date] = merged
+                if action == "duplicate":
+                    duplicate_days += 1
+                elif action in {"subset_ignored", "superset_replaced"}:
+                    subset_days += 1
+
+    if not canonical:
+        raise ValueError("ZIP-пакет не содержит детальных завершённых приёмов.")
+
+    dates = sorted(canonical)
+    canonical_visits = sum(
+        len(item.get("visits") or [])
+        for item in canonical.values()
+    )
+    type_counts = Counter()
+    for day in canonical.values():
+        type_counts.update(_history_kind_counts(day))
+
+    expected_visits = int(manifest.get("canonical_visits") or 0)
+    expected_days = int(manifest.get("canonical_days") or 0)
+    expected_from = str(manifest.get("period_from") or "")
+    expected_to = str(manifest.get("period_to") or "")
+    if expected_visits and canonical_visits != expected_visits:
+        raise ValueError(
+            f"Контрольный итог приёмов не совпал: {canonical_visits} вместо {expected_visits}."
+        )
+    if expected_days and len(dates) != expected_days:
+        raise ValueError(
+            f"Контрольный итог дней не совпал: {len(dates)} вместо {expected_days}."
+        )
+    if expected_from and dates[0] != expected_from:
+        raise ValueError("Начальная дата пакета не совпала с manifest.json.")
+    if expected_to and dates[-1] != expected_to:
+        raise ValueError("Конечная дата пакета не совпала с manifest.json.")
+
+    return {
+        "filename": filename,
+        "source_sha256": hashlib.sha256(raw).hexdigest(),
+        "dates": dates,
+        "months": sorted({value[:7] for value in dates}),
+        "days": canonical,
+        "canonical_visits": canonical_visits,
+        "type_counts": dict(type_counts),
+        "source_file_count": len(source_sha256),
+        "duplicate_days": duplicate_days,
+        "subset_days": subset_days,
+    }
+
+
+def compare_history_completed(conn, prepared):
+    existing = {}
+    for month in prepared.get("months") or []:
+        existing.update(_existing_completed_dates(conn, month))
+    comparison = {"new": [], "identical": [], "conflict": []}
+    for data_date, day in (prepared.get("days") or {}).items():
+        old = existing.get(data_date)
+        if not old:
+            comparison["new"].append(data_date)
+        elif str(old.get("completed_hash") or "") == str(day.get("completed_hash") or ""):
+            comparison["identical"].append(data_date)
+        else:
+            comparison["conflict"].append(data_date)
+    for key in comparison:
+        comparison[key] = sorted(comparison[key])
+    return comparison
+
+
+def merge_completed_management(existing, rebuilt, source):
+    result = dict(existing or {})
+    result["date"] = rebuilt["date"]
+    result["primary"] = int(rebuilt.get("primary") or 0)
+    result["repeat"] = int(rebuilt.get("repeat") or 0)
+    result["_completed_source"] = source
+    result["_completed_aggregation"] = "month_to_date"
+    return result
+
+
+def _history_preview():
+    perms = user_permissions(g.user)
+    if "upload_completed" not in perms or "upload_replace" not in perms:
+        abort(403)
+    filename, raw = _history_bundle_from_request()
+    prepared = _parse_history_bundle(raw, filename)
+    conn = db()
+    comparison = compare_history_completed(conn, prepared)
+    return {
+        "status": "preview",
+        "period": {"from": prepared["dates"][0], "to": prepared["dates"][-1]},
+        "source_file_count": prepared["source_file_count"],
+        "days": len(prepared["dates"]),
+        "visits": prepared["canonical_visits"],
+        "type_counts": prepared["type_counts"],
+        "duplicates_collapsed": prepared["duplicate_days"],
+        "subsets_collapsed": prepared["subset_days"],
+        "counts": {
+            "new": len(comparison["new"]),
+            "identical": len(comparison["identical"]),
+            "conflict": len(comparison["conflict"]),
+        },
+        "conflict_dates": comparison["conflict"],
+        "can_replace": True,
+    }
+
+
+def _history_commit(decision=None):
+    perms = user_permissions(g.user)
+    if "upload_completed" not in perms or "upload_replace" not in perms:
+        abort(403)
+
+    filename, raw = _history_bundle_from_request()
+    prepared = _parse_history_bundle(raw, filename)
+    conn = db()
+    comparison = compare_history_completed(conn, prepared)
+    if comparison["conflict"] and decision != "use_new":
+        raise ValueError(
+            "В историческом периоде есть отличия от уже сохранённых завершённых приёмов. "
+            "Для замены подтвердите «Загрузить новые»."
+        )
+
+    apply_dates = set(comparison["new"])
+    if decision == "use_new":
+        apply_dates.update(comparison["conflict"])
+    if not apply_dates:
+        return {
+            "status": "duplicate",
+            "message": "Исторические завершённые приёмы уже совпадают; ничего не изменено.",
+            "backup": None,
+        }
+
+    backup = upload_reconcile.create_db_backup("completed-history")
+    now = iso_now()
+    source = (
+        f"AZ-BAZE historical completed visits: {prepared['dates'][0]}.."
+        f"{prepared['dates'][-1]}"
+    )
+    conflict_set = set(comparison["conflict"])
+    conn.execute("BEGIN")
+    try:
+        for data_date in sorted(apply_dates):
+            _insert_or_update_day(conn, prepared, data_date, g.user["id"], now)
+            core._log(
+                conn,
+                "replaced" if data_date in conflict_set else "imported",
+                data_date,
+                "historical_completed_zip=1; services_preserved=1",
+                prepared["filename"],
+                "",
+            )
+
+        for month in prepared["months"]:
+            rebuilt = core._rebuild_management(month, source)
+            for data_date, record in rebuilt.items():
+                row = conn.execute(
+                    "SELECT payload FROM report_data WHERE date=?",
+                    (data_date,),
+                ).fetchone()
+                existing = {}
+                if row:
+                    try:
+                        existing = json.loads(row["payload"])
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        existing = {}
+                merged = merge_completed_management(existing, record, source)
+                conn.execute(
+                    """
+                    INSERT INTO report_data(date,payload,updated_by,updated_at)
+                    VALUES(?,?,?,?)
+                    ON CONFLICT(date) DO UPDATE SET
+                        payload=excluded.payload,
+                        updated_by=excluded.updated_by,
+                        updated_at=excluded.updated_at
+                    """,
+                    (
+                        data_date,
+                        json.dumps(merged, ensure_ascii=False, separators=(",", ":")),
+                        g.user["id"],
+                        now,
+                    ),
+                )
+
+        advertising_sync = advertising_mis_bridge.rebuild(conn, now)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    audit(
+        "completed_history_bundle_reconciled",
+        target_user_id=g.user["id"],
+        details=(
+            f"file={prepared['filename']}; "
+            f"period={prepared['dates'][0]}..{prepared['dates'][-1]}; "
+            f"files={prepared['source_file_count']}; days={len(prepared['dates'])}; "
+            f"visits={prepared['canonical_visits']}; "
+            f"new={len(comparison['new'])}; identical={len(comparison['identical'])}; "
+            f"conflict={len(comparison['conflict'])}; decision={decision or 'append'}; "
+            f"backup={backup}"
+        ),
+    )
+    return {
+        "status": "replaced" if comparison["conflict"] else "imported",
+        "message": (
+            f"Исторические завершённые приёмы восстановлены: "
+            f"{prepared['canonical_visits']} приёмов за "
+            f"{prepared['dates'][0]}–{prepared['dates'][-1]}."
+        ),
+        "backup": backup,
+        "advertising_sync": advertising_sync,
+    }
+
 def register_completed_upload(app):
     @app.post("/api/uploads/completed/preview")
     @permission_required("section5")
@@ -475,5 +860,32 @@ def register_completed_upload(app):
             result = _commit(request.form.get("decision") or None)
             result["advertising_sync"] = _refresh_advertising_mis()
             return jsonify(result)
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 409
+
+
+    @app.get("/uploads/completed-history/")
+    @permission_required("section5")
+    def completed_history_page():
+        perms = user_permissions(g.user)
+        if "upload_completed" not in perms or "upload_replace" not in perms:
+            abort(403)
+        return render_template("completed_history_upload.html", csrf=csrf_token())
+
+    @app.post("/api/uploads/completed-history/preview")
+    @permission_required("section5")
+    def completed_history_preview():
+        require_csrf()
+        try:
+            return jsonify(_history_preview())
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
+
+    @app.post("/api/uploads/completed-history/commit")
+    @permission_required("section5")
+    def completed_history_commit():
+        require_csrf()
+        try:
+            return jsonify(_history_commit(request.form.get("decision") or None))
         except ValueError as exc:
             return jsonify({"status": "error", "message": str(exc)}), 409
