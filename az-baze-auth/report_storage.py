@@ -772,15 +772,19 @@ def _normalize_management_staff_layout(payload, conn, strict=True):
 
         order = clean(raw_order)
         hidden = clean(raw_hidden)
+        hidden_set = set(hidden)
+
+        visible_order = [name for name in order if name not in hidden_set]
+        hidden_order = [name for name in order if name in hidden_set]
 
         for name in source_names:
-            if name not in order:
-                order.append(name)
+            if name not in visible_order and name not in hidden_order:
+                visible_order.append(name)
 
-        hidden_set = set(hidden)
+        order = visible_order + hidden_order
         normalized[kind] = {
             "order": order,
-            "hidden": [name for name in order if name in hidden_set],
+            "hidden": hidden_order,
         }
 
     return {"version": 1, "directions": normalized}
