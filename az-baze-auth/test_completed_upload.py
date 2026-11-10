@@ -1,3 +1,5 @@
+import json
+import sqlite3
 import unittest
 
 import completed_upload
@@ -40,26 +42,36 @@ class CompletedUploadTests(unittest.TestCase):
         self.assertEqual(compared["removed"], ["2026-09-02"])
         self.assertNotIn("2026-09-20", compared["removed"])
 
-    def test_merge_preserves_independent_service_payload(self):
+    def test_merge_preserves_service_payload_and_rebuilds_doctor_attribution(self):
         existing = {
             "data_date": "2026-09-16",
-            "items": [{"service": "Service A", "amount": 100}],
+            "items": [{
+                "staff": "Чирков М. С.",
+                "patient": "New A",
+                "date": "2026-09-16",
+                "group": "Терапия",
+                "service": "Service A",
+                "amount": 100,
+            }],
             "retail_items": [{"service": "Retail"}],
             "lab_invoices": [["700", "2026-09-16"]],
-            "doctors": {"2026-09-16": {"Primary": {"Old Doctor": 1}}},
-            "overall": {"2026-09-16": {"Primary": 1}},
-            "visits": [{"date": "2026-09-16", "patient": "Old A", "kind": "Primary"}],
+            "doctors": {"2026-09-16": {"Первичные": {"Old Doctor": 1}}},
+            "overall": {"2026-09-16": {"Первичные": 1}},
+            "visits": [{"date": "2026-09-16", "patient": "Old A", "kind": "Первичные"}],
         }
         day = {
             "data_date": "2026-09-16",
-            "overall": {"2026-09-16": {"Primary": 2}},
-            "visits": [{"date": "2026-09-16", "patient": "New A", "kind": "Primary"}],
+            "overall": {"2026-09-16": {"Первичные": 1}},
+            "visits": [{"date": "2026-09-16", "patient": "New A", "kind": "Первичные"}],
         }
         merged = completed_upload._merge_normalized(existing, day=day)
         self.assertEqual(merged["items"], existing["items"])
         self.assertEqual(merged["retail_items"], existing["retail_items"])
         self.assertEqual(merged["lab_invoices"], existing["lab_invoices"])
-        self.assertEqual(merged["doctors"], {})
+        self.assertEqual(
+            merged["doctors"]["2026-09-16"]["Первичные"]["Чирков М. С."],
+            1,
+        )
         self.assertEqual(merged["overall"], day["overall"])
         self.assertEqual(merged["visits"], day["visits"])
 
@@ -78,6 +90,35 @@ class CompletedUploadTests(unittest.TestCase):
         self.assertEqual(merged["doctors"], {})
         self.assertEqual(merged["visits"], [])
         self.assertEqual(merged["overall"], {"2026-09-16": {}})
+
+
+    def test_existing_completed_dates_reads_real_schema_column(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute(
+            """
+            CREATE TABLE daily_uploads(
+                data_date TEXT PRIMARY KEY,
+                completed_sha256 TEXT NOT NULL,
+                normalized_json TEXT NOT NULL
+            )
+            """
+        )
+        normalized = {
+            "data_date": "2026-09-16",
+            "overall": {"2026-09-16": {"Первичные": 1}},
+            "visits": [
+                {"date": "2026-09-16", "patient": "A", "kind": "Первичные"}
+            ],
+        }
+        conn.execute(
+            "INSERT INTO daily_uploads(data_date,completed_sha256,normalized_json) VALUES(?,?,?)",
+            ("2026-09-16", "stored", json.dumps(normalized, ensure_ascii=False)),
+        )
+        rows = completed_upload._existing_completed_dates(conn, "2026-09")
+        self.assertIn("2026-09-16", rows)
+        self.assertTrue(rows["2026-09-16"]["has_completed"])
+        self.assertNotEqual(rows["2026-09-16"]["completed_hash"], "stored")
 
 
 if __name__ == "__main__":
