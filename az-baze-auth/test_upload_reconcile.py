@@ -190,11 +190,11 @@ class UploadReconcileTests(unittest.TestCase):
             Path(__file__).parent / "templates" / "base.html"
         ).read_text(encoding="utf-8")
         self.assertIn(
-            "form.matches('[data-az-upload-form],[data-az-cash-upload-form],[data-az-metrika-form]')",
+            "form.matches('[data-az-upload-form],[data-az-cash-upload-form],[data-az-paid-upload-form],[data-az-metrika-form]')",
             html,
         )
         self.assertIn(
-            "if (form.matches('[data-az-upload-form],[data-az-cash-upload-form],[data-az-metrika-form]')) return;",
+            "if (form.matches('[data-az-upload-form],[data-az-cash-upload-form],[data-az-paid-upload-form],[data-az-metrika-form]')) return;",
             html,
         )
 
