@@ -93,17 +93,53 @@ def _parse(raw, filename):
     parsed, sheet = daily_upload._parse_fixed_raw(raw, filename, "services")
     items, lab_invoices, (year, month) = parsed
     month_key = f"{year:04d}-{month:02d}"
-    period = daily_upload._split_period({}, [], items, lab_invoices)
-    if not period:
-        raise ValueError("Файл «Выручка по направлениям» не содержит данных.")
-    dates = [str(row["data_date"]) for row in period]
-    if any(value[:7] != month_key for value in dates):
-        raise ValueError("Файл «Выручка по направлениям» должен содержать один календарный месяц.")
 
+    service_dates = sorted({
+        str(row.get("date") or "")
+        for row in items
+        if str(row.get("date") or "")
+    })
+    if not service_dates:
+        raise ValueError("Файл «Выручка по направлениям» не содержит дат.")
+    if any(value[:7] != month_key for value in service_dates):
+        raise ValueError(
+            "Файл «Выручка по направлениям» должен содержать один календарный месяц."
+        )
+
+    clinical_items = [
+        row for row in items
+        if not daily_upload._is_retail_item(row)
+    ]
     days = {}
-    for row in period:
-        data_date = str(row["data_date"])
-        normalized = core._plain(row["normalized"])
+    for data_date in service_dates:
+        day_items = [
+            core._plain(row)
+            for row in clinical_items
+            if str(row.get("date") or "") == data_date
+        ]
+        day_retail = [
+            core._plain(row)
+            for row in items
+            if str(row.get("date") or "") == data_date
+            and daily_upload._is_retail_item(row)
+        ]
+        day_lab = [
+            core._plain(row)
+            for row in lab_invoices
+            if len(row) >= 2 and str(row[1]) == data_date
+        ]
+        normalized = {
+            "data_date": data_date,
+            "items": day_items,
+            "retail_items": day_retail,
+            "lab_invoices": day_lab,
+            # The completed layer is intentionally empty at parse time.
+            # _merged_period_with_completed() overlays any already-saved
+            # completed visits before attribution and write.
+            "overall": {data_date: {}},
+            "doctors": {data_date: {}},
+            "visits": [],
+        }
         days[data_date] = {
             "data_date": data_date,
             "normalized": normalized,
@@ -118,11 +154,11 @@ def _parse(raw, filename):
         "year": year,
         "month": month,
         "month_key": month_key,
-        "dates": sorted(days),
+        "dates": service_dates,
         "days": days,
         "period": [
             {"data_date": day, "normalized": days[day]["normalized"]}
-            for day in sorted(days)
+            for day in service_dates
         ],
     }
 
