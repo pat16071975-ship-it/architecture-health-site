@@ -170,6 +170,7 @@ class ManagementStaffLayoutTests(unittest.TestCase):
         period = (REPORTS / "period-view.js").read_text(encoding="utf-8")
         layout = (REPORTS / "management-staff-layout.js").read_text(encoding="utf-8")
 
+        self.assertIn("Управленческий отчёт", index)
         self.assertIn("management-staff-layout.js?v=20261110-1", index)
         self.assertIn("window.azManagementStaffNames('dentists')", index)
         self.assertIn("window.azManagementStaffNames('clinicDocs')", index)
