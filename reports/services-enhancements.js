@@ -179,6 +179,17 @@
     saveSalaryStore(w, store);
   }
 
+  function staffNames(w, direction, dir) {
+    try {
+      const api = w.AZServiceStaffLayout;
+      if (api && typeof api.names === 'function') {
+        const names = api.names(direction, false);
+        if (Array.isArray(names)) return names;
+      }
+    } catch {}
+    return Object.keys(dir?.doctors || {});
+  }
+
   function currentBaseTab(d) {
     const active = d.querySelector('.tabs [data-tab].active');
     return active?.dataset.tab || 'summary';
@@ -194,7 +205,7 @@
     const financeHost = d.getElementById('azFinanceHost');
     if (!dir || !doctor || !doctor2 || !doctor2Field) return;
 
-    const names = Object.keys(dir.doctors || {});
+    const names = staffNames(w, direction, dir);
     const old2 = doctor2.value;
     doctor2.innerHTML = names.map(n => `<option>${escapeHtml(n)}</option>`).join('');
     if (names.includes(old2)) doctor2.value = old2;
