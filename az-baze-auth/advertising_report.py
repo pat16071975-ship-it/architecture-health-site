@@ -1597,6 +1597,11 @@ def _meaningful_campaign_name(value):
     return "" if raw.lower() in CAMPAIGN_NAME_SENTINELS else raw
 
 
+def _is_yandex_business_utm_source(value):
+    raw = str(value or "").strip().lower()
+    return raw == "geoadv" or raw.startswith("geoadv_")
+
+
 def _metrika_source(row):
     traffic_id = str(row.get("traffic_source_id") or "").strip()
     traffic_name = str(row.get("traffic_source_name") or "").strip()
@@ -1608,7 +1613,7 @@ def _metrika_source(row):
     direct_campaign_name = _meaningful_campaign_name(row.get("direct_campaign_name"))
 
     if traffic_id == "ad":
-        if utm_source == "geoadv_direct":
+        if _is_yandex_business_utm_source(utm_source):
             return "yandex_business", "Яндекс Бизнес", "Платная реклама"
 
         # Do not assume that every paid source is Yandex Direct.  Direct facts
