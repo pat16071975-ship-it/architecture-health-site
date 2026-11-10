@@ -975,6 +975,92 @@ def zero_auto_metrika_request(path, params):
     }
 
 
+def metrika_geoadv_search_yabs_zip():
+    payload = {
+        "metadata": {
+            "schema_version": "az_analytics_export_v1",
+            "fetched_at_utc": "2026-11-09T23:10:00+00:00",
+            "period_from": "2026-11-09",
+            "period_to": "2026-11-09",
+            "source_timezone": "Asia/Novosibirsk",
+            "counter_id": "113776005",
+            "sample_share": 1.0,
+            "attribution": "cross_device_last_significant",
+            "campaign_identity_source": "traffic_direct_click_order",
+        },
+        "metrica_traffic_day": [
+            {
+                "row_id": "yb11",
+                "date": "2026-11-09",
+                "day_status": "completed_calendar_day_final",
+                "traffic_source_id": "ad",
+                "traffic_source_name": "Переходы по рекламе",
+                "source_detail": "Яндекс Директ: Не определено",
+                "source_detail_id": "ad.Яндекс Директ: Не определено",
+                "utm_source": "geoadv_search_yabs",
+                "direct_campaign_id": "44320327528",
+                "direct_campaign_name": "Чужие кампании",
+                "visits": 11,
+                "is_test_tag": False,
+            },
+            {
+                "row_id": "yd5",
+                "date": "2026-11-09",
+                "day_status": "completed_calendar_day_final",
+                "traffic_source_id": "ad",
+                "traffic_source_name": "Переходы по рекламе",
+                "source_detail": "Яндекс: Директ",
+                "source_detail_id": "ad.Яндекс: Директ",
+                "utm_source": "yandex",
+                "direct_campaign_id": "715560815",
+                "direct_campaign_name": "АЗ | Ортодонт и гнатолог | Поиск | Новосибирск",
+                "visits": 5,
+                "is_test_tag": False,
+            },
+            {
+                "row_id": "other3",
+                "date": "2026-11-09",
+                "day_status": "completed_calendar_day_final",
+                "traffic_source_id": "ad",
+                "traffic_source_name": "Переходы по рекламе",
+                "utm_source": "future_paid_network",
+                "visits": 3,
+                "is_test_tag": False,
+            },
+        ],
+        "metrica_goal_day": [
+            {
+                "traffic_row_id": "yb11",
+                "date": "2026-11-09",
+                "goal_name": "Открытие окна записи",
+                "goal_visits": 2,
+                "reaches": 3,
+            },
+            {
+                "traffic_row_id": "yb11",
+                "date": "2026-11-09",
+                "goal_name": "Переход к записи в Medflex",
+                "goal_visits": 1,
+                "reaches": 1,
+            },
+            {
+                "traffic_row_id": "yd5",
+                "date": "2026-11-09",
+                "goal_name": "Открытие окна записи",
+                "goal_visits": 1,
+                "reaches": 1,
+            },
+        ],
+    }
+    raw = io.BytesIO()
+    with zipfile.ZipFile(raw, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "az_analytics.json",
+            json.dumps(payload, ensure_ascii=False),
+        )
+    return raw.getvalue()
+
+
 class AdvertisingReportTests(unittest.TestCase):
     def test_auto_metrika_missing_days_starts_after_latest_and_stops_at_yesterday(self):
         c=conn()
@@ -4031,6 +4117,237 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(trend["2026-10-27"],1000)
         finally:
             c.close()
+
+    def test_yandex_business_geoadv_prefix_is_classified_without_guessing_other_paid_utm(self):
+        for value in (
+            "geoadv",
+            "geoadv_direct",
+            "geoadv_search_yabs",
+            "geoadv_maps",
+            "GEOADV_SEARCH_ORGANIZATION_LIST",
+        ):
+            row = {
+                "traffic_source_id": "ad",
+                "traffic_source_name": "Переходы по рекламе",
+                "source_detail": "Яндекс Директ: Не определено",
+                "source_detail_id": "ad.Яндекс Директ: Не определено",
+                "utm_source": value,
+            }
+            self.assertEqual(
+                m._metrika_source(row),
+                ("yandex_business", "Яндекс Бизнес", "Платная реклама"),
+            )
+
+        for value in ("geoadvert_search_yabs", "my_geoadv_search_yabs", "future_paid_network"):
+            row = {
+                "traffic_source_id": "ad",
+                "traffic_source_name": "Переходы по рекламе",
+                "utm_source": value,
+            }
+            self.assertNotEqual(m._metrika_source(row)[0], "yandex_business")
+
+    def test_geoadv_search_yabs_zip_moves_visits_and_goals_without_changing_totals(self):
+        parsed = m._parse_metrika_zip(
+            metrika_geoadv_search_yabs_zip(),
+            "geoadv-search-yabs.zip",
+            now=datetime(2026,11,10,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+
+        traffic = {
+            key: values["visits"]
+            for key, values in parsed["traffic_rows"].items()
+        }
+        goals = parsed["goal_rows"]
+
+        business_rows = [
+            (key, visits)
+            for key, visits in traffic.items()
+            if key[1] == "yandex_business"
+        ]
+        self.assertEqual(len(business_rows), 1)
+        business_key, business_visits = business_rows[0]
+        self.assertEqual(business_visits, 11)
+        self.assertEqual(business_key[4], "44320327528")
+        self.assertEqual(business_key[5], "")
+
+        self.assertEqual(
+            sum(traffic.values()),
+            19,
+        )
+        self.assertEqual(
+            sum(values["goal_visits"] for values in goals.values()),
+            4,
+        )
+        self.assertEqual(
+            sum(values["reaches"] for values in goals.values()),
+            5,
+        )
+
+        business_goals = {
+            key[6]: values
+            for key, values in goals.items()
+            if key[1] == "yandex_business"
+        }
+        self.assertEqual(
+            business_goals["booking_open"],
+            {"goal_visits": 2, "reaches": 3},
+        )
+        self.assertEqual(
+            business_goals["medflex"],
+            {"goal_visits": 1, "reaches": 1},
+        )
+
+        direct_visits = sum(
+            visits for key, visits in traffic.items()
+            if key[1] == "yandex_ads"
+        )
+        self.assertEqual(direct_visits, 5)
+        self.assertFalse(
+            any(
+                key[1] == "yandex_ads" and key[4] == "44320327528"
+                for key in traffic
+            )
+        )
+
+    def test_geoadv_historical_reclassification_is_idempotent_and_preserves_totals(self):
+        raw = metrika_geoadv_search_yabs_zip()
+        parsed = m._parse_metrika_zip(
+            raw,
+            "geoadv-search-yabs.zip",
+            now=datetime(2026,11,10,12,0,tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+        sha = parsed["payload_sha256"]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            old_root = m.METRIKA_ARCHIVE_ROOT
+            m.METRIKA_ARCHIVE_ROOT = Path(tmp)
+            c = conn()
+            try:
+                imported_at = "2026-11-09T23:15:00+00:00"
+                c.execute(
+                    """
+                    INSERT INTO advertising_metrika_imports(
+                        payload_sha256,original_filename,period_start,period_end,
+                        completed_days_json,generated_at,imported_at,actor_user_id,
+                        traffic_rows,goal_rows,archive_path
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        sha, "geoadv-search-yabs.zip", "2026-11-09", "2026-11-09",
+                        json.dumps(["2026-11-09"]), "2026-11-09T23:10:00+00:00",
+                        imported_at, 1, 3, 3, str(Path(tmp) / (sha + ".zip")),
+                    ),
+                )
+                old_rows = [
+                    ("yandex_ads", "Яндекс-реклама", "Платная реклама", "44320327528", "", 11),
+                    ("yandex_ads", "Яндекс-реклама", "Платная реклама", "715560815",
+                     "АЗ | Ортодонт и гнатолог | Поиск | Новосибирск", 5),
+                    (
+                        m._dynamic_source_identity(
+                            "paid", "future_paid_network", "Платная реклама", "Платная реклама"
+                        )[0],
+                        "future_paid_network", "Платная реклама", "", "", 3,
+                    ),
+                ]
+                for source_key, source_name, channel, campaign_id, campaign_name, visits in old_rows:
+                    c.execute(
+                        """
+                        INSERT INTO advertising_traffic_daily(
+                            provider,metric_date,source_key,source_name,channel_name,
+                            campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id
+                        ) VALUES('metrika','2026-11-09',?,?,?,?,?,NULL,NULL,?,?,?)
+                        """,
+                        (
+                            source_key, source_name, channel, campaign_id, campaign_name,
+                            visits, imported_at, "metrika-" + sha[:16],
+                        ),
+                    )
+                old_goals = [
+                    ("yandex_ads", "Яндекс-реклама", "44320327528", "", "booking_open",
+                     "Открытие окна записи", 2, 3),
+                    ("yandex_ads", "Яндекс-реклама", "44320327528", "", "medflex",
+                     "Переход к записи в Medflex", 1, 1),
+                    ("yandex_ads", "Яндекс-реклама", "715560815",
+                     "АЗ | Ортодонт и гнатолог | Поиск | Новосибирск", "booking_open",
+                     "Открытие окна записи", 1, 1),
+                ]
+                for source_key, source_name, campaign_id, campaign_name, goal_key, goal_name, goal_visits, reaches in old_goals:
+                    c.execute(
+                        """
+                        INSERT INTO advertising_metrika_goal_daily(
+                            provider,metric_date,source_key,source_name,channel_name,
+                            campaign_id,campaign_name,goal_key,goal_name,goal_visits,reaches,
+                            updated_at,import_id
+                        ) VALUES('metrika','2026-11-09',?,?,'Платная реклама',?,?,?,?,?,?,?,?)
+                        """,
+                        (
+                            source_key, source_name, campaign_id, campaign_name,
+                            goal_key, goal_name, goal_visits, reaches, imported_at,
+                            "metrika-" + sha[:16],
+                        ),
+                    )
+                c.commit()
+
+                before_visits = c.execute(
+                    "SELECT SUM(visits) FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date='2026-11-09'"
+                ).fetchone()[0]
+                before_goals = {
+                    row["goal_key"]: (row["goal_visits"], row["reaches"])
+                    for row in c.execute(
+                        """
+                        SELECT goal_key,SUM(goal_visits) AS goal_visits,SUM(reaches) AS reaches
+                        FROM advertising_metrika_goal_daily
+                        WHERE provider='metrika' AND metric_date='2026-11-09'
+                        GROUP BY goal_key ORDER BY goal_key
+                        """
+                    ).fetchall()
+                }
+
+                first = m._store_metrika(c, parsed, 1)
+                c.commit()
+                self.assertTrue(first["reclassified"])
+                self.assertFalse(first["reused"])
+
+                after_visits = c.execute(
+                    "SELECT SUM(visits) FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date='2026-11-09'"
+                ).fetchone()[0]
+                after_goals = {
+                    row["goal_key"]: (row["goal_visits"], row["reaches"])
+                    for row in c.execute(
+                        """
+                        SELECT goal_key,SUM(goal_visits) AS goal_visits,SUM(reaches) AS reaches
+                        FROM advertising_metrika_goal_daily
+                        WHERE provider='metrika' AND metric_date='2026-11-09'
+                        GROUP BY goal_key ORDER BY goal_key
+                        """
+                    ).fetchall()
+                }
+                self.assertEqual(before_visits, after_visits)
+                self.assertEqual(before_goals, after_goals)
+
+                business = c.execute(
+                    """
+                    SELECT SUM(visits) AS visits
+                    FROM advertising_traffic_daily
+                    WHERE provider='metrika' AND metric_date='2026-11-09'
+                      AND source_key='yandex_business'
+                    """
+                ).fetchone()
+                self.assertEqual(business["visits"], 11)
+
+                second = m._store_metrika(c, parsed, 1)
+                c.commit()
+                self.assertTrue(second["reused"])
+                self.assertFalse(second["reclassified"])
+                self.assertEqual(
+                    c.execute(
+                        "SELECT SUM(visits) FROM advertising_traffic_daily WHERE provider='metrika' AND metric_date='2026-11-09'"
+                    ).fetchone()[0],
+                    after_visits,
+                )
+            finally:
+                c.close()
+                m.METRIKA_ARCHIVE_ROOT = old_root
 
     def test_arbitrary_multi_day_range_sums_only_available_days(self):
         c=conn()
