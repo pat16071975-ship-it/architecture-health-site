@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.history-card{max-width:820px;margin:0 auto}.history-card h2{margin:0 0 8px;font-size:24px;font-weight:600}.history-note{margin:0 0 16px;color:#667169;font-size:12px;line-height:1.5}.history-box{padding:16px;border:1px solid #ded5c8;border-radius:12px;background:#fff}.history-box input[type=file]{width:100%;padding:10px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8}.history-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.history-result{margin-top:14px;padding:12px;border-radius:9px;font-size:12px;line-height:1.55}.history-result.ok{background:#e5eee7;color:#315a40}.history-result.error{background:#f7e8e6;color:#8a403b}.history-result.warn{background:#fff7e8;color:#5f4c31}.hidden{display:none!important}.history-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}.history-stat{padding:9px;border:1px solid #e1d7c9;border-radius:8px;background:#fff}.history-stat span{display:block;font-size:9px;color:#747a73}.history-stat strong{display:block;margin-top:3px;font-size:16px}.history-scope{margin-top:14px;padding:10px 12px;border-left:3px solid #44634f;background:#f1f6f2;border-radius:8px;color:#4b5b50;font-size:11px;line-height:1.5}@media(max-width:700px){.history-stats{grid-template-columns:1fr 1fr}}
+</style>
+<div class="card history-card">
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px">
+    <div>
+      <h2>Исторические завершённые приёмы</h2>
+      <p class="history-note">Восстановление завершённых приёмов IDENT после переезда. Пакет сначала проверяется, затем записывается одной транзакцией с резервной копией базы.</p>
+    </div>
+    <a class="btn" href="/uploads/">К загрузкам</a>
+  </div>
+
+  <form id="historyForm" class="history-box" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label style="display:block;font-size:11px;font-weight:700;margin-bottom:6px">ZIP-пакет завершённых приёмов</label>
+    <input type="file" name="bundle" accept=".zip,application/zip" required>
+    <div class="history-actions">
+      <button class="btn primary" id="previewBtn" type="submit">Проверить пакет</button>
+      <button class="btn primary hidden" id="commitBtn" type="button">Восстановить в AZ BAZE</button>
+    </div>
+    <div id="historyResult" class="history-result hidden"></div>
+    <div id="historyStats" class="history-stats hidden"></div>
+    <div class="history-scope">
+      Эта операция меняет только исторический слой завершённых приёмов, показатели первичных/повторных и производный MIS-слой рекламного отчёта.
+      Услуги, выручка, касса, рекламные расходы и данные Метрики не заменяются и не обнуляются.
+    </div>
+  </form>
+</div>
+
+<script>
+(()=>{
+  const form=document.getElementById('historyForm');
+  const previewBtn=document.getElementById('previewBtn');
+  const commitBtn=document.getElementById('commitBtn');
+  const result=document.getElementById('historyResult');
+  const stats=document.getElementById('historyStats');
+  let preview=null;
+
+  function showResult(text,type='ok'){
+    result.textContent=text||'';
+    result.className='history-result '+type;
+  }
+  function stat(label,value){
+    return '<div class="history-stat"><span>'+label+'</span><strong>'+String(value??'—')+'</strong></div>';
+  }
+  async function send(url,extra={}){
+    const data=new FormData(form);
+    Object.entries(extra).forEach(([key,value])=>data.set(key,value));
+    const response=await fetch(url,{method:'POST',body:data,credentials:'same-origin'});
+    let payload={};
+    try{payload=await response.json()}catch{}
+    if(!response.ok)throw new Error(payload.message||'Сервер не принял пакет.');
+    return payload;
+  }
+
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    previewBtn.disabled=true;
+    commitBtn.classList.add('hidden');
+    stats.classList.add('hidden');
+    showResult('Проверяю ZIP-пакет…','warn');
+    try{
+      preview=await send('/api/uploads/completed-history/preview');
+      const c=preview.counts||{},t=preview.type_counts||{};
+      stats.innerHTML=
+        stat('Файлов',preview.source_file_count)+
+        stat('Дней',preview.days)+
+        stat('Приёмов',preview.visits)+
+        stat('Первичные',t['Первичные']||0)+
+        stat('Повторные',t['Повторные']||0)+
+        stat('Отконсультированные',t['Отконсультированные']||0)+
+        stat('Новые дни',c.new||0)+
+        stat('Совпадают',c.identical||0)+
+        stat('Конфликты',c.conflict||0);
+      stats.classList.remove('hidden');
+      showResult(
+        'Период '+preview.period.from+' — '+preview.period.to+
+        '. Проверка пройдена. Дубликаты/частичные выгрузки внутри пакета свернуты без задвоения.',
+        (c.conflict||0)?'warn':'ok'
+      );
+      commitBtn.textContent=(c.conflict||0)?'Загрузить новые данные':'Восстановить в AZ BAZE';
+      commitBtn.classList.remove('hidden');
+    }catch(error){
+      preview=null;
+      showResult(error.message||'Ошибка проверки.','error');
+    }finally{
+      previewBtn.disabled=false;
+    }
+  });
+
+  commitBtn.addEventListener('click',async()=>{
+    if(!preview)return;
+    commitBtn.disabled=true;
+    previewBtn.disabled=true;
+    showResult('Создаю резервную копию и восстанавливаю завершённые приёмы…','warn');
+    try{
+      const decision=(preview.counts?.conflict||0)?'use_new':'append';
+      const out=await send('/api/uploads/completed-history/commit',{decision});
+      showResult(
+        (out.message||'Восстановление завершено.')+
+        (out.backup?' Резервная копия: '+out.backup:''),
+        'ok'
+      );
+      commitBtn.classList.add('hidden');
+    }catch(error){
+      showResult(error.message||'Ошибка восстановления.','error');
+      commitBtn.disabled=false;
+    }finally{
+      previewBtn.disabled=false;
+    }
+  });
+})();
+</script>
+{% endblock %}
