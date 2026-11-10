@@ -1,3 +1,5 @@
+import json
+import sqlite3
 import unittest
 
 import completed_upload
@@ -78,6 +80,107 @@ class CompletedUploadTests(unittest.TestCase):
         self.assertEqual(merged["doctors"], {})
         self.assertEqual(merged["visits"], [])
         self.assertEqual(merged["overall"], {"2026-09-16": {}})
+
+
+    def test_existing_completed_dates_uses_daily_uploads_completed_sha256(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute(
+            """
+            CREATE TABLE daily_uploads(
+                data_date TEXT PRIMARY KEY,
+                completed_sha256 TEXT NOT NULL,
+                normalized_json TEXT NOT NULL
+            )
+            """
+        )
+        normalized = {
+            "data_date": "2026-01-05",
+            "overall": {"2026-01-05": {"Первичные": 1}},
+            "visits": [
+                {"date": "2026-01-05", "patient": "Пациент А.", "kind": "Первичные"}
+            ],
+        }
+        conn.execute(
+            "INSERT INTO daily_uploads(data_date,completed_sha256,normalized_json) VALUES(?,?,?)",
+            ("2026-01-05", "legacy-field-value", json.dumps(normalized, ensure_ascii=False)),
+        )
+        rows = completed_upload._existing_completed_dates(conn, "2026-01")
+        self.assertIn("2026-01-05", rows)
+        self.assertTrue(rows["2026-01-05"]["has_completed"])
+        self.assertNotEqual(rows["2026-01-05"]["completed_hash"], "legacy-field-value")
+
+    def test_history_overlap_prefers_strict_superset(self):
+        old = {
+            "data_date": "2026-10-27",
+            "overall": {"2026-10-27": {"Первичные": 2}},
+            "visits": [
+                {"date": "2026-10-27", "patient": "А.", "kind": "Первичные"},
+                {"date": "2026-10-27", "patient": "Б.", "kind": "Первичные"},
+            ],
+            "source_filename": "primary-only.xlsx",
+        }
+        full = {
+            "data_date": "2026-10-27",
+            "overall": {
+                "2026-10-27": {"Первичные": 2, "Повторные": 2}
+            },
+            "visits": [
+                {"date": "2026-10-27", "patient": "А.", "kind": "Первичные"},
+                {"date": "2026-10-27", "patient": "Б.", "kind": "Первичные"},
+                {"date": "2026-10-27", "patient": "В.", "kind": "Повторные"},
+                {"date": "2026-10-27", "patient": "Г.", "kind": "Повторные"},
+            ],
+            "source_filename": "full.xlsx",
+        }
+        merged, action = completed_upload.merge_history_day(old, full)
+        self.assertIs(merged, full)
+        self.assertEqual(action, "superset_replaced")
+
+    def test_history_overlap_rejects_non_subset_conflict(self):
+        left = {
+            "data_date": "2026-10-27",
+            "overall": {"2026-10-27": {"Первичные": 1}},
+            "visits": [
+                {"date": "2026-10-27", "patient": "А.", "kind": "Первичные"}
+            ],
+            "source_filename": "left.xlsx",
+        }
+        right = {
+            "data_date": "2026-10-27",
+            "overall": {"2026-10-27": {"Первичные": 1}},
+            "visits": [
+                {"date": "2026-10-27", "patient": "Б.", "kind": "Первичные"}
+            ],
+            "source_filename": "right.xlsx",
+        }
+        with self.assertRaises(ValueError):
+            completed_upload.merge_history_day(left, right)
+
+    def test_completed_management_merge_preserves_independent_money_fields(self):
+        existing = {
+            "date": "2026-10-27",
+            "factMedicine": 123456.0,
+            "cashTotal": 100000.0,
+            "paidServicesTotal": 90000.0,
+            "plan": 700000.0,
+        }
+        rebuilt = {
+            "date": "2026-10-27",
+            "primary": 13,
+            "repeat": 32,
+            "factMedicine": 0,
+        }
+        merged = completed_upload.merge_completed_management(
+            existing, rebuilt, "historical"
+        )
+        self.assertEqual(merged["primary"], 13)
+        self.assertEqual(merged["repeat"], 32)
+        self.assertEqual(merged["factMedicine"], 123456.0)
+        self.assertEqual(merged["cashTotal"], 100000.0)
+        self.assertEqual(merged["paidServicesTotal"], 90000.0)
+        self.assertEqual(merged["plan"], 700000.0)
+        self.assertEqual(merged["_completed_source"], "historical")
 
 
 if __name__ == "__main__":
