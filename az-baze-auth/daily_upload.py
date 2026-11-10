@@ -22,6 +22,8 @@ user_permissions = core.user_permissions
 # service analytics use the same department mapping.
 EXTRA_DENTISTS = {
     "Филатова А. Д.": "Филатова А. Д.",
+    "Морозова А. П.": "Морозова А. П.",
+    "Игнатенко Д. С.": "Игнатенко Д. С.",
 }
 EXTRA_STRUCTURE_DOCTORS = {
     "Diers И.": "Diers И.",
@@ -281,15 +283,39 @@ def _doctor_attribution(visits, items):
             continue
 
         directions = {department for department, _staff in candidates}
-        if len(directions) != 1:
-            # Several directions for the same patient/day are ambiguous.
-            # Never guess from row order; the operator resolves those visits.
+        data_date = key[0]
+
+        if len(directions) == 1:
+            staff = candidates[0][1]
+            for kind in kinds:
+                doctors[data_date][kind][staff] += 1
             continue
 
-        staff = candidates[0][1]
-        data_date = key[0]
-        for kind in kinds:
-            doctors[data_date][kind][staff] += 1
+        # Historical split-upload rule:
+        # when the same patient has evidence in several departments, do not ask
+        # the operator to manually classify every visit. We can safely allocate
+        # one visit to each department only when:
+        #   * every department has exactly one candidate provider;
+        #   * all completed visits have the same kind;
+        #   * there are at least as many visits as departments.
+        # Any remaining ambiguity stays unassigned and is visible through the
+        # existing source-vs-attributed control counters.
+        by_direction = defaultdict(list)
+        for department, staff in candidates:
+            if staff not in by_direction[department]:
+                by_direction[department].append(staff)
+
+        if (
+            kinds
+            and len(set(kinds)) == 1
+            and len(kinds) >= len(directions)
+            and all(len(staff_names) == 1 for staff_names in by_direction.values())
+        ):
+            kind = kinds[0]
+            for department in ("dent", "structure"):
+                staff_names = by_direction.get(department) or []
+                if staff_names:
+                    doctors[data_date][kind][staff_names[0]] += 1
 
     return doctors
 
