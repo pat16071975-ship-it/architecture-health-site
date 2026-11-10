@@ -78,6 +78,18 @@
   </div>
   {% endif %}
 
+  {% if can_replace and 'upload_completed' in perms %}
+  <form method="post" enctype="multipart/form-data" class="upload-box paid-upload-box" data-az-completed-history-form>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <h3>История завершённых приёмов</h3>
+    <p>Одноразовое восстановление исторических «Завершённых приёмов» после переезда. Второй файл «Выручка по направлениям» здесь не требуется.</p>
+    <input type="file" name="bundle" accept=".zip,application/zip" required>
+    <button class="btn primary" type="submit" style="margin-top:12px">Проверить исторический ZIP</button>
+    <div class="hint">Перед записью сервер проверит manifest и SHA256 исходных XLSX, свернёт точные дубли/частичные подмножества и создаст резервную копию базы.</div>
+    <div id="completedHistoryClientResult" class="result hidden"></div>
+  </form>
+  {% endif %}
+
   <form method="post" action="/uploads/cash" enctype="multipart/form-data" class="upload-box cash-upload-box" data-az-cash-upload-form>
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <h3>3. Счета и оплаты</h3>
@@ -304,6 +316,7 @@
   const clinicalForm=document.querySelector('[data-az-upload-form]');
   const cashForm=document.querySelector('[data-az-cash-upload-form]');
   const paidForm=document.querySelector('[data-az-paid-upload-form]');
+  const completedHistoryForm=document.querySelector('[data-az-completed-history-form]');
   const metrikaForm=document.querySelector('[data-az-metrika-form]');
   const metrikaAutoBtn=document.getElementById('metrikaAutoLoad');
   const overlay=document.getElementById('reconcileOverlay');
@@ -323,7 +336,7 @@
   const money=value=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Number(value)||0)+' ₽';
 
   function resultBox(type,text,ok){
-    const ids={clinical:'clinicalClientResult',cash:'cashClientResult',paid:'paidClientResult',metrika:'metrikaClientResult'};
+    const ids={clinical:'clinicalClientResult',cash:'cashClientResult',paid:'paidClientResult',metrika:'metrikaClientResult',history:'completedHistoryClientResult'};
     const el=document.getElementById(ids[type]||'');
     if(!el)return;
     el.textContent=text||'';
@@ -548,6 +561,56 @@
   clinicalForm?.addEventListener('submit',event=>{event.preventDefault();preview('clinical',clinicalForm)});
   cashForm?.addEventListener('submit',event=>{event.preventDefault();preview('cash',cashForm)});
   paidForm?.addEventListener('submit',event=>{event.preventDefault();preview('paid',paidForm)});
+  completedHistoryForm?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    resultBox('history','Проверяю исторический ZIP…',true);
+    const submit=completedHistoryForm.querySelector('button[type="submit"]');
+    if(submit)submit.disabled=true;
+    try{
+      const preview=await send('/api/uploads/completed-history/preview',completedHistoryForm);
+      const c=preview.counts||{},t=preview.type_counts||{};
+      let message=
+        'Период '+preview.period.from+' — '+preview.period.to+
+        '; приёмов '+(preview.visits||0)+
+        '; дней '+(preview.days||0)+
+        '; первичные '+(t['Первичные']||0)+
+        '; повторные '+(t['Повторные']||0)+
+        '; отконсультированные '+(t['Отконсультированные']||0)+
+        '; новые дни '+(c.new||0)+
+        '; совпали '+(c.identical||0)+
+        '; конфликты '+(c.conflict||0)+'.';
+      resultBox('history',message,true);
+
+      const decision=(c.conflict||0)?'use_new':'append';
+      const ok=window.confirm(
+        message+
+        '\n\nВосстановить эти завершённые приёмы в AZ BAZE? Перед записью будет создан backup.'
+      );
+      if(!ok){
+        resultBox('history','Проверка завершена. Запись не выполнялась.',true);
+        return;
+      }
+
+      resultBox('history','Создаю backup и восстанавливаю исторические завершённые приёмы…',true);
+      const out=await send(
+        '/api/uploads/completed-history/commit',
+        completedHistoryForm,
+        {decision}
+      );
+      resultBox(
+        'history',
+        (out.message||'Исторические завершённые приёмы восстановлены.')+
+        (out.backup?' Backup: '+out.backup:''),
+        true
+      );
+      setTimeout(()=>location.reload(),1200);
+    }catch(error){
+      resultBox('history',error.message||'Ошибка исторического восстановления.',false);
+    }finally{
+      if(submit)submit.disabled=false;
+    }
+  });
+
   metrikaAutoBtn?.addEventListener('click',async()=>{
     metrikaAutoBtn.disabled=true;
     resultBox('metrika','Обновляю свежие данные Яндекс Метрики…',true);
