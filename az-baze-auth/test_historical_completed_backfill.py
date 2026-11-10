@@ -160,6 +160,21 @@ class HistoricalCompletedBackfillTests(unittest.TestCase):
         )
         self.assertIn("historical_completed_backfill.register(app)", server)
 
+        uploads = (
+            Path(__file__).resolve().parent / "templates" / "uploads.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("data-az-upload-form", uploads)
+        self.assertIn("name=\"completed\"", uploads)
+        self.assertIn("name=\"services\"", uploads)
+        self.assertIn("data-az-completed-history-form", uploads)
+        self.assertIn("name=\"bundle\"", uploads)
+        self.assertIn("/api/uploads/completed-history/preview", uploads)
+        self.assertIn("/api/uploads/completed-history/commit", uploads)
+        self.assertIn(
+            "Второй файл «Выручка по направлениям» здесь не требуется.",
+            uploads,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
