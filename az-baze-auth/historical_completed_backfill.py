@@ -553,16 +553,16 @@ def inject_uploads_page(page_html, authorized=None):
         return page_html
 
     csrf = html.escape(csrf_token(), quote=True)
-    block = f"""
+    block = """
 <style id="az-completed-history-inline-style">
-.az-history-box{{margin-top:12px;border:1px solid #ded5c8;border-left:4px solid #44634f;border-radius:11px;background:#fff;padding:14px}}
-.az-history-box h3{{margin:0 0 5px;font-size:14px}}
-.az-history-box p{{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}}
-.az-history-box input[type=file]{{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}}
-.az-history-box .result{{margin-top:12px}}
+.az-history-box{margin-top:12px;border:1px solid #ded5c8;border-left:4px solid #44634f;border-radius:11px;background:#fff;padding:14px}
+.az-history-box h3{margin:0 0 5px;font-size:14px}
+.az-history-box p{margin:0 0 10px;color:#6c746d;font-size:11px;line-height:1.45}
+.az-history-box input[type=file]{width:100%;padding:9px;border:1px solid #d8cdbb;border-radius:8px;background:#fffdf8;font:500 11px Montserrat,Arial,sans-serif}
+.az-history-box .result{margin-top:12px}
 </style>
 <form method="post" enctype="multipart/form-data" class="az-history-box" data-az-completed-history-form>
-  <input type="hidden" name="csrf" value="{csrf}">
+  <input type="hidden" name="csrf" value="__CSRF__">
   <h3>История завершённых приёмов</h3>
   <p>Восстановление истории после переезда. Здесь нужен только один ZIP; файл «Выручка по направлениям» не требуется.</p>
   <input type="file" name="bundle" accept=".zip,application/zip" required>
@@ -608,7 +608,7 @@ def inject_uploads_page(page_html, authorized=None):
         ', совпали '+(counts.identical||0)+
         ', отличаются '+(counts.conflict||0)+'.';
       show(summary,true);
-      if(!window.confirm(summary+'\n\nЗаписать историю в AZ BAZE? Перед записью будет создан backup.')){
+      if(!window.confirm(summary+'\\n\\nЗаписать историю в AZ BAZE? Перед записью будет создан backup.')){
         show('Проверка завершена. Запись не выполнялась.',true);
         return;
       }
@@ -625,7 +625,7 @@ def inject_uploads_page(page_html, authorized=None):
   });
 })();
 </script>
-"""
+""".replace("__CSRF__", csrf)
     return page_html.replace(marker, block + "\n" + marker, 1)
 
 def register(app):
