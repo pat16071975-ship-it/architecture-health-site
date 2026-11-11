@@ -17,7 +17,7 @@ payroll_registry = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(payroll_registry)
 
 
-def workbook_bytes(oct_error=False):
+def workbook_bytes(oct_error=False, doctor_name="Иванов Иван Иванович", doctor_role="Стоматолог-терапевт", doctor_department="Отделение терапии"):
     wb = Workbook()
     wb.remove(wb.active)
 
@@ -28,9 +28,9 @@ def workbook_bytes(oct_error=False):
     ):
         ws = wb.create_sheet(title)
         ws["A4"] = "Врачебный блок"
-        ws["A5"] = "Отделение терапии"
-        ws["D5"] = "Иванов Иван Иванович"
-        ws["E5"] = "Стоматолог-терапевт"
+        ws["A5"] = doctor_department
+        ws["D5"] = doctor_name
+        ws["E5"] = doctor_role
         ws["O5"] = "#DIV/0!" if (oct_error and "октябрь" in title) else base
         ws["P5"] = 10
         ws["T5"] = 5
@@ -80,6 +80,74 @@ class PayrollRegistryTests(unittest.TestCase):
         self.assertIn("2026-10", parsed["payroll"]["partial_period"])
         self.assertNotIn("2026-10", parsed["payroll"]["period"])
         self.assertTrue(parsed["payroll"]["month_errors"]["2026-10"])
+
+    def test_same_person_legacy_and_registry_merge_into_one_history(self):
+        chirkov_id = payroll_registry._employee_id("Чирков Максим Сергеевич")
+        self.assertEqual(chirkov_id, "1d5542bd4bfdc1b1")
+
+        base = {
+            "version": 3,
+            "available": True,
+            "period": [f"2026-{m:02d}" for m in range(1, 9)],
+            "source": "ОПУ + Свод по ЗП new",
+            "payroll": {
+                "assignments": [{
+                    "assignment_id": "legacy-chirkov-assignment",
+                    "employee_id": "1d5542bd4bfdc1b1",
+                    "name": "Чирков Максим Сергеевич",
+                    "role": "Стоматолог–терапевт",
+                    "group": "Врачи",
+                    "function": "Стоматолог–терапевт",
+                    "department": "Терапия",
+                    "months": {"2026-08": 555.0},
+                    "total": 555.0,
+                }],
+                "total_by_month": {"2026-08": 555.0},
+                "total": 555.0,
+            },
+            "control": {"status": "OK"},
+        }
+        overlay = payroll_registry.parse_registry(
+            workbook_bytes(
+                doctor_name="Чирков Максим Сергеевич",
+                doctor_role="Стоматолог-терапевт",
+                doctor_department="Отделение терапии",
+            ),
+            now=datetime(2026, 11, 11, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )
+
+        overlay_doctor = next(
+            item for item in overlay["payroll"]["assignments"]
+            if item["name"] == "Чирков Максим Сергеевич"
+        )
+        self.assertEqual(overlay_doctor["employee_id"], "1d5542bd4bfdc1b1")
+
+        merged = payroll_registry.merge_economics_payload(base, overlay)
+        chirkov_assignments = [
+            item for item in merged["payroll"]["assignments"]
+            if item["name"] == "Чирков Максим Сергеевич"
+        ]
+        chirkov_people = [
+            item for item in merged["payroll"]["people"]
+            if item["name"] == "Чирков Максим Сергеевич"
+        ]
+
+        self.assertEqual(len(chirkov_assignments), 1)
+        self.assertEqual(len(chirkov_people), 1)
+
+        assignment = chirkov_assignments[0]
+        self.assertEqual(assignment["employee_id"], "1d5542bd4bfdc1b1")
+        self.assertEqual(assignment["assignment_id"], "legacy-chirkov-assignment")
+        self.assertAlmostEqual(assignment["months"]["2026-08"], 555.0)
+        self.assertAlmostEqual(assignment["months"]["2026-09"], 128.0)
+        self.assertAlmostEqual(assignment["months"]["2026-10"], 228.0)
+        self.assertNotIn("2026-11", assignment["months"])
+
+        person = chirkov_people[0]
+        self.assertEqual(person["employee_id"], "1d5542bd4bfdc1b1")
+        self.assertAlmostEqual(person["months"]["2026-08"], 555.0)
+        self.assertAlmostEqual(person["months"]["2026-09"], 128.0)
+        self.assertAlmostEqual(person["months"]["2026-10"], 228.0)
 
     def test_merge_keeps_opu_period_and_extends_only_payroll_period(self):
         base = {
