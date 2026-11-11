@@ -152,6 +152,13 @@ class PayrollRegistryTests(unittest.TestCase):
     def test_real_label_drift_classes_merge_same_assignment(self):
         cases = [
             {
+                "name": "Чирков Максим Сергеевич",
+                "role": "Заведующий терапевтического отделения",
+                "group": "Врачи",
+                "legacy_department": "Заведующий терапевтического отделения",
+                "new_department": "Отделение терапии",
+            },
+            {
                 "name": "Кабирова Азалия Азаматовна",
                 "role": "Администратор",
                 "group": "Администраторы",
