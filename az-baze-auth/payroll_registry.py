@@ -76,13 +76,55 @@ def _canonical_department(value, group=""):
     return department
 
 
+def _canonical_assignment_scope(item):
+    group = str(item.get("group") or "")
+    role = _norm_role(item.get("role"))
+    department = _canonical_department(
+        item.get("department") or item.get("function"),
+        group,
+    )
+
+    # Group-level functions are more stable than historical department labels.
+    if group == "Администраторы":
+        return "администраторы / клиентский сервис"
+    if group == "Лаборатория":
+        return "зуботехническая лаборатория"
+    if group == "Штатный маркетинг":
+        return "маркетинг / smm"
+    if group in {"АУП", "Вспомогательный персонал"}:
+        return _norm(_function_for(item.get("role"), group))
+
+    if group == "Врачи":
+        # When the medical role itself defines a specialty, prefer that stable
+        # identity over source-specific department wording.
+        role_scopes = (
+            (r"ортодонт", "ортодонтия"),
+            (r"ортопед", "ортопедия"),
+            (r"хирург", "хирургия"),
+            (r"гигиен", "гигиена"),
+            (r"терапевт|стоматолог[- ]терап", "терапия"),
+            (
+                r"остеопат|нутрициолог|подиатр|гастроэнтеролог|нейропсихолог|"
+                r"массаж|миофункцион|логопед|медицинская сестра по массажу",
+                "отделение структуры",
+            ),
+        )
+        for pattern, scope in role_scopes:
+            if re.search(pattern, role):
+                return scope
+
+    # Generic roles can legitimately exist in different departments; keep the
+    # canonical department in the key so truly distinct assignments stay apart.
+    return department or _norm(item.get("function")) or role
+
+
 def _assignment_merge_key(item):
     group = str(item.get("group") or "")
     return (
         str(item.get("employee_id") or ""),
         group,
         _norm_role(item.get("role")),
-        _canonical_department(item.get("department") or item.get("function"), group),
+        _canonical_assignment_scope(item),
     )
 
 
