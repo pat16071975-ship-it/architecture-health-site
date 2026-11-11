@@ -9,6 +9,7 @@ from pathlib import Path
 from flask import Response, g, jsonify, request
 
 from app import SITE_ROOT, admin_required, audit, csrf_token, db, iso_now, permission_required, require_csrf
+import payroll_registry
 
 DATA_PATH = Path("/var/lib/az-baze/economics-control.json")
 PERIOD = [f"2026-{m:02d}" for m in range(1, 9)]
@@ -831,6 +832,9 @@ def _load_data():
     if not DATA_PATH.exists():
         return {"version": 3, "available": False}
     data = json.loads(DATA_PATH.read_text(encoding="utf-8"))
+    registry = payroll_registry.load_registry()
+    if registry:
+        data = payroll_registry.merge_economics_payload(data, registry)
     data["available"] = True
     return data
 
@@ -885,6 +889,56 @@ def register_economics_control(app):
                 error = str(exc)
 
         html = (SITE_ROOT / "reports" / "economics-import.html").read_text(
+            encoding="utf-8"
+        )
+        html = (
+            html.replace(
+                "{{MESSAGE}}",
+                f'<div class="ok">{message}</div>' if message else "",
+            )
+            .replace("{{ERROR}}", error)
+            .replace("{{CSRF}}", csrf_token())
+        )
+        return Response(html, mimetype="text/html")
+
+    @app.route("/reports/payroll-import/", methods=["GET", "POST"])
+    @admin_required
+    def payroll_import():
+        message, error = "", ""
+        if request.method == "POST":
+            try:
+                require_csrf()
+                upload = request.files.get("file")
+                if not upload or not upload.filename.lower().endswith(".xlsx"):
+                    raise ValueError("Выберите исходный файл .xlsx")
+
+                payload = payroll_registry.parse_registry(upload.stream)
+                complete = list(payload["payroll"].get("period") or [])
+                partial = list(payload["payroll"].get("partial_period") or [])
+                if not complete:
+                    raise ValueError("В зарплатном реестре нет ни одного закрытого месяца для загрузки.")
+
+                payroll_registry.save_registry(payload)
+                audit(
+                    "payroll_registry_imported",
+                    target_user_id=g.user["id"],
+                    details=(
+                        f"file={upload.filename};"
+                        f"complete={','.join(complete)};"
+                        f"partial={','.join(partial)};"
+                        f"payroll={payload['payroll']['total']:.2f};"
+                        f"source={payroll_registry.SOURCE_NAME}"
+                    ),
+                )
+                message = (
+                    "Зарплатный реестр обновлён. "
+                    "Закрытые месяцы: " + ", ".join(complete)
+                    + (". Неполные месяцы: " + ", ".join(partial) if partial else ".")
+                )
+            except Exception as exc:
+                error = str(exc)
+
+        html = (SITE_ROOT / "reports" / "payroll-import.html").read_text(
             encoding="utf-8"
         )
         html = (
