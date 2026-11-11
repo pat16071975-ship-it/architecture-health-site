@@ -1,0 +1,124 @@
+name: AZ payroll through November 2026
+
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/payroll_registry.py'
+      - 'az-baze-auth/economics_control.py'
+      - 'az-baze-auth/finrez.py'
+      - 'az-baze-auth/test_payroll_registry.py'
+      - 'reports/payroll-import.html'
+      - 'reports/economics-import.html'
+      - 'reports/services-audit-sync.js'
+      - 'reports/services-summary-economics.js'
+      - 'reports/services-inline-economics.js'
+      - 'reports/services-primary-patient-cost.js'
+      - 'reports/economics-audit-guard.js'
+      - 'reports/finrez-economics-integrated.js'
+      - 'reports/finrez-payroll-audit-rows.js'
+      - 'reports/forecast-audit-sync.js'
+      - 'reports/economics-dashboard.html'
+      - 'reports/services.html'
+      - '.github/workflows/az-payroll-through-nov.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  payroll-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      AZBAZE_SECRET_KEY: payroll-ci
+      AZBAZE_DB: /tmp/az-payroll-ci.db
+      AZBAZE_SITE_ROOT: /tmp/az-payroll-site
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r az-baze-auth/requirements.txt
+
+      - name: Python syntax
+        run: |
+          python -m py_compile             az-baze-auth/payroll_registry.py             az-baze-auth/economics_control.py             az-baze-auth/finrez.py             az-baze-auth/test_payroll_registry.py
+
+      - name: Payroll registry regressions
+        working-directory: az-baze-auth
+        run: |
+          python -m unittest -v test_payroll_registry.py
+          python -m unittest -v test_economics_revenue_source.py
+
+      - name: JavaScript syntax
+        run: |
+          node --check reports/services-audit-sync.js
+          node --check reports/services-summary-economics.js
+          node --check reports/services-inline-economics.js
+          node --check reports/services-primary-patient-cost.js
+          node --check reports/economics-audit-guard.js
+          node --check reports/finrez-economics-integrated.js
+          node --check reports/finrez-payroll-audit-rows.js
+          node --check reports/forecast-audit-sync.js
+
+      - name: Payroll contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          reg=Path('az-baze-auth/payroll_registry.py').read_text(encoding='utf-8')
+          econ=Path('az-baze-auth/economics_control.py').read_text(encoding='utf-8')
+          service=Path('reports/services-audit-sync.js').read_text(encoding='utf-8')
+          summary=Path('reports/services-summary-economics.js').read_text(encoding='utf-8')
+          finrez=Path('reports/finrez-economics-integrated.js').read_text(encoding='utf-8')
+
+          assert 'SOURCE_NAME = "ЗП_ЭКСПЕРСТОМ"' in reg
+          assert 'partial_period' in reg
+          assert 'merge_economics_payload' in reg
+          assert 'payroll_registry.parse_registry' in econ
+          assert '/reports/payroll-import/' in econ
+
+          assert 'economics.payroll?.period' in service
+          assert 'payrollPartialPeriod' in service
+          assert 'directionFot' in service
+          assert 'Неполные данные' in summary
+
+          assert 'function payrollMonth' in finrez
+          assert 'function payrollPartial' in finrez
+          assert "new Set(['variable','margin','gross','ebitda'])" in finrez
+          print('PAYROLL_THROUGH_NOV_CONTRACT=PASS')
+          PY
+
+      - name: Exact scope
+        run: |
+          git diff --check
+          python - <<'PY'
+          import subprocess
+          allowed={
+              '.github/workflows/az-payroll-through-nov.yml',
+              'az-baze-auth/payroll_registry.py',
+              'az-baze-auth/economics_control.py',
+              'az-baze-auth/finrez.py',
+              'az-baze-auth/test_payroll_registry.py',
+              'reports/payroll-import.html',
+              'reports/economics-import.html',
+              'reports/services-audit-sync.js',
+              'reports/services-summary-economics.js',
+              'reports/services-inline-economics.js',
+              'reports/services-primary-patient-cost.js',
+              'reports/economics-audit-guard.js',
+              'reports/finrez-economics-integrated.js',
+              'reports/finrez-payroll-audit-rows.js',
+              'reports/forecast-audit-sync.js',
+              'reports/economics-dashboard.html',
+              'reports/services.html',
+          }
+          base='9433ee604b0de26c6b084aba55b3750d90fad17e'
+          changed=set(subprocess.check_output(
+              ['git','diff','--name-only',base+'...HEAD'], text=True
+          ).splitlines())
+          assert changed <= allowed, changed
+          print('SCOPE=PASS; FILES='+str(len(changed)))
+          PY

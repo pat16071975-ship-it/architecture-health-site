@@ -81,7 +81,7 @@
   }
   function guardIncompleteEconomics(d) {
     const revenue=rowByLabel(d,/^Выручка (врача|всех врачей|лаборатории)/i);
-    const salary=rowByLabel(d,/^(Основная ЗП|ФОТ лаборатории)/i);
+    const salary=rowByLabel(d,/^(Основная ЗП|ФОТ врачей|ФОТ по зарплатному реестру|ФОТ лаборатории)/i);
     const profit=rowByLabel(d,/^(Доход|Финансовый результат) после (ЗП|ФОТ|выплат)/i);
     const margin=rowByLabel(d,/^(Маржинальность|Рентабельность) после выплат/i);
     if (!revenue || !salary) return;

@@ -241,10 +241,10 @@
 
       groups.forEach(g => {
         const m = metricFor(g.idx);
-        html += metricPair(def, m?.[def.key] ?? null, focus === g.id);
+        html += metricPair(def, m?.[def.key] ?? null, focus === g.id, false, !!m?.incomplete && ['final','margin'].includes(def.key));
       });
 
-      html += metricPair(def, grand?.[def.key] ?? null, false, true);
+      html += metricPair(def, grand?.[def.key] ?? null, false, true, !!grand?.incomplete && ['final','margin'].includes(def.key));
       html += '<td class="az-full-cost-dash">—</td>';
       row.innerHTML = html;
       anchor.insertAdjacentElement('afterend', row);
@@ -300,10 +300,10 @@
       html += `<tr class="${classes}"><td>${escapeHtml(def.label)}</td>`;
       groups.forEach(g => {
         const m = allMetrics(g.idx);
-        html += metricPair(def, m?.[def.key] ?? null, focus === g.id);
+        html += metricPair(def, m?.[def.key] ?? null, focus === g.id, false, !!m?.incomplete && ['salary','extras','payouts','afterPayout','payoutMargin','final','margin'].includes(def.key));
       });
       const grand = def.costBound ? grandCost : grandAll;
-      html += metricPair(def, grand?.[def.key] ?? null, false, true);
+      html += metricPair(def, grand?.[def.key] ?? null, false, true, !!grand?.incomplete && ['salary','extras','payouts','afterPayout','payoutMargin','final','margin'].includes(def.key));
       html += `<td class="small">${def.costBound ? 'январь–июль' : 'все доступные месяцы'}</td></tr>`;
     });
 
@@ -323,6 +323,9 @@
     const load = idx.reduce((sum, i) => sum + payerSeries[i] * monthlyCost(costData, clinicPayers, i), 0);
     const revenue = revenueForDoctors(serviceData?.directions?.[direction], doctors, idx);
     const payouts = payoutsForDoctors(w, direction, doctors, serviceData.months.length, idx);
+    if (payouts.incomplete) {
+      return { paidPatients, cost, load, final:null, margin:null, incomplete:true };
+    }
     const final = revenue - payouts.total - load;
 
     return {
@@ -330,7 +333,8 @@
       cost,
       load,
       final,
-      margin: revenue ? final / revenue : null
+      margin: revenue ? final / revenue : null,
+      incomplete:false
     };
   }
 
@@ -338,30 +342,35 @@
     let revenue = 0;
     let salary = 0;
     let extras = 0;
+    let incomplete = false;
 
     MEDICAL_DIRECTIONS.forEach(direction => {
       const dir = serviceData?.directions?.[direction];
       const doctors = Object.keys(dir?.doctors || {});
       revenue += revenueForDoctors(dir, doctors, idx);
-      const pay = payoutsForDoctors(w, direction, doctors, serviceData.months.length, idx);
-      salary += pay.salary;
-      extras += pay.extras;
+      const pay = directionPayouts(w, direction, doctors, serviceData.months.length, idx);
+      if (pay.incomplete) incomplete = true;
+      else {
+        salary += pay.salary;
+        extras += pay.extras;
+      }
     });
 
-    const payouts = salary + extras;
-    const afterPayout = revenue - payouts;
+    const payouts = incomplete ? null : salary + extras;
+    const afterPayout = incomplete ? null : revenue - payouts;
     const out = {
       revenue,
-      salary,
-      extras,
+      salary: incomplete ? null : salary,
+      extras: incomplete ? null : extras,
       payouts,
       afterPayout,
-      payoutMargin: revenue ? afterPayout / revenue : null,
+      payoutMargin: !incomplete && revenue ? afterPayout / revenue : null,
       paidPatients:null,
       cost:null,
       load:null,
       final:null,
-      margin:null
+      margin:null,
+      incomplete
     };
 
     const payerSeries = paidPatientSeries(costData, 'medicine');
@@ -370,6 +379,7 @@
     const paidPatients = sumIndexes(payerSeries, idx);
     const cost = weightedCost(costData, payerSeries, idx);
     const load = idx.reduce((sum, i) => sum + (+payerSeries[i] || 0) * monthlyCost(costData, payerSeries, i), 0);
+    if (incomplete) return out;
     const final = revenue - payouts - load;
 
     out.paidPatients = paidPatients;
@@ -380,7 +390,7 @@
     return out;
   }
 
-  function metricPair(def, value, focus, totalCol = false) {
+  function metricPair(def, value, focus, totalCol = false, incomplete = false) {
     const qClasses = ['az-full-cost-dash'];
     const vClasses = [];
     if (focus) {
@@ -395,6 +405,10 @@
       vClasses.push(value >= 0 ? 'az-full-cost-good' : 'az-full-cost-bad');
     }
 
+    if (incomplete) {
+      vClasses.push('az-audit-partial');
+      return `<td class="${qClasses.join(' ')}">—</td><td class="${vClasses.join(' ')}">Неполные данные</td>`;
+    }
     if (def.type === 'count') {
       return `<td class="${vClasses.join(' ')}">${value == null ? '—' : number(value)}</td><td class="${qClasses.join(' ')}">—</td>`;
     }
@@ -413,21 +427,50 @@
     return total;
   }
 
+  function payrollMeta(w) {
+    try { return JSON.parse(w.localStorage.getItem('az-economics-sync-meta') || '{}'); }
+    catch { return {}; }
+  }
+
   function payoutsForDoctors(w, direction, doctors, monthCount, idx) {
     const salaryStore = getJson(w.localStorage, SALARY_KEY) || {};
     const extraStore = getJson(w.localStorage, EXTRA_KEY) || {};
+    const meta = payrollMeta(w);
+    const partial = new Set((meta.payrollPartialPeriod || []).map(month => Number(String(month).slice(-2)) - 1));
     let salary = 0;
     let extras = 0;
+    let incomplete = idx.some(i => partial.has(i));
 
     doctors.forEach(doctor => {
-      const salaryArr = normalizeArray(salaryStore?.[direction]?.[doctor], monthCount, 0);
+      const salaryArr = normalizeArray(salaryStore?.[direction]?.[doctor], monthCount, null);
       const extraArr = normalizeArray(extraStore?.[direction]?.[doctor], monthCount, 0);
       idx.forEach(i => {
-        salary += Number.isFinite(+salaryArr[i]) ? (+salaryArr[i] || 0) : 0;
+        if (salaryArr[i] === null || salaryArr[i] === undefined || !Number.isFinite(+salaryArr[i])) incomplete = true;
+        else salary += +salaryArr[i] || 0;
         extras += Number.isFinite(+extraArr[i]) ? (+extraArr[i] || 0) : 0;
       });
     });
-    return { salary, extras, total:salary + extras };
+    return incomplete
+      ? { salary:null, extras:null, total:null, incomplete:true }
+      : { salary, extras, total:salary + extras, incomplete:false };
+  }
+
+  function directionPayouts(w, direction, doctors, monthCount, idx) {
+    const meta = payrollMeta(w);
+    const canonical = direction === 'Клиника' ? 'Отделение структуры' : direction;
+    const aggregate = normalizeArray(meta?.directionFot?.[canonical], monthCount, null);
+    const partial = new Set((meta.payrollPartialPeriod || []).map(month => Number(String(month).slice(-2)) - 1));
+    const incomplete = idx.some(i => partial.has(i) || aggregate[i] === null || aggregate[i] === undefined || !Number.isFinite(+aggregate[i]));
+    if (incomplete) return { salary:null, extras:null, total:null, incomplete:true };
+
+    const salary = idx.reduce((sum, i) => sum + (+aggregate[i] || 0), 0);
+    const extraStore = getJson(w.localStorage, EXTRA_KEY) || {};
+    let extras = 0;
+    doctors.forEach(doctor => {
+      const extraArr = normalizeArray(extraStore?.[direction]?.[doctor], monthCount, 0);
+      idx.forEach(i => { extras += Number.isFinite(+extraArr[i]) ? (+extraArr[i] || 0) : 0; });
+    });
+    return { salary, extras, total:salary + extras, incomplete:false };
   }
 
   function costMonthKey(costData, i) {

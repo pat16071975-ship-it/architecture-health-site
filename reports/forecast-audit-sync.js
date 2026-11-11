@@ -25,7 +25,8 @@
 
   function auditedFot(month, direction) {
     if (!economics?.available || economics?.control?.status !== 'OK') return null;
-    if (!(economics.period || []).includes(month)) return null;
+    const period = economics.payroll?.period || economics.payroll_period || economics.period || [];
+    if (!period.includes(month)) return null;
     const assignments = economics.payroll?.assignments || [];
     if (direction === 'lab') {
       return assignments

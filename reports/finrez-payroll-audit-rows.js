@@ -26,7 +26,7 @@
 
   function periodValues(filter) {
     const assignments = (economics?.payroll?.assignments || []).filter(filter);
-    const period = new Set(economics?.period || []);
+    const period = new Set(economics?.payroll?.period || economics?.payroll_period || economics?.period || []);
     return Array.from({ length: 12 }, (_, index) => {
       const month = `2026-${String(index + 1).padStart(2, '0')}`;
       if (!period.has(month)) return null;
@@ -75,8 +75,8 @@
       : '<span class="leaf-space"></span>';
     const level = main ? 2 : 3;
     const note = main
-      ? `<span class="az-accrual-note">Контроль начислений; в кассовую сумму строки «ФОТ — по фактической оплате» повторно не включается. Январь–июнь: <span class="az-accrual-total">${money(aggregate)}</span></span>`
-      : `<span class="az-accrual-note">Январь–июнь: ${money(aggregate)}</span>`;
+      ? `<span class="az-accrual-note">Контроль начислений; в кассовую сумму строки «ФОТ — по фактической оплате» повторно не включается. Закрытые месяцы зарплатного реестра: <span class="az-accrual-total">${money(aggregate)}</span></span>`
+      : `<span class="az-accrual-note">Закрытые месяцы: ${money(aggregate)}</span>`;
     const cells = values.map(value => `<td><span class="cell-main">${money(value)}</span></td>`).join('');
     return `<tr class="${main ? 'az-accrual-main' : 'az-accrual-child'}"><td class="first"><div class="label"><span class="indent" style="--level:${level}"></span>${toggle}<span class="row-label">${label}${note}</span></div></td>${cells}</tr>`;
   }

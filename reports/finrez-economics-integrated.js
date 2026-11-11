@@ -45,6 +45,25 @@
     return (economics?.period || []).includes(month) ? month : null;
   }
 
+  function payrollMonth(year, index) {
+    const month = `${year}-${String(index + 1).padStart(2, '0')}`;
+    const period = economics?.payroll?.period || economics?.payroll_period || economics?.period || [];
+    return period.includes(month) ? month : null;
+  }
+
+  function payrollPartial(year, index) {
+    const month = `${year}-${String(index + 1).padStart(2, '0')}`;
+    const partial = economics?.payroll?.partial_period || economics?.payroll_partial_period || [];
+    return partial.includes(month);
+  }
+
+  function payrollValues(year, source) {
+    return Array.from({ length: 12 }, (_, index) => {
+      const month = payrollMonth(year, index);
+      return month ? (Number(source?.[month]) || 0) : null;
+    });
+  }
+
   function auditedValues(year, source) {
     return Array.from({ length: 12 }, (_, index) => {
       const month = auditedMonth(year, index);
@@ -54,7 +73,7 @@
 
   function valuesForAssignments(year, assignments) {
     return Array.from({ length: 12 }, (_, index) => {
-      const month = auditedMonth(year, index);
+      const month = payrollMonth(year, index);
       if (!month) return null;
       return assignments.reduce((sum, item) => sum + (Number(item?.months?.[month]) || 0), 0);
     });
@@ -74,7 +93,7 @@
   }
 
   function accruedFot(year, index) {
-    const month = auditedMonth(year, index);
+    const month = payrollMonth(year, index);
     if (!month) return null;
     const value = economics?.payroll?.total_by_month?.[month];
     if (value === null || value === undefined || value === '' || !Number.isFinite(+value)) return null;
@@ -102,7 +121,7 @@
         `audit-fot-${parentKey}-${index}`,
         `${item.name} — ${item.role}`,
         4,
-        auditedValues(year, item.months || {}),
+        payrollValues(year, item.months || {}),
         [],
         'detail'
       ));
@@ -311,6 +330,7 @@
     const originalCategoryTotal = categoryTotal;
     const originalOperatingExpenses = operatingExpenses;
     const originalExpenseCategoryNode = expenseCategoryNode;
+    const originalBuildRows = buildRows;
 
     const effectiveCategoryTotal = function(year, index, name) {
       if (year === 2026 && name === 'ФОТ') {
@@ -351,9 +371,12 @@
       if (year !== 2026) return base;
 
       if (mainName === 'ФОТ') {
-        const accruedValues = auditedValues(year, economics.payroll?.total_by_month || {});
+        const accruedValues = payrollValues(year, economics.payroll?.total_by_month || {});
         const paidValues = Array.from({ length: 12 }, (_, monthIndex) => originalCategoryTotal(year, monthIndex, 'ФОТ'));
-        const effectiveValues = accruedValues.map((value, monthIndex) => value === null ? paidValues[monthIndex] : value);
+        const effectiveValues = accruedValues.map((value, monthIndex) => {
+          if (payrollPartial(year, monthIndex)) return null;
+          return value === null ? paidValues[monthIndex] : value;
+        });
         const revenueValues = auditedValues(year, economics.opu?.revenue_net || {});
         const ratioValues = accruedValues.map((value, monthIndex) => {
           if (value === null || revenueValues[monthIndex] === null || !revenueValues[monthIndex]) return null;
@@ -430,13 +453,33 @@
       }
       return base;
     };
+
+    buildRows = function(year) {
+      const rows = originalBuildRows(year);
+      if (year !== 2026) return rows;
+      const partialIndexes = Array.from({ length: 12 }, (_, index) => index)
+        .filter(index => payrollPartial(year, index));
+      if (!partialIndexes.length) return rows;
+
+      const payrollDependent = new Set(['variable','margin','gross','ebitda']);
+      const mask = row => {
+        if (payrollDependent.has(row?.id)) {
+          partialIndexes.forEach(index => { row.values[index] = null; });
+        }
+        (row?.children || []).forEach(mask);
+      };
+      rows.forEach(mask);
+      return rows;
+    };
   }
 
   function updateAccountingStatus() {
     const status = document.querySelector('#status');
     if (!status || !DATA?.expenses?.available || !economics?.available || economics?.control?.status !== 'OK') return;
     const period = DATA?.expenses?.period || {};
-    status.textContent = `Первый вариант: ФОТ и налоги/взносы на ФОТ в месяцах подтверждённого экономического источника считаются по начислению; фактические выплаты оставлены в детализации. Остальные расходы пока берутся по текущей дате фактической оплаты (${period.from || '—'} — ${period.to || '—'}). EBITDA считается по этой смешанной базе; EBIT и чистая прибыль пока не рассчитываются без надёжных данных амортизации, процентов и налога.`;
+    const payrollPeriod = economics?.payroll?.period || economics?.payroll_period || [];
+    const partial = economics?.payroll?.partial_period || economics?.payroll_partial_period || [];
+    status.textContent = `ФОТ по начислению берётся из зарплатного реестра за закрытые месяцы (${payrollPeriod.join(', ') || '—'}); незакрытые месяцы (${partial.join(', ') || 'нет'}) не считаются нулём. Фактические выплаты оставлены в детализации. Остальные расходы пока берутся по текущей дате фактической оплаты (${period.from || '—'} — ${period.to || '—'}). EBITDA для неполного зарплатного месяца не рассчитывается.`;
   }
 
   async function load() {

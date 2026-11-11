@@ -44,10 +44,18 @@
     catch { return fallback; }
   }
 
+  function monthIndex(month, count) {
+    const match = /^\d{4}-(\d{2})$/.exec(String(month || ''));
+    if (!match) return -1;
+    const index = Number(match[1]) - 1;
+    return index >= 0 && index < count ? index : -1;
+  }
+
   function monthArrayFromAssignments(assignments, period, count) {
     const out = Array(count).fill(null);
-    period.forEach((month, index) => {
-      if (index >= count) return;
+    period.forEach(month => {
+      const index = monthIndex(month, count);
+      if (index < 0) return;
       out[index] = assignments.reduce(
         (sum, item) => sum + (Number(item?.months?.[month]) || 0),
         0
@@ -65,11 +73,46 @@
     return out;
   }
 
-  function zeroAuditedExtras(target, auditedCount, count) {
+  function zeroAuditedExtras(target, period, count) {
     const out = Array.isArray(target) ? target.slice(0, count) : [];
     while (out.length < count) out.push(0);
-    for (let index = 0; index < Math.min(auditedCount, count); index++) out[index] = 0;
+    period.forEach(month => {
+      const index = monthIndex(month, count);
+      if (index >= 0) out[index] = 0;
+    });
     return out;
+  }
+
+  function clearPartialMonths(target, partialPeriod, count) {
+    const out = Array.isArray(target) ? target.slice(0, count) : [];
+    while (out.length < count) out.push(null);
+    partialPeriod.forEach(month => {
+      const index = monthIndex(month, count);
+      if (index >= 0) out[index] = null;
+    });
+    return out;
+  }
+
+  function directionPayrollArrays(assignments, period, count) {
+    const result = {
+      'Стоматология': Array(count).fill(null),
+      'Отделение структуры': Array(count).fill(null),
+      'Лаборатория': Array(count).fill(null)
+    };
+    period.forEach(month => {
+      const index = monthIndex(month, count);
+      if (index < 0) return;
+      result['Стоматология'][index] = assignments
+        .filter(item => item.group === 'Врачи' && doctorDirection(item) === 'Стоматология')
+        .reduce((sum, item) => sum + (Number(item?.months?.[month]) || 0), 0);
+      result['Отделение структуры'][index] = assignments
+        .filter(item => item.group === 'Врачи' && doctorDirection(item) === 'Отделение структуры')
+        .reduce((sum, item) => sum + (Number(item?.months?.[month]) || 0), 0);
+      result['Лаборатория'][index] = assignments
+        .filter(item => item.group === 'Лаборатория')
+        .reduce((sum, item) => sum + (Number(item?.months?.[month]) || 0), 0);
+    });
+    return result;
   }
 
   function doctorAssignments(direction, doctor) {
@@ -92,7 +135,7 @@
       [/Основная ЗП/g, 'ФОТ по зарплатному реестру'],
       [/Прочие выплаты врачам/g, 'Доп. выплаты вне зарплатного реестра'],
       [/Прочие выплаты/g, 'Доп. выплаты вне зарплатного реестра'],
-      [/пустые поля выплат считаются нулём/g, 'январь–июнь: ФОТ из зарплатного реестра']
+      [/пустые поля выплат считаются нулём/g, 'закрытые месяцы: ФОТ из зарплатного реестра; незакрытые месяцы — неполные данные']
     ];
     const walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT);
     const nodes = [];
@@ -127,7 +170,9 @@
 
     try {
       const count = analytics.months.length;
-      const period = economics.period || [];
+      const period = economics.payroll?.period || economics.payroll_period || economics.period || [];
+      const partialPeriod = economics.payroll?.partial_period || economics.payroll_partial_period || [];
+      const assignmentsAll = economics.payroll?.assignments || [];
       const salaryStore = loadJson(w.localStorage, SALARY_KEY, {});
       const extraStore = loadJson(w.localStorage, EXTRA_KEY, {});
 
@@ -142,8 +187,12 @@
           const assignments = doctorAssignments(direction, doctor);
           if (!assignments.length) return;
           const audited = monthArrayFromAssignments(assignments, period, count);
-          salaryStore[direction][doctor] = patchAuditedMonths(salaryStore[direction][doctor], audited, count);
-          extraStore[direction][doctor] = zeroAuditedExtras(extraStore[direction][doctor], period.length, count);
+          salaryStore[direction][doctor] = clearPartialMonths(
+            patchAuditedMonths(salaryStore[direction][doctor], audited, count),
+            partialPeriod,
+            count
+          );
+          extraStore[direction][doctor] = zeroAuditedExtras(extraStore[direction][doctor], period, count);
         });
       });
 
@@ -152,17 +201,26 @@
         const auditedLab = monthArrayFromAssignments(labAssignments, period, count);
         salaryStore[LAB_DIRECTION] ||= {};
         extraStore[LAB_DIRECTION] ||= {};
-        salaryStore[LAB_DIRECTION][LAB_TOTAL_KEY] = patchAuditedMonths(salaryStore[LAB_DIRECTION][LAB_TOTAL_KEY], auditedLab, count);
-        extraStore[LAB_DIRECTION][LAB_TOTAL_KEY] = zeroAuditedExtras(extraStore[LAB_DIRECTION][LAB_TOTAL_KEY], period.length, count);
+        salaryStore[LAB_DIRECTION][LAB_TOTAL_KEY] = clearPartialMonths(
+          patchAuditedMonths(salaryStore[LAB_DIRECTION][LAB_TOTAL_KEY], auditedLab, count),
+          partialPeriod,
+          count
+        );
+        extraStore[LAB_DIRECTION][LAB_TOTAL_KEY] = zeroAuditedExtras(extraStore[LAB_DIRECTION][LAB_TOTAL_KEY], period, count);
       }
 
       w.localStorage.setItem(SALARY_KEY, JSON.stringify(salaryStore));
       w.localStorage.setItem(EXTRA_KEY, JSON.stringify(extraStore));
+      const directionFot = directionPayrollArrays(assignmentsAll, period, count);
       w.localStorage.setItem('az-economics-sync-meta', JSON.stringify({
         generatedAt: economics.generated_at,
         control: economics.control.status,
         period: economics.period,
-        source: economics.source
+        payrollPeriod: period,
+        payrollPartialPeriod: partialPeriod,
+        directionFot,
+        source: economics.source,
+        payrollSource: economics.payroll_source || economics.payroll?.source || ''
       }));
 
       startRelabelObserver(d);
