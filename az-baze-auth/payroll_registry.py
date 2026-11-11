@@ -1,12 +1,19 @@
+import base64
 import hashlib
 import json
 import math
+import os
 import re
+import time
+import urllib.parse
+import urllib.request
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
 from openpyxl import load_workbook
 
 
@@ -14,6 +21,20 @@ DATA_PATH = Path("/var/lib/az-baze/payroll-registry.json")
 SOURCE_NAME = "ЗП_ЭКСПЕРСТОМ"
 TIMEZONE = "Asia/Novosibirsk"
 START_MONTH = "2026-09"
+GOOGLE_SHEET_ID = os.environ.get(
+    "AZ_PAYROLL_GOOGLE_SHEET_ID",
+    "1DaDZGCHMX99vd47qpjAv70Gn6gsk5PVmbmK0t3PrS1Q",
+)
+GOOGLE_CREDENTIALS_PATH = Path(
+    os.environ.get(
+        "AZ_PAYROLL_GOOGLE_CREDENTIALS",
+        "/etc/az-baze/payroll-google-service-account.json",
+    )
+)
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
+GOOGLE_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+MAX_GOOGLE_EXPORT_BYTES = 10 * 1024 * 1024
 
 MONTH_NAMES = {
     "январь": 1, "февраль": 2, "март": 3, "апрель": 4,
@@ -28,6 +49,135 @@ GROUP_HEADERS = {
     "маркетинговый блок": "Штатный маркетинг",
     "зуботехническая лаборатория": "Лаборатория",
 }
+
+
+def _b64url(value):
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+
+def _service_account_access_token(credentials_path=GOOGLE_CREDENTIALS_PATH, opener=None, now=None):
+    opener = opener or urllib.request.urlopen
+    path = Path(credentials_path)
+    if not path.exists():
+        raise ValueError(
+            "Google Drive read-only доступ для зарплатного реестра не настроен"
+        )
+
+    try:
+        credentials = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError("Не удалось прочитать Google service-account credentials") from exc
+
+    client_email = str(credentials.get("client_email") or "").strip()
+    private_key_pem = str(credentials.get("private_key") or "").encode("utf-8")
+    if not client_email or not private_key_pem:
+        raise ValueError("Google service-account credentials неполные")
+
+    issued_at = int(time.time() if now is None else now)
+    header = {"alg": "RS256", "typ": "JWT"}
+    claims = {
+        "iss": client_email,
+        "scope": GOOGLE_DRIVE_SCOPE,
+        "aud": GOOGLE_TOKEN_URL,
+        "iat": issued_at,
+        "exp": issued_at + 3600,
+    }
+    signing_input = (
+        _b64url(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+        + "."
+        + _b64url(json.dumps(claims, separators=(",", ":")).encode("utf-8"))
+    ).encode("ascii")
+
+    try:
+        private_key = serialization.load_pem_private_key(private_key_pem, password=None)
+        signature = private_key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())
+    except Exception as exc:
+        raise ValueError("Google service-account private key некорректен") from exc
+
+    assertion = signing_input.decode("ascii") + "." + _b64url(signature)
+    body = urllib.parse.urlencode({
+        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        "assertion": assertion,
+    }).encode("ascii")
+    request = urllib.request.Request(
+        GOOGLE_TOKEN_URL,
+        data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with opener(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        raise ValueError("Не удалось получить Google Drive access token") from exc
+
+    token = str(payload.get("access_token") or "").strip()
+    if not token:
+        raise ValueError("Google Drive не вернул access token")
+    return token
+
+
+def fetch_google_sheet_xlsx(
+    sheet_id=GOOGLE_SHEET_ID,
+    credentials_path=GOOGLE_CREDENTIALS_PATH,
+    opener=None,
+    token_provider=None,
+):
+    opener = opener or urllib.request.urlopen
+    sheet_id = str(sheet_id or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,200}", sheet_id):
+        raise ValueError("Некорректный Google Sheet ID")
+
+    provider = token_provider or _service_account_access_token
+    token = provider(credentials_path, opener=opener)
+    query = urllib.parse.urlencode({"mimeType": GOOGLE_XLSX_MIME})
+    url = (
+        "https://www.googleapis.com/drive/v3/files/"
+        + urllib.parse.quote(sheet_id, safe="")
+        + "/export?"
+        + query
+    )
+    request = urllib.request.Request(
+        url,
+        headers={"Authorization": "Bearer " + token},
+        method="GET",
+    )
+    try:
+        with opener(request, timeout=60) as response:
+            data = response.read(MAX_GOOGLE_EXPORT_BYTES + 1)
+    except Exception as exc:
+        raise ValueError("Не удалось экспортировать ЗП_ЭКСПЕРСТОМ из Google Drive") from exc
+
+    if not data:
+        raise ValueError("Google Drive вернул пустой зарплатный файл")
+    if len(data) > MAX_GOOGLE_EXPORT_BYTES:
+        raise ValueError("Экспорт ЗП_ЭКСПЕРСТОМ превышает допустимый размер")
+    if not data.startswith(b"PK"):
+        raise ValueError("Google Drive вернул не XLSX-файл")
+    return data
+
+
+def google_source_status(credentials_path=GOOGLE_CREDENTIALS_PATH):
+    path = Path(credentials_path)
+    if not path.exists():
+        return {
+            "configured": False,
+            "sheet_id": GOOGLE_SHEET_ID,
+            "service_account": "",
+        }
+    try:
+        credentials = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {
+            "configured": False,
+            "sheet_id": GOOGLE_SHEET_ID,
+            "service_account": "",
+        }
+    return {
+        "configured": bool(credentials.get("client_email") and credentials.get("private_key")),
+        "sheet_id": GOOGLE_SHEET_ID,
+        "service_account": str(credentials.get("client_email") or ""),
+    }
 
 
 def _text(value):
