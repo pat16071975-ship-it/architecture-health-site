@@ -46,8 +46,44 @@ def _norm_name(value):
 
 
 def _employee_id(name):
+    # Must stay byte-for-byte compatible with economics_control._employee_id().
     key = _norm_name(name).lower().replace("ё", "е")
-    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:20]
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+
+
+def _norm_role(value):
+    return _norm(value).replace("–", "-").replace("—", "-")
+
+
+def _canonical_department(value, group=""):
+    department = _norm(value).replace("–", "-").replace("—", "-")
+    if group == "Врачи":
+        aliases = {
+            "отделение терапии": "терапия",
+            "терапевтическое отделение": "терапия",
+            "отделение ортопедии": "ортопедия",
+            "ортопедическое отделение": "ортопедия",
+            "отделение хирургии": "хирургия",
+            "хирургическое отделение": "хирургия",
+            "функциональная стоматология (ортодонтия)": "ортодонтия",
+            "функциональная стоматология ортодонтия": "ортодонтия",
+            "отделение ортодонтии": "ортодонтия",
+            "миофункциональные терапевты": "миофункциональная терапия",
+        }
+        department = aliases.get(department, department)
+        if department.startswith("отделение "):
+            department = department[len("отделение "):]
+    return department
+
+
+def _assignment_merge_key(item):
+    group = str(item.get("group") or "")
+    return (
+        str(item.get("employee_id") or ""),
+        group,
+        _norm_role(item.get("role")),
+        _canonical_department(item.get("department") or item.get("function"), group),
+    )
 
 
 def _function_for(role, group):
@@ -172,7 +208,12 @@ def _sheet_records(ws):
         group = current_group
         employee_id = _employee_id(raw_name)
         department = current_department or _function_for(role, group)
-        assignment_key = (employee_id, group, _norm(role), _norm(department))
+        assignment_key = (
+            employee_id,
+            group,
+            _norm_role(role),
+            _canonical_department(department, group),
+        )
         assignment_id = hashlib.sha256(repr(assignment_key).encode("utf-8")).hexdigest()[:20]
         records.append({
             "assignment_id": assignment_id,
@@ -342,29 +383,32 @@ def load_registry(path=DATA_PATH):
 def _merge_assignment_lists(base_assignments, overlay_assignments):
     result, order = {}, []
 
-    def key(item):
-        return (
-            str(item.get("employee_id") or ""),
-            str(item.get("group") or ""),
-            _norm(item.get("role")),
-            _norm(item.get("department") or item.get("function")),
-        )
-
     for item in list(base_assignments or []) + list(overlay_assignments or []):
         item = deepcopy(item)
-        k = key(item)
+        # Normalize legacy/new employee IDs through the shared name contract.
+        # This also repairs already-materialized 20-char overlay IDs during merge.
+        item["employee_id"] = _employee_id(item.get("name") or "")
+        k = _assignment_merge_key(item)
         if k not in result:
             result[k] = item
             result[k]["months"] = dict(item.get("months") or {})
             order.append(k)
         else:
-            result[k]["months"].update(item.get("months") or {})
-            for field in ("name", "role", "group", "function", "department", "assignment_id", "employee_id"):
+            target = result[k]
+            target["months"].update(item.get("months") or {})
+            # Preserve the first (legacy) stable assignment/employee identity.
+            # Newer display metadata may refine labels without splitting history.
+            for field in ("name", "role", "group", "function", "department"):
                 if item.get(field):
-                    result[k][field] = item[field]
+                    target[field] = item[field]
+            if not target.get("assignment_id") and item.get("assignment_id"):
+                target["assignment_id"] = item["assignment_id"]
+            if not target.get("employee_id") and item.get("employee_id"):
+                target["employee_id"] = item["employee_id"]
 
     merged = [result[k] for k in order]
     for item in merged:
+        item["employee_id"] = _employee_id(item.get("name") or "")
         item["total"] = sum(float(value or 0) for value in (item.get("months") or {}).values())
     return merged
 
