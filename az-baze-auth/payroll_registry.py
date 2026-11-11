@@ -47,7 +47,7 @@ def _norm_name(value):
 
 def _employee_id(name):
     # Must stay byte-for-byte compatible with economics_control._employee_id().
-    key = _norm_name(name).lower().replace("ё", "е")
+    key = _norm_name(name).lower()
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
 
