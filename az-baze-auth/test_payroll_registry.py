@@ -149,6 +149,101 @@ class PayrollRegistryTests(unittest.TestCase):
         self.assertAlmostEqual(person["months"]["2026-09"], 128.0)
         self.assertAlmostEqual(person["months"]["2026-10"], 228.0)
 
+    def test_real_label_drift_classes_merge_same_assignment(self):
+        cases = [
+            {
+                "name": "Кабирова Азалия Азаматовна",
+                "role": "Администратор",
+                "group": "Администраторы",
+                "legacy_department": "Общее",
+                "new_department": "Администраторы / клиентский сервис",
+            },
+            {
+                "name": "Казанцев Леонид Евгеньевич",
+                "role": "Главный Зубной техник",
+                "group": "Лаборатория",
+                "legacy_department": "Зуботехники",
+                "new_department": "Зуботехническая лаборатория",
+            },
+            {
+                "name": "Старостенко Вадим Анатольевич",
+                "role": "Врач–остеопат",
+                "group": "Врачи",
+                "legacy_department": "Врач–остеопат",
+                "new_department": "Отделение структуры",
+            },
+            {
+                "name": "Зубачёв Роман Николаевич",
+                "role": "Стоматолог–ортодонт",
+                "group": "Врачи",
+                "legacy_department": "Функциональная стоматология (ортодонтия)",
+                "new_department": "Отделение ортодонтии",
+            },
+        ]
+
+        for index, case in enumerate(cases):
+            employee_id = payroll_registry._employee_id(case["name"])
+            legacy = [{
+                "assignment_id": f"legacy-{index}",
+                "employee_id": employee_id,
+                "name": case["name"],
+                "role": case["role"],
+                "group": case["group"],
+                "function": case["role"],
+                "department": case["legacy_department"],
+                "months": {"2026-08": 100.0 + index},
+                "total": 100.0 + index,
+            }]
+            overlay = [{
+                "assignment_id": f"overlay-{index}",
+                "employee_id": employee_id,
+                "name": case["name"],
+                "role": case["role"],
+                "group": case["group"],
+                "function": case["role"],
+                "department": case["new_department"],
+                "months": {"2026-09": 200.0 + index},
+                "total": 200.0 + index,
+            }]
+
+            merged = payroll_registry._merge_assignment_lists(legacy, overlay)
+            selected = [item for item in merged if item["name"] == case["name"]]
+            self.assertEqual(len(selected), 1, case)
+            self.assertEqual(selected[0]["assignment_id"], f"legacy-{index}", case)
+            self.assertEqual(selected[0]["employee_id"], employee_id, case)
+            self.assertAlmostEqual(selected[0]["months"]["2026-08"], 100.0 + index, msg=str(case))
+            self.assertAlmostEqual(selected[0]["months"]["2026-09"], 200.0 + index, msg=str(case))
+
+    def test_same_person_same_generic_role_different_real_departments_stay_separate(self):
+        name = "Тестовый Врач"
+        employee_id = payroll_registry._employee_id(name)
+        legacy = [{
+            "assignment_id": "therapy",
+            "employee_id": employee_id,
+            "name": name,
+            "role": "Стоматолог",
+            "group": "Врачи",
+            "function": "Стоматолог",
+            "department": "Терапия",
+            "months": {"2026-08": 100.0},
+            "total": 100.0,
+        }]
+        overlay = [{
+            "assignment_id": "surgery",
+            "employee_id": employee_id,
+            "name": name,
+            "role": "Стоматолог",
+            "group": "Врачи",
+            "function": "Стоматолог",
+            "department": "Хирургия",
+            "months": {"2026-09": 200.0},
+            "total": 200.0,
+        }]
+
+        merged = payroll_registry._merge_assignment_lists(legacy, overlay)
+        self.assertEqual(len(merged), 2)
+        self.assertEqual({item["assignment_id"] for item in merged}, {"therapy", "surgery"})
+
     def test_merge_keeps_opu_period_and_extends_only_payroll_period(self):
         base = {
             "version": 3,
