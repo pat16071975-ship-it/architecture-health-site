@@ -1,9 +1,9 @@
 import io
 import importlib.util
-import sys
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest import mock
 from zoneinfo import ZoneInfo
 
 from openpyxl import Workbook
@@ -121,7 +121,6 @@ class PayrollRegistryTests(unittest.TestCase):
             return "read-only-token"
 
         data = payroll_registry.fetch_google_sheet_xlsx(
-            sheet_id="1DaDZGCHMX99vd47qpjAv70Gn6gsk5PVmbmK0t3PrS1Q",
             credentials_path="/unused/test-credentials.json",
             opener=opener,
             token_provider=token_provider,
@@ -136,6 +135,26 @@ class PayrollRegistryTests(unittest.TestCase):
             calls[0]["url"],
         )
         self.assertIn("mimeType=", calls[0]["url"])
+
+    def test_canonical_sheet_id_ignores_environment_override(self):
+        canonical = "1DaDZGCHMX99vd47qpjAv70Gn6gsk5PVmbmK0t3PrS1Q"
+        with mock.patch.dict(
+            "os.environ",
+            {"AZ_PAYROLL_GOOGLE_SHEET_ID": "AttackerControlledSheetId123456789"},
+            clear=False,
+        ):
+            spec = importlib.util.spec_from_file_location(
+                "payroll_registry_env_override",
+                Path(__file__).with_name("payroll_registry.py"),
+            )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+        self.assertEqual(module.GOOGLE_SHEET_ID, canonical)
+        source = Path(__file__).with_name("payroll_registry.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("AZ_PAYROLL_GOOGLE_SHEET_ID", source)
 
     def test_month_title_parser_supports_future_years(self):
         self.assertEqual(
@@ -193,6 +212,13 @@ class PayrollRegistryTests(unittest.TestCase):
                 now=datetime(2027, 1, 15, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
             )
 
+    def test_missing_current_month_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "2027-02"):
+            payroll_registry.parse_registry(
+                future_workbook_bytes(include_february=False),
+                now=datetime(2027, 2, 10, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+            )
+
     def test_registry_combines_same_assignment_across_department_label_drift(self):
         parsed = payroll_registry.parse_registry(
             future_workbook_bytes(department_shift=True),
@@ -233,7 +259,7 @@ class PayrollRegistryTests(unittest.TestCase):
     def test_formula_error_marks_closed_month_partial(self):
         parsed = payroll_registry.parse_registry(
             workbook_bytes(oct_error=True),
-            now=datetime(2026, 12, 2, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+            now=datetime(2026, 11, 11, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
         )
         self.assertEqual(parsed["payroll"]["month_status"]["2026-10"], "partial")
         self.assertIn("2026-10", parsed["payroll"]["partial_period"])
