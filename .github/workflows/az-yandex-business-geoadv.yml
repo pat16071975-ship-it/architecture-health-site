@@ -1,0 +1,103 @@
+name: AZ Yandex Business geoadv classification
+
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/advertising_report.py'
+      - 'az-baze-auth/test_advertising_report.py'
+      - 'az-baze-auth/reclassify_yandex_business_geoadv.py'
+      - 'az-baze-auth/geoadv_current_day_readonly.py'
+      - '.github/workflows/az-yandex-business-geoadv.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  geoadv-classification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AZBAZE_SECRET_KEY: geoadv-ci
+      AZBAZE_DB: /tmp/az-geoadv-ci.db
+      AZBAZE_SITE_ROOT: /tmp/az-geoadv-site
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r az-baze-auth/requirements.txt
+
+      - name: Syntax
+        run: |
+          python -m py_compile             az-baze-auth/advertising_report.py             az-baze-auth/test_advertising_report.py             az-baze-auth/reclassify_yandex_business_geoadv.py \
+            az-baze-auth/geoadv_current_day_readonly.py
+
+      - name: Full advertising report regressions
+        working-directory: az-baze-auth
+        run: python -m unittest -v test_advertising_report.py
+
+      - name: Geoadv source and shared parser contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          source=Path('az-baze-auth/advertising_report.py').read_text(encoding='utf-8')
+          test=Path('az-baze-auth/test_advertising_report.py').read_text(encoding='utf-8')
+          replay=Path('az-baze-auth/reclassify_yandex_business_geoadv.py').read_text(encoding='utf-8')
+          current=Path('az-baze-auth/geoadv_current_day_readonly.py').read_text(encoding='utf-8')
+
+          assert 'def _is_yandex_business_utm_source(value):' in source
+          assert 'raw == "geoadv" or raw.startswith("geoadv_")' in source
+          assert 'if _is_yandex_business_utm_source(utm_source):' in source
+          assert 'if utm_source == "geoadv_direct":' not in source
+
+          # Manual ZIP and direct API sync use the same parser.
+          assert source.count('_parse_metrika_zip(') >= 5
+          sync=source.split('def advertising_metrika_sync()',1)[1].split('@app.post("/api/reports/advertising/metrika/import")',1)[0]
+          manual=source.split('def advertising_metrika_import()',1)[1].split('@app.post("/api/reports/advertising/import")',1)[0]
+          assert '_parse_metrika_zip(' in sync
+          assert '_parse_metrika_zip(' in manual
+
+          assert 'geoadv_search_yabs' in test
+          assert 'test_geoadv_search_yabs_zip_moves_visits_and_goals_without_changing_totals' in test
+          assert 'test_geoadv_historical_reclassification_is_idempotent_and_preserves_totals' in test
+
+          assert 'CONFIRM_TOKEN = "RECLASSIFY-YANDEX-BUSINESS-GEOADV"' in replay
+          assert 'MUTATION=NONE' in replay
+          assert 'GEOADV_RECLASSIFY_DRY_RUN=PASS' in replay
+          assert 'GEOADV_RECLASSIFY_APPLY=PASS' in replay
+          assert 'STOP=CONFLICTS_PRESENT' in replay
+          assert 'stored rows do not match either exact pre-fix replay or new replay' in replay
+
+          assert 'CURRENT_GEOADV_READONLY_COMPARE=PASS' in current
+          assert 'MUTATION=NONE' in current
+          assert 'fetch_day_archive(' in current
+          assert 'completed=False' in current
+          assert '_safe_diff(' in current
+
+          print('AZ_YANDEX_BUSINESS_GEOADV_CONTRACT=PASS')
+          PY
+
+      - name: Exact scope
+        run: |
+          git diff --check
+          python - <<'PY'
+          import subprocess
+          allowed={
+              '.github/workflows/az-yandex-business-geoadv.yml',
+              'az-baze-auth/advertising_report.py',
+              'az-baze-auth/test_advertising_report.py',
+              'az-baze-auth/reclassify_yandex_business_geoadv.py',
+              'az-baze-auth/geoadv_current_day_readonly.py',
+          }
+          base='a437dd76a5cc38b39bd4e55f30c42af5d8d76fa6'
+          changed=set(subprocess.check_output(
+              ['git','diff','--name-only',base+'...HEAD'],
+              text=True,
+          ).splitlines())
+          assert changed <= allowed,changed
+          print('SCOPE=PASS; FILES='+str(len(changed)))
+          PY
