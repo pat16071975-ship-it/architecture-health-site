@@ -91,6 +91,52 @@ def future_workbook_bytes(missing_december=False, include_february=True, departm
 
 
 class PayrollRegistryTests(unittest.TestCase):
+    def test_google_drive_export_fetch_is_read_only_and_exact_sheet(self):
+        calls = []
+
+        class Response:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self, *args):
+                return self.payload
+
+        def opener(request, timeout=None):
+            calls.append({
+                "url": request.full_url,
+                "method": request.get_method(),
+                "authorization": request.headers.get("Authorization"),
+                "timeout": timeout,
+            })
+            return Response(b"PK\x03\x04fake-xlsx")
+
+        def token_provider(credentials_path, opener=None):
+            self.assertIsNotNone(opener)
+            return "read-only-token"
+
+        data = payroll_registry.fetch_google_sheet_xlsx(
+            sheet_id="1DaDZGCHMX99vd47qpjAv70Gn6gsk5PVmbmK0t3PrS1Q",
+            credentials_path="/unused/test-credentials.json",
+            opener=opener,
+            token_provider=token_provider,
+        )
+
+        self.assertEqual(data, b"PK\x03\x04fake-xlsx")
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["method"], "GET")
+        self.assertEqual(calls[0]["authorization"], "Bearer read-only-token")
+        self.assertIn(
+            "/drive/v3/files/1DaDZGCHMX99vd47qpjAv70Gn6gsk5PVmbmK0t3PrS1Q/export?",
+            calls[0]["url"],
+        )
+        self.assertIn("mimeType=", calls[0]["url"])
+
     def test_month_title_parser_supports_future_years(self):
         self.assertEqual(
             payroll_registry._month_from_title("Расчёт_ЗП_сентябрь 26 "),
