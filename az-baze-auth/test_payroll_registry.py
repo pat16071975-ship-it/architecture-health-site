@@ -49,7 +49,120 @@ def workbook_bytes(oct_error=False, doctor_name="Иванов Иван Иван�
     return stream
 
 
+def future_workbook_bytes(missing_december=False, include_february=True, department_shift=False):
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    months = [
+        ("Расчёт_ЗП_сентябрь 26 ", 100, "Отделение терапии"),
+        ("Расчёт_ЗП_октябрь 2026", 200, "Отделение терапии"),
+        ("Расчёт_ЗП_ноябрь 26", 300, "Отделение терапии"),
+    ]
+    if not missing_december:
+        months.append(("Расчёт_ЗП_декабрь 2026", 400, "Терапия"))
+    months.append((
+        "Расчёт_ЗП_январь 27",
+        500,
+        "Отделение терапии" if not department_shift else "Терапия",
+    ))
+    if include_february:
+        months.append(("Расчёт_ЗП_февраль 2027", 600, "Отделение терапии"))
+
+    for title, base, department in months:
+        ws = wb.create_sheet(title)
+        ws["A4"] = "Врачебный блок"
+        ws["A5"] = department
+        ws["D5"] = "Иванов Иван Иванович"
+        ws["E5"] = "Стоматолог-терапевт"
+        ws["O5"] = base
+
+    # Must never be mistaken for the canonical monthly payroll sheet.
+    ws = wb.create_sheet("ИМП ЗП март 27")
+    ws["A4"] = "Врачебный блок"
+    ws["A5"] = "Отделение терапии"
+    ws["D5"] = "Лишний Сотрудник"
+    ws["E5"] = "Стоматолог-терапевт"
+    ws["O5"] = 999999
+
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream
+
+
 class PayrollRegistryTests(unittest.TestCase):
+    def test_month_title_parser_supports_future_years(self):
+        self.assertEqual(
+            payroll_registry._month_from_title("Расчёт_ЗП_сентябрь 26 "),
+            "2026-09",
+        )
+        self.assertEqual(
+            payroll_registry._month_from_title("Расчёт_ЗП_декабрь 2026"),
+            "2026-12",
+        )
+        self.assertEqual(
+            payroll_registry._month_from_title("Расчёт_ЗП_январь 27"),
+            "2027-01",
+        )
+        self.assertEqual(
+            payroll_registry._month_from_title("Расчёт_ЗП_февраль 2027"),
+            "2027-02",
+        )
+        self.assertIsNone(payroll_registry._month_from_title("ИМП ЗП январь 27"))
+        self.assertIsNone(payroll_registry._month_from_title("Расчёт_ЗП_январь 2100"))
+
+    def test_future_months_roll_forward_without_code_change(self):
+        january = payroll_registry.parse_registry(
+            future_workbook_bytes(),
+            now=datetime(2027, 1, 15, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )["payroll"]
+
+        self.assertEqual(
+            january["period"],
+            ["2026-09", "2026-10", "2026-11", "2026-12"],
+        )
+        self.assertEqual(january["partial_period"], ["2027-01"])
+        self.assertEqual(january["ignored_future_period"], ["2027-02"])
+        self.assertEqual(
+            january["source_months"],
+            ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01"],
+        )
+
+        february = payroll_registry.parse_registry(
+            future_workbook_bytes(),
+            now=datetime(2027, 2, 10, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )["payroll"]
+
+        self.assertEqual(
+            february["period"],
+            ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01"],
+        )
+        self.assertEqual(february["partial_period"], ["2027-02"])
+        self.assertEqual(february["ignored_future_period"], [])
+
+    def test_missing_month_in_registry_history_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "2026-12"):
+            payroll_registry.parse_registry(
+                future_workbook_bytes(missing_december=True),
+                now=datetime(2027, 1, 15, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+            )
+
+    def test_registry_combines_same_assignment_across_department_label_drift(self):
+        parsed = payroll_registry.parse_registry(
+            future_workbook_bytes(department_shift=True),
+            now=datetime(2027, 2, 10, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )["payroll"]
+        doctors = [
+            item for item in parsed["assignments"]
+            if item["name"] == "Иванов Иван Иванович"
+            and item["role"] == "Стоматолог-терапевт"
+        ]
+        self.assertEqual(len(doctors), 1)
+        self.assertEqual(
+            sorted(doctors[0]["months"]),
+            ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01"],
+        )
+
     def test_sep_oct_complete_nov_partial_and_accrued_formula(self):
         parsed = payroll_registry.parse_registry(
             workbook_bytes(),
