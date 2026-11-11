@@ -169,9 +169,9 @@ def _function_for(role, group):
 def _month_from_title(title):
     normalized = _norm(title).replace("_", " ")
     match = re.search(
-        r"\\bрасчет\\s+зп\\b.*?\\b("
+        r"\bрасчет\s+зп\b.*?\b("
         + "|".join(MONTH_NAMES)
-        + r")\\b.*?\\b(\\d{2}|\\d{4})\\b",
+        + r")\b.*?\b(\d{2}|\d{4})\b",
         normalized,
     )
     if not match:
