@@ -75,11 +75,14 @@ jobs:
           finrez=Path('reports/finrez-economics-integrated.js').read_text(encoding='utf-8')
 
           assert 'SOURCE_NAME = "ЗП_ЭКСПЕРСТОМ"' in reg
+          assert 'GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly"' in reg
+          assert 'def fetch_google_sheet_xlsx' in reg
           assert 'START_MONTH = "2026-09"' in reg
           assert 'def _month_sequence' in reg
           assert 'ignored_future_period' in reg
           assert 'partial_period' in reg
           assert 'merge_economics_payload' in reg
+          assert 'payroll_registry.fetch_google_sheet_xlsx' in econ
           assert 'payroll_registry.parse_registry' in econ
           assert '/reports/payroll-import/' in econ
 
@@ -87,6 +90,10 @@ jobs:
           assert 'payrollPartialPeriod' in service
           assert 'directionFot' in service
           assert 'Неполные данные' in summary
+
+          import_html=Path('reports/payroll-import.html').read_text(encoding='utf-8')
+          assert 'type="file"' not in import_html
+          assert 'Обновить из Google Drive' in import_html
 
           assert 'function payrollMonth' in finrez
           assert 'function payrollPartial' in finrez
@@ -101,6 +108,7 @@ jobs:
           import subprocess
           allowed={
               '.github/workflows/az-payroll-through-nov.yml',
+              'az-baze-auth/economics_control.py',
               'az-baze-auth/payroll_registry.py',
               'az-baze-auth/test_payroll_registry.py',
               'reports/payroll-import.html',
