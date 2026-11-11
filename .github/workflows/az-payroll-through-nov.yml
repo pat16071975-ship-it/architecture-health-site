@@ -1,4 +1,4 @@
-name: AZ payroll through November 2026
+name: AZ payroll registry future-proof
 
 on:
   pull_request:
@@ -75,6 +75,9 @@ jobs:
           finrez=Path('reports/finrez-economics-integrated.js').read_text(encoding='utf-8')
 
           assert 'SOURCE_NAME = "ЗП_ЭКСПЕРСТОМ"' in reg
+          assert 'START_MONTH = "2026-09"' in reg
+          assert 'def _month_sequence' in reg
+          assert 'ignored_future_period' in reg
           assert 'partial_period' in reg
           assert 'merge_economics_payload' in reg
           assert 'payroll_registry.parse_registry' in econ
@@ -88,7 +91,7 @@ jobs:
           assert 'function payrollMonth' in finrez
           assert 'function payrollPartial' in finrez
           assert "new Set(['variable','margin','gross','ebitda'])" in finrez
-          print('PAYROLL_THROUGH_NOV_CONTRACT=PASS')
+          print('PAYROLL_FUTURE_PROOF_CONTRACT=PASS')
           PY
 
       - name: Exact scope
@@ -99,26 +102,14 @@ jobs:
           allowed={
               '.github/workflows/az-payroll-through-nov.yml',
               'az-baze-auth/payroll_registry.py',
-              'az-baze-auth/economics_control.py',
-              'az-baze-auth/finrez.py',
               'az-baze-auth/test_payroll_registry.py',
               'reports/payroll-import.html',
-              'reports/economics-import.html',
-              'reports/services-audit-sync.js',
-              'reports/services-summary-economics.js',
-              'reports/services-inline-economics.js',
-              'reports/services-primary-patient-cost.js',
-              'reports/economics-audit-guard.js',
-              'reports/finrez-economics-integrated.js',
-              'reports/finrez-payroll-audit-rows.js',
-              'reports/forecast-audit-sync.js',
-              'reports/economics-dashboard.html',
-              'reports/services.html',
           }
-          base='9433ee604b0de26c6b084aba55b3750d90fad17e'
+          base='17e7906c5baf3a20f79b5275171a826ccc0d14ae'
           changed=set(subprocess.check_output(
               ['git','diff','--name-only',base+'...HEAD'], text=True
           ).splitlines())
           assert changed <= allowed, changed
+          assert changed == allowed, (changed, allowed)
           print('SCOPE=PASS; FILES='+str(len(changed)))
           PY
