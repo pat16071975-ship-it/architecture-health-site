@@ -22,13 +22,13 @@ a{background:white;color:#44634f}
 <body>
 <main class="box">
 <div class="top"><h1>Обновление зарплатного реестра</h1><div><a href="/reports/economics-import/">Экономика</a> <a href="/reports/">К отчётам</a></div></div>
-<p class="note">Загрузите актуальный файл <b>ЗП_ЭКСПЕРСТОМ.xlsx</b>. Система добавляет закрытые месяцы зарплатного реестра к уже подтверждённому экономическому источнику, не переписывая январь–август.</p>
-<div class="warn"><b>Правило ноября:</b> текущий/незакрытый месяц и строки с формульными ошибками не превращаются в ноль. Такой месяц помечается как «Неполные данные» и не участвует в расчёте рентабельности как закрытый факт.</div>
+<p class="note">Источник подключён напрямую к Google Sheet <b>ЗП_ЭКСПЕРСТОМ</b>. Файлы вручную загружать не нужно. AZ BAZE сам получает актуальную таблицу из Google Drive, начиная с сентября 2026 автоматически находит новые месяцы и годы и обновляет реестр.</p>
+<div class="warn"><b>Правило закрытия:</b> прошедший месяц без формульных ошибок становится закрытым автоматически. Текущий месяц и любой месяц с ошибками остаются «Неполными данными» и не превращаются в ноль. Будущие заранее созданные листы не включаются до наступления соответствующего месяца; пропуск месяца в истории блокирует обновление.</div>
+<div class="note"><b>Google Drive:</b> {{SOURCE_STATUS}}<br><b>Sheet ID:</b> {{SHEET_ID}}<br><b>Read-only account:</b> {{SOURCE_ACCOUNT}}</div>
 {{MESSAGE}}<div class="err">{{ERROR}}</div>
-<form method="post" enctype="multipart/form-data">
+<form method="post">
 <input type="hidden" name="csrf" value="{{CSRF}}">
-<input type="file" name="file" accept=".xlsx" required>
-<button type="submit">Обновить зарплатный реестр</button>
+<button type="submit">Обновить из Google Drive</button>
 </form>
 </main>
 <script>

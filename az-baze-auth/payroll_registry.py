@@ -1,18 +1,37 @@
+import base64
 import hashlib
 import json
 import math
+import os
 import re
+import time
+import urllib.parse
+import urllib.request
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
 from openpyxl import load_workbook
 
 
 DATA_PATH = Path("/var/lib/az-baze/payroll-registry.json")
 SOURCE_NAME = "ЗП_ЭКСПЕРСТОМ"
 TIMEZONE = "Asia/Novosibirsk"
+START_MONTH = "2026-09"
+GOOGLE_SHEET_ID = "1DaDZGCHMX99vd47qpjAv70Gn6gsk5PVmbmK0t3PrS1Q"
+GOOGLE_CREDENTIALS_PATH = Path(
+    os.environ.get(
+        "AZ_PAYROLL_GOOGLE_CREDENTIALS",
+        "/etc/az-baze/payroll-google-service-account.json",
+    )
+)
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
+GOOGLE_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+MAX_GOOGLE_EXPORT_BYTES = 10 * 1024 * 1024
 
 MONTH_NAMES = {
     "январь": 1, "февраль": 2, "март": 3, "апрель": 4,
@@ -27,6 +46,132 @@ GROUP_HEADERS = {
     "маркетинговый блок": "Штатный маркетинг",
     "зуботехническая лаборатория": "Лаборатория",
 }
+
+
+def _b64url(value):
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode("ascii")
+
+
+def _service_account_access_token(credentials_path=GOOGLE_CREDENTIALS_PATH, opener=None, now=None):
+    opener = opener or urllib.request.urlopen
+    path = Path(credentials_path)
+    if not path.exists():
+        raise ValueError(
+            "Google Drive read-only доступ для зарплатного реестра не настроен"
+        )
+
+    try:
+        credentials = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError("Не удалось прочитать Google service-account credentials") from exc
+
+    client_email = str(credentials.get("client_email") or "").strip()
+    private_key_pem = str(credentials.get("private_key") or "").encode("utf-8")
+    if not client_email or not private_key_pem:
+        raise ValueError("Google service-account credentials неполные")
+
+    issued_at = int(time.time() if now is None else now)
+    header = {"alg": "RS256", "typ": "JWT"}
+    claims = {
+        "iss": client_email,
+        "scope": GOOGLE_DRIVE_SCOPE,
+        "aud": GOOGLE_TOKEN_URL,
+        "iat": issued_at,
+        "exp": issued_at + 3600,
+    }
+    signing_input = (
+        _b64url(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+        + "."
+        + _b64url(json.dumps(claims, separators=(",", ":")).encode("utf-8"))
+    ).encode("ascii")
+
+    try:
+        private_key = serialization.load_pem_private_key(private_key_pem, password=None)
+        signature = private_key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())
+    except Exception as exc:
+        raise ValueError("Google service-account private key некорректен") from exc
+
+    assertion = signing_input.decode("ascii") + "." + _b64url(signature)
+    body = urllib.parse.urlencode({
+        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        "assertion": assertion,
+    }).encode("ascii")
+    request = urllib.request.Request(
+        GOOGLE_TOKEN_URL,
+        data=body,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        method="POST",
+    )
+    try:
+        with opener(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        raise ValueError("Не удалось получить Google Drive access token") from exc
+
+    token = str(payload.get("access_token") or "").strip()
+    if not token:
+        raise ValueError("Google Drive не вернул access token")
+    return token
+
+
+def fetch_google_sheet_xlsx(
+    credentials_path=GOOGLE_CREDENTIALS_PATH,
+    opener=None,
+    token_provider=None,
+):
+    opener = opener or urllib.request.urlopen
+    sheet_id = GOOGLE_SHEET_ID
+
+    provider = token_provider or _service_account_access_token
+    token = provider(credentials_path, opener=opener)
+    query = urllib.parse.urlencode({"mimeType": GOOGLE_XLSX_MIME})
+    url = (
+        "https://www.googleapis.com/drive/v3/files/"
+        + urllib.parse.quote(sheet_id, safe="")
+        + "/export?"
+        + query
+    )
+    request = urllib.request.Request(
+        url,
+        headers={"Authorization": "Bearer " + token},
+        method="GET",
+    )
+    try:
+        with opener(request, timeout=60) as response:
+            data = response.read(MAX_GOOGLE_EXPORT_BYTES + 1)
+    except Exception as exc:
+        raise ValueError("Не удалось экспортировать ЗП_ЭКСПЕРСТОМ из Google Drive") from exc
+
+    if not data:
+        raise ValueError("Google Drive вернул пустой зарплатный файл")
+    if len(data) > MAX_GOOGLE_EXPORT_BYTES:
+        raise ValueError("Экспорт ЗП_ЭКСПЕРСТОМ превышает допустимый размер")
+    if not data.startswith(b"PK"):
+        raise ValueError("Google Drive вернул не XLSX-файл")
+    return data
+
+
+def google_source_status(credentials_path=GOOGLE_CREDENTIALS_PATH):
+    path = Path(credentials_path)
+    if not path.exists():
+        return {
+            "configured": False,
+            "sheet_id": GOOGLE_SHEET_ID,
+            "service_account": "",
+        }
+    try:
+        credentials = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {
+            "configured": False,
+            "sheet_id": GOOGLE_SHEET_ID,
+            "service_account": "",
+        }
+    return {
+        "configured": bool(credentials.get("client_email") and credentials.get("private_key")),
+        "sheet_id": GOOGLE_SHEET_ID,
+        "service_account": str(credentials.get("client_email") or ""),
+    }
 
 
 def _text(value):
@@ -167,12 +312,36 @@ def _function_for(role, group):
 
 def _month_from_title(title):
     normalized = _norm(title).replace("_", " ")
-    if not re.search(r"(?:^|\s)26(?:\s|$)", normalized):
+    match = re.search(
+        r"\bрасчет\s+зп\b.*?\b("
+        + "|".join(MONTH_NAMES)
+        + r")\b.*?\b(\d{2}|\d{4})\b",
+        normalized,
+    )
+    if not match:
         return None
-    for name, number in MONTH_NAMES.items():
-        if name in normalized:
-            return f"2026-{number:02d}"
-    return None
+
+    month_name, raw_year = match.groups()
+    year = int(raw_year)
+    if len(raw_year) == 2:
+        year += 2000
+    if year < 2000 or year > 2099:
+        return None
+    return f"{year:04d}-{MONTH_NAMES[month_name]:02d}"
+
+
+def _month_sequence(start, end):
+    sy, sm = map(int, start.split("-"))
+    ey, em = map(int, end.split("-"))
+    result = []
+    year, month = sy, sm
+    while (year, month) <= (ey, em):
+        result.append(f"{year:04d}-{month:02d}")
+        month += 1
+        if month == 13:
+            year += 1
+            month = 1
+    return result
 
 
 def _number(value):
@@ -250,21 +419,24 @@ def _sheet_records(ws):
         group = current_group
         employee_id = _employee_id(raw_name)
         department = current_department or _function_for(role, group)
-        assignment_key = (
-            employee_id,
-            group,
-            _norm_role(role),
-            _canonical_department(department, group),
-        )
-        assignment_id = hashlib.sha256(repr(assignment_key).encode("utf-8")).hexdigest()[:20]
-        records.append({
-            "assignment_id": assignment_id,
+        record = {
             "employee_id": employee_id,
             "name": raw_name,
             "role": role,
             "group": group,
             "function": _function_for(role, group),
             "department": department,
+        }
+        assignment_key = (
+            employee_id,
+            group,
+            _norm_role(role),
+            _canonical_assignment_scope(record),
+        )
+        assignment_id = hashlib.sha256(repr(assignment_key).encode("utf-8")).hexdigest()[:20]
+        records.append({
+            "assignment_id": assignment_id,
+            **record,
             "amount": amount,
         })
     return records, errors
@@ -343,7 +515,7 @@ def _payments(assignments, source=SOURCE_NAME):
     return result
 
 
-def parse_registry(stream, now=None, min_month="2026-09", max_month="2026-11"):
+def parse_registry(stream, now=None, start_month=START_MONTH):
     if hasattr(stream, "seek"):
         stream.seek(0)
     try:
@@ -353,14 +525,41 @@ def parse_registry(stream, now=None, min_month="2026-09", max_month="2026-11"):
 
     current = now or datetime.now(ZoneInfo(TIMEZONE))
     current_month = current.astimezone(ZoneInfo(TIMEZONE)).strftime("%Y-%m")
+    discovered = {}
     month_records, month_status, month_errors = {}, {}, {}
+    ignored_future_period = []
+
     try:
         for title in wb.sheetnames:
             month = _month_from_title(title)
-            if month is None or month < min_month or month > max_month:
+            if month is None or month < start_month:
                 continue
-            records, errors = _sheet_records(wb[title])
-            status = "partial" if month >= current_month or errors else "complete"
+            if month in discovered:
+                raise ValueError(
+                    f"Найдено несколько расчётных листов за {month}: "
+                    f"{discovered[month]!r} и {title!r}"
+                )
+            discovered[month] = title
+
+        if current_month < start_month:
+            raise ValueError(
+                f"Текущий месяц {current_month} раньше начала реестра {start_month}"
+            )
+
+        expected = _month_sequence(start_month, current_month)
+        missing = [month for month in expected if month not in discovered]
+        if missing:
+            raise ValueError(
+                "В зарплатном файле пропущены расчётные месяцы: "
+                + ", ".join(missing)
+            )
+
+        relevant = expected
+        ignored_future_period = sorted(month for month in discovered if month > current_month)
+
+        for month in relevant:
+            records, errors = _sheet_records(wb[discovered[month]])
+            status = "partial" if month == current_month or errors else "complete"
             month_status[month] = status
             month_errors[month] = errors
             if status == "complete":
@@ -368,16 +567,10 @@ def parse_registry(stream, now=None, min_month="2026-09", max_month="2026-11"):
     finally:
         wb.close()
 
-    expected = [
-        f"2026-{month:02d}"
-        for month in range(int(min_month[-2:]), int(max_month[-2:]) + 1)
-    ]
-    missing = [month for month in expected if month not in month_status]
-    if missing:
-        raise ValueError("В зарплатном файле нет листов: " + ", ".join(missing))
-
     period = sorted(month_records)
-    partial_period = sorted(month for month, status in month_status.items() if status != "complete")
+    partial_period = sorted(
+        month for month, status in month_status.items() if status != "complete"
+    )
     assignments = _combine_assignments(month_records)
     total_by_month = {
         month: sum(float(item.get("months", {}).get(month) or 0) for item in assignments)
@@ -387,6 +580,9 @@ def parse_registry(stream, now=None, min_month="2026-09", max_month="2026-11"):
         "source": SOURCE_NAME,
         "period": period,
         "partial_period": partial_period,
+        "start_month": start_month,
+        "source_months": sorted(month_status),
+        "ignored_future_period": ignored_future_period,
         "month_status": month_status,
         "month_errors": month_errors,
         "assignments": assignments,

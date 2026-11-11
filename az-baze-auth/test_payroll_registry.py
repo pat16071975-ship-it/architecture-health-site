@@ -1,9 +1,9 @@
 import io
 import importlib.util
-import sys
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest import mock
 from zoneinfo import ZoneInfo
 
 from openpyxl import Workbook
@@ -49,7 +49,192 @@ def workbook_bytes(oct_error=False, doctor_name="Иванов Иван Иван�
     return stream
 
 
+def future_workbook_bytes(missing_december=False, include_february=True, department_shift=False):
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    months = [
+        ("Расчёт_ЗП_сентябрь 26 ", 100, "Отделение терапии"),
+        ("Расчёт_ЗП_октябрь 2026", 200, "Отделение терапии"),
+        ("Расчёт_ЗП_ноябрь 26", 300, "Отделение терапии"),
+    ]
+    if not missing_december:
+        months.append(("Расчёт_ЗП_декабрь 2026", 400, "Терапия"))
+    months.append((
+        "Расчёт_ЗП_январь 27",
+        500,
+        "Отделение терапии" if not department_shift else "Терапия",
+    ))
+    if include_february:
+        months.append(("Расчёт_ЗП_февраль 2027", 600, "Отделение терапии"))
+
+    for title, base, department in months:
+        ws = wb.create_sheet(title)
+        ws["A4"] = "Врачебный блок"
+        ws["A5"] = department
+        ws["D5"] = "Иванов Иван Иванович"
+        ws["E5"] = "Стоматолог-терапевт"
+        ws["O5"] = base
+
+    # Must never be mistaken for the canonical monthly payroll sheet.
+    ws = wb.create_sheet("ИМП ЗП март 27")
+    ws["A4"] = "Врачебный блок"
+    ws["A5"] = "Отделение терапии"
+    ws["D5"] = "Лишний Сотрудник"
+    ws["E5"] = "Стоматолог-терапевт"
+    ws["O5"] = 999999
+
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream
+
+
 class PayrollRegistryTests(unittest.TestCase):
+    def test_google_drive_export_fetch_is_read_only_and_exact_sheet(self):
+        calls = []
+
+        class Response:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self, *args):
+                return self.payload
+
+        def opener(request, timeout=None):
+            calls.append({
+                "url": request.full_url,
+                "method": request.get_method(),
+                "authorization": request.headers.get("Authorization"),
+                "timeout": timeout,
+            })
+            return Response(b"PK\x03\x04fake-xlsx")
+
+        def token_provider(credentials_path, opener=None):
+            self.assertIsNotNone(opener)
+            return "read-only-token"
+
+        data = payroll_registry.fetch_google_sheet_xlsx(
+            credentials_path="/unused/test-credentials.json",
+            opener=opener,
+            token_provider=token_provider,
+        )
+
+        self.assertEqual(data, b"PK\x03\x04fake-xlsx")
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["method"], "GET")
+        self.assertEqual(calls[0]["authorization"], "Bearer read-only-token")
+        self.assertIn(
+            "/drive/v3/files/1DaDZGCHMX99vd47qpjAv70Gn6gsk5PVmbmK0t3PrS1Q/export?",
+            calls[0]["url"],
+        )
+        self.assertIn("mimeType=", calls[0]["url"])
+
+    def test_canonical_sheet_id_ignores_environment_override(self):
+        canonical = "1DaDZGCHMX99vd47qpjAv70Gn6gsk5PVmbmK0t3PrS1Q"
+        with mock.patch.dict(
+            "os.environ",
+            {"AZ_PAYROLL_GOOGLE_SHEET_ID": "AttackerControlledSheetId123456789"},
+            clear=False,
+        ):
+            spec = importlib.util.spec_from_file_location(
+                "payroll_registry_env_override",
+                Path(__file__).with_name("payroll_registry.py"),
+            )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+        self.assertEqual(module.GOOGLE_SHEET_ID, canonical)
+        source = Path(__file__).with_name("payroll_registry.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("AZ_PAYROLL_GOOGLE_SHEET_ID", source)
+
+    def test_month_title_parser_supports_future_years(self):
+        self.assertEqual(
+            payroll_registry._month_from_title("Расчёт_ЗП_сентябрь 26 "),
+            "2026-09",
+        )
+        self.assertEqual(
+            payroll_registry._month_from_title("Расчёт_ЗП_декабрь 2026"),
+            "2026-12",
+        )
+        self.assertEqual(
+            payroll_registry._month_from_title("Расчёт_ЗП_январь 27"),
+            "2027-01",
+        )
+        self.assertEqual(
+            payroll_registry._month_from_title("Расчёт_ЗП_февраль 2027"),
+            "2027-02",
+        )
+        self.assertIsNone(payroll_registry._month_from_title("ИМП ЗП январь 27"))
+        self.assertIsNone(payroll_registry._month_from_title("Расчёт_ЗП_январь 2100"))
+
+    def test_future_months_roll_forward_without_code_change(self):
+        january = payroll_registry.parse_registry(
+            future_workbook_bytes(),
+            now=datetime(2027, 1, 15, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )["payroll"]
+
+        self.assertEqual(
+            january["period"],
+            ["2026-09", "2026-10", "2026-11", "2026-12"],
+        )
+        self.assertEqual(january["partial_period"], ["2027-01"])
+        self.assertEqual(january["ignored_future_period"], ["2027-02"])
+        self.assertEqual(
+            january["source_months"],
+            ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01"],
+        )
+
+        february = payroll_registry.parse_registry(
+            future_workbook_bytes(),
+            now=datetime(2027, 2, 10, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )["payroll"]
+
+        self.assertEqual(
+            february["period"],
+            ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01"],
+        )
+        self.assertEqual(february["partial_period"], ["2027-02"])
+        self.assertEqual(february["ignored_future_period"], [])
+
+    def test_missing_month_in_registry_history_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "2026-12"):
+            payroll_registry.parse_registry(
+                future_workbook_bytes(missing_december=True),
+                now=datetime(2027, 1, 15, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+            )
+
+    def test_missing_current_month_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "2027-02"):
+            payroll_registry.parse_registry(
+                future_workbook_bytes(include_february=False),
+                now=datetime(2027, 2, 10, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+            )
+
+    def test_registry_combines_same_assignment_across_department_label_drift(self):
+        parsed = payroll_registry.parse_registry(
+            future_workbook_bytes(department_shift=True),
+            now=datetime(2027, 2, 10, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+        )["payroll"]
+        doctors = [
+            item for item in parsed["assignments"]
+            if item["name"] == "Иванов Иван Иванович"
+            and item["role"] == "Стоматолог-терапевт"
+        ]
+        self.assertEqual(len(doctors), 1)
+        self.assertEqual(
+            sorted(doctors[0]["months"]),
+            ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01"],
+        )
+
     def test_sep_oct_complete_nov_partial_and_accrued_formula(self):
         parsed = payroll_registry.parse_registry(
             workbook_bytes(),
@@ -74,7 +259,7 @@ class PayrollRegistryTests(unittest.TestCase):
     def test_formula_error_marks_closed_month_partial(self):
         parsed = payroll_registry.parse_registry(
             workbook_bytes(oct_error=True),
-            now=datetime(2026, 12, 2, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
+            now=datetime(2026, 11, 11, 12, 0, tzinfo=ZoneInfo("Asia/Novosibirsk")),
         )
         self.assertEqual(parsed["payroll"]["month_status"]["2026-10"], "partial")
         self.assertIn("2026-10", parsed["payroll"]["partial_period"])

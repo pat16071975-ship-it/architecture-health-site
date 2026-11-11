@@ -905,25 +905,26 @@ def register_economics_control(app):
     @admin_required
     def payroll_import():
         message, error = "", ""
+        status = payroll_registry.google_source_status()
         if request.method == "POST":
             try:
                 require_csrf()
-                upload = request.files.get("file")
-                if not upload or not upload.filename.lower().endswith(".xlsx"):
-                    raise ValueError("Выберите исходный файл .xlsx")
-
-                payload = payroll_registry.parse_registry(upload.stream)
+                source_bytes = payroll_registry.fetch_google_sheet_xlsx()
+                source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+                payload = payroll_registry.parse_registry(io.BytesIO(source_bytes))
                 complete = list(payload["payroll"].get("period") or [])
                 partial = list(payload["payroll"].get("partial_period") or [])
                 if not complete:
-                    raise ValueError("В зарплатном реестре нет ни одного закрытого месяца для загрузки.")
+                    raise ValueError("В зарплатном реестре нет ни одного закрытого месяца.")
 
                 payroll_registry.save_registry(payload)
                 audit(
-                    "payroll_registry_imported",
+                    "payroll_registry_google_refreshed",
                     target_user_id=g.user["id"],
                     details=(
-                        f"file={upload.filename};"
+                        f"sheet_id={payroll_registry.GOOGLE_SHEET_ID};"
+                        f"source_sha256={source_sha256};"
+                        f"source_bytes={len(source_bytes)};"
                         f"complete={','.join(complete)};"
                         f"partial={','.join(partial)};"
                         f"payroll={payload['payroll']['total']:.2f};"
@@ -931,10 +932,11 @@ def register_economics_control(app):
                     ),
                 )
                 message = (
-                    "Зарплатный реестр обновлён. "
+                    "Зарплатный реестр обновлён напрямую из Google Drive. "
                     "Закрытые месяцы: " + ", ".join(complete)
                     + (". Неполные месяцы: " + ", ".join(partial) if partial else ".")
                 )
+                status = payroll_registry.google_source_status()
             except Exception as exc:
                 error = str(exc)
 
@@ -948,6 +950,17 @@ def register_economics_control(app):
             )
             .replace("{{ERROR}}", error)
             .replace("{{CSRF}}", csrf_token())
+            .replace("{{SHEET_ID}}", payroll_registry.GOOGLE_SHEET_ID)
+            .replace(
+                "{{SOURCE_STATUS}}",
+                "Подключение настроено"
+                if status.get("configured")
+                else "Google Drive read-only доступ ещё не настроен",
+            )
+            .replace(
+                "{{SOURCE_ACCOUNT}}",
+                status.get("service_account") or "—",
+            )
         )
         return Response(html, mimetype="text/html")
 
