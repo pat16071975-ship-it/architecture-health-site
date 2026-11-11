@@ -13,6 +13,7 @@ from openpyxl import load_workbook
 DATA_PATH = Path("/var/lib/az-baze/payroll-registry.json")
 SOURCE_NAME = "ЗП_ЭКСПЕРСТОМ"
 TIMEZONE = "Asia/Novosibirsk"
+START_MONTH = "2026-09"
 
 MONTH_NAMES = {
     "январь": 1, "февраль": 2, "март": 3, "апрель": 4,
@@ -167,12 +168,36 @@ def _function_for(role, group):
 
 def _month_from_title(title):
     normalized = _norm(title).replace("_", " ")
-    if not re.search(r"(?:^|\s)26(?:\s|$)", normalized):
+    match = re.search(
+        r"\\bрасчет\\s+зп\\b.*?\\b("
+        + "|".join(MONTH_NAMES)
+        + r")\\b.*?\\b(\\d{2}|\\d{4})\\b",
+        normalized,
+    )
+    if not match:
         return None
-    for name, number in MONTH_NAMES.items():
-        if name in normalized:
-            return f"2026-{number:02d}"
-    return None
+
+    month_name, raw_year = match.groups()
+    year = int(raw_year)
+    if len(raw_year) == 2:
+        year += 2000
+    if year < 2000 or year > 2099:
+        return None
+    return f"{year:04d}-{MONTH_NAMES[month_name]:02d}"
+
+
+def _month_sequence(start, end):
+    sy, sm = map(int, start.split("-"))
+    ey, em = map(int, end.split("-"))
+    result = []
+    year, month = sy, sm
+    while (year, month) <= (ey, em):
+        result.append(f"{year:04d}-{month:02d}")
+        month += 1
+        if month == 13:
+            year += 1
+            month = 1
+    return result
 
 
 def _number(value):
@@ -250,21 +275,24 @@ def _sheet_records(ws):
         group = current_group
         employee_id = _employee_id(raw_name)
         department = current_department or _function_for(role, group)
-        assignment_key = (
-            employee_id,
-            group,
-            _norm_role(role),
-            _canonical_department(department, group),
-        )
-        assignment_id = hashlib.sha256(repr(assignment_key).encode("utf-8")).hexdigest()[:20]
-        records.append({
-            "assignment_id": assignment_id,
+        record = {
             "employee_id": employee_id,
             "name": raw_name,
             "role": role,
             "group": group,
             "function": _function_for(role, group),
             "department": department,
+        }
+        assignment_key = (
+            employee_id,
+            group,
+            _norm_role(role),
+            _canonical_assignment_scope(record),
+        )
+        assignment_id = hashlib.sha256(repr(assignment_key).encode("utf-8")).hexdigest()[:20]
+        records.append({
+            "assignment_id": assignment_id,
+            **record,
             "amount": amount,
         })
     return records, errors
@@ -343,7 +371,7 @@ def _payments(assignments, source=SOURCE_NAME):
     return result
 
 
-def parse_registry(stream, now=None, min_month="2026-09", max_month="2026-11"):
+def parse_registry(stream, now=None, start_month=START_MONTH):
     if hasattr(stream, "seek"):
         stream.seek(0)
     try:
@@ -353,14 +381,41 @@ def parse_registry(stream, now=None, min_month="2026-09", max_month="2026-11"):
 
     current = now or datetime.now(ZoneInfo(TIMEZONE))
     current_month = current.astimezone(ZoneInfo(TIMEZONE)).strftime("%Y-%m")
+    discovered = {}
     month_records, month_status, month_errors = {}, {}, {}
+    ignored_future_period = []
+
     try:
         for title in wb.sheetnames:
             month = _month_from_title(title)
-            if month is None or month < min_month or month > max_month:
+            if month is None or month < start_month:
                 continue
-            records, errors = _sheet_records(wb[title])
-            status = "partial" if month >= current_month or errors else "complete"
+            if month in discovered:
+                raise ValueError(
+                    f"Найдено несколько расчётных листов за {month}: "
+                    f"{discovered[month]!r} и {title!r}"
+                )
+            discovered[month] = title
+
+        relevant = sorted(month for month in discovered if month <= current_month)
+        ignored_future_period = sorted(month for month in discovered if month > current_month)
+
+        if not relevant:
+            raise ValueError(
+                f"В зарплатном файле нет расчётных листов начиная с {start_month}"
+            )
+
+        expected = _month_sequence(start_month, relevant[-1])
+        missing = [month for month in expected if month not in discovered]
+        if missing:
+            raise ValueError(
+                "В зарплатном файле пропущены расчётные месяцы: "
+                + ", ".join(missing)
+            )
+
+        for month in relevant:
+            records, errors = _sheet_records(wb[discovered[month]])
+            status = "partial" if month == current_month or errors else "complete"
             month_status[month] = status
             month_errors[month] = errors
             if status == "complete":
@@ -368,16 +423,10 @@ def parse_registry(stream, now=None, min_month="2026-09", max_month="2026-11"):
     finally:
         wb.close()
 
-    expected = [
-        f"2026-{month:02d}"
-        for month in range(int(min_month[-2:]), int(max_month[-2:]) + 1)
-    ]
-    missing = [month for month in expected if month not in month_status]
-    if missing:
-        raise ValueError("В зарплатном файле нет листов: " + ", ".join(missing))
-
     period = sorted(month_records)
-    partial_period = sorted(month for month, status in month_status.items() if status != "complete")
+    partial_period = sorted(
+        month for month, status in month_status.items() if status != "complete"
+    )
     assignments = _combine_assignments(month_records)
     total_by_month = {
         month: sum(float(item.get("months", {}).get(month) or 0) for item in assignments)
@@ -387,6 +436,9 @@ def parse_registry(stream, now=None, min_month="2026-09", max_month="2026-11"):
         "source": SOURCE_NAME,
         "period": period,
         "partial_period": partial_period,
+        "start_month": start_month,
+        "source_months": sorted(month_status),
+        "ignored_future_period": ignored_future_period,
         "month_status": month_status,
         "month_errors": month_errors,
         "assignments": assignments,
