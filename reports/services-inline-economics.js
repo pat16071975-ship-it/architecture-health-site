@@ -88,8 +88,9 @@
     const allIdx = (data.months || []).map((_, i) => i);
     const salary = getArray(w, SALARY_KEY, direction, doctor, data.months.length, null);
     const extras = getArray(w, EXTRA_KEY, direction, doctor, data.months.length, 0);
+    const syncMeta = getMeta(w);
 
-    const metricsFor = idx => economicsForDoctor(dir, doctor, salary, extras, idx);
+    const metricsFor = idx => economicsForDoctor(dir, doctor, salary, extras, syncMeta, idx);
     insertEconomicsRows(tbody, totalRow, groups, focus, metricsFor, metricsFor(allIdx), false);
   }
 
@@ -108,8 +109,9 @@
     const allIdx = (data.months || []).map((_, i) => i);
     const salary = getArray(w, SALARY_KEY, LAB_DIRECTION, LAB_TOTAL_KEY, data.months.length, null);
     const extras = getArray(w, EXTRA_KEY, LAB_DIRECTION, LAB_TOTAL_KEY, data.months.length, 0);
+    const syncMeta = getMeta(w);
 
-    const metricsFor = idx => economicsForLaboratory(dir, salary, extras, idx);
+    const metricsFor = idx => economicsForLaboratory(dir, salary, extras, syncMeta, idx);
     insertEconomicsRows(tbody, totalRow, groups, focus, metricsFor, metricsFor(allIdx), true);
   }
 
@@ -143,14 +145,14 @@
     defs.forEach(def => {
       const row = tbody.ownerDocument.createElement('tr');
       row.className = `az-inline-econ${def.start?' az-inline-econ-start':''}${def.total?' az-inline-econ-total':''}${def.margin?' az-inline-econ-margin':''}`;
-      let html = `<td>${escapeHtml(def.label)}${def.start ? '<span class="az-inline-note">Экономика считается по всей выручке; пустые поля выплат считаются нулём</span>' : ''}</td>`;
+      let html = `<td>${escapeHtml(def.label)}${def.start ? '<span class="az-inline-note">Экономика считается по всей выручке; незакрытый ФОТ не считается нулём</span>' : ''}</td>`;
       groups.forEach(g => {
         const e = metricsFor(g.idx);
         html += `<td class="az-inline-dash ${focus===g.id?'focus':''}">—</td>`;
-        html += valueCell(e[def.key], def.fmt, def.color, focus===g.id);
+        html += valueCell(e[def.key], def.fmt, def.color, focus===g.id, false, e.incomplete && def.key !== 'revenue');
       });
       html += '<td class="total-col az-inline-dash">—</td>';
-      html += valueCell(grand[def.key], def.fmt, def.color, false, true);
+      html += valueCell(grand[def.key], def.fmt, def.color, false, true, grand.incomplete && def.key !== 'revenue');
       html += '<td class="az-inline-dash">—</td>';
       row.innerHTML = html;
       anchor.insertAdjacentElement('afterend', row);
@@ -158,24 +160,34 @@
     });
   }
 
-  function valueCell(value, formatter, color, focus, totalCol = false) {
+  function valueCell(value, formatter, color, focus, totalCol = false, incomplete = false) {
     const classes = [];
     if (focus) classes.push('focus');
     if (totalCol) classes.push('total-col');
     if (color && value != null) classes.push(value >= 0 ? 'az-inline-good' : 'az-inline-bad');
-    return `<td class="${classes.join(' ')}">${value == null ? '—' : formatter(value)}</td>`;
+    if (incomplete) classes.push('az-audit-partial');
+    return `<td class="${classes.join(' ')}">${incomplete ? 'Неполные данные' : (value == null ? '—' : formatter(value))}</td>`;
   }
 
-  function economicsForDoctor(dir, doctor, salary, extras, idx) {
-    return economics(revenueDoctor(dir, doctor, idx), salary, extras, idx);
+  function economicsForDoctor(dir, doctor, salary, extras, syncMeta, idx) {
+    return economics(revenueDoctor(dir, doctor, idx), salary, extras, syncMeta, idx);
   }
 
-  function economicsForLaboratory(dir, salary, extras, idx) {
-    return economics(revenueDirection(dir, idx), salary, extras, idx);
+  function economicsForLaboratory(dir, salary, extras, syncMeta, idx) {
+    return economics(revenueDirection(dir, idx), salary, extras, syncMeta, idx);
   }
 
-  function economics(revenue, salary, extras, idx) {
-    const base = idx.reduce((a, i) => a + (Number.isFinite(+salary[i]) ? (+salary[i] || 0) : 0), 0);
+  function economics(revenue, salary, extras, syncMeta, idx) {
+    const partialIndexes = new Set(
+      (syncMeta?.payrollPartialPeriod || []).map(month => Number(String(month).slice(-2)) - 1)
+    );
+    const incomplete = idx.some(i =>
+      partialIndexes.has(i) || salary[i] === null || salary[i] === undefined || !Number.isFinite(+salary[i])
+    );
+    if (incomplete) {
+      return { revenue, salary:null, extras:null, total:null, profit:null, margin:null, incomplete:true };
+    }
+    const base = idx.reduce((a, i) => a + (+salary[i] || 0), 0);
     const extra = idx.reduce((a, i) => a + (Number.isFinite(+extras[i]) ? (+extras[i] || 0) : 0), 0);
     const total = base + extra;
     const profit = revenue - total;
@@ -185,7 +197,8 @@
       extras:extra,
       total,
       profit,
-      margin:revenue ? profit / revenue : null
+      margin:revenue ? profit / revenue : null,
+      incomplete:false
     };
   }
 
@@ -225,6 +238,11 @@
       {id:'h2',label:'II полугодие',idx:[6,7,8,9,10,11],expected:6}
     ];
     return defs.map(g => ({...g, idx:g.idx.filter(i => i < n)})).filter(g => g.idx.length);
+  }
+
+  function getMeta(w) {
+    try { return JSON.parse(w.localStorage.getItem('az-economics-sync-meta') || '{}'); }
+    catch { return {}; }
   }
 
   function getArray(w, key, direction, subject, n, fill) {
