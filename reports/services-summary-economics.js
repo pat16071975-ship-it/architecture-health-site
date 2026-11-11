@@ -89,8 +89,11 @@
     const allIdx = (data.months || []).map((_, i) => i);
     const salaryStore = loadStore(w, SALARY_KEY);
     const extraStore = loadStore(w, EXTRA_KEY);
+    const syncMeta = loadStore(w, 'az-economics-sync-meta');
 
-    const metricsFor = idx => economicsForAllDoctors(dir, direction, doctors, salaryStore, extraStore, data.months.length, idx);
+    const metricsFor = idx => economicsForAllDoctors(
+      dir, direction, doctors, salaryStore, extraStore, syncMeta, data.months.length, idx
+    );
     insertRows(tbody, totalRow, groups, focus, metricsFor, metricsFor(allIdx));
   }
 
@@ -112,10 +115,10 @@
       groups.forEach(g => {
         const e = metricsFor(g.idx);
         html += `<td class="az-summary-dash ${focus===g.id?'focus':''}">—</td>`;
-        html += valueCell(e[def.key], def.fmt, def.color, focus===g.id);
+        html += valueCell(e[def.key], def.fmt, def.color, focus===g.id, false, e.incomplete && def.key !== 'revenue');
       });
       html += '<td class="total-col az-summary-dash">—</td>';
-      html += valueCell(grand[def.key], def.fmt, def.color, false, true);
+      html += valueCell(grand[def.key], def.fmt, def.color, false, true, grand.incomplete && def.key !== 'revenue');
       html += '<td class="az-summary-dash">—</td>';
       row.innerHTML = html;
       anchor.insertAdjacentElement('afterend', row);
@@ -123,16 +126,39 @@
     });
   }
 
-  function economicsForAllDoctors(dir, direction, doctors, salaryStore, extraStore, monthCount, idx) {
+  function economicsForAllDoctors(dir, direction, doctors, salaryStore, extraStore, syncMeta, monthCount, idx) {
     const revenue = revenueDirection(dir, idx);
-    let salary = 0;
-    let extras = 0;
+    const partialIndexes = new Set(
+      (syncMeta?.payrollPartialPeriod || []).map(month => Number(String(month).slice(-2)) - 1)
+    );
+    const incomplete = idx.some(i => partialIndexes.has(i));
+    if (incomplete) {
+      return { revenue, salary:null, extras:null, total:null, profit:null, margin:null, incomplete:true };
+    }
 
+    const canonical = direction === 'Клиника' ? 'Отделение структуры' : direction;
+    const aggregate = normalizeArray(syncMeta?.directionFot?.[canonical], monthCount, null);
+    let salary = 0;
+    let aggregateComplete = true;
+    idx.forEach(i => {
+      if (aggregate[i] === null || aggregate[i] === undefined || !Number.isFinite(+aggregate[i])) aggregateComplete = false;
+      else salary += +aggregate[i] || 0;
+    });
+
+    if (!aggregateComplete) {
+      salary = 0;
+      doctors.forEach(doctor => {
+        const salaryArr = normalizeArray(salaryStore?.[direction]?.[doctor], monthCount, null);
+        idx.forEach(i => {
+          salary += Number.isFinite(+salaryArr[i]) ? (+salaryArr[i] || 0) : 0;
+        });
+      });
+    }
+
+    let extras = 0;
     doctors.forEach(doctor => {
-      const salaryArr = normalizeArray(salaryStore?.[direction]?.[doctor], monthCount, null);
       const extraArr = normalizeArray(extraStore?.[direction]?.[doctor], monthCount, 0);
       idx.forEach(i => {
-        salary += Number.isFinite(+salaryArr[i]) ? (+salaryArr[i] || 0) : 0;
         extras += Number.isFinite(+extraArr[i]) ? (+extraArr[i] || 0) : 0;
       });
     });
@@ -145,7 +171,8 @@
       extras,
       total,
       profit,
-      margin: revenue ? profit / revenue : null
+      margin: revenue ? profit / revenue : null,
+      incomplete:false
     };
   }
 
@@ -160,12 +187,13 @@
     return total;
   }
 
-  function valueCell(value, formatter, color, focus, totalCol = false) {
+  function valueCell(value, formatter, color, focus, totalCol = false, incomplete = false) {
     const classes = [];
     if (focus) classes.push('focus');
     if (totalCol) classes.push('total-col');
     if (color && value != null) classes.push(value >= 0 ? 'az-summary-good' : 'az-summary-bad');
-    return `<td class="${classes.join(' ')}">${value == null ? '—' : formatter(value)}</td>`;
+    if (incomplete) classes.push('az-audit-partial');
+    return `<td class="${classes.join(' ')}">${incomplete ? 'Неполные данные' : (value == null ? '—' : formatter(value))}</td>`;
   }
 
   function getGroups(w, data, d) {
