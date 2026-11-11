@@ -21,10 +21,7 @@ DATA_PATH = Path("/var/lib/az-baze/payroll-registry.json")
 SOURCE_NAME = "ЗП_ЭКСПЕРСТОМ"
 TIMEZONE = "Asia/Novosibirsk"
 START_MONTH = "2026-09"
-GOOGLE_SHEET_ID = os.environ.get(
-    "AZ_PAYROLL_GOOGLE_SHEET_ID",
-    "1DaDZGCHMX99vd47qpjAv70Gn6gsk5PVmbmK0t3PrS1Q",
-)
+GOOGLE_SHEET_ID = "1DaDZGCHMX99vd47qpjAv70Gn6gsk5PVmbmK0t3PrS1Q"
 GOOGLE_CREDENTIALS_PATH = Path(
     os.environ.get(
         "AZ_PAYROLL_GOOGLE_CREDENTIALS",
@@ -118,15 +115,12 @@ def _service_account_access_token(credentials_path=GOOGLE_CREDENTIALS_PATH, open
 
 
 def fetch_google_sheet_xlsx(
-    sheet_id=GOOGLE_SHEET_ID,
     credentials_path=GOOGLE_CREDENTIALS_PATH,
     opener=None,
     token_provider=None,
 ):
     opener = opener or urllib.request.urlopen
-    sheet_id = str(sheet_id or "").strip()
-    if not re.fullmatch(r"[A-Za-z0-9_-]{20,200}", sheet_id):
-        raise ValueError("Некорректный Google Sheet ID")
+    sheet_id = GOOGLE_SHEET_ID
 
     provider = token_provider or _service_account_access_token
     token = provider(credentials_path, opener=opener)
@@ -547,21 +541,21 @@ def parse_registry(stream, now=None, start_month=START_MONTH):
                 )
             discovered[month] = title
 
-        relevant = sorted(month for month in discovered if month <= current_month)
-        ignored_future_period = sorted(month for month in discovered if month > current_month)
-
-        if not relevant:
+        if current_month < start_month:
             raise ValueError(
-                f"В зарплатном файле нет расчётных листов начиная с {start_month}"
+                f"Текущий месяц {current_month} раньше начала реестра {start_month}"
             )
 
-        expected = _month_sequence(start_month, relevant[-1])
+        expected = _month_sequence(start_month, current_month)
         missing = [month for month in expected if month not in discovered]
         if missing:
             raise ValueError(
                 "В зарплатном файле пропущены расчётные месяцы: "
                 + ", ".join(missing)
             )
+
+        relevant = expected
+        ignored_future_period = sorted(month for month in discovered if month > current_month)
 
         for month in relevant:
             records, errors = _sheet_records(wb[discovered[month]])
