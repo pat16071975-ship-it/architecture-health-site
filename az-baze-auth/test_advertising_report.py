@@ -42,8 +42,8 @@ def conn():
     c=sqlite3.connect(":memory:"); c.row_factory=sqlite3.Row; c.executescript(m.SCHEMA); return c
 
 def seed(c):
-    c.execute("INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",("direct","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",1000,100,None,"x","a"))
-    c.execute("INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",("metrika","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",None,None,80,"x","b"))
+    c.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",("direct","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",1000,100,None,"x","a"))
+    c.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",("metrika","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",None,None,80,"x","b"))
     c.execute("INSERT INTO advertising_clinic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",("clinic","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",20,12,15,45000,50000,9,30000,"x","c"))
     c.execute("INSERT INTO advertising_cohort_daily VALUES(?,?,?,?,?,?,?,?,?,?,?)",("cohort","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",11,90000,"x","d"))
     c.commit()
@@ -1066,7 +1066,7 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-30","direct","Прямые заходы","Прямые заходы","","",None,None,1,"t","m"),
             )
             c.commit()
@@ -1085,7 +1085,7 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-30","direct","Прямые заходы","Прямые заходы","","",None,None,1,"t","m"),
             )
             c.commit()
@@ -1501,7 +1501,7 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     "metrika","2026-10-27","direct","Прямые заходы","Прямые заходы",
                     "","",None,None,5,"t","metrika-live-2026-10-27",
@@ -1523,7 +1523,7 @@ class AdvertisingReportTests(unittest.TestCase):
             m.METRIKA_ARCHIVE_ROOT=Path(tmp)
             try:
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         "metrika","2026-10-28","direct","Прямые заходы","Прямые заходы",
                         "","",None,None,3,"t","metrika-aabbccddeeff0011",
@@ -1924,7 +1924,7 @@ class AdvertisingReportTests(unittest.TestCase):
             ]
             for day,source_key,source_name,channel,campaign_id,campaign_name,visits in traffic_rows:
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     ("metrika",day,source_key,source_name,channel,campaign_id,campaign_name,
                      None,None,visits,"t","metrika-legacy"),
                 )
@@ -2075,7 +2075,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 ]
                 for source_key,source_name,channel,campaign_id,campaign_name,visits in legacy_traffic:
                     c.execute(
-                        "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                         ("metrika","2026-10-28",source_key,source_name,channel,campaign_id,campaign_name,
                          None,None,visits,"old",legacy_import),
                     )
@@ -2161,7 +2161,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 ]
                 for source_key,source_name,channel,campaign_id,campaign_name,visits in legacy_traffic:
                     c.execute(
-                        "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                         ("metrika","2026-10-28",source_key,source_name,channel,campaign_id,campaign_name,
                          None,None,visits,"old",legacy_import),
                     )
@@ -2243,7 +2243,7 @@ class AdvertisingReportTests(unittest.TestCase):
             name="АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"
             for campaign_id,visits in (("715444498",5),("999999999",4)):
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         "metrika","2026-10-28","yandex_ads","Яндекс-реклама","Платная реклама",
                         campaign_id,name,None,None,visits,"t","conflict",
@@ -2272,7 +2272,7 @@ class AdvertisingReportTests(unittest.TestCase):
         try:
             for campaign_id,visits in (("999999999",4),("888888888",3)):
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         "metrika","2026-10-28","yandex_ads","Яндекс-реклама","Платная реклама",
                         campaign_id,"",None,None,visits,"t","empty-name",
@@ -2506,7 +2506,7 @@ class AdvertisingReportTests(unittest.TestCase):
             ]
             for source_key,source_name,channel,visits in historical:
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         "metrika","2026-11-08",source_key,source_name,channel,
                         "","clinic_profile",None,None,visits,"t","legacy-profile",
@@ -2624,7 +2624,7 @@ class AdvertisingReportTests(unittest.TestCase):
             ]
             for source_key,source_name,channel,visits in rows:
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         "metrika","2026-11-08",source_key,source_name,channel,
                         "","future_unknown_placement_tag",None,None,visits,
@@ -2947,7 +2947,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-11-08","yandex_ads","Яндекс-реклама","Платная реклама",
                  "777","АЗ | Тестовая РК | Поиск | Новосибирск",None,None,10,"t","m"),
             )
@@ -3097,12 +3097,12 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-11-08","yandex_ads","Яндекс-реклама","Платная реклама",
                  "777","Короткое имя",None,None,3,"t","a"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-11-08","yandex_ads","Яндекс-реклама","Платная реклама",
                  "777","АЗ | Полное имя кампании | Поиск | Новосибирск",None,None,4,"t","b"),
             )
@@ -3372,7 +3372,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     "metrika","2026-11-07","yandex_ads","Яндекс-реклама","Платная реклама",
                     "701","АЗ | РК без визитов сегодня | Поиск | Новосибирск",
@@ -3590,7 +3590,7 @@ class AdvertisingReportTests(unittest.TestCase):
         try:
             for day,visits in (("2026-10-27",75),("2026-10-28",42)):
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     ("metrika",day,"direct","Прямые заходы","Прямые заходы","","",None,None,visits,"t","m"),
                 )
             for day,primary,repeat in (
@@ -3653,12 +3653,12 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама",
                  "101","Ортодонтия",None,None,20,"t","named"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама",
                  "","",None,None,8,"t","unknown"),
             )
@@ -3806,7 +3806,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",None,None,80,"t","m"),
             )
             payload={
@@ -3853,7 +3853,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 (m.ADVERTISING_COSTS_KEY,json.dumps(payload,ensure_ascii=False),1,"t"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",400,20,None,"t","d1"),
             )
             c.commit()
@@ -3868,7 +3868,7 @@ class AdvertisingReportTests(unittest.TestCase):
                     ("sha"+day,"direct",day,day,"t","Asia/Novosibirsk","RUB","","","t",1,1),
                 )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-02","yandex_ads","Яндекс-реклама","Платная реклама","","",500,25,None,"t","d2"),
             )
             c.commit()
@@ -3934,11 +3934,11 @@ class AdvertisingReportTests(unittest.TestCase):
                 ("sha","direct","2026-10-01","2026-10-01","t","Asia/Novosibirsk","RUB","","","t",1,2),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",100,10,None,"t","d1"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-01","other_paid","Другой платный источник","Платная реклама","","",None,5,None,"t","d2"),
             )
             c.commit()
@@ -3958,7 +3958,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-27","yandex_ads","Яндекс-реклама","Платная реклама","","",None,None,10,"t","m"),
             )
             c.commit()
@@ -4019,7 +4019,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 ("sha-direct","direct","2026-10-27","2026-10-27","t","Asia/Novosibirsk","RUB","","","t",1,1),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-27","yandex_ads","Яндекс-реклама","Платная реклама","","",100,10,None,"t","d"),
             )
             c.commit()
@@ -4062,11 +4062,11 @@ class AdvertisingReportTests(unittest.TestCase):
                     ("sha"+day,"direct",day,day,"t","Asia/Novosibirsk","RUB","","","t",1,1),
                 )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",400,20,None,"t","d1"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-02","yandex_ads","Яндекс-реклама","Платная реклама","","",None,25,None,"t","d2"),
             )
             c.commit()
@@ -4385,11 +4385,11 @@ class AdvertisingReportTests(unittest.TestCase):
         try:
             seed(c)
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-03","direct","Прямые заходы","Прямые заходы","","",None,None,20,"x","m3"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-05","direct","Прямые заходы","Прямые заходы","","",None,None,30,"x","m5"),
             )
             c.commit()
