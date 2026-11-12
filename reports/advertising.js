@@ -88,6 +88,20 @@ function mainKpis(){
 }
 function moneyCards(){
   const s=payload?.summary||{},e=payload?.economics||{},crm=payload?.crm||{};
+  // Cash receipts are independent of CRM and of primary/30-day cohort revenue.
+  const cash=payload?.revenue||{},paid=cash.actual_received_total;
+  const cashParts=[];
+  if(cash.cash_ooo!=null)cashParts.push('<span>ООО: <b>'+money(cash.cash_ooo)+'</b></span>');
+  if(cash.cash_ip!=null)cashParts.push('<span>ИП: <b>'+money(cash.cash_ip)+'</b></span>');
+  if(cash.cash_unallocated!=null&&Number(cash.cash_unallocated)>0)
+    cashParts.push('<span>Не распределено: <b>'+money(cash.cash_unallocated)+'</b></span>');
+  $('#clinicMoney').innerHTML=
+    '<div class="kpi-wrap"><div class="kpi"><div class="name">Выручка клиники — фактически получено</div>'+
+    '<div class="value">'+money(paid)+'</div>'+
+    '<div class="extra">По дате фактического платежа за выбранный период.'+
+    (paid==null?' Подтверждённых кассовых данных за выбранный период нет.':'')+
+    '</div>'+(cashParts.length?'<div class="primary-economics">'+cashParts.join('')+'</div>':'')+
+    '</div></div>';
   const services=s.primary_services!=null&&s.primary_paid!=null&&Math.abs(s.primary_services-s.primary_paid)>.5
     ?'Оказано услуг на '+money(s.primary_services)
     :'';
