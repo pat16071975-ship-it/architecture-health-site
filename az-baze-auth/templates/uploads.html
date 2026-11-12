@@ -122,8 +122,8 @@
     <h3>5. Яндекс Метрика</h3>
     <p>Нажмите кнопку, чтобы получить свежие данные Яндекс Метрики прямо сейчас. Текущий день обновляется оперативным срезом без суммирования, пропущенные дни дозагружаются, а последние 3 завершённых дня перепроверяются.</p>
     {% if 'upload_services' in perms %}
-      <button class="btn primary" type="button" id="metrikaAutoLoad" style="margin-top:4px">Загрузить данные Яндекс Метрики</button>
-      <div class="hint">Используется только серверное подключение с правом чтения. Тестовая UTM <strong>metrika_test</strong> сохраняется в исходных данных, но исключается из рабочих KPI.</div>
+      <button class="btn primary" type="button" id="metrikaAutoLoad" style="margin-top:4px">Загрузить данные Метрики и Директа</button>
+      <div class="hint">Одна кнопка обновляет посещения и цели Метрики, а также рекламные расходы, клики и конверсии Директа. Используется существующий серверный OAuth-токен с правом чтения. Тестовая UTM <strong>metrika_test</strong> исключается из рабочих KPI.</div>
       <details style="margin-top:12px">
         <summary style="cursor:pointer;font-size:11px;font-weight:600;color:#6c746d">Ручная загрузка ZIP — резервный вариант</summary>
         <div style="margin-top:10px">
@@ -549,14 +549,15 @@
   paidForm?.addEventListener('submit',event=>{event.preventDefault();preview('paid',paidForm)});
   metrikaAutoBtn?.addEventListener('click',async()=>{
     metrikaAutoBtn.disabled=true;
-    resultBox('metrika','Обновляю свежие данные Яндекс Метрики…',true);
+    resultBox('metrika','Обновляю данные Яндекс Метрики и Директа…',true);
     try{
       const out=await send('/api/reports/advertising/metrika/sync',metrikaForm);
       const updated=(out.completed_days||[]).map(value=>value.split('-').reverse().join('.')).join(', ');
       const current=out.current_day?out.current_day.split('-').reverse().join('.'):'';
-      let message=out.message||'Данные Метрики обновлены.';
+      let message=out.message||'Данные Метрики и Директа обновлены.';
       if(current)message+=' Текущий день: '+current+(out.current_updated?' — обновлён.':' — без изменений.');
       if(updated)message+=' Обновлены завершённые дни: '+updated+'.';
+      if(out.direct_period)message+=' Директ: '+out.direct_rows+' строк, '+out.direct_campaigns+' кампаний.';
       resultBox('metrika',message,true);
       setTimeout(()=>location.reload(),900);
     }catch(error){
