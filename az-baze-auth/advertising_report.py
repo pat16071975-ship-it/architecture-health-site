@@ -1149,8 +1149,13 @@ def _source_economics(conn, start, end, store=None):
             "conversions": direct_value.get("conversions") if direct_complete else None,
             "campaign_distributed_total": distributed_total,
             "campaign_reconciliation_delta": (
-                round(float(components["total_spend"]) - distributed_total, 2)
-                if components["total_spend"] is not None and distributed_total is not None
+                round(float(
+                    components["advertising_payment"] if key == "yandex_ads"
+                    else components["total_spend"]
+                ) - distributed_total, 2)
+                if distributed_total is not None
+                and (components["advertising_payment"] if key == "yandex_ads"
+                     else components["total_spend"]) is not None
                 else None
             ),
         }
@@ -3395,11 +3400,15 @@ def _cost_hierarchy_payload(conn, start, end):
             },
             "reconciliation": {
                 "distributed_total": econ.get("campaign_distributed_total"),
-                "parent_total": econ.get("total_spend"),
+                "parent_total": (
+                    econ.get("advertising_payment") if key == "yandex_ads"
+                    else econ.get("total_spend")
+                ),
                 "delta": econ.get("campaign_reconciliation_delta"),
                 "complete": (
                     econ.get("campaign_distributed_total") is not None
-                    and econ.get("total_spend") is not None
+                    and (econ.get("advertising_payment") if key == "yandex_ads"
+                         else econ.get("total_spend")) is not None
                 ),
             },
             "campaigns": children,
@@ -3613,6 +3622,18 @@ def register_advertising_report(app):
             if entity_key not in source_registry:
                 return jsonify(status="error", message="Неизвестный рекламный источник."), 400
             meta = source_registry[entity_key]
+            if entity_key == "yandex_ads":
+                if not _dataset_period_complete(conn, "direct", start, end):
+                    return jsonify(status="error", message="Сначала загрузите статистику Директа за выбранный период."), 409
+                actual_ad_spend = (
+                    _direct_source_values(conn, start, end).get("yandex_ads") or {}
+                ).get("spend")
+                if actual_ad_spend is None or period.get("contractors_payment") is None:
+                    return jsonify(status="error", message="Укажите общего подрядчика; расход рекламы должен поступить из Директа."), 409
+                period["advertising_payment"] = round(float(actual_ad_spend), 2)
+                period["total_spend"] = round(
+                    period["advertising_payment"] + period["contractors_payment"], 2
+                )
             store["sources"][entity_key] = {
                 "name": meta["source_name"],
                 "channel_name": meta["channel_name"],
@@ -3623,6 +3644,8 @@ def register_advertising_report(app):
             if entity_key not in campaign_registry:
                 return jsonify(status="error", message="Неизвестная рекламная кампания."), 400
             meta = campaign_registry[entity_key]
+            if meta["source_key"] == "yandex_ads":
+                return jsonify(status="error", message="Расходы кампаний Директа загружаются автоматически; ручное изменение запрещено."), 403
             source_key = meta["source_key"]
             if source_key not in source_registry:
                 return jsonify(status="error", message="Неизвестный источник кампании."), 400
