@@ -3016,6 +3016,63 @@ class AdvertisingReportTests(unittest.TestCase):
         finally:
             m.db=old_db;m._ensure_schema=old_ensure;m.request=old_request;c.close()
 
+    def test_yandex_api_campaign_cost_excludes_child_contractors_and_preserves_shared_source(self):
+        c=conn()
+        try:
+            start=end=date(2026,11,8)
+            normalized=m._normalize_package({
+                "schema_version":m.SCHEMA_VERSION,
+                "generated_at":"2026-11-09T00:00:00+07:00",
+                "timezone":"Asia/Novosibirsk",
+                "currency":"RUB",
+                "vat_mode":"DIRECT_INCLUDE_VAT_YES",
+                "attribution_model":"YANDEX_DIRECT_AGGREGATE_CONVERSIONS",
+                "datasets":{"direct":{
+                    "period_start":"2026-11-08",
+                    "period_end":"2026-11-08",
+                    "rows":[{
+                        "date":"2026-11-08","source_key":"yandex_ads",
+                        "source_name":"Яндекс-реклама","channel_name":"Платная реклама",
+                        "campaign_id":"777","campaign_name":"API кампания",
+                        "spend":110,"clicks":10,"conversions":2.5
+                    }]
+                }}
+            })
+            m._apply_import(c,normalized,1)
+            c.commit()
+            key=m._campaign_cost_key("yandex_ads","777","API кампания")
+            store=m._empty_hierarchical_cost_store()
+            store["sources"]["yandex_ads"]={
+                "name":"Яндекс-реклама","channel_name":"Платная реклама","manual":False
+            }
+            store["campaigns"][key]={
+                "source_key":"yandex_ads","campaign_id":"777","campaign_name":"API кампания"
+            }
+            store["periods"]["sources"]["yandex_ads"]=[{
+                "from":"2026-11-08","to":"2026-11-08",
+                "advertising_payment":100,"contractors_payment":20,
+                "total_spend":120,
+            }]
+            store["periods"]["campaigns"][key]=[{
+                "from":"2026-11-08","to":"2026-11-08",
+                "advertising_payment":80,"contractors_payment":10,
+                "total_spend":90,
+            }]
+            economics=m._source_economics(c,start,end,store)
+            campaign=economics["campaigns"][key]
+            source=economics["sources"]["yandex_ads"]
+            self.assertEqual(campaign["advertising_payment"],110)
+            self.assertIsNone(campaign["contractors_payment"])
+            self.assertEqual(campaign["total_spend"],110)
+            self.assertEqual(campaign["conversions"],2.5)
+            self.assertEqual(source["advertising_payment"],110)
+            self.assertEqual(source["contractors_payment"],20)
+            self.assertEqual(source["total_spend"],130)
+            self.assertEqual(source["campaign_distributed_total"],110)
+            self.assertEqual(source["campaign_reconciliation_delta"],0)
+        finally:
+            c.close()
+
     def test_campaign_cost_key_is_stable_when_factual_id_name_changes(self):
         a=m._campaign_cost_key("yandex_ads","777","Старое название")
         b=m._campaign_cost_key("yandex_ads","777","Новое название")
