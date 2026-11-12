@@ -12,6 +12,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import metrika_auto
+import direct_auto
 import advertising_mis_bridge
 
 from flask import Response, abort, g, jsonify, request
@@ -3474,6 +3475,15 @@ def _persist_cost_store(conn, store):
     return normalized
 
 
+def _direct_refresh_start(conn, today):
+    """Fill missing history on first run; recheck the latest four calendar days."""
+    first = direct_auto.FIRST_SUPPORTED_DAY
+    stable_end = today - timedelta(days=4)
+    if stable_end >= first and _dataset_period_complete(conn, "direct", first, stable_end):
+        return max(first, today - timedelta(days=3))
+    return first
+
+
 def _metrika_sync_has_changes(completed_updated, current_result):
     return bool(completed_updated or current_result.get("updated"))
 
@@ -3667,6 +3677,27 @@ def register_advertising_report(app):
             with metrika_auto.MetrikaSyncLock():
                 sync_started = datetime.now(ZoneInfo(DEFAULT_TIMEZONE))
                 current_day = metrika_auto.current_local_day(sync_started)
+                # Prepare both external sources BEFORE the shared DB transaction.
+                # Failed Direct API fetch must not commit a partial Metrika refresh.
+                direct_start = _direct_refresh_start(conn, current_day)
+                direct_rows, direct_meta = direct_auto.fetch_daily_campaigns(
+                    token, direct_start, current_day
+                )
+                direct_package = _normalize_package({
+                    "schema_version": SCHEMA_VERSION,
+                    "generated_at": sync_started.isoformat(),
+                    "timezone": DEFAULT_TIMEZONE,
+                    "currency": "RUB",
+                    "vat_mode": "DIRECT_INCLUDE_VAT_YES",
+                    "attribution_model": "YANDEX_DIRECT_AGGREGATE_CONVERSIONS",
+                    "datasets": {
+                        "direct": {
+                            "period_start": direct_start.isoformat(),
+                            "period_end": current_day.isoformat(),
+                            "rows": direct_rows,
+                        }
+                    },
+                })
                 completed_targets = metrika_auto.completed_sync_days(conn, sync_started)
 
                 client = metrika_auto.MetrikaClient(token)
@@ -3766,6 +3797,7 @@ def register_advertising_report(app):
                     current_parsed,
                     g.user["id"],
                 )
+                direct_result = _apply_import(conn, direct_package, g.user["id"])
                 conn.commit()
         except metrika_auto.MetrikaBusyError as exc:
             return jsonify(status="busy", message=str(exc)), 409
@@ -3779,20 +3811,26 @@ def register_advertising_report(app):
                 message=str(exc) or "Не удалось получить данные Яндекс Метрики.",
             ), 400
 
-        if _metrika_sync_has_changes(completed_updated, current_result):
+        if _metrika_sync_has_changes(completed_updated, current_result) or not direct_result["reused"]:
             audit(
-                "advertising_metrika_auto_sync",
+                "advertising_metrika_direct_auto_sync",
                 target_user_id=g.user["id"],
                 details=(
                     "completed_updated=" + ",".join(completed_updated)
                     + "; completed_unchanged=" + ",".join(completed_unchanged)
                     + "; current_day=" + current_day.isoformat()
                     + "; current_updated=" + ("1" if current_result["updated"] else "0")
+                    + "; direct_period=" + direct_start.isoformat() + ".." + current_day.isoformat()
+                    + "; direct_rows=" + str(direct_meta["rows"])
                 ),
             )
         return jsonify(
             status="ok",
-            message="Данные Яндекс Метрики обновлены.",
+            message="Данные Яндекс Метрики и Директа обновлены.",
+            direct_period={"from": direct_start.isoformat(), "to": current_day.isoformat()},
+            direct_rows=direct_meta["rows"],
+            direct_campaigns=direct_meta["campaigns"],
+            direct_reused=direct_result["reused"],
             completed_days=completed_updated,
             checked_completed_days=completed_unchanged,
             current_day=current_day.isoformat(),
