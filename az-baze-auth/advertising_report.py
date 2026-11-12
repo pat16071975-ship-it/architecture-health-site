@@ -61,7 +61,7 @@ DATASET_CONFIG = {
     "cohort": ("advertising_cohort_daily", "cohort_date"),
 }
 METRIC_KEYS = (
-    "spend", "clicks", "visits", "target_leads", "leads_with_primary",
+    "spend", "clicks", "conversions", "visits", "target_leads", "leads_with_primary",
     "primary_visits", "primary_paid", "primary_services", "repeat_visits",
     "repeat_paid", "new_patients", "new_patient_30d_paid",
     "booking_open_visits", "booking_open_reaches", "medflex_visits", "medflex_reaches",
@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS advertising_traffic_daily (
     campaign_name TEXT NOT NULL DEFAULT '',
     spend REAL,
     clicks INTEGER,
+    conversions INTEGER,
     visits INTEGER,
     updated_at TEXT NOT NULL,
     import_id TEXT NOT NULL,
@@ -188,6 +189,9 @@ def _ensure_schema(path=DB_PATH):
     conn = sqlite3.connect(path)
     try:
         conn.executescript(SCHEMA)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(advertising_traffic_daily)")}
+        if "conversions" not in columns:
+            conn.execute("ALTER TABLE advertising_traffic_daily ADD COLUMN conversions INTEGER")
         conn.commit()
     finally:
         conn.close()
@@ -915,7 +919,7 @@ def _direct_source_values(conn, start, end):
         rows = conn.execute(
             """
             SELECT source_key,source_name,channel_name,campaign_id,campaign_name,
-                   spend,clicks
+                   spend,clicks,conversions
             FROM advertising_traffic_daily
             WHERE provider='direct' AND metric_date BETWEEN ? AND ?
             """,
@@ -935,8 +939,10 @@ def _direct_source_values(conn, start, end):
                 "channel_name": channel,
                 "spend": 0.0,
                 "clicks": 0,
+                "conversions": 0,
                 "spend_complete": True,
                 "clicks_complete": True,
+                "conversions_complete": True,
                 "rows": 0,
             },
         )
@@ -949,6 +955,10 @@ def _direct_source_values(conn, start, end):
             target["clicks_complete"] = False
         else:
             target["clicks"] += int(row["clicks"])
+        if row["conversions"] is None:
+            target["conversions_complete"] = False
+        else:
+            target["conversions"] += int(row["conversions"])
     for target in values.values():
         if not target["rows"] or not target["spend_complete"]:
             target["spend"] = None
@@ -958,6 +968,12 @@ def _direct_source_values(conn, start, end):
             target["clicks"] = None
         else:
             target["clicks"] = int(target["clicks"])
+    for target in values.values():
+        target["conversions"] = (
+            int(target["conversions"])
+            if target["rows"] and target["conversions_complete"]
+            else None
+        )
     return values
 
 
@@ -966,7 +982,7 @@ def _direct_campaign_values(conn, start, end):
         rows = conn.execute(
             """
             SELECT source_key,source_name,channel_name,campaign_id,campaign_name,
-                   spend,clicks
+                   spend,clicks,conversions
             FROM advertising_traffic_daily
             WHERE provider='direct' AND metric_date BETWEEN ? AND ?
               AND (campaign_id<>'' OR campaign_name<>'')
@@ -989,8 +1005,10 @@ def _direct_campaign_values(conn, start, end):
             {
                 "spend": 0.0,
                 "clicks": 0,
+                "conversions": 0,
                 "spend_complete": True,
                 "clicks_complete": True,
+                "conversions_complete": True,
                 "rows": 0,
             },
         )
@@ -1003,6 +1021,10 @@ def _direct_campaign_values(conn, start, end):
             target["clicks_complete"] = False
         else:
             target["clicks"] += int(row["clicks"])
+        if row["conversions"] is None:
+            target["conversions_complete"] = False
+        else:
+            target["conversions"] += int(row["conversions"])
     for target in values.values():
         target["spend"] = (
             round(float(target["spend"]), 2)
@@ -1012,6 +1034,12 @@ def _direct_campaign_values(conn, start, end):
         target["clicks"] = (
             int(target["clicks"])
             if target["rows"] and target["clicks_complete"]
+            else None
+        )
+    for target in values.values():
+        target["conversions"] = (
+            int(target["conversions"])
+            if target["rows"] and target["conversions_complete"]
             else None
         )
     return values
@@ -1065,6 +1093,7 @@ def _campaign_economics(conn, start, end, store=None):
             # separately and does not silently redefine CPC.
             "spend": components["advertising_payment"],
             "clicks": direct_value.get("clicks") if direct_complete else None,
+            "conversions": direct_value.get("conversions") if direct_complete else None,
         }
     return {
         "campaigns": result,
@@ -1105,6 +1134,7 @@ def _source_economics(conn, start, end, store=None):
                 else round(float(direct_value["spend"]), 2)
             ),
             "clicks": direct_value.get("clicks") if direct_complete else None,
+            "conversions": direct_value.get("conversions") if direct_complete else None,
             "campaign_distributed_total": distributed_total,
             "campaign_reconciliation_delta": (
                 round(float(components["total_spend"]) - distributed_total, 2)
@@ -1213,6 +1243,11 @@ def _summary(conn, start, end):
         "clicks": (
             sum(int(item.get("clicks") or 0) for item in economics["sources"].values() if item.get("clicks") is not None)
             if economics.get("direct_period_complete") and any(item.get("clicks") is not None for item in economics["sources"].values())
+            else None
+        ),
+        "conversions": (
+            sum(int(item.get("conversions") or 0) for item in economics["sources"].values() if item.get("conversions") is not None)
+            if economics.get("direct_period_complete") and any(item.get("conversions") is not None for item in economics["sources"].values())
             else None
         ),
         "visits": _nullable_sum(traffic, "visits"),
@@ -1335,7 +1370,7 @@ def _group_breakdown(conn, start, end, level):
     campaign_evidence = _campaign_evidence_map(conn)
     native_import_ids = _native_campaign_import_ids(conn)
     traffic = conn.execute(
-        "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits "
+        "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,conversions,visits "
         "FROM advertising_traffic_daily WHERE metric_date BETWEEN ? AND ?", (start_s, end_s)
     ).fetchall()
     clinic = conn.execute(
@@ -1411,7 +1446,7 @@ def _group_breakdown(conn, start, end, level):
             if value is not None:
                 target[field] = (target[field] or 0) + value
     for row in traffic:
-        add(row, ("spend", "clicks", "visits"))
+        add(row, ("spend", "clicks", "conversions", "visits"))
     for row in clinic:
         add(row, ("target_leads", "leads_with_primary", "primary_visits", "primary_paid", "primary_services", "repeat_visits", "repeat_paid"))
     for row in cohort:
@@ -1478,6 +1513,8 @@ def _group_breakdown(conn, start, end, level):
             item["campaign_reconciliation_delta"] = source_value.get("campaign_reconciliation_delta")
             if source_value.get("clicks") is not None:
                 item["clicks"] = source_value.get("clicks")
+            if source_value.get("conversions") is not None:
+                item["conversions"] = source_value.get("conversions")
             item["spend_provenance"] = source_value.get("spend_provenance")
             item["campaign_key"] = ""
         else:
@@ -1493,6 +1530,8 @@ def _group_breakdown(conn, start, end, level):
             item["cost_period_complete"] = bool(campaign_value.get("period_complete"))
             if campaign_value.get("clicks") is not None:
                 item["clicks"] = campaign_value.get("clicks")
+            if campaign_value.get("conversions") is not None:
+                item["conversions"] = campaign_value.get("conversions")
             item["spend_provenance"] = campaign_value.get("spend_provenance")
 
         item["total_paid"] = _combine_money(item["primary_paid"], item["repeat_paid"])
@@ -3073,7 +3112,7 @@ def _normalize_row(dataset, row, period_start, period_end):
         "campaign_name": _clean_text(row.get("campaign_name"), max_len=300),
     }
     if dataset == "direct":
-        base.update(spend=_number(row.get("spend")), clicks=_number(row.get("clicks"), integer=True))
+        base.update(spend=_number(row.get("spend")), clicks=_number(row.get("clicks"), integer=True), conversions=_number(row.get("conversions"), integer=True))
     elif dataset == "metrika":
         base.update(visits=_number(row.get("visits"), integer=True))
     elif dataset == "clinic":
@@ -3133,7 +3172,7 @@ def _apply_import(conn, normalized, actor_user_id):
         for row in spec["rows"]:
             common = (name, row["date"], row["source_key"], row["source_name"], row["channel_name"], row["campaign_id"], row["campaign_name"])
             if name == "direct":
-                conn.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (*common, row["spend"], row["clicks"], None, now, payload_sha))
+                conn.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,conversions,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", (*common, row["spend"], row["clicks"], row["conversions"], None, now, payload_sha))
             elif name == "metrika":
                 conn.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (*common, None, None, row["visits"], now, payload_sha))
             elif name == "clinic":
