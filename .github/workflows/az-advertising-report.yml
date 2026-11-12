@@ -132,3 +132,49 @@ jobs:
           assert '"az-advertising-costs-v1"' in source
           print('ADVERTISING_REPORT_SCOPE=PASS')
           PY
+
+  direct-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install runtime test dependencies
+        run: python -m pip install -r az-baze-auth/requirements.txt
+      - name: Exact Direct and advertising report regressions
+        working-directory: az-baze-auth
+        run: |
+          python -m py_compile direct_auto.py advertising_report.py metrika_auto.py
+          python -m unittest -v test_direct_auto.py test_advertising_report.py test_advertising_mis_bridge.py
+      - name: Advertising report JavaScript syntax
+        run: node --check reports/advertising.js
+      - name: Approved direct + source + revenue scope
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          html=Path('reports/advertising.html').read_text(encoding='utf-8')
+          js=Path('reports/advertising.js').read_text(encoding='utf-8')
+          uploads=Path('az-baze-auth/templates/uploads.html').read_text(encoding='utf-8')
+          costs=Path('az-baze-auth/templates/advertising_costs_fragment.html').read_text(encoding='utf-8')
+          src=Path('az-baze-auth/advertising_report.py').read_text(encoding='utf-8')
+          direct=Path('az-baze-auth/direct_auto.py').read_text(encoding='utf-8')
+          assert 'id="clinicMoney"' in html
+          assert 'Выручка клиники — фактически получено' in js
+          assert 'cash.actual_received_total' in js
+          assert 'primaryMoney' in html and 'cohortCard' in html
+          assert 'Конверсии Директа' in html
+          assert "key:'conversions'" in js
+          assert 'Загрузить данные Метрики и Директа' in uploads
+          assert 'metrikaAutoLoad' in uploads
+          assert '/api/reports/advertising/metrika/sync' in uploads
+          assert 'direct_auto.fetch_daily_campaigns' in src
+          assert 'direct_result = _apply_import' in src
+          assert 'ALTER TABLE advertising_traffic_daily ADD COLUMN conversions REAL' in src
+          assert 'apiLocked' in costs and 'yandexCampaign' in costs
+          assert 'contractors_payment' in costs
+          assert 'AZBAZE_YANDEX_METRIKA_TOKEN' not in direct
+          assert '"IncludeVAT": "YES"' in direct
+          print('AZ_DIRECT_UNIFIED_SCOPED_CONTRACT=PASS')
+          PY
