@@ -1475,7 +1475,7 @@ class AdvertisingReportTests(unittest.TestCase):
         )
         source=Path(__file__).with_name("advertising_report.py").read_text(encoding="utf-8")
         self.assertIn(
-            'if _metrika_sync_has_changes(completed_updated, current_result):\n            audit(',
+            'if _metrika_sync_has_changes(completed_updated, current_result) or not direct_result["reused"]:\n            audit(',
             source,
         )
 
@@ -2948,7 +2948,7 @@ class AdvertisingReportTests(unittest.TestCase):
             )
             c.execute(
                 "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                ("metrika","2026-11-08","yandex_ads","Яндекс-реклама","Платная реклама",
+                ("metrika","2026-11-08","paid_test","Тестовый рекламный источник","Платная реклама",
                  "777","АЗ | Тестовая РК | Поиск | Новосибирск",None,None,10,"t","m"),
             )
             c.commit()
@@ -2971,7 +2971,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 get_json=lambda silent=True:{},
             )
             hierarchy=app.routes[("GET","/api/reports/advertising/costs")]()
-            source=next(row for row in hierarchy["sources"] if row["source_key"]=="yandex_ads")
+            source=next(row for row in hierarchy["sources"] if row["source_key"]=="paid_test")
             campaign=source["campaigns"][0]
 
             def save(level,key,ad,contractor,total,extra=None):
@@ -2989,14 +2989,14 @@ class AdvertisingReportTests(unittest.TestCase):
 
             save("global","",100,20,120)
             save(
-                "source","yandex_ads",100,20,120,
-                {"source_name":"Яндекс-реклама","channel_name":"Платная реклама"},
+                "source","paid_test",100,20,120,
+                {"source_name":"Тестовый рекламный источник","channel_name":"Платная реклама"},
             )
             save("campaign",campaign["campaign_key"],80,10,90)
 
             store=m._load_cost_store(c)
             global_summary=m._cost_entity_summary(store,"global","",date(2026,11,8),date(2026,11,8))
-            source_summary=m._cost_entity_summary(store,"source","yandex_ads",date(2026,11,8),date(2026,11,8))
+            source_summary=m._cost_entity_summary(store,"source","paid_test",date(2026,11,8),date(2026,11,8))
             campaign_summary=m._cost_entity_summary(store,"campaign",campaign["campaign_key"],date(2026,11,8),date(2026,11,8))
             self.assertEqual(global_summary["total_spend"],120)
             self.assertEqual(source_summary["total_spend"],120)
@@ -3006,10 +3006,10 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(economics["source_total_spend"],120)
             self.assertEqual(economics["source_reconciliation_delta"],0)
             self.assertEqual(
-                economics["sources"]["yandex_ads"]["campaign_distributed_total"],90
+                economics["sources"]["paid_test"]["campaign_distributed_total"],90
             )
             self.assertEqual(
-                economics["sources"]["yandex_ads"]["campaign_reconciliation_delta"],30
+                economics["sources"]["paid_test"]["campaign_reconciliation_delta"],30
             )
             # Child 90 is detail only: it is never added to source/global 120.
             self.assertEqual(economics["budget"]["total_spend"],120)
@@ -3374,7 +3374,7 @@ class AdvertisingReportTests(unittest.TestCase):
             c.execute(
                 "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
-                    "metrika","2026-11-07","yandex_ads","Яндекс-реклама","Платная реклама",
+                    "metrika","2026-11-07","paid_test","Тестовый рекламный источник","Платная реклама",
                     "701","АЗ | РК без визитов сегодня | Поиск | Новосибирск",
                     None,None,5,"t","metrika-history",
                 ),
@@ -3404,7 +3404,7 @@ class AdvertisingReportTests(unittest.TestCase):
             hierarchy=app.routes[("GET","/api/reports/advertising/costs")]()
             source=next(
                 row for row in hierarchy["sources"]
-                if row["source_key"]=="yandex_ads"
+                if row["source_key"]=="paid_test"
             )
             campaign=next(
                 row for row in source["campaigns"]
@@ -3431,7 +3431,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 row for row in m._group_breakdown(
                     c,date(2026,11,8),date(2026,11,8),"campaign"
                 )
-                if row["source_key"]=="yandex_ads"
+                if row["source_key"]=="paid_test"
             ]
             self.assertEqual(len(rows),1)
             row=rows[0]
