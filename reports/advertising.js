@@ -2,6 +2,7 @@ const $=s=>document.querySelector(s),all=s=>[...document.querySelectorAll(s)];
 const nf=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0});
 const money=v=>v==null?'—':nf.format(Number(v)||0)+' ₽';
 const number=v=>v==null?'—':nf.format(Number(v)||0);
+const convNumber=v=>v==null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(Number(v)||0);
 const pct=v=>v==null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(v)+'%';
 const h=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const validDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''));
@@ -66,7 +67,7 @@ function mainKpis(){
     },
     {
       key:'conversions',label:'Конверсии Директа',
-      value:s.conversions==null?'Нет данных':number(s.conversions),fmt:number,text:s.conversions==null,
+      value:s.conversions==null?'Нет данных':convNumber(s.conversions),fmt:convNumber,text:s.conversions==null,
       extra:'Конверсии по статистике Директа. Не равны CRM-лидам или состоявшимся приёмам.'
     },
     {
@@ -180,7 +181,7 @@ function spendCell(row){
 function sourceCells(row){
   return spendCell(row)+
     metricCell(row.clicks,row.cost_per_click,'клик')+
-    metricCell(row.conversions,null,'конверсия')+
+    '<td>'+convNumber(row.conversions)+'</td>'+
     metricCell(row.visits,row.cost_per_visit,'посещение')+
     metricCell(row.booking_open_visits,row.cost_per_booking_open,'открытие')+
     metricCell(row.medflex_visits,row.cost_per_medflex,'переход')
@@ -203,7 +204,7 @@ function renderSources(){
     return parent+children
   }).join('');
   const s=payload?.summary||{};
-  const total='<tr class="group-row"><td>Разнесено по источникам</td><td>'+money(s.source_total_spend??s.source_spend_total)+'</td><td>'+number(s.clicks)+'</td><td>'+number(s.conversions)+'</td><td>'+number(s.visits)+'</td><td>'+number(s.booking_open_visits)+'</td><td>'+number(s.medflex_visits)+'</td></tr>';
+  const total='<tr class="group-row"><td>Разнесено по источникам</td><td>'+money(s.source_total_spend??s.source_spend_total)+'</td><td>'+number(s.clicks)+'</td><td>'+convNumber(s.conversions)+'</td><td>'+number(s.visits)+'</td><td>'+number(s.booking_open_visits)+'</td><td>'+number(s.medflex_visits)+'</td></tr>';
   body.innerHTML=html+total;
   body.querySelectorAll('.source-expand').forEach(button=>button.addEventListener('click',()=>{
     const key=button.dataset.sourceKey||'';
