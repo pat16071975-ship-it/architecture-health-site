@@ -3719,7 +3719,9 @@ def register_advertising_report(app):
                 )
                 direct_package = _normalize_package({
                     "schema_version": SCHEMA_VERSION,
-                    "generated_at": sync_started.isoformat(),
+                    # Deterministic provenance for identical API rows, so repeated
+                    # clicks with unchanged Direct data reuse the same import.
+                    "generated_at": current_day.isoformat() + "T00:00:00+07:00",
                     "timezone": DEFAULT_TIMEZONE,
                     "currency": "RUB",
                     "vat_mode": "DIRECT_INCLUDE_VAT_YES",
