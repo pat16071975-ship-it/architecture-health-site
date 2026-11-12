@@ -678,7 +678,7 @@ def _source_registry(conn, store=None):
             """
             SELECT source_key,source_name,channel_name,campaign_id,campaign_name
             FROM advertising_traffic_daily
-            WHERE provider='metrika'
+            WHERE provider IN ('metrika','direct')
             ORDER BY metric_date
             """
         ).fetchall()
@@ -819,7 +819,7 @@ def _campaign_registry(conn, store=None):
             SELECT provider,import_id,
                    source_key,source_name,channel_name,campaign_id,campaign_name
             FROM advertising_traffic_daily
-            WHERE provider='metrika'
+            WHERE provider IN ('metrika','direct')
               AND (campaign_id<>'' OR campaign_name<>'')
             ORDER BY metric_date
             """
