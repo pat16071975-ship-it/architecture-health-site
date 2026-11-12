@@ -1086,12 +1086,23 @@ def _campaign_economics(conn, start, end, store=None):
             summary,
             direct_value.get("spend") if direct_complete else None,
         )
+        if meta["source_key"] == "yandex_ads":
+            # Campaign-level contractor values are legacy metadata only.
+            # Owner-approved contractor is one source-level amount; Direct
+            # campaign costs always come from API, never manual fallback.
+            api_spend = direct_value.get("spend") if direct_complete else None
+            components.update({
+                "advertising_payment": api_spend,
+                "contractors_payment": None,
+                "total_spend": api_spend,
+                "spend_provenance": "direct_api" if api_spend is not None else None,
+                "period_complete": bool(direct_complete and api_spend is not None),
+            })
         result[key] = {
             **meta,
             **components,
-            # Existing per-click economics intentionally continue to use the
-            # advertising component only; contractor allocation is visible
-            # separately and does not silently redefine CPC.
+            # Direct campaign cost is only its advertising cost; the
+            # shared contractor lives at the Yandex source level.
             "spend": components["advertising_payment"],
             "clicks": direct_value.get("clicks") if direct_complete else None,
             "conversions": direct_value.get("conversions") if direct_complete else None,
