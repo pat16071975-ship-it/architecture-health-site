@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS advertising_traffic_daily (
     campaign_name TEXT NOT NULL DEFAULT '',
     spend REAL,
     clicks INTEGER,
-    conversions INTEGER,
+    conversions REAL,
     visits INTEGER,
     updated_at TEXT NOT NULL,
     import_id TEXT NOT NULL,
@@ -191,7 +191,7 @@ def _ensure_schema(path=DB_PATH):
         conn.executescript(SCHEMA)
         columns = {row[1] for row in conn.execute("PRAGMA table_info(advertising_traffic_daily)")}
         if "conversions" not in columns:
-            conn.execute("ALTER TABLE advertising_traffic_daily ADD COLUMN conversions INTEGER")
+            conn.execute("ALTER TABLE advertising_traffic_daily ADD COLUMN conversions REAL")
         conn.commit()
     finally:
         conn.close()
@@ -958,7 +958,7 @@ def _direct_source_values(conn, start, end):
         if row["conversions"] is None:
             target["conversions_complete"] = False
         else:
-            target["conversions"] += int(row["conversions"])
+            target["conversions"] += float(row["conversions"])
     for target in values.values():
         if not target["rows"] or not target["spend_complete"]:
             target["spend"] = None
@@ -970,7 +970,7 @@ def _direct_source_values(conn, start, end):
             target["clicks"] = int(target["clicks"])
     for target in values.values():
         target["conversions"] = (
-            int(target["conversions"])
+            float(target["conversions"])
             if target["rows"] and target["conversions_complete"]
             else None
         )
@@ -1024,7 +1024,7 @@ def _direct_campaign_values(conn, start, end):
         if row["conversions"] is None:
             target["conversions_complete"] = False
         else:
-            target["conversions"] += int(row["conversions"])
+            target["conversions"] += float(row["conversions"])
     for target in values.values():
         target["spend"] = (
             round(float(target["spend"]), 2)
@@ -1038,7 +1038,7 @@ def _direct_campaign_values(conn, start, end):
         )
     for target in values.values():
         target["conversions"] = (
-            int(target["conversions"])
+            float(target["conversions"])
             if target["rows"] and target["conversions_complete"]
             else None
         )
@@ -1246,7 +1246,7 @@ def _summary(conn, start, end):
             else None
         ),
         "conversions": (
-            sum(int(item.get("conversions") or 0) for item in economics["sources"].values() if item.get("conversions") is not None)
+            sum(float(item.get("conversions") or 0) for item in economics["sources"].values() if item.get("conversions") is not None)
             if economics.get("direct_period_complete") and any(item.get("conversions") is not None for item in economics["sources"].values())
             else None
         ),
@@ -3112,7 +3112,7 @@ def _normalize_row(dataset, row, period_start, period_end):
         "campaign_name": _clean_text(row.get("campaign_name"), max_len=300),
     }
     if dataset == "direct":
-        base.update(spend=_number(row.get("spend")), clicks=_number(row.get("clicks"), integer=True), conversions=_number(row.get("conversions"), integer=True))
+        base.update(spend=_number(row.get("spend")), clicks=_number(row.get("clicks"), integer=True), conversions=_number(row.get("conversions")))
     elif dataset == "metrika":
         base.update(visits=_number(row.get("visits"), integer=True))
     elif dataset == "clinic":
