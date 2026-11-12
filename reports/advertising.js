@@ -65,6 +65,11 @@ function mainKpis(){
         :(s.cost_per_click!=null?'Стоимость клика: <b>'+money(s.cost_per_click)+'</b>':'Стоимость клика не считается, пока охват расходов и кликов не совпадает.')
     },
     {
+      key:'conversions',label:'Конверсии Директа',
+      value:s.conversions==null?'Нет данных':number(s.conversions),fmt:number,text:s.conversions==null,
+      extra:'Конверсии по статистике Директа. Не равны CRM-лидам или состоявшимся приёмам.'
+    },
+    {
       key:'visits',label:'Посещения сайта',value:number(s.visits),fmt:number,
       extra:'Рабочие посещения Метрики; metrika_test исключена.'
     },
@@ -147,12 +152,12 @@ function sourceName(row){return (row.source_name||row.campaign_name||row.channel
 function campaignName(row){const name=String(row.campaign_name||'').trim();if(name)return name;const id=String(row.campaign_id||'').trim();return id?'Кампания '+id:'Не определено'}
 function sourceRows(){
   return (payload?.sources||[])
-    .filter(row=>row.spend!=null||row.total_spend!=null||row.clicks!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null)
+    .filter(row=>row.spend!=null||row.total_spend!=null||row.clicks!=null||row.conversions!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null)
     .sort((a,b)=>(Number(b.total_spend??b.spend)||0)-(Number(a.total_spend??a.spend)||0)||(Number(b.visits)||0)-(Number(a.visits)||0)||sourceName(a).localeCompare(sourceName(b),'ru'))
 }
 function campaignRowsForSource(sourceKey){
   return (payload?.campaigns||[])
-    .filter(row=>row.source_key===sourceKey&&(row.spend!=null||row.total_spend!=null||row.clicks!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null))
+    .filter(row=>row.source_key===sourceKey&&(row.spend!=null||row.total_spend!=null||row.clicks!=null||row.conversions!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null))
     .sort((a,b)=>(Number(b.total_spend??b.spend)||0)-(Number(a.total_spend??a.spend)||0)||(Number(b.visits)||0)-(Number(a.visits)||0)||campaignName(a).localeCompare(campaignName(b),'ru'))
 }
 function provenance(row){
@@ -175,13 +180,14 @@ function spendCell(row){
 function sourceCells(row){
   return spendCell(row)+
     metricCell(row.clicks,row.cost_per_click,'клик')+
+    metricCell(row.conversions,null,'конверсия')+
     metricCell(row.visits,row.cost_per_visit,'посещение')+
     metricCell(row.booking_open_visits,row.cost_per_booking_open,'открытие')+
     metricCell(row.medflex_visits,row.cost_per_medflex,'переход')
 }
 function renderSources(){
   const rows=sourceRows(),body=$('#sourceRows');
-  if(!rows.length){body.innerHTML='<tr><td colspan="6">Нет данных за выбранный период.</td></tr>';return}
+  if(!rows.length){body.innerHTML='<tr><td colspan="7">Нет данных за выбранный период.</td></tr>';return}
   const html=rows.map(row=>{
     const campaigns=campaignRowsForSource(row.source_key);
     const expandable=campaigns.length>0;
@@ -197,7 +203,7 @@ function renderSources(){
     return parent+children
   }).join('');
   const s=payload?.summary||{};
-  const total='<tr class="group-row"><td>Разнесено по источникам</td><td>'+money(s.source_total_spend??s.source_spend_total)+'</td><td>'+number(s.clicks)+'</td><td>'+number(s.visits)+'</td><td>'+number(s.booking_open_visits)+'</td><td>'+number(s.medflex_visits)+'</td></tr>';
+  const total='<tr class="group-row"><td>Разнесено по источникам</td><td>'+money(s.source_total_spend??s.source_spend_total)+'</td><td>'+number(s.clicks)+'</td><td>'+number(s.conversions)+'</td><td>'+number(s.visits)+'</td><td>'+number(s.booking_open_visits)+'</td><td>'+number(s.medflex_visits)+'</td></tr>';
   body.innerHTML=html+total;
   body.querySelectorAll('.source-expand').forEach(button=>button.addEventListener('click',()=>{
     const key=button.dataset.sourceKey||'';
