@@ -40,6 +40,7 @@ button,input,select{font:inherit}
 .compare-card .cvalue{font-size:12px;font-weight:700}
 .delta{font-size:11px;font-weight:700}.delta.good{color:var(--az-dark)}.delta.bad{color:var(--bad)}.delta.neutral{color:var(--az-muted)}
 .money-grid{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:8px}
+.clinic-money{grid-column:1/-1}
 .money-grid .kpi{min-height:108px}
 .primary-economics{display:flex;gap:12px;flex-wrap:wrap;margin-top:7px;font-size:10.5px;color:var(--az-muted)}
 .primary-economics b{color:var(--az-dark)}
@@ -98,6 +99,7 @@ button,input,select{font:inherit}
   <section class="kpis" id="kpis"></section>
 
   <section class="money-grid">
+    <div class="clinic-money" id="clinicMoney"></div>
     <div id="primaryMoney"></div>
     <div class="kpi cohort" id="cohortCard"></div>
   </section>
@@ -139,6 +141,6 @@ button,input,select{font:inherit}
   <div class="freshness" id="coverage"></div>
   <div class="freshness" id="freshness"></div>
 </main>
-<script src="/reports/advertising.js?v=20261109-readonly-costs-1"></script>
+<script src="/reports/advertising.js?v=20261112-direct-revenue-1"></script>
 </body>
 </html>
