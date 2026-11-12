@@ -5,6 +5,8 @@ on:
     paths:
       - 'az-baze-auth/advertising_report.py'
       - 'az-baze-auth/metrika_auto.py'
+      - 'az-baze-auth/direct_auto.py'
+      - 'az-baze-auth/test_direct_auto.py'
       - 'az-baze-auth/advertising_mis_bridge.py'
       - 'az-baze-auth/paid_services_upload.py'
       - 'az-baze-auth/daily_upload.py'
@@ -23,6 +25,8 @@ on:
     paths:
       - 'az-baze-auth/advertising_report.py'
       - 'az-baze-auth/metrika_auto.py'
+      - 'az-baze-auth/direct_auto.py'
+      - 'az-baze-auth/test_direct_auto.py'
       - 'az-baze-auth/advertising_mis_bridge.py'
       - 'az-baze-auth/paid_services_upload.py'
       - 'az-baze-auth/daily_upload.py'
@@ -53,7 +57,8 @@ jobs:
       - name: Python syntax and report tests
         working-directory: az-baze-auth
         run: |
-          python -m py_compile advertising_report.py metrika_auto.py advertising_mis_bridge.py paid_services_upload.py daily_upload.py completed_upload.py report_storage.py
+          python -m py_compile advertising_report.py metrika_auto.py direct_auto.py advertising_mis_bridge.py paid_services_upload.py daily_upload.py completed_upload.py report_storage.py
+          python -m unittest -v test_direct_auto.py
           python -m unittest -v test_advertising_report.py
           python -m unittest -v test_advertising_mis_bridge.py
           python -m unittest -v test_paid_services.py test_paid_services_periods.py test_completed_upload.py test_upload_consistency_atomic.py test_upload_reconcile.py
@@ -89,6 +94,14 @@ jobs:
           assert "total_spend" in js
           assert "sourceKey==='yandex_ads'||sourceKey==='instagram'" not in js
           assert 'spend_provenance' in js
+          assert 'id="clinicMoney"' in html
+          assert 'Выручка клиники — фактически получено' in js
+          assert 'Конверсии Директа' in html
+          assert 'key:\x27conversions\x27' in js
+          backend=Path('az-baze-auth/advertising_report.py').read_text(encoding='utf-8')
+          assert 'direct_auto.fetch_daily_campaigns' in backend
+          assert 'direct_result = _apply_import' in backend
+          assert 'ALTER TABLE advertising_traffic_daily ADD COLUMN conversions REAL' in backend
           assert 'Стоимость клика не считается, пока охват расходов и кликов не совпадает.' in js
           html=Path('reports/advertising.html').read_text(encoding='utf-8')
           assert 'value="primary_paid">Выручка первичных</option>' in html
@@ -100,7 +113,7 @@ jobs:
           uploads=Path('az-baze-auth/templates/uploads.html').read_text(encoding='utf-8')
           assert '5. Яндекс Метрика' in uploads
           assert 'name="metrika_zip"' in uploads
-          assert 'Загрузить данные Яндекс Метрики' in uploads
+          assert 'Загрузить данные Метрики и Директа' in uploads
           assert '/api/reports/advertising/metrika/sync' in uploads
           # Protected legacy upload template stays byte-for-byte outside the
           # advertising feature; the new UI is isolated in its own fragment.
