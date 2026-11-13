@@ -476,6 +476,108 @@ class CompletedMonthToDateContract(unittest.TestCase):
         finally:
             c.close()
 
+    def test_both_restore_endpoints_preserve_newer_verified_date(self):
+        # Regression for both destructive backup APIs, not just the helper:
+        # a saved backup through 12 Nov must not erase source-backed 13 Nov.
+        for endpoint in ("/api/reports/import", "/api/reports/import-all"):
+            with self.subTest(endpoint=endpoint):
+                c = conn()
+                try:
+                    c.execute(
+                        "CREATE TABLE report_blobs("
+                        "key TEXT PRIMARY KEY,payload TEXT NOT NULL,"
+                        "updated_by INTEGER,updated_at TEXT)"
+                    )
+                    insert_day(c, "2026-11-12", primary=42, repeat=189)
+                    insert_day(c, "2026-11-13", primary=2, repeat=22)
+                    c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
+                        "2026-11-13",
+                        json.dumps({
+                            "date":"2026-11-13","primary":2,"repeat":22,
+                            "cashTotal":3583126,"paidPatients":149,
+                        }),
+                        1, "LIVE",
+                    ))
+                    c.commit()
+
+                    class FakeApp:
+                        def __init__(self):
+                            self.routes = {}
+                        def __getattr__(self, method):
+                            def register(path, *args, **kwargs):
+                                def decorator(fn):
+                                    self.routes[(method.upper(), path)] = fn
+                                    return fn
+                                return decorator
+                            return register
+
+                    def raw(fn):
+                        while hasattr(fn, "__wrapped__"):
+                            fn = fn.__wrapped__
+                        return fn
+
+                    app_routes = FakeApp()
+                    backup_record = {
+                        "date": "2026-11-12", "primary": 2,
+                        "repeat": 22, "cashTotal": 3500000,
+                    }
+                    if endpoint == "/api/reports/import":
+                        body = {"data":{"2026-11-12":backup_record}}
+                    else:
+                        body = {
+                            "version": 1,
+                            "storage": {
+                                storage.MANAGEMENT_KEY: json.dumps({
+                                    "2026-11-12":backup_record
+                                }),
+                                "az-management-monthly-plan-v1": json.dumps({
+                                    "version": 1, "months": {},
+                                }),
+                            },
+                        }
+
+                    with patch.object(storage, "_ensure_schema"), \
+                         patch.object(storage.advertising_report,
+                                      "register_advertising_report"), \
+                         patch.object(storage, "db", return_value=c), \
+                         patch.object(storage.cash_payments, "init_schema"), \
+                         patch.object(storage,
+                                      "_reapply_cash_after_restore",return_value=0), \
+                         patch.object(storage,
+                                      "_reapply_paid_after_restore",return_value=0), \
+                         patch.object(storage,"_require_api_csrf"), \
+                         patch.object(storage,"audit"):
+                        storage.register_report_storage(app_routes)
+                        webapp = Flask("AZ204_RESTORE_TEST")
+                        with webapp.test_request_context(
+                            endpoint, method="POST", json=body
+                        ):
+                            g.user = {"id":1}
+                            result = raw(
+                                app_routes.routes[("POST",endpoint)]
+                            )()
+                            self.assertTrue(result.get_json()["ok"])
+
+                    stored = {
+                        row["date"]: json.loads(row["payload"])
+                        for row in c.execute(
+                            "SELECT date,payload FROM report_data"
+                        ).fetchall()
+                    }
+                    self.assertEqual(
+                        (stored["2026-11-12"]["primary"],
+                         stored["2026-11-12"]["repeat"]), (42,189)
+                    )
+                    self.assertEqual(
+                        (stored["2026-11-13"]["primary"],
+                         stored["2026-11-13"]["repeat"]), (44,211)
+                    )
+                    self.assertEqual(stored["2026-11-12"]["cashTotal"],3500000)
+                    self.assertEqual(stored["2026-11-13"]["cashTotal"],3583126)
+                    self.assertEqual(stored["2026-11-13"]["paidPatients"],149)
+                finally:
+                    c.close()
+
     def test_unconfirmed_dates_are_not_filled_with_estimates(self):
         c = conn()
         try:
