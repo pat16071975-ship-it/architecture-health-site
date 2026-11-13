@@ -410,11 +410,19 @@ def _cost_period_triplet(raw, *, allow_legacy_partial=False):
             raise ValueError("invalid legacy partial advertising cost")
     else:
         totals = (advertising_payment, contractors_payment, total_spend)
-        if any(value is not None for value in totals):
-            if any(value is None for value in totals):
+        if contractors_payment is None:
+            # The only writable contractor is attached to source:yandex_ads.
+            # The other levels save advertising expense without a contractor.
+            # Historical rows containing contractors remain readable.
+            if (advertising_payment is None) != (total_spend is None):
                 raise ValueError("advertising totals incomplete")
-            if abs(total_spend - advertising_payment - contractors_payment) > 0.01:
+            if (advertising_payment is not None
+                    and abs(total_spend - advertising_payment) > 0.01):
                 raise ValueError("total spend must equal advertising plus contractors")
+        elif any(value is None for value in totals):
+            raise ValueError("advertising totals incomplete")
+        elif abs(total_spend - advertising_payment - contractors_payment) > 0.01:
+            raise ValueError("total spend must equal advertising plus contractors")
 
     result = {
         "from": start,
