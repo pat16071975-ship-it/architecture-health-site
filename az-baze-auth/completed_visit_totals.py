@@ -6,7 +6,7 @@ missing; an unassigned doctor does not erase an overall completed visit.
 """
 import json
 import re
-from collections import defaultdict
+import sqlite3
 
 DATE = re.compile(r"^20\d\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$")
 PRIMARY = "Первичные"
@@ -71,9 +71,7 @@ def month_to_date(conn, month):
             "WHERE substr(data_date,1,7)=? ORDER BY data_date",
             (month,),
         ).fetchall()
-    except (AttributeError, TypeError):
-        raise
-    except Exception as exc:
+    except sqlite3.OperationalError as exc:
         if "no such table" in str(exc).lower():
             return {}
         raise
@@ -111,7 +109,7 @@ def has_pre_source_legacy_counts(conn, month, first_completed_day):
             "AND date<? ORDER BY date DESC",
             (month, first_completed_day),
         ).fetchall()
-    except Exception as exc:
+    except sqlite3.OperationalError as exc:
         if "no such table" in str(exc).lower():
             return False
         raise
