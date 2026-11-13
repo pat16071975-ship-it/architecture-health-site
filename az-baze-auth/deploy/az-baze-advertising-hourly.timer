@@ -1,0 +1,14 @@
+# AZ-203 — PREPARED ONLY. Timer must remain disabled until owner
+# approves activation after a successful manual button smoke check.
+[Unit]
+Description=AZ BAZE combined Metrika + Direct once per hour
+Requires=az-baze-advertising-hourly.service
+
+[Timer]
+OnCalendar=hourly
+AccuracySec=1min
+Persistent=false
+Unit=az-baze-advertising-hourly.service
+
+[Install]
+WantedBy=timers.target
