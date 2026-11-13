@@ -1265,9 +1265,7 @@ def register_report_storage(app):
                 existing = {}
             record = _preserve_cash_state(existing, record)
         record = completed_visit_totals.overlay_counts(
-            record, date, completed_visit_totals.month_to_date(
-                db(), date[:7]
-            )
+            record, date, _canonical_completed_months(db())
         )
         db().execute(
             """
