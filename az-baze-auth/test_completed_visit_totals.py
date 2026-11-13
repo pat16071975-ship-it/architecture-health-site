@@ -184,7 +184,7 @@ class CompletedMonthToDateContract(unittest.TestCase):
             ))
             with c:
                 updated = storage._reapply_completed_after_restore(c, 2, "NEW")
-            self.assertEqual(updated, 1)
+            self.assertEqual(updated, 2)  # update Nov 12 + restore missing Nov 03
             row=c.execute(
                 "SELECT payload FROM report_data WHERE date='2026-11-12'"
             ).fetchone()
@@ -496,9 +496,11 @@ class CompletedMonthToDateContract(unittest.TestCase):
         )
         self.assertIn("confirmed = _canonical_completed_months(db())", src)
         self.assertIn("record = completed_visit_totals.overlay_counts(", src)
-        self.assertIn("_reapply_completed_after_restore(conn,", src)
+        self.assertIn("def _reapply_completed_after_restore(", src)
+        self.assertIn("confirmed_before=completed_before", src)
+        self.assertIn("preserved_records=completed_records", src)
         self.assertEqual(
-            src.count("_reapply_completed_after_restore(conn, g.user"),
+            src.count("confirmed_before=completed_before"),
             2,
         )
         self.assertIn("if date in _canonical_completed_months(db()):", src)
