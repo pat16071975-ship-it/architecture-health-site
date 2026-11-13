@@ -12,6 +12,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import metrika_auto
+import direct_auto
 import advertising_mis_bridge
 
 from flask import Response, abort, g, jsonify, request
@@ -61,7 +62,7 @@ DATASET_CONFIG = {
     "cohort": ("advertising_cohort_daily", "cohort_date"),
 }
 METRIC_KEYS = (
-    "spend", "clicks", "visits", "target_leads", "leads_with_primary",
+    "spend", "clicks", "conversions", "visits", "target_leads", "leads_with_primary",
     "primary_visits", "primary_paid", "primary_services", "repeat_visits",
     "repeat_paid", "new_patients", "new_patient_30d_paid",
     "booking_open_visits", "booking_open_reaches", "medflex_visits", "medflex_reaches",
@@ -79,6 +80,7 @@ CREATE TABLE IF NOT EXISTS advertising_traffic_daily (
     campaign_name TEXT NOT NULL DEFAULT '',
     spend REAL,
     clicks INTEGER,
+    conversions REAL,
     visits INTEGER,
     updated_at TEXT NOT NULL,
     import_id TEXT NOT NULL,
@@ -188,6 +190,9 @@ def _ensure_schema(path=DB_PATH):
     conn = sqlite3.connect(path)
     try:
         conn.executescript(SCHEMA)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(advertising_traffic_daily)")}
+        if "conversions" not in columns:
+            conn.execute("ALTER TABLE advertising_traffic_daily ADD COLUMN conversions REAL")
         conn.commit()
     finally:
         conn.close()
@@ -405,11 +410,19 @@ def _cost_period_triplet(raw, *, allow_legacy_partial=False):
             raise ValueError("invalid legacy partial advertising cost")
     else:
         totals = (advertising_payment, contractors_payment, total_spend)
-        if any(value is not None for value in totals):
-            if any(value is None for value in totals):
+        if contractors_payment is None:
+            # The only writable contractor is attached to source:yandex_ads.
+            # The other levels save advertising expense without a contractor.
+            # Historical rows containing contractors remain readable.
+            if (advertising_payment is None) != (total_spend is None):
                 raise ValueError("advertising totals incomplete")
-            if abs(total_spend - advertising_payment - contractors_payment) > 0.01:
+            if (advertising_payment is not None
+                    and abs(total_spend - advertising_payment) > 0.01):
                 raise ValueError("total spend must equal advertising plus contractors")
+        elif any(value is None for value in totals):
+            raise ValueError("advertising totals incomplete")
+        elif abs(total_spend - advertising_payment - contractors_payment) > 0.01:
+            raise ValueError("total spend must equal advertising plus contractors")
 
     result = {
         "from": start,
@@ -674,7 +687,7 @@ def _source_registry(conn, store=None):
             """
             SELECT source_key,source_name,channel_name,campaign_id,campaign_name
             FROM advertising_traffic_daily
-            WHERE provider='metrika'
+            WHERE provider IN ('metrika','direct')
             ORDER BY metric_date
             """
         ).fetchall()
@@ -815,7 +828,7 @@ def _campaign_registry(conn, store=None):
             SELECT provider,import_id,
                    source_key,source_name,channel_name,campaign_id,campaign_name
             FROM advertising_traffic_daily
-            WHERE provider='metrika'
+            WHERE provider IN ('metrika','direct')
               AND (campaign_id<>'' OR campaign_name<>'')
             ORDER BY metric_date
             """
@@ -915,7 +928,7 @@ def _direct_source_values(conn, start, end):
         rows = conn.execute(
             """
             SELECT source_key,source_name,channel_name,campaign_id,campaign_name,
-                   spend,clicks
+                   spend,clicks,conversions
             FROM advertising_traffic_daily
             WHERE provider='direct' AND metric_date BETWEEN ? AND ?
             """,
@@ -935,8 +948,10 @@ def _direct_source_values(conn, start, end):
                 "channel_name": channel,
                 "spend": 0.0,
                 "clicks": 0,
+                "conversions": 0,
                 "spend_complete": True,
                 "clicks_complete": True,
+                "conversions_complete": True,
                 "rows": 0,
             },
         )
@@ -949,6 +964,10 @@ def _direct_source_values(conn, start, end):
             target["clicks_complete"] = False
         else:
             target["clicks"] += int(row["clicks"])
+        if row["conversions"] is None:
+            target["conversions_complete"] = False
+        else:
+            target["conversions"] += float(row["conversions"])
     for target in values.values():
         if not target["rows"] or not target["spend_complete"]:
             target["spend"] = None
@@ -958,6 +977,12 @@ def _direct_source_values(conn, start, end):
             target["clicks"] = None
         else:
             target["clicks"] = int(target["clicks"])
+    for target in values.values():
+        target["conversions"] = (
+            float(target["conversions"])
+            if target["rows"] and target["conversions_complete"]
+            else None
+        )
     return values
 
 
@@ -966,7 +991,7 @@ def _direct_campaign_values(conn, start, end):
         rows = conn.execute(
             """
             SELECT source_key,source_name,channel_name,campaign_id,campaign_name,
-                   spend,clicks
+                   spend,clicks,conversions
             FROM advertising_traffic_daily
             WHERE provider='direct' AND metric_date BETWEEN ? AND ?
               AND (campaign_id<>'' OR campaign_name<>'')
@@ -989,8 +1014,10 @@ def _direct_campaign_values(conn, start, end):
             {
                 "spend": 0.0,
                 "clicks": 0,
+                "conversions": 0,
                 "spend_complete": True,
                 "clicks_complete": True,
+                "conversions_complete": True,
                 "rows": 0,
             },
         )
@@ -1003,6 +1030,10 @@ def _direct_campaign_values(conn, start, end):
             target["clicks_complete"] = False
         else:
             target["clicks"] += int(row["clicks"])
+        if row["conversions"] is None:
+            target["conversions_complete"] = False
+        else:
+            target["conversions"] += float(row["conversions"])
     for target in values.values():
         target["spend"] = (
             round(float(target["spend"]), 2)
@@ -1012,6 +1043,12 @@ def _direct_campaign_values(conn, start, end):
         target["clicks"] = (
             int(target["clicks"])
             if target["rows"] and target["clicks_complete"]
+            else None
+        )
+    for target in values.values():
+        target["conversions"] = (
+            float(target["conversions"])
+            if target["rows"] and target["conversions_complete"]
             else None
         )
     return values
@@ -1057,14 +1094,36 @@ def _campaign_economics(conn, start, end, store=None):
             summary,
             direct_value.get("spend") if direct_complete else None,
         )
+        if meta["source_key"] == "yandex_ads":
+            # Campaign-level contractor values are legacy metadata only.
+            # Owner-approved contractor is one source-level amount; Direct
+            # campaign costs always come from API, never manual fallback.
+            api_spend = direct_value.get("spend") if direct_complete else None
+            components.update({
+                "advertising_payment": api_spend,
+                "contractors_payment": None,
+                "total_spend": api_spend,
+                "spend_provenance": "direct_api" if api_spend is not None else None,
+                "period_complete": bool(direct_complete and api_spend is not None),
+            })
+        if meta["source_key"] != "yandex_ads":
+            # Retain legacy contractor metadata in the cost store for audit,
+            # but current expenditure outside source:yandex_ads is ad-only.
+            advertising = components["advertising_payment"]
+            components.update({
+                "contractors_payment": None,
+                "total_spend": (
+                    advertising if not summary.get("legacy_partial") else None
+                ),
+            })
         result[key] = {
             **meta,
             **components,
-            # Existing per-click economics intentionally continue to use the
-            # advertising component only; contractor allocation is visible
-            # separately and does not silently redefine CPC.
+            # Direct campaign cost is only its advertising cost; the
+            # shared contractor lives at the Yandex source level.
             "spend": components["advertising_payment"],
             "clicks": direct_value.get("clicks") if direct_complete else None,
+            "conversions": direct_value.get("conversions") if direct_complete else None,
         }
     return {
         "campaigns": result,
@@ -1074,7 +1133,8 @@ def _campaign_economics(conn, start, end, store=None):
 
 def _source_economics(conn, start, end, store=None):
     store = store or _load_cost_store(conn)
-    budget = _cost_entity_summary(store, "global", "", start, end)
+    # Global historical cost entries are retained, never used as a second
+    # independent financial truth; derive the period budget from sources.
     direct_complete = _dataset_period_complete(conn, "direct", start, end)
     direct = _direct_source_values(conn, start, end) if direct_complete else {}
     campaigns = _campaign_economics(conn, start, end, store)["campaigns"]
@@ -1087,6 +1147,28 @@ def _source_economics(conn, start, end, store=None):
             summary,
             direct_value.get("spend") if direct_complete else None,
         )
+        if key == "yandex_ads":
+            # For new periods only Direct is authoritative for advertising.
+            # Missing Direct coverage must not revive an old manually-entered
+            # Yandex ad amount. The one contractor remains source-level.
+            if start >= direct_auto.FIRST_SUPPORTED_DAY and (
+                not direct_complete or direct_value.get("spend") is None
+            ):
+                components.update({
+                    "advertising_payment": None,
+                    "total_spend": None,
+                    "spend_provenance": None,
+                })
+        else:
+            # Non-Yandex sources and campaigns are advertising-only.
+            # Historical contractor entries are preserved, not counted.
+            advertising = components["advertising_payment"]
+            components.update({
+                "contractors_payment": None,
+                "total_spend": (
+                    advertising if not summary.get("legacy_partial") else None
+                ),
+            })
         children = [item for item in campaigns.values() if item["source_key"] == key]
         child_totals = [item.get("total_spend") for item in children]
         distributed_total = (
@@ -1105,49 +1187,81 @@ def _source_economics(conn, start, end, store=None):
                 else round(float(direct_value["spend"]), 2)
             ),
             "clicks": direct_value.get("clicks") if direct_complete else None,
+            "conversions": direct_value.get("conversions") if direct_complete else None,
             "campaign_distributed_total": distributed_total,
             "campaign_reconciliation_delta": (
-                round(float(components["total_spend"]) - distributed_total, 2)
-                if components["total_spend"] is not None and distributed_total is not None
+                round(float(
+                    components["advertising_payment"] if key == "yandex_ads"
+                    else components["total_spend"]
+                ) - distributed_total, 2)
+                if distributed_total is not None
+                and (components["advertising_payment"] if key == "yandex_ads"
+                     else components["total_spend"]) is not None
                 else None
             ),
         }
 
-    source_ad_values = [
-        item["advertising_payment"]
-        for item in result.values()
-        if item["advertising_payment"] is not None
+    # Include all known paid sources, but do not add child campaigns again.
+    # A missing paid-source amount or Yandex contractor makes the global
+    # total unknown; never publish a misleading partial total.
+    relevant = [
+        row for row in result.values()
+        if (
+            row.get("manual")
+            or row.get("channel_name") == "Платная реклама"
+            or row.get("advertising_payment") is not None
+            or any(
+                period["from"] <= _iso(end) and period["to"] >= _iso(start)
+                for period in _cost_entity_periods(
+                    store, "source", row["source_key"]
+                )
+            )
+        )
     ]
-    source_total_values = [
-        item["total_spend"]
-        for item in result.values()
-        if item["total_spend"] is not None
-    ]
-    source_spend_total = round(sum(source_ad_values), 2) if source_ad_values else None
-    source_total_spend = round(sum(source_total_values), 2) if source_total_values else None
+    ad_complete = bool(relevant) and all(
+        row.get("advertising_payment") is not None for row in relevant
+    )
+    total_complete = bool(relevant) and all(
+        row.get("total_spend") is not None for row in relevant
+    )
+    source_spend_total = (
+        round(sum(row["advertising_payment"] for row in relevant), 2)
+        if ad_complete else None
+    )
+    source_total_spend = (
+        round(sum(row["total_spend"] for row in relevant), 2)
+        if total_complete else None
+    )
+    yandex = result.get("yandex_ads")
+    budget = {
+        "complete": bool(total_complete and ad_complete),
+        "periods": [],
+        "advertising_payment": source_spend_total,
+        "contractors_payment": (
+            (yandex or {}).get("contractors_payment") if yandex
+            else (0.0 if total_complete else None)
+        ),
+        "total_spend": source_total_spend,
+        "legacy_partial": False,
+    }
 
     cpc_scope = [
-        item for item in result.values()
-        if item.get("manual")
-        or item.get("channel_name") == "Платная реклама"
-        or item.get("spend") is not None
-        or item.get("clicks") is not None
+        row for row in relevant
+        if row.get("manual")
+        or row.get("channel_name") == "Платная реклама"
+        or row.get("advertising_payment") is not None
     ]
     click_scope_complete = bool(cpc_scope) and all(
-        item.get("spend") is not None and item.get("clicks") is not None
-        for item in cpc_scope
+        row.get("advertising_payment") is not None
+        and row.get("clicks") is not None
+        for row in cpc_scope
     )
-    advertising_payment = budget.get("advertising_payment") if budget.get("complete") else None
-    if (
-        click_scope_complete
-        and advertising_payment is not None
-        and source_spend_total is not None
-        and abs(source_spend_total - advertising_payment) <= 0.01
-    ):
-        clicks = sum(int(item.get("clicks") or 0) for item in cpc_scope)
-        cost_per_click = advertising_payment / clicks if clicks else None
-    else:
-        cost_per_click = None
+    clicks = sum(int(row["clicks"]) for row in cpc_scope) if click_scope_complete else 0
+    cost_per_click = (
+        source_spend_total / clicks
+        if click_scope_complete and source_spend_total is not None and clicks
+        else None
+    )
 
     return {
         "budget": budget,
@@ -1156,11 +1270,7 @@ def _source_economics(conn, start, end, store=None):
         "source_spend_total": source_spend_total,
         "source_total_spend": source_total_spend,
         "source_reconciliation_delta": (
-            round(float(budget["total_spend"]) - source_total_spend, 2)
-            if budget.get("complete")
-            and budget.get("total_spend") is not None
-            and source_total_spend is not None
-            else None
+            0.0 if budget["complete"] else None
         ),
         "cost_per_click": cost_per_click,
         "click_scope_complete": click_scope_complete,
@@ -1213,6 +1323,11 @@ def _summary(conn, start, end):
         "clicks": (
             sum(int(item.get("clicks") or 0) for item in economics["sources"].values() if item.get("clicks") is not None)
             if economics.get("direct_period_complete") and any(item.get("clicks") is not None for item in economics["sources"].values())
+            else None
+        ),
+        "conversions": (
+            sum(float(item.get("conversions") or 0) for item in economics["sources"].values() if item.get("conversions") is not None)
+            if economics.get("direct_period_complete") and any(item.get("conversions") is not None for item in economics["sources"].values())
             else None
         ),
         "visits": _nullable_sum(traffic, "visits"),
@@ -1335,7 +1450,7 @@ def _group_breakdown(conn, start, end, level):
     campaign_evidence = _campaign_evidence_map(conn)
     native_import_ids = _native_campaign_import_ids(conn)
     traffic = conn.execute(
-        "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits "
+        "SELECT provider,import_id,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,conversions,visits "
         "FROM advertising_traffic_daily WHERE metric_date BETWEEN ? AND ?", (start_s, end_s)
     ).fetchall()
     clinic = conn.execute(
@@ -1411,7 +1526,7 @@ def _group_breakdown(conn, start, end, level):
             if value is not None:
                 target[field] = (target[field] or 0) + value
     for row in traffic:
-        add(row, ("spend", "clicks", "visits"))
+        add(row, ("spend", "clicks", "conversions", "visits"))
     for row in clinic:
         add(row, ("target_leads", "leads_with_primary", "primary_visits", "primary_paid", "primary_services", "repeat_visits", "repeat_paid"))
     for row in cohort:
@@ -1478,6 +1593,8 @@ def _group_breakdown(conn, start, end, level):
             item["campaign_reconciliation_delta"] = source_value.get("campaign_reconciliation_delta")
             if source_value.get("clicks") is not None:
                 item["clicks"] = source_value.get("clicks")
+            if source_value.get("conversions") is not None:
+                item["conversions"] = source_value.get("conversions")
             item["spend_provenance"] = source_value.get("spend_provenance")
             item["campaign_key"] = ""
         else:
@@ -1493,6 +1610,8 @@ def _group_breakdown(conn, start, end, level):
             item["cost_period_complete"] = bool(campaign_value.get("period_complete"))
             if campaign_value.get("clicks") is not None:
                 item["clicks"] = campaign_value.get("clicks")
+            if campaign_value.get("conversions") is not None:
+                item["conversions"] = campaign_value.get("conversions")
             item["spend_provenance"] = campaign_value.get("spend_provenance")
 
         item["total_paid"] = _combine_money(item["primary_paid"], item["repeat_paid"])
@@ -3073,7 +3192,7 @@ def _normalize_row(dataset, row, period_start, period_end):
         "campaign_name": _clean_text(row.get("campaign_name"), max_len=300),
     }
     if dataset == "direct":
-        base.update(spend=_number(row.get("spend")), clicks=_number(row.get("clicks"), integer=True))
+        base.update(spend=_number(row.get("spend")), clicks=_number(row.get("clicks"), integer=True), conversions=_number(row.get("conversions")))
     elif dataset == "metrika":
         base.update(visits=_number(row.get("visits"), integer=True))
     elif dataset == "clinic":
@@ -3133,7 +3252,7 @@ def _apply_import(conn, normalized, actor_user_id):
         for row in spec["rows"]:
             common = (name, row["date"], row["source_key"], row["source_name"], row["channel_name"], row["campaign_id"], row["campaign_name"])
             if name == "direct":
-                conn.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (*common, row["spend"], row["clicks"], None, now, payload_sha))
+                conn.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,conversions,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", (*common, row["spend"], row["clicks"], row["conversions"], None, now, payload_sha))
             elif name == "metrika":
                 conn.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (*common, None, None, row["visits"], now, payload_sha))
             elif name == "clinic":
@@ -3314,9 +3433,19 @@ def _cost_hierarchy_payload(conn, start, end):
     for meta in campaign_registry:
         key = meta["campaign_key"]
         econ = campaign_economics.get(key) or {}
+        values = _cost_values_payload(store, "campaign", key, start, end)
+        if meta["source_key"] != "yandex_ads":
+            # Legacy contractor values remain stored for audit only.
+            values["exact"]["contractors_payment"] = None
+            values["exact"]["total_spend"] = (
+                values["exact"]["advertising_payment"]
+                if not values["exact"]["legacy_partial"] else None
+            )
+            values["summary"]["contractors_payment"] = None
+            values["summary"]["total_spend"] = econ.get("total_spend")
         row = {
             **meta,
-            **_cost_values_payload(store, "campaign", key, start, end),
+            **values,
             "effective": {
                 "advertising_payment": econ.get("advertising_payment"),
                 "contractors_payment": econ.get("contractors_payment"),
@@ -3332,9 +3461,18 @@ def _cost_hierarchy_payload(conn, start, end):
         key = meta["source_key"]
         econ = (economics.get("sources") or {}).get(key) or {}
         children = campaigns_by_source.get(key, [])
+        values = _cost_values_payload(store, "source", key, start, end)
+        if key != "yandex_ads":
+            values["exact"]["contractors_payment"] = None
+            values["exact"]["total_spend"] = (
+                values["exact"]["advertising_payment"]
+                if not values["exact"]["legacy_partial"] else None
+            )
+            values["summary"]["contractors_payment"] = None
+            values["summary"]["total_spend"] = econ.get("total_spend")
         sources.append({
             **meta,
-            **_cost_values_payload(store, "source", key, start, end),
+            **values,
             "effective": {
                 "advertising_payment": econ.get("advertising_payment"),
                 "contractors_payment": econ.get("contractors_payment"),
@@ -3344,21 +3482,43 @@ def _cost_hierarchy_payload(conn, start, end):
             },
             "reconciliation": {
                 "distributed_total": econ.get("campaign_distributed_total"),
-                "parent_total": econ.get("total_spend"),
+                "parent_total": (
+                    econ.get("advertising_payment") if key == "yandex_ads"
+                    else econ.get("total_spend")
+                ),
                 "delta": econ.get("campaign_reconciliation_delta"),
                 "complete": (
                     econ.get("campaign_distributed_total") is not None
-                    and econ.get("total_spend") is not None
+                    and (econ.get("advertising_payment") if key == "yandex_ads"
+                         else econ.get("total_spend")) is not None
                 ),
             },
             "campaigns": children,
         })
 
-    global_values = _cost_values_payload(store, "global", "", start, end)
+    # The old global record is retained unmodified in report_blobs for
+    # historical traceability. It is not returned as an editable source.
+    # The live global values are exactly the reconciled sum of source rows.
     budget = economics.get("budget") or {}
+    global_values = {
+        "period": {"from": _iso(start), "to": _iso(end)},
+        "exact": {
+            "advertising_payment": budget.get("advertising_payment"),
+            "contractors_payment": None,
+            "total_spend": budget.get("total_spend"),
+            "legacy_partial": False,
+        },
+        "summary": {
+            "complete": bool(budget.get("complete")),
+            "advertising_payment": budget.get("advertising_payment"),
+            "contractors_payment": None,
+            "total_spend": budget.get("total_spend"),
+            "legacy_partial": False,
+        },
+    }
     global_effective = {
         "advertising_payment": budget.get("advertising_payment") if budget.get("complete") else None,
-        "contractors_payment": budget.get("contractors_payment") if budget.get("complete") else None,
+        "contractors_payment": None,
         "total_spend": budget.get("total_spend") if budget.get("complete") else None,
         "spend_provenance": "manual" if budget.get("complete") else None,
         "period_complete": bool(budget.get("complete")),
@@ -3435,6 +3595,15 @@ def _persist_cost_store(conn, store):
     return normalized
 
 
+def _direct_refresh_start(conn, today):
+    """Fill missing history on first run; recheck the latest four calendar days."""
+    first = direct_auto.FIRST_SUPPORTED_DAY
+    stable_end = today - timedelta(days=4)
+    if stable_end >= first and _dataset_period_complete(conn, "direct", first, stable_end):
+        return max(first, today - timedelta(days=3))
+    return first
+
+
 def _metrika_sync_has_changes(completed_updated, current_result):
     return bool(completed_updated or current_result.get("updated"))
 
@@ -3498,13 +3667,43 @@ def register_advertising_report(app):
                 raise ValueError("invalid advertising cost level")
             if start > end or (end - start).days > 730:
                 raise ValueError("invalid period")
-            period = _cost_period_triplet({
-                "from": _iso(start),
-                "to": _iso(end),
-                "advertising_payment": request.form.get("advertising_payment"),
-                "contractors_payment": request.form.get("contractors_payment"),
-                "total_spend": request.form.get("total_spend"),
-            })
+            # Only source:yandex_ads can accept the single contractor.
+            # Global is always computed, never independently editable.
+            if level == "global":
+                return jsonify(
+                    status="error",
+                    message="Общий расход рассчитывается из источников автоматически.",
+                ), 403
+            submitted_contractor = request.form.get("contractors_payment")
+            is_yandex_source = (level == "source" and entity_key == "yandex_ads")
+            if not is_yandex_source and str(submitted_contractor or "").strip():
+                return jsonify(
+                    status="error",
+                    message="Подрядчик вводится только в строке «Яндекс-реклама».",
+                ), 403
+            if is_yandex_source:
+                contractor = _cost_number(submitted_contractor)
+                if contractor is None:
+                    return jsonify(
+                        status="error",
+                        message="Укажите общего подрядчика (0, если расходов нет).",
+                    ), 400
+                # Actual advertising expense is verified against Direct below.
+                period = {
+                    "from": _iso(start),
+                    "to": _iso(end),
+                    "advertising_payment": None,
+                    "contractors_payment": contractor,
+                    "total_spend": None,
+                }
+            else:
+                period = _cost_period_triplet({
+                    "from": _iso(start),
+                    "to": _iso(end),
+                    "advertising_payment": request.form.get("advertising_payment"),
+                    "contractors_payment": None,
+                    "total_spend": request.form.get("total_spend"),
+                })
         except (ValueError, TypeError):
             return jsonify(
                 status="error",
@@ -3526,10 +3725,7 @@ def register_advertising_report(app):
             for item in _campaign_registry(conn, store)
         }
 
-        if level == "global":
-            entity_key = ""
-
-        elif level == "source":
+        if level == "source":
             source_name = str(request.form.get("source_name") or "").strip()
             channel_name = str(request.form.get("channel_name") or "").strip()
             if not entity_key:
@@ -3553,6 +3749,31 @@ def register_advertising_report(app):
             if entity_key not in source_registry:
                 return jsonify(status="error", message="Неизвестный рекламный источник."), 400
             meta = source_registry[entity_key]
+            if entity_key == "yandex_ads":
+                if not _dataset_period_complete(conn, "direct", start, end):
+                    return jsonify(status="error", message="Сначала загрузите статистику Директа за выбранный период."), 409
+                actual_ad_spend = (
+                    _direct_source_values(conn, start, end).get("yandex_ads") or {}
+                ).get("spend")
+                if actual_ad_spend is None or period.get("contractors_payment") is None:
+                    return jsonify(status="error", message="Укажите общего подрядчика; расход рекламы должен поступить из Директа."), 409
+                period["advertising_payment"] = round(float(actual_ad_spend), 2)
+                period["total_spend"] = round(
+                    period["advertising_payment"] + period["contractors_payment"], 2
+                )
+                # A forged/stale readonly value must not be silently accepted.
+                sent_ad = _cost_number(request.form.get("advertising_payment"))
+                sent_total = _cost_number(request.form.get("total_spend"))
+                if (
+                    (sent_ad is not None
+                     and abs(sent_ad - period["advertising_payment"]) > 0.01)
+                    or (sent_total is not None
+                        and abs(sent_total - period["total_spend"]) > 0.01)
+                ):
+                    return jsonify(
+                        status="error",
+                        message="Статистика Директа обновилась. Перезагрузите строку расходов.",
+                    ), 409
             store["sources"][entity_key] = {
                 "name": meta["source_name"],
                 "channel_name": meta["channel_name"],
@@ -3563,6 +3784,8 @@ def register_advertising_report(app):
             if entity_key not in campaign_registry:
                 return jsonify(status="error", message="Неизвестная рекламная кампания."), 400
             meta = campaign_registry[entity_key]
+            if meta["source_key"] == "yandex_ads":
+                return jsonify(status="error", message="Расходы кампаний Директа загружаются автоматически; ручное изменение запрещено."), 403
             source_key = meta["source_key"]
             if source_key not in source_registry:
                 return jsonify(status="error", message="Неизвестный источник кампании."), 400
@@ -3628,6 +3851,29 @@ def register_advertising_report(app):
             with metrika_auto.MetrikaSyncLock():
                 sync_started = datetime.now(ZoneInfo(DEFAULT_TIMEZONE))
                 current_day = metrika_auto.current_local_day(sync_started)
+                # Prepare both external sources BEFORE the shared DB transaction.
+                # Failed Direct API fetch must not commit a partial Metrika refresh.
+                direct_start = _direct_refresh_start(conn, current_day)
+                direct_rows, direct_meta = direct_auto.fetch_daily_campaigns(
+                    token, direct_start, current_day
+                )
+                direct_package = _normalize_package({
+                    "schema_version": SCHEMA_VERSION,
+                    # Deterministic provenance for identical API rows, so repeated
+                    # clicks with unchanged Direct data reuse the same import.
+                    "generated_at": current_day.isoformat() + "T00:00:00+07:00",
+                    "timezone": DEFAULT_TIMEZONE,
+                    "currency": "RUB",
+                    "vat_mode": "DIRECT_INCLUDE_VAT_YES",
+                    "attribution_model": "YANDEX_DIRECT_AGGREGATE_CONVERSIONS",
+                    "datasets": {
+                        "direct": {
+                            "period_start": direct_start.isoformat(),
+                            "period_end": current_day.isoformat(),
+                            "rows": direct_rows,
+                        }
+                    },
+                })
                 completed_targets = metrika_auto.completed_sync_days(conn, sync_started)
 
                 client = metrika_auto.MetrikaClient(token)
@@ -3727,6 +3973,7 @@ def register_advertising_report(app):
                     current_parsed,
                     g.user["id"],
                 )
+                direct_result = _apply_import(conn, direct_package, g.user["id"])
                 conn.commit()
         except metrika_auto.MetrikaBusyError as exc:
             return jsonify(status="busy", message=str(exc)), 409
@@ -3740,20 +3987,26 @@ def register_advertising_report(app):
                 message=str(exc) or "Не удалось получить данные Яндекс Метрики.",
             ), 400
 
-        if _metrika_sync_has_changes(completed_updated, current_result):
+        if _metrika_sync_has_changes(completed_updated, current_result) or not direct_result["reused"]:
             audit(
-                "advertising_metrika_auto_sync",
+                "advertising_metrika_direct_auto_sync",
                 target_user_id=g.user["id"],
                 details=(
                     "completed_updated=" + ",".join(completed_updated)
                     + "; completed_unchanged=" + ",".join(completed_unchanged)
                     + "; current_day=" + current_day.isoformat()
                     + "; current_updated=" + ("1" if current_result["updated"] else "0")
+                    + "; direct_period=" + direct_start.isoformat() + ".." + current_day.isoformat()
+                    + "; direct_rows=" + str(direct_meta["rows"])
                 ),
             )
         return jsonify(
             status="ok",
-            message="Данные Яндекс Метрики обновлены.",
+            message="Данные Яндекс Метрики и Директа обновлены.",
+            direct_period={"from": direct_start.isoformat(), "to": current_day.isoformat()},
+            direct_rows=direct_meta["rows"],
+            direct_campaigns=direct_meta["campaigns"],
+            direct_reused=direct_result["reused"],
             completed_days=completed_updated,
             checked_completed_days=completed_unchanged,
             current_day=current_day.isoformat(),

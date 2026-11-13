@@ -42,8 +42,8 @@ def conn():
     c=sqlite3.connect(":memory:"); c.row_factory=sqlite3.Row; c.executescript(m.SCHEMA); return c
 
 def seed(c):
-    c.execute("INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",("direct","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",1000,100,None,"x","a"))
-    c.execute("INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",("metrika","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",None,None,80,"x","b"))
+    c.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",("direct","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",1000,100,None,"x","a"))
+    c.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",("metrika","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",None,None,80,"x","b"))
     c.execute("INSERT INTO advertising_clinic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",("clinic","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",20,12,15,45000,50000,9,30000,"x","c"))
     c.execute("INSERT INTO advertising_cohort_daily VALUES(?,?,?,?,?,?,?,?,?,?,?)",("cohort","2026-10-01","yandex_ads","Реклама Яндекса","Платная реклама","10","Ортодонтия",11,90000,"x","d"))
     c.commit()
@@ -1066,7 +1066,7 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-30","direct","Прямые заходы","Прямые заходы","","",None,None,1,"t","m"),
             )
             c.commit()
@@ -1085,7 +1085,7 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-30","direct","Прямые заходы","Прямые заходы","","",None,None,1,"t","m"),
             )
             c.commit()
@@ -1475,7 +1475,7 @@ class AdvertisingReportTests(unittest.TestCase):
         )
         source=Path(__file__).with_name("advertising_report.py").read_text(encoding="utf-8")
         self.assertIn(
-            'if _metrika_sync_has_changes(completed_updated, current_result):\n            audit(',
+            'if _metrika_sync_has_changes(completed_updated, current_result) or not direct_result["reused"]:\n            audit(',
             source,
         )
 
@@ -1501,7 +1501,7 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     "metrika","2026-10-27","direct","Прямые заходы","Прямые заходы",
                     "","",None,None,5,"t","metrika-live-2026-10-27",
@@ -1523,7 +1523,7 @@ class AdvertisingReportTests(unittest.TestCase):
             m.METRIKA_ARCHIVE_ROOT=Path(tmp)
             try:
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         "metrika","2026-10-28","direct","Прямые заходы","Прямые заходы",
                         "","",None,None,3,"t","metrika-aabbccddeeff0011",
@@ -1924,7 +1924,7 @@ class AdvertisingReportTests(unittest.TestCase):
             ]
             for day,source_key,source_name,channel,campaign_id,campaign_name,visits in traffic_rows:
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     ("metrika",day,source_key,source_name,channel,campaign_id,campaign_name,
                      None,None,visits,"t","metrika-legacy"),
                 )
@@ -2075,7 +2075,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 ]
                 for source_key,source_name,channel,campaign_id,campaign_name,visits in legacy_traffic:
                     c.execute(
-                        "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                         ("metrika","2026-10-28",source_key,source_name,channel,campaign_id,campaign_name,
                          None,None,visits,"old",legacy_import),
                     )
@@ -2161,7 +2161,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 ]
                 for source_key,source_name,channel,campaign_id,campaign_name,visits in legacy_traffic:
                     c.execute(
-                        "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                         ("metrika","2026-10-28",source_key,source_name,channel,campaign_id,campaign_name,
                          None,None,visits,"old",legacy_import),
                     )
@@ -2243,7 +2243,7 @@ class AdvertisingReportTests(unittest.TestCase):
             name="АЗ | Бруксизм и скрежет зубами | Поиск | Новосибирск"
             for campaign_id,visits in (("715444498",5),("999999999",4)):
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         "metrika","2026-10-28","yandex_ads","Яндекс-реклама","Платная реклама",
                         campaign_id,name,None,None,visits,"t","conflict",
@@ -2272,7 +2272,7 @@ class AdvertisingReportTests(unittest.TestCase):
         try:
             for campaign_id,visits in (("999999999",4),("888888888",3)):
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         "metrika","2026-10-28","yandex_ads","Яндекс-реклама","Платная реклама",
                         campaign_id,"",None,None,visits,"t","empty-name",
@@ -2506,7 +2506,7 @@ class AdvertisingReportTests(unittest.TestCase):
             ]
             for source_key,source_name,channel,visits in historical:
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         "metrika","2026-11-08",source_key,source_name,channel,
                         "","clinic_profile",None,None,visits,"t","legacy-profile",
@@ -2624,7 +2624,7 @@ class AdvertisingReportTests(unittest.TestCase):
             ]
             for source_key,source_name,channel,visits in rows:
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         "metrika","2026-11-08",source_key,source_name,channel,
                         "","future_unknown_placement_tag",None,None,visits,
@@ -2865,8 +2865,8 @@ class AdvertisingReportTests(unittest.TestCase):
                         "from":"2026-11-07",
                         "to":"2026-11-07",
                         "advertising_payment":"100",
-                        "contractors_payment":"20",
-                        "total_spend":"120",
+                        "contractors_payment":"",
+                        "total_spend":"100",
                     },
                     get_json=lambda silent=True:{},
                 )
@@ -2883,8 +2883,8 @@ class AdvertisingReportTests(unittest.TestCase):
                 self.assertEqual(stored["version"],2)
                 period=stored["periods"]["sources"][source_key][0]
                 self.assertEqual(period["advertising_payment"],100)
-                self.assertEqual(period["contractors_payment"],20)
-                self.assertEqual(period["total_spend"],120)
+                self.assertIsNone(period["contractors_payment"])
+                self.assertEqual(period["total_spend"],100)
             finally:
                 m.METRIKA_ARCHIVE_ROOT=old_archive
                 m.db=old_db
@@ -2947,8 +2947,8 @@ class AdvertisingReportTests(unittest.TestCase):
                 "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                ("metrika","2026-11-08","yandex_ads","Яндекс-реклама","Платная реклама",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("metrika","2026-11-08","paid_test","Тестовый рекламный источник","Платная реклама",
                  "777","АЗ | Тестовая РК | Поиск | Новосибирск",None,None,10,"t","m"),
             )
             c.commit()
@@ -2971,7 +2971,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 get_json=lambda silent=True:{},
             )
             hierarchy=app.routes[("GET","/api/reports/advertising/costs")]()
-            source=next(row for row in hierarchy["sources"] if row["source_key"]=="yandex_ads")
+            source=next(row for row in hierarchy["sources"] if row["source_key"]=="paid_test")
             campaign=source["campaigns"][0]
 
             def save(level,key,ad,contractor,total,extra=None):
@@ -2979,7 +2979,7 @@ class AdvertisingReportTests(unittest.TestCase):
                     "entity_type":level,"entity_key":key,
                     "from":"2026-11-08","to":"2026-11-08",
                     "advertising_payment":str(ad),
-                    "contractors_payment":str(contractor),
+                    "contractors_payment":"" if contractor is None else str(contractor),
                     "total_spend":str(total),
                 }
                 form.update(extra or {})
@@ -2987,34 +2987,251 @@ class AdvertisingReportTests(unittest.TestCase):
                 response=app.routes[("POST","/api/reports/advertising/costs")]()
                 self.assertEqual(response["status"],"ok")
 
-            save("global","",100,20,120)
             save(
-                "source","yandex_ads",100,20,120,
-                {"source_name":"Яндекс-реклама","channel_name":"Платная реклама"},
+                "source","paid_test",100,None,100,
+                {"source_name":"Тестовый рекламный источник","channel_name":"Платная реклама"},
             )
-            save("campaign",campaign["campaign_key"],80,10,90)
+            save("campaign",campaign["campaign_key"],80,None,80)
 
             store=m._load_cost_store(c)
             global_summary=m._cost_entity_summary(store,"global","",date(2026,11,8),date(2026,11,8))
-            source_summary=m._cost_entity_summary(store,"source","yandex_ads",date(2026,11,8),date(2026,11,8))
+            source_summary=m._cost_entity_summary(store,"source","paid_test",date(2026,11,8),date(2026,11,8))
             campaign_summary=m._cost_entity_summary(store,"campaign",campaign["campaign_key"],date(2026,11,8),date(2026,11,8))
-            self.assertEqual(global_summary["total_spend"],120)
-            self.assertEqual(source_summary["total_spend"],120)
-            self.assertEqual(campaign_summary["total_spend"],90)
+            self.assertIsNone(global_summary["total_spend"])
+            self.assertEqual(source_summary["total_spend"],100)
+            self.assertIsNone(source_summary["contractors_payment"])
+            self.assertEqual(campaign_summary["total_spend"],80)
+            self.assertIsNone(campaign_summary["contractors_payment"])
 
             economics=m._source_economics(c,date(2026,11,8),date(2026,11,8),store)
-            self.assertEqual(economics["source_total_spend"],120)
+            self.assertEqual(economics["source_total_spend"],100)
             self.assertEqual(economics["source_reconciliation_delta"],0)
             self.assertEqual(
-                economics["sources"]["yandex_ads"]["campaign_distributed_total"],90
+                economics["sources"]["paid_test"]["campaign_distributed_total"],80
             )
             self.assertEqual(
-                economics["sources"]["yandex_ads"]["campaign_reconciliation_delta"],30
+                economics["sources"]["paid_test"]["campaign_reconciliation_delta"],20
             )
-            # Child 90 is detail only: it is never added to source/global 120.
-            self.assertEqual(economics["budget"]["total_spend"],120)
+            # Child 80 is detail only: it is never added to source/global 100.
+            self.assertEqual(economics["budget"]["total_spend"],100)
+            self.assertEqual(economics["budget"]["contractors_payment"],0)
+            self.assertEqual(m._summary(c,date(2026,11,8),date(2026,11,8))["spend"],100)
         finally:
             m.db=old_db;m._ensure_schema=old_ensure;m.request=old_request;c.close()
+
+    def test_yandex_api_campaign_cost_excludes_child_contractors_and_preserves_shared_source(self):
+        c=conn()
+        try:
+            start=end=date(2026,11,8)
+            normalized=m._normalize_package({
+                "schema_version":m.SCHEMA_VERSION,
+                "generated_at":"2026-11-09T00:00:00+07:00",
+                "timezone":"Asia/Novosibirsk",
+                "currency":"RUB",
+                "vat_mode":"DIRECT_INCLUDE_VAT_YES",
+                "attribution_model":"YANDEX_DIRECT_AGGREGATE_CONVERSIONS",
+                "datasets":{"direct":{
+                    "period_start":"2026-11-08",
+                    "period_end":"2026-11-08",
+                    "rows":[{
+                        "date":"2026-11-08","source_key":"yandex_ads",
+                        "source_name":"Яндекс-реклама","channel_name":"Платная реклама",
+                        "campaign_id":"777","campaign_name":"API кампания",
+                        "spend":110,"clicks":10,"conversions":2.5
+                    }]
+                }}
+            })
+            m._apply_import(c,normalized,1)
+            c.commit()
+            key=m._campaign_cost_key("yandex_ads","777","API кампания")
+            store=m._empty_hierarchical_cost_store()
+            store["sources"]["yandex_ads"]={
+                "name":"Яндекс-реклама","channel_name":"Платная реклама","manual":False
+            }
+            store["campaigns"][key]={
+                "source_key":"yandex_ads","campaign_id":"777","campaign_name":"API кампания"
+            }
+            store["periods"]["sources"]["yandex_ads"]=[{
+                "from":"2026-11-08","to":"2026-11-08",
+                "advertising_payment":100,"contractors_payment":20,
+                "total_spend":120,
+            }]
+            store["periods"]["campaigns"][key]=[{
+                "from":"2026-11-08","to":"2026-11-08",
+                "advertising_payment":80,"contractors_payment":10,
+                "total_spend":90,
+            }]
+            economics=m._source_economics(c,start,end,store)
+            campaign=economics["campaigns"][key]
+            source=economics["sources"]["yandex_ads"]
+            self.assertEqual(campaign["advertising_payment"],110)
+            self.assertIsNone(campaign["contractors_payment"])
+            self.assertEqual(campaign["total_spend"],110)
+            self.assertEqual(campaign["conversions"],2.5)
+            self.assertEqual(source["advertising_payment"],110)
+            self.assertEqual(source["contractors_payment"],20)
+            self.assertEqual(source["total_spend"],130)
+            self.assertEqual(source["campaign_distributed_total"],110)
+            self.assertEqual(source["campaign_reconciliation_delta"],0)
+        finally:
+            c.close()
+
+    def test_az202_01_single_contractor_and_derived_global_reject_second_truth(self):
+        # Reproduce the independent audit blocker: legacy global 1039 versus
+        # factual Yandex 100 + one contractor 20 + another source ad 30.
+        c=conn()
+        old_db=m.db
+        old_ensure=m._ensure_schema
+        old_request=m.request
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            normalized=m._normalize_package({
+                "schema_version":m.SCHEMA_VERSION,
+                "generated_at":"2026-11-09T00:00:00+07:00",
+                "timezone":"Asia/Novosibirsk",
+                "currency":"RUB",
+                "vat_mode":"DIRECT_INCLUDE_VAT_YES",
+                "attribution_model":"YANDEX_DIRECT_AGGREGATE_CONVERSIONS",
+                "datasets":{"direct":{
+                    "period_start":"2026-11-08",
+                    "period_end":"2026-11-08",
+                    "rows":[{
+                        "date":"2026-11-08","source_key":"yandex_ads",
+                        "source_name":"Яндекс-реклама","channel_name":"Платная реклама",
+                        "campaign_id":"777","campaign_name":"Кампания Direct",
+                        "spend":100,"clicks":10,"conversions":2
+                    }]
+                }}
+            })
+            m._apply_import(c,normalized,1)
+            key=m._campaign_cost_key("yandex_ads","777","Кампания Direct")
+            period=lambda a,contractor,total:{
+                "from":"2026-11-08","to":"2026-11-08",
+                "advertising_payment":a,
+                "contractors_payment":contractor,
+                "total_spend":total,
+            }
+            legacy={
+                "version":2,
+                "sources":{
+                    "yandex_ads":{
+                        "name":"Яндекс-реклама","channel_name":"Платная реклама","manual":False
+                    },
+                    "other_paid":{
+                        "name":"Другой платный источник","channel_name":"Платная реклама","manual":True
+                    },
+                },
+                "campaigns":{
+                    key:{
+                        "source_key":"yandex_ads","campaign_id":"777",
+                        "campaign_name":"Кампания Direct",
+                    }
+                },
+                "periods":{
+                    "global":[period(999,40,1039)],
+                    "sources":{
+                        "yandex_ads":[period(100,20,120)],
+                        "other_paid":[period(30,7,37)],
+                    },
+                    "campaigns":{
+                        key:[period(80,10,90)],
+                    },
+                },
+            }
+            original=json.dumps(legacy,ensure_ascii=False,separators=(",",":"))
+            c.execute(
+                "INSERT INTO report_blobs VALUES(?,?,?,?)",
+                (m.ADVERTISING_COSTS_KEY,original,1,"t"),
+            )
+            c.commit()
+
+            start=end=date(2026,11,8)
+            report=m._summary(c,start,end)
+            self.assertEqual(report["spend"],150)
+            self.assertEqual(report["advertising_payment"],130)
+            self.assertEqual(report["contractors_payment"],20)
+            economics=m._source_economics(c,start,end)
+            self.assertEqual(economics["sources"]["yandex_ads"]["total_spend"],120)
+            self.assertEqual(economics["sources"]["other_paid"]["total_spend"],30)
+            self.assertIsNone(economics["sources"]["other_paid"]["contractors_payment"])
+            self.assertEqual(economics["campaigns"][key]["total_spend"],100)
+            self.assertIsNone(economics["campaigns"][key]["contractors_payment"])
+            self.assertEqual(economics["source_reconciliation_delta"],0)
+            hierarchy=m._cost_hierarchy_payload(c,start,end)
+            self.assertIsNone(hierarchy["global"]["exact"]["contractors_payment"])
+            self.assertEqual(hierarchy["global"]["effective"]["total_spend"],150)
+            other=next(row for row in hierarchy["sources"] if row["source_key"]=="other_paid")
+            self.assertIsNone(other["exact"]["contractors_payment"])
+            self.assertEqual(other["exact"]["total_spend"],30)
+            self.assertEqual(
+                c.execute(
+                    "SELECT payload FROM report_blobs WHERE key=?",
+                    (m.ADVERTISING_COSTS_KEY,),
+                ).fetchone()[0],original,
+            )
+
+            class FakeApp:
+                def __init__(self): self.routes={}
+                def get(self,path): return self._route("GET",path)
+                def post(self,path): return self._route("POST",path)
+                def _route(self,method,path):
+                    def decorator(fn):
+                        self.routes[(method,path)]=fn
+                        return fn
+                    return decorator
+            app=FakeApp()
+            m.db=lambda:c
+            m._ensure_schema=lambda path=m.DB_PATH:None
+            m.register_advertising_report(app)
+
+            def submit(level,key,ad,contractor,total):
+                m.request=types.SimpleNamespace(
+                    args={},
+                    form={
+                        "entity_type":level,
+                        "entity_key":key,
+                        "source_name":"Яндекс-реклама" if key=="yandex_ads" else "Другой платный источник",
+                        "channel_name":"Платная реклама",
+                        "from":"2026-11-08",
+                        "to":"2026-11-08",
+                        "advertising_payment":ad,
+                        "contractors_payment":contractor,
+                        "total_spend":total,
+                    },
+                    get_json=lambda silent=True:{},
+                )
+                return app.routes[("POST","/api/reports/advertising/costs")]()
+
+            self.assertEqual(submit("global","", "999","40","1039")[1],403)
+            self.assertEqual(submit("source","other_paid","30","7","37")[1],403)
+            self.assertEqual(submit("campaign",key,"80","10","90")[1],403)
+            self.assertEqual(
+                c.execute(
+                    "SELECT payload FROM report_blobs WHERE key=?",
+                    (m.ADVERTISING_COSTS_KEY,),
+                ).fetchone()[0],original,
+            )
+            self.assertEqual(submit("source","yandex_ads","100","30","130")["status"],"ok")
+            self.assertEqual(submit("source","other_paid","40","","40")["status"],"ok")
+            after=m._summary(c,start,end)
+            self.assertEqual(after["spend"],170)
+            self.assertEqual(after["advertising_payment"],140)
+            self.assertEqual(after["contractors_payment"],30)
+            stored=m._load_cost_store(c)
+            self.assertEqual(stored["periods"]["global"][0]["total_spend"],1039)
+            self.assertEqual(
+                stored["periods"]["sources"]["other_paid"][0]["contractors_payment"],None
+            )
+            self.assertEqual(
+                stored["periods"]["sources"]["yandex_ads"][0]["contractors_payment"],30
+            )
+        finally:
+            m.db=old_db
+            m._ensure_schema=old_ensure
+            m.request=old_request
+            c.close()
 
     def test_campaign_cost_key_is_stable_when_factual_id_name_changes(self):
         a=m._campaign_cost_key("yandex_ads","777","Старое название")
@@ -3097,12 +3314,12 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-11-08","yandex_ads","Яндекс-реклама","Платная реклама",
                  "777","Короткое имя",None,None,3,"t","a"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-11-08","yandex_ads","Яндекс-реклама","Платная реклама",
                  "777","АЗ | Полное имя кампании | Поиск | Новосибирск",None,None,4,"t","b"),
             )
@@ -3323,7 +3540,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 if item["campaign_key"]==factual_key
             )
             self.assertEqual(factual["campaign_id"],"123456789")
-            self.assertEqual(factual["total_spend"],80)
+            self.assertEqual(factual["total_spend"],70)
             self.assertIsNone(factual["visits"])
 
             hierarchy=m._cost_hierarchy_payload(
@@ -3372,9 +3589,9 @@ class AdvertisingReportTests(unittest.TestCase):
                 "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
-                    "metrika","2026-11-07","yandex_ads","Яндекс-реклама","Платная реклама",
+                    "metrika","2026-11-07","paid_test","Тестовый рекламный источник","Платная реклама",
                     "701","АЗ | РК без визитов сегодня | Поиск | Новосибирск",
                     None,None,5,"t","metrika-history",
                 ),
@@ -3404,7 +3621,7 @@ class AdvertisingReportTests(unittest.TestCase):
             hierarchy=app.routes[("GET","/api/reports/advertising/costs")]()
             source=next(
                 row for row in hierarchy["sources"]
-                if row["source_key"]=="yandex_ads"
+                if row["source_key"]=="paid_test"
             )
             campaign=next(
                 row for row in source["campaigns"]
@@ -3419,8 +3636,8 @@ class AdvertisingReportTests(unittest.TestCase):
                     "from":"2026-11-08",
                     "to":"2026-11-08",
                     "advertising_payment":"70",
-                    "contractors_payment":"10",
-                    "total_spend":"80",
+                    "contractors_payment":"",
+                    "total_spend":"70",
                 },
                 get_json=lambda silent=True:{},
             )
@@ -3431,14 +3648,14 @@ class AdvertisingReportTests(unittest.TestCase):
                 row for row in m._group_breakdown(
                     c,date(2026,11,8),date(2026,11,8),"campaign"
                 )
-                if row["source_key"]=="yandex_ads"
+                if row["source_key"]=="paid_test"
             ]
             self.assertEqual(len(rows),1)
             row=rows[0]
             self.assertEqual(row["campaign_id"],"701")
             self.assertEqual(row["advertising_payment"],70)
-            self.assertEqual(row["contractors_payment"],10)
-            self.assertEqual(row["total_spend"],80)
+            self.assertIsNone(row["contractors_payment"])
+            self.assertEqual(row["total_spend"],70)
             self.assertEqual(row["spend"],70)
             self.assertIsNone(row["visits"])
             self.assertTrue(row["campaign_key"])
@@ -3450,7 +3667,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 item for item in payload["campaigns"]
                 if item["campaign_id"]=="701"
             )
-            self.assertEqual(report_campaign["total_spend"],80)
+            self.assertEqual(report_campaign["total_spend"],70)
         finally:
             m.db=old_db
             m._ensure_schema=old_ensure
@@ -3590,7 +3807,7 @@ class AdvertisingReportTests(unittest.TestCase):
         try:
             for day,visits in (("2026-10-27",75),("2026-10-28",42)):
                 c.execute(
-                    "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     ("metrika",day,"direct","Прямые заходы","Прямые заходы","","",None,None,visits,"t","m"),
                 )
             for day,primary,repeat in (
@@ -3653,12 +3870,12 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама",
                  "101","Ортодонтия",None,None,20,"t","named"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-29","yandex_ads","Яндекс-реклама","Платная реклама",
                  "","",None,None,8,"t","unknown"),
             )
@@ -3757,7 +3974,7 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("Всего расходов на рекламу", cost_fragment)
         self.assertIn("Добавить источник", cost_fragment)
         self.assertIn("/api/reports/advertising/costs", cost_fragment)
-        self.assertIn("Подрядчики по источникам автоматически не распределяются", cost_fragment)
+        self.assertIn("Подрядчик вводится только в строке «Яндекс-реклама»", cost_fragment)
         self.assertIn("ad-cost-row", cost_fragment)
         self.assertIn("data-field=\"contractors_payment\"", cost_fragment)
         self.assertIn("data-save", cost_fragment)
@@ -3791,9 +4008,13 @@ class AdvertisingReportTests(unittest.TestCase):
             )
             exact=m._summary(c,date(2026,10,1),date(2026,10,31))
             partial=m._summary(c,date(2026,10,15),date(2026,10,20))
-            self.assertEqual(exact["spend"],120000)
+            # Old global entry survives in the persisted v1 blob, but no
+            # longer acts as an independent financial source of truth.
+            self.assertIsNone(exact["spend"])
             self.assertEqual(exact["advertising_payment"],100000)
-            self.assertEqual(exact["contractors_payment"],20000)
+            self.assertIsNone(exact["contractors_payment"])
+            legacy=m._load_cost_store(c)
+            self.assertEqual(legacy["periods"]["global"][0]["total_spend"],120000)
             self.assertIsNone(partial["spend"])
             self.assertIsNone(partial["advertising_payment"])
         finally:
@@ -3806,7 +4027,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",None,None,80,"t","m"),
             )
             payload={
@@ -3853,7 +4074,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 (m.ADVERTISING_COSTS_KEY,json.dumps(payload,ensure_ascii=False),1,"t"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",400,20,None,"t","d1"),
             )
             c.commit()
@@ -3868,7 +4089,7 @@ class AdvertisingReportTests(unittest.TestCase):
                     ("sha"+day,"direct",day,day,"t","Asia/Novosibirsk","RUB","","","t",1,1),
                 )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-02","yandex_ads","Яндекс-реклама","Платная реклама","","",500,25,None,"t","d2"),
             )
             c.commit()
@@ -3877,11 +4098,13 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(complete["sources"]["yandex_ads"]["spend_provenance"],"direct_api")
             self.assertEqual(complete["sources"]["yandex_ads"]["clicks"],45)
             self.assertEqual(complete["source_spend_total"],900)
-            # General owner-entered total remains independent and is never overwritten.
+            # New policy: old global manual 1200 does not substitute for
+            # the source's unknown shared contractor (v1 source is partial).
             summary=m._summary(c,date(2026,10,1),date(2026,10,2))
-            self.assertEqual(summary["spend"],1200)
+            self.assertIsNone(summary["spend"])
+            self.assertEqual(summary["advertising_payment"],900)
             self.assertEqual(summary["clicks"],45)
-            self.assertIsNone(summary["cost_per_click"])
+            self.assertEqual(summary["cost_per_click"],20)
         finally:
             c.close()
 
@@ -3934,11 +4157,11 @@ class AdvertisingReportTests(unittest.TestCase):
                 ("sha","direct","2026-10-01","2026-10-01","t","Asia/Novosibirsk","RUB","","","t",1,2),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",100,10,None,"t","d1"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-01","other_paid","Другой платный источник","Платная реклама","","",None,5,None,"t","d2"),
             )
             c.commit()
@@ -3958,7 +4181,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-27","yandex_ads","Яндекс-реклама","Платная реклама","","",None,None,10,"t","m"),
             )
             c.commit()
@@ -3984,11 +4207,6 @@ class AdvertisingReportTests(unittest.TestCase):
                 self.assertEqual(response["status"],"ok")
                 return response
 
-            post({
-                "entity_type":"global","entity_key":"",
-                "from":"2026-10-27","to":"2026-10-27",
-                "advertising_payment":"100","contractors_payment":"20","total_spend":"120",
-            })
             post({
                 "entity_type":"source","entity_key":"",
                 "source_name":"Ручной новый рекламный источник",
@@ -4019,7 +4237,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 ("sha-direct","direct","2026-10-27","2026-10-27","t","Asia/Novosibirsk","RUB","","","t",1,1),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-27","yandex_ads","Яндекс-реклама","Платная реклама","","",100,10,None,"t","d"),
             )
             c.commit()
@@ -4027,8 +4245,10 @@ class AdvertisingReportTests(unittest.TestCase):
             economics=m._source_economics(c,date(2026,10,27),date(2026,10,27))
             self.assertFalse(economics["click_scope_complete"])
             self.assertIsNone(economics["cost_per_click"])
+            self.assertIsNone(economics["budget"]["total_spend"])
             summary=m._summary(c,date(2026,10,27),date(2026,10,27))
             self.assertIsNone(summary["cost_per_click"])
+            self.assertIsNone(summary["spend"])
         finally:
             m.db=old_db
             m._ensure_schema=old_ensure
@@ -4062,11 +4282,11 @@ class AdvertisingReportTests(unittest.TestCase):
                     ("sha"+day,"direct",day,day,"t","Asia/Novosibirsk","RUB","","","t",1,1),
                 )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-01","yandex_ads","Яндекс-реклама","Платная реклама","","",400,20,None,"t","d1"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("direct","2026-10-02","yandex_ads","Яндекс-реклама","Платная реклама","","",None,25,None,"t","d2"),
             )
             c.commit()
@@ -4385,11 +4605,11 @@ class AdvertisingReportTests(unittest.TestCase):
         try:
             seed(c)
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-03","direct","Прямые заходы","Прямые заходы","","",None,None,20,"x","m3"),
             )
             c.execute(
-                "INSERT INTO advertising_traffic_daily VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("metrika","2026-10-05","direct","Прямые заходы","Прямые заходы","","",None,None,30,"x","m5"),
             )
             c.commit()
