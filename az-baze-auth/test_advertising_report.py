@@ -3380,7 +3380,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 if item["campaign_key"]==factual_key
             )
             self.assertEqual(factual["campaign_id"],"123456789")
-            self.assertEqual(factual["total_spend"],80)
+            self.assertEqual(factual["total_spend"],70)
             self.assertIsNone(factual["visits"])
 
             hierarchy=m._cost_hierarchy_payload(
@@ -3814,7 +3814,7 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("Всего расходов на рекламу", cost_fragment)
         self.assertIn("Добавить источник", cost_fragment)
         self.assertIn("/api/reports/advertising/costs", cost_fragment)
-        self.assertIn("Подрядчики по источникам автоматически не распределяются", cost_fragment)
+        self.assertIn("Подрядчик вводится только в строке «Яндекс-реклама»", cost_fragment)
         self.assertIn("ad-cost-row", cost_fragment)
         self.assertIn("data-field=\"contractors_payment\"", cost_fragment)
         self.assertIn("data-save", cost_fragment)
@@ -3848,9 +3848,13 @@ class AdvertisingReportTests(unittest.TestCase):
             )
             exact=m._summary(c,date(2026,10,1),date(2026,10,31))
             partial=m._summary(c,date(2026,10,15),date(2026,10,20))
-            self.assertEqual(exact["spend"],120000)
+            # Old global entry survives in the persisted v1 blob, but no
+            # longer acts as an independent financial source of truth.
+            self.assertIsNone(exact["spend"])
             self.assertEqual(exact["advertising_payment"],100000)
-            self.assertEqual(exact["contractors_payment"],20000)
+            self.assertIsNone(exact["contractors_payment"])
+            legacy=m._load_cost_store(c)
+            self.assertEqual(legacy["periods"]["global"][0]["total_spend"],120000)
             self.assertIsNone(partial["spend"])
             self.assertIsNone(partial["advertising_payment"])
         finally:
@@ -3934,11 +3938,13 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(complete["sources"]["yandex_ads"]["spend_provenance"],"direct_api")
             self.assertEqual(complete["sources"]["yandex_ads"]["clicks"],45)
             self.assertEqual(complete["source_spend_total"],900)
-            # General owner-entered total remains independent and is never overwritten.
+            # New policy: old global manual 1200 does not substitute for
+            # the source's unknown shared contractor (v1 source is partial).
             summary=m._summary(c,date(2026,10,1),date(2026,10,2))
-            self.assertEqual(summary["spend"],1200)
+            self.assertIsNone(summary["spend"])
+            self.assertEqual(summary["advertising_payment"],900)
             self.assertEqual(summary["clicks"],45)
-            self.assertIsNone(summary["cost_per_click"])
+            self.assertEqual(summary["cost_per_click"],20)
         finally:
             c.close()
 
