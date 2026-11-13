@@ -8,6 +8,7 @@ import sqlite3
 import unittest
 from unittest.mock import patch
 from pathlib import Path
+from flask import Flask, g
 
 os.environ.setdefault("AZBAZE_SECRET_KEY", "AZ204_ISOLATED_TEST_KEY_NO_PRODUCTION")
 
@@ -232,6 +233,96 @@ class CompletedMonthToDateContract(unittest.TestCase):
             self.assertEqual(
                 storage._reapply_completed_after_restore(c, 2, "NEW"), 0
             )
+        finally:
+            c.close()
+
+    def test_real_management_get_and_put_reject_stale_daily_snapshot(self):
+        # Exercise the actual view functions, not only pure projections.
+        # Permission / CSRF wrappers are separately protected by their
+        # own suite; this test checks the completed-count business contract.
+        c = conn()
+        try:
+            insert_day(c, "2026-11-03", primary=40, repeat=167)
+            insert_day(c, "2026-11-12", primary=2, repeat=22)
+            stale = {
+                "date": "2026-11-12", "primary": 2, "repeat": 22,
+                "cashTotal": 3583126, "factMedicine": 120000,
+                "paidPatients": 149,
+            }
+            c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
+                "2026-11-12", json.dumps(stale), 1, "OLD",
+            ))
+            c.commit()
+
+            class FakeApp:
+                def __init__(self):
+                    self.routes = {}
+                def before_request(self, fn):
+                    return fn
+                def __getattr__(self, method):
+                    def registrar(path, *args, **kwargs):
+                        def decorator(fn):
+                            self.routes[(method.upper(), path)] = fn
+                            return fn
+                        return decorator
+                    return registrar
+
+            def raw(fn):
+                while hasattr(fn, "__wrapped__"):
+                    fn = fn.__wrapped__
+                return fn
+
+            fake = FakeApp()
+            with patch.object(storage, "_ensure_schema"), \
+                 patch.object(storage.advertising_report, "register_advertising_report"), \
+                 patch.object(storage, "db", return_value=c), \
+                 patch.object(storage, "management_monthly_plans", return_value={}), \
+                 patch.object(storage, "_paid_patient_intervals", return_value=[]), \
+                 patch.object(storage, "_management_paid_patients_by_date", return_value={}), \
+                 patch.object(storage, "_management_doctor_paid_snapshots", return_value={}), \
+                 patch.object(storage, "_management_doctor_paid_periods", return_value=[]), \
+                 patch.object(storage, "_management_paid_patients_monthly", return_value={}), \
+                 patch.object(storage, "_load_management_staff_layout",
+                              return_value=({"version": 1, "directions": {}}, None)), \
+                 patch.object(storage, "_current_user_is_admin", return_value=False), \
+                 patch.object(storage, "csrf_token", return_value="SYNTHETIC_CSRF"), \
+                 patch.object(storage, "_require_api_csrf"), \
+                 patch.object(storage, "audit"):
+                storage.register_report_storage(fake)
+                app = Flask("AZ204_ISOLATED_TEST")
+                with app.test_request_context("/api/reports/data"):
+                    g.user = {"id": 1}
+                    response = raw(fake.routes[
+                        ("GET", "/api/reports/data")
+                    ])()
+                    data = response.get_json()["data"]["2026-11-12"]
+                    self.assertEqual((data["primary"], data["repeat"]), (42, 189))
+                    self.assertEqual(data["cashTotal"], 3583126)
+                    # Read correction never writes the live source or record.
+                    stored = json.loads(c.execute(
+                        "SELECT payload FROM report_data WHERE date='2026-11-12'"
+                    ).fetchone()["payload"])
+                    self.assertEqual((stored["primary"], stored["repeat"]), (2, 22))
+                with app.test_request_context(
+                    "/api/reports/data/2026-11-12",
+                    method="PUT",
+                    json={
+                        "primary": 2, "repeat": 22,
+                        "cashTotal": 3583126,
+                        "paidPatients": 149,
+                    },
+                ):
+                    g.user = {"id": 1}
+                    response = raw(fake.routes[
+                        ("PUT", "/api/reports/data/<date>")
+                    ])("2026-11-12")
+                    data = response.get_json()["record"]
+                    self.assertEqual((data["primary"], data["repeat"]), (42, 189))
+                    self.assertEqual(data["cashTotal"], 3583126)
+                stored = json.loads(c.execute(
+                    "SELECT payload FROM report_data WHERE date='2026-11-12'"
+                ).fetchone()["payload"])
+                self.assertEqual((stored["primary"], stored["repeat"]), (42, 189))
         finally:
             c.close()
 
