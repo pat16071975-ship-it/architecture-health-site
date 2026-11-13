@@ -2865,8 +2865,8 @@ class AdvertisingReportTests(unittest.TestCase):
                         "from":"2026-11-07",
                         "to":"2026-11-07",
                         "advertising_payment":"100",
-                        "contractors_payment":"20",
-                        "total_spend":"120",
+                        "contractors_payment":"",
+                        "total_spend":"100",
                     },
                     get_json=lambda silent=True:{},
                 )
@@ -2883,8 +2883,8 @@ class AdvertisingReportTests(unittest.TestCase):
                 self.assertEqual(stored["version"],2)
                 period=stored["periods"]["sources"][source_key][0]
                 self.assertEqual(period["advertising_payment"],100)
-                self.assertEqual(period["contractors_payment"],20)
-                self.assertEqual(period["total_spend"],120)
+                self.assertIsNone(period["contractors_payment"])
+                self.assertEqual(period["total_spend"],100)
             finally:
                 m.METRIKA_ARCHIVE_ROOT=old_archive
                 m.db=old_db
@@ -4051,11 +4051,6 @@ class AdvertisingReportTests(unittest.TestCase):
                 return response
 
             post({
-                "entity_type":"global","entity_key":"",
-                "from":"2026-10-27","to":"2026-10-27",
-                "advertising_payment":"100","contractors_payment":"20","total_spend":"120",
-            })
-            post({
                 "entity_type":"source","entity_key":"",
                 "source_name":"Ручной новый рекламный источник",
                 "channel_name":"Другие источники",
@@ -4093,8 +4088,10 @@ class AdvertisingReportTests(unittest.TestCase):
             economics=m._source_economics(c,date(2026,10,27),date(2026,10,27))
             self.assertFalse(economics["click_scope_complete"])
             self.assertIsNone(economics["cost_per_click"])
+            self.assertIsNone(economics["budget"]["total_spend"])
             summary=m._summary(c,date(2026,10,27),date(2026,10,27))
             self.assertIsNone(summary["cost_per_click"])
+            self.assertIsNone(summary["spend"])
         finally:
             m.db=old_db
             m._ensure_schema=old_ensure
