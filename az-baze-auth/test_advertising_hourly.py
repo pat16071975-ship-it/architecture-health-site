@@ -1,8 +1,12 @@
 """AZ-203: prepared CLI shares sync core; no timer or live HTTP here."""
 import io
+import os
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
 from unittest.mock import patch
+
+# Flask requires a signing key even for isolated no-network unit tests.
+os.environ.setdefault("AZBAZE_SECRET_KEY", "AZ203_ONLY_UNIT_TEST_KEY_NOT_FOR_PRODUCTION")
 
 import advertising_hourly
 import metrika_auto
