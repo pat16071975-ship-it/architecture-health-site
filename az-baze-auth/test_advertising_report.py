@@ -2979,7 +2979,7 @@ class AdvertisingReportTests(unittest.TestCase):
                     "entity_type":level,"entity_key":key,
                     "from":"2026-11-08","to":"2026-11-08",
                     "advertising_payment":str(ad),
-                    "contractors_payment":str(contractor),
+                    "contractors_payment":"" if contractor is None else str(contractor),
                     "total_spend":str(total),
                 }
                 form.update(extra or {})
@@ -2987,32 +2987,35 @@ class AdvertisingReportTests(unittest.TestCase):
                 response=app.routes[("POST","/api/reports/advertising/costs")]()
                 self.assertEqual(response["status"],"ok")
 
-            save("global","",100,20,120)
             save(
-                "source","paid_test",100,20,120,
+                "source","paid_test",100,None,100,
                 {"source_name":"Тестовый рекламный источник","channel_name":"Платная реклама"},
             )
-            save("campaign",campaign["campaign_key"],80,10,90)
+            save("campaign",campaign["campaign_key"],80,None,80)
 
             store=m._load_cost_store(c)
             global_summary=m._cost_entity_summary(store,"global","",date(2026,11,8),date(2026,11,8))
             source_summary=m._cost_entity_summary(store,"source","paid_test",date(2026,11,8),date(2026,11,8))
             campaign_summary=m._cost_entity_summary(store,"campaign",campaign["campaign_key"],date(2026,11,8),date(2026,11,8))
-            self.assertEqual(global_summary["total_spend"],120)
-            self.assertEqual(source_summary["total_spend"],120)
-            self.assertEqual(campaign_summary["total_spend"],90)
+            self.assertIsNone(global_summary["total_spend"])
+            self.assertEqual(source_summary["total_spend"],100)
+            self.assertIsNone(source_summary["contractors_payment"])
+            self.assertEqual(campaign_summary["total_spend"],80)
+            self.assertIsNone(campaign_summary["contractors_payment"])
 
             economics=m._source_economics(c,date(2026,11,8),date(2026,11,8),store)
-            self.assertEqual(economics["source_total_spend"],120)
+            self.assertEqual(economics["source_total_spend"],100)
             self.assertEqual(economics["source_reconciliation_delta"],0)
             self.assertEqual(
-                economics["sources"]["paid_test"]["campaign_distributed_total"],90
+                economics["sources"]["paid_test"]["campaign_distributed_total"],80
             )
             self.assertEqual(
-                economics["sources"]["paid_test"]["campaign_reconciliation_delta"],30
+                economics["sources"]["paid_test"]["campaign_reconciliation_delta"],20
             )
-            # Child 90 is detail only: it is never added to source/global 120.
-            self.assertEqual(economics["budget"]["total_spend"],120)
+            # Child 80 is detail only: it is never added to source/global 100.
+            self.assertEqual(economics["budget"]["total_spend"],100)
+            self.assertEqual(economics["budget"]["contractors_payment"],0)
+            self.assertEqual(m._summary(c,date(2026,11,8),date(2026,11,8))["spend"],100)
         finally:
             m.db=old_db;m._ensure_schema=old_ensure;m.request=old_request;c.close()
 
@@ -3476,8 +3479,8 @@ class AdvertisingReportTests(unittest.TestCase):
                     "from":"2026-11-08",
                     "to":"2026-11-08",
                     "advertising_payment":"70",
-                    "contractors_payment":"10",
-                    "total_spend":"80",
+                    "contractors_payment":"",
+                    "total_spend":"70",
                 },
                 get_json=lambda silent=True:{},
             )
@@ -3494,8 +3497,8 @@ class AdvertisingReportTests(unittest.TestCase):
             row=rows[0]
             self.assertEqual(row["campaign_id"],"701")
             self.assertEqual(row["advertising_payment"],70)
-            self.assertEqual(row["contractors_payment"],10)
-            self.assertEqual(row["total_spend"],80)
+            self.assertIsNone(row["contractors_payment"])
+            self.assertEqual(row["total_spend"],70)
             self.assertEqual(row["spend"],70)
             self.assertIsNone(row["visits"])
             self.assertTrue(row["campaign_key"])
@@ -3507,7 +3510,7 @@ class AdvertisingReportTests(unittest.TestCase):
                 item for item in payload["campaigns"]
                 if item["campaign_id"]=="701"
             )
-            self.assertEqual(report_campaign["total_spend"],80)
+            self.assertEqual(report_campaign["total_spend"],70)
         finally:
             m.db=old_db
             m._ensure_schema=old_ensure
