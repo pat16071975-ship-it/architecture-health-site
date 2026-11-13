@@ -1106,6 +1106,16 @@ def _campaign_economics(conn, start, end, store=None):
                 "spend_provenance": "direct_api" if api_spend is not None else None,
                 "period_complete": bool(direct_complete and api_spend is not None),
             })
+        if meta["source_key"] != "yandex_ads":
+            # Retain legacy contractor metadata in the cost store for audit,
+            # but current expenditure outside source:yandex_ads is ad-only.
+            advertising = components["advertising_payment"]
+            components.update({
+                "contractors_payment": None,
+                "total_spend": (
+                    advertising if not summary.get("legacy_partial") else None
+                ),
+            })
         result[key] = {
             **meta,
             **components,
@@ -1123,7 +1133,8 @@ def _campaign_economics(conn, start, end, store=None):
 
 def _source_economics(conn, start, end, store=None):
     store = store or _load_cost_store(conn)
-    budget = _cost_entity_summary(store, "global", "", start, end)
+    # Global historical cost entries are retained, never used as a second
+    # independent financial truth; derive the period budget from sources.
     direct_complete = _dataset_period_complete(conn, "direct", start, end)
     direct = _direct_source_values(conn, start, end) if direct_complete else {}
     campaigns = _campaign_economics(conn, start, end, store)["campaigns"]
@@ -1136,6 +1147,28 @@ def _source_economics(conn, start, end, store=None):
             summary,
             direct_value.get("spend") if direct_complete else None,
         )
+        if key == "yandex_ads":
+            # For new periods only Direct is authoritative for advertising.
+            # Missing Direct coverage must not revive an old manually-entered
+            # Yandex ad amount. The one contractor remains source-level.
+            if start >= direct_auto.FIRST_SUPPORTED_DAY and (
+                not direct_complete or direct_value.get("spend") is None
+            ):
+                components.update({
+                    "advertising_payment": None,
+                    "total_spend": None,
+                    "spend_provenance": None,
+                })
+        else:
+            # Non-Yandex sources and campaigns are advertising-only.
+            # Historical contractor entries are preserved, not counted.
+            advertising = components["advertising_payment"]
+            components.update({
+                "contractors_payment": None,
+                "total_spend": (
+                    advertising if not summary.get("legacy_partial") else None
+                ),
+            })
         children = [item for item in campaigns.values() if item["source_key"] == key]
         child_totals = [item.get("total_spend") for item in children]
         distributed_total = (
@@ -1168,41 +1201,67 @@ def _source_economics(conn, start, end, store=None):
             ),
         }
 
-    source_ad_values = [
-        item["advertising_payment"]
-        for item in result.values()
-        if item["advertising_payment"] is not None
+    # Include all known paid sources, but do not add child campaigns again.
+    # A missing paid-source amount or Yandex contractor makes the global
+    # total unknown; never publish a misleading partial total.
+    relevant = [
+        row for row in result.values()
+        if (
+            row.get("manual")
+            or row.get("channel_name") == "Платная реклама"
+            or row.get("advertising_payment") is not None
+            or any(
+                period["from"] <= _iso(end) and period["to"] >= _iso(start)
+                for period in _cost_entity_periods(
+                    store, "source", row["source_key"]
+                )
+            )
+        )
     ]
-    source_total_values = [
-        item["total_spend"]
-        for item in result.values()
-        if item["total_spend"] is not None
-    ]
-    source_spend_total = round(sum(source_ad_values), 2) if source_ad_values else None
-    source_total_spend = round(sum(source_total_values), 2) if source_total_values else None
+    ad_complete = bool(relevant) and all(
+        row.get("advertising_payment") is not None for row in relevant
+    )
+    total_complete = bool(relevant) and all(
+        row.get("total_spend") is not None for row in relevant
+    )
+    source_spend_total = (
+        round(sum(row["advertising_payment"] for row in relevant), 2)
+        if ad_complete else None
+    )
+    source_total_spend = (
+        round(sum(row["total_spend"] for row in relevant), 2)
+        if total_complete else None
+    )
+    yandex = result.get("yandex_ads")
+    budget = {
+        "complete": bool(total_complete and ad_complete),
+        "periods": [],
+        "advertising_payment": source_spend_total,
+        "contractors_payment": (
+            (yandex or {}).get("contractors_payment") if yandex
+            else (0.0 if total_complete else None)
+        ),
+        "total_spend": source_total_spend,
+        "legacy_partial": False,
+    }
 
     cpc_scope = [
-        item for item in result.values()
-        if item.get("manual")
-        or item.get("channel_name") == "Платная реклама"
-        or item.get("spend") is not None
-        or item.get("clicks") is not None
+        row for row in relevant
+        if row.get("manual")
+        or row.get("channel_name") == "Платная реклама"
+        or row.get("advertising_payment") is not None
     ]
     click_scope_complete = bool(cpc_scope) and all(
-        item.get("spend") is not None and item.get("clicks") is not None
-        for item in cpc_scope
+        row.get("advertising_payment") is not None
+        and row.get("clicks") is not None
+        for row in cpc_scope
     )
-    advertising_payment = budget.get("advertising_payment") if budget.get("complete") else None
-    if (
-        click_scope_complete
-        and advertising_payment is not None
-        and source_spend_total is not None
-        and abs(source_spend_total - advertising_payment) <= 0.01
-    ):
-        clicks = sum(int(item.get("clicks") or 0) for item in cpc_scope)
-        cost_per_click = advertising_payment / clicks if clicks else None
-    else:
-        cost_per_click = None
+    clicks = sum(int(row["clicks"]) for row in cpc_scope) if click_scope_complete else 0
+    cost_per_click = (
+        source_spend_total / clicks
+        if click_scope_complete and source_spend_total is not None and clicks
+        else None
+    )
 
     return {
         "budget": budget,
@@ -1211,11 +1270,7 @@ def _source_economics(conn, start, end, store=None):
         "source_spend_total": source_spend_total,
         "source_total_spend": source_total_spend,
         "source_reconciliation_delta": (
-            round(float(budget["total_spend"]) - source_total_spend, 2)
-            if budget.get("complete")
-            and budget.get("total_spend") is not None
-            and source_total_spend is not None
-            else None
+            0.0 if budget["complete"] else None
         ),
         "cost_per_click": cost_per_click,
         "click_scope_complete": click_scope_complete,
