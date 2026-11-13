@@ -110,7 +110,7 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         self.assertIn("5. Яндекс Метрика", text)
         self.assertIn('name="metrika_zip"', text)
         self.assertIn("/api/reports/advertising/metrika/import", text)
-        self.assertIn("Загрузить данные Яндекс Метрики", text)
+        self.assertIn("Загрузить данные Метрики и Директа", text)
         self.assertIn("/api/reports/advertising/metrika/sync", text)
         self.assertIn("Ручная загрузка ZIP — резервный вариант", text)
 
