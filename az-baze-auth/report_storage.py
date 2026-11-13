@@ -12,6 +12,7 @@ import ident_import
 import paid_services
 import upload_reconcile
 import advertising_report
+import completed_visit_totals
 import paid_period_confirmation
 
 MANAGEMENT_KEY = "az-management-report-v1"
@@ -110,6 +111,66 @@ def _preserve_cash_state(existing, incoming):
             if key in existing:
                 result[key] = existing[key]
     return result
+
+
+def _canonical_completed_months(conn):
+    """Source-only projection; never accepts counters from report_data."""
+    try:
+        months = [
+            str(row[0])
+            for row in conn.execute(
+                "SELECT DISTINCT substr(data_date,1,7) FROM daily_uploads "
+                "ORDER BY data_date"
+            ).fetchall()
+            if row[0]
+        ]
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc).lower():
+            raise
+        return {}
+    result = {}
+    for month in months:
+        result.update(completed_visit_totals.month_to_date(conn, month))
+    return result
+
+
+def _reapply_completed_after_restore(conn, updated_by, updated_at):
+    """Keep backup imports from reviving stale daily primary/repeat.
+
+    Update exactly two completed-count fields on stored management dates;
+    leave money, cash, plans, paid-patient evidence and unknown periods intact.
+    """
+    confirmed = _canonical_completed_months(conn)
+    if not confirmed:
+        return 0
+    changed = 0
+    for row in conn.execute(
+        "SELECT date,payload FROM report_data ORDER BY date"
+    ).fetchall():
+        day = str(row["date"])
+        if day not in confirmed:
+            continue
+        try:
+            original = json.loads(row["payload"])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(original, dict):
+            continue
+        corrected = completed_visit_totals.overlay_counts(
+            original, day, confirmed
+        )
+        if corrected == original:
+            continue
+        conn.execute(
+            "UPDATE report_data SET payload=?,updated_by=?,updated_at=? "
+            "WHERE date=?",
+            (
+                json.dumps(corrected, ensure_ascii=False, separators=(",", ":")),
+                updated_by, updated_at, day,
+            ),
+        )
+        changed += 1
+    return changed
 
 
 def _cash_months(conn):
@@ -1114,6 +1175,24 @@ def register_report_storage(app):
                 if "clinicDocs" in payer_counts:
                     record["paidClinicPatientsByDoctor"] = payer_counts["clinicDocs"]
             data[row["date"]] = record
+        # The exact completed-source month-to-date counts always win over
+        # stale daily snapshots from manual saves, legacy uploads or backups.
+        # This is READ-ONLY: no repair write on a GET request.
+        confirmed = _canonical_completed_months(db())
+        for day, totals in confirmed.items():
+            if day in data:
+                data[day] = completed_visit_totals.overlay_counts(
+                    data[day], day, confirmed
+                )
+            else:
+                # A completed-only day still deserves a clinical snapshot,
+                # without inventing any revenue, plan, cash or doctor detail.
+                record = completed_visit_totals.overlay_counts(
+                    {"date": day}, day, confirmed
+                )
+                if day[:7] in monthly_plans:
+                    record["plan"] = monthly_plans[day[:7]]
+                data[day] = record
         return jsonify(
             data=data,
             doctorPaidSnapshots=_management_doctor_paid_snapshots(db()),
@@ -1186,6 +1265,11 @@ def register_report_storage(app):
             except (TypeError, ValueError):
                 existing = {}
             record = _preserve_cash_state(existing, record)
+        record = completed_visit_totals.overlay_counts(
+            record, date, completed_visit_totals.month_to_date(
+                db(), date[:7]
+            )
+        )
         db().execute(
             """
             INSERT INTO report_data(date, payload, updated_by, updated_at)
@@ -1207,6 +1291,11 @@ def register_report_storage(app):
         _require_api_csrf()
         if not DATE_RE.fullmatch(date or ""):
             abort(400)
+        if date in completed_visit_totals.month_to_date(db(), date[:7]):
+            # Deleting an independent report snapshot cannot erase a verified
+            # completed visit. Removing the completed source has its own
+            # guarded replacement workflow.
+            abort(409)
         existing_row = db().execute(
             "SELECT payload FROM report_data WHERE date=?",
             (date,),
@@ -1299,6 +1388,7 @@ def register_report_storage(app):
             restored_at = iso_now()
             _reapply_cash_after_restore(conn, g.user["id"], restored_at)
             _reapply_paid_after_restore(conn, g.user["id"], restored_at)
+            _reapply_completed_after_restore(conn, g.user["id"], restored_at)
             conn.commit()
         except Exception:
             conn.rollback()
@@ -1352,6 +1442,7 @@ def register_report_storage(app):
                 )
             _reapply_cash_after_restore(conn, g.user["id"], now)
             _reapply_paid_after_restore(conn, g.user["id"], now)
+            _reapply_completed_after_restore(conn, g.user["id"], now)
             conn.commit()
         except Exception:
             conn.rollback()
