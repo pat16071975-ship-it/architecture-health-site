@@ -6,6 +6,7 @@ import json
 import os
 import sqlite3
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 os.environ.setdefault("AZBAZE_SECRET_KEY", "AZ204_ISOLATED_TEST_KEY_NO_PRODUCTION")
@@ -221,7 +222,7 @@ class CompletedMonthToDateContract(unittest.TestCase):
                 any(date.startswith("2026-09")
                     for date in storage._canonical_completed_months(c))
             )
-            with unittest.mock.patch.object(upload, "db", return_value=c):
+            with patch.object(upload, "db", return_value=c):
                 records = upload._rebuild_management(
                     "2026-09", "isolated historical regeneration"
                 )
