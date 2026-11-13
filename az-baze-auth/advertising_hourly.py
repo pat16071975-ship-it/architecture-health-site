@@ -43,20 +43,17 @@ def main():
             # no overlapping imports. Skipping is expected, not an error.
             print("AZ_HOURLY_SYNC=SKIPPED busy=another_sync_running")
             return 0
-        except (
-            metrika_auto.MetrikaApiError,
-            ValueError,
-            OSError,
-            Exception,
-        ) as exc:
-            # Never log OAuth tokens, raw API bodies, or credentials.
-            # DirectApiError text is constructed from numeric HTTP/error codes.
+        except Exception as exc:
+            # Never log OAuth tokens, raw API bodies, exception repr,
+            # or response payloads. Only DirectApiError has a deliberately
+            # sanitized diagnostic (HTTP/error code and safe RequestId).
             try:
                 conn.rollback()
             except Exception:
                 pass
             message = (
-                str(exc) if isinstance(exc, ValueError)
+                str(exc)
+                if isinstance(exc, advertising_report.direct_auto.DirectApiError)
                 else type(exc).__name__
             )
             print("AZ_HOURLY_SYNC=ERROR "+message, file=sys.stderr)
