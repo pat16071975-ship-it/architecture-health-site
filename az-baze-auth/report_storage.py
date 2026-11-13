@@ -114,7 +114,12 @@ def _preserve_cash_state(existing, incoming):
 
 
 def _canonical_completed_months(conn):
-    """Source-only projection; never accepts counters from report_data."""
+    """Completed-day facts plus the latest earlier, stored MTD baseline.
+
+    The baseline is considered only if it predates the month's first
+    completed-source day. Same-day stale report_data cannot replace a
+    completed-source count. No financial figures are derived here.
+    """
     try:
         months = [
             str(row[0])
