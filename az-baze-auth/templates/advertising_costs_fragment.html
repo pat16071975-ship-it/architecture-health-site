@@ -47,7 +47,7 @@
         <span>6. Расходы на рекламу</span>
       </h3>
     </div>
-    <p class="ad-cost-help">Расходы вводятся отдельно на общем уровне, по источникам и по РК. На каждой строке: «Оплата рекламы», «Подрядчики», «Всего расходов на рекламу». Дочерние суммы — детализация, а не дополнительные деньги поверх родительской строки. Подрядчики по источникам автоматически не распределяются.</p>
+    <p class="ad-cost-help">Общая сумма рассчитывается из расходов источников. У Яндекс-рекламы расходы по кампаниям загружаются автоматически из Директа, один общий подрядчик вводится только в строке «Яндекс-реклама». Для остальных источников вручную вводится только реклама. Кампании — детализация, не дополнительный расход.</p>
 
     {% if 'upload_services' in perms %}
     <div class="ad-cost-body" id="adCostBody" hidden>
@@ -106,20 +106,24 @@
     const effective=values?.effective||{};
     const yandexCampaign=type==='campaign'&&values?.source_key==='yandex_ads';
     const yandexSource=type==='source'&&key==='yandex_ads';
-    const apiLocked=yandexCampaign||yandexSource;
+    const globalRow=type==='global';
+    const apiLocked=globalRow||yandexCampaign||yandexSource;
     const shownAd=apiLocked?effective.advertising_payment:exact.advertising_payment;
-    const shownTotal=yandexCampaign?effective.advertising_payment:(yandexSource?effective.total_spend:exact.total_spend);
+    const shownTotal=globalRow?effective.total_spend:
+      (yandexCampaign?effective.advertising_payment:(yandexSource?effective.total_spend:exact.total_spend));
     const period=values?.period||hierarchy?.period||{};
     return '<div class="ad-cost-row '+rowClass+'" data-entity-type="'+esc(type)+'" data-entity-key="'+esc(key||'')+'">'+
       '<div class="ad-cost-name"><div class="ad-cost-name-line">'+
         (expandable?'<button type="button" class="ad-cost-expand" data-expand-source="'+esc(key)+'" aria-expanded="'+(expanded?'true':'false')+'">'+(expanded?'−':'+')+'</button>':'')+
         '<span>'+esc(name)+'</span></div>'+(meta?'<small>'+esc(meta)+'</small>':'')+'</div>'+
-      '<input class="ad-cost-input" data-field="from" type="date" value="'+esc(period.from||'')+'"'+(yandexCampaign?' readonly':'')+'>'+
-      '<input class="ad-cost-input" data-field="to" type="date" value="'+esc(period.to||'')+'"'+(yandexCampaign?' readonly':'')+'>'+
+      '<input class="ad-cost-input" data-field="from" type="date" value="'+esc(period.from||'')+'"'+(globalRow||yandexCampaign?' readonly':'')+'>'+
+      '<input class="ad-cost-input" data-field="to" type="date" value="'+esc(period.to||'')+'"'+(globalRow||yandexCampaign?' readonly':'')+'>'+
       '<input class="ad-cost-input" data-field="advertising_payment" inputmode="decimal" placeholder="₽" value="'+esc(shownAd??'')+'"'+(apiLocked?' readonly':'')+'>'+
-      (yandexCampaign?'<span class="ad-cost-readonly">—</span>':'<input class="ad-cost-input" data-field="contractors_payment" inputmode="decimal" placeholder="₽" value="'+esc(exact.contractors_payment??'')+'">')+
-      '<input class="ad-cost-input" data-field="total_spend" inputmode="decimal" placeholder="₽" value="'+esc(shownTotal??'')+'"'+(apiLocked?' readonly':'')+'>'+
-      (yandexCampaign?'<span class="ad-cost-readonly">Директ API</span>':'<button type="button" class="ad-cost-save" data-save>Сохранить</button>')+
+      (yandexSource?'<input class="ad-cost-input" data-field="contractors_payment" inputmode="decimal" placeholder="₽" value="'+esc(exact.contractors_payment??'')+'">':'<span class="ad-cost-readonly">—</span>')+
+      '<input class="ad-cost-input" data-field="total_spend" inputmode="decimal" placeholder="₽" value="'+esc(shownTotal??'')+'" readonly>'+
+      (globalRow?'<span class="ad-cost-readonly">Автоитог</span>':
+       (yandexCampaign?'<span class="ad-cost-readonly">Директ API</span>':
+       '<button type="button" class="ad-cost-save" data-save>Сохранить</button>'))+
       (reconcile||'')+
       ((!apiLocked&&exact.legacy_partial)?'<div class="ad-cost-note">Старый расход источника сохранён как реклама; подрядчик и итог ещё не заданы.</div>':'')+
       '</div>';
@@ -279,9 +283,12 @@
     const row=event.target.closest('.ad-cost-row');
     if(!row)return;
     const ad=numberValue(row.querySelector('[data-field="advertising_payment"]')?.value);
-    const contractor=numberValue(row.querySelector('[data-field="contractors_payment"]')?.value);
+    const isYandexSource=row.dataset.entityType==='source'&&row.dataset.entityKey==='yandex_ads';
+    const contractor=isYandexSource
+      ?numberValue(row.querySelector('[data-field="contractors_payment"]')?.value):0;
     const total=row.querySelector('[data-field="total_spend"]');
-    if(total&&ad!==null&&contractor!==null)total.value=String(Math.round((ad+contractor)*100)/100);
+    if(total)total.value=ad!==null&&contractor!==null
+      ?String(Math.round((ad+contractor)*100)/100):'';
   });
 
   addBtn?.addEventListener('click',()=>{
