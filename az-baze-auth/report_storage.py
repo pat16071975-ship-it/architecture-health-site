@@ -1442,15 +1442,27 @@ def register_report_storage(app):
         cash_payments.init_schema(conn)
         conn.execute("BEGIN")
         try:
+            # Capture source-confirmed counters and their existing live
+            # records BEFORE the destructive backup replace.
+            completed_before = _canonical_completed_months(conn)
+            completed_records = _preserved_completed_records(
+                conn, completed_before
+            )
             conn.execute("DELETE FROM report_data")
             conn.executemany(
                 "INSERT INTO report_data(date, payload, updated_by, updated_at) VALUES(?,?,?,?)",
                 rows,
             )
             restored_at = iso_now()
+            _reapply_completed_after_restore(
+                conn, g.user["id"], restored_at,
+                confirmed_before=completed_before,
+                preserved_records=completed_records,
+            )
+            # Source-backed cash and paid overlays follow the recreation of
+            # missing clinical-only dates, so they can attach if available.
             _reapply_cash_after_restore(conn, g.user["id"], restored_at)
             _reapply_paid_after_restore(conn, g.user["id"], restored_at)
-            _reapply_completed_after_restore(conn, g.user["id"], restored_at)
             conn.commit()
         except Exception:
             conn.rollback()
@@ -1485,6 +1497,12 @@ def register_report_storage(app):
         cash_payments.init_schema(conn)
         conn.execute("BEGIN")
         try:
+            # Capture source-confirmed counters and their existing live
+            # records BEFORE the destructive backup replace.
+            completed_before = _canonical_completed_months(conn)
+            completed_records = _preserved_completed_records(
+                conn, completed_before
+            )
             conn.execute("DELETE FROM report_data")
             conn.executemany(
                 "INSERT INTO report_data(date, payload, updated_by, updated_at) VALUES(?,?,?,?)",
@@ -1502,9 +1520,13 @@ def register_report_storage(app):
                     """,
                     (key, value, uid, updated_at),
                 )
+            _reapply_completed_after_restore(
+                conn, g.user["id"], now,
+                confirmed_before=completed_before,
+                preserved_records=completed_records,
+            )
             _reapply_cash_after_restore(conn, g.user["id"], now)
             _reapply_paid_after_restore(conn, g.user["id"], now)
-            _reapply_completed_after_restore(conn, g.user["id"], now)
             conn.commit()
         except Exception:
             conn.rollback()
