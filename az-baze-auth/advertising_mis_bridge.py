@@ -4,6 +4,8 @@ import re
 from collections import defaultdict
 from datetime import date, timedelta
 
+import completed_visit_totals
+
 TRACKING_START = "2026-10-27"
 MIS_PROVIDER = "mis"
 UNKNOWN_SOURCE_KEY = "unknown"
@@ -668,18 +670,24 @@ def _load_completed(conn):
     coverage = set()
     visits = []
     first_visit = {}
-    counts = defaultdict(lambda: {"primary": 0, "repeat": 0})
+    counts = {}
     grouped = defaultdict(list)
 
     for row in rows:
         data_date = str(row["data_date"])
-        if data_date >= TRACKING_START:
-            coverage.add(data_date)
         try:
             normalized = json.loads(row["normalized_json"])
         except (TypeError, ValueError):
             continue
-        for visit in (normalized or {}).get("visits") or []:
+        if not isinstance(normalized, dict):
+            continue
+        verified = completed_visit_totals.day_counts(normalized, data_date)
+        if verified is not None and data_date >= TRACKING_START:
+            # Follow the exact same authoritative completed daily counts
+            # as the management view, including unassigned physician visits.
+            coverage.add(data_date)
+            counts[data_date] = {"primary": verified[0], "repeat": verified[1]}
+        for visit in normalized.get("visits") or []:
             visit_date = str(visit.get("date") or data_date)
             token = patient_token(visit.get("patient"))
             kind = str(visit.get("kind") or "")
@@ -696,11 +704,9 @@ def _load_completed(conn):
             if old is None or visit_date < old:
                 first_visit[token] = visit_date
             grouped[(visit_date, token)].append(kind)
-            if visit_date >= TRACKING_START:
-                if kind == "Первичные":
-                    counts[visit_date]["primary"] += 1
-                elif kind in {"Повторные", "Отконсультированные"}:
-                    counts[visit_date]["repeat"] += 1
+            # Payment patient/doctor classification uses detailed visits,
+            # but the report's completed visit counter uses source totals.
+            # Missing patient detail must not erase an overall counted visit.
 
     latest_lines = _latest_line_facts(conn)
     seen_before_tracking = {

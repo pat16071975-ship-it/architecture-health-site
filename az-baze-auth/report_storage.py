@@ -12,6 +12,7 @@ import ident_import
 import paid_services
 import upload_reconcile
 import advertising_report
+import completed_visit_totals
 import paid_period_confirmation
 
 MANAGEMENT_KEY = "az-management-report-v1"
@@ -110,6 +111,143 @@ def _preserve_cash_state(existing, incoming):
             if key in existing:
                 result[key] = existing[key]
     return result
+
+
+def _canonical_completed_months(conn):
+    """Completed-day facts plus the latest earlier, stored MTD baseline.
+
+    The baseline is considered only if it predates the month's first
+    completed-source day. Same-day stale report_data cannot replace a
+    completed-source count. No financial figures are derived here.
+    """
+    try:
+        months = [
+            str(row[0])
+            for row in conn.execute(
+                "SELECT DISTINCT substr(data_date,1,7) FROM daily_uploads "
+                "ORDER BY data_date"
+            ).fetchall()
+            if row[0]
+        ]
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc).lower():
+            raise
+        return {}
+    result = {}
+    for month in months:
+        # Includes a confirmed prior report_data baseline only when it
+        # predates the first completed-source date in this month.
+        result.update(
+            completed_visit_totals.canonical_month_to_date(conn, month)
+        )
+    return result
+
+
+def _preserved_completed_records(conn, confirmed):
+    """Keep existing live records on authoritative dates across old restores.
+
+    Values are copied from actual stored records; no patient PII, cash or
+    services are reconstructed from guessed completed-visit values.
+    """
+    if not confirmed:
+        return {}
+    preserved = {}
+    for row in conn.execute(
+        "SELECT date,payload FROM report_data ORDER BY date"
+    ).fetchall():
+        day = str(row["date"])
+        if day not in confirmed:
+            continue
+        try:
+            record = json.loads(row["payload"])
+        except (TypeError, ValueError):
+            continue
+        if isinstance(record, dict):
+            preserved[day] = record
+    return preserved
+
+
+def _reapply_completed_after_restore(
+    conn, updated_by, updated_at, *,
+    confirmed_before=None, preserved_records=None
+):
+    """Restore every confirmed completed MTD date, not just backup dates.
+
+    The source-backed series includes historical pre-source MTD baselines.
+    Before destructive backup replacement, the caller captures that series
+    and any later live report records. An outdated backup must not remove
+    today's verified completed visits.
+
+    Existing backup rows: update only primary/repeat.
+    Missing backup rows with live evidence: preserve exact live nonclinical
+    fields and overlay primary/repeat.
+    Missing backup AND live rows: add completed-only counters, with NO
+    invented cash, paid, service, plan or doctor amounts.
+    """
+    confirmed = _canonical_completed_months(conn)
+    if confirmed_before:
+        # Live verified evidence precedes and survives the replacement.
+        confirmed.update(confirmed_before)
+    if not confirmed:
+        return 0
+
+    existing = {}
+    for row in conn.execute(
+        "SELECT date,payload FROM report_data ORDER BY date"
+    ).fetchall():
+        try:
+            record = json.loads(row["payload"])
+        except (TypeError, ValueError):
+            continue
+        if isinstance(record, dict):
+            existing[str(row["date"])] = record
+
+    previous = preserved_records or {}
+    changed = 0
+    for day in sorted(confirmed):
+        original = existing.get(day)
+        if original is not None:
+            corrected = completed_visit_totals.overlay_counts(
+                original, day, confirmed
+            )
+            if corrected == original:
+                continue
+            conn.execute(
+                "UPDATE report_data SET payload=?,updated_by=?,updated_at=? "
+                "WHERE date=?",
+                (
+                    json.dumps(corrected, ensure_ascii=False,
+                               separators=(",", ":")),
+                    updated_by, updated_at, day,
+                ),
+            )
+        else:
+            if day in previous:
+                record = dict(previous[day])
+            else:
+                # This record has only a documented completed-visit layer.
+                # Financial projections must not infer any cash from it.
+                record = {
+                    "date": day,
+                    "_source": "verified_completed_visits_restore",
+                    "_aggregation": "month_to_date",
+                    "_completed_only": True,
+                }
+            corrected = completed_visit_totals.overlay_counts(
+                record, day, confirmed
+            )
+            conn.execute(
+                "INSERT INTO report_data(date,payload,updated_by,updated_at) "
+                "VALUES(?,?,?,?)",
+                (
+                    day,
+                    json.dumps(corrected, ensure_ascii=False,
+                               separators=(",", ":")),
+                    updated_by, updated_at,
+                ),
+            )
+        changed += 1
+    return changed
 
 
 def _cash_months(conn):
@@ -1114,6 +1252,16 @@ def register_report_storage(app):
                 if "clinicDocs" in payer_counts:
                     record["paidClinicPatientsByDoctor"] = payer_counts["clinicDocs"]
             data[row["date"]] = record
+        # The exact completed-source month-to-date counts always win over
+        # stale daily snapshots from manual saves, legacy uploads or backups.
+        # This is READ-ONLY: no repair write on a GET request.
+        confirmed = _canonical_completed_months(db())
+        for day in sorted(set(data).intersection(confirmed)):
+            # Do not add virtual report_data records: management's monthly
+            # financial comparison must keep its actual stored snapshot date.
+            data[day] = completed_visit_totals.overlay_counts(
+                data[day], day, confirmed
+            )
         return jsonify(
             data=data,
             doctorPaidSnapshots=_management_doctor_paid_snapshots(db()),
@@ -1186,6 +1334,9 @@ def register_report_storage(app):
             except (TypeError, ValueError):
                 existing = {}
             record = _preserve_cash_state(existing, record)
+        record = completed_visit_totals.overlay_counts(
+            record, date, _canonical_completed_months(db())
+        )
         db().execute(
             """
             INSERT INTO report_data(date, payload, updated_by, updated_at)
@@ -1207,6 +1358,11 @@ def register_report_storage(app):
         _require_api_csrf()
         if not DATE_RE.fullmatch(date or ""):
             abort(400)
+        if date in _canonical_completed_months(db()):
+            # Deleting an independent report snapshot cannot erase a verified
+            # completed visit. Removing the completed source has its own
+            # guarded replacement workflow.
+            abort(409)
         existing_row = db().execute(
             "SELECT payload FROM report_data WHERE date=?",
             (date,),
@@ -1291,12 +1447,25 @@ def register_report_storage(app):
         cash_payments.init_schema(conn)
         conn.execute("BEGIN")
         try:
+            # Capture source-confirmed counters and their existing live
+            # records BEFORE the destructive backup replace.
+            completed_before = _canonical_completed_months(conn)
+            completed_records = _preserved_completed_records(
+                conn, completed_before
+            )
             conn.execute("DELETE FROM report_data")
             conn.executemany(
                 "INSERT INTO report_data(date, payload, updated_by, updated_at) VALUES(?,?,?,?)",
                 rows,
             )
             restored_at = iso_now()
+            _reapply_completed_after_restore(
+                conn, g.user["id"], restored_at,
+                confirmed_before=completed_before,
+                preserved_records=completed_records,
+            )
+            # Source-backed cash and paid overlays follow the recreation of
+            # missing clinical-only dates, so they can attach if available.
             _reapply_cash_after_restore(conn, g.user["id"], restored_at)
             _reapply_paid_after_restore(conn, g.user["id"], restored_at)
             conn.commit()
@@ -1333,6 +1502,12 @@ def register_report_storage(app):
         cash_payments.init_schema(conn)
         conn.execute("BEGIN")
         try:
+            # Capture source-confirmed counters and their existing live
+            # records BEFORE the destructive backup replace.
+            completed_before = _canonical_completed_months(conn)
+            completed_records = _preserved_completed_records(
+                conn, completed_before
+            )
             conn.execute("DELETE FROM report_data")
             conn.executemany(
                 "INSERT INTO report_data(date, payload, updated_by, updated_at) VALUES(?,?,?,?)",
@@ -1350,6 +1525,11 @@ def register_report_storage(app):
                     """,
                     (key, value, uid, updated_at),
                 )
+            _reapply_completed_after_restore(
+                conn, g.user["id"], now,
+                confirmed_before=completed_before,
+                preserved_records=completed_records,
+            )
             _reapply_cash_after_restore(conn, g.user["id"], now)
             _reapply_paid_after_restore(conn, g.user["id"], now)
             conn.commit()

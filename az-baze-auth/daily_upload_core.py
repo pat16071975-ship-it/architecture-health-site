@@ -11,6 +11,7 @@ from openpyxl import load_workbook
 from werkzeug.exceptions import HTTPException
 
 import ident_import
+import completed_visit_totals
 from app import DB_PATH, audit, csrf_token, db, iso_now, permission_required, require_csrf, user_permissions
 
 UPLOAD_SCHEMA = """
@@ -173,8 +174,10 @@ def _daily_delta(normalized):
     total_revenue = sum(staff.values())
     lab_revenue = staff.get("Казанцев Л. Е.", 0.0)
     day_counts = overall.get(data_date, {})
-    primary = int(day_counts.get("Первичные", 0) or 0)
-    repeat = int(day_counts.get("Повторные", 0) or 0) + int(day_counts.get("Отконсультированные", 0) or 0)
+    # The identical completed-visit counter is used by management and the
+    # advertising MIS bridge. Service/payment layers cannot supply counts.
+    completed_counts = completed_visit_totals.day_counts(normalized, data_date)
+    primary, repeat = completed_counts if completed_counts is not None else (0, 0)
     dent_primary = structure_primary = dent_repeat = structure_repeat = 0
     day_doctors = doctors.get(data_date, {})
     for staff_name, value in day_doctors.get("Первичные", {}).items():
@@ -234,6 +237,13 @@ def _rebuild_management(month, source):
     if not rows:
         return {}
     baseline = _latest_prior_report(rows[0][0])
+    # Source-backed month-to-date counts supersede any stale report_data
+    # baseline, including a single day's 2/22 saved as an MTD snapshot.
+    # Source-day counters + any verified earlier MTD baseline. Never drop
+    # protection for an entire historical month with partial daily evidence.
+    canonical_visits = completed_visit_totals.canonical_month_to_date(
+        db(), month
+    )
     baseline_dentists = baseline.get("billedDentists") if isinstance(baseline.get("billedDentists"), dict) else baseline.get("dentists")
     baseline_clinic_docs = baseline.get("billedClinicDocs") if isinstance(baseline.get("billedClinicDocs"), dict) else baseline.get("clinicDocs")
     current = {
@@ -259,6 +269,8 @@ def _rebuild_management(month, source):
             current["dentists"][name] = current["dentists"].get(name, 0) + value
         for name, value in delta["clinicDocs"].items():
             current["clinicDocs"][name] = current["clinicDocs"].get(name, 0) + value
+        if data_date in canonical_visits:
+            current["primary"], current["repeat"] = canonical_visits[data_date]
         existing = _load_report(data_date)
         billed_dentists = {k: round(v, 2) for k, v in current["dentists"].items()}
         billed_clinic_docs = {k: round(v, 2) for k, v in current["clinicDocs"].items()}
