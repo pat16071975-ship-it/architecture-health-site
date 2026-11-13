@@ -26,6 +26,37 @@ class HourlySyncPreparedTests(unittest.TestCase):
         self.assertNotIn("systemctl enable", service + timer)
         self.assertNotIn("/api/reports/advertising/metrika/sync", service + timer)
 
+    def test_timer_activation_does_not_start_service_early(self):
+        # AZ-203-03: activating the timer between hourly boundaries must
+        # not pull in the service. Only the [Timer] Unit= directive may
+        # select it for the next OnCalendar firing.
+        timer = (
+            Path(__file__).resolve().parent
+            / "deploy" / "az-baze-advertising-hourly.timer"
+        ).read_text(encoding="utf-8")
+        sections = {}
+        section = None
+        for raw in timer.splitlines():
+            line = raw.strip()
+            if not line or line.startswith(("#", ";")):
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                section = line
+                sections.setdefault(section, {})
+                continue
+            self.assertIsNotNone(section)
+            key, sep, value = line.partition("=")
+            self.assertEqual(sep, "=")
+            sections[section][key.strip()] = value.strip()
+
+        unit = sections["[Unit]"]
+        for dependency in ("Requires", "Wants", "BindsTo", "Requisite"):
+            self.assertNotIn(dependency, unit)
+        timing = sections["[Timer]"]
+        self.assertEqual(timing["Unit"], "az-baze-advertising-hourly.service")
+        self.assertEqual(timing["OnCalendar"], "hourly")
+        self.assertEqual(timing["Persistent"], "false")
+
     def test_no_token_exits_before_database_or_network(self):
         err = io.StringIO()
         with patch.object(advertising_hourly.metrika_auto, "token_from_env", return_value=""), \
