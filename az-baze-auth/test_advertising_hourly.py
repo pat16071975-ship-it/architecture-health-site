@@ -65,7 +65,8 @@ class HourlySyncPreparedTests(unittest.TestCase):
         with patch.object(advertising_hourly.metrika_auto, "token_from_env", return_value="TOKEN_NOT_FOR_OUTPUT"), \
              patch.object(advertising_hourly, "db") as db_mock, \
              patch.object(advertising_hourly.advertising_report, "run_metrika_direct_sync",
-                          side_effect=ValueError("Директ: HTTP 500; RequestId=123")) as sync, \
+                          side_effect=advertising_hourly.advertising_report.direct_auto.DirectApiError(
+                              "Директ: HTTP 500; RequestId=123")) as sync, \
              patch.object(advertising_hourly, "audit") as audit, \
              redirect_stderr(err):
             status = advertising_hourly.main()
@@ -74,6 +75,20 @@ class HourlySyncPreparedTests(unittest.TestCase):
         self.assertNotIn("TOKEN_NOT_FOR_OUTPUT", err.getvalue())
         db_mock.return_value.rollback.assert_called_once()
         audit.assert_not_called()
+
+
+    def test_generic_failure_does_not_echo_untrusted_exception_content(self):
+        err = io.StringIO()
+        with patch.object(advertising_hourly.metrika_auto, "token_from_env", return_value="SECRET_TOKEN"), \
+             patch.object(advertising_hourly, "db"), \
+             patch.object(advertising_hourly.advertising_report, "run_metrika_direct_sync",
+                          side_effect=ValueError("UNTRUSTED_BODY_SECRET_TOKEN")), \
+             redirect_stderr(err):
+            status = advertising_hourly.main()
+        self.assertEqual(status, 1)
+        self.assertIn("ValueError", err.getvalue())
+        self.assertNotIn("SECRET_TOKEN", err.getvalue())
+        self.assertNotIn("UNTRUSTED_BODY", err.getvalue())
 
 
 if __name__ == "__main__":
