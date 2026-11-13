@@ -1474,10 +1474,14 @@ class AdvertisingReportTests(unittest.TestCase):
             )
         )
         source=Path(__file__).with_name("advertising_report.py").read_text(encoding="utf-8")
+        # No-op audit preservation now spans the shared button/hourly core
+        # and the unchanged CSRF-protected route's audit gate.
         self.assertIn(
-            'if _metrika_sync_has_changes(completed_updated, current_result) or not direct_result["reused"]:\n            audit(',
+            '"changed": _metrika_sync_has_changes(completed_updated, current_result)',
             source,
         )
+        self.assertIn('or not direct_result["reused"]', source)
+        self.assertIn('if result["changed"]:\n            audit(', source)
 
     def test_empty_history_scans_all_gaps_from_tracking_start(self):
         c=conn()
