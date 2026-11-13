@@ -96,6 +96,39 @@ def month_to_date(conn, month):
     return confirmed
 
 
+def has_pre_source_legacy_counts(conn, month, first_completed_day):
+    """Protect a historical MTD baseline older than available daily sources.
+
+    Example: September 6 baseline and only September 7+ daily uploads.
+    The source-only sum MUST NOT replace that already-approved baseline.
+    Return only a boolean; do not seed unknown visits from a snapshot.
+    """
+    if not first_completed_day or first_completed_day[:7] != month:
+        return False
+    try:
+        rows = conn.execute(
+            "SELECT payload FROM report_data WHERE substr(date,1,7)=? "
+            "AND date<? ORDER BY date DESC",
+            (month, first_completed_day),
+        ).fetchall()
+    except Exception as exc:
+        if "no such table" in str(exc).lower():
+            return False
+        raise
+    for row in rows:
+        try:
+            payload = json.loads(row["payload"])
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        primary = _count(payload.get("primary"))
+        repeat = _count(payload.get("repeat"))
+        if primary is not None and repeat is not None and (primary or repeat):
+            return True
+    return False
+
+
 def overlay_counts(record, date_key, monthly):
     """Change only two canonical completed counters; preserve all money."""
     expected = monthly.get(str(date_key))
