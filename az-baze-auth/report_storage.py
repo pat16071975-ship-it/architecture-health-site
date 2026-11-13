@@ -138,7 +138,7 @@ def _canonical_completed_months(conn):
         # Includes a confirmed prior report_data baseline only when it
         # predates the first completed-source date in this month.
         result.update(
-            completed_visit_totals.canonical_month_to_date(conn, month)
+            completed_visit_totals.management_month_to_date(conn, month)
         )
     return result
 
@@ -178,9 +178,9 @@ def _reapply_completed_after_restore(
     and any later live report records. An outdated backup must not remove
     today's verified completed visits.
 
-    Existing backup rows: update only primary/repeat.
+    Existing backup rows: update only completed counters.
     Missing backup rows with live evidence: preserve exact live nonclinical
-    fields and overlay primary/repeat.
+    fields and overlay completed counters.
     Missing backup AND live rows: add completed-only counters, with NO
     invented cash, paid, service, plan or doctor amounts.
     """

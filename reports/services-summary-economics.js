@@ -131,13 +131,13 @@
     const partialIndexes = new Set(
       (syncMeta?.payrollPartialPeriod || []).map(month => Number(String(month).slice(-2)) - 1)
     );
-    const incomplete = idx.some(i => partialIndexes.has(i));
+    const canonical = direction === 'Клиника' ? 'Отделение структуры' : direction;
+    const aggregate = normalizeArray(syncMeta?.directionFot?.[canonical], monthCount, null);
+    const incomplete = idx.some(i => partialIndexes.has(i) || aggregate[i] == null || !Number.isFinite(+aggregate[i]));
     if (incomplete) {
       return { revenue, salary:null, extras:null, total:null, profit:null, margin:null, incomplete:true };
     }
 
-    const canonical = direction === 'Клиника' ? 'Отделение структуры' : direction;
-    const aggregate = normalizeArray(syncMeta?.directionFot?.[canonical], monthCount, null);
     let salary = 0;
     let aggregateComplete = true;
     idx.forEach(i => {

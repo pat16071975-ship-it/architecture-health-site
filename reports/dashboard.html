@@ -188,13 +188,14 @@ function operatingExpenseTo(date){
   Object.values(month).forEach(main=>{const items=expenseItems(main);if(items.length)total+=items.filter(i=>String(i?.date||'')<=date).reduce((a,i)=>a+num(i?.amount),0);else total+=num(main?.total)}); return total;
 }
 function renderFinance(r){
-  const d=derive(r), exp=FIN?.expenses||{}, available=!!exp.available, expenseTo=exp?.period?.to||'';
-  if(!available){$('#financeHint').textContent='Расходы ещё не загружены';$('#finance').innerHTML=[metric('Выручка',money(d.factTotal)),metric('Операционные расходы','—'),metric('Операционная прибыль','—')].join('');$('#financeNote').textContent='Для расчёта прибыли нужны данные расходов Финреза.';return}
-  const covered=expenseTo>=d.date; const effective=covered?d.date:expenseTo; const op=effective?operatingExpenseTo(effective):0;
-  $('#financeHint').textContent=expenseTo?`Реестр расходов доступен по ${fmtDate(expenseTo)}`:'Период расходов не определён';
-  const profit=d.factTotal-op, pcls=profit>=0?'positive':'negative';
-  $('#finance').innerHTML=[metric('Выручка',money(d.factTotal),`по ${fmtDate(d.date)}`),metric('Операционные расходы',effective?money(op):'—',effective?`учтены по ${fmtDate(effective)}`:''),metric('Операционная прибыль',covered?money(profit):'—',covered?'Выручка − операционные расходы':'Не считаем при неполном покрытии расходов',covered?pcls:'')].join('');
-  $('#financeNote').textContent=covered?'Доходы и операционные расходы приведены к одной дате. Кредитные и иные долговые обязательства в операционную прибыль не входят.':`Расходы доступны только по ${fmtDate(expenseTo)}, а управленческие данные — по ${fmtDate(d.date)}. Чтобы не смешивать разные периоды, операционная прибыль не рассчитывается.`;
+  const d=derive(r), a=FIN?.accounting?.[d.date.slice(0,7)];
+  // Accrued monthly payroll is not prorated or charged to an arbitrary day.
+  const monthEnd=a?.through===d.date, known=monthEnd?a.knownExpenses:null;
+  const complete=monthEnd&&a.complete&&known!==null;
+  const profit=complete?d.factTotal-known:null;
+  $('#financeHint').textContent=complete?'Расходы за закрытый месяц':monthEnd?'Расходы загружены не полностью':'Для дневного среза месячный ФОТ не распределяется';
+  $('#finance').innerHTML=[metric('Выручка',money(d.factTotal)),metric('Операционные расходы',known===null?'—':money(known),complete?'За полный месяц':'Известная часть расходов'),metric('Операционная прибыль',profit===null?'—':money(profit),complete?'Выручка − операционные расходы':'Неполные данные',profit===null?'':profit>=0?'positive':'negative')].join('');
+  $('#financeNote').textContent=complete?'ФОТ учтён по зарплатному реестру без повторного добавления выплат.':'Прибыль не рассчитывается до полного покрытия расходов и закрытия ФОТ. Месячные начисления не подменяют расходы выбранного дня.';
 }
 function render(){const {record}=selected();if(!record)return;renderMetrics(record);renderDirections(record);renderChart();renderMarketing(record);renderFinance(record)}
 function onMonthChange(){syncDateFilter(true);render()}

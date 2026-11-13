@@ -99,9 +99,12 @@ def _management_months():
         current = latest.get(month)
         if current is None or date > current["date"]:
             latest[month] = {"date": date, "record": record}
+    import report_storage
+    import completed_visit_totals
+    confirmed = report_storage._canonical_completed_months(db())
     result = {}
     for month, entry in latest.items():
-        record = entry["record"]
+        record = completed_visit_totals.overlay_counts(entry["record"], entry["date"], confirmed)
         dentists = record.get("dentists")
         structure_doctors = record.get("clinicDocs")
         result[month] = {
@@ -117,6 +120,8 @@ def _management_months():
             "grossRevenue": record.get("grossRevenue"),
             "discountAmount": record.get("discountAmount"),
             "discountDataComplete": record.get("discountDataComplete") is True,
+            "primary": record.get("primary"),
+            "repeat": record.get("repeat"),
             "dentPrimary": record.get("dentPrimary", 0),
             "dentRepeat": record.get("dentRepeat", 0),
             "clinicPrimary": record.get("clinicPrimary", 0),
@@ -144,7 +149,7 @@ def register_finrez(app):
             "MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index)).filter(n=>hasAny(n.values))",
             "MAIN_ORDER.map((name,index)=>expenseCategoryNode(year,name,index))",
         )
-        html = _inject_script(html, "finrez-economics-integrated.js", "20261111-payroll-1")
+        html = _inject_script(html, "finrez-economics-integrated.js", "20261113-consistency-1")
         html = _inject_script(html, "finrez-profit-emphasis.js", "20260917-3")
         html = _inject_script(html, "finrez-total-column.js", "20260909-1")
         return Response(html, mimetype="text/html")
@@ -154,7 +159,7 @@ def register_finrez(app):
     def forecast_page():
         path = SITE_ROOT / "reports" / "forecast.html"
         html = path.read_text(encoding="utf-8")
-        html = _inject_script(html, "forecast-audit-sync.js", "20261111-payroll-1")
+        html = _inject_script(html, "forecast-audit-sync.js", "20261113-consistency-1")
         return Response(html, mimetype="text/html")
 
     @app.get("/api/reports/finrez")
@@ -166,4 +171,13 @@ def register_finrez(app):
         except Exception as error:
             expenses = {"version": 1, "source": "", "period": {}, "meta": {}, "months": {}, "available": False}
             private_error = str(error)
-        return jsonify(expenses=expenses, management=_management_months(), plans=_monthly_plans(), privateError=private_error, csrf=csrf_token())
+        import economics_control
+        import report_accounting
+        management = _management_months()
+        try:
+            economics = economics_control._load_data()
+        except Exception:
+            economics = {"available": False}
+        accounting = report_accounting.months(expenses, economics, management)
+        return jsonify(expenses=expenses, management=management, accounting=accounting,
+                       plans=_monthly_plans(), privateError=private_error, csrf=csrf_token())
