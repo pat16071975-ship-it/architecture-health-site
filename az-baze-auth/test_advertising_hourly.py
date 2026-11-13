@@ -2,6 +2,7 @@
 import io
 import os
 import unittest
+from pathlib import Path
 from contextlib import redirect_stdout, redirect_stderr
 from unittest.mock import patch
 
@@ -13,6 +14,18 @@ import metrika_auto
 
 
 class HourlySyncPreparedTests(unittest.TestCase):
+    def test_hourly_systemd_timer_is_prepared_but_not_enabled(self):
+        root = Path(__file__).resolve().parent / "deploy"
+        service = (root / "az-baze-advertising-hourly.service").read_text(encoding="utf-8")
+        timer = (root / "az-baze-advertising-hourly.timer").read_text(encoding="utf-8")
+        self.assertIn("OnCalendar=hourly", timer)
+        self.assertIn("Persistent=false", timer)
+        self.assertIn("User=azadmin", service)
+        self.assertIn("EnvironmentFile=/etc/az-baze/auth.env", service)
+        self.assertIn("advertising_hourly.py", service)
+        self.assertNotIn("systemctl enable", service + timer)
+        self.assertNotIn("/api/reports/advertising/metrika/sync", service + timer)
+
     def test_no_token_exits_before_database_or_network(self):
         err = io.StringIO()
         with patch.object(advertising_hourly.metrika_auto, "token_from_env", return_value=""), \
