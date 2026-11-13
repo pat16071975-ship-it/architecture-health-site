@@ -163,7 +163,10 @@ jobs:
         working-directory: az-baze-auth
         run: |
           python -m py_compile direct_auto.py advertising_report.py metrika_auto.py
-          python -m unittest -v test_direct_auto.py test_advertising_hourly.py test_advertising_report.py test_advertising_mis_bridge.py test_completed_visit_totals.py
+          # Run completed-source tests in a fresh process: legacy report
+          # regressions stub flask in sys.modules and do not restore it.
+          python -m unittest -v test_completed_visit_totals.py
+          python -m unittest -v test_direct_auto.py test_advertising_hourly.py test_advertising_report.py test_advertising_mis_bridge.py
       - name: Advertising report JavaScript syntax
         run: node --check reports/advertising.js
       - name: Approved direct + source + revenue scope
