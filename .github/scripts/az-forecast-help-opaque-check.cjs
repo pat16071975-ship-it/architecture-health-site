@@ -37,6 +37,12 @@ const FIN = {
   }
 };
 
+// Explicit complete accounting fixtures; absent coverage must not imply zero cost.
+FIN.accounting = Object.fromEntries(Object.entries(FIN.expenses.months).map(([m, value]) => [m, {
+  knownExpenses:value.operating.base.total, complete:m !== '2026-10',
+  payrollComplete:m !== '2026-10', expensesComplete:m !== '2026-10'
+}]));
+
 async function stub(context){
   await context.route('**/*', route => {
     const url = new URL(route.request().url());
