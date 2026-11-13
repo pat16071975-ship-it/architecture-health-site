@@ -240,6 +240,13 @@ def _rebuild_management(month, source):
     # Source-backed month-to-date counts supersede any stale report_data
     # baseline, including a single day's 2/22 saved as an MTD snapshot.
     canonical_visits = completed_visit_totals.month_to_date(db(), month)
+    if canonical_visits and completed_visit_totals.has_pre_source_legacy_counts(
+        db(), month, next(iter(canonical_visits))
+    ):
+        # Historical months can have a verified old MTD snapshot before the
+        # first available daily upload. Keep the existing baseline + deltas
+        # rather than replacing the result with only the later days.
+        canonical_visits = {}
     baseline_dentists = baseline.get("billedDentists") if isinstance(baseline.get("billedDentists"), dict) else baseline.get("dentists")
     baseline_clinic_docs = baseline.get("billedClinicDocs") if isinstance(baseline.get("billedClinicDocs"), dict) else baseline.get("clinicDocs")
     current = {
