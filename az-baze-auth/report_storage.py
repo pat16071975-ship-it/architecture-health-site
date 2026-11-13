@@ -130,27 +130,23 @@ def _canonical_completed_months(conn):
         return {}
     result = {}
     for month in months:
-        verified = completed_visit_totals.month_to_date(conn, month)
-        if verified and completed_visit_totals.has_pre_source_legacy_counts(
-            conn, month, next(iter(verified))
-        ):
-            # An approved earlier-month MTD baseline cannot be replaced
-            # by an incomplete later-only daily-upload source.
-            continue
-        result.update(verified)
+        # Includes a confirmed prior report_data baseline only when it
+        # predates the first completed-source date in this month.
+        result.update(
+            completed_visit_totals.canonical_month_to_date(conn, month)
+        )
     return result
 
 
-def _reapply_completed_after_restore(conn, updated_by, updated_at):
-    """Keep backup imports from reviving stale daily primary/repeat.
+def _preserved_completed_records(conn, confirmed):
+    """Keep existing live records on authoritative dates across old restores.
 
-    Update exactly two completed-count fields on stored management dates;
-    leave money, cash, plans, paid-patient evidence and unknown periods intact.
+    Values are copied from actual stored records; no patient PII, cash or
+    services are reconstructed from guessed completed-visit values.
     """
-    confirmed = _canonical_completed_months(conn)
     if not confirmed:
-        return 0
-    changed = 0
+        return {}
+    preserved = {}
     for row in conn.execute(
         "SELECT date,payload FROM report_data ORDER BY date"
     ).fetchall():
@@ -158,24 +154,93 @@ def _reapply_completed_after_restore(conn, updated_by, updated_at):
         if day not in confirmed:
             continue
         try:
-            original = json.loads(row["payload"])
+            record = json.loads(row["payload"])
         except (TypeError, ValueError):
             continue
-        if not isinstance(original, dict):
+        if isinstance(record, dict):
+            preserved[day] = record
+    return preserved
+
+
+def _reapply_completed_after_restore(
+    conn, updated_by, updated_at, *,
+    confirmed_before=None, preserved_records=None
+):
+    """Restore every confirmed completed MTD date, not just backup dates.
+
+    The source-backed series includes historical pre-source MTD baselines.
+    Before destructive backup replacement, the caller captures that series
+    and any later live report records. An outdated backup must not remove
+    today's verified completed visits.
+
+    Existing backup rows: update only primary/repeat.
+    Missing backup rows with live evidence: preserve exact live nonclinical
+    fields and overlay primary/repeat.
+    Missing backup AND live rows: add completed-only counters, with NO
+    invented cash, paid, service, plan or doctor amounts.
+    """
+    confirmed = _canonical_completed_months(conn)
+    if confirmed_before:
+        # Live verified evidence precedes and survives the replacement.
+        confirmed.update(confirmed_before)
+    if not confirmed:
+        return 0
+
+    existing = {}
+    for row in conn.execute(
+        "SELECT date,payload FROM report_data ORDER BY date"
+    ).fetchall():
+        try:
+            record = json.loads(row["payload"])
+        except (TypeError, ValueError):
             continue
-        corrected = completed_visit_totals.overlay_counts(
-            original, day, confirmed
-        )
-        if corrected == original:
-            continue
-        conn.execute(
-            "UPDATE report_data SET payload=?,updated_by=?,updated_at=? "
-            "WHERE date=?",
-            (
-                json.dumps(corrected, ensure_ascii=False, separators=(",", ":")),
-                updated_by, updated_at, day,
-            ),
-        )
+        if isinstance(record, dict):
+            existing[str(row["date"])] = record
+
+    previous = preserved_records or {}
+    changed = 0
+    for day in sorted(confirmed):
+        original = existing.get(day)
+        if original is not None:
+            corrected = completed_visit_totals.overlay_counts(
+                original, day, confirmed
+            )
+            if corrected == original:
+                continue
+            conn.execute(
+                "UPDATE report_data SET payload=?,updated_by=?,updated_at=? "
+                "WHERE date=?",
+                (
+                    json.dumps(corrected, ensure_ascii=False,
+                               separators=(",", ":")),
+                    updated_by, updated_at, day,
+                ),
+            )
+        else:
+            if day in previous:
+                record = dict(previous[day])
+            else:
+                # This record has only a documented completed-visit layer.
+                # Financial projections must not infer any cash from it.
+                record = {
+                    "date": day,
+                    "_source": "verified_completed_visits_restore",
+                    "_aggregation": "month_to_date",
+                    "_completed_only": True,
+                }
+            corrected = completed_visit_totals.overlay_counts(
+                record, day, confirmed
+            )
+            conn.execute(
+                "INSERT INTO report_data(date,payload,updated_by,updated_at) "
+                "VALUES(?,?,?,?)",
+                (
+                    day,
+                    json.dumps(corrected, ensure_ascii=False,
+                               separators=(",", ":")),
+                    updated_by, updated_at,
+                ),
+            )
         changed += 1
     return changed
 
@@ -1288,7 +1353,7 @@ def register_report_storage(app):
         _require_api_csrf()
         if not DATE_RE.fullmatch(date or ""):
             abort(400)
-        if date in completed_visit_totals.month_to_date(db(), date[:7]):
+        if date in _canonical_completed_months(db()):
             # Deleting an independent report snapshot cannot erase a verified
             # completed visit. Removing the completed source has its own
             # guarded replacement workflow.
