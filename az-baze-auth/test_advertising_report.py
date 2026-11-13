@@ -3076,6 +3076,163 @@ class AdvertisingReportTests(unittest.TestCase):
         finally:
             c.close()
 
+    def test_az202_01_single_contractor_and_derived_global_reject_second_truth(self):
+        # Reproduce the independent audit blocker: legacy global 1039 versus
+        # factual Yandex 100 + one contractor 20 + another source ad 30.
+        c=conn()
+        old_db=m.db
+        old_ensure=m._ensure_schema
+        old_request=m.request
+        try:
+            c.execute(
+                "CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT,updated_by INTEGER,updated_at TEXT)"
+            )
+            normalized=m._normalize_package({
+                "schema_version":m.SCHEMA_VERSION,
+                "generated_at":"2026-11-09T00:00:00+07:00",
+                "timezone":"Asia/Novosibirsk",
+                "currency":"RUB",
+                "vat_mode":"DIRECT_INCLUDE_VAT_YES",
+                "attribution_model":"YANDEX_DIRECT_AGGREGATE_CONVERSIONS",
+                "datasets":{"direct":{
+                    "period_start":"2026-11-08",
+                    "period_end":"2026-11-08",
+                    "rows":[{
+                        "date":"2026-11-08","source_key":"yandex_ads",
+                        "source_name":"Яндекс-реклама","channel_name":"Платная реклама",
+                        "campaign_id":"777","campaign_name":"Кампания Direct",
+                        "spend":100,"clicks":10,"conversions":2
+                    }]
+                }}
+            })
+            m._apply_import(c,normalized,1)
+            key=m._campaign_cost_key("yandex_ads","777","Кампания Direct")
+            period=lambda a,contractor,total:{
+                "from":"2026-11-08","to":"2026-11-08",
+                "advertising_payment":a,
+                "contractors_payment":contractor,
+                "total_spend":total,
+            }
+            legacy={
+                "version":2,
+                "sources":{
+                    "yandex_ads":{
+                        "name":"Яндекс-реклама","channel_name":"Платная реклама","manual":False
+                    },
+                    "other_paid":{
+                        "name":"Другой платный источник","channel_name":"Платная реклама","manual":True
+                    },
+                },
+                "campaigns":{
+                    key:{
+                        "source_key":"yandex_ads","campaign_id":"777",
+                        "campaign_name":"Кампания Direct",
+                    }
+                },
+                "periods":{
+                    "global":[period(999,40,1039)],
+                    "sources":{
+                        "yandex_ads":[period(100,20,120)],
+                        "other_paid":[period(30,7,37)],
+                    },
+                    "campaigns":{
+                        key:[period(80,10,90)],
+                    },
+                },
+            }
+            original=json.dumps(legacy,ensure_ascii=False,separators=(",",":"))
+            c.execute(
+                "INSERT INTO report_blobs VALUES(?,?,?,?)",
+                (m.ADVERTISING_COSTS_KEY,original,1,"t"),
+            )
+            c.commit()
+
+            start=end=date(2026,11,8)
+            report=m._summary(c,start,end)
+            self.assertEqual(report["spend"],150)
+            self.assertEqual(report["advertising_payment"],130)
+            self.assertEqual(report["contractors_payment"],20)
+            economics=m._source_economics(c,start,end)
+            self.assertEqual(economics["sources"]["yandex_ads"]["total_spend"],120)
+            self.assertEqual(economics["sources"]["other_paid"]["total_spend"],30)
+            self.assertIsNone(economics["sources"]["other_paid"]["contractors_payment"])
+            self.assertEqual(economics["campaigns"][key]["total_spend"],100)
+            self.assertIsNone(economics["campaigns"][key]["contractors_payment"])
+            self.assertEqual(economics["source_reconciliation_delta"],0)
+            hierarchy=m._cost_hierarchy_payload(c,start,end)
+            self.assertIsNone(hierarchy["global"]["exact"]["contractors_payment"])
+            self.assertEqual(hierarchy["global"]["effective"]["total_spend"],150)
+            other=next(row for row in hierarchy["sources"] if row["source_key"]=="other_paid")
+            self.assertIsNone(other["exact"]["contractors_payment"])
+            self.assertEqual(other["exact"]["total_spend"],30)
+            self.assertEqual(
+                c.execute(
+                    "SELECT payload FROM report_blobs WHERE key=?",
+                    (m.ADVERTISING_COSTS_KEY,),
+                ).fetchone()[0],original,
+            )
+
+            class FakeApp:
+                def __init__(self): self.routes={}
+                def get(self,path): return self._route("GET",path)
+                def post(self,path): return self._route("POST",path)
+                def _route(self,method,path):
+                    def decorator(fn):
+                        self.routes[(method,path)]=fn
+                        return fn
+                    return decorator
+            app=FakeApp()
+            m.db=lambda:c
+            m._ensure_schema=lambda path=m.DB_PATH:None
+            m.register_advertising_report(app)
+
+            def submit(level,key,ad,contractor,total):
+                m.request=types.SimpleNamespace(
+                    args={},
+                    form={
+                        "entity_type":level,
+                        "entity_key":key,
+                        "source_name":"Яндекс-реклама" if key=="yandex_ads" else "Другой платный источник",
+                        "channel_name":"Платная реклама",
+                        "from":"2026-11-08",
+                        "to":"2026-11-08",
+                        "advertising_payment":ad,
+                        "contractors_payment":contractor,
+                        "total_spend":total,
+                    },
+                    get_json=lambda silent=True:{},
+                )
+                return app.routes[("POST","/api/reports/advertising/costs")]()
+
+            self.assertEqual(submit("global","", "999","40","1039")[1],403)
+            self.assertEqual(submit("source","other_paid","30","7","37")[1],403)
+            self.assertEqual(submit("campaign",key,"80","10","90")[1],403)
+            self.assertEqual(
+                c.execute(
+                    "SELECT payload FROM report_blobs WHERE key=?",
+                    (m.ADVERTISING_COSTS_KEY,),
+                ).fetchone()[0],original,
+            )
+            self.assertEqual(submit("source","yandex_ads","100","30","130")["status"],"ok")
+            self.assertEqual(submit("source","other_paid","40","","40")["status"],"ok")
+            after=m._summary(c,start,end)
+            self.assertEqual(after["spend"],170)
+            self.assertEqual(after["advertising_payment"],140)
+            self.assertEqual(after["contractors_payment"],30)
+            stored=m._load_cost_store(c)
+            self.assertEqual(stored["periods"]["global"][0]["total_spend"],1039)
+            self.assertEqual(
+                stored["periods"]["sources"]["other_paid"][0]["contractors_payment"],None
+            )
+            self.assertEqual(
+                stored["periods"]["sources"]["yandex_ads"][0]["contractors_payment"],30
+            )
+        finally:
+            m.db=old_db
+            m._ensure_schema=old_ensure
+            m.request=old_request
+            c.close()
+
     def test_campaign_cost_key_is_stable_when_factual_id_name_changes(self):
         a=m._campaign_cost_key("yandex_ads","777","Старое название")
         b=m._campaign_cost_key("yandex_ads","777","Новое название")
