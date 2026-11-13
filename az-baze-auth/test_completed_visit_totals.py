@@ -195,6 +195,45 @@ class CompletedMonthToDateContract(unittest.TestCase):
         finally:
             c.close()
 
+    def test_september_confirmed_mtd_baseline_is_not_lost(self):
+        # Historical correction: 06 Sep has approved 1/7 MTD, but only
+        # 07 Sep onward is represented in daily_uploads. Never overwrite
+        # 06 Sep's approved baseline with 07 Sep's isolated delta.
+        c = conn()
+        try:
+            baseline = {
+                "date": "2026-09-06",
+                "primary": 1, "repeat": 7,
+                "cashTotal": 100000,
+                "factMedicine": 150000,
+            }
+            c.execute("INSERT INTO report_data VALUES(?,?,?,?)",(
+                "2026-09-06", json.dumps(baseline, ensure_ascii=False),
+                1, "OLD",
+            ))
+            insert_day(c, "2026-09-07", primary=1, repeat=2)
+            series = completed.month_to_date(c, "2026-09")
+            self.assertEqual(series["2026-09-07"], (1, 2))
+            self.assertTrue(completed.has_pre_source_legacy_counts(
+                c, "2026-09", "2026-09-07"
+            ))
+            self.assertFalse(
+                any(date.startswith("2026-09")
+                    for date in storage._canonical_completed_months(c))
+            )
+            with unittest.mock.patch.object(upload, "db", return_value=c):
+                records = upload._rebuild_management(
+                    "2026-09", "isolated historical regeneration"
+                )
+            self.assertEqual(records["2026-09-07"]["primary"], 2)
+            self.assertEqual(records["2026-09-07"]["repeat"], 9)
+            self.assertEqual(records["2026-09-07"]["factMedicine"], 150000)
+            self.assertEqual(
+                storage._reapply_completed_after_restore(c, 2, "NEW"), 0
+            )
+        finally:
+            c.close()
+
     def test_unconfirmed_dates_are_not_filled_with_estimates(self):
         c = conn()
         try:
