@@ -1179,20 +1179,12 @@ def register_report_storage(app):
         # stale daily snapshots from manual saves, legacy uploads or backups.
         # This is READ-ONLY: no repair write on a GET request.
         confirmed = _canonical_completed_months(db())
-        for day, totals in confirmed.items():
-            if day in data:
-                data[day] = completed_visit_totals.overlay_counts(
-                    data[day], day, confirmed
-                )
-            else:
-                # A completed-only day still deserves a clinical snapshot,
-                # without inventing any revenue, plan, cash or doctor detail.
-                record = completed_visit_totals.overlay_counts(
-                    {"date": day}, day, confirmed
-                )
-                if day[:7] in monthly_plans:
-                    record["plan"] = monthly_plans[day[:7]]
-                data[day] = record
+        for day in sorted(set(data).intersection(confirmed)):
+            # Do not add virtual report_data records: management's monthly
+            # financial comparison must keep its actual stored snapshot date.
+            data[day] = completed_visit_totals.overlay_counts(
+                data[day], day, confirmed
+            )
         return jsonify(
             data=data,
             doctorPaidSnapshots=_management_doctor_paid_snapshots(db()),
