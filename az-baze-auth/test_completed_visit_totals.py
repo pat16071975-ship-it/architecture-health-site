@@ -255,6 +255,19 @@ class CompletedMonthToDateContract(unittest.TestCase):
         # own suite; this test checks the completed-count business contract.
         c = conn()
         try:
+            insert_day(c, "2026-09-07", primary=1, repeat=2)
+            c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
+                "2026-09-06",
+                json.dumps({"date":"2026-09-06","primary":1,
+                            "repeat":7,"cashTotal":100000}),
+                1, "BASELINE",
+            ))
+            c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
+                "2026-09-07",
+                json.dumps({"date":"2026-09-07","primary":1,
+                            "repeat":2,"cashTotal":7000}),
+                1, "STALE",
+            ))
             insert_day(c, "2026-11-03", primary=40, repeat=167)
             insert_day(c, "2026-11-12", primary=2, repeat=22)
             stale = {
@@ -311,6 +324,13 @@ class CompletedMonthToDateContract(unittest.TestCase):
                     data = response.get_json()["data"]["2026-11-12"]
                     self.assertEqual((data["primary"], data["repeat"]), (42, 189))
                     self.assertEqual(data["cashTotal"], 3583126)
+                    # Historical pre-source 1/7 + completed day 1/2 = 2/9,
+                    # including the real GET path (not just pure helper).
+                    september = response.get_json()["data"]["2026-09-07"]
+                    self.assertEqual(
+                        (september["primary"], september["repeat"]), (2, 9)
+                    )
+                    self.assertEqual(september["cashTotal"], 7000)
                     # Read correction never writes the live source or record.
                     stored = json.loads(c.execute(
                         "SELECT payload FROM report_data WHERE date='2026-11-12'"
@@ -336,6 +356,20 @@ class CompletedMonthToDateContract(unittest.TestCase):
                     "SELECT payload FROM report_data WHERE date='2026-11-12'"
                 ).fetchone()["payload"])
                 self.assertEqual((stored["primary"], stored["repeat"]), (42, 189))
+                with app.test_request_context(
+                    "/api/reports/data/2026-09-07",
+                    method="PUT",
+                    json={"primary":1, "repeat":2, "cashTotal":7000},
+                ):
+                    g.user = {"id":1}
+                    response = raw(fake.routes[
+                        ("PUT", "/api/reports/data/<date>")
+                    ])("2026-09-07")
+                    september = response.get_json()["record"]
+                    self.assertEqual(
+                        (september["primary"], september["repeat"]), (2,9)
+                    )
+                    self.assertEqual(september["cashTotal"], 7000)
         finally:
             c.close()
 
