@@ -219,10 +219,9 @@ class CompletedMonthToDateContract(unittest.TestCase):
             self.assertTrue(completed.has_pre_source_legacy_counts(
                 c, "2026-09", "2026-09-07"
             ))
-            self.assertFalse(
-                any(date.startswith("2026-09")
-                    for date in storage._canonical_completed_months(c))
-            )
+            projection = storage._canonical_completed_months(c)
+            self.assertEqual(projection["2026-09-06"], (1, 7))
+            self.assertEqual(projection["2026-09-07"], (2, 9))
             with patch.object(upload, "db", return_value=c):
                 records = upload._rebuild_management(
                     "2026-09", "isolated historical regeneration"
@@ -230,9 +229,23 @@ class CompletedMonthToDateContract(unittest.TestCase):
             self.assertEqual(records["2026-09-07"]["primary"], 2)
             self.assertEqual(records["2026-09-07"]["repeat"], 9)
             self.assertEqual(records["2026-09-07"]["factMedicine"], 150000)
+            # A stale manual value on 07 September must be corrected, not
+            # skipped just because the source starts after a legacy baseline.
+            c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
+                "2026-09-07",
+                json.dumps({"date":"2026-09-07", "primary":1, "repeat":2,
+                            "cashTotal":7000, "plan":20000}),
+                1, "OLD",
+            ))
             self.assertEqual(
-                storage._reapply_completed_after_restore(c, 2, "NEW"), 0
+                storage._reapply_completed_after_restore(c, 2, "NEW"), 1
             )
+            repaired=json.loads(c.execute(
+                "SELECT payload FROM report_data WHERE date='2026-09-07'"
+            ).fetchone()["payload"])
+            self.assertEqual((repaired["primary"], repaired["repeat"]), (2, 9))
+            self.assertEqual(repaired["cashTotal"], 7000)
+            self.assertEqual(repaired["plan"], 20000)
         finally:
             c.close()
 
@@ -351,7 +364,7 @@ class CompletedMonthToDateContract(unittest.TestCase):
             src.count("_reapply_completed_after_restore(conn, g.user"),
             2,
         )
-        self.assertIn("if date in completed_visit_totals.month_to_date(", src)
+        self.assertIn("if date in _canonical_completed_months(db()):", src)
 
 
 if __name__ == "__main__":
