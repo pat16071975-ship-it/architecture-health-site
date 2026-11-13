@@ -94,24 +94,24 @@ def month_to_date(conn, month):
     return confirmed
 
 
-def has_pre_source_legacy_counts(conn, month, first_completed_day):
-    """Protect a historical MTD baseline older than available daily sources.
+def legacy_pre_source_baseline(conn, month, first_completed_day):
+    """Latest actual stored MTD snapshot strictly before first source day.
 
-    Example: September 6 baseline and only September 7+ daily uploads.
-    The source-only sum MUST NOT replace that already-approved baseline.
-    Return only a boolean; do not seed unknown visits from a snapshot.
+    Historical migration can begin mid-month: retain the existing prior
+    completed count, add verified newer completed daily deltas. This is
+    never allowed to use a same-day stale report_data row as evidence.
     """
     if not first_completed_day or first_completed_day[:7] != month:
-        return False
+        return None
     try:
         rows = conn.execute(
-            "SELECT payload FROM report_data WHERE substr(date,1,7)=? "
+            "SELECT date,payload FROM report_data WHERE substr(date,1,7)=? "
             "AND date<? ORDER BY date DESC",
             (month, first_completed_day),
         ).fetchall()
     except sqlite3.OperationalError as exc:
         if "no such table" in str(exc).lower():
-            return False
+            return None
         raise
     for row in rows:
         try:
@@ -123,8 +123,46 @@ def has_pre_source_legacy_counts(conn, month, first_completed_day):
         primary = _count(payload.get("primary"))
         repeat = _count(payload.get("repeat"))
         if primary is not None and repeat is not None and (primary or repeat):
-            return True
-    return False
+            return (str(row["date"]), (primary, repeat))
+    return None
+
+
+def has_pre_source_legacy_counts(conn, month, first_completed_day):
+    """Compatibility: identify a historical confirmed pre-source baseline."""
+    return legacy_pre_source_baseline(conn, month, first_completed_day) is not None
+
+
+def canonical_month_to_date(conn, month, *, baseline=None):
+    """Verified completed daily sums plus an older confirmed MTD baseline.
+
+    A legacy snapshot is acceptable only strictly before the first source
+    date. Source-day report_data records never determine canonical counts.
+    On backup restore, pass the already verified pre-restore baseline so it
+    cannot be erased by the backup's replace-all operation.
+    """
+    sourced = month_to_date(conn, month)
+    if not sourced:
+        return {}
+    if baseline is None:
+        baseline = legacy_pre_source_baseline(conn, month, next(iter(sourced)))
+    if baseline is None:
+        return sourced
+    baseline_day, totals = baseline
+    if (
+        not DATE.fullmatch(str(baseline_day))
+        or str(baseline_day)[:7] != month
+        or str(baseline_day) >= next(iter(sourced))
+        or not isinstance(totals, (tuple, list))
+        or len(totals) != 2
+    ):
+        raise ValueError("invalid historical pre-source baseline")
+    p, r = (_count(totals[0]), _count(totals[1]))
+    if p is None or r is None:
+        raise ValueError("invalid historical pre-source counters")
+    result = {str(baseline_day): (p, r)}
+    for day, (source_p, source_r) in sourced.items():
+        result[day] = (p + source_p, r + source_r)
+    return result
 
 
 def overlay_counts(record, date_key, monthly):
