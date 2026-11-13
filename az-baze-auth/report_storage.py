@@ -130,7 +130,14 @@ def _canonical_completed_months(conn):
         return {}
     result = {}
     for month in months:
-        result.update(completed_visit_totals.month_to_date(conn, month))
+        verified = completed_visit_totals.month_to_date(conn, month)
+        if verified and completed_visit_totals.has_pre_source_legacy_counts(
+            conn, month, next(iter(verified))
+        ):
+            # An approved earlier-month MTD baseline cannot be replaced
+            # by an incomplete later-only daily-upload source.
+            continue
+        result.update(verified)
     return result
 
 
