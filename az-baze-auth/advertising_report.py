@@ -3433,9 +3433,19 @@ def _cost_hierarchy_payload(conn, start, end):
     for meta in campaign_registry:
         key = meta["campaign_key"]
         econ = campaign_economics.get(key) or {}
+        values = _cost_values_payload(store, "campaign", key, start, end)
+        if meta["source_key"] != "yandex_ads":
+            # Legacy contractor values remain stored for audit only.
+            values["exact"]["contractors_payment"] = None
+            values["exact"]["total_spend"] = (
+                values["exact"]["advertising_payment"]
+                if not values["exact"]["legacy_partial"] else None
+            )
+            values["summary"]["contractors_payment"] = None
+            values["summary"]["total_spend"] = econ.get("total_spend")
         row = {
             **meta,
-            **_cost_values_payload(store, "campaign", key, start, end),
+            **values,
             "effective": {
                 "advertising_payment": econ.get("advertising_payment"),
                 "contractors_payment": econ.get("contractors_payment"),
@@ -3451,9 +3461,18 @@ def _cost_hierarchy_payload(conn, start, end):
         key = meta["source_key"]
         econ = (economics.get("sources") or {}).get(key) or {}
         children = campaigns_by_source.get(key, [])
+        values = _cost_values_payload(store, "source", key, start, end)
+        if key != "yandex_ads":
+            values["exact"]["contractors_payment"] = None
+            values["exact"]["total_spend"] = (
+                values["exact"]["advertising_payment"]
+                if not values["exact"]["legacy_partial"] else None
+            )
+            values["summary"]["contractors_payment"] = None
+            values["summary"]["total_spend"] = econ.get("total_spend")
         sources.append({
             **meta,
-            **_cost_values_payload(store, "source", key, start, end),
+            **values,
             "effective": {
                 "advertising_payment": econ.get("advertising_payment"),
                 "contractors_payment": econ.get("contractors_payment"),
@@ -3477,11 +3496,29 @@ def _cost_hierarchy_payload(conn, start, end):
             "campaigns": children,
         })
 
-    global_values = _cost_values_payload(store, "global", "", start, end)
+    # The old global record is retained unmodified in report_blobs for
+    # historical traceability. It is not returned as an editable source.
+    # The live global values are exactly the reconciled sum of source rows.
     budget = economics.get("budget") or {}
+    global_values = {
+        "period": {"from": _iso(start), "to": _iso(end)},
+        "exact": {
+            "advertising_payment": budget.get("advertising_payment"),
+            "contractors_payment": None,
+            "total_spend": budget.get("total_spend"),
+            "legacy_partial": False,
+        },
+        "summary": {
+            "complete": bool(budget.get("complete")),
+            "advertising_payment": budget.get("advertising_payment"),
+            "contractors_payment": None,
+            "total_spend": budget.get("total_spend"),
+            "legacy_partial": False,
+        },
+    }
     global_effective = {
         "advertising_payment": budget.get("advertising_payment") if budget.get("complete") else None,
-        "contractors_payment": budget.get("contractors_payment") if budget.get("complete") else None,
+        "contractors_payment": None,
         "total_spend": budget.get("total_spend") if budget.get("complete") else None,
         "spend_provenance": "manual" if budget.get("complete") else None,
         "period_complete": bool(budget.get("complete")),
@@ -3630,13 +3667,43 @@ def register_advertising_report(app):
                 raise ValueError("invalid advertising cost level")
             if start > end or (end - start).days > 730:
                 raise ValueError("invalid period")
-            period = _cost_period_triplet({
-                "from": _iso(start),
-                "to": _iso(end),
-                "advertising_payment": request.form.get("advertising_payment"),
-                "contractors_payment": request.form.get("contractors_payment"),
-                "total_spend": request.form.get("total_spend"),
-            })
+            # Only source:yandex_ads can accept the single contractor.
+            # Global is always computed, never independently editable.
+            if level == "global":
+                return jsonify(
+                    status="error",
+                    message="Общий расход рассчитывается из источников автоматически.",
+                ), 403
+            submitted_contractor = request.form.get("contractors_payment")
+            is_yandex_source = (level == "source" and entity_key == "yandex_ads")
+            if not is_yandex_source and str(submitted_contractor or "").strip():
+                return jsonify(
+                    status="error",
+                    message="Подрядчик вводится только в строке «Яндекс-реклама».",
+                ), 403
+            if is_yandex_source:
+                contractor = _cost_number(submitted_contractor)
+                if contractor is None:
+                    return jsonify(
+                        status="error",
+                        message="Укажите общего подрядчика (0, если расходов нет).",
+                    ), 400
+                # Actual advertising expense is verified against Direct below.
+                period = {
+                    "from": _iso(start),
+                    "to": _iso(end),
+                    "advertising_payment": None,
+                    "contractors_payment": contractor,
+                    "total_spend": None,
+                }
+            else:
+                period = _cost_period_triplet({
+                    "from": _iso(start),
+                    "to": _iso(end),
+                    "advertising_payment": request.form.get("advertising_payment"),
+                    "contractors_payment": None,
+                    "total_spend": request.form.get("total_spend"),
+                })
         except (ValueError, TypeError):
             return jsonify(
                 status="error",
@@ -3658,10 +3725,7 @@ def register_advertising_report(app):
             for item in _campaign_registry(conn, store)
         }
 
-        if level == "global":
-            entity_key = ""
-
-        elif level == "source":
+        if level == "source":
             source_name = str(request.form.get("source_name") or "").strip()
             channel_name = str(request.form.get("channel_name") or "").strip()
             if not entity_key:
@@ -3697,6 +3761,19 @@ def register_advertising_report(app):
                 period["total_spend"] = round(
                     period["advertising_payment"] + period["contractors_payment"], 2
                 )
+                # A forged/stale readonly value must not be silently accepted.
+                sent_ad = _cost_number(request.form.get("advertising_payment"))
+                sent_total = _cost_number(request.form.get("total_spend"))
+                if (
+                    (sent_ad is not None
+                     and abs(sent_ad - period["advertising_payment"]) > 0.01)
+                    or (sent_total is not None
+                        and abs(sent_total - period["total_spend"]) > 0.01)
+                ):
+                    return jsonify(
+                        status="error",
+                        message="Статистика Директа обновилась. Перезагрузите строку расходов.",
+                    ), 409
             store["sources"][entity_key] = {
                 "name": meta["source_name"],
                 "channel_name": meta["channel_name"],
