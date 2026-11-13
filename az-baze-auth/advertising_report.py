@@ -3608,6 +3608,168 @@ def _metrika_sync_has_changes(completed_updated, current_result):
     return bool(completed_updated or current_result.get("updated"))
 
 
+def run_metrika_direct_sync(conn, token, actor_user_id):
+    """One code path for the manual button and a future hourly systemd job.
+
+    Both sources are prepared before BEGIN IMMEDIATE. Failure does not
+    commit either dataset. The same nonblocking lock prevents overlap.
+    No scheduler is installed or activated by this module.
+    """
+    if not token:
+        raise ValueError("Не подключён серверный OAuth-токен Яндекса.")
+    with metrika_auto.MetrikaSyncLock():
+        sync_started = datetime.now(ZoneInfo(DEFAULT_TIMEZONE))
+        current_day = metrika_auto.current_local_day(sync_started)
+        # Prepare both external sources BEFORE the shared DB transaction.
+        # Failed Direct API fetch must not commit a partial Metrika refresh.
+        direct_start = _direct_refresh_start(conn, current_day)
+        direct_rows, direct_meta = direct_auto.fetch_daily_campaigns(
+            token, direct_start, current_day
+        )
+        direct_package = _normalize_package({
+            "schema_version": SCHEMA_VERSION,
+            # Deterministic provenance for identical API rows, so repeated
+            # clicks with unchanged Direct data reuse the same import.
+            "generated_at": current_day.isoformat() + "T00:00:00+07:00",
+            "timezone": DEFAULT_TIMEZONE,
+            "currency": "RUB",
+            "vat_mode": "DIRECT_INCLUDE_VAT_YES",
+            "attribution_model": "YANDEX_DIRECT_AGGREGATE_CONVERSIONS",
+            "datasets": {
+                "direct": {
+                    "period_start": direct_start.isoformat(),
+                    "period_end": current_day.isoformat(),
+                    "rows": direct_rows,
+                }
+            },
+        })
+        completed_targets = metrika_auto.completed_sync_days(conn, sync_started)
+
+        client = metrika_auto.MetrikaClient(token)
+        campaign_evidence = _campaign_evidence_map(conn)
+        prepared_completed = []
+        for day in completed_targets:
+            core_raw, core_filename = client.fetch_day_archive(
+                day,
+                completed=True,
+                diagnostics=False,
+            )
+            core_parsed = _parse_metrika_zip(
+                core_raw,
+                core_filename,
+                now=sync_started,
+                campaign_evidence=campaign_evidence,
+            )
+            campaign_evidence = _merge_campaign_evidence_maps(
+                campaign_evidence,
+                _campaign_evidence_map_from_rows(core_parsed.get("campaign_evidence")),
+            )
+            if core_parsed["completed_days"] != [day.isoformat()] or core_parsed.get("provisional_days"):
+                raise ValueError("API Метрики вернул неожиданный завершённый период.")
+
+            full_parsed = None
+            if not _completed_metrika_matches_registered(conn, core_parsed):
+                full_raw, full_filename = client.fetch_day_archive(
+                    day,
+                    completed=True,
+                    diagnostics=True,
+                )
+                full_parsed = _parse_metrika_zip(
+                    full_raw,
+                    full_filename,
+                    now=sync_started,
+                    campaign_evidence=campaign_evidence,
+                )
+                campaign_evidence = _merge_campaign_evidence_maps(
+                    campaign_evidence,
+                    _campaign_evidence_map_from_rows(full_parsed.get("campaign_evidence")),
+                )
+                if (
+                    full_parsed["completed_days"] != [day.isoformat()]
+                    or full_parsed.get("provisional_days")
+                    or full_parsed["traffic_rows"] != core_parsed["traffic_rows"]
+                    or full_parsed["goal_rows"] != core_parsed["goal_rows"]
+                ):
+                    raise ValueError("Полная и контрольная выгрузки Метрики не совпали.")
+            prepared_completed.append((core_parsed, full_parsed))
+
+        current_raw, current_filename = client.fetch_day_archive(
+            current_day,
+            completed=False,
+            diagnostics=False,
+        )
+        current_parsed = _parse_metrika_zip(
+            current_raw,
+            current_filename,
+            allow_provisional=True,
+            now=sync_started,
+            campaign_evidence=campaign_evidence,
+        )
+        if (
+            current_parsed.get("completed_days")
+            or current_parsed.get("provisional_days") != [current_day.isoformat()]
+        ):
+            raise ValueError("API Метрики вернул неожиданный текущий период.")
+
+        # The API fetch happens outside the DB write transaction.  A
+        # non-blocking process lock prevents parallel refresh jobs.
+        # Re-check the day after the network phase so a midnight
+        # rollover cannot store yesterday as a provisional snapshot.
+        if metrika_auto.current_local_day() != current_day:
+            raise ValueError("Во время обновления сменились календарные сутки. Нажмите кнопку ещё раз.")
+
+        conn.execute("BEGIN IMMEDIATE")
+        still_targets = {
+            day.isoformat()
+            for day in metrika_auto.completed_sync_days(conn, sync_started)
+        }
+        completed_updated = []
+        completed_unchanged = []
+        for core_parsed, full_parsed in prepared_completed:
+            parsed_day = str((core_parsed.get("completed_days") or [""])[0])
+            if parsed_day not in still_targets:
+                continue
+            if _completed_metrika_matches_registered(conn, core_parsed):
+                completed_unchanged.append(parsed_day)
+                continue
+            if full_parsed is None:
+                raise ValueError("Не подготовлен полный архив изменившегося завершённого дня.")
+            _store_metrika(conn, full_parsed, actor_user_id)
+            completed_updated.append(parsed_day)
+
+        current_result = _store_metrika_provisional(
+            conn,
+            current_parsed,
+            actor_user_id,
+        )
+        direct_result = _apply_import(conn, direct_package, actor_user_id)
+        conn.commit()
+
+    return {
+        "changed": _metrika_sync_has_changes(completed_updated, current_result)
+                   or not direct_result["reused"],
+        "audit_details": (
+            "completed_updated=" + ",".join(completed_updated)
+            + "; completed_unchanged=" + ",".join(completed_unchanged)
+            + "; current_day=" + current_day.isoformat()
+            + "; current_updated=" + ("1" if current_result["updated"] else "0")
+            + "; direct_period=" + direct_start.isoformat() + ".." + current_day.isoformat()
+            + "; direct_rows=" + str(direct_meta["rows"])
+        ),
+        "payload": {
+            "direct_period": {"from": direct_start.isoformat(), "to": current_day.isoformat()},
+            "direct_rows": direct_meta["rows"],
+            "direct_campaigns": direct_meta["campaigns"],
+            "direct_reused": direct_result["reused"],
+            "completed_days": completed_updated,
+            "checked_completed_days": completed_unchanged,
+            "current_day": current_day.isoformat(),
+            "current_updated": bool(current_result["updated"]),
+            "current_reused": bool(current_result["reused"]),
+        },
+    }
+
+
 def register_advertising_report(app):
     _ensure_schema()
 
@@ -3845,136 +4007,9 @@ def register_advertising_report(app):
                 status="error",
                 message="Яндекс Метрика ещё не подключена к серверу.",
             ), 400
-
         conn = db()
         try:
-            with metrika_auto.MetrikaSyncLock():
-                sync_started = datetime.now(ZoneInfo(DEFAULT_TIMEZONE))
-                current_day = metrika_auto.current_local_day(sync_started)
-                # Prepare both external sources BEFORE the shared DB transaction.
-                # Failed Direct API fetch must not commit a partial Metrika refresh.
-                direct_start = _direct_refresh_start(conn, current_day)
-                direct_rows, direct_meta = direct_auto.fetch_daily_campaigns(
-                    token, direct_start, current_day
-                )
-                direct_package = _normalize_package({
-                    "schema_version": SCHEMA_VERSION,
-                    # Deterministic provenance for identical API rows, so repeated
-                    # clicks with unchanged Direct data reuse the same import.
-                    "generated_at": current_day.isoformat() + "T00:00:00+07:00",
-                    "timezone": DEFAULT_TIMEZONE,
-                    "currency": "RUB",
-                    "vat_mode": "DIRECT_INCLUDE_VAT_YES",
-                    "attribution_model": "YANDEX_DIRECT_AGGREGATE_CONVERSIONS",
-                    "datasets": {
-                        "direct": {
-                            "period_start": direct_start.isoformat(),
-                            "period_end": current_day.isoformat(),
-                            "rows": direct_rows,
-                        }
-                    },
-                })
-                completed_targets = metrika_auto.completed_sync_days(conn, sync_started)
-
-                client = metrika_auto.MetrikaClient(token)
-                campaign_evidence = _campaign_evidence_map(conn)
-                prepared_completed = []
-                for day in completed_targets:
-                    core_raw, core_filename = client.fetch_day_archive(
-                        day,
-                        completed=True,
-                        diagnostics=False,
-                    )
-                    core_parsed = _parse_metrika_zip(
-                        core_raw,
-                        core_filename,
-                        now=sync_started,
-                        campaign_evidence=campaign_evidence,
-                    )
-                    campaign_evidence = _merge_campaign_evidence_maps(
-                        campaign_evidence,
-                        _campaign_evidence_map_from_rows(core_parsed.get("campaign_evidence")),
-                    )
-                    if core_parsed["completed_days"] != [day.isoformat()] or core_parsed.get("provisional_days"):
-                        raise ValueError("API Метрики вернул неожиданный завершённый период.")
-
-                    full_parsed = None
-                    if not _completed_metrika_matches_registered(conn, core_parsed):
-                        full_raw, full_filename = client.fetch_day_archive(
-                            day,
-                            completed=True,
-                            diagnostics=True,
-                        )
-                        full_parsed = _parse_metrika_zip(
-                            full_raw,
-                            full_filename,
-                            now=sync_started,
-                            campaign_evidence=campaign_evidence,
-                        )
-                        campaign_evidence = _merge_campaign_evidence_maps(
-                            campaign_evidence,
-                            _campaign_evidence_map_from_rows(full_parsed.get("campaign_evidence")),
-                        )
-                        if (
-                            full_parsed["completed_days"] != [day.isoformat()]
-                            or full_parsed.get("provisional_days")
-                            or full_parsed["traffic_rows"] != core_parsed["traffic_rows"]
-                            or full_parsed["goal_rows"] != core_parsed["goal_rows"]
-                        ):
-                            raise ValueError("Полная и контрольная выгрузки Метрики не совпали.")
-                    prepared_completed.append((core_parsed, full_parsed))
-
-                current_raw, current_filename = client.fetch_day_archive(
-                    current_day,
-                    completed=False,
-                    diagnostics=False,
-                )
-                current_parsed = _parse_metrika_zip(
-                    current_raw,
-                    current_filename,
-                    allow_provisional=True,
-                    now=sync_started,
-                    campaign_evidence=campaign_evidence,
-                )
-                if (
-                    current_parsed.get("completed_days")
-                    or current_parsed.get("provisional_days") != [current_day.isoformat()]
-                ):
-                    raise ValueError("API Метрики вернул неожиданный текущий период.")
-
-                # The API fetch happens outside the DB write transaction.  A
-                # non-blocking process lock prevents parallel refresh jobs.
-                # Re-check the day after the network phase so a midnight
-                # rollover cannot store yesterday as a provisional snapshot.
-                if metrika_auto.current_local_day() != current_day:
-                    raise ValueError("Во время обновления сменились календарные сутки. Нажмите кнопку ещё раз.")
-
-                conn.execute("BEGIN IMMEDIATE")
-                still_targets = {
-                    day.isoformat()
-                    for day in metrika_auto.completed_sync_days(conn, sync_started)
-                }
-                completed_updated = []
-                completed_unchanged = []
-                for core_parsed, full_parsed in prepared_completed:
-                    parsed_day = str((core_parsed.get("completed_days") or [""])[0])
-                    if parsed_day not in still_targets:
-                        continue
-                    if _completed_metrika_matches_registered(conn, core_parsed):
-                        completed_unchanged.append(parsed_day)
-                        continue
-                    if full_parsed is None:
-                        raise ValueError("Не подготовлен полный архив изменившегося завершённого дня.")
-                    _store_metrika(conn, full_parsed, g.user["id"])
-                    completed_updated.append(parsed_day)
-
-                current_result = _store_metrika_provisional(
-                    conn,
-                    current_parsed,
-                    g.user["id"],
-                )
-                direct_result = _apply_import(conn, direct_package, g.user["id"])
-                conn.commit()
+            result = run_metrika_direct_sync(conn, token, g.user["id"])
         except metrika_auto.MetrikaBusyError as exc:
             return jsonify(status="busy", message=str(exc)), 409
         except (metrika_auto.MetrikaApiError, ValueError, OSError, sqlite3.DatabaseError) as exc:
@@ -3986,32 +4021,16 @@ def register_advertising_report(app):
                 status="error",
                 message=str(exc) or "Не удалось получить данные Яндекс Метрики.",
             ), 400
-
-        if _metrika_sync_has_changes(completed_updated, current_result) or not direct_result["reused"]:
+        if result["changed"]:
             audit(
                 "advertising_metrika_direct_auto_sync",
                 target_user_id=g.user["id"],
-                details=(
-                    "completed_updated=" + ",".join(completed_updated)
-                    + "; completed_unchanged=" + ",".join(completed_unchanged)
-                    + "; current_day=" + current_day.isoformat()
-                    + "; current_updated=" + ("1" if current_result["updated"] else "0")
-                    + "; direct_period=" + direct_start.isoformat() + ".." + current_day.isoformat()
-                    + "; direct_rows=" + str(direct_meta["rows"])
-                ),
+                details=result["audit_details"],
             )
         return jsonify(
             status="ok",
             message="Данные Яндекс Метрики и Директа обновлены.",
-            direct_period={"from": direct_start.isoformat(), "to": current_day.isoformat()},
-            direct_rows=direct_meta["rows"],
-            direct_campaigns=direct_meta["campaigns"],
-            direct_reused=direct_result["reused"],
-            completed_days=completed_updated,
-            checked_completed_days=completed_unchanged,
-            current_day=current_day.isoformat(),
-            current_updated=bool(current_result["updated"]),
-            current_reused=bool(current_result["reused"]),
+            **result["payload"],
         )
 
     @app.post("/api/reports/advertising/metrika/import")
