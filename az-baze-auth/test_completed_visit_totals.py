@@ -339,6 +339,143 @@ class CompletedMonthToDateContract(unittest.TestCase):
         finally:
             c.close()
 
+    def test_old_backup_cannot_erase_nov_13_confirmed_44_211(self):
+        c = conn()
+        try:
+            insert_day(c, "2026-11-03", primary=40, repeat=167)
+            insert_day(c, "2026-11-12", primary=2, repeat=22)
+            insert_day(c, "2026-11-13", primary=2, repeat=22)
+            live_12 = {"date":"2026-11-12", "primary":2, "repeat":22,
+                       "cashTotal":3500000, "paidPatients":149}
+            live_13 = {"date":"2026-11-13", "primary":2, "repeat":22,
+                       "cashTotal":3583126, "clinicDocs":{"Doctor":17000}}
+            for day, payload in (("2026-11-12", live_12),
+                                 ("2026-11-13", live_13)):
+                c.execute("INSERT INTO report_data VALUES(?,?,?,?)",
+                          (day, json.dumps(payload), 1, "LIVE"))
+            c.commit()
+            # The live source and newer clinical/finance snapshots must
+            # survive restoring an old backup containing only 12 November.
+            before = storage._canonical_completed_months(c)
+            records = storage._preserved_completed_records(c, before)
+            self.assertEqual(before["2026-11-12"], (42, 189))
+            self.assertEqual(before["2026-11-13"], (44, 211))
+            with c:
+                c.execute("DELETE FROM report_data")
+                c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
+                    "2026-11-12",
+                    json.dumps({"date":"2026-11-12",
+                                "primary":2,"repeat":22,
+                                "cashTotal":3500000}),
+                    1, "BACKUP"))
+                changes = storage._reapply_completed_after_restore(
+                    c, 2, "RESTORED",
+                    confirmed_before=before, preserved_records=records,
+                )
+            self.assertGreaterEqual(changes, 2)
+            dates = [row["date"] for row in c.execute(
+                "SELECT date FROM report_data ORDER BY date"
+            ).fetchall()]
+            self.assertIn("2026-11-12", dates)
+            self.assertIn("2026-11-13", dates)
+            reloaded = {
+                row["date"]: json.loads(row["payload"])
+                for row in c.execute("SELECT date,payload FROM report_data")
+            }
+            self.assertEqual(
+                (reloaded["2026-11-12"]["primary"],
+                 reloaded["2026-11-12"]["repeat"]), (42, 189)
+            )
+            self.assertEqual(
+                (reloaded["2026-11-13"]["primary"],
+                 reloaded["2026-11-13"]["repeat"]), (44, 211)
+            )
+            self.assertEqual(reloaded["2026-11-12"]["cashTotal"], 3500000)
+            self.assertEqual(reloaded["2026-11-13"]["cashTotal"], 3583126)
+            self.assertEqual(
+                reloaded["2026-11-13"]["clinicDocs"], {"Doctor":17000}
+            )
+        finally:
+            c.close()
+
+    def test_missing_backup_and_live_date_creates_only_completed_facts(self):
+        c = conn()
+        try:
+            insert_day(c, "2026-11-12", primary=42, repeat=189)
+            insert_day(c, "2026-11-13", primary=2, repeat=22)
+            current = {"date":"2026-11-12", "primary":42,
+                       "repeat":189, "cashTotal":3500000}
+            c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
+                "2026-11-12", json.dumps(current), 1, "LIVE",
+            ))
+            before = storage._canonical_completed_months(c)
+            old_records = storage._preserved_completed_records(c, before)
+            with c:
+                c.execute("DELETE FROM report_data")
+                c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
+                    "2026-11-12", json.dumps(current), 1, "BACKUP",
+                ))
+                storage._reapply_completed_after_restore(
+                    c, 2, "RESTORED",
+                    confirmed_before=before, preserved_records=old_records,
+                )
+            future = json.loads(c.execute(
+                "SELECT payload FROM report_data WHERE date='2026-11-13'"
+            ).fetchone()["payload"])
+            self.assertEqual((future["primary"], future["repeat"]),
+                             (44, 211))
+            self.assertEqual(future["_completed_only"], True)
+            for field in (
+                "cashTotal", "cashOOO", "cashIP", "factMedicine",
+                "factLab", "paidPatients", "plan", "dentists", "clinicDocs",
+            ):
+                self.assertNotIn(field, future)
+            self.assertEqual(future["_source"],
+                             "verified_completed_visits_restore")
+        finally:
+            c.close()
+
+    def test_historical_legacy_baseline_survives_replace_all_backup(self):
+        c = conn()
+        try:
+            baseline = {"date":"2026-09-06", "primary":1,"repeat":7,
+                        "cashTotal":100000}
+            insert_day(c, "2026-09-07", primary=1, repeat=2)
+            c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
+                "2026-09-06", json.dumps(baseline), 1, "LIVE",
+            ))
+            before = storage._canonical_completed_months(c)
+            previous = storage._preserved_completed_records(c, before)
+            with c:
+                c.execute("DELETE FROM report_data")
+                c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
+                    "2026-09-07",
+                    json.dumps({"date":"2026-09-07",
+                                "primary":1,"repeat":2,
+                                "cashTotal":7000}),
+                    1, "BACKUP",
+                ))
+                storage._reapply_completed_after_restore(
+                    c, 2, "RESTORED",
+                    confirmed_before=before, preserved_records=previous,
+                )
+            values = {
+                row["date"]: json.loads(row["payload"])
+                for row in c.execute("SELECT date,payload FROM report_data")
+            }
+            self.assertEqual((values["2026-09-06"]["primary"],
+                              values["2026-09-06"]["repeat"]), (1, 7))
+            self.assertEqual((values["2026-09-07"]["primary"],
+                              values["2026-09-07"]["repeat"]), (2, 9))
+            self.assertEqual(values["2026-09-06"]["cashTotal"],100000)
+            self.assertEqual(values["2026-09-07"]["cashTotal"],7000)
+            self.assertEqual(
+                storage._canonical_completed_months(c)["2026-09-07"],
+                (2,9),
+            )
+        finally:
+            c.close()
+
     def test_unconfirmed_dates_are_not_filled_with_estimates(self):
         c = conn()
         try:
