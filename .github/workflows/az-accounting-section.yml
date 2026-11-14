@@ -6,6 +6,7 @@ on:
       - 'az-baze-auth/section_navigation.py'
       - 'az-baze-auth/test_section_navigation.py'
       - 'az-baze-auth/templates/accounting.html'
+      - 'az-baze-auth/templates/accounting_menu.html'
       - 'az-baze-auth/test_accounting_section.py'
       - '.github/workflows/az-accounting-section.yml'
 jobs:
