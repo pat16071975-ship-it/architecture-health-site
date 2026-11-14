@@ -2,6 +2,7 @@ import os
 import re
 import secrets
 import sqlite3
+import medical_supplies
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
@@ -29,6 +30,7 @@ SECTIONS = [
     ("reports", "Отчёты"),
     ("knowledge", "База знаний"),
     ("accounting", "УЧЕТ"),
+    ("medical_supplies_edit", "Медрасходка — редактирование (нужен доступ УЧЕТ)"),
     ("section3", "Раздел 3"),
     ("section4", "Раздел 4"),
     ("section5", "Раздел 5"),
@@ -600,6 +602,7 @@ def create_app():
             login_url=request.url_root.rstrip("/") + url_for("login"),
         )
 
+    medical_supplies.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
     return app
 
 
@@ -618,6 +621,7 @@ def init_db_file(path=None):
     target.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(target)
     conn.executescript(SCHEMA)
+    medical_supplies.init_schema(conn)
     conn.commit()
     conn.close()
 
