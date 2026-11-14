@@ -109,7 +109,7 @@ class ServicesUploadTests(unittest.TestCase):
         doctors = services_upload.daily_upload._doctor_attribution(visits, items)
         self.assertEqual(dict(doctors), {})
 
-    def test_compare_services_treats_month_as_authoritative(self):
+    def test_compare_services_replaces_only_incoming_interval(self):
         existing = {
             "2026-01-05": {"has_services": True, "services_hash": "same"},
             "2026-01-06": {"has_services": True, "services_hash": "old"},
@@ -128,6 +128,41 @@ class ServicesUploadTests(unittest.TestCase):
         self.assertEqual(compared["conflict"], ["2026-01-06"])
         self.assertEqual(compared["new"], ["2026-01-08"])
         self.assertEqual(compared["removed"], ["2026-01-07"])
+
+    def test_november_12_upload_preserves_days_1_through_11_and_later_days(self):
+        existing = {f"2026-11-{day:02}": {
+            "has_services": True, "services_hash": "old"
+        } for day in range(1, 15)}
+        for incoming_hash in ("old", "changed"):
+            compared = services_upload.compare_services(existing, {
+                "days": {"2026-11-12": {"services_hash": incoming_hash}}
+            })
+            self.assertEqual(compared["removed"], [])
+            self.assertEqual(compared["conflict"],
+                             ["2026-11-12"] if incoming_hash == "changed" else [])
+        del existing["2026-11-12"]
+        compared = services_upload.compare_services(existing, {
+            "days": {"2026-11-12": {"services_hash": "new"}}
+        })
+        self.assertEqual(compared["new"], ["2026-11-12"])
+        self.assertEqual(compared["removed"], [])
+
+    def test_partial_interval_keeps_both_sides_but_detects_internal_removal(self):
+        existing = {f"2026-11-{day:02}": {
+            "has_services": True, "services_hash": "same"
+        } for day in range(1, 15)}
+        compared = services_upload.compare_services(existing, {"days": {
+            "2026-11-05": {"services_hash": "same"},
+            "2026-11-07": {"services_hash": "same"}
+        }})
+        self.assertEqual(compared["removed"], ["2026-11-06"])
+        self.assertEqual(compared["identical"], ["2026-11-05", "2026-11-07"])
+
+    def test_empty_incoming_cannot_remove_existing_services(self):
+        compared = services_upload.compare_services({
+            "2026-11-01": {"has_services": True, "services_hash": "old"}
+        }, {"days": {}})
+        self.assertEqual(compared, {"new": [], "identical": [], "conflict": [], "removed": []})
 
     def test_empty_service_data_initializes_after_migration(self):
         data = services_upload._empty_service_data(2026)
