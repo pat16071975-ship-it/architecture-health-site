@@ -1,0 +1,1184 @@
+{
+  "sources": {
+    "assets/portraits-20261114-v1/zubachev-1.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 1.jpg",
+      "source_sha256": "f3d27d621226dedfaffe3913f3d1e8f4c809adfe9cec22fb810551fcc73c1df5",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 21104
+    },
+    "assets/portraits-20261114-v1/zubachev-2.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 2.jpg",
+      "source_sha256": "5fd9c8b0c0a35da47ba1b71ed033422f67c73bfd429bfb3e0a4657f9b3a4520a",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 20972
+    },
+    "assets/portraits-20261114-v1/zubachev-3.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 3.jpg",
+      "source_sha256": "b7e2b0c4a43b1a14eb766e5e3e0163bd39427d353a76e81708c9fa1367da1837",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 21970
+    },
+    "assets/portraits-20261114-v1/zubachev-4.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 4.jpg",
+      "source_sha256": "fd10b2549a49831893ad8a9c4ccf263e0a1c06a8b3cd66be5bf3b3391b000b0a",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 33874
+    },
+    "assets/portraits-20261114-v1/zubachev-5.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 5.jpg",
+      "source_sha256": "cbf86c9cf6bc50a88457174f1d8260662dc42aaca0a5ec1e6501475cc705b001",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 55052
+    },
+    "assets/portraits-20261114-v1/zubachev-6.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 6.jpg",
+      "source_sha256": "15416fc6ebb30c99178b8d1cb49f9d1c5709b15aae21e7d0c5d90746b95e0366",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 33292
+    },
+    "assets/portraits-20261114-v1/zubachev-7.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 7.jpg",
+      "source_sha256": "366065c2d1b124de6cf6e54d29785bbdefa7927e8553cf4351d526c62dc6a5f3",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 43190
+    },
+    "assets/portraits-20261114-v1/zubachev-8.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 8.jpg",
+      "source_sha256": "b13b852f16afbb0ade79c909049fe584ce0197f84bcace3098306e4c6efe4677",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 61952
+    },
+    "assets/portraits-20261114-v1/zubachev-9.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 9.jpg",
+      "source_sha256": "4aefedab607da6db13e63b463139c6d43d5042425cb7ea16af7f224e83025889",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 27140
+    },
+    "assets/portraits-20261114-v1/zubachev-10.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 10.jpg",
+      "source_sha256": "ac4f9258f88a5c7185dbb0ee64ae24a8acead869239f29dec67c8fd46a0ed606",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 30012
+    },
+    "assets/portraits-20261114-v1/zubachev-11.webp": {
+      "name": "Зубачев Роман Николаевич",
+      "source": "зубачев 11.jpg",
+      "source_sha256": "32cefa0c4a1f8dd91b40d3211391489a4014e2c65df7e33d0bff913525ce32a7",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 25584
+    },
+    "assets/portraits-20261114-v1/chirkov-1.webp": {
+      "name": "Чирков Максим Сергеевич",
+      "source": "чирков 1.jpg",
+      "source_sha256": "200a732bdeac81c8f8934d189db4ff34b77c2c10e656c665608595ed3992a636",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 21224
+    },
+    "assets/portraits-20261114-v1/chirkov-2.webp": {
+      "name": "Чирков Максим Сергеевич",
+      "source": "чирков 2.jpg",
+      "source_sha256": "cc0758544b883de6448202e86df26fd02308a17ef7804aaa3aa792189bc3b4de",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 35586
+    },
+    "assets/portraits-20261114-v1/chirkov-3.webp": {
+      "name": "Чирков Максим Сергеевич",
+      "source": "чирков 3.jpg",
+      "source_sha256": "2b0c25a6beb1cb29e73522b585ea626ee55ce0e1ac6fd51b13ebb5d1f5881aec",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 45402
+    },
+    "assets/portraits-20261114-v1/chirkov-4.webp": {
+      "name": "Чирков Максим Сергеевич",
+      "source": "чирков 4.jpg",
+      "source_sha256": "227932ea459144227c59bf1df26c6f4509aae3467d61cda8d847952bce9491b7",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 32334
+    },
+    "assets/portraits-20261114-v1/chirkov-5.webp": {
+      "name": "Чирков Максим Сергеевич",
+      "source": "чирков 5.jpg",
+      "source_sha256": "6fb987fde2c692c19e526ae9b5abe41b260687d222774950d5c2776316eba49f",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 39582
+    },
+    "assets/portraits-20261114-v1/starostenko-1.webp": {
+      "name": "Старостенко Вадим Анатольевич",
+      "source": "старостенко 1.jpg",
+      "source_sha256": "784c0e6e498df6e9af562f0bc64877676a8901fb0373fe88116ca67b8ac2839c",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 21882
+    },
+    "assets/portraits-20261114-v1/starostenko-2.webp": {
+      "name": "Старостенко Вадим Анатольевич",
+      "source": "старостенко 2.jpg",
+      "source_sha256": "ffdf97a0223ed64e97f089e7a8805ef82c65620d248fa50214fa5cbcce2fcfaf",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 32694
+    },
+    "assets/portraits-20261114-v1/dimitrenko-1.webp": {
+      "name": "Димитренко Анна Яковлевна",
+      "source": "Димитренко 1.jpg",
+      "source_sha256": "65d5b63e40a2702daed4db1ed5249260bdefec3bd1fb1e015f49b256e8690de3",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 22002
+    },
+    "assets/portraits-20261114-v1/dimitrenko-2.webp": {
+      "name": "Димитренко Анна Яковлевна",
+      "source": "димитренко 2.jpg",
+      "source_sha256": "7b42cf79f42e249fb590afc7abd98dbc0646118ca8c3de96327882b9bfdc87b3",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 23636
+    },
+    "assets/portraits-20261114-v1/filatova-1.webp": {
+      "name": "Филатова Анна Дмитриевна",
+      "source": "Филатова 1.jpg",
+      "source_sha256": "e6a40ddc3434f7d7400908551d37d714984006577f75f334dd4a5108dcc6ee01",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 24388
+    },
+    "assets/portraits-20261114-v1/filatova-2.webp": {
+      "name": "Филатова Анна Дмитриевна",
+      "source": "филатова 2.jpg",
+      "source_sha256": "673c6ad5d74a907605a36fc13bba0e73426cdfa32cd028b8ae305dce31b18ead",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 30232
+    },
+    "assets/portraits-20261114-v1/filatova-3.webp": {
+      "name": "Филатова Анна Дмитриевна",
+      "source": "филатова 3.jpg",
+      "source_sha256": "5314567448249a43f2a0b1b878aafeb100042b2678801c9264b22562ce691f3e",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 46232
+    },
+    "assets/portraits-20261114-v1/filatova-4.webp": {
+      "name": "Филатова Анна Дмитриевна",
+      "source": "филатова 4.jpg",
+      "source_sha256": "8a4a7f3fb427ea83ab5660bd4adefd6152b4a349c7cede51cdab8e601e5fb002",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 27922
+    },
+    "assets/portraits-20261114-v1/filatova-5.webp": {
+      "name": "Филатова Анна Дмитриевна",
+      "source": "филатова 5.jpg",
+      "source_sha256": "24c6b47b7d149444ec52a1d2aceb31c75895f454d63fcdcad33bb42db65c27ca",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 32048
+    },
+    "assets/portraits-20261114-v1/nazyrov-1.webp": {
+      "name": "Назыров Уктамжон Жумавоевич",
+      "source": "назыров 1.jpg",
+      "source_sha256": "e73deb54b7494aca7a157425be26eae440d50eb09b8b428ef4a2dd4a5180dac8",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 27998
+    },
+    "assets/portraits-20261114-v1/nazyrov-2.webp": {
+      "name": "Назыров Уктамжон Жумавоевич",
+      "source": "назыров 2.jpg",
+      "source_sha256": "1a2af42b2caba309b4892ca5c959dec0564c3497932309afdbc05c04efd947f4",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 20114
+    },
+    "assets/portraits-20261114-v1/nazyrov-3.webp": {
+      "name": "Назыров Уктамжон Жумавоевич",
+      "source": "назыров 3.jpg",
+      "source_sha256": "5ef8e18656248dd293df0a21c819a08e7f1974a401affbec74d5467c8a9a785b",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 57696
+    },
+    "assets/portraits-20261114-v1/besedina-1.webp": {
+      "name": "Беседина Мария Юрьевна",
+      "source": "беседина 1.jpg",
+      "source_sha256": "7916459fd213e4fcf23a8c3ba05f82ed66842427d4dcafcca16ea6be47561460",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 26536
+    },
+    "assets/portraits-20261114-v1/besedina-2.webp": {
+      "name": "Беседина Мария Юрьевна",
+      "source": "Беседина 2.jpg",
+      "source_sha256": "2f9463487ba2443cb05853ce469abc5155131bebdd4c857b9199ef555b4b99f4",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 23276
+    },
+    "assets/portraits-20261114-v1/lyubaeva-1.webp": {
+      "name": "Любаева Алена Юрьевна",
+      "source": "Любаева 1.jpg",
+      "source_sha256": "88f195776240643ad644fbf09ff2c558f4f401d74a9d37bc9ee882e20d8aa472",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 31646
+    },
+    "assets/portraits-20261114-v1/pavlova-1.webp": {
+      "name": "Павлова Алла Викторовна",
+      "source": "Павлова 1.jpg",
+      "source_sha256": "a934320950b184482b111d0b34076a995825e49ddc33e6601bfccfcb9bb32fe8",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 31836
+    },
+    "assets/portraits-20261114-v1/lapina-1.webp": {
+      "name": "Лапина Наталья Сергеевна",
+      "source": "Лапина 1.jpg",
+      "source_sha256": "1550b115b3e375b0c9334359969576cff470bfbe6866dcb3ab6331962d3c8f39",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 23174
+    },
+    "assets/portraits-20261114-v1/holodtseva-1.webp": {
+      "name": "Холодцева Валерия Евгеньевна",
+      "source": "холодцева.jpg",
+      "source_sha256": "020ee5bf8633a57dfebbb0322f399f7df204c8370a0e9460f08d5cd88f660409",
+      "size": [
+        640,
+        960
+      ],
+      "bytes": 23532
+    }
+  },
+  "changes": [
+    {
+      "path": "chto-my-lechim/astma-hobl/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/ateroskleroz/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/b12-anemiya/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/bol-v-shee/index.html",
+      "portraits": [
+        {
+          "name": "Старостенко Вадим Анатольевич",
+          "old_src": "/assets/az-loading-20261021/image-7ae63880b5b0-w320-17595b9700b460f3.webp",
+          "new_src": "/assets/portraits-20261114-v1/starostenko-1.webp"
+        },
+        {
+          "name": "Димитренко Анна Яковлевна",
+          "old_src": "/assets/az-loading-20261021/image-2c18e3c29233-w320-ab558c810f1d61ef.webp",
+          "new_src": "/assets/portraits-20261114-v1/dimitrenko-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/bol-v-spine/index.html",
+      "portraits": [
+        {
+          "name": "Старостенко Вадим Анатольевич",
+          "old_src": "/assets/az-loading-20261021/image-7ae63880b5b0-w320-17595b9700b460f3.webp",
+          "new_src": "/assets/portraits-20261114-v1/starostenko-1.webp"
+        },
+        {
+          "name": "Димитренко Анна Яковлевна",
+          "old_src": "/assets/az-loading-20261021/image-2c18e3c29233-w320-ab558c810f1d61ef.webp",
+          "new_src": "/assets/portraits-20261114-v1/dimitrenko-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/bruksizm/index.html",
+      "portraits": [
+        {
+          "name": "Зубачев Роман Николаевич",
+          "old_src": "/assets/az-loading-20261021/image-099881fc7306-w320-fee6d345dfe06d20.webp",
+          "new_src": "/assets/portraits-20261114-v1/zubachev-1.webp"
+        },
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/3a60cb3c8dfbe494834c.jpg",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        },
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/560ccf811a455b6ce7b0.jpeg",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/cistit/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/diskomfort-mocheispuskanie/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/gastrit/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/gerb-izzhoga/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/golovnye-boli/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/holesterin/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/hrap-apnoe/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        },
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/3a60cb3c8dfbe494834c.jpg",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        },
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/560ccf811a455b6ce7b0.jpeg",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/hronicheskiy-pankreatit/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/ibs/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/infantilnoe-glotanie/index.html",
+      "portraits": [
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/az-loading-20261021/image-c89fc154c4e7-w320-109bb6093b8b3f9e.webp",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        },
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/az-loading-20261021/image-c9983b4a8577-w320-ced3da174bed8b08.webp",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        },
+        {
+          "name": "Филатова Анна Дмитриевна",
+          "old_src": "/assets/filatova-20261021/portrait-approved-20261021.png",
+          "new_src": "/assets/portraits-20261114-v1/filatova-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/insulinorezistentnost-prediabet/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/izbytochny-ves/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/karies/index.html",
+      "portraits": [
+        {
+          "name": "Чирков Максим Сергеевич",
+          "old_src": "/assets/az-loading-20261021/image-724c33aa843e-w320-91e9496703fec3f2.webp",
+          "new_src": "/assets/portraits-20261114-v1/chirkov-1.webp"
+        },
+        {
+          "name": "Беседина Мария Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-4cfc043399dd-w320-7c8442d0ecc2de87.webp",
+          "new_src": "/assets/portraits-20261114-v1/besedina-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/kashel-bronhit/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/menopauza/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/metabolicheskiy-sindrom/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/narusheniya-osanki/index.html",
+      "portraits": [
+        {
+          "name": "Старостенко Вадим Анатольевич",
+          "old_src": "/assets/az-loading-20261021/image-7ae63880b5b0-w320-17595b9700b460f3.webp",
+          "new_src": "/assets/portraits-20261114-v1/starostenko-1.webp"
+        },
+        {
+          "name": "Димитренко Анна Яковлевна",
+          "old_src": "/assets/az-loading-20261021/image-2c18e3c29233-w320-ab558c810f1d61ef.webp",
+          "new_src": "/assets/portraits-20261114-v1/dimitrenko-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/narusheniya-sna/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/pechen-zhelchny-puzyr/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/pielonefrit/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/pishchevye-privychki/index.html",
+      "portraits": [
+        {
+          "name": "Павлова Алла Викторовна",
+          "old_src": "/assets/az-loading-20261021/image-56ba7242aed4-w320-dcd49c7226096d09.webp",
+          "new_src": "/assets/portraits-20261114-v1/pavlova-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/pitanie-beremennost/index.html",
+      "portraits": [
+        {
+          "name": "Павлова Алла Викторовна",
+          "old_src": "/assets/az-loading-20261021/image-56ba7242aed4-w320-dcd49c7226096d09.webp",
+          "new_src": "/assets/portraits-20261114-v1/pavlova-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/pitanie-pri-zabolevaniyah/index.html",
+      "portraits": [
+        {
+          "name": "Павлова Алла Викторовна",
+          "old_src": "/assets/az-loading-20261021/image-56ba7242aed4-w320-dcd49c7226096d09.webp",
+          "new_src": "/assets/portraits-20261114-v1/pavlova-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/podvizhnost-sustavov/index.html",
+      "portraits": [
+        {
+          "name": "Старостенко Вадим Анатольевич",
+          "old_src": "/assets/az-loading-20261021/image-7ae63880b5b0-w320-17595b9700b460f3.webp",
+          "new_src": "/assets/portraits-20261114-v1/starostenko-1.webp"
+        },
+        {
+          "name": "Димитренко Анна Яковлевна",
+          "old_src": "/assets/az-loading-20261021/image-2c18e3c29233-w320-ab558c810f1d61ef.webp",
+          "new_src": "/assets/portraits-20261114-v1/dimitrenko-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/posle-travm/index.html",
+      "portraits": [
+        {
+          "name": "Старостенко Вадим Анатольевич",
+          "old_src": "/assets/az-loading-20261021/image-7ae63880b5b0-w320-17595b9700b460f3.webp",
+          "new_src": "/assets/portraits-20261114-v1/starostenko-1.webp"
+        },
+        {
+          "name": "Димитренко Анна Яковлевна",
+          "old_src": "/assets/az-loading-20261021/image-2c18e3c29233-w320-ab558c810f1d61ef.webp",
+          "new_src": "/assets/portraits-20261114-v1/dimitrenko-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/povyshennoe-davlenie/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/prikus/index.html",
+      "portraits": [
+        {
+          "name": "Филатова Анна Дмитриевна",
+          "old_src": "/assets/filatova-20261021/portrait-approved-20261021.png",
+          "new_src": "/assets/portraits-20261114-v1/filatova-1.webp"
+        },
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/3a60cb3c8dfbe494834c.jpg",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        },
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/560ccf811a455b6ce7b0.jpeg",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/protezirovanie-zubov/index.html",
+      "portraits": [
+        {
+          "name": "Назыров Уктамжон Жумавоевич",
+          "old_src": "/assets/0fd3ece32e04d7c2aa5c.png",
+          "new_src": "/assets/portraits-20261114-v1/nazyrov-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/shchitovidnaya-zheleza/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/spina-posle-rodov/index.html",
+      "portraits": [
+        {
+          "name": "Старостенко Вадим Анатольевич",
+          "old_src": "/assets/az-loading-20261021/image-7ae63880b5b0-w320-17595b9700b460f3.webp",
+          "new_src": "/assets/portraits-20261114-v1/starostenko-1.webp"
+        },
+        {
+          "name": "Димитренко Анна Яковлевна",
+          "old_src": "/assets/az-loading-20261021/image-2c18e3c29233-w320-ab558c810f1d61ef.webp",
+          "new_src": "/assets/portraits-20261114-v1/dimitrenko-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/stress-pereutomlenie/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/ustalost/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/vitamin-d/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/vnchs/index.html",
+      "portraits": [
+        {
+          "name": "Зубачев Роман Николаевич",
+          "old_src": "/assets/az-loading-20261021/image-099881fc7306-w320-fee6d345dfe06d20.webp",
+          "new_src": "/assets/portraits-20261114-v1/zubachev-1.webp"
+        },
+        {
+          "name": "Филатова Анна Дмитриевна",
+          "old_src": "/assets/filatova-20261021/portrait-approved-20261021.png",
+          "new_src": "/assets/portraits-20261114-v1/filatova-1.webp"
+        },
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/3a60cb3c8dfbe494834c.jpg",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        },
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/560ccf811a455b6ce7b0.jpeg",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/vzdutie-sibr-srk/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/zapory/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "chto-my-lechim/zhelezodeficitnaya-anemiya/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "detyam/detskij-ortodont/index.html",
+      "portraits": [
+        {
+          "name": "Филатова Анна Дмитриевна",
+          "old_src": "/assets/filatova-20261021/portrait-approved-20261021.png",
+          "new_src": "/assets/portraits-20261114-v1/filatova-1.webp"
+        },
+        {
+          "name": "Зубачев Роман Николаевич",
+          "old_src": "/assets/az-loading-20261021/image-099881fc7306-w320-fee6d345dfe06d20.webp",
+          "new_src": "/assets/portraits-20261114-v1/zubachev-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "detyam/glotanie-i-polozhenie-yazyka/index.html",
+      "portraits": [
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/az-loading-20261021/image-c89fc154c4e7-w320-109bb6093b8b3f9e.webp",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        },
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/az-loading-20261021/image-c9983b4a8577-w320-ced3da174bed8b08.webp",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        },
+        {
+          "name": "Филатова Анна Дмитриевна",
+          "old_src": "/assets/filatova-20261021/portrait-approved-20261021.png",
+          "new_src": "/assets/portraits-20261114-v1/filatova-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "detyam/karies-u-detej/index.html",
+      "portraits": [
+        {
+          "name": "Чирков Максим Сергеевич",
+          "old_src": "/assets/az-loading-20261021/image-724c33aa843e-w320-91e9496703fec3f2.webp",
+          "new_src": "/assets/portraits-20261114-v1/chirkov-1.webp"
+        },
+        {
+          "name": "Беседина Мария Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-4cfc043399dd-w320-7c8442d0ecc2de87.webp",
+          "new_src": "/assets/portraits-20261114-v1/besedina-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "detyam/korotkaya-uzdechka-yazyka/index.html",
+      "portraits": [
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/az-loading-20261021/image-c89fc154c4e7-w320-109bb6093b8b3f9e.webp",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        },
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/az-loading-20261021/image-c9983b4a8577-w320-ced3da174bed8b08.webp",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "detyam/narusheniya-osanki-u-detej/index.html",
+      "portraits": [
+        {
+          "name": "Старостенко Вадим Анатольевич",
+          "old_src": "/assets/az-loading-20261021/image-7ae63880b5b0-w320-17595b9700b460f3.webp",
+          "new_src": "/assets/portraits-20261114-v1/starostenko-1.webp"
+        },
+        {
+          "name": "Димитренко Анна Яковлевна",
+          "old_src": "/assets/az-loading-20261021/image-2c18e3c29233-w320-ab558c810f1d61ef.webp",
+          "new_src": "/assets/portraits-20261114-v1/dimitrenko-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "detyam/rebenok-dyshit-rtom/index.html",
+      "portraits": [
+        {
+          "name": "Филатова Анна Дмитриевна",
+          "old_src": "/assets/filatova-20261021/portrait-approved-20261021.png",
+          "new_src": "/assets/portraits-20261114-v1/filatova-1.webp"
+        },
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/az-loading-20261021/image-c89fc154c4e7-w320-109bb6093b8b3f9e.webp",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        },
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/az-loading-20261021/image-c9983b4a8577-w320-ced3da174bed8b08.webp",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "detyam/rebenok-skripit-zubami/index.html",
+      "portraits": [
+        {
+          "name": "Зубачев Роман Николаевич",
+          "old_src": "/assets/az-loading-20261021/image-099881fc7306-w320-fee6d345dfe06d20.webp",
+          "new_src": "/assets/portraits-20261114-v1/zubachev-1.webp"
+        },
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/az-loading-20261021/image-c89fc154c4e7-w320-109bb6093b8b3f9e.webp",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        },
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/az-loading-20261021/image-c9983b4a8577-w320-ced3da174bed8b08.webp",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "index.html",
+      "portraits": [
+        {
+          "name": "Зубачев Роман Николаевич",
+          "old_src": "/assets/az-loading-20261021/image-099881fc7306-w320-fee6d345dfe06d20.webp",
+          "new_src": "/assets/portraits-20261114-v1/zubachev-1.webp"
+        },
+        {
+          "name": "Чирков Максим Сергеевич",
+          "old_src": "/assets/az-loading-20261021/image-724c33aa843e-w320-91e9496703fec3f2.webp",
+          "new_src": "/assets/portraits-20261114-v1/chirkov-1.webp"
+        },
+        {
+          "name": "Старостенко Вадим Анатольевич",
+          "old_src": "/assets/az-loading-20261021/image-7ae63880b5b0-w320-17595b9700b460f3.webp",
+          "new_src": "/assets/portraits-20261114-v1/starostenko-1.webp"
+        },
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/az-loading-20261021/image-92900a4bfe7e-w320-41ca254439ea7285.webp",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        },
+        {
+          "name": "Павлова Алла Викторовна",
+          "old_src": "/assets/az-loading-20261021/image-56ba7242aed4-w320-dcd49c7226096d09.webp",
+          "new_src": "/assets/portraits-20261114-v1/pavlova-1.webp"
+        },
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/az-loading-20261021/image-c89fc154c4e7-w320-109bb6093b8b3f9e.webp",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/besedina-maria/index.html",
+      "portraits": [
+        {
+          "name": "Беседина Мария Юрьевна",
+          "old_src": "/assets/az-besedina-approved-20261019.png",
+          "new_src": "/assets/portraits-20261114-v1/besedina-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/chirkov-maxim/index.html",
+      "portraits": [
+        {
+          "name": "Чирков Максим Сергеевич",
+          "old_src": "/assets/17b4eef50b4cea86ffc1.png",
+          "new_src": "/assets/portraits-20261114-v1/chirkov-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/dimitrenko-anna/index.html",
+      "portraits": [
+        {
+          "name": "Димитренко Анна Яковлевна",
+          "old_src": "/assets/6d72ba3670f17d6d3e4b.png",
+          "new_src": "/assets/portraits-20261114-v1/dimitrenko-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/filatova-anna/index.html",
+      "portraits": [
+        {
+          "name": "Филатова Анна Дмитриевна",
+          "old_src": "/assets/filatova-20261021/portrait-approved-20261021.png",
+          "new_src": "/assets/portraits-20261114-v1/filatova-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/holodtseva-valeria/index.html",
+      "portraits": [
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/3a60cb3c8dfbe494834c.jpg",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/lapina-natalia/index.html",
+      "portraits": [
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/560ccf811a455b6ce7b0.jpeg",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/lubaeva-alena/index.html",
+      "portraits": [
+        {
+          "name": "Любаева Алена Юрьевна",
+          "old_src": "/assets/3d54c777a762b103bfd5.jpg",
+          "new_src": "/assets/portraits-20261114-v1/lyubaeva-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/nazirov-uktamjon/index.html",
+      "portraits": [
+        {
+          "name": "Назыров Уктамжон Жумавоевич",
+          "old_src": "/assets/0fd3ece32e04d7c2aa5c.png",
+          "new_src": "/assets/portraits-20261114-v1/nazyrov-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/pavlova-anna/index.html",
+      "portraits": [
+        {
+          "name": "Павлова Алла Викторовна",
+          "old_src": "/assets/77ed80eee9cfd83a9848.png",
+          "new_src": "/assets/portraits-20261114-v1/pavlova-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/starostenko-vadim/index.html",
+      "portraits": [
+        {
+          "name": "Старостенко Вадим Анатольевич",
+          "old_src": "/assets/3e96eb779308fcf3c5d4.png",
+          "new_src": "/assets/portraits-20261114-v1/starostenko-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "team/zubachev-roman/index.html",
+      "portraits": [
+        {
+          "name": "Зубачев Роман Николаевич",
+          "old_src": "/assets/0eac470f8d0d99e76791.png",
+          "new_src": "/assets/portraits-20261114-v1/zubachev-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "uslugi/miofunkcionalnaya-terapiya/index.html",
+      "portraits": [
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/3a60cb3c8dfbe494834c.jpg",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        },
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/560ccf811a455b6ce7b0.jpeg",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        }
+      ]
+    },
+    {
+      "path": "uslugi/orthodontics/index.html",
+      "portraits": [
+        {
+          "name": "Зубачев Роман Николаевич",
+          "old_src": "/assets/az-loading-20261021/image-099881fc7306-w320-fee6d345dfe06d20.webp",
+          "new_src": "/assets/portraits-20261114-v1/zubachev-1.webp"
+        },
+        {
+          "name": "Филатова Анна Дмитриевна",
+          "old_src": "/assets/filatova-20261021/portrait-approved-20261021.png",
+          "new_src": "/assets/portraits-20261114-v1/filatova-1.webp"
+        },
+        {
+          "name": "Холодцева Валерия Евгеньевна",
+          "old_src": "/assets/3a60cb3c8dfbe494834c.jpg",
+          "new_src": "/assets/portraits-20261114-v1/holodtseva-1.webp"
+        },
+        {
+          "name": "Лапина Наталья Сергеевна",
+          "old_src": "/assets/560ccf811a455b6ce7b0.jpeg",
+          "new_src": "/assets/portraits-20261114-v1/lapina-1.webp"
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "lyubaeva": 30,
+    "starostenko": 9,
+    "dimitrenko": 8,
+    "zubachev": 7,
+    "holodtseva": 12,
+    "lapina": 13,
+    "filatova": 8,
+    "chirkov": 4,
+    "besedina": 3,
+    "pavlova": 5,
+    "nazyrov": 2
+  }
+}
