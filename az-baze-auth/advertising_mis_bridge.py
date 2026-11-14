@@ -577,12 +577,56 @@ def _event_classification(conn, event, classification, latest_lines):
     return "unclassified"
 
 
+def _period_payment_candidates(conn, start, end):
+    """Use contained MIS intervals once, without inventing daily payment dates.
+
+    Daily/cumulative-delta evidence remains the only input to rebuild/cohorts.
+    Here whole intervals are usable because the requested total contains them.
+    Prefer the widest interval; never sum overlapping snapshots or reuploads.
+    """
+    daily = _payment_candidates(conn)
+    intervals = sorted(
+        ((str(r["period_start"]), str(r["period_end"])) for r in _fetch_ingests(conn)
+         if start <= str(r["period_start"]) < str(r["period_end"]) <= end),
+        key=lambda p: (-(date.fromisoformat(p[1]) - date.fromisoformat(p[0])).days,
+                       p[0], p[1]),
+    )
+    chosen = []
+    for a, b in intervals:
+        if not any(a <= y and b >= x for x, y in chosen):
+            chosen.append((a, b))
+    result = {day: value for day, value in daily.items()
+              if start <= day <= end and not any(a <= day <= b for a, b in chosen)}
+    for a, b in chosen:
+        lines = _snapshot_lines(conn, a, b)
+        patients = _snapshot_patients(conn, a, b)
+        events = []
+        line_totals = defaultdict(float)
+        for key, row in lines.items():
+            amount = max(0.0, round(_num(row.get("paid_amount")), 2))
+            token, staff = str(row.get("patient_token") or ""), str(row.get("staff") or "")
+            if token and staff:
+                line_totals[(token, staff)] += amount
+            events.append({"line_key": key, "patient_token": token, "staff": staff,
+                           "service_date": str(row.get("service_date") or ""),
+                           "period_start": a, "paid_delta": amount, "opening_debt": False})
+        for (token, staff), total in patients.items():
+            residual = max(0.0, round(total - line_totals[(token, staff)], 2))
+            if residual:
+                events.append({"line_key": "", "patient_token": token, "staff": staff,
+                               "service_date": "", "period_start": a,
+                               "paid_delta": residual, "opening_debt": True})
+        # The key is only a container key for interval totals, NOT a payment date.
+        result[b] = {"events": events, "period_start": a, "period_end": b}
+    return result
+
+
 def payment_breakdown(conn, start, end):
     start_s = str(start)
     end_s = str(end)
     try:
         completed = _load_completed(conn)
-        payment_candidates = _payment_candidates(conn)
+        payment_candidates = _period_payment_candidates(conn, start_s, end_s)
         latest_lines = _latest_line_facts(conn)
     except Exception:
         return {

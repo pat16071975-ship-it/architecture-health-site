@@ -49,7 +49,14 @@ function expenseExtra(s){
   const parts=[];
   if(s.advertising_payment!=null)parts.push('Оплата рекламы: <b>'+money(s.advertising_payment)+'</b>');
   if(s.contractors_payment!=null)parts.push('Подрядчики: <b>'+money(s.contractors_payment)+'</b>');
-  return parts.join('<br>')||'Расходы за выбранный период ещё не введены.'
+  if(s.known_direct_spend!=null)parts.push('Известный расход Директа: <b>'+money(s.known_direct_spend)+'</b>'+directCoverageNote());
+  if(s.spend==null)parts.push('Полный расход неизвестен: не хватает покрытия расходов или суммы подрядчика.');
+  return parts.join('<br>')
+}
+function directCoverageNote(){
+  const c=payload?.coverage?.direct;
+  if(!c||c.complete)return '';
+  return ' · Неполный период'+(c.from&&c.to?': '+h(c.from)+' — '+h(c.to):'');
 }
 function mainKpis(){
   const s=payload?.summary||{},crm=payload?.crm||{};
@@ -62,13 +69,13 @@ function mainKpis(){
       key:'clicks',label:'Клики по рекламе',
       value:s.clicks==null?'Нет данных':number(s.clicks),fmt:number,text:s.clicks==null,
       extra:s.clicks==null
-        ?'Нет данных по рекламным кликам. Появятся после подключения рекламной системы.'
-        :(s.cost_per_click!=null?'Стоимость клика: <b>'+money(s.cost_per_click)+'</b>':'Стоимость клика не считается, пока охват расходов и кликов не совпадает.')
+        ?'Нет загруженных кликов за выбранный период.'
+        :(s.cost_per_click!=null?'Стоимость клика: <b>'+money(s.cost_per_click)+'</b>':'Стоимость клика не считается, пока охват расходов и кликов не совпадает.')+directCoverageNote()
     },
     {
       key:'conversions',label:'Конверсии Директа',
       value:s.conversions==null?'Нет данных':convNumber(s.conversions),fmt:convNumber,text:s.conversions==null,
-      extra:'Конверсии по статистике Директа. Не равны CRM-лидам или состоявшимся приёмам.'
+      extra:'Конверсии по статистике Директа. Не равны CRM-лидам или состоявшимся приёмам.'+directCoverageNote()
     },
     {
       key:'visits',label:'Посещения сайта',value:number(s.visits),fmt:number,
@@ -108,6 +115,8 @@ function moneyCards(){
     (paid==null?' Подтверждённых кассовых данных за выбранный период нет.':'')+
     '</div>'+(cashParts.length?'<div class="primary-economics">'+cashParts.join('')+'</div>':'')+
     '</div></div>';
+  const pc=payload?.coverage?.classifiedPayments;
+  const paymentNote=pc&&!pc.complete?' Неполные данные об оплатах за выбранный период.':'';
   const services=s.primary_services!=null&&s.primary_paid!=null&&Math.abs(s.primary_services-s.primary_paid)>.5
     ?'Оказано услуг на '+money(s.primary_services)
     :'';
@@ -122,7 +131,7 @@ function moneyCards(){
   $('#primaryMoney').innerHTML=
     '<div class="kpi-wrap"><div class="kpi"><div class="name">Выручка первичных приёмов — фактически получено</div>'+
     '<div class="value">'+money(s.primary_paid)+'</div>'+
-    '<div class="extra">'+services+'</div>'+
+    '<div class="extra">'+services+paymentNote+(pc?.intervalTotals?' Учтены суммы за загруженные периоды целиком; разбивка оплат по дням доступна не для всех дат.':'')+'</div>'+
     '<div class="primary-economics"><span>'+avg+'</span>'+(payers?'<span>'+payers+'</span>':'')+'<span>'+adCost+'</span><span>'+roas+'</span></div>'+
     '</div>'+compareCard('primary_paid',money)+'</div>';
 
@@ -130,7 +139,8 @@ function moneyCards(){
     '<div class="name">Выручка новых пациентов за 30 дней</div>'+
     '<div class="value">'+money(s.new_patient_30d_paid)+'</div>'+
     '<div class="extra">Новых пациентов, впервые пришедших в клинику в выбранном периоде: <b>'+number(s.new_patients)+'</b><br>'+
-    'Учтены только фактически полученные от них деньги за первые 30 дней после первого визита.</div>'
+    'Учтены только фактически полученные от них деньги за первые 30 дней после первого визита.'+
+    (pc?.intervalTotals?' Сумма неполная: для части оплат неизвестна точная дата.':'')+'</div>'
 }
 function activity(){
   const a=payload?.activity||{};
@@ -153,7 +163,7 @@ function sourceName(row){return (row.source_name||row.campaign_name||row.channel
 function campaignName(row){const name=String(row.campaign_name||'').trim();if(name)return name;const id=String(row.campaign_id||'').trim();return id?'Кампания '+id:'Не определено'}
 function sourceRows(){
   return (payload?.sources||[])
-    .filter(row=>row.spend!=null||row.total_spend!=null||row.clicks!=null||row.conversions!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null)
+    .filter(row=>row.known_direct_spend!=null||row.spend!=null||row.total_spend!=null||row.clicks!=null||row.conversions!=null||row.visits!=null||row.booking_open_visits!=null||row.medflex_visits!=null)
     .sort((a,b)=>(Number(b.total_spend??b.spend)||0)-(Number(a.total_spend??a.spend)||0)||(Number(b.visits)||0)-(Number(a.visits)||0)||sourceName(a).localeCompare(sourceName(b),'ru'))
 }
 function campaignRowsForSource(sourceKey){
@@ -175,6 +185,7 @@ function spendCell(row){
   const parts=[];
   if(row.advertising_payment!=null)parts.push('реклама '+money(row.advertising_payment));
   if(row.contractors_payment!=null)parts.push('подрядчик '+money(row.contractors_payment));
+  if(row.known_direct_spend!=null&&row.advertising_payment==null)parts.push('известный расход Директа '+money(row.known_direct_spend)+'; неполный период');
   if(provenance(row))parts.push(provenance(row));
   return '<td>'+money(total)+(parts.length?'<small>'+parts.map(h).join(' · ')+'</small>':'')+'</td>'
 }
@@ -226,8 +237,10 @@ function renderCoverage(){
   const c=payload?.coverage||{};
   $('#coverage').textContent='Покрытие выбранного периода: '+[
     coveragePart('Метрика',c.metrika),
+    coveragePart('Директ',c.direct),
     coveragePart('Приёмы',c.clinic),
     coveragePart('«Оплачено» MIS',c.misPaid),
+    coveragePart('Оплаты первичных и повторных',c.classifiedPayments),
     coveragePart('Кассовые операции',c.cash,false)
   ].join(' · ')
 }

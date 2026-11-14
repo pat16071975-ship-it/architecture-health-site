@@ -1062,6 +1062,30 @@ def metrika_geoadv_search_yabs_zip():
 
 
 class AdvertisingReportTests(unittest.TestCase):
+    def test_observed_direct_survives_partial_period_without_fabricating_total_cost(self):
+        c = conn()
+        self.addCleanup(c.close)
+        c.execute("INSERT INTO advertising_traffic_daily(provider,metric_date,source_key,source_name,channel_name,campaign_id,campaign_name,spend,clicks,conversions,visits,updated_at,import_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", ("direct", "2026-11-12", "yandex_ads", "Яндекс-реклама", "Платная реклама", "1", "Campaign", 8722.62, 616, 9, None, "t", "d"))
+        c.execute("INSERT INTO advertising_report_imports VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", ("d", "direct", "2026-11-01", "2026-11-12", "t", "Asia/Novosibirsk", "RUB", "", "", "t", 1, 1))
+        before = list(c.iterdump())
+        for end, complete in [(12, True), (14, False)]:
+            start, stop = date(2026,11,1), date(2026,11,end)
+            summary = m._summary(c, start, stop)
+            self.assertEqual((summary["clicks"], summary["conversions"], summary["known_direct_spend"]), (616, 9, 8722.62))
+            self.assertIsNone(summary["spend"])
+            if complete:
+                self.assertAlmostEqual(summary["cost_per_click"], 8722.62/616)
+            else:
+                self.assertIsNone(summary["cost_per_click"])
+            coverage = m._coverage_summary(c, start, stop)["direct"]
+            self.assertEqual((coverage["complete"], coverage["days"], coverage["expectedDays"]), (complete,12,end))
+            source = next(r for r in m._group_breakdown(c,start,stop,"source") if r["source_key"]=="yandex_ads")
+            self.assertEqual((source["clicks"], source["conversions"], source["known_direct_spend"]), (616,9,8722.62))
+        self.assertEqual(list(c.iterdump()), before)
+        empty = m._summary(c,date(2026,11,13),date(2026,11,14))
+        self.assertIsNone(empty["clicks"])
+        self.assertIsNone(empty["known_direct_spend"])
+
     def test_auto_metrika_missing_days_starts_after_latest_and_stops_at_yesterday(self):
         c=conn()
         try:
@@ -1691,7 +1715,7 @@ class AdvertisingReportTests(unittest.TestCase):
         c=conn()
         try:
             seed(c); s=m._summary(c,date(2026,10,1),date(2026,10,1))
-            self.assertEqual((s["spend"],s["clicks"],s["visits"]),(None,None,80))
+            self.assertEqual((s["spend"],s["clicks"],s["visits"]),(None,100,80))
             self.assertEqual((s["target_leads"],s["leads_with_primary"],s["primary_visits"]),(20,12,15))
             self.assertEqual((s["primary_paid"],s["repeat_paid"],s["total_paid"]),(45000,30000,75000))
             self.assertEqual(s["new_patient_30d_paid"],90000)
