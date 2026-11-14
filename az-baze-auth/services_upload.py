@@ -213,9 +213,14 @@ def compare_services(existing, prepared):
             result["conflict"].append(data_date)
 
     incoming_set = set(incoming)
-    for data_date, old in existing.items():
-        if old.get("has_services") and data_date not in incoming_set:
-            result["removed"].append(data_date)
+    # A daily/partial upload replaces only its own date interval, not the
+    # entire calendar month. Absent dates outside it are separate sources.
+    if incoming_set:
+        start, end = min(incoming_set), max(incoming_set)
+        for data_date, old in existing.items():
+            if (start <= data_date <= end and old.get("has_services")
+                    and data_date not in incoming_set):
+                result["removed"].append(data_date)
 
     for key in result:
         result[key] = sorted(result[key])
