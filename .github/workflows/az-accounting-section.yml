@@ -16,4 +16,6 @@ jobs:
           python-version: '3.13'
       - run: pip install -r az-baze-auth/requirements.txt
       - working-directory: az-baze-auth
-        run: python -B -m unittest test_accounting_section test_nn_foundation
+        run: |
+          python -B -m unittest test_accounting_section
+          python -B -m unittest test_nn_foundation
