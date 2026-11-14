@@ -115,3 +115,42 @@ class AccountingCoverage(unittest.TestCase):
         self.e['payroll']['partial_period']=[]
         self.exp['period']['from']='2026-08-15'
         self.assertFalse(report_accounting.months(self.exp,self.e,{})['2026-08']['expensesComplete'])
+
+    def test_full_global_period_does_not_certify_missing_month_expenses(self):
+        cases = [None, {}, {'operating': {}}, {'operating': None},
+                 {'operating': {'Аренда': {'total': None}}},
+                 {'operating': {'Аренда': {}}},
+                 {'operating': {'Аренда': None}},
+                 {'operating': {'ФОТ': {'total': 1000}}}]
+        for month_data in cases:
+            with self.subTest(month_data=month_data):
+                expenses = deepcopy(self.exp)
+                expenses['months'] = {} if month_data is None else {'2026-08': month_data}
+                original = deepcopy(expenses)
+                row = report_accounting.months(expenses, self.e, {})['2026-08']
+                self.assertFalse(row['expensesComplete'])
+                self.assertFalse(row['complete'])
+                self.assertEqual(row['knownExpenses'], 4366395 + 476542)
+                self.assertEqual(expenses, original)
+
+    def test_unknown_source_total_cannot_be_hidden_by_accrual_overlay(self):
+        for category in ('Аренда', 'ФОТ', 'Налоги и взносы на ФОТ'):
+            for unknown in (None, '', True, 'bad', float('nan'), float('inf')):
+                with self.subTest(category=category, unknown=unknown):
+                    expenses = deepcopy(self.exp)
+                    expenses['months']['2026-08']['operating'][category]['total'] = unknown
+                    row = report_accounting.months(expenses, self.e, {})['2026-08']
+                    self.assertFalse(row['expensesComplete'])
+                    self.assertFalse(row['complete'])
+                    self.assertIsNotNone(row['knownExpenses'])
+
+    def test_explicit_zero_other_expenses_is_complete_and_months_are_independent(self):
+        self.exp['period']['to'] = '2026-10-31'
+        self.exp['months']['2026-08']['operating']['Аренда']['total'] = 0
+        self.exp['months']['2026-09'] = {'operating': {}}
+        rows = report_accounting.months(self.exp, self.e, {})
+        self.assertTrue(rows['2026-08']['complete'])
+        self.assertEqual(rows['2026-08']['knownExpenses'], 4366395 + 476542)
+        for month in ('2026-09', '2026-10'):
+            self.assertFalse(rows[month]['expensesComplete'])
+            self.assertFalse(rows[month]['complete'])

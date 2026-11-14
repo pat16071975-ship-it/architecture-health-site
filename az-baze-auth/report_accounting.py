@@ -30,8 +30,22 @@ def months(expenses, economics, management):
             continue
         year, mo = map(int, month.split("-"))
         end = f"{month}-{calendar.monthrange(year, mo)[1]:02}"
-        categories = {name: number(row.get("total"))
-                      for name, row in expenses.get("months", {}).get(month, {}).get("operating", {}).items()}
+        month_expenses = expenses.get("months", {}).get(month)
+        operating = month_expenses.get("operating") if isinstance(month_expenses, dict) else None
+        # Validate the source month BEFORE accrual overlays. A global date range
+        # or known payroll cannot establish coverage for missing other costs.
+        source_categories = {
+            name: number(row.get("total")) if isinstance(row, dict) else None
+            for name, row in (operating.items() if isinstance(operating, dict) else [])
+        }
+        month_complete = bool(
+            source_categories
+            and any(name not in ("ФОТ", "Налоги и взносы на ФОТ",
+                                 "Оборудование, мебель и обновление")
+                    for name in source_categories)
+            and all(value is not None for value in source_categories.values())
+        )
+        categories = dict(source_categories)
         fot = number(payroll.get("total_by_month", {}).get(month))
         payroll_complete = month in closed and month not in partial and fot is not None
         categories["ФОТ"] = fot if payroll_complete else None
@@ -41,7 +55,7 @@ def months(expenses, economics, management):
             if taxes:
                 categories["Налоги и взносы на ФОТ"] = sum(number(line.get("months", {}).get(month)) or 0 for line in taxes)
         period = expenses.get("period", {})
-        expenses_complete = bool(expenses.get("available") and
+        expenses_complete = bool(expenses.get("available") and month_complete and
                                  period.get("from", "9999") <= month + "-01" and
                                  period.get("to", "") >= end)
         known = [value for name, value in categories.items()
