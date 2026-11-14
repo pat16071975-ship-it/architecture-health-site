@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.accounting-nav{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:24px;font-size:13px}
+.accounting-nav a{color:var(--green);text-decoration:none}
+.accounting-nav a:hover{text-decoration:underline}
+.accounting-title{margin:0 0 24px;font-size:30px;font-weight:500;color:var(--green)}
+.accounting-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.accounting-tile{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:140px;padding:26px;border:1px solid var(--line);border-radius:12px;background:rgba(255,253,248,.95);color:var(--ink);text-decoration:none;font-size:20px;box-shadow:0 9px 24px rgba(71,58,38,.06)}
+.accounting-tile:hover,.accounting-tile:focus-visible{border-color:var(--green);color:var(--green);outline:2px solid var(--green);outline-offset:3px}
+.accounting-arrow{color:var(--gold)}
+.accounting-empty{margin:0;line-height:1.6;color:#6c746d}
+@media(max-width:720px){.accounting-grid{grid-template-columns:1fr}.accounting-tile{min-height:90px;font-size:18px}.accounting-title{font-size:26px}}
+</style>
+<nav class="accounting-nav" aria-label="Навигация по разделу">
+  <a href="/">На главную</a>
+  {% if section_title %}<span aria-hidden="true">/</span><a href="{{ url_for('accounting_index') }}">УЧЕТ</a>{% endif %}
+</nav>
+<h2 class="accounting-title">{{ section_title or 'УЧЕТ' }}</h2>
+{% if section_title %}
+<div class="card"><p class="accounting-empty">Данные пока не добавлены.</p></div>
+{% else %}
+<div class="accounting-grid">
+{% for key, label in sections.items() %}
+  <a class="accounting-tile" href="{{ url_for('accounting_section', section=key) }}"><span>{{ label }}</span><span class="accounting-arrow" aria-hidden="true">→</span></a>
+{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

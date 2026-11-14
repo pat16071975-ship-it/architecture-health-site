@@ -1,0 +1,19 @@
+name: AZ accounting section
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/app.py'
+      - 'az-baze-auth/templates/accounting.html'
+      - 'az-baze-auth/test_accounting_section.py'
+      - '.github/workflows/az-accounting-section.yml'
+jobs:
+  accounting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r az-baze-auth/requirements.txt
+      - working-directory: az-baze-auth
+        run: python -B -m unittest test_accounting_section test_nn_foundation
