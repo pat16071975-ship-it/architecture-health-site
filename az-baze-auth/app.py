@@ -28,10 +28,17 @@ OWNER_EMAIL = os.environ.get("AZBAZE_OWNER_EMAIL", "").strip().lower()
 SECTIONS = [
     ("reports", "Отчёты"),
     ("knowledge", "База знаний"),
+    ("accounting", "УЧЕТ"),
     ("section3", "Раздел 3"),
     ("section4", "Раздел 4"),
     ("section5", "Раздел 5"),
 ]
+ACCOUNTING_SECTIONS = {
+    "ztl": "ЗТЛ",
+    "medical-supplies": "Медрасходка",
+    "bookkeeping": "Бухгалтерия",
+}
+
 SECTION_KEYS = {key for key, _ in SECTIONS} | SURVEY_PERMISSION_KEYS | NN_PERMISSION_KEYS
 EXPLICIT_PERMISSION_KEYS = set(SURVEY_PERMISSION_KEYS) | set(NN_PERMISSION_KEYS)
 
@@ -390,6 +397,21 @@ def create_app():
     def knowledge_file(filename):
         return send_from_directory(SITE_ROOT / "knowledge", filename)
 
+    @app.get("/accounting/")
+    @permission_required("accounting")
+    def accounting_index():
+        return render_template("accounting.html", title="УЧЕТ — AZ-BAZE",
+                               sections=ACCOUNTING_SECTIONS, section_title=None)
+
+    @app.get("/accounting/<section>/")
+    @permission_required("accounting")
+    def accounting_section(section):
+        if section not in ACCOUNTING_SECTIONS:
+            abort(404)
+        title = ACCOUNTING_SECTIONS[section]
+        return render_template("accounting.html", title=title + " — УЧЕТ — AZ-BAZE",
+                               sections=ACCOUNTING_SECTIONS, section_title=title)
+
     @app.get("/section3/")
     @permission_required("section3")
     def section3():
@@ -738,6 +760,10 @@ def render_home_for_user():
         "section4": r'<div class="menu-btn placeholder" aria-disabled="true">Раздел в разработке</div>',
         "section5": r'<div class="menu-btn placeholder" aria-disabled="true">Раздел в разработке</div>',
     }
+
+    accounting_link = '<a class="menu-btn active" href="/accounting/" id="accounting">УЧЕТ</a>'
+    if "accounting" in perms and accounting_link not in html:
+        html = html.replace("</nav>", accounting_link + "\n</nav>", 1)
 
     survey_link = r'<a class="menu-btn active" href="/surveys/" id="surveys">Опросы</a>'
     knowledge_link = mapping["knowledge"]
