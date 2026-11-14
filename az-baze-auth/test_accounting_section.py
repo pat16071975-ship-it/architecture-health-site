@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 os.environ.setdefault('AZBAZE_SECRET_KEY', 'local-test-only')
 import app as m
+import section_navigation as nav
 
 
 class AccountingSectionTests(unittest.TestCase):
@@ -50,12 +51,23 @@ class AccountingSectionTests(unittest.TestCase):
         client=self.client(2)
         before=m.DB_PATH.read_bytes()
         hub=client.get('/accounting/').get_data(as_text=True)
+        rendered_hub = nav.inject_navigation(hub, '/accounting/')
+        self.assertIn('aria-current="page">УЧЕТ</span>', rendered_hub)
+        self.assertEqual(rendered_hub.count('href="/">На главную</a>'), 1)
+        self.assertNotIn('accounting-nav', rendered_hub)
+        self.assertEqual(nav.render_navigation('/reports/').replace('Отчёты', 'УЧЕТ'), nav.render_navigation('/accounting/'))
+        self.assertEqual(nav.render_navigation('/reports/dashboard.html').replace('Отчёты', 'УЧЕТ').replace('/reports/', '/accounting/'), nav.render_navigation('/accounting/ztl/'))
         for slug,label in m.ACCOUNTING_SECTIONS.items():
             self.assertIn(f'/accounting/{slug}/',hub)
             self.assertIn(label,hub)
             page=client.get(f'/accounting/{slug}/').get_data(as_text=True)
             self.assertIn('Данные пока не добавлены.',page)
-            self.assertIn('href="/accounting/"',page)
+            rendered = nav.inject_navigation(page, f'/accounting/{slug}/')
+            self.assertIn('href="/accounting/">УЧЕТ</a>', rendered)
+            self.assertEqual(rendered.count('aria-label="Навигация по разделу"'), 1)
+            self.assertEqual(rendered.count('href="/">На главную</a>'), 1)
+            self.assertNotIn('accounting-nav', rendered)
+            self.assertEqual(nav.inject_navigation(rendered, f'/accounting/{slug}/'), rendered)
         self.assertEqual(m.DB_PATH.read_bytes(),before)
         self.assertIn(('accounting','УЧЕТ'),m.SECTIONS)
         self.assertEqual(client.get('/reports/').status_code,403)
