@@ -3918,10 +3918,13 @@ class AdvertisingReportTests(unittest.TestCase):
 
         for path in (
             "/reports/management/",
-            "/reports/forecast/",
             "/api/reports/management",
         ):
             self.assertFalse(terminology.skip_runtime_rename(path), path)
+
+    def test_forecast_whole_clinic_labels_are_not_direction_renamed(self):
+        for path in ("/reports/forecast/", "/reports/forecast.html", "/reports/forecast-audit-sync.js"):
+            self.assertTrue(terminology.skip_runtime_rename(path), path)
 
     def test_ui_contract(self):
         root=Path(__file__).parents[1]/"reports"

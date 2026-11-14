@@ -166,11 +166,86 @@ def canonical_month_to_date(conn, month, *, baseline=None):
 
 
 def overlay_counts(record, date_key, monthly):
-    """Change only two canonical completed counters; preserve all money."""
+    """Overlay only canonical completed counters; preserve all money."""
     expected = monthly.get(str(date_key))
     if expected is None:
         return record
     clean = dict(record) if isinstance(record, dict) else {}
     clean["date"] = str(date_key)
-    clean["primary"], clean["repeat"] = expected
+    if isinstance(expected, dict):
+        clean.update({key: value for key, value in expected.items()
+                      if key in ("primary", "repeat", *DIRECTION_FIELDS)})
+    else:
+        clean["primary"], clean["repeat"] = expected
     return clean
+
+
+DIRECTION_FIELDS = ("dentPrimary", "dentRepeat", "clinicPrimary", "clinicRepeat")
+
+
+def direction_day_counts(normalized, day):
+    """Use the existing explicit provider/manual attribution, never payments."""
+    from ident_import import DENTISTS, STRUCTURE_DOCTORS
+    if day_counts(normalized, day) is None:
+        return None
+    counts = dict.fromkeys(DIRECTION_FIELDS, 0)
+    doctors = (normalized.get("doctors") or {}).get(day, {})
+    for kind in (PRIMARY, *REPEAT):
+        suffix = "Primary" if kind == PRIMARY else "Repeat"
+        for staff, raw in (doctors.get(kind) or {}).items():
+            value = _count(raw)
+            if value is None:
+                return None
+            if staff in DENTISTS:
+                counts["dent" + suffix] += value
+            elif staff in STRUCTURE_DOCTORS:
+                counts["clinic" + suffix] += value
+        manual = normalized.get("manual_direction_counts") or {}
+        for source, prefix in (("dent", "dent"), ("structure", "clinic")):
+            value = _count((manual.get(source) or {}).get(kind, 0))
+            if value is None:
+                return None
+            counts[prefix + suffix] += value
+    return counts
+
+
+def management_month_to_date(conn, month):
+    """Shared six-counter view for management, forecasts and restore guards.
+
+    Keep the overall source contract and historical baseline. Direction
+    counts use exactly the importer's attribution, including manual choices.
+    No invented attribution for visits without a known direction.
+    """
+    overall = canonical_month_to_date(conn, month)
+    if not overall:
+        return {}
+    result = {day: {"primary": p, "repeat": r}
+              for day, (p, r) in overall.items()}
+    source = month_to_date(conn, month)
+    first = next(iter(source))
+    baseline = legacy_pre_source_baseline(conn, month, first)
+    totals = dict.fromkeys(DIRECTION_FIELDS, 0)
+    if baseline:
+        row = conn.execute("SELECT payload FROM report_data WHERE date=?",
+                           (baseline[0],)).fetchone()
+        record = json.loads(row["payload"])
+        # Missing historical direction attribution cannot be reconstructed.
+        for field in totals:
+            totals[field] = _count(record.get(field))
+    for row in conn.execute(
+        "SELECT data_date,normalized_json FROM daily_uploads "
+        "WHERE substr(data_date,1,7)=? ORDER BY data_date", (month,)
+    ).fetchall():
+        day = str(row["data_date"])
+        if day not in source:
+            continue
+        try:
+            counts = direction_day_counts(json.loads(row["normalized_json"]), day)
+        except (TypeError, ValueError):
+            counts = None
+        for field in totals:
+            totals[field] = (totals[field] + counts[field]
+                             if totals[field] is not None and counts is not None else None)
+        # Null means missing attribution evidence, not zero or a stale daily value.
+        result[day].update(totals)
+    return result

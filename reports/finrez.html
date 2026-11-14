@@ -69,9 +69,9 @@ function factFor(year,i){const r=managementRecord(year,i);if(!r)return null;retu
 function planFor(year,i){const key=ym(year,i),saved=DATA?.plans?.[key];if(saved!==null&&saved!==undefined&&saved!==''){const n=+saved;if(Number.isFinite(n)&&n!==0)return n}const r=managementRecord(year,i);if(!r)return null;const n=+r.plan;return Number.isFinite(n)&&n!==0?n:null}
 function discountFor(year,i){const r=managementRecord(year,i);if(!r||r.discountDataComplete!==true)return null;const n=+r.discountAmount;return Number.isFinite(n)?n:null}
 function grossRevenueFor(year,i){const r=managementRecord(year,i);if(!r||r.discountDataComplete!==true)return null;const n=+r.grossRevenue;return Number.isFinite(n)?n:null}
-function categoryTotal(year,i,name){return num(expenseMonth(year,i).operating?.[name]?.total)}
+function categoryTotal(year,i,name){const a=DATA?.accounting?.[ym(year,i)];if(name==='ФОТ')return a?.payroll??null;if(a?.categories&&Object.hasOwn(a.categories,name))return a.categories[name];return num(expenseMonth(year,i).operating?.[name]?.total)}
 function groupTotal(year,i,names){return names.reduce((sum,name)=>sum+categoryTotal(year,i,name),0)}
-function operatingExpenses(year,i){return Object.values(expenseMonth(year,i).operating||{}).reduce((a,x)=>a+num(x.total),0)}
+function operatingExpenses(year,i){return DATA?.accounting?.[ym(year,i)]?.knownExpenses??null}
 function debtExpenses(year,i){return Object.values(expenseMonth(year,i).debt||{}).reduce((a,x)=>a+num(x.total),0)}
 function values12(fn){return Array.from({length:12},(_,i)=>fn(i))}
 function hasAny(vals){return vals.some(v=>v!==null&&v!==undefined&&Math.abs(num(v))>.004)}
@@ -157,6 +157,12 @@ function buildRows(year){
   const net=node('net','Чистая прибыль — после добавления амортизации, процентов и налога',0,Array(12).fill(null),[],'unavailable');
   const capex=expenseGroupTree(year,'capex','Оборудование, мебель и обновление — вне EBITDA',GROUPS.capex,'capex');
   const debt=debtTree(year);
+  for(let i=0;i<12;i++){
+    const a=DATA?.accounting?.[ym(year,i)];
+    if(!a?.payrollComplete)variable.values[i]=null;
+    if(!a?.complete)for(const row of [margin,gross,ebitda])row.values[i]=null;
+  }
+  for(const row of [variable,margin,gross,ebitda])if(row.values.some(v=>v===null))row.yearTotal=null;
   return [plan,fact,discount,grossBeforeDiscount,execution,revenue,variable,margin,fixed,production,gross,commercial,administrative,ebitda,amortization,ebit,interest,ebt,incomeTax,net,capex,debt];
 }
 function flatten(nodes,out=[]){nodes.forEach(n=>{out.push(n);if(n.children?.length&&expanded.has(n.id))flatten(n.children,out)});return out}
@@ -205,11 +211,11 @@ function fillYears(){
     if(!r.ok)throw new Error('Не удалось загрузить финрез.');
     DATA=await r.json();
     fillYears();
-    render();
     const p=DATA?.expenses?.period||{};
     $('#status').textContent=DATA?.expenses?.available
       ? `Первый вариант: расходы берутся по текущей дате фактической оплаты (${p.from||'—'} — ${p.to||'—'}). EBITDA уже считается по утверждённой группировке; EBIT и чистая прибыль пока не рассчитываются без надёжных данных амортизации, процентов и налога.`
-      : 'Данные расходов ещё не установлены на сервере.';
+      : 'Остальные расходы загружены не полностью. Известный ФОТ показан отдельно; прибыль при неполных данных не рассчитывается.';
+    render();
   }catch(error){
     console.error(error);
     $('#status').textContent=error.message||'Ошибка загрузки финреза.';

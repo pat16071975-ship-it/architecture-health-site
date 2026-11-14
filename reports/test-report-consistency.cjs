@@ -1,0 +1,67 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const dir=__dirname;
+let checks=0;
+function check(fn){fn();checks++;}
+function page(name){
+ const nodes={};
+ const document={querySelector:s=>nodes[s]??=( {value:s==='#year'?'2026':'',innerHTML:'',textContent:''}),getElementById:s=>nodes['#'+s],querySelectorAll:()=>[]};
+ const c=vm.createContext({document,console,Intl,Date,Number,Set,Map,window:{},setTimeout:()=>{}});
+ let source=fs.readFileSync(path.join(dir,name),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+ if(name==='finrez.html')source=source.slice(0,source.lastIndexOf('(async()=>{'));
+ else source=source.replace(/init\(\)(?:\.catch\([^\n]+\))?;/g,'');
+ vm.runInContext(source,c);
+ return {c,nodes,run:s=>vm.runInContext(s,c)};
+}
+const closed={knownExpenses:4200000,payroll:4200000,payrollComplete:true,expensesComplete:true,complete:true,through:'2026-10-31',categories:{'ФОТ':4200000}};
+const partial={...closed,expensesComplete:false,complete:false};
+const management={'2026-10':{date:'2026-10-31',cashTotal:8800000,primary:72,repeat:472,dentPrimary:38,clinicPrimary:30},'2026-11':{date:'2026-11-12',cashTotal:3583126,primary:44,repeat:211,dentPrimary:23,clinicPrimary:21}};
+const f=page('forecast.html');
+f.run(`FIN=${JSON.stringify({management,accounting:{'2026-10':closed}})}; BASE_MONTHS=['2026-10'];`);
+check(()=>assert.equal(f.run("clinicPeriodBase().profit"),4600000));
+check(()=>assert.equal(f.run("clinicPeriodBase().primary"),72));
+f.run(`FIN.accounting['2026-10']=${JSON.stringify(partial)};`);
+check(()=>assert.equal(f.run("clinicPeriodBase().profit"),null));
+check(()=>assert.equal(f.run("money(clinicPeriodBase().profit)"),'Неполные данные'));
+f.run("BASE_MONTHS=['2026-10','2026-11'];");
+check(()=>assert.equal(f.run('clinicPeriodBase().profit'),null));
+check(()=>assert.equal(f.run("clinicBase('2026-11').rev"),3583126));
+const d=page('dashboard.html');
+d.run(`FIN=${JSON.stringify({accounting:{'2026-10':partial}})};`);
+d.run(`renderFinance(${JSON.stringify(management['2026-10'])})`);
+check(()=>assert.match(d.nodes['#finance'].innerHTML,/4[\s\u00a0]200[\s\u00a0]000/));
+check(()=>assert.match(d.nodes['#finance'].innerHTML,/Неполные данные/));
+d.run(`FIN.accounting['2026-10']=${JSON.stringify(closed)};renderFinance(${JSON.stringify(management['2026-10'])});`);
+check(()=>assert.match(d.nodes['#finance'].innerHTML,/4[\s\u00a0]600[\s\u00a0]000/));
+d.run("renderFinance({date:'2026-10-12',cashTotal:100000})");
+check(()=>assert.doesNotMatch(d.nodes['#finance'].innerHTML,/4[\s\u00a0]200[\s\u00a0]000/));
+const z=page('finrez.html');
+z.run(`DATA=${JSON.stringify({management,expenses:{available:false},accounting:{'2026-10':partial}})};`);
+check(()=>assert.equal(z.run("categoryTotal(2026,9,'ФОТ')"),4200000));
+check(()=>assert.equal(z.run("buildRows(2026).find(r=>r.id==='ebitda').values[9]"),null));
+check(()=>assert.equal(z.run("categoryTotal(2026,10,'ФОТ')"),null));
+z.run(`DATA.accounting['2026-10']=${JSON.stringify(closed)};`);
+check(()=>assert.equal(z.run("buildRows(2026).find(r=>r.id==='ebitda').values[9]"),4600000));
+// Exercise actual service summary calculation, without browser or personal data.
+let source=fs.readFileSync(path.join(dir,'services-summary-economics.js'),'utf8');
+source=source.replace(/\}\)\(\);\s*$/, 'globalThis.calc=economicsForAllDoctors;})();');
+const services=vm.createContext({document:{getElementById:()=>({addEventListener:()=>{}})},Intl});
+vm.runInContext(source,services);
+const metric=(aggregate,idx)=>services.calc({doctors:{A:{Service:[[1,100],[1,100]]}}},'Отделение структуры',['A'],{}, {}, {directionFot:{'Отделение структуры':aggregate}},2,idx);
+check(()=>assert.equal(metric([30,null],[0]).profit,70));
+check(()=>assert.equal(metric([30,null],[1]).profit,null));
+check(()=>assert.equal(metric([30,null],[0,1]).incomplete,true));
+check(()=>assert.equal(metric([0,null],[0]).profit,100));
+console.log(`${checks} report consistency checks PASS`);
+// Run the real Finrez integration over the base page, including paid detail.
+let integrated=fs.readFileSync(path.join(dir,'finrez-economics-integrated.js'),'utf8');
+integrated=integrated.replace(/  load\(\);\s*\}\)\(\);\s*$/, 'globalThis.installFixture=e=>{economics=e;installEconomics();};})();');
+vm.runInContext(integrated,z.c);
+z.run(`DATA.expenses={months:{'2026-10':{operating:{'ФОТ':{total:12}}}}};installFixture({available:true,control:{status:'OK'},payroll:{period:['2026-10'],total_by_month:{'2026-10':4200000},assignments:[]}});`);
+check(()=>assert.equal(z.run("expenseCategoryNode(2026,'ФОТ',0).values[9]"),4200000));
+check(()=>assert.equal(z.run("expenseCategoryNode(2026,'ФОТ',0).children.find(r=>r.id==='fot-paid-detail').values[9]"),12));
+check(()=>assert.equal(z.run("expenseCategoryNode(2026,'ФОТ',0).values[10]"),null));
+check(()=>assert.equal(z.run("buildRows(2026).find(r=>r.id==='ebitda').values[9]"),4600000));
+console.log(`${checks} checks including Finrez integration PASS`);

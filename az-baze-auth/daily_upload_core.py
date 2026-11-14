@@ -178,28 +178,8 @@ def _daily_delta(normalized):
     # advertising MIS bridge. Service/payment layers cannot supply counts.
     completed_counts = completed_visit_totals.day_counts(normalized, data_date)
     primary, repeat = completed_counts if completed_counts is not None else (0, 0)
-    dent_primary = structure_primary = dent_repeat = structure_repeat = 0
-    day_doctors = doctors.get(data_date, {})
-    for staff_name, value in day_doctors.get("Первичные", {}).items():
-        if staff_name in ident_import.DENTISTS:
-            dent_primary += int(value or 0)
-        elif staff_name in ident_import.STRUCTURE_DOCTORS:
-            structure_primary += int(value or 0)
-    for kind in ("Повторные", "Отконсультированные"):
-        for staff_name, value in day_doctors.get(kind, {}).items():
-            if staff_name in ident_import.DENTISTS:
-                dent_repeat += int(value or 0)
-            elif staff_name in ident_import.STRUCTURE_DOCTORS:
-                structure_repeat += int(value or 0)
-
-    manual = normalized.get("manual_direction_counts") or {}
-    dent_manual = manual.get("dent") or {}
-    structure_manual = manual.get("structure") or {}
-    dent_primary += int(dent_manual.get("Первичные") or 0)
-    structure_primary += int(structure_manual.get("Первичные") or 0)
-    for kind in ("Повторные", "Отконсультированные"):
-        dent_repeat += int(dent_manual.get(kind) or 0)
-        structure_repeat += int(structure_manual.get(kind) or 0)
+    directions = completed_visit_totals.direction_day_counts(normalized, data_date)
+    directions = directions or dict.fromkeys(completed_visit_totals.DIRECTION_FIELDS, 0)
 
     lab_orders = len({(str(invoice), str(d)) for invoice, d in lab_invoices if str(d) == data_date})
     return {
@@ -207,10 +187,10 @@ def _daily_delta(normalized):
         "factLab": round(lab_revenue, 2),
         "primary": primary,
         "repeat": repeat,
-        "dentPrimary": dent_primary,
-        "dentRepeat": dent_repeat,
-        "clinicPrimary": structure_primary,
-        "clinicRepeat": structure_repeat,
+        "dentPrimary": directions["dentPrimary"],
+        "dentRepeat": directions["dentRepeat"],
+        "clinicPrimary": directions["clinicPrimary"],
+        "clinicRepeat": directions["clinicRepeat"],
         "dentists": {full: round(staff.get(short, 0.0), 2) for short, full in ident_import.DENTISTS.items()},
         "clinicDocs": {full: round(staff.get(short, 0.0), 2) for short, full in ident_import.STRUCTURE_DOCTORS.items()},
         "labOrders": lab_orders,
@@ -241,7 +221,7 @@ def _rebuild_management(month, source):
     # baseline, including a single day's 2/22 saved as an MTD snapshot.
     # Source-day counters + any verified earlier MTD baseline. Never drop
     # protection for an entire historical month with partial daily evidence.
-    canonical_visits = completed_visit_totals.canonical_month_to_date(
+    canonical_visits = completed_visit_totals.management_month_to_date(
         db(), month
     )
     baseline_dentists = baseline.get("billedDentists") if isinstance(baseline.get("billedDentists"), dict) else baseline.get("dentists")
@@ -264,13 +244,13 @@ def _rebuild_management(month, source):
     for data_date, normalized in rows:
         delta = _daily_delta(normalized)
         for key in ("factMedicine", "factLab", "primary", "repeat", "dentPrimary", "dentRepeat", "clinicPrimary", "clinicRepeat", "labOrders", "labRevenue"):
-            current[key] += delta[key]
+            current[key] = None if current[key] is None else current[key] + delta[key]
         for name, value in delta["dentists"].items():
             current["dentists"][name] = current["dentists"].get(name, 0) + value
         for name, value in delta["clinicDocs"].items():
             current["clinicDocs"][name] = current["clinicDocs"].get(name, 0) + value
         if data_date in canonical_visits:
-            current["primary"], current["repeat"] = canonical_visits[data_date]
+            current.update(canonical_visits[data_date])
         existing = _load_report(data_date)
         billed_dentists = {k: round(v, 2) for k, v in current["dentists"].items()}
         billed_clinic_docs = {k: round(v, 2) for k, v in current["clinicDocs"].items()}

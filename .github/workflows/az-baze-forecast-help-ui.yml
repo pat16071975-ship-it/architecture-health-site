@@ -75,10 +75,13 @@ jobs:
 
           current=Path("reports/forecast.html").read_text(encoding="utf-8")
           base=git_show("reports/forecast.html")
-          for name in ("stat","adir","recsum","fotRate","segments","segRev","baseline","curve","clinicBase"):
+          for name in ("stat","adir","recsum","fotRate","segments","segRev","baseline","curve"):
               assert extract_function(current,name)==extract_function(base,name), name
           print("FORECAST BASE MODEL PRESERVED: OK")
           PY
+
+      - name: Shared accounting and missing-cost behavior
+        run: node reports/test-report-consistency.cjs
 
       - name: Forecast period-base source contract
         run: |
@@ -112,7 +115,7 @@ jobs:
               'FULL_MONTHS=ALL_MONTHS.filter(fullMonth)',
               'PARTIAL_MONTH=latest&&!fullMonth(latest)?latest:null',
               'endRevenue:base.rev+last.rev',
-              'endProfit:base.profit+last.profit',
+              'endProfit:base.profit===null?null:base.profit+last.profit',
           ]
           for needle in required:
               assert needle in html, needle

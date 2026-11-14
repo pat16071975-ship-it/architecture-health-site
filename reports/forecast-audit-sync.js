@@ -52,18 +52,18 @@
   }
 
   function refreshUiWhenReady() {
-    const baseMonth = document.getElementById('baseMonth');
+    const baseMonth = document.getElementById('periodFrom');
     const structureSelect = document.getElementById('seg-structure');
     if (!baseMonth || !baseMonth.options.length || !structureSelect) {
       if (uiRetries++ < 50) setTimeout(refreshUiWhenReady, 100);
       return;
     }
-    if (typeof fillSegments === 'function' && typeof applyBase === 'function' && typeof calculate === 'function') {
+    if (typeof fillSegments === 'function' && typeof applyBase === 'function' && typeof renderAll === 'function') {
       for (const [direction] of (typeof DIRS !== 'undefined' ? DIRS : [])) {
         fillSegments(direction);
         applyBase(direction, true);
       }
-      calculate();
+      renderAll();
     }
   }
 

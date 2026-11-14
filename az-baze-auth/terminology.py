@@ -55,10 +55,11 @@ REPORT_UI_GUARD = r'''<script id="az-report-terminology-guard">
 
 
 def skip_runtime_rename(path):
-    """Keep owner-approved wording on the advertising report only."""
+    """Keep explicit clinic-wide and direction labels in modern reports."""
     value = str(path or "")
     return (
-        value == "/reports/advertising/"
+        value in ("/reports/forecast/", "/reports/forecast.html", "/reports/forecast-audit-sync.js")
+        or value == "/reports/advertising/"
         or value == "/reports/advertising.html"
         or value == "/reports/advertising.js"
         or value.startswith("/api/reports/advertising")

@@ -220,8 +220,8 @@ class CompletedMonthToDateContract(unittest.TestCase):
                 c, "2026-09", "2026-09-07"
             ))
             projection = storage._canonical_completed_months(c)
-            self.assertEqual(projection["2026-09-06"], (1, 7))
-            self.assertEqual(projection["2026-09-07"], (2, 9))
+            self.assertEqual(tuple(projection["2026-09-06"][key] for key in ("primary", "repeat")), (1, 7))
+            self.assertEqual(tuple(projection["2026-09-07"][key] for key in ("primary", "repeat")), (2, 9))
             with patch.object(upload, "db", return_value=c):
                 records = upload._rebuild_management(
                     "2026-09", "isolated historical regeneration"
@@ -392,8 +392,8 @@ class CompletedMonthToDateContract(unittest.TestCase):
             # survive restoring an old backup containing only 12 November.
             before = storage._canonical_completed_months(c)
             records = storage._preserved_completed_records(c, before)
-            self.assertEqual(before["2026-11-12"], (42, 189))
-            self.assertEqual(before["2026-11-13"], (44, 211))
+            self.assertEqual(tuple(before["2026-11-12"][key] for key in ("primary", "repeat")), (42, 189))
+            self.assertEqual(tuple(before["2026-11-13"][key] for key in ("primary", "repeat")), (44, 211))
             with c:
                 c.execute("DELETE FROM report_data")
                 c.execute("INSERT INTO report_data VALUES(?,?,?,?)", (
@@ -504,7 +504,8 @@ class CompletedMonthToDateContract(unittest.TestCase):
             self.assertEqual(values["2026-09-06"]["cashTotal"],100000)
             self.assertEqual(values["2026-09-07"]["cashTotal"],7000)
             self.assertEqual(
-                storage._canonical_completed_months(c)["2026-09-07"],
+                tuple(storage._canonical_completed_months(c)["2026-09-07"][key]
+                      for key in ("primary", "repeat")),
                 (2,9),
             )
         finally:
