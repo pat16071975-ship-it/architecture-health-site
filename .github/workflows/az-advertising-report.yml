@@ -169,6 +169,8 @@ jobs:
           python -m unittest -v test_direct_auto.py test_advertising_hourly.py test_advertising_report.py test_advertising_mis_bridge.py
       - name: Advertising report JavaScript syntax
         run: node --check reports/advertising.js
+      - name: Advertising period evidence UI
+        run: node tests/verify-advertising-period-evidence.cjs
       - name: Approved direct + source + revenue scope
         run: |
           python - <<'PY'

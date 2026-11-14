@@ -55,6 +55,36 @@ def report(start, end, items, paid_total=None, patients=None):
 
 
 class AdvertisingMisBridgeTests(unittest.TestCase):
+    def test_interval_plus_day_counts_once_without_inventing_payment_dates(self):
+        c = conn()
+        self.addCleanup(c.close)
+        for day, patient, kind in [("2026-11-01", "Первый", "Первичные"), ("2026-11-11", "Повторный", "Повторные"), ("2026-11-12", "Последний", "Первичные")]:
+            add_day(c, day, [{"date": day, "patient": patient, "kind": kind}])
+        rows = [item("Первый", "Врач", "1", "2026-11-01", 1000, 1000), item("Повторный", "Врач", "2", "2026-11-11", 500, 500)]
+        for _ in range(2):
+            m.capture_paid_report(c, report("2026-11-01", "2026-11-11", rows), "a", "a", "t")
+        m.capture_paid_report(c, report("2026-11-12", "2026-11-12", [item("Последний", "Врач", "3", "2026-11-12", 200, 200)]), "b", "b", "t")
+        before = list(c.iterdump())
+        for end in ("2026-11-12", "2026-11-14"):
+            value = m.payment_breakdown(c, "2026-11-01", end)
+            self.assertEqual((value["primary_paid"], value["repeat_paid"], value["primary_payers"]), (1200, 500, 2))
+        self.assertEqual(m.payment_breakdown(c, "2026-11-12", "2026-11-12")["primary_paid"], 200)
+        self.assertIsNone(m.payment_breakdown(c, "2026-11-01", "2026-11-10")["primary_paid"])
+        self.assertIsNone(m.payment_breakdown(c, "2026-11-11", "2026-11-11")["primary_paid"])
+        self.assertEqual(sorted(m._payment_candidates(c)), ["2026-11-12"])
+        self.assertEqual(list(c.iterdump()), before)
+
+    def test_overlapping_interval_snapshots_not_added_twice(self):
+        c = conn()
+        self.addCleanup(c.close)
+        add_day(c, "2026-11-01", [{"date": "2026-11-01", "patient": "Первый", "kind": "Первичные"}])
+        line = item("Первый", "Врач", "1", "2026-11-01", 1000, 1000)
+        for start, end in [("2026-11-01", "2026-11-11"), ("2026-11-01", "2026-11-12"), ("2026-11-02", "2026-11-11"), ("2026-11-10", "2026-11-14")]:
+            m.capture_paid_report(c, report(start, end, [line]), "a", start+end, "t")
+        value = m.payment_breakdown(c, "2026-11-01", "2026-11-14")
+        self.assertEqual(value["primary_paid"], 1000)
+        self.assertEqual(value["primary_payers"], 1)
+
     def test_primary_repeat_payments_and_new_patient_cohort(self):
         c = conn()
         try:

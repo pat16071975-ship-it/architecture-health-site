@@ -1302,6 +1302,7 @@ def _summary(conn, start, end):
     payment = advertising_mis_bridge.payment_breakdown(conn, start_s, end_s)
     economics = _source_economics(conn, start, end)
     budget = economics["budget"]
+    observed_direct = list(_direct_source_values(conn, start, end).values())
 
     primary_paid = payment["primary_paid"]
     repeat_paid = payment["repeat_paid"]
@@ -1320,16 +1321,9 @@ def _summary(conn, start, end):
         "source_total_spend": economics.get("source_total_spend"),
         "source_reconciliation_delta": economics.get("source_reconciliation_delta"),
         "cost_per_click": economics.get("cost_per_click"),
-        "clicks": (
-            sum(int(item.get("clicks") or 0) for item in economics["sources"].values() if item.get("clicks") is not None)
-            if economics.get("direct_period_complete") and any(item.get("clicks") is not None for item in economics["sources"].values())
-            else None
-        ),
-        "conversions": (
-            sum(float(item.get("conversions") or 0) for item in economics["sources"].values() if item.get("conversions") is not None)
-            if economics.get("direct_period_complete") and any(item.get("conversions") is not None for item in economics["sources"].values())
-            else None
-        ),
+        "clicks": _nullable_sum(observed_direct, "clicks"),
+        "conversions": _nullable_sum(observed_direct, "conversions"),
+        "known_direct_spend": _nullable_sum(observed_direct, "spend"),
         "visits": _nullable_sum(traffic, "visits"),
         "target_leads": _nullable_sum(clinic, "target_leads"),
         "leads_with_primary": _nullable_sum(clinic, "leads_with_primary"),
@@ -1580,9 +1574,11 @@ def _group_breakdown(conn, start, end, level):
             if key is not None and key not in groups:
                 ensure(identity, key)
 
+    observed_direct = _direct_source_values(conn, start, end) if level == "source" else {}
     result = []
     for item in groups.values():
         if level == "source":
+            item["known_direct_spend"] = (observed_direct.get(item["source_key"]) or {}).get("spend")
             source_value = economics["sources"].get(item["source_key"]) or {}
             item["spend"] = source_value.get("spend")
             item["advertising_payment"] = source_value.get("advertising_payment")
@@ -3329,6 +3325,15 @@ def _coverage_summary(conn, start, end):
         except sqlite3.OperationalError:
             pass
 
+    direct_days = set()
+    for row in conn.execute(
+        "SELECT period_start,period_end FROM advertising_report_imports "
+        "WHERE dataset='direct' AND period_end>=? AND period_start<=?", (start_s, end_s)
+    ):
+        a = max(start, date.fromisoformat(row["period_start"]))
+        b = min(end, date.fromisoformat(row["period_end"]))
+        direct_days.update((a + timedelta(days=i)).isoformat() for i in range((b-a).days+1))
+
     clinic_days = set()
     try:
         rows = conn.execute(
@@ -3349,6 +3354,17 @@ def _coverage_summary(conn, start, end):
         if start_s <= day <= end_s
     }
 
+    payment_days = set()
+    interval_totals = False
+    try:
+        for day, candidate in advertising_mis_bridge._period_payment_candidates(conn, start_s, end_s).items():
+            a = date.fromisoformat(candidate.get("period_start", day))
+            b = date.fromisoformat(candidate.get("period_end", day))
+            interval_totals = interval_totals or a != b
+            payment_days.update((a + timedelta(days=i)).isoformat() for i in range((b-a).days+1))
+    except sqlite3.OperationalError:
+        pass
+
     cash_days = set()
     try:
         rows = conn.execute(
@@ -3363,8 +3379,10 @@ def _coverage_summary(conn, start, end):
     return {
         "trackingStart": _iso(tracking_start),
         "metrika": pack(metrika_days),
+        "direct": pack(direct_days),
         "clinic": pack(clinic_days),
         "misPaid": pack(revenue_days),
+        "classifiedPayments": {**pack(payment_days), "intervalTotals": interval_totals},
         # No-operation cash dates may be absent from cash_receipts_daily, so this
         # is deliberately shown as operation-day evidence, not completeness.
         "cash": pack(cash_days, complete=False),

@@ -1,0 +1,23 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../reports/advertising.js'),'utf8');
+const nodes={};
+const ctx={payload:{summary:{spend:null,known_direct_spend:8722.62,clicks:616,conversions:9,primary_paid:1200},coverage:{direct:{complete:false,from:'2026-11-01',to:'2026-11-12'},classifiedPayments:{complete:false,intervalTotals:true}},revenue:{actual_received_total:3583126},economics:{primary_payers:2,primary_avg_check:600},crm:{}},
+  $:id=>nodes[id]??=( {} ),money:v=>v==null?'—':String(v),number:v=>String(v),convNumber:v=>String(v),h:v=>String(v),compareCard:()=>'',pct:v=>String(v),Intl};
+vm.createContext(ctx);
+vm.runInContext(source.slice(source.indexOf('function expenseExtra('),source.indexOf('function activity(')),ctx);
+ctx.mainKpis();ctx.moneyCards();
+assert.match(nodes['#kpis'].innerHTML,/616/);
+assert.match(nodes['#kpis'].innerHTML,/8722.62/);
+assert.match(nodes['#kpis'].innerHTML,/Неполный период/);
+assert.doesNotMatch(nodes['#kpis'].innerHTML,/после подключения/);
+assert.match(nodes['#primaryMoney'].innerHTML,/1200/);
+assert.match(nodes['#primaryMoney'].innerHTML,/Неполные данные/);
+assert.match(nodes['#cohortCard'].innerHTML,/Сумма неполная/);
+assert.match(nodes['#clinicMoney'].innerHTML,/3583126/);
+ctx.payload.coverage.direct.complete=true;
+ctx.mainKpis();assert.doesNotMatch(nodes['#kpis'].innerHTML,/Неполный период/);
+ctx.payload.summary.clicks=0;ctx.payload.summary.conversions=0;ctx.payload.summary.known_direct_spend=0;
+ctx.mainKpis();assert.doesNotMatch(nodes['#kpis'].innerHTML,/Нет данных/);
+ctx.payload.summary.clicks=null;ctx.mainKpis();assert.match(nodes['#kpis'].innerHTML,/Нет загруженных кликов/);
+console.log('ADVERTISING_PERIOD_EVIDENCE_UI=PASS (12 assertions)');
