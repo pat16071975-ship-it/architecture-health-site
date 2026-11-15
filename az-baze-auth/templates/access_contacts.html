@@ -15,11 +15,13 @@
   <div class="access-hub-head">
     <div>
       <h2 class="section-title">Доступы и контакты</h2>
-      <div class="muted">Служебные логины и пароли, а также нужные рабочие контакты.</div>
+      <div class="muted">Личные записи видны только вам. Служебные записи и контакты доступны по выданным правам.</div>
     </div>
     <a class="btn" href="/">На главную</a>
   </div>
   <div class="access-hub-grid">
+    <a class="access-hub-card" href="/personal-credentials/"><strong>Личные доступы</strong><span>Ваши сервисы, логины, пароли и комментарии.</span></a>
+    {% if "credentials_view" in permissions %}
     <a class="access-hub-card" href="/credentials/">
       <strong>Служебные доступы</strong>
       <span>Сервис, логин, пароль и комментарий.</span>
@@ -28,6 +30,7 @@
       <strong>Рабочие контакты</strong>
       <span>Организация, роль, ФИО, телефон и курируемые вопросы.</span>
     </a>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

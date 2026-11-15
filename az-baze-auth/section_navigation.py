@@ -3,6 +3,7 @@ import re
 
 
 SECTION_RULES = (
+    ("/personal-credentials/", "Доступы и контакты", "/access-contacts/"),
     ("/accounting/", "УЧЕТ", "/accounting/"),
     ("/reports/", "Отчёты", "/reports/"),
     ("/access-contacts/", "Доступы и контакты", "/access-contacts/"),

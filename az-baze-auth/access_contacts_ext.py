@@ -7,7 +7,7 @@ import credentials_store
 import contact_excel_import
 
 PERMISSION_OPTIONS = [
-    ("credentials_view", "Просматривать «Доступы и контакты»"),
+    ("credentials_view", "Просматривать служебные доступы и рабочие контакты"),
     ("credentials_reveal", "Показывать и копировать пароли"),
     ("credentials_edit", "Добавлять и изменять записи"),
     ("credentials_delete", "Удалять записи"),
@@ -97,8 +97,8 @@ def register(app):
         admin = '<a class="menu-btn active" href="/admin">Управление доступом</a>'
         knowledge = '<a class="menu-btn active" href="/knowledge/" id="knowledge">База знаний</a>'
         html = html.replace(old, access, 1)
-        if g.user and "credentials_view" in app_core.user_permissions(g.user) and access not in html and knowledge in html:
-            html = html.replace(knowledge, knowledge + "\n" + access, 1)
+        if g.user and access not in html and 'class="menu-btn' in html:
+            html = html.replace("</nav>", access + "\n</nav>", 1)
         if g.user and g.user["is_admin"] and admin not in html:
             anchor = access if access in html else knowledge
             if anchor in html: html = html.replace(anchor, anchor + "\n" + admin, 1)
@@ -107,9 +107,9 @@ def register(app):
         return response
 
     @app.get("/access-contacts/")
-    @app_core.permission_required("credentials_view")
+    @app_core.login_required
     def access_contacts_index():
-        return render_template("access_contacts.html")
+        return render_template("access_contacts.html", permissions=app_core.user_permissions(g.user))
 
     @app_core.permission_required("credentials_view")
     def credentials_index_override():
