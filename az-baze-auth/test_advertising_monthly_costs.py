@@ -132,6 +132,70 @@ class MonthlyCostsTests(unittest.TestCase):
         self.assertEqual(costs.fixed_total(rows),300)
         self.assertEqual(costs.fixed_total(rows[1:]),200)
 
+    def campaign_fixture(self, with_parent):
+        store = core._load_cost_store(self.c)
+        store['sources']['paid'] = {'name': 'Площадка', 'channel_name': 'Платная реклама', 'manual': True}
+        def period(value):
+            return {'from': '2026-11-01', 'to': '2026-11-30',
+                    'advertising_payment': value, 'contractors_payment': None, 'total_spend': value}
+        if with_parent:
+            store['periods']['sources']['paid'] = [period(500)]
+        for name, value in [('A', 200), ('B', 300)]:
+            key = core._campaign_cost_key('paid', name, name)
+            store['campaigns'][key] = {'source_key': 'paid', 'campaign_id': name, 'campaign_name': name}
+            store['periods']['campaigns'][key] = [period(value)]
+        core._persist_cost_store(self.c, store)
+        self.c.commit()
+        return next(r for r in self.view()['records'] if r['level'] == 'campaign' and r['amount'] == 200)
+
+    def assert_comment_edit_preserves_campaign_total(self, with_parent):
+        original = self.campaign_fixture(with_parent)
+        self.assertEqual(self.view()['fixed'], 500)
+        self.approve()
+        current = original
+        # First edit converts legacy storage, second edits the new monthly record.
+        for comment in ['Первый комментарий', 'Повторная правка']:
+            self.change(action='save', id=current['id'], source='paid', label=current['label'],
+                        amount=200, comment=comment, level='source')
+            self.assertIsNone(self.view()['confirmed'])
+            self.assertEqual(self.view()['fixed'], 500)
+            current = next(r for r in self.view()['records'] if r.get('comment') == comment)
+            self.assertEqual((current['level'], current['key'], current['source']),
+                             ('campaign', original['key'], 'paid'))
+            self.assertFalse(current['legacy'])
+            event = costs.load(self.c)['history'][-1]
+            self.assertEqual(event['before']['level'], 'campaign')
+            self.assertEqual(event['after']['level'], 'campaign')
+            self.approve()
+            self.assertEqual(self.view()['confirmed_total'], 600)  # 500 fixed + 100 Direct.
+            self.assertEqual(core._summary(self.c, date(2026,11,1), date(2026,11,15))['spend'], 350)
+        return current
+
+    def test_az217_01_comment_edit_with_parent_keeps_500(self):
+        self.assert_comment_edit_preserves_campaign_total(True)
+
+    def test_az217_01_comment_edit_campaigns_only_keeps_500(self):
+        self.assert_comment_edit_preserves_campaign_total(False)
+
+    def test_campaign_move_delete_keeps_role_and_month_totals(self):
+        row = self.assert_comment_edit_preserves_campaign_total(False)
+        self.change(action='save', id=row['id'], target_month='2026-10', source='paid',
+                    label=row['label'], amount=250, comment='Перенос')
+        self.assertEqual(self.view()['fixed'], 300)
+        self.assertEqual(self.view('2026-10')['fixed'], 250)
+        moved = self.view('2026-10')['records'][0]
+        self.assertEqual(moved['level'], 'campaign')
+        self.change('2026-10', action='delete', id=moved['id'], confirmation='delete')
+        self.assertEqual(self.view('2026-10')['fixed'], 0)
+        self.assertEqual(self.view()['fixed'], 300)
+
+    def test_campaign_source_reclassification_rejected_atomically(self):
+        row = self.campaign_fixture(True)
+        before = self.view()
+        with self.assertRaisesRegex(ValueError, 'Источник детализации'):
+            self.change(action='save', id=row['id'], source='other', label='Новый источник', amount=200)
+        self.assertEqual(self.view(), before)
+
     def test_unknown_invalid_and_zero_values(self):
         for value in [None,True,False,'','NaN','Inf','-1','abc']:
             with self.subTest(value=value),self.assertRaises(ValueError):self.add(value)

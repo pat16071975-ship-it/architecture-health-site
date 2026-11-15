@@ -241,6 +241,11 @@ def mutate(core, conn, form, actor, now):
                 allowed = {r['key'] for r in current['sources']}
                 if source not in allowed and source != 'other':
                     raise ValueError('Выберите источник.')
+                # Campaign detail keeps its server-owned identity through every edit.
+                # Reclassifying it as a source payment changes deduplication semantics.
+                level = (before or {}).get('level', 'source')
+                if level == 'campaign' and source != before['source']:
+                    raise ValueError('Источник детализации кампании изменить нельзя.')
                 if source == 'other':
                     source = core._manual_source_key(label)
                     store['sources'][source] = {'name': label, 'channel_name': 'Платная реклама', 'manual': True}
@@ -248,7 +253,9 @@ def mutate(core, conn, form, actor, now):
                 after = {'id': entry_id if entry_id and not before.get('legacy') else uuid.uuid4().hex,
                          'month': target_month, 'source': source, 'label': label,
                          'amount': amount(form.get('amount')), 'comment': comment,
-                         'level': 'source', 'legacy': False}
+                         'level': level, 'legacy': False}
+                if level == 'campaign':
+                    after['key'] = before['key']
                 state['entries'][after['id']] = after
                 months.add(target_month)
             for changed_month in months:
