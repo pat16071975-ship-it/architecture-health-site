@@ -4,7 +4,8 @@ const path=require('node:path'),root=path.resolve(__dirname,'..');
 const period=fs.readFileSync(path.join(root,'reports/period-view.js'),'utf8');
 const index=fs.readFileSync(path.join(root,'reports/index.html'),'utf8');
 const slice=(text,start,end)=>{const a=text.indexOf(start),b=text.indexOf(end,a);assert(a>=0&&b>a,start);return text.slice(a,b)};
-const moneyFunctions=slice(period,'  function paidDate(','  const escapeHtml=');
+const moneyFunctions=slice(period,'  const managementStaffEntries=','  const escapeHtml=');
+const staffFunctions=slice(period,'  function markManagementStaffRow(','  function addManagementStaffMetric(')+slice(period,'  function addDateManagementStaffMetric(','  function cashSplit(');
 const monthFunctions=slice(period,'  function monthlyReportColumn(','  let dateStickyRaf=');
 const derive=index.match(/^function derive\(r\).*$/m)[0];
 const days=index.match(/^function daysInMonth\(d\).*$/m)[0];
@@ -25,7 +26,9 @@ function harness(){
   addDateMetric(_tb,label,_cls,months,getter,_formatter,key){rows.push({label,key,values:months.map(m=>m.r?getter(m.d,m.r):null)})},
   addDateDoctorMetric(_tb,label,_cls,months,getter,_formatter,key){rows.push({label,key,values:months.map(getter)})},
  };
- vm.createContext(ctx);vm.runInContext(days+'\n'+derive+'\n'+dates+'\n'+moneyFunctions+'\n'+monthFunctions,ctx);
+ ctx.CustomEvent=class CustomEvent { constructor(type){this.type=type;} };
+ ctx.window.dispatchEvent=event=>{assert.equal(event.type,'az-management-staff-table-rendered');return true;};
+ vm.createContext(ctx);vm.runInContext(days+'\n'+derive+'\n'+dates+'\n'+moneyFunctions+'\n'+staffFunctions+'\n'+monthFunctions,ctx);
  const values=key=>rows.find(r=>r.key===key)?.values;
  const add=(month,end,raw=true)=>{
   const key=`2026-${String(month).padStart(2,'0')}`,day=`${key}-${String(end).padStart(2,'0')}`;

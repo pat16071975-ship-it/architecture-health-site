@@ -104,23 +104,6 @@ jobs:
           print('PAYROLL_FUTURE_PROOF_CONTRACT=PASS')
           PY
 
-      - name: Exact scope
-        run: |
-          git diff --check
-          python - <<'PY'
-          import subprocess
-          allowed={
-              '.github/workflows/az-payroll-through-nov.yml',
-              'az-baze-auth/economics_control.py',
-              'az-baze-auth/payroll_registry.py',
-              'az-baze-auth/test_payroll_registry.py',
-              'reports/payroll-import.html',
-          }
-          base='17e7906c5baf3a20f79b5275171a826ccc0d14ae'
-          changed=set(subprocess.check_output(
-              ['git','diff','--name-only',base+'...HEAD'], text=True
-          ).splitlines())
-          assert changed <= allowed, changed
-          assert changed == allowed, (changed, allowed)
-          print('SCOPE=PASS; FILES='+str(len(changed)))
-          PY
+      # The historical PR's file allowlist is not a recurring regression contract.
+      - name: Patch whitespace
+        run: git diff --check

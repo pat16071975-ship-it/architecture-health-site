@@ -22,6 +22,8 @@ function harness(){
   localStorage:{getItem:()=>JSON.stringify(store)},DOCTOR_PAID_SNAPSHOTS:{},DOCTOR_PAID_PERIODS:[],PAID_PATIENTS_MONTHLY:{},
   queueDateStickyClone(){},document:{querySelector:s=>node(s.slice(1)),getElementById:node,createElement:()=>new Element(),
    querySelectorAll:s=>s==='[data-key]'?metrics:[]}};
+ ctx.CustomEvent=class CustomEvent { constructor(type, options={}){this.type=type;this.detail=options.detail;} };
+ ctx.dispatchEvent=event=>{assert.equal(event.type,'az-management-staff-table-rendered');return true;};
  ctx.window=ctx;vm.createContext(ctx);vm.runInContext(inline,ctx);
  vm.runInContext("dentists.splice(0,dentists.length,'D');clinicDocs.splice(0,clinicDocs.length,'C');",ctx);
  vm.runInContext(helpers+'\n'+rendering,ctx);
@@ -120,19 +122,27 @@ if(process.env.SKIP_COST!=='1'){
  const cost=fs.readFileSync(path.join(root,'reports/services-primary-patient-cost.js'),'utf8');
  const functions=slice(cost,'  function scopeMetrics(','  function getGroups(');
  function cHarness(){
+  const salary={'Стоматология':{'Same A.':[0,0]},'Клиника':{'Clinic B.':[0,0]}};
+  const meta={directionFot:{'Стоматология':[0,0],'Отделение структуры':[0,0]}};
   const data={year:2026,months:['2026-01','2026-02'],numerator:[1000,2400],availableThroughMonthIndex:1};
   const ctx={Date,Number,Object,Array,Math,JSON,MEDICAL_DIRECTIONS:['Стоматология','Клиника'],SALARY_KEY:'salary',EXTRA_KEY:'extra',
    PAID_PATIENTS_MONTHLY:{'2026-01':{asOf:'2026-01-31',medicine:100,dent:30,structure:80,dentists:{'Same A.':20}},
     '2026-02':{asOf:'2026-02-28',medicine:120,dent:40,structure:90,dentists:{'Same A.':25}}},
-   normalizeName:s=>s.toLowerCase(),normalizeArray:(arr,n,fill)=>Array.from({length:n},(_,i)=>arr?.[i]??fill),getJson:()=>({})};
+   normalizeName:s=>s.toLowerCase(),normalizeArray:(arr,n,fill)=>Array.from({length:n},(_,i)=>arr?.[i]??fill),getJson:(_,key)=>key==='salary'?salary:{}};
   vm.createContext(ctx);vm.runInContext(functions,ctx);
   const services={months:data.months,directions:{'Стоматология':{doctors:{'Same A.':{service:[[1,5000],[1,9000]]}}},'Клиника':{doctors:{'Clinic B.':{service:[[1,6000],[1,10000]]}}}}};
-  const w={localStorage:{}};
-  return {ctx,data,services,w,scope:(idx=[0])=>ctx.scopeMetrics(w,services,data,'Стоматология',['Same A.'],ctx.paidPatientSeries(data,'Стоматология'),idx)};
+  const w={localStorage:{getItem:key=>key==='az-economics-sync-meta'?JSON.stringify(meta):null}};
+  return {ctx,data,services,w,salary,meta,scope:(idx=[0])=>ctx.scopeMetrics(w,services,data,'Стоматология',['Same A.'],ctx.paidPatientSeries(data,'Стоматология'),idx)};
  }
  test('scope expense burden uses the common medical payer denominator',()=>{
   const h=cHarness(),r=h.scope();assert.equal(r.paidPatients,30);assert.equal(r.cost,10);assert.equal(r.load,300);assert.equal(r.final,4700);
   const all=h.ctx.wholeClinicMetrics(h.w,h.services,h.data,[0]);assert.equal(all.cost,10);assert.equal(all.load,1000);assert.equal(all.final,10000);
+ });
+ test('missing payroll must block profit even with known expense burden',()=>{
+  const h=cHarness();delete h.salary['Стоматология']['Same A.'];
+  assert.equal(h.scope().final,null);assert.equal(h.scope().incomplete,true);
+  delete h.meta.directionFot['Стоматология'];
+  assert.equal(h.ctx.wholeClinicMetrics(h.w,h.services,h.data,[0]).final,null);
  });
  test('two-month cost remains weighted by medical patients; scope load sums monthly allocations',()=>{
   const h=cHarness(),r=h.scope([0,1]);assert.equal(r.cost,3400/220);assert.equal(r.load,1100);assert.equal(r.paidPatients,70);

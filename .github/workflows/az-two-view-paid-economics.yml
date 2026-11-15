@@ -6,6 +6,9 @@ on:
       - '.github/workflows/az-two-view-paid-economics.yml'
       - 'tools/finish-paid-two-views.py'
       - 'tests/verify-paid-asof.cjs'
+      - 'tests/verify-paid-periods.cjs'
+      - 'tests/verify-two-view-paid.cjs'
+      - 'tests/verify-paid-history.cjs'
       - 'az-baze-auth/test_paid_exact_asof.py'
       - 'az-baze-auth/browser_paid_two_views.py'
   pull_request:
@@ -13,6 +16,9 @@ on:
       - 'reports/**'
       - 'az-baze-auth/**'
       - 'tests/verify-paid-asof.cjs'
+      - 'tests/verify-paid-periods.cjs'
+      - 'tests/verify-two-view-paid.cjs'
+      - 'tests/verify-paid-history.cjs'
       - 'tools/finish-paid-two-views.py'
       - '.github/workflows/az-two-view-paid-economics.yml'
 permissions:
