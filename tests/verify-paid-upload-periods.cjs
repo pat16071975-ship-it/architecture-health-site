@@ -91,6 +91,8 @@ function harness(previewPayload, commitPayload = { status: 'imported', message: 
       this.data = new Map((source?.inputs || []).filter(input => !input.disabled)
         .map(input => [input.name, input.value]));
     }
+    forEach(fn){this.data.forEach(fn);}
+    append(key,value){this.data.set(key,value);}
     set(key, value) { this.data.set(key, typeof value === 'object' && value !== null ? value : String(value)); }
     get(key) { return this.data.has(key) ? this.data.get(key) : null; }
     has(key) { return this.data.has(key); }

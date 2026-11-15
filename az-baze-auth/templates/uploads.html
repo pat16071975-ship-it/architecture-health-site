@@ -333,6 +333,27 @@
   const closeBtn=document.getElementById('reconcileClose');
   const closeTextBtn=document.getElementById('reconcileCloseText');
   let context=null;
+  let operation=null;
+  let committing=false;
+  function beginUpload(form){
+    if(operation)return null;
+    // Capture the exact request before the first await; preview and commit reuse it.
+    const data=new FormData(form);
+    const files=uploadFileNames(form);
+    const controls=[...document.querySelectorAll(
+      '[data-az-completed-upload-form] button, [data-az-services-upload-form] button, '+
+      '[data-az-cash-upload-form] button, [data-az-paid-upload-form] button, '+
+      '[data-az-metrika-form] button, #metrikaAutoLoad, #pendingProviderSave'
+    )].map(control=>({control,disabled:control.disabled}));
+    controls.forEach(({control})=>{control.disabled=true});
+    operation={data,files,controls};
+    return operation;
+  }
+  function releaseUpload(){
+    (operation?.controls||[]).forEach(({control,disabled})=>{control.disabled=disabled});
+    operation=null;
+  }
+
 
   const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const money=value=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Number(value)||0)+' ₽';
@@ -398,7 +419,8 @@
   });
 
   async function send(url,form,extra={}){
-    const data=new FormData(form);
+    const data=new FormData();
+    form.data.forEach((value,key)=>data.append(key,value));
     Object.entries(extra).forEach(([key,value])=>data.set(key,value));
     const response=await fetch(url,{method:'POST',body:data,credentials:'same-origin'});
     let payload;
@@ -555,7 +577,8 @@
   }
 
   async function commit(choice){
-    if(!context)return;
+    if(!context||committing)return;
+    committing=true;
     const extra={decision:choice||'append'};
     if(context.type==='paid'){
       extra.expected_revision=context.payload.revision;
@@ -573,7 +596,7 @@
       }
       keepBtn.disabled=true;newBtn.disabled=true;continueBtn.disabled=true;
       const out=await send(url,context.form,extra);
-      showUploadResult(out,uploadFileNames(context.form),context.payload.period);
+      showUploadResult(out,context.form.files,context.payload.period);
       resultBox(context.type,out.message||'Загрузка завершена.',true);
       overlay.classList.add('hidden');
       context=null;
@@ -583,32 +606,35 @@
       keepBtn.disabled=false;
       newBtn.disabled=context?.payload?.can_replace===false;
       continueBtn.disabled=false;
-    }
+    }finally{committing=false;}
   }
 
   async function preview(type,form){
+    const snapshot=beginUpload(form);
+    if(!snapshot)return;
     resultBox(type,'Проверяю файл перед записью…',true);
     const url=type==='completed'?'/api/uploads/completed/preview':type==='services'?'/api/uploads/services/preview':type==='cash'?'/api/uploads/cash/preview':'/api/uploads/paid-services/preview';
     try{
-      const out=await send(url,form);
+      const out=await send(url,snapshot);
       const needs=out.requires_choice||out.requires_provider_mapping||out.requires_review;
       if(needs){
         resultBox(type,'Обнаружены данные, требующие подтверждения.',true);
-        openPreview(type,form,out);
+        openPreview(type,snapshot,out);
       }else{
         const committed=await send(
           type==='completed'?'/api/uploads/completed/commit':type==='services'?'/api/uploads/services/commit':type==='cash'?'/api/uploads/cash/commit':'/api/uploads/paid-services/commit',
-          form,
+          snapshot,
           type==='paid'?{
             decision:'append',
             expected_revision:out.revision,
             expected_overlap_revision:out.overlap_revision
           }:{decision:'append'}
         );
-        showUploadResult(committed,uploadFileNames(form),out.period);
+        showUploadResult(committed,snapshot.files,out.period);
         resultBox(type,committed.message||'Загрузка завершена.',true);
       }
     }catch(error){
+      releaseUpload();
       resultBox(type,error.message||'Ошибка проверки.',false);
     }
   }
@@ -618,10 +644,12 @@
   cashForm?.addEventListener('submit',event=>{event.preventDefault();preview('cash',cashForm)});
   paidForm?.addEventListener('submit',event=>{event.preventDefault();preview('paid',paidForm)});
   metrikaAutoBtn?.addEventListener('click',async()=>{
+    const snapshot=beginUpload(metrikaForm);
+    if(!snapshot)return;
     metrikaAutoBtn.disabled=true;
     resultBox('metrika','Обновляю данные Яндекс Метрики и Директа…',true);
     try{
-      const out=await send('/api/reports/advertising/metrika/sync',metrikaForm);
+      const out=await send('/api/reports/advertising/metrika/sync',snapshot);
       const updated=(out.completed_days||[]).map(value=>value.split('-').reverse().join('.')).join(', ');
       const current=out.current_day?out.current_day.split('-').reverse().join('.'):'';
       let message=out.message||'Данные Метрики и Директа обновлены.';
@@ -631,25 +659,31 @@
       showUploadResult({...out,message},['Яндекс Метрика и Директ — загрузка с сервера']);
       resultBox('metrika',message,true);
     }catch(error){
+      releaseUpload();
       resultBox('metrika',error.message||'Не удалось загрузить данные Яндекс Метрики.',false);
     }finally{
-      metrikaAutoBtn.disabled=false;
+      metrikaAutoBtn.disabled=!!operation;
     }
   });
 
   metrikaForm?.addEventListener('submit',async event=>{
     event.preventDefault();
+    const snapshot=beginUpload(metrikaForm);
+    if(!snapshot)return;
     resultBox('metrika','Проверяю ZIP Яндекс Метрики…',true);
     try{
-      const out=await send('/api/reports/advertising/metrika/import',metrikaForm);
+      const out=await send('/api/reports/advertising/metrika/import',snapshot);
       const days=(out.completed_days||[]).map(value=>value.split('-').reverse().join('.')).join(', ');
       resultBox('metrika',(out.message||'Метрика загружена.')+(days?' Завершённые дни: '+days+'.':''),true);
-      showUploadResult(out,uploadFileNames(metrikaForm));
+      showUploadResult(out,snapshot.files);
     }catch(error){
+      releaseUpload();
       resultBox('metrika',error.message||'Ошибка загрузки Метрики.',false);
     }
   });
   document.getElementById('pendingProviderSave')?.addEventListener('click',async()=>{
+    if(operation)return;
+    operation={};
     const result=document.getElementById('pendingProviderResult');
     try{
       const decisions={};
@@ -667,11 +701,12 @@
       result.className='result ok';
       setTimeout(()=>location.replace('/uploads/'),1200);
     }catch(error){
+      releaseUpload();
       result.textContent=error.message||'Ошибка.';
       result.className='result error';
     }
   });
-  const closePreview=()=>{overlay.classList.add('hidden');context=null};
+  const closePreview=()=>{if(committing)return;overlay.classList.add('hidden');context=null;releaseUpload()};
   cancelBtn?.addEventListener('click',closePreview);
   closeBtn?.addEventListener('click',closePreview);
   closeTextBtn?.addEventListener('click',closePreview);

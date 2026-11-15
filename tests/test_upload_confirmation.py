@@ -164,6 +164,85 @@ class BrowserTests(unittest.TestCase):
             self.assertEqual(self.page.locator('#uploadResultTitle').inner_text(),
                              'Данные загружены' if changed else 'Данные не изменены')
 
+    def defer_requests(self):
+        self.page.evaluate("""() => {
+          requests=[]; pending=[];
+          window.fetch=(url,options)=>new Promise(resolve=>{
+            requests.push({url,body:Object.fromEntries(options.body.entries())});
+            pending.push(payload=>resolve({ok:true,json:async()=>payload}));
+          });
+        }""")
+
+    def resolve_request(self, index, payload):
+        self.page.evaluate('(x)=>pending[x.index](x.payload)',{'index':index,'payload':payload})
+
+    def set_file(self, kind, name):
+        self.page.locator('#'+kind+' input').set_input_files(
+            {'name':name,'mimeType':'application/octet-stream','buffer':name.encode()})
+
+    def fire_submit(self, kind):
+        self.page.evaluate('(kind)=>document.getElementById(kind).dispatchEvent(new Event("submit",{cancelable:true}))',kind)
+
+    def test_file_snapshot_survives_changes_during_preview_and_commit(self):
+        for kind in ('completed','services','cash','paid','metrika'):
+            self.modal_fixture(actual=True);self.defer_requests();self.set_file(kind,'A.xlsx')
+            self.fire_submit(kind)
+            self.page.wait_for_function('requests.length===1')
+            self.set_file(kind,'B.xlsx')
+            if kind!='metrika':
+                self.resolve_request(0,self.preview())
+                self.page.wait_for_function('requests.length===2')
+                self.set_file(kind,'C.xlsx')
+            self.resolve_request(0 if kind=='metrika' else 1,{'status':'imported'})
+            self.page.locator('#uploadResultDialog').wait_for(state='visible')
+            self.assertEqual(self.page.locator('#uploadResultFiles').inner_text(),'A.xlsx')
+            self.assertEqual(self.page.evaluate('requests.map(r=>Object.values(r.body).find(v=>v instanceof File).name)'),
+                             ['A.xlsx'] if kind=='metrika' else ['A.xlsx','A.xlsx'])
+
+    def test_global_lock_rejects_all_starts_until_acknowledgement(self):
+        for first in ('completed','services','cash','paid','metrika','auto'):
+            self.modal_fixture(actual=True);self.defer_requests()
+            if first=='auto':self.page.locator('#metrikaAutoLoad').click()
+            else:self.set_file(first,'A.xlsx');self.fire_submit(first)
+            self.page.wait_for_function('requests.length===1')
+            for phase in ('pending','result'):
+                if phase=='result':
+                    if first not in ('metrika','auto'):
+                        self.resolve_request(0,self.preview());self.page.wait_for_function('requests.length===2')
+                    self.resolve_request(0 if first in ('metrika','auto') else 1,{'status':'ok','message':'FIRST'})
+                    self.page.locator('#uploadResultDialog').wait_for(state='visible')
+                before=self.page.evaluate('requests.length')
+                for other in ('completed','services','cash','paid','metrika'):self.fire_submit(other)
+                self.page.evaluate('document.getElementById("metrikaAutoLoad").dispatchEvent(new Event("click"))')
+                self.assertEqual(self.page.evaluate('requests.length'),before)
+                if phase=='result':self.assertEqual(self.page.locator('#uploadResultMessage').inner_text(),'FIRST')
+
+    def test_review_keeps_snapshot_and_cannot_cancel_or_double_commit_in_flight(self):
+        self.modal_fixture(actual=True);self.defer_requests();self.set_file('paid','A.xlsx');self.fire_submit('paid')
+        self.resolve_request(0,self.preview(requires_choice=True))
+        self.page.locator('#reconcileNew').wait_for(state='visible')
+        self.set_file('paid','B.xlsx');self.page.locator('#reconcileNew').click()
+        self.page.wait_for_function('requests.length===2')
+        self.page.evaluate("""()=>{
+          document.getElementById('reconcileNew').dispatchEvent(new Event('click'));
+          document.getElementById('reconcileCancel').dispatchEvent(new Event('click'));
+        }""")
+        self.fire_submit('cash')
+        self.assertEqual(self.page.evaluate('requests.length'),2)
+        self.resolve_request(1,{'status':'replaced'})
+        self.page.locator('#uploadResultDialog').wait_for(state='visible')
+        self.assertEqual(self.page.locator('#uploadResultFiles').inner_text(),'A.xlsx')
+        self.assertEqual(self.page.evaluate('requests[1].body.paid_services.name'),'A.xlsx')
+
+    def test_error_and_review_cancel_release_global_lock(self):
+        self.modal_fixture(actual=True);self.defer_requests();self.set_file('paid','A.xlsx');self.fire_submit('paid')
+        self.resolve_request(0,{'status':'error','message':'ERROR'})
+        self.page.locator('#paidClientResult.error').wait_for(state='visible')
+        self.fire_submit('paid');self.page.wait_for_function('requests.length===2')
+        self.resolve_request(1,self.preview(requires_choice=True))
+        self.page.locator('#reconcileCancel').click()
+        self.fire_submit('cash');self.page.wait_for_function('requests.length===3')
+
     def test_mobile_modal_layout(self):
         self.modal_fixture()
         for width,height in ((320,568),(360,640),(390,844),(430,932),(768,1024),(1440,900)):
