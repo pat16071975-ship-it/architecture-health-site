@@ -127,6 +127,37 @@ def direct(core, conn, first, last):
     return known, bool(core._dataset_period_complete(conn, 'direct', first, last) and known is not None)
 
 
+def channel_rows(core, conn, store, rows, first, through):
+    """Original discovered source/campaign hierarchy, including unfilled rows.
+
+    Direct amounts are observed API facts through the selected cutoff, never
+    monthly manual entries. Completeness is returned separately by view().
+    """
+    sources = core._source_registry(conn, store)
+    campaigns = core._campaign_registry(conn, store)
+    source_direct = core._direct_source_values(conn, first, through) if through >= first else {}
+    campaign_direct = core._direct_campaign_values(conn, first, through) if through >= first else {}
+    result = []
+    for meta in sources:
+        key = meta['source_key']
+        source_rows = [r for r in rows if r['source'] == key]
+        own = [r for r in source_rows if r['level'] == 'source']
+        def values(entries):
+            return {'record_ids': [r['id'] for r in entries],
+                    'amount': round(sum(r['amount'] for r in entries), 2) if entries else None}
+        children = []
+        for campaign in campaigns:
+            if campaign['source_key'] != key:
+                continue
+            entries = [r for r in source_rows if r.get('key') == campaign['campaign_key'] and r['level'] == 'campaign']
+            children.append({**campaign, **values(entries),
+                             'direct': (campaign_direct.get(campaign['campaign_key']) or {}).get('spend')})
+        result.append({**meta, **values(own), 'campaigns': children,
+                       'fixed_total': fixed_total(source_rows) if source_rows else None,
+                       'direct': (source_direct.get(key) or {}).get('spend')})
+    return result
+
+
 def view(core, conn, month):
     first, last = bounds(month)
     state, store = load(conn), core._load_cost_store(conn)
@@ -139,6 +170,7 @@ def view(core, conn, month):
     if not any(r['key'] == 'yandex_ads' for r in sources):
         sources.append({'key': 'yandex_ads', 'name': 'Подрядчик Яндекс-рекламы'})
     return {'month': month, 'records': rows, 'sources': sources,
+        'channels': channel_rows(core, conn, store, rows, first, through),
         'fixed': fixed, 'direct': known, 'direct_complete': complete,
         'direct_through': through.isoformat() if through >= first else None,
         'automatic_total': round(fixed + known, 2) if fixed is not None and known is not None else None,
@@ -243,8 +275,17 @@ def mutate(core, conn, form, actor, now):
                     raise ValueError('Выберите источник.')
                 # Campaign detail keeps its server-owned identity through every edit.
                 # Reclassifying it as a source payment changes deduplication semantics.
-                level = (before or {}).get('level', 'source')
-                if level == 'campaign' and source != before['source']:
+                level = before['level'] if before else str(form.get('level') or 'source')
+                campaign_key = (before or {}).get('key')
+                if level not in ('source', 'campaign'):
+                    raise ValueError('Неизвестный уровень расходов.')
+                if level == 'campaign' and before is None:
+                    campaign_key = str(form.get('campaign_key') or '')
+                    campaign = next((r for r in core._campaign_registry(conn, store)
+                                     if r['campaign_key'] == campaign_key and r['source_key'] == source), None)
+                    if campaign is None or source == 'yandex_ads':
+                        raise ValueError('Выберите существующую кампанию; расходы Директа вводятся автоматически.')
+                if level == 'campaign' and before and source != before['source']:
                     raise ValueError('Источник детализации кампании изменить нельзя.')
                 if source == 'other':
                     source = core._manual_source_key(label)
@@ -255,7 +296,7 @@ def mutate(core, conn, form, actor, now):
                          'amount': amount(form.get('amount')), 'comment': comment,
                          'level': level, 'legacy': False}
                 if level == 'campaign':
-                    after['key'] = before['key']
+                    after['key'] = campaign_key
                 state['entries'][after['id']] = after
                 months.add(target_month)
             for changed_month in months:

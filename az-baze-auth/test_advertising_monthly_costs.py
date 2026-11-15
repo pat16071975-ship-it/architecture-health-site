@@ -196,6 +196,63 @@ class MonthlyCostsTests(unittest.TestCase):
             self.change(action='save', id=row['id'], source='other', label='Новый источник', amount=200)
         self.assertEqual(self.view(), before)
 
+    def discovered_channels(self):
+        store = core._load_cost_store(self.c)
+        for key, name in [('instagram', 'Instagram'), ('yandex_ads', 'Яндекс-реклама'), ('2gis', '2ГИС')]:
+            store['sources'][key] = {'name': name, 'channel_name': 'Платная реклама', 'manual': False}
+        for source, ident, name in [('instagram','clinic','Instagram клиники'), ('instagram','zubachev','Instagram Зубачёва'), ('instagram','starostenko','Instagram Старостенко'), ('yandex_ads','715444498','Ортодонтия')]:
+            key = core._campaign_cost_key(source, ident, name)
+            store['campaigns'][key] = {'source_key': source, 'campaign_id': ident, 'campaign_name': name}
+        core._persist_cost_store(self.c, store); self.c.commit()
+        return store
+
+    def test_discovered_channels_and_instagram_children_visible_without_payments(self):
+        self.discovered_channels()
+        before = self.c.total_changes
+        result = self.view()
+        self.assertEqual(result['records'], [])
+        channels = {r['source_key']: r for r in result['channels']}
+        self.assertEqual(set(channels), {'instagram','yandex_ads','2gis'})
+        self.assertEqual({c['campaign_name'] for c in channels['instagram']['campaigns']},
+                         {'Instagram клиники','Instagram Зубачёва','Instagram Старостенко'})
+        self.assertTrue(all(c['amount'] is None for c in channels['instagram']['campaigns']))
+        self.assertEqual(self.c.total_changes, before)
+
+    def test_direct_campaigns_show_observed_spend_even_when_coverage_partial(self):
+        store = self.discovered_channels()
+        key = next(k for k,v in store['campaigns'].items() if v['source_key']=='yandex_ads')
+        with patch.object(core,'_direct_campaign_values',return_value={key:{'spend':87.65}}), patch.object(core,'_dataset_period_complete',return_value=False):
+            result = self.view()
+        yandex = next(r for r in result['channels'] if r['source_key']=='yandex_ads')
+        self.assertEqual(yandex['direct'], 100)
+        self.assertEqual(yandex['campaigns'][0]['direct'],87.65)
+        self.assertFalse(result['direct_complete'])
+
+    def test_new_instagram_campaign_payment_keeps_detail_and_can_be_edited(self):
+        store=self.discovered_channels()
+        key=next(k for k,v in store['campaigns'].items() if v['campaign_id']=='clinic')
+        self.change(action='save',source='instagram',level='campaign',campaign_key=key,label='Instagram клиники',amount=200)
+        entry=self.view()['records'][0]
+        self.assertEqual((entry['level'],entry['key']),('campaign',key))
+        self.assertEqual(self.view()['fixed'],200)
+        self.change(action='save',source='instagram',label='Instagram',amount=500)
+        self.assertEqual(self.view()['fixed'],500)
+        self.change(action='save',id=entry['id'],source='instagram',label=entry['label'],amount=300)
+        self.assertEqual(self.view()['fixed'],500)
+        channels={r['source_key']:r for r in self.view()['channels']}
+        child=next(c for c in channels['instagram']['campaigns'] if c['campaign_key']==key)
+        self.assertEqual(child['amount'],300)
+
+    def test_campaign_creation_rejects_direct_unknown_and_wrong_source(self):
+        store=self.discovered_channels()
+        ig=next(k for k,v in store['campaigns'].items() if v['source_key']=='instagram')
+        direct=next(k for k,v in store['campaigns'].items() if v['source_key']=='yandex_ads')
+        for source,key in [('yandex_ads',direct),('2gis',ig),('instagram','unknown')]:
+            before=self.view()
+            with self.assertRaises(ValueError):
+                self.change(action='save',source=source,level='campaign',campaign_key=key,label='forged',amount=100)
+            self.assertEqual(self.view(),before)
+
     def test_unknown_invalid_and_zero_values(self):
         for value in [None,True,False,'','NaN','Inf','-1','abc']:
             with self.subTest(value=value),self.assertRaises(ValueError):self.add(value)

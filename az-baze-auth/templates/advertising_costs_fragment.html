@@ -1,31 +1,73 @@
 <style>
+.advertising-costs-card{margin-top:12px}
 .advertising-costs-box{border-top:3px solid #44634f;padding:10px!important}
-.ad-cost-title{font-size:14px;margin:0}.ad-cost-help,.ad-cost-result{font-size:11px;line-height:1.5}.ad-cost-result.error{color:#983b32}
-.ad-cost-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
-.advertising-costs-box input,.advertising-costs-box select,.advertising-costs-box button{height:32px;box-sizing:border-box;border:1px solid #d8cdbb;border-radius:6px;padding:4px 8px;font:inherit;font-size:12px;max-width:100%}
-.advertising-costs-box button{cursor:pointer;background:#fffdf8;color:#354039}.advertising-costs-box button.primary{background:#44634f;color:white}.advertising-costs-box button:disabled{opacity:.5;cursor:default}
-.ad-cost-table{overflow:auto;border:1px solid #ded4c4;border-radius:6px}.ad-cost-table table{width:100%;border-collapse:collapse;font-size:12px}.ad-cost-table th,.ad-cost-table td{text-align:left;padding:7px;border-bottom:1px solid #ede6da;vertical-align:middle}.ad-cost-table th{background:#faf7f1}.ad-cost-table td:last-child{white-space:nowrap}
-.ad-cost-row.total{background:#f6f1e8;font-weight:600}.ad-cost-summary{margin-bottom:12px}.ad-cost-summary input{width:150px}
-.ad-cost-editor{display:grid;grid-template-columns:130px 170px minmax(180px,1fr) 130px;gap:8px;margin:10px 0}.ad-cost-editor label{display:flex;flex-direction:column;gap:4px;font-size:11px}.ad-cost-editor .wide{grid-column:1/-1}.advertising-costs-box [hidden]{display:none!important}
+.ad-cost-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ad-cost-title{display:flex;align-items:center;gap:7px;margin:0;font-size:14px;color:#354039}
+.ad-cost-toggle,.ad-cost-expand{border:0;background:none;color:#44634f;font-weight:800;cursor:pointer;padding:0;min-width:18px;text-align:left}
+.ad-cost-body[hidden],.ad-cost-children[hidden]{display:none!important}
+.ad-cost-help{margin:5px 0 9px;color:#747a73;font-size:9.5px;line-height:1.35}
+.ad-cost-table{border:1px solid #ded4c4;border-radius:8px;overflow:auto;background:#fff}
+.ad-cost-head,.ad-cost-row{display:grid;grid-template-columns:minmax(155px,1.45fr) 112px 112px 112px 112px 112px 84px;gap:6px;align-items:center;min-width:900px}
+.ad-cost-head{padding:6px 8px;background:#faf7f1;border-bottom:1px solid #ded4c4;font-size:8.5px;font-weight:700;color:#667169}
+.ad-cost-row{padding:5px 8px;border-bottom:1px solid #ede6da;min-height:39px}
+.ad-cost-row:last-child{border-bottom:0}
+.ad-cost-row.global{background:#f6f1e8;font-weight:700}
+.ad-cost-row.source{background:#fffdf8}
+.ad-cost-row.campaign{background:#faf7f1}
+.ad-cost-row.campaign .ad-cost-name{padding-left:20px;position:relative}
+.ad-cost-row.campaign .ad-cost-name:before{content:"";position:absolute;left:8px;top:50%;width:5px;height:5px;border-radius:50%;background:#b59662;transform:translateY(-50%)}
+.ad-cost-name{min-width:0;font-size:10.5px;font-weight:600;color:#354039;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-cost-name small{display:block;margin-top:2px;font-size:8px;font-weight:500;color:#858a84;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ad-cost-name-line{display:flex;align-items:center;gap:3px;min-width:0}
+.ad-cost-input{width:100%;height:28px;box-sizing:border-box;border:1px solid #d8cdbb;border-radius:6px;background:#fff;padding:3px 6px;font:500 9.5px Montserrat,Arial,sans-serif;color:#354039}
+.ad-cost-input[readonly]{background:#f3efe7;color:#667169}
+.ad-cost-readonly{font-size:10px;color:#667169;text-align:center;display:block}
+.ad-cost-save{height:28px;border:1px solid #44634f;border-radius:6px;background:#44634f;color:white;padding:0 8px;font:700 9px Montserrat,Arial,sans-serif;cursor:pointer}
+.ad-cost-save:disabled{opacity:.55;cursor:default}
+.ad-cost-note{grid-column:1/-1;font-size:8.5px;color:#747a73;line-height:1.3;margin-top:-1px}
+.ad-cost-note.bad{color:#9a4b48}
+.ad-cost-note.good{color:#44634f}
+.ad-cost-actions{display:flex;gap:7px;align-items:center;margin-top:8px}
+.ad-cost-add{height:28px;border:1px solid #d8cdbb;border-radius:6px;background:#fffdf8;padding:0 10px;font:600 9px Montserrat,Arial,sans-serif;cursor:pointer}
+.ad-cost-result{font-size:9px;color:#667169}
+.ad-cost-result.error{color:#9a4b48}
+@media(max-width:700px){
+  .advertising-costs-box{padding:8px!important}
+  .ad-cost-table{overflow-x:auto}
+  .ad-cost-head,.ad-cost-row{min-width:820px;grid-template-columns:minmax(140px,1.4fr) 104px 104px 104px 104px 104px 76px}
+}
+
+.ad-cost-head,.ad-cost-row{grid-template-columns:minmax(165px,1.5fr) 90px 112px 112px 112px 210px;min-width:870px}
+.advertising-costs-box [hidden]{display:none!important}
+.ad-cost-toolbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:8px 0;font-size:10px}
+.ad-cost-toolbar select,.ad-cost-editor input,.ad-cost-editor select{height:28px;border:1px solid #d8cdbb;border-radius:6px;padding:3px 6px;font:500 10px Montserrat,Arial,sans-serif;box-sizing:border-box;max-width:100%}
+.ad-cost-editor{display:grid;grid-template-columns:130px 170px minmax(180px,1fr) 130px;gap:8px;margin:10px 0}.ad-cost-editor label{display:flex;flex-direction:column;gap:4px;font-size:10px}.ad-cost-editor .wide{grid-column:1/-1}
+.ad-cost-buttons{display:flex;gap:4px;align-items:center;flex-wrap:wrap}.ad-cost-buttons button{padding:0 6px}
+.ad-cost-table table{width:100%;border-collapse:collapse;font-size:10px}.ad-cost-table th,.ad-cost-table td{padding:6px;border-bottom:1px solid #ede6da;text-align:left}
+.ad-cost-table th{background:#faf7f1}.ad-cost-table td:last-child{white-space:nowrap}
+.ad-cost-confirm{background:#f6f1e8}.ad-cost-confirm .ad-cost-name{grid-column:1/3}.ad-cost-confirm #adApproved{grid-column:3}.ad-cost-confirm #adOverride{grid-column:4/6}
+.ad-cost-help span{margin-right:8px}.ad-cost-detail{margin-top:8px;font-size:10px}
+@media(max-width:700px){.ad-cost-head,.ad-cost-row{min-width:820px;grid-template-columns:minmax(150px,1.4fr) 80px 100px 100px 100px 210px}}
 @media(max-width:650px){.ad-cost-editor{grid-template-columns:1fr 1fr}.ad-cost-table table{min-width:650px}}
 </style>
 <div class="card advertising-costs-card"><div class="upload-box advertising-costs-box" id="adMonthly">
-<h3 class="ad-cost-title"><button type="button" id="adCostToggle" aria-expanded="false" aria-controls="adCostBody">+</button> 6. Расходы на рекламу</h3>
+<h3 class="ad-cost-title"><button type="button" class="ad-cost-toggle" id="adCostToggle" aria-expanded="false" aria-controls="adCostBody">+</button> 6. Расходы на рекламу</h3>
 <p class="ad-cost-help">Оплата рекламы и Подрядчики — фиксированные платежи за месяц. Директ с НДС прибавляется автоматически. В рекламном отчёте фиксированная часть распределяется по календарным дням. Кампании — детализация, не дополнительный расход.</p>
 {% if 'upload_services' in perms %}
 <input type="hidden" id="advertisingCostsCsrf" value="{{ csrf }}">
 <div id="adCostBody" hidden>
-<div class="ad-cost-toolbar"><label for="adMonth">Месяц</label><select id="adMonth"></select><label for="adYear">Год</label><select id="adYear"></select><button type="button" id="adRefresh">Обновить</button></div>
+<div class="ad-cost-toolbar"><label for="adMonth">Месяц</label><select id="adMonth"></select><label for="adYear">Год</label><select id="adYear"></select><button type="button" class="ad-cost-add" id="adRefresh">Обновить</button></div>
 <p id="adCostResult" class="ad-cost-result" role="status" aria-live="polite"></p>
-<div class="ad-cost-table ad-cost-summary"><table><thead><tr><th>Итог месяца</th><th>Сумма, ₽</th><th>Действие / пояснение</th></tr></thead><tbody>
-<tr class="ad-cost-row total"><td>Подтверждено для рекламного отчёта</td><td id="adApproved">—</td><td><input id="adOverride" aria-label="Скорректированный общий итог" inputmode="decimal" placeholder="Общий итог, ₽"><button type="button" id="adConfirm" class="primary">Подтвердить сумму</button> <button type="button" id="adAccept">Принять автоитог</button></td></tr>
-<tr class="ad-cost-row"><td>Всего расходов на рекламу — автоитог</td><td id="adAutomatic">—</td><td>Полные фиксированные платежи + известный Директ с НДС</td></tr>
-<tr class="ad-cost-row"><td>Фиксированные платежи</td><td id="adFixed">—</td><td id="adAdjustment"></td></tr>
-<tr class="ad-cost-row"><td>Директ с НДС</td><td id="adDirect">—</td><td id="adDirectCoverage"></td></tr>
-</tbody></table></div>
-<p class="ad-cost-help">Подтверждая месяц, вы подтверждаете полноту фиксированных расходов, включая настоящий ноль. Корректировка относится к фиксированной части; новые расходы Директа добавляются автоматически. После изменения платежа месяц нужно подтвердить заново.</p>
-<div class="ad-cost-toolbar"><button type="button" id="adNew">Добавить платёж</button><button type="button" id="adUnconfirm">Снять подтверждение месяца</button></div>
-<div class="ad-cost-table"><table><thead><tr><th>Месяц</th><th>Платёж / источник</th><th>Сумма, ₽</th><th>Комментарий</th><th>Действия</th></tr></thead><tbody id="adPayments"></tbody></table></div>
+<div class="ad-cost-table">
+<div class="ad-cost-head"><span>Уровень</span><span>Месяц</span><span>Реклама</span><span>Подрядчик</span><span>Всего</span><span></span></div>
+<div class="ad-cost-row ad-cost-confirm"><div class="ad-cost-name">Подтверждено для рекламного отчёта</div><span id="adApproved">—</span><input class="ad-cost-input" id="adOverride" aria-label="Скорректированный общий итог" inputmode="decimal" placeholder="Общий итог, ₽"><div class="ad-cost-buttons"><button type="button" id="adConfirm" class="ad-cost-save">Подтвердить</button><button type="button" id="adAccept" class="ad-cost-add">Принять автоитог</button></div></div>
+<div class="ad-cost-row global"><div class="ad-cost-name">Всего расходов на рекламу</div><span id="adTotalMonth"></span><span class="ad-cost-readonly">—</span><span class="ad-cost-readonly">—</span><span id="adAutomatic">—</span><span class="ad-cost-readonly">Автоитог</span></div>
+<div id="adCostRows"></div>
+</div>
+<p class="ad-cost-help"><span>Фиксированные платежи: <b id="adFixed">—</b> ₽.</span><span>Директ с НДС: <b id="adDirect">—</b> ₽.</span><span id="adDirectCoverage"></span><span id="adAdjustment"></span></p>
+<p class="ad-cost-help">Оплата рекламы и Подрядчики — суммы за месяц. В отчёте фиксированная часть распределяется по календарным дням, Директ прибавляется по факту. Подтверждение означает полноту фиксированных расходов, включая настоящий ноль. После изменения платежа месяц нужно подтвердить заново.</p>
+<div class="ad-cost-toolbar"><button type="button" class="ad-cost-add" id="adNew">Добавить источник / платёж</button><button type="button" class="ad-cost-add" id="adUnconfirm">Снять подтверждение месяца</button></div>
+<details id="adPaymentDetails" class="ad-cost-detail"><summary>Сохранённые платежи — изменить месяц, комментарий или удалить</summary><div class="ad-cost-table"><table><thead><tr><th>Месяц</th><th>Платёж / источник</th><th>Сумма, ₽</th><th>Комментарий</th><th>Действия</th></tr></thead><tbody id="adPayments"></tbody></table></div></details>
 <form id="adEditor" hidden>
 <div class="ad-cost-editor">
 <label>Месяц платежа<select id="adEntryMonth" required></select><select id="adEntryYear" aria-label="Год платежа" required></select></label>
@@ -33,7 +75,7 @@
 <label>Название платежа<input id="adLabel" maxlength="240" required></label>
 <label>Сумма за месяц, ₽<input id="adAmount" inputmode="decimal" required></label>
 <label class="wide">Комментарий<input id="adComment" maxlength="2000"></label>
-</div><div class="ad-cost-toolbar"><button class="primary" type="submit" data-save>Сохранить платёж</button><button type="button" id="adCancel">Отмена</button></div>
+</div><div class="ad-cost-toolbar"><button class="ad-cost-save" type="submit" data-save>Сохранить платёж</button><button type="button" class="ad-cost-add" id="adCancel">Отмена</button></div>
 <p class="ad-cost-help">Для Яндекс-рекламы здесь вводится только подрядчик. Расходы самих кампаний берутся из Директа. При переносе старой записи её сумма становится фиксированным платежом выбранного месяца.</p>
 </form>
 <details><summary>Журнал изменений</summary><div class="ad-cost-table"><table><thead><tr><th>Время</th><th>Пользователь</th><th>Действие</th><th>Было → стало</th></tr></thead><tbody id="adHistory"></tbody></table></div></details>
@@ -45,18 +87,49 @@ const root=document.getElementById('adMonthly'), $=id=>document.getElementById(i
 const names=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const now=new Date(), money=v=>v==null?'—':Number(v).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
 let state=null,busy=false,editId='',loaded=false;
+const expandedSources=new Set();
 function options(month,year){for(let i=1;i<=12;i++)month.add(new Option(names[i-1],String(i).padStart(2,'0')));for(let i=2000;i<=2100;i++)year.add(new Option(String(i),String(i)));month.value=String(now.getMonth()+1).padStart(2,'0');year.value=String(now.getFullYear());}
 options($('adMonth'),$('adYear'));options($('adEntryMonth'),$('adEntryYear'));
 const selected=()=>$('adYear').value+'-'+$('adMonth').value;
 function status(text,error=false){$('adCostResult').textContent=text;$('adCostResult').classList.toggle('error',error);}
 function lock(value){busy=value;root.querySelectorAll('button,input,select').forEach(el=>{el.disabled=value;});}
 function cell(tr,value){const td=document.createElement('td');td.textContent=value??'';tr.append(td);return td;}
-function row(tbody,values){const tr=document.createElement('tr');tr.className='ad-cost-row';values.forEach(v=>cell(tr,v));tbody.append(tr);return tr;}
+function row(tbody,values){const tr=document.createElement('tr');tr.className='ad-payment-row';values.forEach(v=>cell(tr,v));tbody.append(tr);return tr;}
+function renderChannels(){
+ const box=$('adCostRows');box.replaceChildren();
+ function channel(meta,type,parent){
+  const key=type==='source'?meta.source_key:meta.campaign_key;
+  const source=type==='source'?meta.source_key:parent.source_key;
+  const yandex=source==='yandex_ads',locked=yandex&&type==='campaign';
+  const tr=document.createElement('div');tr.className='ad-cost-row '+type;tr.dataset.entityType=type;tr.dataset.entityKey=key;
+  const name=document.createElement('div');name.className='ad-cost-name';const line=document.createElement('div');line.className='ad-cost-name-line';name.append(line);
+  if(type==='source'&&meta.campaigns?.length){const expand=document.createElement('button');expand.type='button';expand.className='ad-cost-expand';expand.dataset.expandSource=key;expand.textContent=expandedSources.has(key)?'−':'+';expand.setAttribute('aria-expanded',String(expandedSources.has(key)));expand.addEventListener('click',()=>{if(busy)return;if(expandedSources.has(key))expandedSources.delete(key);else expandedSources.add(key);renderChannels();});line.append(expand);}
+  const title=type==='source'?meta.source_name:meta.campaign_name||meta.campaign_id;
+  const text=document.createElement('span');text.textContent=title;line.append(text);const sub=document.createElement('small');sub.textContent=type==='source'?(meta.channel_name||'')+(yandex?' · Директ API':' · Метрика / вручную'):(meta.campaign_id?'ID '+meta.campaign_id:'')+(yandex?' · Директ API':'');name.append(sub);tr.append(name);
+  const period=document.createElement('span');period.className='ad-cost-readonly';period.textContent=state.month;tr.append(period);
+  const ad=document.createElement('input');ad.className='ad-cost-input';ad.inputMode='decimal';ad.placeholder='₽';ad.setAttribute('aria-label',title+' — реклама');ad.value=(yandex?meta.direct:meta.amount)??'';ad.readOnly=yandex||meta.record_ids.length>1;tr.append(ad);
+  let contractor=null;const amountInput=()=>yandex?contractor:ad;
+  if(yandex&&type==='source'){contractor=document.createElement('input');contractor.className='ad-cost-input';contractor.inputMode='decimal';contractor.placeholder='₽';contractor.value=meta.amount??'';contractor.readOnly=meta.record_ids.length>1;contractor.setAttribute('aria-label',title+' — подрядчик');tr.append(contractor);}else{const dash=document.createElement('span');dash.className='ad-cost-readonly';dash.textContent='—';tr.append(dash);}
+  const total=document.createElement('span');total.className='ad-cost-readonly';total.textContent=money(yandex?(locked?meta.direct:(meta.direct!=null&&meta.amount!=null?meta.direct+meta.amount:null)):(type==='source'?meta.fixed_total:meta.amount));tr.append(total);
+  const actions=document.createElement('div');actions.className='ad-cost-buttons';
+  function button(label,fn){const b=document.createElement('button');b.type='button';b.className=label==='Сохранить'?'ad-cost-save':'ad-cost-add';b.textContent=label;b.addEventListener('click',fn);actions.append(b);}
+  const entries=state.records.filter(r=>meta.record_ids.includes(r.id));
+  if(locked){actions.textContent='Директ API';actions.classList.add('ad-cost-readonly');}
+  else if(entries.length>1){button('Платежи ('+entries.length+')',()=>{$('adPaymentDetails').open=true;$('adPaymentDetails').scrollIntoView({block:'nearest'});});}
+  else{
+   button('Сохранить',()=>{const r=entries[0];write({action:'save',id:r?.id||'',source,level:type,campaign_key:type==='campaign'?key:'',label:r?.label||(yandex?'Подрядчик Яндекс-рекламы':title),amount:amountInput().value,comment:r?.comment||''});});
+   if(entries.length){button('Изменить',()=>editor(entries[0]));button('Удалить',()=>remove(entries[0]));}
+  }
+  tr.append(actions);box.append(tr);
+ }
+ for(const source of state.channels||[]){channel(source,'source');if(expandedSources.has(source.source_key))for(const campaign of source.campaigns||[])channel(campaign,'campaign',source);}
+}
 function render(){
+ renderChannels();$('adTotalMonth').textContent=state.month;
  $('adApproved').textContent=money(state.confirmed_total);$('adAutomatic').textContent=money(state.automatic_total);$('adFixed').textContent=money(state.fixed);$('adDirect').textContent=money(state.direct);
  $('adAdjustment').textContent=state.confirmed?'Подтверждённая фиксированная часть: '+money(state.confirmed.fixed)+' ₽; корректировка: '+money(state.confirmed.adjustment)+' ₽':'Месяц не подтверждён';
  $('adDirectCoverage').textContent=(state.direct_through?'По '+state.direct_through+'. ':'')+(state.direct_complete?'Покрытие Директа полное.':'Покрытие Директа неполное; показана известная часть.');
- $('adPayments').replaceChildren();for(const r of state.records){const tr=row($('adPayments'),[r.month||r.from+' — '+r.to,r.label+(r.level==='campaign'?' (детализация кампании)':''),money(r.amount),r.comment]);const td=cell(tr,'');for(const [label,action] of [['Изменить',()=>editor(r)],['Удалить',()=>remove(r)]]){const b=document.createElement('button');b.type='button';b.textContent=label;b.addEventListener('click',action);td.append(b,' ');}}
+ $('adPayments').replaceChildren();for(const r of state.records){const tr=row($('adPayments'),[r.month||r.from+' — '+r.to,r.label+(r.level==='campaign'?' (детализация кампании)':''),money(r.amount),r.comment]);const td=cell(tr,'');for(const [label,action] of [['Изменить',()=>editor(r)],['Удалить',()=>remove(r)]]){const b=document.createElement('button');b.type='button';b.className='ad-cost-add';b.textContent=label;b.addEventListener('click',action);td.append(b,' ');}}
  if(!state.records.length)row($('adPayments'),['','Платежей за месяц нет','','','']);
  $('adSource').replaceChildren();state.sources.forEach(s=>$('adSource').add(new Option(s.key==='yandex_ads'?'Подрядчик Яндекс-рекламы':s.name,s.key)));$('adSource').add(new Option('Добавить источник / другой','other'));
  $('adHistory').replaceChildren();const actions={save:'Сохранение платежа',delete:'Удаление платежа',confirm:'Подтверждение месяца',unconfirm:'Снятие подтверждения'};
