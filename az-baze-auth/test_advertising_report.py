@@ -3043,7 +3043,8 @@ class AdvertisingReportTests(unittest.TestCase):
             # Child 80 is detail only: it is never added to source/global 100.
             self.assertEqual(economics["budget"]["total_spend"],100)
             self.assertEqual(economics["budget"]["contractors_payment"],0)
-            self.assertEqual(m._summary(c,date(2026,11,8),date(2026,11,8))["spend"],100)
+            # Legacy source evidence is retained above; new monthly total needs owner confirmation.
+            self.assertIsNone(m._summary(c,date(2026,11,8),date(2026,11,8))["spend"])
         finally:
             m.db=old_db;m._ensure_schema=old_ensure;m.request=old_request;c.close()
 
@@ -3177,7 +3178,7 @@ class AdvertisingReportTests(unittest.TestCase):
 
             start=end=date(2026,11,8)
             report=m._summary(c,start,end)
-            self.assertEqual(report["spend"],150)
+            self.assertIsNone(report["spend"])  # Month has not been confirmed.
             self.assertEqual(report["advertising_payment"],130)
             self.assertEqual(report["contractors_payment"],20)
             economics=m._source_economics(c,start,end)
@@ -3244,7 +3245,7 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(submit("source","yandex_ads","100","30","130")["status"],"ok")
             self.assertEqual(submit("source","other_paid","40","","40")["status"],"ok")
             after=m._summary(c,start,end)
-            self.assertEqual(after["spend"],170)
+            self.assertIsNone(after["spend"])  # Legacy source edits cannot approve the month.
             self.assertEqual(after["advertising_payment"],140)
             self.assertEqual(after["contractors_payment"],30)
             stored=m._load_cost_store(c)
@@ -4005,9 +4006,9 @@ class AdvertisingReportTests(unittest.TestCase):
         self.assertIn("Всего расходов на рекламу", cost_fragment)
         self.assertIn("Добавить источник", cost_fragment)
         self.assertIn("/api/reports/advertising/costs", cost_fragment)
-        self.assertIn("Подрядчик вводится только в строке «Яндекс-реклама»", cost_fragment)
+        self.assertIn("Для Яндекс-рекламы здесь вводится только подрядчик", cost_fragment)
         self.assertIn("ad-cost-row", cost_fragment)
-        self.assertIn("data-field=\"contractors_payment\"", cost_fragment)
+        self.assertIn("Подрядчик Яндекс-рекламы", cost_fragment)
         self.assertIn("data-save", cost_fragment)
         self.assertNotIn("report-cost-editor", js)
         self.assertNotIn("data-cost-save", js)

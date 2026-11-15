@@ -1,3 +1,4 @@
+import advertising_monthly_costs
 import calendar
 import hashlib
 import io
@@ -1089,6 +1090,12 @@ def _campaign_economics(conn, start, end, store=None):
     for meta in _campaign_registry(conn, store):
         key = meta["campaign_key"]
         summary = _cost_entity_summary(store, "campaign", key, start, end)
+        monthly = advertising_monthly_costs.source_period(_monthly_core, conn, store, key, start, end, monthly_state)
+        if monthly is not None:
+            summary = {**summary, "complete": True, "legacy_partial": False,
+                       "advertising_payment": monthly if key != "yandex_ads" else None,
+                       "contractors_payment": monthly if key == "yandex_ads" else None,
+                       "total_spend": monthly}
         direct_value = direct.get(key) or {}
         components = _effective_cost_components(
             summary,
@@ -1138,10 +1145,17 @@ def _source_economics(conn, start, end, store=None):
     direct_complete = _dataset_period_complete(conn, "direct", start, end)
     direct = _direct_source_values(conn, start, end) if direct_complete else {}
     campaigns = _campaign_economics(conn, start, end, store)["campaigns"]
+    monthly_state = advertising_monthly_costs.load(conn)
     result = {}
     for meta in _source_registry(conn, store):
         key = meta["source_key"]
         summary = _cost_entity_summary(store, "source", key, start, end)
+        monthly = advertising_monthly_costs.source_period(_monthly_core, conn, store, key, start, end, monthly_state)
+        if monthly is not None:
+            summary = {**summary, "complete": True, "legacy_partial": False,
+                       "advertising_payment": monthly if key != "yandex_ads" else None,
+                       "contractors_payment": monthly if key == "yandex_ads" else None,
+                       "total_spend": monthly}
         direct_value = direct.get(key) or {}
         components = _effective_cost_components(
             summary,
@@ -1302,6 +1316,7 @@ def _summary(conn, start, end):
     payment = advertising_mis_bridge.payment_breakdown(conn, start_s, end_s)
     economics = _source_economics(conn, start, end)
     budget = economics["budget"]
+    monthly = advertising_monthly_costs.period_costs(_monthly_core, conn, start, end)
     observed_direct = list(_direct_source_values(conn, start, end).values())
 
     primary_paid = payment["primary_paid"]
@@ -1314,7 +1329,8 @@ def _summary(conn, start, end):
     result = {
         # The top KPI is the owner's total advertising expense, including contractors.
         # Direct/API source spend is kept separately and never silently substituted.
-        "spend": budget.get("total_spend"),
+        "spend": monthly["total"],
+        "fixed_period_spend": monthly["fixed"],
         "advertising_payment": budget.get("advertising_payment"),
         "contractors_payment": budget.get("contractors_payment"),
         "source_spend_total": economics.get("source_spend_total"),
@@ -3403,7 +3419,7 @@ def _report_payload(conn, start, end, compare_mode, trend_metric):
         "summary": current,
         "activity": {"primary_visits": current["primary_visits"], "primary_paid": current["primary_paid"], "repeat_visits": current["repeat_visits"], "repeat_paid": current["repeat_paid"], "total_visits": current["total_visits"], "total_paid": current["total_paid"]},
         "economics": {
-            "cost_period_complete": budget.get("complete", False),
+            "cost_period_complete": current.get("spend") is not None,
             "primary_payers": current.get("primary_payers"),
             "primary_avg_check": current.get("primary_avg_check"),
             # Advertising attribution is intentionally absent until CRM links a
@@ -3788,8 +3804,17 @@ def run_metrika_direct_sync(conn, token, actor_user_id):
     }
 
 
+class _MonthlyCore:
+    def __getattr__(self, name):
+        return globals()[name]
+
+
+_monthly_core = _MonthlyCore()
+
+
 def register_advertising_report(app):
     _ensure_schema()
+    advertising_monthly_costs.register(app, _monthly_core)
 
     @app.get("/reports/advertising/")
     @permission_required("reports")
