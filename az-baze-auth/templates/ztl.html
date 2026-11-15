@@ -46,19 +46,20 @@
 
 .ztl-fields{align-items:start}.ztl-fields .field{align-content:start;align-self:start;gap:5px}
 .ztl-fields input:not([type=checkbox]),.ztl-fields select{height:36px;min-height:36px;padding:6px 9px!important;font-size:13px!important}
-.ztl-order-form{max-width:1120px;padding:18px;box-shadow:none}
+.ztl-order-form{max-width:none;padding:18px;box-shadow:none}
 .ztl-order-form .section-title{font-size:21px;margin-bottom:12px}
-.ztl-order-meta{grid-template-columns:180px minmax(180px,1fr) minmax(180px,1fr);max-width:820px}
-.ztl-order-people{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:10px}
-.ztl-order-work{grid-template-columns:1.2fr 1.5fr 1fr 1fr;margin-top:10px}
+.ztl-order-line-wrap{overflow-x:auto}
+.ztl-order-line{grid-template-columns:120px 80px 100px 1.1fr 1.2fr 1fr 1fr 1.3fr 90px 80px;min-width:1120px;gap:7px}
+.ztl-order-line .field{min-width:0}.ztl-order-line label{font-size:10px;min-height:26px;display:flex;align-items:flex-end}
+.ztl-order-line input:not([type=checkbox]),.ztl-order-line select{height:32px;min-height:32px;padding:5px!important;font-size:12px!important}
+.ztl-order-line .ztl-add-reference{font-size:10px}.ztl-order-line .ztl-new-reference label{min-height:0}
 .ztl-reference [data-existing]{display:grid;gap:5px}
 .ztl-add-reference{padding:3px 0;border:0;background:transparent;color:var(--green);font:600 11px/1.4 Montserrat,Arial,sans-serif;text-align:left;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .ztl-add-reference:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 .ztl-new-reference{display:grid;gap:5px;padding:8px;border-left:2px solid var(--green);background:#f2f5ef}
 .ztl [hidden]{display:none!important}.ztl-order-form textarea{min-height:64px}
 .ztl-order-form .muted{font-size:11px;margin:8px 0}
-@media(max-width:850px){.ztl-order-work{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:650px){.ztl-order-meta,.ztl-order-people,.ztl-order-work{grid-template-columns:1fr}.ztl-order-meta input[type=date]{max-width:180px}.ztl-order-form{padding:14px}}
+@media(max-width:650px){.ztl-order-line{min-width:0;grid-template-columns:repeat(2,minmax(0,1fr))}.ztl-order-form{padding:12px}}
 </style>
 <div class="ztl">
 <h2 class="ztl-title">ЗТЛ</h2>
@@ -94,11 +95,11 @@
 {% elif tab=='order_form' %}
 <div class="card ztl-panel ztl-order-form"><h3 class="section-title">{{ 'Изменить заказ' if edit else 'Новый заказ' }}</h3>
 <form method="post" action="{{ url_for('ztl_save',action='order') }}">{{ hidden('csrf',csrf) }}{% if edit %}{{ hidden('id',edit.id) }}{{ hidden('version',edit.version) }}{% endif %}
-<div class="ztl-fields ztl-order-meta">{{ field('invoice_date','Дата выставления счёта',edit.invoice_date if edit else today,'date') }}{{ field('number','Номер заказа (LAB-)',edit.number if edit else 'LAB-') }}
+<div class="ztl-order-line-wrap"><div class="ztl-fields ztl-order-line">{{ field('invoice_date','Дата счёта',edit.invoice_date if edit else today,'date') }}{{ field('number','Номер LAB-',edit.number if edit else 'LAB-') }}
 <div class="field"><label for="scope">Тип заказа</label><select id="scope" name="scope"><option value="internal" {{ 'selected' if edit and edit.scope=='internal' else '' }}>Внутренний</option><option value="external" {{ 'selected' if edit and edit.scope=='external' else '' }}>Внешний</option></select></div>
-</div><div class="ztl-fields ztl-order-people">{{ field('patient','ФИО пациента',edit.patient if edit else '') }}{{ reference('party_id','Плательщик','party',edit.party_id if edit else None,true) }}{{ reference('customer_id','Заказчик','customer',edit.customer_id if edit else None) }}</div><div class="ztl-fields ztl-order-work">
+{{ field('patient','ФИО пациента',edit.patient if edit else '') }}{{ reference('party_id','Плательщик','party',edit.party_id if edit else None,true) }}{{ reference('customer_id','Заказчик','customer',edit.customer_id if edit else None) }}
 <div id="doctor-field">{{ reference('doctor_id','Врач (внутренний заказ)','doctor',edit.doctor_id if edit else None) }}</div>
-{{ reference('work_id','Наименование работ','work',edit.work_id if edit else None,true) }}{{ field('amount','Сумма выставленного счёта, ₽',fmt(edit.amount) if edit else '') }}{{ field('delay_days','Отсрочка от создания заказа, дней',edit.delay_days if edit else '0','number') }}</div>
+{{ reference('work_id','Наименование работ','work',edit.work_id if edit else None,true) }}{{ field('amount','Счёт, ₽',fmt(edit.amount) if edit else '') }}{{ field('delay_days','Отсрочка, дней',edit.delay_days if edit else '0','number') }}</div></div>
 <div class="field"><label for="description">Описание и комментарий к заказу</label><textarea id="description" name="description" maxlength="4000">{{ edit.description if edit else '' }}</textarea></div>
 <p class="muted">Для внутреннего заказа указывается стоимость работы лаборатории для клиники. Отсрочка отсчитывается от даты создания записи. Все изменения сохраняются в журнале. Оплаты и зачёт аванса выполняются отдельно пользователем с соответствующим правом.</p><button class="btn primary">Сохранить заказ</button></form></div>
 <script>const s=document.getElementById('scope'),d=document.getElementById('doctor-field');function toggleDoctor(){d.hidden=s.value!=='internal';}s.addEventListener('change',toggleDoctor);toggleDoctor();</script>
