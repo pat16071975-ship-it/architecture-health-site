@@ -2,6 +2,7 @@ import os
 import re
 import secrets
 import sqlite3
+import personal_credentials
 import medical_supplies
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -602,6 +603,7 @@ def create_app():
             login_url=request.url_root.rstrip("/") + url_for("login"),
         )
 
+    personal_credentials.register(app)
     medical_supplies.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
     return app
 
@@ -621,6 +623,7 @@ def init_db_file(path=None):
     target.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(target)
     conn.executescript(SCHEMA)
+    personal_credentials.init_schema(conn)
     medical_supplies.init_schema(conn)
     conn.commit()
     conn.close()
