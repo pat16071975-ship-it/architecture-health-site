@@ -74,6 +74,8 @@ function setup({data={}, periods=[], paid={}, install=true}={}) {
     document:{querySelector:selector=>node(selector.slice(1)),getElementById:node,
       querySelectorAll:selector=>selector==='[data-key]'?metrics:selector==='[data-doctor]'?doctors:[],
       createElement:()=>new Element()}};
+  context.CustomEvent=class CustomEvent { constructor(type, options={}){this.type=type;this.detail=options.detail;} };
+  context.dispatchEvent=event=>{assert.equal(event.type,'az-management-staff-table-rendered');return true;};
   context.window=context;
   vm.createContext(context);
   vm.runInContext(inline,context);

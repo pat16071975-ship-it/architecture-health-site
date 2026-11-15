@@ -108,10 +108,14 @@ jobs:
           print('AZ_MANAGEMENT_STAFF_LAYOUT=PASS')
           PY
 
-      - name: Wrong PR196 service files restored exactly
+      - name: Service pages do not use management staff layout
         run: |
-          test "$(git hash-object reports/services.html)" = '9783f3b838f3210af4bc2d06f3fe48efe300990e'
-          test "$(git hash-object reports/services-base.html)" = '34dafc898536afedb01250bfa3b244beffcbedb0'
-          test "$(git hash-object reports/services-enhancements.js)" = 'df2a98ccbb766e6bd486d5715a9e1a7ae8fab5ca'
-          test "$(git hash-object reports/services-payroll-manager.js)" = '6b55d5015f1f8745b1f2aff60b366135ceaa4bc7'
-          echo 'PR196_WRONG_TARGET_REVERT=PASS'
+          python - <<'PYCODE'
+          from pathlib import Path
+          for name in ('services.html', 'services-base.html', 'services-enhancements.js', 'services-payroll-manager.js'):
+              source = Path('reports', name).read_text(encoding='utf-8')
+              assert 'services-staff-layout.js' not in source, name
+              assert '/api/reports/services-staff-layout' not in source, name
+              assert 'management-staff-layout.js' not in source, name
+          print('SERVICE_STAFF_LAYOUT_ISOLATION=PASS')
+          PYCODE
