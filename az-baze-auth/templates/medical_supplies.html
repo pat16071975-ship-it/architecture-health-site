@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.med-title{font-size:30px;font-weight:500;color:var(--green);margin:0 0 18px}.med-tabs{margin:18px 0}.med-panel{margin:18px 0}.med-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.med-fields .field{margin:0}.med-table input{width:100px;padding:8px;border:1px solid var(--line);border-radius:7px;font:inherit;background:white}.med-table th{white-space:nowrap}.med-table td{vertical-align:middle}.med-number{white-space:nowrap;font-variant-numeric:tabular-nums}.med-low{color:#8b5325;background:#fff0d9}.med-negative{color:var(--red);font-weight:600}.med-success{color:var(--green);padding:12px;border:1px solid var(--green);border-radius:9px}.med-tabs .primary{pointer-events:none}.med-empty{padding:24px 0}.med-period{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px}.med-hint{max-width:780px;line-height:1.6}@media(max-width:650px){.med-title{font-size:26px}.med-fields{grid-template-columns:1fr}.med-tabs{gap:6px}}
+</style>
+<h2 class="med-title">Медрасходка</h2>
+{% if setup_pending %}
+<div class="card"><p>Учёт ещё не подготовлен к работе. Обратитесь к администратору.</p></div>
+{% else %}
+<p class="muted med-hint">Общий запас клиники. Приход и расход вносятся итогами за месяц, в единицах учёта материала. Остаток рассчитан на конец выбранного месяца.</p>
+<form method="get" class="row">
+<label for="med-month">Месяц</label><input class="med-period" id="med-month" type="month" name="month" value="{{ month }}" required>
+<input type="hidden" name="tab" value="{{ tab }}"><button class="btn" type="submit">Показать</button>
+<a class="btn" href="{{ url_for('medical_supplies_export', month=month) }}">Excel</a>
+</form>
+<nav class="row med-tabs" aria-label="Разделы медрасходки">
+{% for key,label in [('movement','Движение'),('order','К заказу'),('catalog','Справочник'),('history','История изменений')] %}
+<a class="btn {{ 'primary' if tab==key else '' }}" {% if tab==key %}aria-current="page"{% endif %} href="{{ url_for('medical_supplies', month=month, tab=key) }}">{{ label }}</a>
+{% endfor %}
+</nav>
+{% if error %}<p class="error" role="alert">{{ error }} Введённые значения не сохранены.</p>{% endif %}
+{% if saved %}<p class="med-success" role="status">Изменения сохранены.</p>{% endif %}
+{% if not editable %}<p class="muted">Доступен просмотр. Для внесения данных требуется право редактирования медрасходки.</p>{% endif %}
+{% if tab == 'movement' %}
+<div class="card med-panel">
+{% if not rows %}<p class="med-empty">Данные пока не добавлены. Добавьте материал в справочник или выберите месяц начала его учёта.</p>{% else %}
+<div class="table-wrap"><table class="table med-table">
+<thead><tr><th>Материал</th><th>Ед.</th><th>На начало</th><th>Приход</th><th>Расход</th><th>На конец</th><th>Полнота</th>{% if editable %}<th>Действие</th>{% endif %}</tr></thead>
+<tbody>{% for r in rows %}
+<tr><td>{{ r.name }}</td><td>{{ r.unit }}</td><td class="med-number">{{ fmt(r.start) }}{% if not r.start_complete %}<br><small>известная часть</small>{% endif %}</td>
+{% if editable %}
+<td><input form="period-{{ r.id }}" name="qty_in" value="{{ fmt(r.current.qty_in) if r.current else '' }}" inputmode="decimal" aria-label="Приход: {{ r.name }}" required></td>
+<td><input form="period-{{ r.id }}" name="qty_out" value="{{ fmt(r.current.qty_out) if r.current else '' }}" inputmode="decimal" aria-label="Расход: {{ r.name }}" required></td>
+{% else %}<td>{{ fmt(r.current.qty_in) if r.current else 'Не внесён' }}</td><td>{{ fmt(r.current.qty_out) if r.current else 'Не внесён' }}</td>{% endif %}
+<td class="med-number {{ 'med-negative' if r.end<0 else 'med-low' if r.complete and not r.excluded and r.end<r.min_stock else '' }}">{{ fmt(r.end) }}{% if not r.complete %}<br><small>известная часть</small>{% endif %}{% if r.end<0 %}<br><small>Проверьте приход и расход</small>{% endif %}</td>
+<td>{% if r.complete %}Полные данные{% else %}Не заполнено месяцев: {{ r.missing_months }}{% endif %}</td>
+{% if editable %}<td><form id="period-{{ r.id }}" method="post" action="{{ url_for('medical_supplies_save', action='period') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="item_id" value="{{ r.id }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="version" value="{{ r.current.version if r.current else 0 }}"><button class="btn" type="submit">Сохранить</button></form></td>{% endif %}
+</tr>{% endfor %}</tbody></table></div>
+<p class="muted">Введите 0, если движения за месяц не было. Пустое поле означает, что данные ещё не внесены. Сохранение заменяет итоги этой строки за месяц; прежние значения остаются в истории.</p>
+{% endif %}</div>
+{% elif tab == 'order' %}
+<div class="card med-panel"><h3 class="section-title">К заказу на конец {{ month }}</h3>
+<p class="muted">Расчёт до минимального запаса, с округлением до целых упаковок. Цены ориентировочные, из справочника. Это список для закупки; заказ поставщику не отправляется.</p>
+{% set order=rows|selectattr('packs')|list %}
+{% set unknown=rows|rejectattr('complete')|rejectattr('excluded')|list %}
+{% if order %}<div class="table-wrap"><table class="table"><thead><tr><th>Материал</th><th>Остаток</th><th>Минимум</th><th>В упаковке</th><th>Заказать упаковок</th><th>Ориентировочная сумма, ₽</th></tr></thead><tbody>
+{% for r in order %}<tr><td>{{ r.name }}</td><td>{{ fmt(r.end) }} {{ r.unit }}</td><td>{{ fmt(r.min_stock) }}</td><td>{{ fmt(r.pack_qty) }}</td><td>{{ r.packs }}</td><td>{{ fmt(r.order_cost,100) if r.order_cost is not none else 'Цена не задана' }}</td></tr>{% endfor %}
+</tbody></table></div>
+<details><summary>Список для копирования</summary><textarea readonly aria-label="Список заказа" style="width:100%;min-height:130px">{% for r in order %}{{ r.name }} — {{ r.packs }} уп.
+{% endfor %}</textarea></details>
+{% elif not unknown %}<p>{{ 'Справочник пока пуст.' if not rows else 'По внесённым данным позиций к заказу нет.' }}</p>{% endif %}
+{% if unknown %}<p class="error">Для следующих позиций остаток неполный, количество к заказу не рассчитано:</p><ul>{% for r in unknown %}<li>{{ r.name }} — не заполнено месяцев: {{ r.missing_months }}</li>{% endfor %}</ul>{% endif %}
+</div>
+{% elif tab == 'catalog' %}
+<div class="card med-panel"><h3 class="section-title">Справочник материалов</h3>
+{% if catalog %}<div class="table-wrap"><table class="table"><thead><tr><th>Материал</th><th>Ед.</th><th>Начало учёта</th><th>Начальный остаток</th><th>В упаковке</th><th>Цена упаковки, ₽</th><th>Минимум</th><th>Контроль</th>{% if editable %}<th></th>{% endif %}</tr></thead><tbody>
+{% for r in catalog %}<tr><td>{{ r.name }}</td><td>{{ r.unit }}</td><td>{{ r.opening_month }}</td><td>{{ fmt(r.opening_qty) }}</td><td>{{ fmt(r.pack_qty) }}</td><td>{{ fmt(r.pack_price,100) if r.pack_price is not none else 'Не задана' }}</td><td>{{ fmt(r.min_stock) }}</td><td>{{ 'Вне контроля' if r.excluded else 'Включён' }}</td>{% if editable %}<td><a class="btn" href="{{ url_for('medical_supplies', month=month, tab='catalog', edit=r.id) }}">Изменить</a></td>{% endif %}</tr>{% endfor %}
+</tbody></table></div>{% else %}<p>Данные пока не добавлены. Справочник заполняется материалами вашей клиники.</p>{% endif %}</div>
+{% if editable %}<div class="card med-panel"><h3 class="section-title">{{ 'Изменить материал' if edit else 'Добавить материал' }}</h3>
+<form method="post" action="{{ url_for('medical_supplies_save', action='item') }}">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="tab" value="catalog">
+{% if edit %}<input type="hidden" name="id" value="{{ edit.id }}"><input type="hidden" name="version" value="{{ edit.version }}">{% endif %}
+<div class="med-fields">
+<div class="field"><label for="item-name">Название</label><input id="item-name" name="name" maxlength="200" required value="{{ edit.name if edit else '' }}"></div>
+<div class="field"><label for="item-unit">Единица учёта</label><input id="item-unit" name="unit" maxlength="30" required placeholder="шт, пара, мл…" value="{{ edit.unit if edit else '' }}" {{ 'readonly' if edit else '' }}></div>
+{% if not edit %}<div class="field"><label for="opening-month">Месяц начала учёта</label><input id="opening-month" name="opening_month" type="month" required value="{{ month }}"></div>
+<div class="field"><label for="opening-qty">Остаток на первое число этого месяца</label><input id="opening-qty" name="opening_qty" inputmode="decimal" required></div>{% endif %}
+<div class="field"><label for="pack-qty">Единиц в упаковке</label><input id="pack-qty" name="pack_qty" inputmode="decimal" required value="{{ fmt(edit.pack_qty) if edit else '1' }}"></div>
+<div class="field"><label for="pack-price">Цена упаковки, ₽ (если известна)</label><input id="pack-price" name="pack_price" inputmode="decimal" value="{{ fmt(edit.pack_price,100) if edit else '' }}"></div>
+<div class="field"><label for="min-stock">Минимальный запас в единицах учёта</label><input id="min-stock" name="min_stock" inputmode="decimal" required value="{{ fmt(edit.min_stock) if edit else '0' }}"></div>
+</div><p class="muted">Количество — до трёх знаков после запятой. Начальный остаток и единицу учёта после создания не меняем, чтобы сохранить историю. Цена используется только для оценки будущего заказа.</p>
+<label class="check"><input type="checkbox" name="excluded" value="1" {% if edit and edit.excluded %}checked{% endif %}>Исключить из контроля минимального запаса</label>
+<div class="spacer"></div><button class="btn primary" type="submit">Сохранить материал</button>
+{% if edit %}<a class="btn" href="{{ url_for('medical_supplies', month=month, tab='catalog') }}">Отмена</a>{% endif %}
+</form></div>{% endif %}
+{% elif tab == 'history' %}
+<div class="card med-panel"><h3 class="section-title">Последние 100 изменений</h3><p class="muted">История сохраняется полностью. Здесь показаны последние записи по всем месяцам. Время — UTC.</p>
+{% if events %}<div class="table-wrap"><table class="table"><thead><tr><th>Время</th><th>Материал</th><th>Сотрудник</th><th>Изменение</th></tr></thead><tbody>
+{% for e in events %}<tr><td>{{ e.changed_at }}</td><td>{{ e.name }}</td><td>{{ e.actor_name or ('Пользователь №' ~ e.actor_id) }}</td><td>{{ e.summary }}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}<p>Изменений пока нет.</p>{% endif %}</div>
+{% endif %}
+{% endif %}
+{% endblock %}
