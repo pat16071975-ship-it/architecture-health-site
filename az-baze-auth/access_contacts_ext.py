@@ -11,6 +11,7 @@ PERMISSION_OPTIONS = [
     ("credentials_reveal", "Показывать и копировать пароли"),
     ("credentials_edit", "Добавлять и изменять записи"),
     ("credentials_delete", "Удалять записи"),
+    ("credentials_purge", "Удалять служебные доступы из корзины навсегда"),
 ]
 
 CONTACTS_SCHEMA = """
@@ -208,8 +209,8 @@ def register(app):
             elif confirmation != phrase:
                 credentials_store._audit_failed_confirmation("credential_purge_failed", credential_id, "phrase_confirmation"); error = "Подтверждающая фраза введена не точно."
             else:
-                app_core.db().execute("DELETE FROM credentials WHERE id=?", (credential_id,)); app_core.db().commit()
-                app_core.audit("credential_purged", details=f"credential_id={credential_id}"); return redirect(url_for("credentials_trash"))
+                credentials_store._purge_trashed(row)
+                return redirect(url_for("credentials_trash"))
         return render_template("credential_purge_confirm.html", row=row, display_title=_credential_label(row), phrase=phrase,
             error=error, csrf=app_core.csrf_token())
 
