@@ -2,9 +2,20 @@
 {% macro hidden(name,value) %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endmacro %}
 {% macro field(name,label,value='',type='text',required=true) %}<div class="field"><label for="{{ name }}">{{ label }}</label><input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}" {% if required %}required{% endif %}></div>{% endmacro %}
 {% macro reference(key,label,kind,selected=None,required=false) %}
-<div class="field"><label for="{{ key }}">{{ label }}</label><select id="{{ key }}" name="{{ key }}" {% if required and not ('catalog' in rights and tab=='order_form') %}required{% endif %}><option value="">Выберите…</option>
-{% for n in (parties if kind=='party' else names) %}{% if kind=='party' or n.kind==kind %}<option value="{{ n.id }}" {% if selected==n.id %}selected{% endif %}>{{ n.name }}{% if kind=='party' %} — {{ 'юрлицо' if n.kind=='legal' else 'частный клиент' }}{% endif %}</option>{% endif %}{% endfor %}</select>
-{% if 'catalog' in rights and tab=='order_form' %}<details><summary>Добавить новое значение</summary><input name="{{ key }}_new" maxlength="200" placeholder="Новое: {{ label }}" aria-label="Новое: {{ label }}">{% if kind=='party' %}<label>Тип нового плательщика<select name="party_kind"><option value="private">Частный клиент</option><option value="legal">Юридическое лицо</option></select></label>{% endif %}<small>Новое значение сохранится вместе с заказом и будет доступно для выбора.</small></details>{% endif %}</div>
+{% set can_add = 'catalog' in rights and tab=='order_form' %}
+<div class="field ztl-reference" data-reference>
+<label for="{{ key }}">{{ label }}</label>
+<div data-existing><select id="{{ key }}" name="{{ key }}" {% if required %}required{% endif %}><option value="">Выберите из списка…</option>
+{% for n in (parties if kind=='party' else names) %}{% if kind=='party' or n.kind==kind %}<option value="{{ n.id }}" {% if selected==n.id %}selected{% endif %}>{{ n.name }}{% if kind=='party' %} — {{ 'юрлицо' if n.kind=='legal' else 'частный клиент' }}{% endif %}</option>{% endif %}{% endfor %}</select></div>
+{% if can_add %}
+<button type="button" class="ztl-add-reference" data-add-reference aria-expanded="false" aria-controls="{{ key }}-new-panel">+ Добавить: {{ label|lower }}</button>
+<div id="{{ key }}-new-panel" class="ztl-new-reference" data-new hidden>
+<label for="{{ key }}_new">{{ 'Наименование / ФИО нового плательщика' if kind=='party' else 'Новое значение: ' ~ label|lower }}</label>
+<input id="{{ key }}_new" name="{{ key }}_new" maxlength="200" disabled {% if required %}required{% endif %}>
+{% if kind=='party' %}<label for="new-party-kind">Тип плательщика</label><select id="new-party-kind" name="party_kind" disabled><option value="private">Частный клиент</option><option value="legal">Юридическое лицо</option></select>{% endif %}
+<small>Добавится в справочник при сохранении заказа.</small>
+<button type="button" class="ztl-add-reference" data-cancel-reference>Отмена — выбрать из списка</button>
+</div>{% endif %}</div>
 {% endmacro %}
 {% block content %}
 <style>
@@ -32,6 +43,22 @@
 .ztl-visible-total{font-size:12px;margin:6px 0}.ztl-order-list .table-wrap{border:1px solid var(--line);background:#fff}
 .ztl .ztl-orders th,.ztl .ztl-orders td{padding:7px 8px}.ztl-orders thead{background:#f2ecdf}
 @media(max-width:650px){.ztl-filter .field{flex-basis:45%;min-width:130px}.ztl-toolbar{gap:6px}.ztl-summary-wrap,.ztl-order-list .table-wrap{max-width:100%}}
+
+.ztl-fields{align-items:start}.ztl-fields .field{align-content:start;align-self:start;gap:5px}
+.ztl-fields input:not([type=checkbox]),.ztl-fields select{height:36px;min-height:36px;padding:6px 9px!important;font-size:13px!important}
+.ztl-order-form{max-width:1120px;padding:18px;box-shadow:none}
+.ztl-order-form .section-title{font-size:21px;margin-bottom:12px}
+.ztl-order-meta{grid-template-columns:180px minmax(180px,1fr) minmax(180px,1fr);max-width:820px}
+.ztl-order-people{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:10px}
+.ztl-order-work{grid-template-columns:1.2fr 1.5fr 1fr 1fr;margin-top:10px}
+.ztl-reference [data-existing]{display:grid;gap:5px}
+.ztl-add-reference{padding:3px 0;border:0;background:transparent;color:var(--green);font:600 11px/1.4 Montserrat,Arial,sans-serif;text-align:left;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.ztl-add-reference:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.ztl-new-reference{display:grid;gap:5px;padding:8px;border-left:2px solid var(--green);background:#f2f5ef}
+.ztl [hidden]{display:none!important}.ztl-order-form textarea{min-height:64px}
+.ztl-order-form .muted{font-size:11px;margin:8px 0}
+@media(max-width:850px){.ztl-order-work{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.ztl-order-meta,.ztl-order-people,.ztl-order-work{grid-template-columns:1fr}.ztl-order-meta input[type=date]{max-width:180px}.ztl-order-form{padding:14px}}
 </style>
 <div class="ztl">
 <h2 class="ztl-title">ЗТЛ</h2>
@@ -65,11 +92,11 @@
 {% set group=namespace(scope='') %}{% for o in visible %}{% if mode=='group' and group.scope!=o.scope %}<tr class="ztl-group"><th colspan="13">{{ 'Внутренние заказы' if o.scope=='internal' else 'Внешние заказы' }}</th></tr>{% set group.scope=o.scope %}{% endif %}
 <tr><td>{{ o.invoice_date }}</td><td>{{ o.number }}<br><small>{{ 'Внутренний' if o.scope=='internal' else 'Внешний' }}</small></td><td>{{ o.work_name }}{% if o.description %}<details><summary>Описание</summary>{{ o.description }}</details>{% endif %}</td><td>{{ o.party_name }}<br><small>{{ 'Юрлицо' if o.party_kind=='legal' else 'Частный клиент' }}</small></td><td>{{ o.patient }}</td><td>{{ o.customer_name or '—' }}</td><td>{{ o.doctor_name or '—' }}</td><td class="amount">{{ fmt(o.amount) }}</td><td>{{ o.delay_days }} дн.<br>до {{ o.due_date }}<br><small>От создания {{ o.created_date }}</small></td><td>{{ fmt(o.paid) }}</td><td class="{{ 'ztl-overdue' if o.overdue else '' }}">{{ fmt(o.debt) }}{% if o.overdue %}<br>Просрочено{% endif %}</td><td><a href="{{ url_for('ztl_page',tab='payments',start=start,end=end) }}">Платежи и документы</a></td><td>{% if 'orders' in rights %}<a class="btn" href="{{ url_for('ztl_order_form',id=o.id) }}">Изменить</a>{% endif %}{% if 'payments' in rights %}<a class="btn" href="{{ url_for('ztl_payment_form',party_id=o.party_id,scope=o.scope) }}">Оплата</a>{% endif %}</td></tr>{% else %}<tr><td colspan="13">Данные пока не добавлены. Заказов по выбранным условиям нет.</td></tr>{% endfor %}</tbody></table></div></div>
 {% elif tab=='order_form' %}
-<div class="card ztl-panel"><h3 class="section-title">{{ 'Изменить заказ' if edit else 'Новый заказ' }}</h3>
+<div class="card ztl-panel ztl-order-form"><h3 class="section-title">{{ 'Изменить заказ' if edit else 'Новый заказ' }}</h3>
 <form method="post" action="{{ url_for('ztl_save',action='order') }}">{{ hidden('csrf',csrf) }}{% if edit %}{{ hidden('id',edit.id) }}{{ hidden('version',edit.version) }}{% endif %}
-<div class="ztl-fields">{{ field('invoice_date','Дата выставления счёта',edit.invoice_date if edit else today,'date') }}{{ field('number','Номер заказа (LAB-)',edit.number if edit else 'LAB-') }}
+<div class="ztl-fields ztl-order-meta">{{ field('invoice_date','Дата выставления счёта',edit.invoice_date if edit else today,'date') }}{{ field('number','Номер заказа (LAB-)',edit.number if edit else 'LAB-') }}
 <div class="field"><label for="scope">Тип заказа</label><select id="scope" name="scope"><option value="internal" {{ 'selected' if edit and edit.scope=='internal' else '' }}>Внутренний</option><option value="external" {{ 'selected' if edit and edit.scope=='external' else '' }}>Внешний</option></select></div>
-{{ reference('party_id','Плательщик','party',edit.party_id if edit else None,true) }}{{ field('patient','ФИО пациента',edit.patient if edit else '') }}{{ reference('customer_id','Заказчик','customer',edit.customer_id if edit else None) }}
+</div><div class="ztl-fields ztl-order-people">{{ field('patient','ФИО пациента',edit.patient if edit else '') }}{{ reference('party_id','Плательщик','party',edit.party_id if edit else None,true) }}{{ reference('customer_id','Заказчик','customer',edit.customer_id if edit else None) }}</div><div class="ztl-fields ztl-order-work">
 <div id="doctor-field">{{ reference('doctor_id','Врач (внутренний заказ)','doctor',edit.doctor_id if edit else None) }}</div>
 {{ reference('work_id','Наименование работ','work',edit.work_id if edit else None,true) }}{{ field('amount','Сумма выставленного счёта, ₽',fmt(edit.amount) if edit else '') }}{{ field('delay_days','Отсрочка от создания заказа, дней',edit.delay_days if edit else '0','number') }}</div>
 <div class="field"><label for="description">Описание и комментарий к заказу</label><textarea id="description" name="description" maxlength="4000">{{ edit.description if edit else '' }}</textarea></div>
@@ -121,6 +148,18 @@
 {% endif %}
 </div>
 <script>
+document.querySelectorAll('[data-reference]').forEach(ref=>{
+ const button=ref.querySelector('[data-add-reference]');if(!button)return;
+ const existing=ref.querySelector('[data-existing]'),panel=ref.querySelector('[data-new]');
+ function setNewMode(active){
+  existing.hidden=active;existing.querySelectorAll('input,select').forEach(el=>el.disabled=active);
+  panel.hidden=!active;panel.querySelectorAll('input,select').forEach(el=>el.disabled=!active);
+  button.setAttribute('aria-expanded',String(active));
+  if(active)panel.querySelector('input').focus();else existing.querySelector('select').focus();
+ }
+ button.addEventListener('click',()=>setNewMode(panel.hidden));
+ ref.querySelector('[data-cancel-reference]').addEventListener('click',()=>setNewMode(false));
+});
 document.querySelectorAll('select').forEach(select=>{
  if(!['party_id','customer_id','doctor_id','work_id','employee_id'].includes(select.name))return;
  const search=document.createElement('input');search.type='search';search.placeholder='Поиск в списке';search.setAttribute('aria-label','Поиск: '+(select.closest('.field')?.querySelector('label')?.textContent||select.name));
