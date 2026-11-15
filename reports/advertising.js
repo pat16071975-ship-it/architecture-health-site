@@ -47,10 +47,10 @@ function compareCard(metric,fmt){
 }
 function expenseExtra(s){
   const parts=[];
-  if(s.advertising_payment!=null)parts.push('Оплата рекламы: <b>'+money(s.advertising_payment)+'</b>');
-  if(s.contractors_payment!=null)parts.push('Подрядчики: <b>'+money(s.contractors_payment)+'</b>');
-  if(s.known_direct_spend!=null)parts.push('Известный расход Директа: <b>'+money(s.known_direct_spend)+'</b>'+directCoverageNote());
-  if(s.spend==null)parts.push('Полный расход неизвестен: не хватает покрытия расходов или суммы подрядчика.');
+  if(s.fixed_period_spend!=null)parts.push('Фиксированные расходы пропорционально дням: <b>'+money(s.fixed_period_spend)+'</b>');
+  // contractors_payment is included in fixed_period_spend, never added twice.
+  if(s.known_direct_spend!=null)parts.push('Известный расход Директа (с НДС): <b>'+money(s.known_direct_spend)+'</b>'+directCoverageNote());
+  if(s.spend==null)parts.push('Полный расход неизвестен: подтвердите фиксированные расходы каждого месяца и проверьте покрытие Директа.');
   return parts.join('<br>')
 }
 function directCoverageNote(){

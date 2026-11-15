@@ -26,6 +26,9 @@ on:
       - 'reports/menu.html'
       - 'az-baze-auth/templates/uploads.html'
       - 'az-baze-auth/templates/advertising_costs_fragment.html'
+      - 'az-baze-auth/advertising_monthly_costs.py'
+      - 'az-baze-auth/test_advertising_monthly_costs.py'
+      - 'az-baze-auth/test_advertising_monthly_routes.py'
       - 'az-baze-auth/templates/base.html'
       - '.github/workflows/az-advertising-report.yml'
   pull_request:
@@ -53,6 +56,9 @@ on:
       - 'reports/menu.html'
       - 'az-baze-auth/templates/uploads.html'
       - 'az-baze-auth/templates/advertising_costs_fragment.html'
+      - 'az-baze-auth/advertising_monthly_costs.py'
+      - 'az-baze-auth/test_advertising_monthly_costs.py'
+      - 'az-baze-auth/test_advertising_monthly_routes.py'
       - 'az-baze-auth/templates/base.html'
       - '.github/workflows/az-advertising-report.yml'
 permissions:
@@ -76,6 +82,8 @@ jobs:
           python -m unittest -v test_advertising_hourly.py
           python -m unittest -v test_advertising_report.py
           python -m unittest -v test_advertising_mis_bridge.py
+          python -m unittest -v test_advertising_monthly_routes.py
+          python -m unittest -v test_advertising_monthly_costs.py
           python -m unittest -v test_completed_visit_totals.py
           python -m unittest -v test_paid_services.py test_paid_services_periods.py test_completed_upload.py test_upload_consistency_atomic.py test_upload_reconcile.py
       - name: JavaScript syntax
@@ -166,6 +174,8 @@ jobs:
           python -m py_compile direct_auto.py advertising_report.py metrika_auto.py
           # Run completed-source tests in a fresh process: legacy report
           # regressions stub flask in sys.modules and do not restore it.
+          python -m unittest -v test_advertising_monthly_routes.py
+          python -m unittest -v test_advertising_monthly_costs.py
           python -m unittest -v test_completed_visit_totals.py
           python -m unittest -v test_direct_auto.py test_advertising_hourly.py test_advertising_report.py test_advertising_mis_bridge.py
       - name: Advertising report JavaScript syntax
@@ -194,8 +204,8 @@ jobs:
           assert 'direct_auto.fetch_daily_campaigns' in src
           assert 'direct_result = _apply_import' in src
           assert 'ALTER TABLE advertising_traffic_daily ADD COLUMN conversions REAL' in src
-          assert 'apiLocked' in costs and 'yandexCampaign' in costs
-          assert 'contractors_payment' in costs
+          assert 'Директ с НДС' in costs and 'Подрядчик Яндекс-рекламы' in costs
+          assert "api='/api/reports/advertising/costs/monthly'" in costs
           assert 'AZBAZE_YANDEX_METRIKA_TOKEN' not in direct
           assert '"IncludeVAT": "YES"' in direct
           print('AZ_DIRECT_UNIFIED_SCOPED_CONTRACT=PASS')
