@@ -1090,12 +1090,6 @@ def _campaign_economics(conn, start, end, store=None):
     for meta in _campaign_registry(conn, store):
         key = meta["campaign_key"]
         summary = _cost_entity_summary(store, "campaign", key, start, end)
-        monthly = advertising_monthly_costs.source_period(_monthly_core, conn, store, key, start, end, monthly_state)
-        if monthly is not None:
-            summary = {**summary, "complete": True, "legacy_partial": False,
-                       "advertising_payment": monthly if key != "yandex_ads" else None,
-                       "contractors_payment": monthly if key == "yandex_ads" else None,
-                       "total_spend": monthly}
         direct_value = direct.get(key) or {}
         components = _effective_cost_components(
             summary,
