@@ -25,16 +25,15 @@
 <div class="card med-panel">
 {% if not rows %}<p class="med-empty">Данные пока не добавлены. Добавьте материал в справочник или выберите месяц начала его учёта.</p>{% else %}
 <div class="table-wrap"><table class="table med-table">
-<thead><tr><th>Материал</th><th>Ед.</th><th>На начало</th><th>Приход</th><th>Расход</th><th>На конец</th><th>Полнота</th>{% if editable %}<th>Действие</th>{% endif %}</tr></thead>
+<thead><tr><th>Материал</th><th>Ед.</th><th>На начало</th><th>Приход</th><th>Расход</th><th>На конец</th><th>Полнота</th>{% if 'in' in rights or 'out' in rights %}<th>Действие</th>{% endif %}</tr></thead>
 <tbody>{% for r in rows %}
 <tr><td>{{ r.name }}</td><td>{{ r.unit }}</td><td class="med-number">{{ fmt(r.start) }}{% if not r.start_complete %}<br><small>известная часть</small>{% endif %}</td>
-{% if editable %}
-<td><input form="period-{{ r.id }}" name="qty_in" value="{{ fmt(r.current.qty_in) if r.current else '' }}" inputmode="decimal" aria-label="Приход: {{ r.name }}" required></td>
-<td><input form="period-{{ r.id }}" name="qty_out" value="{{ fmt(r.current.qty_out) if r.current else '' }}" inputmode="decimal" aria-label="Расход: {{ r.name }}" required></td>
-{% else %}<td>{{ fmt(r.current.qty_in) if r.current else 'Не внесён' }}</td><td>{{ fmt(r.current.qty_out) if r.current else 'Не внесён' }}</td>{% endif %}
+{% for key,label in [('in','Приход'),('out','Расход')] %}
+<td>{% if key in rights %}<input form="period-{{ r.id }}" name="qty_{{ key }}" value="{{ fmt(r.current['qty_'+key]) if r.current and r.current[key+'_known'] else '' }}" inputmode="decimal" aria-label="{{ label }}: {{ r.name }}" required>{% else %}{{ fmt(r.current['qty_'+key]) if r.current and r.current[key+'_known'] else 'Не внесён' }}{% endif %}</td>
+{% endfor %}
 <td class="med-number {{ 'med-negative' if r.end<0 else 'med-low' if r.complete and not r.excluded and r.end<r.min_stock else '' }}">{{ fmt(r.end) }}{% if not r.complete %}<br><small>известная часть</small>{% endif %}{% if r.end<0 %}<br><small>Проверьте приход и расход</small>{% endif %}</td>
 <td>{% if r.complete %}Полные данные{% else %}Не заполнено месяцев: {{ r.missing_months }}{% endif %}</td>
-{% if editable %}<td><form id="period-{{ r.id }}" method="post" action="{{ url_for('medical_supplies_save', action='period') }}">
+{% if 'in' in rights or 'out' in rights %}<td><form id="period-{{ r.id }}" method="post" action="{{ url_for('medical_supplies_save', action='period') }}">
 <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="item_id" value="{{ r.id }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="version" value="{{ r.current.version if r.current else 0 }}"><button class="btn" type="submit">Сохранить</button></form></td>{% endif %}
 </tr>{% endfor %}</tbody></table></div>
 <p class="muted">Введите 0, если движения за месяц не было. Пустое поле означает, что данные ещё не внесены. Сохранение заменяет итоги этой строки за месяц; прежние значения остаются в истории.</p>
@@ -54,23 +53,23 @@
 </div>
 {% elif tab == 'catalog' %}
 <div class="card med-panel"><h3 class="section-title">Справочник материалов</h3>
-{% if catalog %}<div class="table-wrap"><table class="table"><thead><tr><th>Материал</th><th>Ед.</th><th>Начало учёта</th><th>Начальный остаток</th><th>В упаковке</th><th>Цена упаковки, ₽</th><th>Минимум</th><th>Контроль</th>{% if editable %}<th></th>{% endif %}</tr></thead><tbody>
-{% for r in catalog %}<tr><td>{{ r.name }}</td><td>{{ r.unit }}</td><td>{{ r.opening_month }}</td><td>{{ fmt(r.opening_qty) }}</td><td>{{ fmt(r.pack_qty) }}</td><td>{{ fmt(r.pack_price,100) if r.pack_price is not none else 'Не задана' }}</td><td>{{ fmt(r.min_stock) }}</td><td>{{ 'Вне контроля' if r.excluded else 'Включён' }}</td>{% if editable %}<td><a class="btn" href="{{ url_for('medical_supplies', month=month, tab='catalog', edit=r.id) }}">Изменить</a></td>{% endif %}</tr>{% endfor %}
+{% if catalog %}<div class="table-wrap"><table class="table"><thead><tr><th>Материал</th><th>Ед.</th><th>Начало учёта</th><th>Начальный остаток</th><th>В упаковке</th><th>Цена упаковки, ₽</th><th>Минимум</th><th>Контроль</th>{% if 'catalog' in rights or 'purchase' in rights %}<th></th>{% endif %}</tr></thead><tbody>
+{% for r in catalog %}<tr><td>{{ r.name }}</td><td>{{ r.unit }}</td><td>{{ r.opening_month }}</td><td>{{ fmt(r.opening_qty) }}</td><td>{{ fmt(r.pack_qty) }}</td><td>{{ fmt(r.pack_price,100) if r.pack_price is not none else 'Не задана' }}</td><td>{{ fmt(r.min_stock) }}</td><td>{{ 'Вне контроля' if r.excluded else 'Включён' }}</td>{% if 'catalog' in rights or 'purchase' in rights %}<td><a class="btn" href="{{ url_for('medical_supplies', month=month, tab='catalog', edit=r.id) }}">Изменить</a></td>{% endif %}</tr>{% endfor %}
 </tbody></table></div>{% else %}<p>Данные пока не добавлены. Справочник заполняется материалами вашей клиники.</p>{% endif %}</div>
-{% if editable %}<div class="card med-panel"><h3 class="section-title">{{ 'Изменить материал' if edit else 'Добавить материал' }}</h3>
+{% if 'catalog' in rights or (edit and 'purchase' in rights) %}<div class="card med-panel"><h3 class="section-title">{{ 'Изменить материал' if edit else 'Добавить материал' }}</h3>
 <form method="post" action="{{ url_for('medical_supplies_save', action='item') }}">
 <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="tab" value="catalog">
 {% if edit %}<input type="hidden" name="id" value="{{ edit.id }}"><input type="hidden" name="version" value="{{ edit.version }}">{% endif %}
 <div class="med-fields">
-<div class="field"><label for="item-name">Название</label><input id="item-name" name="name" maxlength="200" required value="{{ edit.name if edit else '' }}"></div>
+<div class="field"><label for="item-name">Название</label><input id="item-name" name="name" {{ 'readonly' if 'catalog' not in rights else '' }} maxlength="200" required value="{{ edit.name if edit else '' }}"></div>
 <div class="field"><label for="item-unit">Единица учёта</label><input id="item-unit" name="unit" maxlength="30" required placeholder="шт, пара, мл…" value="{{ edit.unit if edit else '' }}" {{ 'readonly' if edit else '' }}></div>
 {% if not edit %}<div class="field"><label for="opening-month">Месяц начала учёта</label><input id="opening-month" name="opening_month" type="month" required value="{{ month }}"></div>
 <div class="field"><label for="opening-qty">Остаток на первое число этого месяца</label><input id="opening-qty" name="opening_qty" inputmode="decimal" required></div>{% endif %}
-<div class="field"><label for="pack-qty">Единиц в упаковке</label><input id="pack-qty" name="pack_qty" inputmode="decimal" required value="{{ fmt(edit.pack_qty) if edit else '1' }}"></div>
-<div class="field"><label for="pack-price">Цена упаковки, ₽ (если известна)</label><input id="pack-price" name="pack_price" inputmode="decimal" value="{{ fmt(edit.pack_price,100) if edit else '' }}"></div>
-<div class="field"><label for="min-stock">Минимальный запас в единицах учёта</label><input id="min-stock" name="min_stock" inputmode="decimal" required value="{{ fmt(edit.min_stock) if edit else '0' }}"></div>
+<div class="field"><label for="pack-qty">Единиц в упаковке</label><input id="pack-qty" name="pack_qty" {{ 'disabled' if 'purchase' not in rights else '' }} inputmode="decimal" required value="{{ fmt(edit.pack_qty) if edit else '1' }}"></div>
+<div class="field"><label for="pack-price">Цена упаковки, ₽ (если известна)</label><input id="pack-price" name="pack_price" {{ 'disabled' if 'purchase' not in rights else '' }} inputmode="decimal" value="{{ fmt(edit.pack_price,100) if edit else '' }}"></div>
+<div class="field"><label for="min-stock">Минимальный запас в единицах учёта</label><input id="min-stock" name="min_stock" {{ 'disabled' if 'purchase' not in rights else '' }} inputmode="decimal" required value="{{ fmt(edit.min_stock) if edit else '0' }}"></div>
 </div><p class="muted">Количество — до трёх знаков после запятой. Начальный остаток и единицу учёта после создания не меняем, чтобы сохранить историю. Цена используется только для оценки будущего заказа.</p>
-<label class="check"><input type="checkbox" name="excluded" value="1" {% if edit and edit.excluded %}checked{% endif %}>Исключить из контроля минимального запаса</label>
+<label class="check"><input type="checkbox" name="excluded" {{ 'disabled' if 'purchase' not in rights else '' }} value="1" {% if edit and edit.excluded %}checked{% endif %}>Исключить из контроля минимального запаса</label>
 <div class="spacer"></div><button class="btn primary" type="submit">Сохранить материал</button>
 {% if edit %}<a class="btn" href="{{ url_for('medical_supplies', month=month, tab='catalog') }}">Отмена</a>{% endif %}
 </form></div>{% endif %}

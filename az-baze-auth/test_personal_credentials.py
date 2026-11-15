@@ -1,4 +1,7 @@
 import sqlite3
+import json
+import re
+import subprocess
 import unittest
 from unittest.mock import patch
 from werkzeug.security import generate_password_hash
@@ -159,3 +162,40 @@ class PersonalCredentialsTests(unittest.TestCase):
         ident=self.create()
         for path in ['new',f'{ident}/edit',f'{ident}/delete',f'{ident}/restore',f'{ident}/secret']:
             self.assertEqual(self.post(self.client(),path,version=1,action='show').status_code,302)
+
+
+    def test_copy_all_executes_shared_template_with_personal_api(self):
+        ident = self.create()
+        response = self.post(self.owner, f'{ident}/secret', action='copy_all')
+        self.assertEqual(set(response.json), {'service_name','site_url','login','password','note'})
+        page = self.owner.get('/personal-credentials/').get_data(as_text=True)
+        script = next(s for s in re.findall(r'<script>(.*?)</script>', page, re.S) if 'async function secretFor' in s)
+        harness = r"""
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const input=JSON.parse(fs.readFileSync(0,'utf8'));let click, copied, requested;
+const status={style:{}};
+const context={URLSearchParams, clearTimeout(){},setTimeout(){},
+ document:{getElementById(){return status},addEventListener(name,handler){if(name==='click')click=handler}},
+ navigator:{clipboard:{async writeText(text){copied=text}}},window:{isSecureContext:true},
+ async fetch(url,options){requested={url,options};return {ok:true,json:async()=>input.payload}}};
+vm.runInNewContext(input.script,context);
+(async()=>{
+ await click({target:{closest(){return {dataset:{id:String(input.id)}}},matches(s){return s==='.copy-all'}}});
+ assert.strictEqual(requested.url,`/personal-credentials/${input.id}/secret`);
+ assert.strictEqual(requested.options.method,'POST');
+ assert.strictEqual(requested.options.body.get('action'),'copy_all');
+ assert.ok(requested.options.body.get('csrf'));
+ assert.strictEqual(copied,'Private service\nЛогин: private-login\nПароль: never-in-page\nКомментарий: private-note');
+ assert.strictEqual(status.textContent,'Доступ скопирован');
+})().catch(e=>{console.error(e);process.exitCode=1});
+"""
+        subprocess.run(['node','-e',harness], input=json.dumps(dict(script=script,payload=response.json,id=ident)), text=True, check=True, capture_output=True)
+
+    def test_empty_text_and_both_modules_initialized(self):
+        self.assertIn('Здесь пока нет личных доступов.', self.owner.get('/personal-credentials/').get_data(as_text=True))
+        self.assertIn('Здесь пока нет служебных доступов.', self.client(1).get('/credentials/').get_data(as_text=True))
+        with self.web.app_context():
+            tables={r[0] for r in core.db().execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            self.assertTrue({'personal_credentials','ztl_orders','ztl_payments','med_supply_coverage'} <= tables)
+        self.assertEqual(self.client(1).get('/accounting/ztl/').status_code,200)
+        self.assertEqual(self.owner.get('/personal-credentials/').status_code,200)

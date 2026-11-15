@@ -4,6 +4,7 @@ import secrets
 import sqlite3
 import personal_credentials
 import medical_supplies
+import ztl
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
@@ -31,7 +32,17 @@ SECTIONS = [
     ("reports", "Отчёты"),
     ("knowledge", "База знаний"),
     ("accounting", "УЧЕТ"),
-    ("medical_supplies_edit", "Медрасходка — редактирование (нужен доступ УЧЕТ)"),
+    ("medical_supplies_edit", "Медрасходка — все изменения (совместимость с прежним доступом)"),
+    ("medical_supplies_catalog", "Медрасходка — справочник материалов"),
+    ("medical_supplies_in", "Медрасходка — приход"),
+    ("medical_supplies_out", "Медрасходка — расход"),
+    ("medical_supplies_purchase", "Медрасходка — параметры закупки"),
+    ("ztl_orders", "ЗТЛ — заказы"),
+    ("ztl_catalog", "ЗТЛ — справочники"),
+    ("ztl_payments", "ЗТЛ — оплаты и авансы"),
+    ("ztl_payroll", "ЗТЛ — ФОТ сотрудников"),
+    ("ztl_lab_costs", "ЗТЛ — затраты лаборатории"),
+    ("ztl_clinic_costs", "ЗТЛ — общеклинические затраты"),
     ("section3", "Раздел 3"),
     ("section4", "Раздел 4"),
     ("section5", "Раздел 5"),
@@ -605,6 +616,7 @@ def create_app():
 
     personal_credentials.register(app)
     medical_supplies.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
+    ztl.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
     return app
 
 
@@ -625,6 +637,7 @@ def init_db_file(path=None):
     conn.executescript(SCHEMA)
     personal_credentials.init_schema(conn)
     medical_supplies.init_schema(conn)
+    ztl.init_schema(conn)
     conn.commit()
     conn.close()
 

@@ -102,7 +102,7 @@ def register(app):
         if request.form.get('action') not in {'show', 'copy_password', 'copy_all'}:
             abort(400)
         secret = crypto._decrypt_secret(row['secret_token']) if row['secret_token'] else ''
-        response = jsonify(password=secret, service=row['service_name'], site='', login=row['login'], note=row['note'])
+        response = jsonify(password=secret, service_name=row['service_name'], site_url='', login=row['login'], note=row['note'])
         response.headers['Cache-Control'] = 'no-store'
         return response
 
