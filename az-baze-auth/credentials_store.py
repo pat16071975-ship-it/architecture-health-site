@@ -15,13 +15,13 @@ PERMISSION_OPTIONS = [
     ("credentials_reveal", "Показывать и копировать пароли"),
     ("credentials_edit", "Добавлять и изменять записи"),
     ("credentials_delete", "Удалять записи"),
+    ("credentials_purge", "Удалять служебные доступы из корзины навсегда"),
 ]
 
 KEY_PATH = Path(
     os.environ.get("AZBAZE_CREDENTIALS_KEY", "/var/lib/az-baze/credentials.key")
 )
 
-PURGE_EMAILS_ENV = "AZBAZE_CREDENTIALS_PURGE_EMAILS"
 
 SCHEMA = """
 PRAGMA foreign_keys = ON;
@@ -162,18 +162,24 @@ def _permissions():
     return app_core.user_permissions(g.user)
 
 
-def _purge_allowlist():
-    raw = os.environ.get(PURGE_EMAILS_ENV, "")
-    return {
-        value.strip().casefold()
-        for value in raw.split(",")
-        if value.strip()
-    }
-
-
 def _can_purge(user):
-    email = (user["email"] or "").strip().casefold()
-    return bool(email) and email in _purge_allowlist()
+    return "credentials_purge" in app_core.user_permissions(user)
+
+
+def _purge_trashed(row):
+    """Delete only the same trash revision that the user confirmed."""
+    if (request.form.get('updated_at') != row['updated_at'] or
+            request.form.get('deleted_at') != row['deleted_at']):
+        abort(409, 'Запись изменилась. Обновите корзину.')
+    conn = app_core.db()
+    with conn:
+        cur = conn.execute("""DELETE FROM credentials WHERE id=? AND updated_at=?
+            AND EXISTS(SELECT 1 FROM credential_trash WHERE credential_id=credentials.id AND deleted_at=?)""",
+            (row['id'],row['updated_at'],row['deleted_at']))
+        if cur.rowcount != 1:
+            abort(409, 'Запись уже изменена или восстановлена.')
+        conn.execute('INSERT INTO audit_log(actor_user_id,action,details,created_at) VALUES(?,?,?,?)',
+            (g.user['id'],'credential_purged',f"credential_id={row['id']}",app_core.iso_now()))
 
 
 def _current_password_ok(password):
@@ -189,6 +195,7 @@ def _audit_failed_confirmation(action, credential_id, reason):
 
 def register_credentials(app):
     app_core.SECTION_KEYS.update(key for key, _label in PERMISSION_OPTIONS)
+    app_core.EXPLICIT_PERMISSION_KEYS.add("credentials_purge")
     _init_schema()
     _fernet()
 
@@ -481,15 +488,7 @@ def register_credentials(app):
                 )
                 error = "Подтверждающая фраза введена не точно."
             else:
-                app_core.db().execute(
-                    "DELETE FROM credentials WHERE id=?",
-                    (credential_id,),
-                )
-                app_core.db().commit()
-                app_core.audit(
-                    "credential_purged",
-                    details=f"credential_id={credential_id}",
-                )
+                _purge_trashed(row)
                 return redirect(url_for("credentials_trash"))
 
         return render_template(

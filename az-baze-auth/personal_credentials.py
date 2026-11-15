@@ -128,7 +128,7 @@ def register(app):
     @core.login_required
     def personal_credentials_trash():
         rows = connection().execute('SELECT *, NULL AS deleted_by_name FROM personal_credentials WHERE owner_id=? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC,id', (g.user['id'],)).fetchall()
-        return render('credentials_trash.html', rows=rows, can_purge=False)
+        return render('credentials_trash.html', rows=rows, can_purge=True)
 
     @app.post(PREFIX+'<int:item_id>/restore')
     @core.login_required
@@ -138,3 +138,32 @@ def register(app):
         version(row)
         change(row, 'UPDATE personal_credentials SET deleted_at=NULL,updated_at=?,version=version+1', (core.iso_now(),))
         return redirect(PREFIX)
+
+
+    @app.route(PREFIX+'<int:item_id>/purge', methods=['GET', 'POST'])
+    @core.login_required
+    def personal_credentials_purge(item_id):
+        import credentials_store as crypto
+        row = item(item_id, trashed=True)
+        label = row['service_name'].strip() or 'ДОСТУП БЕЗ НАЗВАНИЯ'
+        phrase = 'УДАЛИТЬ НАВСЕГДА ' + label
+        error = None
+        if request.method == 'POST':
+            core.require_csrf()
+            version(row)
+            if not crypto._current_password_ok(request.form.get('current_password', '')):
+                error = 'Пароль AZ-BAZE неверен.'
+            elif request.form.get('purge_confirmation', '').strip() != phrase:
+                error = 'Подтверждающая фраза введена не точно.'
+            else:
+                conn = connection()
+                with conn:
+                    cur = conn.execute('DELETE FROM personal_credentials WHERE id=? AND owner_id=? AND version=? AND deleted_at IS NOT NULL',
+                                       (item_id,g.user['id'],row['version']))
+                    if cur.rowcount != 1:
+                        abort(409, 'Запись уже изменена или восстановлена.')
+                    conn.execute('INSERT INTO audit_log(actor_user_id,action,details,created_at) VALUES(?,?,?,?)',
+                                 (g.user['id'],'personal_credential_purged',f'credential_id={item_id}',core.iso_now()))
+                return redirect(PREFIX+'trash')
+        return render('credential_purge_confirm.html', row=row, version=row['version'],
+                      display_title=label, phrase=phrase, error=error)
