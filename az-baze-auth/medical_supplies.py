@@ -22,6 +22,13 @@ CREATE TABLE IF NOT EXISTS med_supply_periods (
  qty_in INTEGER NOT NULL CHECK(qty_in>=0), qty_out INTEGER NOT NULL CHECK(qty_out>=0),
  version INTEGER NOT NULL CHECK(version>0), PRIMARY KEY(item_id,month)
 );
+CREATE TABLE IF NOT EXISTS med_supply_coverage (
+ item_id INTEGER NOT NULL, month TEXT NOT NULL,
+ in_known INTEGER NOT NULL CHECK(in_known IN (0,1)),
+ out_known INTEGER NOT NULL CHECK(out_known IN (0,1)),
+ PRIMARY KEY(item_id,month),
+ FOREIGN KEY(item_id,month) REFERENCES med_supply_periods(item_id,month)
+);
 CREATE TABLE IF NOT EXISTS med_supply_history (
  id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL REFERENCES med_supply_items(id),
  month TEXT, action TEXT NOT NULL, actor_id INTEGER NOT NULL,
@@ -91,7 +98,21 @@ def history(conn, iid, period, action, actor, before, after):
                   json.dumps(after, ensure_ascii=False)))
 
 
-def save_item(conn, data, actor):
+def save_item(conn, data, actor, allowed=None):
+    if allowed is not None:
+        data = dict(data)
+        old = conn.execute('SELECT * FROM med_supply_items WHERE id=?', (integer(data['id']),)).fetchone() if data.get('id') else None
+        if old is None and 'catalog' not in allowed:
+            raise PermissionError('Нет права создавать материалы.')
+        if old:
+            if 'catalog' not in allowed:
+                data.update(name=old['name'], unit=old['unit'])
+            if 'purchase' not in allowed:
+                data.update(pack_qty=display(old['pack_qty']), pack_price=display(old['pack_price'],100),
+                            min_stock=display(old['min_stock']), excluded=str(old['excluded']))
+        elif 'purchase' not in allowed:
+            data.update(pack_qty='1', pack_price='', min_stock='0', excluded='0')
+
     values = dict(name=text(data.get('name'), 200), unit=text(data.get('unit'), 30),
                   pack_qty=number(data.get('pack_qty')), pack_price=number(data.get('pack_price'), 100, True),
                   min_stock=number(data.get('min_stock')), excluded=int(data.get('excluded') == '1'))
@@ -119,9 +140,10 @@ def save_item(conn, data, actor):
     return iid
 
 
-def save_period(conn, data, actor):
+def save_period(conn, data, actor, allowed=None):
     iid, period = integer(data.get('item_id')), month(data.get('month'))
-    qty_in, qty_out, version = number(data.get('qty_in')), number(data.get('qty_out')), integer(data.get('version'))
+    allowed = {'in', 'out'} if allowed is None else allowed
+    version = integer(data.get('version'))
     with conn:
         conn.execute('BEGIN IMMEDIATE')
         item = conn.execute('SELECT * FROM med_supply_items WHERE id=?', (iid,)).fetchone()
@@ -130,10 +152,21 @@ def save_period(conn, data, actor):
         old = conn.execute('SELECT * FROM med_supply_periods WHERE item_id=? AND month=?', (iid, period)).fetchone()
         if version != (old['version'] if old else 0):
             raise Conflict('Этот месяц уже изменили. Обновите страницу и повторите ввод.')
+        cover = conn.execute('SELECT * FROM med_supply_coverage WHERE item_id=? AND month=?', (iid,period)).fetchone()
+        known = {k: bool(cover[k+'_known']) if cover else bool(old) for k in ('in','out')}
+        before_history = {**dict(old), **known} if old else None
+        values = {k: old['qty_'+k] if old else 0 for k in ('in','out')}
+        for k in ('in','out'):
+            if k in allowed:
+                values[k] = number(data.get('qty_'+k))
+                known[k] = True
+        qty_in, qty_out = values['in'], values['out']
         conn.execute('INSERT INTO med_supply_periods VALUES(?,?,?,?,?) ON CONFLICT(item_id,month) DO UPDATE SET qty_in=excluded.qty_in,qty_out=excluded.qty_out,version=excluded.version',
                      (iid, period, qty_in, qty_out, version + 1))
-        history(conn, iid, period, 'month_total', actor, dict(old) if old else None,
-                dict(qty_in=qty_in, qty_out=qty_out, version=version + 1))
+        conn.execute('INSERT INTO med_supply_coverage VALUES(?,?,?,?) ON CONFLICT(item_id,month) DO UPDATE SET in_known=excluded.in_known,out_known=excluded.out_known',
+                     (iid,period,int(known['in']),int(known['out'])))
+        history(conn, iid, period, 'month_total', actor, before_history,
+                dict(qty_in=qty_in, qty_out=qty_out, version=version + 1, **known))
 
 
 def month_index(value):
@@ -149,7 +182,7 @@ def snapshot(conn, period):
         conn.execute('BEGIN')
     try:
         items = [dict(r) for r in conn.execute('SELECT * FROM med_supply_items ORDER BY name COLLATE NOCASE,id')]
-        moves = [dict(r) for r in conn.execute('SELECT * FROM med_supply_periods WHERE month<=? ORDER BY month', (period,))]
+        moves = [dict(r) for r in conn.execute('SELECT p.*,COALESCE(c.in_known,1) AS in_known,COALESCE(c.out_known,1) AS out_known FROM med_supply_periods p LEFT JOIN med_supply_coverage c USING(item_id,month) WHERE p.month<=? ORDER BY p.month', (period,))]
     finally:
         if own_transaction:
             conn.rollback()
@@ -166,12 +199,13 @@ def snapshot(conn, period):
         start = item['opening_qty'] + sum(r['qty_in'] - r['qty_out'] for r in before)
         end = start + ((current['qty_in'] - current['qty_out']) if current else 0)
         expected = month_index(period) - month_index(item['opening_month']) + 1
-        complete = len(rows) == expected
+        complete_count = sum(bool(r['in_known'] and r['out_known']) for r in rows)
+        complete = complete_count == expected
         need = max(item['min_stock'] - end, 0)
         packs = (need + item['pack_qty'] - 1) // item['pack_qty'] if complete and not item['excluded'] else None
         result.append({**item, 'start': start, 'end': end, 'complete': complete,
-                       'start_complete': len(before) == expected - 1,
-                       'missing_months': expected - len(rows), 'current': current,
+                       'start_complete': sum(bool(r['in_known'] and r['out_known']) for r in before) == expected - 1,
+                       'missing_months': expected - complete_count, 'current': current,
                        'packs': packs, 'order_cost': None if packs is None or item['pack_price'] is None else packs * item['pack_price']})
     return result
 
@@ -184,7 +218,7 @@ def workbook(rows, period):
     for r in rows:
         current = r['current']
         sheet.append([period, r['name'], r['unit'], r['start']/1000,
-                      current['qty_in']/1000 if current else None, current['qty_out']/1000 if current else None,
+                      current['qty_in']/1000 if current and current['in_known'] else None, current['qty_out']/1000 if current and current['out_known'] else None,
                       r['end']/1000, 'Полные данные' if r['complete'] else 'Неполные данные'])
     order = book.create_sheet('К заказу')
     order.append(['Материал', 'Единица', 'Упаковок', 'Ориентировочная сумма, ₽', 'Статус'])
@@ -210,8 +244,12 @@ def workbook(rows, period):
 
 
 def register(app, db, permission_required, require_csrf, csrf_token, user_permissions):
+    def rights():
+        perms = user_permissions(g.user)
+        return {k for k in ('catalog','in','out','purchase') if 'medical_supplies_edit' in perms or 'medical_supplies_'+k in perms}
+
     def editable():
-        return 'medical_supplies_edit' in user_permissions(g.user)
+        return bool(rights())
 
     def page(error=None, status=200):
         try:
@@ -229,21 +267,23 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
                 before = json.loads(event['before_json']) if event['before_json'] else None
                 after = json.loads(event['after_json'])
                 if event['action'] == 'month_total':
-                    old = f"приход {display(before['qty_in'])}, расход {display(before['qty_out'])}" if before else 'не внесены'
-                    event['summary'] = f"{event['month']}: {old} → приход {display(after['qty_in'])}, расход {display(after['qty_out'])}"
+                    def movement_label(v):
+                        return ', '.join(label+' '+(display(v['qty_'+k]) if v.get(k,True) else 'не внесён') for k,label in [('in','приход'),('out','расход')])
+                    old = movement_label(before) if before else 'не внесены'
+                    event['summary'] = f"{event['month']}: {old} → {movement_label(after)}"
                 else:
                     event['summary'] = 'Создание материала' if before is None else 'Изменение карточки материала'
 
             edit = None
             if request.args.get('edit'):
-                if not editable():
+                if not rights() & {'catalog','purchase'}:
                     abort(403)
                 edit = next((r for r in catalog if r['id'] == integer(request.args['edit'])), None)
                 if edit is None:
                     abort(404)
             return render_template('medical_supplies.html', title='Медрасходка — УЧЕТ', setup_pending=False,
                                    rows=rows, catalog=catalog, events=events, edit=edit, month=period, tab=tab,
-                                   editable=editable(), csrf=csrf_token(), fmt=display, error=error,
+                                   editable=editable(), rights=rights(), csrf=csrf_token(), fmt=display, error=error,
                                    saved=request.args.get('saved') == '1'), status
         except ValueError as exc:
             return str(exc), 400
@@ -253,14 +293,17 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
     @app.post('/accounting/medical-supplies/save/<action>')
     @permission_required('accounting')
     def medical_supplies_save(action):
-        if not editable():
+        needed = {'catalog','purchase'} if action == 'item' else {'in','out'}
+        if not rights() & needed:
             abort(403)
         require_csrf()
         if action not in ('item', 'period'):
             abort(404)
         try:
             period = month(request.form.get('month'))
-            (save_item if action == 'item' else save_period)(db(), request.form, g.user['id'])
+            (save_item if action == 'item' else save_period)(db(), request.form, g.user['id'], allowed=rights())
+        except PermissionError:
+            abort(403)
         except Conflict as exc:
             return page(str(exc), 409)
         except ValueError as exc:
