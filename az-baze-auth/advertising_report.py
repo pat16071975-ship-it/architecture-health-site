@@ -1145,8 +1145,10 @@ def _source_economics(conn, start, end, store=None):
         key = meta["source_key"]
         summary = _cost_entity_summary(store, "source", key, start, end)
         monthly = advertising_monthly_costs.source_period(_monthly_core, conn, store, key, start, end, monthly_state)
-        if monthly is not None:
-            summary = {**summary, "complete": True, "legacy_partial": False,
+        # Ordinary channels use the monthly contract even when unknown:
+        # never revive an incompatible legacy interval or a deleted payment.
+        if monthly is not None or key != "yandex_ads":
+            summary = {**summary, "complete": monthly is not None, "legacy_partial": False,
                        "advertising_payment": monthly if key != "yandex_ads" else None,
                        "contractors_payment": monthly if key == "yandex_ads" else None,
                        "total_spend": monthly}
