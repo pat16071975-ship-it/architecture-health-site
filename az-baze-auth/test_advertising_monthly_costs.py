@@ -258,6 +258,83 @@ class MonthlyCostsTests(unittest.TestCase):
             with self.subTest(value=value),self.assertRaises(ValueError):self.add(value)
         self.add(0);self.approve();self.assertEqual(self.view()['confirmed']['fixed'],0)
 
+    def source_values(self, first=date(2026,11,1), last=date(2026,11,15)):
+        return core._source_economics(self.c, first, last)['sources']
+
+    def test_unconfirmed_channels_use_month_not_legacy_interval(self):
+        store = core._load_cost_store(self.c)
+        for key, value, end in [('2gis', 8601, '2026-11-15'),
+                                ('yandex_business', 11400, '2026-11-30')]:
+            store['sources'][key] = {'name': key, 'channel_name': 'Платная реклама', 'manual': True}
+            store['periods']['sources'][key] = [dict(
+                **{'from': '2026-11-01', 'to': end}, advertising_payment=value,
+                contractors_payment=None, total_spend=value)]
+        core._persist_cost_store(self.c, store); self.c.commit()
+        before = self.c.total_changes
+        values = self.source_values()
+        self.assertEqual(values['2gis']['total_spend'], 4300.50)
+        self.assertEqual(values['yandex_business']['total_spend'], 5700)
+        self.assertIsNone(core._summary(self.c,date(2026,11,1),date(2026,11,15))['spend'])
+        self.assertEqual(self.c.total_changes, before)
+        self.approve()
+        self.assertEqual(self.source_values()['yandex_business']['total_spend'], 5700)
+        self.change(action='unconfirm')
+        self.assertEqual(self.source_values()['2gis']['total_spend'], 4300.50)
+
+    def test_new_payment_edit_delete_visible_without_confirmation(self):
+        ident = self.add(11400)
+        key = self.view()['records'][0]['source']
+        self.assertEqual(self.source_values()[key]['total_spend'], 5700)
+        self.approve()
+        self.change(action='save', id=ident, source=key, label='Площадка', amount=12000)
+        self.assertIsNone(self.view()['confirmed'])
+        self.assertEqual(self.source_values()[key]['total_spend'], 6000)
+        self.change(action='delete', id=ident, confirmation='delete')
+        self.assertIsNone(self.source_values()[key]['total_spend'])
+
+    def test_source_missing_month_is_unknown_but_explicit_zero_is_known(self):
+        self.add(3100, '2026-10')
+        key = self.view('2026-10')['records'][0]['source']
+        self.assertIsNone(self.source_values()[key]['total_spend'])
+        self.assertIsNone(self.source_values(date(2026,10,31),date(2026,11,15))[key]['total_spend'])
+        self.change(action='save',source=key,label='Площадка',amount=0)
+        self.assertEqual(self.source_values()[key]['total_spend'],0)
+        self.assertEqual(self.source_values(date(2026,10,31),date(2026,11,15))[key]['total_spend'],100)
+
+    def test_unconfirmed_campaign_detail_source_total_not_doubled(self):
+        for parent in [False, True]:
+            with self.subTest(parent=parent):
+                self.campaign_fixture(parent)
+                self.assertEqual(self.source_values()['paid']['total_spend'],250)
+
+    def test_cross_month_legacy_payment_is_unknown_without_fallback(self):
+        store = self.legacy()
+        store['periods']['sources']['paid'][0]['from'] = '2026-10-31'
+        core._persist_cost_store(self.c, store); self.c.commit()
+        self.assertIsNone(self.source_values(date(2026,10,31),date(2026,11,15))['paid']['total_spend'])
+
+    def test_moved_payment_does_not_reappear_in_original_month(self):
+        ident = self.add(3000)
+        key = self.view()['records'][0]['source']
+        self.change(action='save',id=ident,target_month='2026-10',source=key,label='Площадка',amount=3100)
+        self.assertIsNone(self.source_values()[key]['total_spend'])
+        self.assertEqual(self.source_values(date(2026,10,1),date(2026,10,15))[key]['total_spend'],1500)
+
+    def test_direct_and_global_confirmation_gates_unchanged(self):
+        self.discovered_channels()
+        self.change(action='save',source='2gis',label='2ГИС',amount=8601)
+        self.change(action='save',source='yandex_ads',label='Подрядчик',amount=600)
+        values = self.source_values()
+        self.assertEqual(values['yandex_ads']['advertising_payment'],100)
+        self.assertIsNone(values['yandex_ads']['contractors_payment'])
+        self.assertIsNone(core._summary(self.c,date(2026,11,1),date(2026,11,15))['spend'])
+        self.approve()
+        values = self.source_values()
+        self.assertEqual(values['yandex_ads']['advertising_payment'],100)
+        self.assertEqual(values['yandex_ads']['contractors_payment'],300)
+        with patch.object(core,'_dataset_period_complete',return_value=False):
+            self.assertIsNone(core._summary(self.c,date(2026,11,1),date(2026,11,15))['spend'])
+
     def test_source_proration_and_no_direct_write(self):
         self.change(action='save',source='yandex_ads',label='Подрядчик',amount=600)
         self.approve()

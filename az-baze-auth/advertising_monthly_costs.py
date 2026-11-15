@@ -99,10 +99,10 @@ def valid_confirmation(core, store, state, month):
 
 
 def source_period(core, conn, store, key, first, last, state=None):
-    """Return monthly source amounts only for explicitly confirmed months.
+    """Prorate saved source payments independently of global approval.
 
-    None means the new monthly contract is not available for every month;
-    callers retain legacy source evidence (but never a global approved total).
+    Missing months remain unknown until explicitly confirmed. The Direct
+    contractor keeps its existing confirmation contract; API spend is separate.
     """
     state = state if state is not None else load(conn)
     all_rows = records(core, store, state)
@@ -113,10 +113,14 @@ def source_period(core, conn, store, key, first, last, state=None):
     while cursor <= last:
         month = cursor.strftime('%Y-%m')
         end = min(bounds(month)[1], last)
-        if not valid_confirmation(core, store, state, month):
+        confirmed = valid_confirmation(core, store, state, month)
+        rows = [r for r in selected_records(all_rows, month) if r['source'] == key]
+        if (key == 'yandex_ads' or not rows) and not confirmed:
             return None
-        rows = [r for r in selected_records(records(core, store, state), month) if r['source'] == key]
-        total += apportioned(fixed_total(rows), cursor, end)
+        fixed = fixed_total(rows)
+        if fixed is None:
+            return None  # A cross-month legacy payment needs an explicit month.
+        total += apportioned(fixed, cursor, end)
         cursor = end + timedelta(days=1)
     return float(total)
 

@@ -3032,16 +3032,17 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertIsNone(campaign_summary["contractors_payment"])
 
             economics=m._source_economics(c,date(2026,11,8),date(2026,11,8),store)
-            self.assertEqual(economics["source_total_spend"],100)
+            self.assertEqual(economics["source_total_spend"],3.34)
             self.assertEqual(economics["source_reconciliation_delta"],0)
             self.assertEqual(
                 economics["sources"]["paid_test"]["campaign_distributed_total"],80
             )
             self.assertEqual(
-                economics["sources"]["paid_test"]["campaign_reconciliation_delta"],20
+                economics["sources"]["paid_test"]["campaign_reconciliation_delta"],-76.66
             )
-            # Child 80 is detail only: it is never added to source/global 100.
-            self.assertEqual(economics["budget"]["total_spend"],100)
+            # Saved source 100 is monthly: November 8 gets 3.34.
+            # Legacy campaign detail is unchanged and never added to the source.
+            self.assertEqual(economics["budget"]["total_spend"],3.34)
             self.assertEqual(economics["budget"]["contractors_payment"],0)
             # Legacy source evidence is retained above; new monthly total needs owner confirmation.
             self.assertIsNone(m._summary(c,date(2026,11,8),date(2026,11,8))["spend"])
@@ -3179,18 +3180,18 @@ class AdvertisingReportTests(unittest.TestCase):
             start=end=date(2026,11,8)
             report=m._summary(c,start,end)
             self.assertIsNone(report["spend"])  # Month has not been confirmed.
-            self.assertEqual(report["advertising_payment"],130)
+            self.assertEqual(report["advertising_payment"],101)
             self.assertEqual(report["contractors_payment"],20)
             economics=m._source_economics(c,start,end)
             self.assertEqual(economics["sources"]["yandex_ads"]["total_spend"],120)
-            self.assertEqual(economics["sources"]["other_paid"]["total_spend"],30)
+            self.assertEqual(economics["sources"]["other_paid"]["total_spend"],1)
             self.assertIsNone(economics["sources"]["other_paid"]["contractors_payment"])
             self.assertEqual(economics["campaigns"][key]["total_spend"],100)
             self.assertIsNone(economics["campaigns"][key]["contractors_payment"])
             self.assertEqual(economics["source_reconciliation_delta"],0)
             hierarchy=m._cost_hierarchy_payload(c,start,end)
             self.assertIsNone(hierarchy["global"]["exact"]["contractors_payment"])
-            self.assertEqual(hierarchy["global"]["effective"]["total_spend"],150)
+            self.assertEqual(hierarchy["global"]["effective"]["total_spend"],121)
             other=next(row for row in hierarchy["sources"] if row["source_key"]=="other_paid")
             self.assertIsNone(other["exact"]["contractors_payment"])
             self.assertEqual(other["exact"]["total_spend"],30)
@@ -3246,7 +3247,7 @@ class AdvertisingReportTests(unittest.TestCase):
             self.assertEqual(submit("source","other_paid","40","","40")["status"],"ok")
             after=m._summary(c,start,end)
             self.assertIsNone(after["spend"])  # Legacy source edits cannot approve the month.
-            self.assertEqual(after["advertising_payment"],140)
+            self.assertEqual(after["advertising_payment"],101.34)
             self.assertEqual(after["contractors_payment"],30)
             stored=m._load_cost_store(c)
             self.assertEqual(stored["periods"]["global"][0]["total_spend"],1039)
