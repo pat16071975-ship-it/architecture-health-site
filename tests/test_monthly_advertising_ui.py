@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1]
 HTML=(ROOT/'az-baze-auth/templates/advertising_costs_fragment.html').read_text()
 HTML=re.sub(r'{%.*?%}','',HTML).replace('{{ csrf }}','test-csrf')
-STATE=dict(month='2026-11',records=[],sources=[dict(key='yandex_ads',name='Яндекс-реклама')],fixed=3000,direct=100,automatic_total=3100,confirmed=None,confirmed_total=None,direct_complete=False,direct_through='2026-11-15',revision='rev1',history=[])
+STATE=dict(month='2026-11',records=[],sources=[dict(key='yandex_ads',name='Яндекс-реклама')],fixed=3000,direct=100,automatic_total=3100,confirmed=None,confirmed_total=None,direct_complete=False,direct_through='2026-11-15',revision='rev1',history=[],channels=[dict(source_key='instagram',source_name='Instagram',channel_name='Социальные сети',record_ids=[],amount=None,fixed_total=None,direct=None,campaigns=[dict(campaign_key=k,source_key='instagram',campaign_id=k,campaign_name=n,record_ids=[],amount=None,direct=None) for k,n in [('clinic','Instagram клиники'),('zubachev','Instagram Зубачёва'),('starostenko','Instagram Старостенко')]]),dict(source_key='yandex_ads',source_name='Яндекс-реклама',channel_name='Платная реклама',record_ids=[],amount=None,fixed_total=None,direct=100,campaigns=[dict(campaign_key='direct1',source_key='yandex_ads',campaign_id='715444498',campaign_name='Ортодонтия',record_ids=[],amount=None,direct=100)])])
 
 class MonthlyBrowserTests(unittest.TestCase):
     @classmethod
@@ -63,6 +63,7 @@ window.fetch=async(url,options={})=>{if(options.method==='POST'){posts.push(Obje
         self.page.evaluate("fixture.records=[{id:'row1',month:'2026-11',source:'yandex_ads',label:'<img src=x onerror=alert(1)>',amount:500,comment:'test'}]")
         self.page.locator('#adRefresh').click()
         self.assertEqual(self.page.locator('#adPayments img').count(),0)
+        self.page.locator('#adPaymentDetails').evaluate('(e)=>e.open=true')
         self.page.get_by_role('button',name='Изменить',exact=True).click()
         self.assertEqual(self.page.locator('#adAmount').input_value(),'500')
         self.page.locator('#adCancel').click()
@@ -70,6 +71,30 @@ window.fetch=async(url,options={})=>{if(options.method==='POST'){posts.push(Obje
         self.assertEqual(self.page.evaluate('posts.length'),0)
         self.page.once('dialog',lambda d:d.accept());self.page.get_by_role('button',name='Удалить',exact=True).click()
         self.assertEqual(self.page.evaluate('posts[0].confirmation'),'delete')
+    def test_all_channels_and_instagram_children_are_expandable_without_payments(self):
+        self.assertEqual(self.page.locator('#adCostRows .source').count(),2)
+        self.page.locator('[data-expand-source="instagram"]').click()
+        rows=self.page.locator('#adCostRows .campaign')
+        self.assertEqual(rows.count(),3)
+        for name in ['Instagram клиники','Instagram Зубачёва','Instagram Старостенко']:
+            self.assertIn(name,self.page.locator('#adCostRows').inner_text())
+        self.page.locator('[data-entity-key="clinic"] input').fill('200')
+        self.page.locator('[data-entity-key="clinic"]').get_by_role('button',name='Сохранить',exact=True).click()
+        post=self.page.evaluate('posts[0]')
+        self.assertEqual((post['source'],post['level'],post['campaign_key'],post['amount']),('instagram','campaign','clinic','200'))
+        self.assertEqual(self.page.locator('#adCostRows .campaign').count(),3)
+
+    def test_direct_breakdown_is_readonly_and_old_table_columns_preserved(self):
+        self.page.locator('[data-expand-source="yandex_ads"]').click()
+        campaign=self.page.locator('[data-entity-key="direct1"]')
+        self.assertEqual(campaign.locator('input').input_value(),'100')
+        self.assertTrue(campaign.locator('input').evaluate('(e)=>e.readOnly'))
+        self.assertEqual(campaign.get_by_role('button').count(),0)
+        headers=self.page.locator('.ad-cost-head').inner_text()
+        for label in ['Уровень','Месяц','Реклама','Подрядчик','Всего']:
+            self.assertIn(label,headers)
+        self.assertEqual(self.page.locator('input[type=date]').count(),0)
+
     def test_mobile_compact_editor_and_scrollable_table(self):
         self.page.set_viewport_size({'width':390,'height':844});self.page.locator('#adNew').click()
         self.assertEqual(self.page.locator('.ad-cost-editor').evaluate('(e)=>getComputedStyle(e).gridTemplateColumns.split(" ").length'),2)
