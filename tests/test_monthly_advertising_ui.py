@@ -26,7 +26,7 @@ class MonthlyBrowserTests(unittest.TestCase):
         mock='''window.fixture=STATE;window.posts=[];window.hold=false;window.reject=false;
 window.fetch=async(url,options={})=>{if(options.method==='POST'){posts.push(Object.fromEntries(options.body.entries()));if(hold)await new Promise(r=>window.release=r);if(window.reject)return {ok:false,json:async()=>({message:'Данные изменились'})};return {ok:true,json:async()=>({status:'ok'})};}return {ok:true,json:async()=>fixture};};'''.replace('STATE',json.dumps(STATE))
         self.page.set_content('<html lang="ru"><body><script>'+mock+'</script>'+HTML+'</body></html>')
-        self.page.locator('#adMonth').select_option('11');self.page.locator('#adYear').select_option('2026')
+        self.page.evaluate("document.getElementById('adMonth').value='11';document.getElementById('adYear').value='2026'")
         self.page.locator('#adCostToggle').click()
         self.page.wait_for_function("document.getElementById('adAutomatic').textContent.includes('3')")
     def tearDown(self):self.page.close();self.assertEqual(self.errors,[])
