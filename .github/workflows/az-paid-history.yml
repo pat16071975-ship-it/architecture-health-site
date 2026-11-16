@@ -43,9 +43,16 @@ jobs:
           node tests/verify-paid-upload-periods.cjs
       - name: Protect clinical imports and cash money semantics
         run: |
-          git diff --exit-code ${{ github.event.pull_request.base.sha }} -- az-baze-auth/paid_services.py az-baze-auth/paid_services_upload.py az-baze-auth/ident_import.py az-baze-auth/upload_integrity.py reports/dashboard.html
+          git diff --exit-code ${{ github.event.pull_request.base.sha }} -- az-baze-auth/paid_services.py az-baze-auth/paid_services_upload.py az-baze-auth/ident_import.py az-baze-auth/upload_integrity.py
           python - <<'PY'
           from pathlib import Path
+          import subprocess
+          base_dashboard=subprocess.check_output(['git','show','${{ github.event.pull_request.base.sha }}:reports/dashboard.html']).decode()
+          current_dashboard=Path('reports/dashboard.html').read_text(encoding='utf-8')
+          # Permit only the compact read-view URL; all rendering/formulas stay protected.
+          def normalize_dashboard(text):
+              return text.replace("fetch('/api/reports/data?view=dashboard',", "fetch('/api/reports/data',")
+          assert normalize_dashboard(current_dashboard)==normalize_dashboard(base_dashboard), 'Dashboard changed beyond compact URL'
           cash=Path('az-baze-auth/cash_payments.py').read_text(encoding='utf-8')
           upload=Path('az-baze-auth/cash_upload.py').read_text(encoding='utf-8')
           assert 'if legal is None or movement is None or movement <= 0:' in cash
