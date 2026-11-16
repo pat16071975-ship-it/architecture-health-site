@@ -5,6 +5,7 @@ import sqlite3
 import personal_credentials
 import medical_supplies
 import ztl
+import financial_model
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
@@ -37,6 +38,7 @@ SECTIONS = [
     ("medical_supplies_in", "Медрасходка — приход"),
     ("medical_supplies_out", "Медрасходка — расход"),
     ("medical_supplies_purchase", "Медрасходка — параметры закупки"),
+    ("financial_model_edit", "Финмодель — изменение параметров"),
     ("ztl_orders", "ЗТЛ — заказы"),
     ("ztl_catalog", "ЗТЛ — справочники"),
     ("ztl_payments", "ЗТЛ — оплаты и авансы"),
@@ -617,6 +619,7 @@ def create_app():
     personal_credentials.register(app)
     medical_supplies.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
     ztl.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
+    financial_model.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
     return app
 
 
@@ -638,6 +641,7 @@ def init_db_file(path=None):
     personal_credentials.init_schema(conn)
     medical_supplies.init_schema(conn)
     ztl.init_schema(conn)
+    financial_model.init_schema(conn)
     conn.commit()
     conn.close()
 

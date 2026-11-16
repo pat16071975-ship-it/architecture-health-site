@@ -1,0 +1,73 @@
+import copy,json,os,sqlite3,tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch
+os.environ.setdefault('AZBAZE_SECRET_KEY','test-finmodel-key')
+import app as auth
+import financial_model as fm
+class CalculationTests(unittest.TestCase):
+ def state(self):
+  c=fm.initial();return dict(config=c,results=fm.calculate(c),version=0,stale=[])
+ def change(self,**kw):return dict(group='months',key='rent',value=900000,**kw)
+ def test_calendar_and_totals(self):
+  c=fm.initial();r=fm.calculate(c)
+  self.assertEqual(r[0]['capacity'],8*31*12);self.assertEqual(r[1]['capacity'],8*28*12)
+  c['year']=2028;self.assertEqual(fm.calculate(c)[1]['capacity'],8*29*12)
+  for m in r:
+   self.assertAlmostEqual(m['revenue'],m['dentistry']+m['structure']+m['other_revenue']);self.assertLessEqual(m['hours'],m['capacity']);self.assertIsNone(m['profit'])
+ def test_costs_once(self):
+  c=fm.initial();c['months']['payroll_tax']=[0]*12
+  for r in fm.calculate(c):
+   self.assertAlmostEqual(r['revenue']-r['total_cost'],r['profit_before']);self.assertAlmostEqual(r['profit_before']-r['tax'],r['profit'])
+   self.assertAlmostEqual(r['total_cost'],sum(r[k] for k in ['wage','payroll_tax','medical','lab','rent','marketing','it','outsourcing','other_cost','reserve']))
+ def test_zero_and_negative(self):
+  c=fm.initial();c['months']['marketing_fixed']=[0]*12;c['months']['payroll_tax']=[0]*12;c['months']['target']=[0]*12
+  r=fm.calculate(c)[0];self.assertEqual(r['marketing'],0);self.assertGreater(r['revenue'],0);c['months']['rent']=[1e9]*12;self.assertLess(fm.calculate(c)[0]['profit'],0)
+ def test_ramp_and_unassigned(self):
+  c=fm.initial();c['hires']=[dict(id='x',name='test',room='5',start='2027-02',count=1)];r=fm.calculate(c)
+  self.assertEqual([m['hires'][0]['factor'] for m in r[:7]],[0,.13,.44,.76,.9,1,1]);self.assertEqual(r[1]['starts'],1)
+  c['hires'][0]['room']=None;q=fm.calculate(c);self.assertLessEqual(q[1]['revenue'],r[1]['revenue']);self.assertTrue(any('Не назначен' in x for x in q[1]['warnings']))
+ def test_capacity(self):
+  c=fm.initial();c['hires'][0]['count']=20;c['months']['target']=[1e9]*12
+  for m in fm.calculate(c):
+   for r in m['rooms']:self.assertLessEqual(r['staffed'],r['capacity']);self.assertLessEqual(r['hours'],r['staffed'])
+ def test_absence(self):
+  c=fm.initial();c['months']['target']=[1e9]*12;a=fm.calculate(c)[0]['revenue'];c['rooms'][0]['absence_hours']=[10000]*12;self.assertLess(fm.calculate(c)[0]['revenue'],a)
+ def test_keep_partial(self):
+  old=self.state();n,_,_=fm.transition(old,self.change(**{'from':4,'scope':'future'}),'keep');self.assertEqual(n['results'],old['results']);self.assertEqual(n['stale'],list(range(4,13)))
+  q,_,_=fm.transition(n,self.change(**{'from':6,'scope':'month'}),'recalculate');self.assertNotIn(6,q['stale']);self.assertIn(4,q['stale']);self.assertIn(7,q['stale']);self.assertEqual(q['results'][:5],old['results'][:5])
+ def test_recalc_one(self):
+  old=self.state();n,_,_=fm.transition(old,self.change(**{'from':6,'scope':'month'}),'recalculate');self.assertEqual(n['results'][:5],old['results'][:5]);self.assertEqual(n['results'][6:],old['results'][6:]);self.assertEqual(n['results'][5]['rent'],900000)
+ def test_invalid(self):
+  for v in ['NaN','Infinity',-1,True,1.1]:
+   with self.assertRaises(ValueError):fm.candidate(self.state(),{'group':'months','key':'booking','value':v,'from':1,'scope':'future'})
+  with self.assertRaises(ValueError):fm.month_index('2027-13')
+class StoreTests(unittest.TestCase):
+ def setUp(self):
+  self.c=sqlite3.connect(':memory:');self.c.row_factory=sqlite3.Row;fm.init_schema(self.c);self.c.execute('CREATE TABLE report_data(value TEXT)');self.c.execute("INSERT INTO report_data VALUES('sentinel')");self.c.commit()
+ def test_readonly(self):self.c.execute('PRAGMA query_only=ON');fm.read_state(self.c)
+ def test_replay(self):
+  ch={'group':'months','key':'rent','value':5,'from':1,'scope':'future'};fm.commit_change(self.c,0,ch,'keep',1)
+  with self.assertRaises(RuntimeError):fm.commit_change(self.c,0,ch,'keep',1)
+  self.assertEqual(self.c.execute('SELECT count(*) FROM financial_model_history').fetchone()[0],1);self.assertEqual(self.c.execute('SELECT value FROM report_data').fetchone()[0],'sentinel')
+ def test_rollback(self):
+  self.c.execute("CREATE TRIGGER failhistory BEFORE INSERT ON financial_model_history BEGIN SELECT RAISE(ABORT,'fail'); END")
+  with self.assertRaises(sqlite3.IntegrityError):fm.commit_change(self.c,0,{'group':'months','key':'rent','value':5,'from':1,'scope':'future'},'keep',1)
+  self.assertEqual(fm.read_state(self.c)['version'],0)
+class RoutesTests(unittest.TestCase):
+ def setUp(self):
+  self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);p=patch.object(auth,'DB_PATH',Path(self.tmp.name)/'test.db');p.start();self.addCleanup(p.stop);auth.init_db_file();self.web=auth.create_app();self.web.config['TESTING']=True
+  with sqlite3.connect(auth.DB_PATH) as c:
+   for uid,admin in [(1,1),(2,0),(3,0),(4,0)]:c.execute('INSERT INTO users(id,email,full_name,password_hash,is_admin,active,must_change_password,created_at,updated_at) VALUES(?,?,?,?,?,1,0,?,?)',(uid,f'{uid}@example.test','User','x',admin,'t','t'))
+   c.executemany('INSERT INTO permissions VALUES(?,?)',[(2,'reports'),(3,'financial_model_edit'),(4,'reports'),(4,'financial_model_edit')])
+ def client(self,uid=None):
+  c=self.web.test_client()
+  if uid:
+   with c.session_transaction() as s:s['user_id']=uid;s['csrf']='test'
+  return c
+ def preview(self,c):return c.post('/reports/financial-model/preview',data={'csrf':'test','version':0,'mode':'keep','change':json.dumps({'group':'months','key':'rent','value':1,'from':1,'scope':'future'})})
+ def test_permissions(self):
+  path='/reports/financial-model/';self.assertEqual(self.client().get(path).status_code,302);self.assertEqual(self.client(3).get(path).status_code,403);c=self.client(2);before=auth.DB_PATH.read_bytes();self.assertEqual(c.get(path).status_code,200);self.assertEqual(auth.DB_PATH.read_bytes(),before);self.assertEqual(self.preview(c).status_code,403);self.assertEqual(self.preview(self.client(3)).status_code,403);self.assertEqual(self.preview(self.client(4)).status_code,200)
+ def test_token_csrf_replay(self):
+  c=self.client(1);before=auth.DB_PATH.read_bytes();j=self.preview(c).get_json();self.assertEqual(auth.DB_PATH.read_bytes(),before);path='/reports/financial-model/save'
+  self.assertEqual(c.post(path,data={'token':j['token']}).status_code,400);self.assertEqual(self.client(4).post(path,data={'csrf':'test','token':j['token']}).status_code,403);self.assertEqual(c.post(path,data={'csrf':'test','token':j['token']+'x'}).status_code,400);self.assertEqual(c.post(path,data={'csrf':'test','token':j['token']}).status_code,200);self.assertEqual(c.post(path,data={'csrf':'test','token':j['token']}).status_code,409)
+if __name__=='__main__':unittest.main()
