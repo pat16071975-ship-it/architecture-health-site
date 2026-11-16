@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install runtime test dependencies
-        run: pip install flask werkzeug
+        run: pip install -r az-baze-auth/requirements.txt
       - name: Python syntax
         run: python -m py_compile az-baze-auth/attention.py az-baze-auth/server.py az-baze-auth/test_attention.py
       - name: Attention tests

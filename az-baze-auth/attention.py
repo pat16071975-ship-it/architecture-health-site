@@ -7,6 +7,7 @@ from flask import Response, g, jsonify, render_template
 
 from app import db, permission_required, user_permissions
 import upload_reconcile
+import completed_visit_totals
 
 
 def _num(value):
@@ -83,18 +84,24 @@ def _report_dates(conn, year, month):
     return [str(row["date"]) for row in rows]
 
 
-def _report_for_date(conn, data_date):
+def _report_for_date(conn, data_date, completed_cache=None):
+    # Overlay at the actual stored snapshot date, never at a later requested
+    # date. The request-local cache is shared by current and historical reads.
     row = conn.execute(
-        "SELECT payload FROM report_data WHERE date=?",
-        (data_date,),
-    ).fetchone()
-    if row:
-        return _safe_json(row["payload"])
-    row = conn.execute(
-        "SELECT payload FROM report_data WHERE date<=? AND substr(date,1,7)=substr(?,1,7) ORDER BY date DESC LIMIT 1",
+        "SELECT date,payload FROM report_data WHERE date<=? "
+        "AND substr(date,1,7)=substr(?,1,7) ORDER BY date DESC LIMIT 1",
         (data_date, data_date),
     ).fetchone()
-    return _safe_json(row["payload"]) if row else {}
+    if not row:
+        return {}
+    record = _safe_json(row["payload"])
+    if not record:
+        return record
+    cache = completed_cache if completed_cache is not None else {}
+    month = str(row["date"])[:7]
+    if month not in cache:
+        cache[month] = completed_visit_totals.management_month_to_date(conn, month)
+    return completed_visit_totals.overlay_counts(record, row["date"], cache[month])
 
 
 def _management_monthly_plan(conn, month):
@@ -129,7 +136,7 @@ def _direction_values(record):
     }
 
 
-def _comparison_average(conn, today, snapshot_date):
+def _comparison_average(conn, today, snapshot_date, completed_cache=None):
     values = {"dentistry": [], "structure": [], "lab": []}
     if not snapshot_date:
         return {key: None for key in values}
@@ -147,7 +154,7 @@ def _comparison_average(conn, today, snapshot_date):
         ]
         if not comparable_dates:
             continue
-        record = _report_for_date(conn, comparable_dates[-1])
+        record = _report_for_date(conn, comparable_dates[-1], completed_cache)
         if not record:
             continue
         directions = _direction_values(record)
@@ -187,7 +194,7 @@ def _primary_values(record):
     }
 
 
-def _primary_forecast_multipliers(conn, today, snapshot_date):
+def _primary_forecast_multipliers(conn, today, snapshot_date, completed_cache=None):
     keys = ("total", "dentistry", "structure", "lab_orders")
     factors = {key: [] for key in keys}
     if not snapshot_date:
@@ -210,8 +217,8 @@ def _primary_forecast_multipliers(conn, today, snapshot_date):
         if not comparable_dates:
             continue
 
-        comparable_record = _report_for_date(conn, comparable_dates[-1])
-        final_record = _report_for_date(conn, dates[-1])
+        comparable_record = _report_for_date(conn, comparable_dates[-1], completed_cache)
+        final_record = _report_for_date(conn, dates[-1], completed_cache)
         if not comparable_record or not final_record:
             continue
 
@@ -249,7 +256,7 @@ def _primary_values(record):
     }
 
 
-def _primary_comparable_averages(conn, today, snapshot_date):
+def _primary_comparable_averages(conn, today, snapshot_date, completed_cache=None):
     keys = ("total", "dentistry", "structure", "lab_orders")
     values = {key: [] for key in keys}
     if not snapshot_date:
@@ -268,7 +275,7 @@ def _primary_comparable_averages(conn, today, snapshot_date):
         ]
         if not comparable_dates:
             continue
-        record = _report_for_date(conn, comparable_dates[-1])
+        record = _report_for_date(conn, comparable_dates[-1], completed_cache)
         if not record:
             continue
         month_values = _primary_values(record)
@@ -285,9 +292,9 @@ def _primary_comparable_averages(conn, today, snapshot_date):
     return result
 
 
-def _primary_detail_rows(conn, today, snapshot_date, current_values):
-    comparable = _primary_comparable_averages(conn, today, snapshot_date)
-    forecasts = _primary_forecast_multipliers(conn, today, snapshot_date)
+def _primary_detail_rows(conn, today, snapshot_date, current_values, completed_cache=None):
+    comparable = _primary_comparable_averages(conn, today, snapshot_date, completed_cache)
+    forecasts = _primary_forecast_multipliers(conn, today, snapshot_date, completed_cache)
 
     rows = []
     for key, label, forecast_label in (
@@ -318,6 +325,7 @@ def _primary_detail_rows(conn, today, snapshot_date, current_values):
 
 def build_summary(conn=None):
     conn = conn or db()
+    completed_cache = {}
     today = _clinic_today(conn)
     yesterday = today - timedelta(days=1)
 
@@ -328,7 +336,7 @@ def build_summary(conn=None):
     current_dates = _daily_dates(conn, today.year, today.month)
     current_dates = [value for value in current_dates if value <= today.isoformat()]
     snapshot_date = current_dates[-1] if current_dates else None
-    record = _report_for_date(conn, snapshot_date) if snapshot_date else {}
+    record = _report_for_date(conn, snapshot_date, completed_cache) if snapshot_date else {}
 
     stored_plan = _management_monthly_plan(conn, current_month)
     plan = stored_plan if stored_plan is not None else _num(record.get("plan"))
@@ -340,7 +348,7 @@ def build_summary(conn=None):
     due_delta = (fact - due) / due * 100 if due > 0 else None
 
     directions = _direction_values(record)
-    comparable = _comparison_average(conn, today, snapshot_date)
+    comparable = _comparison_average(conn, today, snapshot_date, completed_cache)
     revenue_rows = []
     for key, label in (
         ("dentistry", "Стоматология"),
@@ -372,7 +380,7 @@ def build_summary(conn=None):
         "lab_orders": round(primary_values["lab_orders"]),
         "forecast_total": _forecast_from_history(
             primary_total,
-            _primary_forecast_multipliers(conn, today, snapshot_date)["total"]["multiplier"],
+            _primary_forecast_multipliers(conn, today, snapshot_date, completed_cache)["total"]["multiplier"],
         ),
     }
     primary_details = _primary_detail_rows(
@@ -380,6 +388,7 @@ def build_summary(conn=None):
         today,
         snapshot_date,
         primary_values,
+        completed_cache,
     )
 
     clinical_stale = not latest_clinical or latest_clinical < yesterday.isoformat()
