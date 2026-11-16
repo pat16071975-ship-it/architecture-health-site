@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS financial_model_history (
 MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
 # Label, maximum. Rates are stored as fractions; labels make this explicit in editor.
 PARAMS = {
+ 'official_base_pct':('Официальный ФОТ без увеличения, % (пусто — неизвестно)',100),
+ 'official_step_pct':('Ежемесячное увеличение официального ФОТ, п.п.',100),
+ 'official_burden_pct':('Плановая ставка взносов с дополнительного ФОТ, % (включая травматизм; пусто — неизвестно)',100),
  'target':('Цель выручки, ₽',1e10), 'booking':('Заполнение графика записью, доля 0–1',1),
  'attendance':('Явка, доля 0–1',1), 'visit_minutes':('Средняя длительность приёма, мин',1440),
  'new_share':('Новые пациенты / визиты, доля 0–1',1), 'lead_conversion':('Лид → запись, доля 0–1',1),
@@ -46,7 +49,7 @@ for group, label in [('admin','Администраторы'),('assist','Сре�
 ROOM_PARAMS={'daily_hours':('Часов работы в день',24),'closed_days':('Дней закрытия в месяце',31),
  'staffed_hours':('Часы действующего состава',10000),'absence_hours':('Отсутствие / отпуска, часов',10000),
  'rate':('Выручка за состоявшийся час, ₽',1e7),'weight':('Вес направления в распределении цели',1)}
-NULLABLE={'payroll_tax','marketing_fixed','search_months'}
+NULLABLE={'payroll_tax','marketing_fixed','search_months','official_base_pct','official_burden_pct'}
 
 
 def init_schema(conn):
@@ -75,7 +78,7 @@ def round_money(x):return round(x,2) if x is not None else None
 
 
 def calculate(c):
- out=[]
+ out=[];official_growth=0
  for m in range(12):
   p={k:v[m] for k,v in c['months'].items()};days=calendar.monthrange(c['year'],m+1)[1]
   warning=[];weight=sum(r['weight'][m] for r in c['rooms']);details=[];hire_details=[]
@@ -128,8 +131,22 @@ def calculate(c):
   profit_before=revenue-known if complete else None
   tax=max(max(profit_before,0)*p['tax_rate'],revenue*p['minimum_tax']) if complete else None
   profit=profit_before-tax if complete else None
+  official_growth+=p['official_step_pct']
+  base=p['official_base_pct'];burden=p['official_burden_pct']
+  official_share=min(100,base+official_growth) if base is not None else None
+  official_extra=wage*(official_share-base)/100 if base is not None else None
+  extra_tax=official_extra*burden/100 if official_extra is not None and burden is not None else (0 if official_extra==0 else None)
+  adjusted_before=profit_before-extra_tax if profit_before is not None and extra_tax is not None else None
+  adjusted_tax=max(max(adjusted_before,0)*p['tax_rate'],revenue*p['minimum_tax']) if adjusted_before is not None else None
+  adjusted_profit=adjusted_before-adjusted_tax if adjusted_before is not None else None
+  if base is None:warning.append('Увеличение налогов: не задана исходная официальная доля ФОТ.')
+  if burden is None:warning.append('Увеличение налогов: не задана плановая ставка взносов работодателя.')
   if not complete:warning.append('Не задана ставка взносов на ФОТ: полный расход и прибыль не рассчитаны.')
-  out.append({'month':m+1,'target':p['target'],'revenue':revenue,'gap':revenue-p['target'],'dentistry':sum(r['revenue'] for r in details if r['direction']=='dentistry'),
+  out.append({'official_share':official_share/100 if official_share is not None else None,
+   'official_base_wage':wage*base/100 if base is not None else None,'official_extra_wage':official_extra,
+   'official_extra_tax':extra_tax,'official_adjusted_profit':adjusted_profit,
+   'official_adjusted_margin':adjusted_profit/revenue if adjusted_profit is not None and revenue else None,
+   'month':m+1,'target':p['target'],'revenue':revenue,'gap':revenue-p['target'],'dentistry':sum(r['revenue'] for r in details if r['direction']=='dentistry'),
    'structure':sum(r['revenue'] for r in details if r['direction']=='structure'),'other_revenue':other,
    'capacity':capacity,'staffed':sum(r['staffed'] for r in details),'booked':sum(r['booked'] for r in details),'hours':hours,
    'load':hours/capacity if capacity else None,'missing_fte':sum(r['fte'] or 0 for r in details),
@@ -177,6 +194,8 @@ def candidate(old, change):
   n=numeric(value,PARAMS[key][1],key in NULLABLE)
   if key=='search_months' and n is not None and n!=int(n):raise ValueError('Срок поиска — целое число месяцев.')
   for m in indices:c['months'][key][m]=n
+  # A one-month step changes every later cumulative share, even if later step inputs stay unchanged.
+  if key=='official_step_pct':indices=range(start-1,12)
  elif group=='room':
   if key not in ROOM_PARAMS:raise ValueError('Неизвестный параметр кабинета.')
   room=next((r for r in c['rooms'] if r['id']==str(change.get('id'))),None)
@@ -260,9 +279,9 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
    else:new,fresh,start=transition(old,change,mode)
    token=serializer().dumps({'version':old['version'],'change':change,'mode':mode,'actor':g.user['id']})
    return jsonify(token=token,from_month=start,stale=new['stale'],mode=mode,
-    before=[{k:r[k] for k in ['revenue','total_cost','profit']} for r in old['results']],
-    after=[{k:r[k] for k in ['revenue','total_cost','profit']} for r in new['results']],
-    potential=[{k:r[k] for k in ['revenue','total_cost','profit']} for r in fresh])
+    before=[{k:r[k] for k in ['revenue','total_cost','profit','official_extra_tax','official_adjusted_profit']} for r in old['results']],
+    after=[{k:r[k] for k in ['revenue','total_cost','profit','official_extra_tax','official_adjusted_profit']} for r in new['results']],
+    potential=[{k:r[k] for k in ['revenue','total_cost','profit','official_extra_tax','official_adjusted_profit']} for r in fresh])
   except (ValueError,TypeError,KeyError,IndexError):return jsonify(error='Проверьте значения и период изменения.'),400
  @app.post('/reports/financial-model/save')
  @permission_required('reports')

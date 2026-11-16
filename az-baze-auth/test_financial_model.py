@@ -41,6 +41,40 @@ class CalculationTests(unittest.TestCase):
   for v in ['NaN','Infinity',-1,True,1.1]:
    with self.assertRaises(ValueError):fm.candidate(self.state(),{'group':'months','key':'booking','value':v,'from':1,'scope':'future'})
   with self.assertRaises(ValueError):fm.month_index('2027-13')
+class OfficialPayrollTests(unittest.TestCase):
+ def config(self):
+  c=fm.initial();c['months'].update(official_base_pct=[30]*12,official_burden_pct=[30.2]*12,payroll_tax=[.09]*12);return c
+ def test_accumulation_and_base_unchanged(self):
+  c=self.config();r=fm.calculate(c);zero=copy.deepcopy(c);zero['months']['official_step_pct']=[0]*12;q=fm.calculate(zero)
+  for i,(a,b) in enumerate(zip(r,q)):
+   self.assertAlmostEqual(a['official_share'],.30+(i+1)*.01)
+   self.assertAlmostEqual(a['official_extra_wage'],a['wage']*(i+1)*.01)
+   self.assertAlmostEqual(a['official_extra_tax'],a['official_extra_wage']*.302)
+   self.assertEqual({k:v for k,v in a.items() if not k.startswith('official_')},{k:v for k,v in b.items() if not k.startswith('official_')})
+   before=a['profit_before']-a['official_extra_tax'];tax=max(max(before,0)*c['months']['tax_rate'][i],a['revenue']*c['months']['minimum_tax'][i])
+   self.assertAlmostEqual(a['official_adjusted_profit'],before-tax)
+ def test_cap_zero_and_unknown(self):
+  c=self.config();c['months']['official_base_pct']=[98]*12;c['months']['official_step_pct']=[3]*12
+  for r in fm.calculate(c):self.assertEqual(r['official_share'],1);self.assertAlmostEqual(r['official_extra_wage'],r['wage']*.02)
+  c['months']['official_base_pct']=[100]*12;c['months']['official_burden_pct']=[None]*12
+  for r in fm.calculate(c):self.assertEqual(r['official_extra_tax'],0);self.assertEqual(r['official_adjusted_profit'],r['profit'])
+  c['months']['official_base_pct']=[None]*12
+  for r in fm.calculate(c):self.assertIsNone(r['official_extra_tax']);self.assertIsNone(r['official_adjusted_profit'])
+  c=self.config();c['months']['official_burden_pct']=[0]*12
+  self.assertEqual(fm.calculate(c)[0]['official_extra_tax'],0)
+ def test_step_change_propagates_without_changing_future_inputs(self):
+  c=self.config();old=dict(config=c,results=fm.calculate(c),version=0,stale=[])
+  ch=dict(group='months',key='official_step_pct',value=3,scope='month',**{'from':6})
+  new,_,_=fm.transition(old,ch,'recalculate');self.assertEqual(new['results'][:5],old['results'][:5])
+  self.assertEqual(new['config']['months']['official_step_pct'],[1]*5+[3]+[1]*6)
+  for i in range(5,12):self.assertAlmostEqual(new['results'][i]['official_share']-old['results'][i]['official_share'],.02)
+  kept,_,_=fm.transition(old,ch,'keep');self.assertEqual(kept['results'],old['results']);self.assertEqual(kept['stale'],list(range(6,13)))
+ def test_bounds_and_unknown_profit(self):
+  c=self.config();c['months']['payroll_tax']=[None]*12;r=fm.calculate(c)[0];self.assertGreater(r['official_extra_tax'],0);self.assertIsNone(r['official_adjusted_profit'])
+  old=dict(config=c,results=fm.calculate(c),version=0,stale=[])
+  for val in [-1,101,'NaN',True]:
+   with self.assertRaises(ValueError):fm.candidate(old,dict(group='months',key='official_step_pct',value=val,scope='month',**{'from':1}))
+
 class StoreTests(unittest.TestCase):
  def setUp(self):
   self.c=sqlite3.connect(':memory:');self.c.row_factory=sqlite3.Row;fm.init_schema(self.c);self.c.execute('CREATE TABLE report_data(value TEXT)');self.c.execute("INSERT INTO report_data VALUES('sentinel')");self.c.commit()
