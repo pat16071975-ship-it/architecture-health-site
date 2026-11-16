@@ -58,7 +58,11 @@ def scheduled(fn):
                     raise RetrySkipped('already_updated_this_hour')
             # Persist intent BEFORE network work: timeout/kill must not lose
             # a manual failure. Active work remains protected by the gate.
-            intent = {**state, 'next_retry': now + DELAY, 'blocked': False}
+            was_blocked = bool(state.get('blocked'))
+            # Access recovery is proven only by success, never by starting
+            # a manual attempt. Keep this durable even if the process dies.
+            intent = {**state, 'next_retry': None if was_blocked else now + DELAY,
+                      'blocked': was_blocked}
             write_state(intent)
             try:
                 result = fn(conn, token, actor_user_id)
@@ -68,7 +72,7 @@ def scheduled(fn):
             except Exception as exc:
                 try: conn.rollback()
                 except Exception: pass
-                blocked = permanent(exc) or not token
+                blocked = was_blocked or permanent(exc) or not token
                 write_state({**intent, 'next_retry': None if blocked else time.time()+DELAY,
                              'blocked': blocked, 'error_type': type(exc).__name__})
                 # Carry only the decision for this request, not a racy reread.

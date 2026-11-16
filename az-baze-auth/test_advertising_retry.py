@@ -45,6 +45,40 @@ class RetryTests(unittest.TestCase):
    self.assertTrue(self.state()['blocked'])
    with self.assertRaises(r.RetrySkipped):call(self.conn,'token',None,retry_mode='hourly')
    fn.side_effect=None;call(self.conn,'new-token',1);self.assertFalse(self.state()['blocked'])
+ def test_blocked_manual_failures_and_interruptions_require_success(self):
+  for failure in [OSError('network'),m.MetrikaApiError('network'),KeyboardInterrupt(),SystemExit(1),m.MetrikaBusyError('busy')]:
+   with self.subTest(failure=type(failure).__name__):
+    fn=Mock(side_effect=m.MetrikaAccessError('access'));call=r.scheduled(fn)
+    with self.assertRaises(m.MetrikaAccessError):call(self.conn,'token',1)
+    fn.side_effect=failure
+    with self.assertRaises(type(failure)) as caught:call(self.conn,'token',1)
+    self.assertTrue(self.state()['blocked']);self.assertIsNone(self.state()['next_retry'])
+    self.assertFalse(getattr(caught.exception,'az_retry_scheduled',False))
+    for mode in ('hourly','retry'):
+     with patch.object(r.time,'time',return_value=14400),self.assertRaises(r.RetrySkipped):call(self.conn,'token',None,retry_mode=mode)
+    self.assertEqual(fn.call_count,2)
+    fn.side_effect=None;fn.return_value='ok'
+    self.assertEqual(call(self.conn,'token',1),'ok')
+    self.assertFalse(self.state()['blocked']);self.assertIsNone(self.state()['next_retry'])
+    with patch.object(r.time,'time',return_value=10800):self.assertEqual(call(self.conn,'token',None,retry_mode='hourly'),'ok')
+ def test_block_remains_durable_during_manual_attempt(self):
+  self.path.write_text('{"blocked":true,"next_retry":null}')
+  def attempt(*args):
+   self.assertTrue(self.state()['blocked']);self.assertIsNone(self.state()['next_retry'])
+   return 'ok'
+  self.assertEqual(r.scheduled(attempt)(self.conn,'token',1),'ok')
+  self.assertFalse(self.state()['blocked'])
+ def test_block_survives_actual_process_exit(self):
+  import subprocess,sys
+  self.path.write_text('{"blocked":true,"next_retry":null}')
+  code = "import os,sys; from pathlib import Path; import advertising_retry as r; r.STATE=Path(sys.argv[1]); r.scheduled(lambda *args: os._exit(17))(None,'token',1)"
+  result=subprocess.run([sys.executable,'-B','-c',code,str(self.path)],cwd=Path(r.__file__).parent,timeout=10)
+  self.assertEqual(result.returncode,17)
+  self.assertTrue(self.state()['blocked']);self.assertIsNone(self.state()['next_retry'])
+  fn=Mock()
+  for mode in ('hourly','retry'):
+   with self.assertRaises(r.RetrySkipped):r.scheduled(fn)(self.conn,'token',None,retry_mode=mode)
+  fn.assert_not_called()
  def test_kill_retains_intent(self):
   with self.assertRaises(KeyboardInterrupt):r.scheduled(Mock(side_effect=KeyboardInterrupt))(self.conn,'token',1)
   self.assertEqual(self.state()['next_retry'],7800)
