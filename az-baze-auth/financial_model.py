@@ -148,10 +148,11 @@ def hiring_needs(results,config):
    r=next(x for x in m['rooms'] if x['id']==room['id'])
    n=math.ceil((r['fte'] or 0)-1e-9)
    if n>prior:
-    idx=config['year']*12+i-4
+    lag=next((j for j,v in enumerate(config['ramp']) if v>=1),None)
+    idx=config['year']*12+i-(lag or 0)
     search=config['months']['search_months'][i]
-    start=f'{idx//12:04d}-{idx%12+1:02d}'
-    opening=None if search is None else f'{(idx-int(search))//12:04d}-{(idx-int(search))%12+1:02d}'
+    start=f'{idx//12:04d}-{idx%12+1:02d}' if lag is not None else 'Профиль не достигает полной загрузки'
+    opening=None if search is None or lag is None else f'{(idx-int(search))//12:04d}-{(idx-int(search))%12+1:02d}'
     rows.append({'room':room['id'],'name':room['name'],'needed':m['month'],'count':n-prior,'start':start,'opening':opening})
     prior=n
  return rows
@@ -164,6 +165,7 @@ def read_state(conn):
 
 
 def candidate(old, change):
+ if not isinstance(change,dict):raise ValueError('Некорректная правка.')
  c=copy.deepcopy(old['config']);start=int(change.get('from',0))
  if not 1<=start<=12:raise ValueError('Выберите месяц применения.')
  scope=change.get('scope')
@@ -250,6 +252,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
   edit_guard();require_csrf()
   try:
    old=read_state(db());change=json.loads(request.form.get('change','{}'));mode=request.form.get('mode')
+   if not isinstance(change,dict):raise ValueError('Некорректная правка.')
    if int(request.form.get('version',-1))!=old['version']:return jsonify(error='Модель изменена. Обновите страницу.'),409
    if change.get('group')=='refresh':
     if mode!='recalculate':raise ValueError('Обновление требует пересчёта.')
@@ -287,5 +290,15 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
      for i,(x,y) in enumerate(zip(a,b)):walk(x,y,path+'/'+str(i+1))
     elif a!=b:changes.append({'field':path,'before':a,'after':b})
    walk(before['config'],after['config'])
+   for ch in changes:
+    parts=ch['field'].strip('/').split('/')
+    if parts[0]=='months' and len(parts)==3:ch['field']=PARAMS.get(parts[1],(parts[1],))[0]+' · '+MONTHS[int(parts[2])-1]
+    elif parts[0]=='rooms' and len(parts)==4:
+     room=after['config']['rooms'][int(parts[1])-1]
+     ch['field']='Каб. '+room['id']+' · '+ROOM_PARAMS.get(parts[2],(parts[2],))[0]+' · '+MONTHS[int(parts[3])-1]
+    elif parts[0]=='hires' and len(parts)==3:
+     h=after['config']['hires'][int(parts[1])-1]
+     ch['field']=h['name']+' · '+{'start':'Выход','count':'Ставки','room':'Кабинет'}.get(parts[2],parts[2])
+    elif parts[0]=='ramp':ch['field']='Адаптация · месяц '+parts[1]
    item['changes']=changes;items.append(item)
   return jsonify(history=items)
