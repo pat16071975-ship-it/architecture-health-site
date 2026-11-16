@@ -2,6 +2,8 @@ name: AZ advertising retry
 on:
   pull_request:
     paths:
+      - 'az-baze-auth/templates/uploads.html'
+      - 'tests/verify-auto-sync-status.cjs'
       - 'az-baze-auth/advertising_retry.py'
       - 'az-baze-auth/advertising_hourly.py'
       - 'az-baze-auth/advertising_report.py'
@@ -24,3 +26,4 @@ jobs:
         run: |
           python -m unittest -v test_advertising_retry test_advertising_hourly test_direct_auto
           python -m unittest -v test_advertising_retry_routes test_advertising_report test_advertising_mis_bridge test_advertising_monthly_costs
+      - run: node tests/verify-auto-sync-status.cjs
