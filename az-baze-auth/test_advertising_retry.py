@@ -11,6 +11,37 @@ class RetryTests(unittest.TestCase):
    p=patch.object(obj,key,return_value=value) if key=='time' else patch.object(obj,key,value)
    p.start();self.addCleanup(p.stop)
  def state(self):return json.loads(self.path.read_text())
+ def test_automatic_status_survives_manual_success_and_skips(self):
+  call=r.scheduled(Mock(return_value={'changed':False}))
+  call(self.conn,'token',None,retry_mode='hourly')
+  saved=self.state()['automatic']
+  self.assertEqual(saved,{'outcome':'success','at':7200})
+  self.assertIn('01.01.1970 в 09:00',r.public_status()['message'])
+  self.assertIn('успешно завершена',r.public_status()['message'])
+  call(self.conn,'token',1)
+  self.assertEqual(self.state()['automatic'],saved)
+  with self.assertRaises(r.RetrySkipped):call(self.conn,'token',None,retry_mode='hourly')
+  self.assertEqual(self.state()['automatic'],saved)
+ def test_status_error_retry_recovery_read_only(self):
+  call=r.scheduled(Mock(side_effect=OSError('secret-token')))
+  with self.assertRaises(OSError):call(self.conn,'token',None,retry_mode='hourly')
+  before=self.path.read_bytes();message=r.public_status()['message']
+  self.assertIn('завершилась ошибкой',message);self.assertIn('09:10',message)
+  self.assertNotIn('secret',message);self.assertEqual(self.path.read_bytes(),before)
+  with patch.object(r.time,'time',return_value=7800):
+   self.assertIn('ближайшей минутной',r.public_status()['message'])
+   r.scheduled(Mock(return_value='ok'))(self.conn,'token',None,retry_mode='retry')
+  self.assertIn('успешно завершена',r.public_status()['message'])
+  self.assertNotIn('Следующая попытка',r.public_status()['message'])
+ def test_status_interrupted_blocked_legacy_unavailable(self):
+  self.assertNotIn('успешно',r.public_status()['message'])
+  with self.assertRaises(KeyboardInterrupt):r.scheduled(Mock(side_effect=KeyboardInterrupt))(self.conn,'token',None,retry_mode='hourly')
+  self.assertIn('завершение пока не подтверждено',r.public_status()['message'])
+  self.path.write_text('{"blocked":true,"automatic":{"outcome":"error","at":7200}}')
+  self.assertIn('приостановлена',r.public_status()['message'])
+  self.assertNotIn('Следующая попытка',r.public_status()['message'])
+  self.path.write_text('broken');self.assertIn('Не удалось',r.public_status()['message'])
+  self.path.unlink();self.assertIn('недоступен',r.public_status()['message']);self.assertFalse(self.path.exists())
  def test_failures_then_success(self):
   fn=Mock(side_effect=[OSError('secret'),OSError('secret'),{'ok':1}]);call=r.scheduled(fn)
   with self.assertRaises(OSError) as e:call(self.conn,'token',1)

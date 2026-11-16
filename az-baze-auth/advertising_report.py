@@ -4038,6 +4038,11 @@ def register_advertising_report(app):
             version=normalized["version"],
         )
 
+    @app.get("/api/reports/advertising/metrika/sync-status")
+    @permission_required("upload_services")
+    def advertising_sync_status():
+        return jsonify(**advertising_retry.public_status()), 200, {"Cache-Control": "no-store"}
+
     @app.post("/api/reports/advertising/metrika/sync")
     @permission_required("upload_services")
     def advertising_metrika_sync():

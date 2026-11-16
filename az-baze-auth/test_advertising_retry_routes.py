@@ -21,6 +21,10 @@ class RetryRoutesTests(unittest.TestCase):
    call=retry.scheduled(Mock(side_effect=[metrika_auto.MetrikaApiError('API unavailable'),result]))
    with patch.object(retry,'STATE',state),patch.object(core,'_ensure_schema'),patch.object(core,'db',return_value=conn),patch.object(core,'run_metrika_direct_sync',call),patch.object(metrika_auto,'token_from_env',return_value='secret'),patch.object(core,'g',types.SimpleNamespace(user={'id':1})):
     core.register_advertising_report(app)
+    before=state.read_bytes()
+    body,code,headers=app.routes['/api/reports/advertising/metrika/sync-status']()
+    self.assertEqual(code,200);self.assertEqual(headers['Cache-Control'],'no-store')
+    self.assertEqual(set(body),{'message'});self.assertEqual(state.read_bytes(),before)
     response,status=app.routes['/api/reports/advertising/metrika/sync']()
     self.assertEqual(status,400);self.assertIn('10 минут',response['message']);self.assertNotIn('secret',response['message'])
     self.assertIsNotNone(__import__('json').loads(state.read_text())['next_retry'])
