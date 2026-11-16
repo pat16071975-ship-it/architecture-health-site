@@ -1,0 +1,11 @@
+[Unit]
+Description=AZ BAZE check pending advertising retries
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+Persistent=false
+Unit=az-baze-advertising-retry.service
+
+[Install]
+WantedBy=timers.target

@@ -1,3 +1,4 @@
+import advertising_retry
 import advertising_monthly_costs
 import calendar
 import hashlib
@@ -3638,6 +3639,7 @@ def _metrika_sync_has_changes(completed_updated, current_result):
     return bool(completed_updated or current_result.get("updated"))
 
 
+@advertising_retry.scheduled
 def run_metrika_direct_sync(conn, token, actor_user_id):
     """One code path for the manual button and a future hourly systemd job.
 
@@ -4058,7 +4060,7 @@ def register_advertising_report(app):
                 pass
             return jsonify(
                 status="error",
-                message=str(exc) or "Не удалось получить данные Яндекс Метрики.",
+                message=(str(exc) or "Не удалось получить данные Яндекс Метрики.") + (" Автоматический повтор через 10 минут." if getattr(exc, "az_retry_scheduled", False) else ""),
             ), 400
         if result["changed"]:
             audit(
