@@ -12,7 +12,7 @@ class AttentionTests(unittest.TestCase):
         self.conn = sqlite3.connect(":memory:")
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("CREATE TABLE report_data(date TEXT PRIMARY KEY,payload TEXT)")
-        self.conn.execute("CREATE TABLE daily_uploads(data_date TEXT PRIMARY KEY)")
+        self.conn.execute("CREATE TABLE daily_uploads(data_date TEXT PRIMARY KEY, normalized_json TEXT)")
         self.conn.execute("CREATE TABLE cash_receipts_daily(data_date TEXT PRIMARY KEY)")
         self.conn.execute("CREATE TABLE report_blobs(key TEXT PRIMARY KEY,payload TEXT)")
         self.today = date(2026, 9, 28)
@@ -31,6 +31,95 @@ class AttentionTests(unittest.TestCase):
             "INSERT INTO report_data(date,payload) VALUES(?,?)",
             (data_date, json.dumps(payload, ensure_ascii=False)),
         )
+
+    def add_completed(self, day, primary, repeat=0, dent=0, clinic=0):
+        normalized = {
+            "overall": {day: {"Первичные": primary, "Повторные": repeat}},
+            "doctors": {day: {"Первичные": {
+                "Чирков М. С.": dent, "Лапина Н. С.": clinic,
+            }}},
+        }
+        self.conn.execute("UPDATE daily_uploads SET normalized_json=? WHERE data_date=?",
+                          (json.dumps(normalized), day))
+
+    def test_summary_canonical_counts_preserve_money_and_do_not_write(self):
+        import completed_visit_totals as completed
+        day = "2026-11-15"
+        record = {"primary": 55, "repeat": 1, "dentPrimary": 1,
+                  "clinicPrimary": 1, "cashTotal": 4102460, "plan": 10000000,
+                  "dentists": {"D": 2768110}, "clinicDocs": {"C": 752340},
+                  "labRevenue": 9500, "labOrders": 20}
+        self.add_day(day, record)
+        self.add_completed(day, 56, 258, 31, 24)
+        attention.upload_reconcile.init_schema(self.conn)
+        before = "\n".join(self.conn.iterdump())
+        self.conn.execute("PRAGMA query_only=ON")
+        with patch.object(attention, "_clinic_today", return_value=date(2026,11,16)), \
+             patch.object(completed, "management_month_to_date",
+                          wraps=completed.management_month_to_date) as read:
+            summary = attention.build_summary(self.conn)
+        self.assertEqual(read.call_count, 1)
+        self.assertEqual(summary["primary"]["total"], 56)
+        self.assertEqual(summary["primary"]["dentistry"], 31)
+        self.assertEqual(summary["primary"]["structure"], 24)
+        self.assertEqual(summary["primary"]["lab_orders"], 20)
+        expected = dict(record)
+        expected.update(completed.management_month_to_date(self.conn, "2026-11")[day])
+        expected["date"] = day
+        self.assertEqual(attention._report_for_date(self.conn, day), expected)
+        self.assertEqual("\n".join(self.conn.iterdump()), before)
+
+    def test_history_comparison_and_forecast_use_corrected_counts(self):
+        for month in (9, 10):
+            for suffix in ("15", "30"):
+                day = f"2026-{month:02d}-{suffix}"
+                self.add_day(day, {"primary": 999, "repeat": 999,
+                                  "dentPrimary": 999, "clinicPrimary": 999})
+                self.add_completed(day, 10, dent=4, clinic=5)
+        day = "2026-11-15"
+        self.add_day(day, {"primary": 55, "repeat": 1})
+        self.add_completed(day, 56, dent=31, clinic=24)
+        with patch.object(attention, "_clinic_today", return_value=date(2026,11,16)):
+            summary = attention.build_summary(self.conn)
+        self.assertEqual(summary["primary"]["forecast_total"], 112)
+        cache = {}
+        averages = attention._primary_comparable_averages(
+            self.conn, date(2026,11,16), day, cache)
+        self.assertEqual(averages["total"]["average"], 10)
+        self.assertEqual(averages["dentistry"]["average"], 4)
+        multipliers = attention._primary_forecast_multipliers(
+            self.conn, date(2026,11,16), day, cache)
+        self.assertEqual(multipliers["total"]["multiplier"], 2)
+        self.assertEqual(multipliers["total"]["months"], 2)
+
+    def test_fallback_uses_actual_snapshot_not_requested_later_day(self):
+        self.add_day("2026-11-10", {"primary": 999, "repeat": 999})
+        self.add_completed("2026-11-10", 4, 7)
+        self.conn.execute("INSERT INTO daily_uploads(data_date) VALUES('2026-11-12')")
+        self.add_completed("2026-11-12", 2, 3)
+        row = attention._report_for_date(self.conn, "2026-11-12")
+        self.assertEqual(row["date"], "2026-11-10")
+        self.assertEqual((row["primary"], row["repeat"]), (4, 7))
+        self.assertEqual(attention._report_for_date(self.conn, "2026-10-31"), {})
+
+    def test_legacy_baseline_and_service_only_snapshot_are_preserved(self):
+        legacy = {"primary": 40, "repeat": 100, "dentPrimary": 20,
+                  "dentRepeat": 60, "clinicPrimary": 19, "clinicRepeat": 35}
+        self.add_report_snapshot("2026-11-09", legacy)
+        self.add_day("2026-11-10", {"primary": 999, "repeat": 999})
+        self.add_completed("2026-11-10", 4, 7, dent=2, clinic=1)
+        row = attention._report_for_date(self.conn, "2026-11-10")
+        self.assertEqual((row["primary"], row["repeat"]), (44,107))
+        self.assertEqual((row["dentPrimary"], row["clinicPrimary"]), (22,20))
+        service = {"primary": 44, "repeat": 107, "cashTotal": 123}
+        self.add_day("2026-11-11", service)
+        self.assertEqual(attention._report_for_date(self.conn, "2026-11-11"), service)
+
+    def test_explicit_zero_replaces_stale_counter(self):
+        self.add_day("2026-11-01", {"primary": 55, "repeat": 99})
+        self.add_completed("2026-11-01", 0)
+        row = attention._report_for_date(self.conn, "2026-11-01")
+        self.assertEqual((row["primary"], row["repeat"]), (0,0))
 
     def test_summary_uses_comparable_loaded_days_and_current_snapshot(self):
         # August: three comparable loaded days.
