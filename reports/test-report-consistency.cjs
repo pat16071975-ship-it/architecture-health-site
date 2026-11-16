@@ -65,3 +65,22 @@ check(()=>assert.equal(z.run("expenseCategoryNode(2026,'ФОТ',0).children.find
 check(()=>assert.equal(z.run("expenseCategoryNode(2026,'ФОТ',0).values[10]"),null));
 check(()=>assert.equal(z.run("buildRows(2026).find(r=>r.id==='ebitda').values[9]"),4600000));
 console.log(`${checks} checks including Finrez integration PASS`);
+
+// Direction shares use the same selected record as the cards, never cashTotal.
+const shares=page('dashboard.html');
+function directionBar(record){
+ shares.run(`renderDirections(${JSON.stringify(record)})`);
+ return shares.nodes['#revenueStructure'].innerHTML;
+}
+check(()=>{
+ const html=directionBar({date:'2026-11-15',dentists:{a:60},clinicDocs:{b:30},labRevenue:10,cashTotal:500});
+ assert.match(html,/width:60%/);assert.match(html,/width:30%/);assert.match(html,/width:10%/);
+ assert.match(html,/ЗТЛ/);assert.match(html,/Сумма трёх направлений: 100/);
+});
+check(()=>{
+ const html=directionBar({date:'2026-10-31',dentists:{a:10},clinicDocs:{b:10},labRevenue:0});
+ assert.equal((html.match(/width:50%/g)||[]).length,2);assert.doesNotMatch(html,/width:60%/);
+});
+check(()=>{const html=directionBar({date:'2026-11-15'});assert.match(html,/Доли не рассчитаны/);assert.doesNotMatch(html,/width:|NaN|Infinity/);});
+check(()=>{const html=directionBar({dentists:{a:-10},clinicDocs:{b:30}});assert.match(html,/Доли не рассчитаны/);assert.doesNotMatch(html,/width:/);});
+console.log(`${checks} checks including direction revenue shares PASS`);
