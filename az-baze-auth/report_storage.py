@@ -17,6 +17,22 @@ import paid_period_confirmation
 
 MANAGEMENT_KEY = "az-management-report-v1"
 MANAGEMENT_STAFF_LAYOUT_KEY = "az-management-staff-layout-v1"
+# Read projection for Dashboard only. Preserve values and absent/null distinctions;
+# do not replace the full management/export response or change its calculations.
+DASHBOARD_FIELDS = frozenset("""
+    date plan cashTotal factMedicine factLab cashUnallocated
+    primary repeat dentPrimary dentRepeat clinicPrimary clinicRepeat
+    dentists clinicDocs labRevenue labOrders
+    paidPatientEvidenceComplete paidPatients paidDentPatients paidClinicPatients
+    leadsDent leadsClinic leadsReserve marketingSources marketingSourcesAsOf
+""".split())
+
+
+def dashboard_projection(data):
+    return {day: {key: value for key, value in record.items() if key in DASHBOARD_FIELDS}
+            for day, record in data.items()}
+
+
 REPORT_BLOB_KEYS = {
     "az-service-analytics-v1",
     "az-patient-transitions-v1",
@@ -1262,6 +1278,10 @@ def register_report_storage(app):
             data[day] = completed_visit_totals.overlay_counts(
                 data[day], day, confirmed
             )
+        if request.args.get("view") == "dashboard":
+            response = jsonify(data=dashboard_projection(data))
+            response.headers["Cache-Control"] = "no-store"
+            return response
         return jsonify(
             data=data,
             doctorPaidSnapshots=_management_doctor_paid_snapshots(db()),

@@ -7,7 +7,7 @@ let checks=0;
 function check(fn){fn();checks++;}
 function page(name){
  const nodes={};
- const document={querySelector:s=>nodes[s]??=( {value:s==='#year'?'2026':'',innerHTML:'',textContent:''}),getElementById:s=>nodes['#'+s],querySelectorAll:()=>[]};
+ const document={querySelector:s=>nodes[s]??=( {value:s==='#year'?'2026':'',innerHTML:'',textContent:'',style:{setProperty:()=>{}}}),getElementById:s=>nodes['#'+s],querySelectorAll:()=>[]};
  const c=vm.createContext({document,console,Intl,Date,Number,Set,Map,window:{},setTimeout:()=>{}});
  let source=fs.readFileSync(path.join(dir,name),'utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
  if(name==='finrez.html')source=source.slice(0,source.lastIndexOf('(async()=>{'));
@@ -84,3 +84,17 @@ check(()=>{
 check(()=>{const html=directionBar({date:'2026-11-15'});assert.match(html,/Доли не рассчитаны/);assert.doesNotMatch(html,/width:|NaN|Infinity/);});
 check(()=>{const html=directionBar({dentists:{a:-10},clinicDocs:{b:30}});assert.match(html,/Доли не рассчитаны/);assert.doesNotMatch(html,/width:/);});
 console.log(`${checks} checks including direction revenue shares PASS`);
+// Compare all rendered dashboard blocks using full and server-projected records.
+const storageSource=fs.readFileSync(path.join(dir,'../az-baze-auth/report_storage.py'),'utf8');
+const dashboardFields=new Set(storageSource.match(/DASHBOARD_FIELDS = frozenset\("""([\s\S]*?)"""\.split\(\)\)/)[1].trim().split(/\s+/));
+check(()=>{
+ const full={'2026-10-31':{...management['2026-10'],dentists:{a:100,b:0},clinicDocs:{b:50},labRevenue:10,labOrders:2,paidPatientEvidenceComplete:true,paidPatients:5,paidDentPatients:3,paidClinicPatients:2,leadsDent:4,leadsClinic:3,leadsReserve:1,marketingSources:{X:7},marketingSourcesAsOf:'2026-10-30',unusedDetails:'large'},'2026-11-12':{...management['2026-11'],dentists:{a:0},clinicDocs:{b:-5},plan:null}};
+ const compact=Object.fromEntries(Object.entries(full).map(([date,r])=>[date,Object.fromEntries(Object.entries(r).filter(([key])=>dashboardFields.has(key)))]));
+ function renderFixture(data,date){
+  const p=page('dashboard.html');
+  p.run(`STORE=${JSON.stringify(data)};FIN=${JSON.stringify({accounting:{'2026-10':closed}})};MONTHS=Object.entries(latestByMonth(STORE)).map(([ym,record])=>({ym,record}));document.querySelector('#period').value='${date.slice(0,7)}';document.querySelector('#dateFilter').value='${date}';render();`);
+  return JSON.stringify(p.nodes);
+ }
+ for(const date of ['2026-10-31','2026-11-12'])assert.equal(renderFixture(full,date),renderFixture(compact,date));
+});
+console.log(`${checks} checks including full/compact dashboard equivalence PASS`);

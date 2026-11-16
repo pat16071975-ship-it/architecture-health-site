@@ -66,6 +66,31 @@ class PaidPeriodReportTests(unittest.TestCase):
             report_storage.register_report_storage(app)
         return app.test_client()
 
+    def test_dashboard_projection_matches_full_read_view_without_extra_queries_or_writes(self):
+        self.store(self.report())
+        for day in ('2026-06-15', '2026-06-30', '2026-07-01'):
+            record = {"date": day, "cashTotal": 100, "primary": 0,
+                      "dentists": {"Dent Doctor": 60}, "clinicDocs": {"Clinic Doctor": 30},
+                      "labRevenue": 10, "plan": None, "marketingSources": {"source": 4},
+                      "unusedDetails": "x" * 100000}
+            self.conn.execute("INSERT INTO report_data VALUES(?,?,?,?)",
+                              (day, json.dumps(record), 1, "test"))
+        self.conn.commit()
+        before = "\n".join(self.conn.iterdump())
+        self.conn.execute("PRAGMA query_only=ON")
+        client = self.client()
+        full = client.get('/api/reports/data')
+        with patch.object(report_storage, '_management_doctor_paid_snapshots', side_effect=AssertionError('unused')):
+            compact = client.get('/api/reports/data?view=dashboard')
+        self.assertEqual(compact.status_code, 200)
+        self.assertEqual(compact.headers['Cache-Control'], 'no-store')
+        self.assertEqual(compact.get_json(), {'data': report_storage.dashboard_projection(full.get_json()['data'])})
+        self.assertEqual(len(compact.get_json()['data']), 3)
+        self.assertLess(len(compact.data), len(full.data) / 10)
+        self.assertEqual(before, "\n".join(self.conn.iterdump()))
+        self.assertIn('doctorPaidSnapshots', full.get_json())
+        self.assertIn('unusedDetails', full.get_json()['data']['2026-06-15'])
+
     def test_endpoint_exposes_whole_period_without_changing_months_or_report_data(self):
         self.store(self.report())
         self.store(self.report("2026-07-01", "2026-07-31"))

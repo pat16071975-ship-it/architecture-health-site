@@ -207,7 +207,7 @@ function onMonthChange(){syncDateFilter(true);render()}
 function onDateChange(){render()}
 async function init(){
   try{
-    const [dr,fr]=await Promise.all([fetch('/api/reports/data',{credentials:'same-origin',cache:'no-store'}),fetch('/api/reports/finrez',{credentials:'same-origin',cache:'no-store'})]);
+    const [dr,fr]=await Promise.all([fetch('/api/reports/data?view=dashboard',{credentials:'same-origin',cache:'no-store'}),fetch('/api/reports/finrez',{credentials:'same-origin',cache:'no-store'})]);
     if(!dr.ok||!fr.ok)throw new Error('Не удалось получить серверные данные.');
     const data=(await dr.json()).data||{}; FIN=await fr.json(); STORE=data; const map=latestByMonth(data);
     MONTHS=Object.keys(map).sort().map(ym=>({ym,record:map[ym]})); if(!MONTHS.length)throw new Error('В управленческом отчёте пока нет данных.');
