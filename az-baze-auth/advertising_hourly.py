@@ -10,9 +10,10 @@ import sys
 from app import app, audit, db
 import advertising_report
 import metrika_auto
+import advertising_retry
 
 
-def main():
+def main(mode=None):
     token = metrika_auto.token_from_env()
     if not token:
         print("AZ_HOURLY_SYNC=ERROR reason=missing_yandex_token", file=sys.stderr)
@@ -21,7 +22,7 @@ def main():
         conn = db()
         try:
             result = advertising_report.run_metrika_direct_sync(
-                conn, token, actor_user_id=None
+                conn, token, actor_user_id=None, **({"retry_mode": mode} if mode else {})
             )
             if result["changed"]:
                 audit(
@@ -37,6 +38,9 @@ def main():
                 "completed_updated": len(payload["completed_days"]),
                 "current_updated": payload["current_updated"],
             }, ensure_ascii=False, sort_keys=True))
+            return 0
+        except advertising_retry.RetrySkipped as exc:
+            print("AZ_HOURLY_SYNC=SKIPPED reason="+str(exc))
             return 0
         except metrika_auto.MetrikaBusyError:
             # Concurrent manual click/another worker: shared lock ensures
@@ -61,4 +65,7 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=("hourly", "retry"))
+    sys.exit(main(parser.parse_args().mode))

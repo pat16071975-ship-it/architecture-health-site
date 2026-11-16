@@ -1,0 +1,26 @@
+name: AZ advertising retry
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/advertising_retry.py'
+      - 'az-baze-auth/advertising_hourly.py'
+      - 'az-baze-auth/advertising_report.py'
+      - 'az-baze-auth/test_advertising_retry*.py'
+      - 'az-baze-auth/deploy/az-baze-advertising-*.service'
+      - 'az-baze-auth/deploy/az-baze-advertising-*.timer'
+      - '.github/workflows/az-advertising-retry.yml'
+permissions:
+  contents: read
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r az-baze-auth/requirements.txt
+      - working-directory: az-baze-auth
+        run: |
+          python -m unittest -v test_advertising_retry test_advertising_hourly test_direct_auto
+          python -m unittest -v test_advertising_retry_routes test_advertising_report test_advertising_mis_bridge test_advertising_monthly_costs
