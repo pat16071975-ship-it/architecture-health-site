@@ -32,7 +32,7 @@ PARAMS = {
  'attendance':('Явка, доля 0–1',1), 'visit_minutes':('Средняя длительность приёма, мин',1440),
  'new_share':('Новые пациенты / визиты, доля 0–1',1), 'lead_conversion':('Лид → запись, доля 0–1',1),
  'lead_cost':('Стоимость лида, ₽',1e7), 'doctor_pay':('ФОТ врачей / выручка приёма, доля',1),
- 'lab_pay':('ФОТ ЗТЛ / выручка приёма, доля',1), 'payroll_tax':('Взносы на ФОТ, доля (пусто — неизвестно)',1),
+ 'lab_pay':('ФОТ ЗТЛ / выручка приёма, доля',1), 'payroll_tax':('Доп. взносы сверх резерва, доля (пусто — учтены в резерве)',1),
  'medical_rate':('Медрасходники / выручка приёма, доля',1), 'lab_cost_rate':('Затраты ЗТЛ / выручка приёма, доля',1),
  'rent':('Аренда и коммунальные, ₽',1e9), 'it':('ИТ, программы и связь, ₽',1e9),
  'outsourcing':('Сторонние услуги, ₽',1e9), 'other_cost':('Прочие расходы, ₽',1e9),
@@ -129,7 +129,8 @@ def calculate(c):
   if needed_marketing is not None and marketing<needed_marketing:warning.append('Бюджет маркетинга ниже расчётной потребности в лидах.')
   band='low' if revenue<12000000 else ('mid' if revenue<18000000 else 'high')
   wage=revenue_clinic*(p['doctor_pay']+p['lab_pay'])+sum(p[f'{g}_{band}'] for g in ['admin','assist','management','marketing_pay'])
-  payroll_tax=wage*p['payroll_tax'] if p['payroll_tax'] is not None else None
+  # Owner-approved source convention: baseline contributions are budgeted inside reserve.
+  payroll_tax=wage*p['payroll_tax'] if p['payroll_tax'] is not None else 0
   cost={'wage':wage,'payroll_tax':payroll_tax,'medical':revenue_clinic*p['medical_rate'],'lab':revenue_clinic*p['lab_cost_rate'],
    'rent':p['rent'],'marketing':marketing,'it':p['it'],'outsourcing':p['outsourcing'],'other_cost':p['other_cost'],'reserve':revenue*p['reserve_rate']}
   complete=all(v is not None for v in cost.values());known=sum(v for v in cost.values() if v is not None)
@@ -151,6 +152,7 @@ def calculate(c):
    'official_base_wage':wage*base/100 if base is not None else None,'official_extra_wage':official_extra,
    'official_extra_tax':extra_tax,'official_adjusted_profit':adjusted_profit,
    'official_adjusted_margin':adjusted_profit/revenue if adjusted_profit is not None and revenue else None,
+   'reserve_contribution_policy':1,'base_contributions_in_reserve':p['payroll_tax'] is None,
    'month':m+1,'target':p['target'],'revenue':revenue,'gap':revenue-p['target'],'dentistry':sum(r['revenue'] for r in details if r['direction']=='dentistry'),
    'structure':sum(r['revenue'] for r in details if r['direction']=='structure'),'other_revenue':other,
    'capacity':capacity,'staffed':sum(r['staffed'] for r in details),'booked':sum(r['booked'] for r in details),'hours':hours,
@@ -186,7 +188,12 @@ def hiring_needs(results,config=None):
 
 def read_state(conn):
  row=conn.execute('SELECT * FROM financial_model_plan WHERE year=2027').fetchone()
- if row:return {'version':row['version'],'config':json.loads(row['config']),'results':json.loads(row['results']),'stale':json.loads(row['stale'])}
+ if row:
+  state={'version':row['version'],'config':json.loads(row['config']),'results':json.loads(row['results']),'stale':json.loads(row['stale'])}
+  # Preserve persisted results and settings; GET only signals old calculation policy.
+  outdated=[i+1 for i,m in enumerate(state['results']) if m.get('reserve_contribution_policy')!=1]
+  state['stale']=sorted(set(state['stale'])|set(outdated));state['outdated_policy']=outdated
+  return state
  c=initial();return {'version':0,'config':c,'results':calculate(c),'stale':[]}
 
 

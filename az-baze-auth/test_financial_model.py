@@ -13,7 +13,7 @@ class CalculationTests(unittest.TestCase):
   self.assertEqual(r[0]['capacity'],8*31*12);self.assertEqual(r[1]['capacity'],8*28*12)
   c['year']=2028;self.assertEqual(fm.calculate(c)[1]['capacity'],8*29*12)
   for m in r:
-   self.assertAlmostEqual(m['revenue'],m['dentistry']+m['structure']+m['other_revenue']);self.assertLessEqual(m['hours'],m['capacity']);self.assertIsNone(m['profit'])
+   self.assertAlmostEqual(m['revenue'],m['dentistry']+m['structure']+m['other_revenue']);self.assertLessEqual(m['hours'],m['capacity']);self.assertIsNotNone(m['profit'])
  def test_costs_once(self):
   c=fm.initial();c['months']['payroll_tax']=[0]*12
   for r in fm.calculate(c):
@@ -104,10 +104,36 @@ class OfficialPayrollTests(unittest.TestCase):
   for i in range(5,12):self.assertAlmostEqual(new['results'][i]['official_share']-old['results'][i]['official_share'],.02)
   kept,_,_=fm.transition(old,ch,'keep');self.assertEqual(kept['results'],old['results']);self.assertEqual(kept['stale'],list(range(6,13)))
  def test_bounds_and_unknown_profit(self):
-  c=self.config();c['months']['payroll_tax']=[None]*12;r=fm.calculate(c)[0];self.assertGreater(r['official_extra_tax'],0);self.assertIsNone(r['official_adjusted_profit'])
+  c=self.config();c['months']['payroll_tax']=[None]*12;r=fm.calculate(c)[0];self.assertGreater(r['official_extra_tax'],0);self.assertLess(r['official_adjusted_profit'],r['profit'])
   old=dict(config=c,results=fm.calculate(c),version=0,stale=[])
   for val in [-1,101,'NaN',True]:
    with self.assertRaises(ValueError):fm.candidate(old,dict(group='months',key='official_step_pct',value=val,scope='month',**{'from':1}))
+
+class ReservePolicyTests(unittest.TestCase):
+ def test_source_policy_and_explicit_extra(self):
+  c=fm.initial();r=fm.calculate(c)[0]
+  self.assertEqual(r['payroll_tax'],0);self.assertTrue(r['base_contributions_in_reserve'])
+  self.assertAlmostEqual(r['reserve'],r['revenue']*.04)
+  for k,v in [('total_cost',7574631.08),('profit_before',1105210.09),('tax',165781.51),('profit',939428.58)]:self.assertAlmostEqual(r[k],v,places=2)
+  self.assertIsNone(r['official_extra_tax']);self.assertIsNone(r['official_adjusted_profit'])
+  c['months']['payroll_tax']=[.1]*12;q=fm.calculate(c)[0]
+  self.assertAlmostEqual(q['total_cost']-r['total_cost'],r['wage']*.1);self.assertEqual(q['reserve'],r['reserve']);self.assertFalse(q['base_contributions_in_reserve'])
+  c['months']['payroll_tax']=[0]*12;q=fm.calculate(c)[0];self.assertEqual(q['profit'],r['profit']);self.assertFalse(q['base_contributions_in_reserve'])
+ def test_saved_legacy_readonly_keep_and_refresh(self):
+  with sqlite3.connect(':memory:') as db:
+   db.row_factory=sqlite3.Row;fm.init_schema(db);c=fm.initial();results=fm.calculate(c)
+   for m in results:
+    m.pop('reserve_contribution_policy');m.pop('base_contributions_in_reserve')
+    for k in ['payroll_tax','total_cost','profit_before','tax','profit','margin']:m[k]=None
+   c['months']['rent'][5]=999999
+   db.execute('INSERT INTO financial_model_plan VALUES(2027,1,?,?,?)',(json.dumps(c),json.dumps(results),'[]'));db.commit()
+   persisted=db.execute('SELECT * FROM financial_model_plan').fetchone();db.execute('PRAGMA query_only=ON');old=fm.read_state(db)
+   self.assertEqual(old['results'],results);self.assertEqual(old['config'],c);self.assertEqual(old['stale'],list(range(1,13)));self.assertEqual(tuple(db.execute('SELECT * FROM financial_model_plan').fetchone()),tuple(persisted))
+   db.execute('PRAGMA query_only=OFF')
+   kept=fm.commit_change(db,1,dict(group='months',key='rent',value=12,scope='month',**{'from':6}),'keep',1)
+   self.assertEqual(kept['results'],results);self.assertEqual(fm.read_state(db)['results'],results)
+   fm.commit_change(db,2,{'group':'refresh'},'recalculate',1);new=fm.read_state(db)
+   self.assertEqual(new['stale'],[]);self.assertEqual(new['outdated_policy'],[]);self.assertEqual(new['config']['months']['rent'][5],12);self.assertIsNotNone(new['results'][0]['profit']);self.assertEqual(db.execute('SELECT count(*) FROM financial_model_history').fetchone()[0],2)
 
 class StoreTests(unittest.TestCase):
  def setUp(self):
