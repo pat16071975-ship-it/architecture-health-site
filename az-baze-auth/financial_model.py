@@ -85,18 +85,23 @@ def calculate(c):
   if not weight:warning.append('Не заданы доли направлений для распределения цели.')
   productive=p['booking']*p['attendance'];required_target=p['target']/(1+p['other_revenue_rate'])
   for h in c['hires']:
-   age=c['year']*12+m-month_index(h['start']);factor=c['ramp'][min(age,len(c['ramp'])-1)] if age>=0 else 0
+   age=c['year']*12+m-month_index(h['start']);kind=h.get('kind','new')
+   if kind not in ('new','expansion'):raise ValueError('Неизвестный тип изменения штата.')
+   factor=(1 if kind=='expansion' else c['ramp'][min(age,len(c['ramp'])-1)]) if age>=0 else 0
+   profile=h.get('schedule_profile',[1]) if kind=='expansion' else [1]
+   schedule_fraction=profile[min(age,len(profile)-1)] if age>=0 else 0
    if h['count'] and not h['room']:warning.append(f"Не назначен кабинет: {h['name']}. Вклад не включён.")
    start=month_index(h['start']);search=p['search_months'];opened=None
    if search is not None:
     idx=start-int(search);opened=f'{idx//12:04d}-{idx%12+1:02d}'
-   hire_details.append(dict(h,age=age,factor=factor,open=opened,active=age>=0))
+   hire_details.append(dict(h,kind=kind,age=age,factor=factor,schedule_fraction=schedule_fraction,open=opened if kind=='new' else None,active=age>=0))
   for r in c['rooms']:
+   if r['direction'] not in ('dentistry','structure'):raise ValueError('Неизвестное направление кабинета.')
    capacity=max(0,days-r['closed_days'][m])*r['daily_hours'][m]
    existing=max(0,r['staffed_hours'][m]-r['absence_hours'][m])
    hires=[h for h in hire_details if h['room']==r['id'] and h['active']]
-   hired=sum(h['count']*p['staff_hours'] for h in hires)
-   effective=sum(h['count']*p['staff_hours']*h['factor'] for h in hires)
+   hired=sum(h['count']*p['staff_hours']*h['schedule_fraction'] for h in hires)
+   effective=sum(h['count']*p['staff_hours']*h['schedule_fraction']*h['factor'] for h in hires)
    schedule=existing+hired
    if schedule>capacity+1e-6:warning.append(f"Кабинет {r['id']}: график превышает ёмкость на {schedule-capacity:.0f} ч.")
    # Full shifts occupy physical room time even while a new clinician is ramping up.
@@ -150,27 +155,31 @@ def calculate(c):
    'structure':sum(r['revenue'] for r in details if r['direction']=='structure'),'other_revenue':other,
    'capacity':capacity,'staffed':sum(r['staffed'] for r in details),'booked':sum(r['booked'] for r in details),'hours':hours,
    'load':hours/capacity if capacity else None,'missing_fte':sum(r['fte'] or 0 for r in details),
-   'starts':sum(h['count'] for h in hire_details if h['age']==0),'ramping':sum(h['count'] for h in hire_details if 0<=h['age']<len(c['ramp'])-1),
+   'starts':sum(h['count'] for h in hire_details if h['age']==0),'ramping':sum(h['count'] for h in hire_details if h['kind']=='new' and 0<=h['age']<len(c['ramp'])-1),
    'new':new,'leads':leads,'needed_marketing':needed_marketing,'marketing':marketing,**cost,'known_cost':known,'total_cost':known if complete else None,
    'profit_before':profit_before,'tax':tax,'profit':profit,'margin':profit/revenue if profit is not None and revenue else None,
+   'hiring_context':{'year':c['year'],'lag':next((j for j,v in enumerate(c['ramp']) if v>=1),None),'search':p['search_months']},
    'rooms':details,'hires':hire_details,'warnings':warning})
  return out
 
 
-def hiring_needs(results,config):
+def hiring_needs(results,config=None):
+ # Recommendations must use the same saved calculation snapshot as the monthly table.
  rows=[]
- for room in config['rooms']:
+ for room in results[0]['rooms']:
   prior=0
   for i,m in enumerate(results):
    r=next(x for x in m['rooms'] if x['id']==room['id'])
    n=math.ceil((r['fte'] or 0)-1e-9)
    if n>prior:
-    lag=next((j for j,v in enumerate(config['ramp']) if v>=1),None)
-    idx=config['year']*12+i-(lag or 0)
-    search=config['months']['search_months'][i]
+    context=m.get('hiring_context')
+    if context is None:continue  # Never reconstruct a saved result with unsaved/new assumptions.
+    lag=context['lag']
+    idx=context['year']*12+i-(lag or 0)
+    search=context['search']
     start=f'{idx//12:04d}-{idx%12+1:02d}' if lag is not None else 'Профиль не достигает полной загрузки'
     opening=None if search is None or lag is None else f'{(idx-int(search))//12:04d}-{(idx-int(search))%12+1:02d}'
-    rows.append({'room':room['id'],'name':room['name'],'needed':m['month'],'count':n-prior,'start':start,'opening':opening})
+    rows.append({'room':room['id'],'name':r['name'],'needed':m['month'],'count':n-prior,'start':start,'opening':opening})
     prior=n
  return rows
 
@@ -263,7 +272,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
  @permission_required('reports')
  def financial_model_page():
   state=read_state(db())
-  return render_template('financial_model.html',needs=hiring_needs(state['results'],state['config']),state=state,months=MONTHS,params=PARAMS,room_params=ROOM_PARAMS,
+  return render_template('financial_model.html',needs=hiring_needs(state['results']),state=state,months=MONTHS,params=PARAMS,room_params=ROOM_PARAMS,
    can_edit='financial_model_edit' in user_permissions(g.user),csrf=csrf_token())
  @app.post('/reports/financial-model/preview')
  @permission_required('reports')

@@ -832,7 +832,7 @@
     {
       "id": "5",
       "name": "Стомат.: терапия",
-      "direction": "structure",
+      "direction": "dentistry",
       "daily_hours": [
         12,
         12,
@@ -1010,7 +1010,7 @@
     {
       "id": "7",
       "name": "Ортодонтия",
-      "direction": "structure",
+      "direction": "dentistry",
       "daily_hours": [
         12,
         12,
@@ -1099,7 +1099,7 @@
     {
       "id": "8",
       "name": "Ортодонтия / хирургия",
-      "direction": "structure",
+      "direction": "dentistry",
       "daily_hours": [
         12,
         12,
@@ -1188,7 +1188,7 @@
     {
       "id": "9",
       "name": "Ортопедия / гигиена",
-      "direction": "structure",
+      "direction": "dentistry",
       "daily_hours": [
         12,
         12,
@@ -1281,35 +1281,44 @@
       "name": "Беседина: расширение графика",
       "room": "5",
       "start": "2027-03",
-      "count": 1
+      "count": 1,
+      "kind": "expansion",
+      "schedule_profile": [
+        0.5,
+        1
+      ]
     },
     {
       "id": "hire1",
       "name": "Терапевт / универсал",
       "room": "5",
       "start": "2026-12",
-      "count": 1
+      "count": 1,
+      "kind": "new"
     },
     {
       "id": "hire2",
       "name": "Терапевт / гигиенист",
       "room": "9",
       "start": "2027-02",
-      "count": 1
+      "count": 1,
+      "kind": "new"
     },
     {
       "id": "hire3",
       "name": "Универсал с высоким чеком — профиль уточнить",
       "room": null,
       "start": "2027-03",
-      "count": 1
+      "count": 1,
+      "kind": "new"
     },
     {
       "id": "hire4",
       "name": "Дополнительный специалист (опция)",
       "room": null,
       "start": "2027-07",
-      "count": 0
+      "count": 0,
+      "kind": "new"
     }
   ],
   "ramp": [

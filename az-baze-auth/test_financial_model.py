@@ -41,6 +41,40 @@ class CalculationTests(unittest.TestCase):
   for v in ['NaN','Infinity',-1,True,1.1]:
    with self.assertRaises(ValueError):fm.candidate(self.state(),{'group':'months','key':'booking','value':v,'from':1,'scope':'future'})
   with self.assertRaises(ValueError):fm.month_index('2027-13')
+class AuditRegressionTests(unittest.TestCase):
+ def state(self):
+  c=fm.initial();return dict(config=c,results=fm.calculate(c),version=0,stale=[])
+ def test_225_01_direction_mapping_and_reconciliation(self):
+  c=fm.initial();self.assertEqual({r['id'] for r in c['rooms'] if r['direction']=='dentistry'},{'5','7','8','9'})
+  r=fm.calculate(c);self.assertAlmostEqual(r[0]['dentistry'],7634834.64,places=2)
+  for m in r:
+   self.assertAlmostEqual(m['dentistry'],sum(x['revenue'] for x in m['rooms'] if x['id'] in {'5','7','8','9'}))
+   self.assertAlmostEqual(m['structure'],sum(x['revenue'] for x in m['rooms'] if x['id'] in {'1','3','4','6'}))
+   self.assertAlmostEqual(m['revenue'],m['dentistry']+m['structure']+m['other_revenue'])
+  c['rooms'][0]['direction']='typo'
+  with self.assertRaises(ValueError):fm.calculate(c)
+ def test_225_02_frozen_recommendations_and_partial_recalculation(self):
+  old=self.state();before=fm.hiring_needs(old['results']);self.assertTrue(before)
+  change=dict(group='months',key='search_months',value=3,scope='future',**{'from':1})
+  kept,_,_=fm.transition(old,change,'keep');self.assertEqual(fm.hiring_needs(kept['results'],kept['config']),before)
+  ramp=dict(group='ramp',key='4',value=.95,scope='future',**{'from':1})
+  kept,_,_=fm.transition(kept,ramp,'keep');self.assertEqual(fm.hiring_needs(kept['results'],kept['config']),before)
+  fresh,_,_=fm.transition(kept,dict(group='months',key='rent',value=10,scope='month',**{'from':6}),'recalculate')
+  self.assertEqual(fresh['results'][:5],old['results'][:5]);self.assertEqual(fresh['results'][6:],old['results'][6:])
+  self.assertIsNone(fresh['results'][5]['hiring_context']['lag']);self.assertEqual(fresh['results'][5]['hiring_context']['search'],3)
+  full=fm.calculate(kept['config']);after=fm.hiring_needs(full);self.assertNotEqual(after,before);self.assertTrue(all(x['start']=='Профиль не достигает полной загрузки' for x in after))
+ def test_225_03_expansion_is_not_new_hire(self):
+  c=fm.initial();c['hires']=[next(h for h in c['hires'] if h['id']=='besedina')];c['rooms']=[next(r for r in c['rooms'] if r['id']=='5')]
+  c['rooms'][0]['staffed_hours']=[0]*12;r=fm.calculate(c)
+  self.assertEqual([m['hires'][0]['factor'] for m in r[:6]],[0,0,1,1,1,1])
+  self.assertEqual([m['hires'][0]['schedule_fraction'] for m in r[:6]],[0,0,.5,1,1,1])
+  self.assertEqual(r[2]['staffed'],66);self.assertEqual(r[3]['staffed'],132);self.assertTrue(all(m['ramping']==0 for m in r))
+  c['ramp']=[.01,.02,.03,.04,.05];q=fm.calculate(c)
+  for a,b in zip(r,q):self.assertEqual(a['revenue'],b['revenue']);self.assertEqual(a['hours'],b['hours'])
+  c['hires'][0]['start']='2027-05';q=fm.calculate(c);self.assertEqual(q[3]['staffed'],0);self.assertEqual(q[4]['staffed'],66);self.assertEqual(q[5]['staffed'],132)
+  c['rooms'][0]['staffed_hours']=[350]*12;q=fm.calculate(c)
+  for m in q:self.assertLessEqual(m['staffed'],m['capacity'])
+
 class OfficialPayrollTests(unittest.TestCase):
  def config(self):
   c=fm.initial();c['months'].update(official_base_pct=[30]*12,official_burden_pct=[30.2]*12,payroll_tax=[.09]*12);return c
