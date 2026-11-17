@@ -165,3 +165,37 @@ class RoutesTests(unittest.TestCase):
   c=self.client(1);before=auth.DB_PATH.read_bytes();j=self.preview(c).get_json();self.assertEqual(auth.DB_PATH.read_bytes(),before);path='/reports/financial-model/save'
   self.assertEqual(c.post(path,data={'token':j['token']}).status_code,400);self.assertEqual(self.client(4).post(path,data={'csrf':'test','token':j['token']}).status_code,403);self.assertEqual(c.post(path,data={'csrf':'test','token':j['token']+'x'}).status_code,400);self.assertEqual(c.post(path,data={'csrf':'test','token':j['token']}).status_code,200);self.assertEqual(c.post(path,data={'csrf':'test','token':j['token']}).status_code,409)
 if __name__=='__main__':unittest.main()
+
+class BatchEditorTests(unittest.TestCase):
+ def state(self):
+  c=fm.initial();return dict(config=c,results=fm.calculate(c),version=0,stale=[])
+ def edits(self):
+  return {'group':'batch','changes':[dict(group='months',key=k,value=v,scope='future',**{'from':1}) for k,v in [('official_base_pct',30),('official_burden_pct',32),('lead_conversion',.4)]]}
+ def test_batch_recalculate_and_preserve_untouched(self):
+  old=self.state();new,_,start=fm.transition(old,self.edits(),'recalculate')
+  self.assertEqual(start,1);self.assertEqual(new['config']['months']['official_burden_pct'],[32]*12)
+  self.assertEqual(new['config']['months']['marketing_fixed'],old['config']['months']['marketing_fixed'])
+  self.assertAlmostEqual(new['results'][0]['official_extra_tax'],new['results'][0]['wage']*.01*.32)
+  self.assertIsNone(old['config']['months']['official_base_pct'][0])
+ def test_batch_keep_and_atomic_invalid(self):
+  old=self.state();new,_,_=fm.transition(old,self.edits(),'keep');self.assertEqual(new['results'],old['results']);self.assertEqual(new['stale'],list(range(1,13)))
+  edit=self.edits();edit['changes'][-1]['value']=-1
+  with self.assertRaises(ValueError):fm.transition(old,edit,'recalculate')
+  self.assertIsNone(old['config']['months']['official_base_pct'][0])
+ def test_batch_union_and_nested_rejection(self):
+  edit=self.edits();edit['changes']=[dict(group='months',key='rent',value=800000,scope='month',**{'from':2}),dict(group='months',key='official_step_pct',value=3,scope='month',**{'from':6})]
+  _,start,indices=fm.candidate(self.state(),edit);self.assertEqual(start,2);self.assertEqual(indices,[1,5,6,7,8,9,10,11])
+  for edits in [[],[{'group':'batch','changes':[]}],[{'group':'refresh'}]]:
+   with self.assertRaises(ValueError):fm.candidate(self.state(),dict(group='batch',changes=edits))
+ def test_batch_ramp_validates_final_profile(self):
+  edit={'group':'batch','changes':[dict(group='ramp',key=str(k),value=v,scope='future',**{'from':1}) for k,v in [(0,.5),(1,.6)]]}
+  c,_,_=fm.candidate(self.state(),edit);self.assertEqual(c['ramp'][:2],[.5,.6])
+ def test_batch_one_history_and_rollback(self):
+  c=sqlite3.connect(':memory:');c.row_factory=sqlite3.Row;fm.init_schema(c)
+  result=fm.commit_change(c,0,self.edits(),'recalculate',1)
+  self.assertEqual(result['version'],1);self.assertEqual(c.execute('select count(*) from financial_model_history').fetchone()[0],1)
+  with self.assertRaises(RuntimeError):fm.commit_change(c,0,self.edits(),'keep',1)
+  before=fm.read_state(c)
+  c.execute("CREATE TRIGGER failhistory BEFORE INSERT ON financial_model_history BEGIN SELECT RAISE(ABORT,'fail'); END")
+  with self.assertRaises(sqlite3.IntegrityError):fm.commit_change(c,1,self.edits(),'keep',1)
+  self.assertEqual(fm.read_state(c),before)

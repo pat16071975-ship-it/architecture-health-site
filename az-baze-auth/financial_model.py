@@ -197,8 +197,18 @@ def read_state(conn):
  c=initial();return {'version':0,'config':c,'results':calculate(c),'stale':[]}
 
 
-def candidate(old, change):
+def candidate(old, change, validate_ramp=True):
  if not isinstance(change,dict):raise ValueError('Некорректная правка.')
+ if change.get('group')=='batch':
+  edits=change.get('changes')
+  if not isinstance(edits,list) or not 1<=len(edits)<=100:raise ValueError('Выберите от 1 до 100 изменений.')
+  working=copy.deepcopy(old);affected=set();first=12
+  for edit in edits:
+   if not isinstance(edit,dict) or edit.get('group') not in ('months','room','hire','ramp'):raise ValueError('Некорректная группа изменения.')
+   config,start,indices=candidate(working,edit,False)
+   working['config']=config;affected.update(indices);first=min(first,start)
+  if working['config']['ramp']!=sorted(working['config']['ramp']):raise ValueError('Загрузка адаптации не должна уменьшаться.')
+  return working['config'],first,sorted(affected)
  c=copy.deepcopy(old['config']);start=int(change.get('from',0))
  if not 1<=start<=12:raise ValueError('Выберите месяц применения.')
  scope=change.get('scope')
@@ -239,7 +249,7 @@ def candidate(old, change):
   i=int(key)
   if i not in range(5):raise ValueError('Некорректный месяц адаптации.')
   c['ramp'][i]=numeric(value,1)
-  if c['ramp']!=sorted(c['ramp']):raise ValueError('Загрузка по месяцам адаптации не должна уменьшаться.')
+  if validate_ramp and c['ramp']!=sorted(c['ramp']):raise ValueError('Загрузка по месяцам адаптации не должна уменьшаться.')
   start=1;indices=range(12)
  else:raise ValueError('Неизвестная группа параметров.')
  return c,start,list(indices)
