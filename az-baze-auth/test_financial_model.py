@@ -115,7 +115,7 @@ class ReservePolicyTests(unittest.TestCase):
   self.assertEqual(r['payroll_tax'],0);self.assertTrue(r['base_contributions_in_reserve'])
   self.assertAlmostEqual(r['reserve'],r['revenue']*.04)
   for k,v in [('total_cost',7574631.08),('profit_before',1105210.09),('tax',165781.51),('profit',939428.58)]:self.assertAlmostEqual(r[k],v,places=2)
-  self.assertIsNone(r['official_extra_tax']);self.assertIsNone(r['official_adjusted_profit'])
+  self.assertAlmostEqual(r['official_extra_tax'],r['wage']*.01*.32);self.assertLess(r['official_adjusted_profit'],r['profit'])
   c['months']['payroll_tax']=[.1]*12;q=fm.calculate(c)[0]
   self.assertAlmostEqual(q['total_cost']-r['total_cost'],r['wage']*.1);self.assertEqual(q['reserve'],r['reserve']);self.assertFalse(q['base_contributions_in_reserve'])
   c['months']['payroll_tax']=[0]*12;q=fm.calculate(c)[0];self.assertEqual(q['profit'],r['profit']);self.assertFalse(q['base_contributions_in_reserve'])
@@ -176,12 +176,12 @@ class BatchEditorTests(unittest.TestCase):
   self.assertEqual(start,1);self.assertEqual(new['config']['months']['official_burden_pct'],[32]*12)
   self.assertEqual(new['config']['months']['marketing_fixed'],old['config']['months']['marketing_fixed'])
   self.assertAlmostEqual(new['results'][0]['official_extra_tax'],new['results'][0]['wage']*.01*.32)
-  self.assertIsNone(old['config']['months']['official_base_pct'][0])
+  self.assertEqual(old['config']['months']['official_base_pct'][0],26.5)
  def test_batch_keep_and_atomic_invalid(self):
   old=self.state();new,_,_=fm.transition(old,self.edits(),'keep');self.assertEqual(new['results'],old['results']);self.assertEqual(new['stale'],list(range(1,13)))
   edit=self.edits();edit['changes'][-1]['value']=-1
   with self.assertRaises(ValueError):fm.transition(old,edit,'recalculate')
-  self.assertIsNone(old['config']['months']['official_base_pct'][0])
+  self.assertEqual(old['config']['months']['official_base_pct'][0],26.5)
  def test_batch_union_and_nested_rejection(self):
   edit=self.edits();edit['changes']=[dict(group='months',key='rent',value=800000,scope='month',**{'from':2}),dict(group='months',key='official_step_pct',value=3,scope='month',**{'from':6})]
   _,start,indices=fm.candidate(self.state(),edit);self.assertEqual(start,2);self.assertEqual(indices,[1,5,6,7,8,9,10,11])
@@ -199,3 +199,18 @@ class BatchEditorTests(unittest.TestCase):
   c.execute("CREATE TRIGGER failhistory BEFORE INSERT ON financial_model_history BEGIN SELECT RAISE(ABORT,'fail'); END")
   with self.assertRaises(sqlite3.IntegrityError):fm.commit_change(c,1,self.edits(),'keep',1)
   self.assertEqual(fm.read_state(c),before)
+
+class OfficialDefaultTests(unittest.TestCase):
+ def test_default_year_and_no_double_cost(self):
+  c=fm.initial();r=fm.calculate(c)
+  self.assertEqual(c['months']['official_base_pct'],[26.5]*12);self.assertEqual(c['months']['official_burden_pct'],[32]*12)
+  for i,m in enumerate(r):
+   self.assertAlmostEqual(m['official_share'],(.265+(i+1)*.01))
+   self.assertAlmostEqual(m['official_extra_tax'],m['wage']*(i+1)*.01*.32)
+  self.assertAlmostEqual(r[0]['profit'],939428.58,places=2)
+ def test_saved_unknown_and_explicit_values_preserved(self):
+  for base,rate in [(None,None),(0,0),(45,12)]:
+   c=fm.initial();c['months']['official_base_pct']=[base]*12;c['months']['official_burden_pct']=[rate]*12
+   results=fm.calculate(c);db=sqlite3.connect(':memory:');db.row_factory=sqlite3.Row;fm.init_schema(db)
+   db.execute('INSERT INTO financial_model_plan VALUES(2027,1,?,?,?)',(json.dumps(c),json.dumps(results),'[]'));db.commit();db.execute('PRAGMA query_only=ON')
+   state=fm.read_state(db);self.assertEqual(state['config'],c);self.assertEqual(state['results'],results)
