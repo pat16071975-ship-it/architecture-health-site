@@ -168,7 +168,7 @@ with sync_playwright() as pw:
         page.locator('#reportDate').dispatch_event('change')
         assert page.locator('#doctorBalanceMonth option').count()==12
         page.wait_for_timeout(50)
-        unchanged=page.locator('#dateCompareBody tr').evaluate_all("rows=>rows.map(r=>[...r.cells].slice(0,-1).map(c=>c.innerHTML))")
+        unchanged=page.locator('#dateCompareBody tr').evaluate_all("rows=>rows.map(r=>[...r.cells].slice(1,-1).map(c=>({text:c.textContent,background:getComputedStyle(c).backgroundColor})))")
         for month, expected in [('1','+183'),('2','+93'),('12',None),('1','+183')]:
             page.select_option('#doctorBalanceMonth',month)
             page.wait_for_timeout(50)
@@ -176,8 +176,8 @@ with sync_playwright() as pw:
             assert '17.02.2026' in header and f'01.{int(month):02d}.2026' in header,header
             value=row.locator('td').last.inner_text()
             assert (expected in value and 'По загруженным периодам' not in value) if expected else 'Нет данных с выбранного месяца' in value
-            after=page.locator('#dateCompareBody tr').evaluate_all("rows=>rows.map(r=>[...r.cells].slice(0,-1).map(c=>c.innerHTML))")
-            assert after==unchanged
+            after=page.locator('#dateCompareBody tr').evaluate_all("rows=>rows.map(r=>[...r.cells].slice(1,-1).map(c=>({text:c.textContent,background:getComputedStyle(c).backgroundColor})))")
+            assert after==unchanged, (month,[(i,a,b) for i,(a,b) in enumerate(zip(unchanged,after)) if a!=b])
         page.select_option('#doctorBalanceMonth','2')
         for selected in ['2026-01-10','2026-02-28','2026-02-17']:
             page.locator('#reportDate').fill(selected)
