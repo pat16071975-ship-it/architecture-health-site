@@ -1,0 +1,36 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../reports/doctor-balance.js'),'utf8');
+const ctx={window:{},document:{createElement:()=>({}),head:{appendChild(){}}}};
+vm.createContext(ctx);vm.runInContext(source,ctx);
+const calc=ctx.window.azDoctorBalance.calculator;
+const part=(from,to,value)=>({from,to,dentists:{D:value},clinicDocs:{C:0}});
+const daily=(date,value=1)=>({date,complete:true,dentists:{D:value},clinicDocs:{C:0}});
+const days=[];
+for(let d=new Date('2026-01-01T12:00:00Z');d<=new Date('2026-11-17T12:00:00Z');d.setUTCDate(d.getUTCDate()+1))days.push(daily(d.toISOString().slice(0,10)));
+const periods=[part('2026-01-01','2026-06-30',1000),part('2026-07-01','2026-10-31',500),part('2026-11-01','2026-11-17',100)];
+const query=(c,from='2026-01-01',to='2026-11-17',name='D')=>JSON.parse(JSON.stringify(c(from,to,'dentists',name)));
+let c=calc({},periods,days);
+assert.deepEqual(query(c),{paid:1600,services:321,balance:1279});
+assert.deepEqual(query(c,'2026-11-01'),{paid:100,services:17,balance:83});
+// Quarter/month filters cannot replace the YTD source period with displayed slices.
+assert.equal(query(c,'2026-10-01','2026-10-17').paid,null);
+assert.equal(query(c).balance,1279);
+assert.equal(query(c,'2026-01-01','2026-11-18').balance,null);
+assert.equal(query(c,'2026-01-01','2026-11-16').paid,null);
+assert.equal(query(c,'2025-01-01','2026-11-17').balance,null);
+// Exact source wins over overlapping month/half-year sources, never double-add.
+c=calc({'2026-11':[{asOf:'2026-11-17',dentists:{D:999},clinicDocs:{}}]},periods,days);
+assert.equal(query(c).paid,1600);
+c=calc({},[...periods,part('2026-01-01','2026-11-17',1700)],days);
+assert.equal(query(c).paid,1700);
+assert.equal(query(calc({},periods,days.filter(d=>d.date!=='2026-02-01'))).services,null);
+assert.equal(query(calc({},periods,days.map(d=>d.date==='2026-02-01'?{...d,complete:false}:d))).balance,null);
+assert.deepEqual(query(calc({},[part('2026-01-01','2026-01-01',0)],[daily('2026-01-01',0)]),'2026-01-01','2026-01-01'),{paid:0,services:0,balance:0});
+assert.equal(query(calc({},[part('2026-01-01','2026-01-01',10)],[daily('2026-01-01',100)]),'2026-01-01','2026-01-01').balance,-90);
+assert.equal(query(calc({},[part('2026-01-01','2026-01-01',0.3)],[daily('2026-01-01',0.1)]),'2026-01-01','2026-01-01').balance,0.2);
+assert.equal(query(calc({},[part('2026-01-01','2026-01-01',null)],[daily('2026-01-01')]),'2026-01-01','2026-01-01').balance,null);
+assert.equal(query(c,'2026-01-01','2026-11-17','Absent').balance,0);
+assert.equal(query(c,'2026-02-30','2026-11-17').balance,null);
+assert.equal(query(c,'2026-11-17','2026-01-01').balance,null);
+assert.equal(query(calc({},[part('2024-02-28','2024-03-01',10)],[daily('2024-02-28'),daily('2024-02-29'),daily('2024-03-01')]),'2024-02-28','2024-03-01').balance,7);
+console.log('DOCTOR_BALANCE=PASS; exact coverage, YTD, overlaps, gaps, zero, negative, decimals, leap year');

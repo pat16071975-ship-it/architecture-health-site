@@ -13,6 +13,7 @@ import paid_services
 import upload_reconcile
 import advertising_report
 import completed_visit_totals
+import doctor_service_totals
 import paid_period_confirmation
 
 MANAGEMENT_KEY = "az-management-report-v1"
@@ -1103,7 +1104,7 @@ def _render_server_reports():
 
     old_store = """function loadStore(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}}
 function saveStore(v){localStorage.setItem(STORAGE_KEY,JSON.stringify(v))}"""
-    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={},DOCTOR_PAID_PERIODS=[],PAID_PATIENTS_MONTHLY={},PAID_PATIENTS_BY_DATE={},MANAGEMENT_STAFF_LAYOUT={version:1,directions:{}},CAN_EDIT_MANAGEMENT_STAFF_LAYOUT=false;
+    new_store = """let SERVER_STORE={},REPORT_CSRF='',DOCTOR_PAID_SNAPSHOTS={},DOCTOR_PAID_PERIODS=[],DOCTOR_SERVICE_DAYS=[],PAID_PATIENTS_MONTHLY={},PAID_PATIENTS_BY_DATE={},MANAGEMENT_STAFF_LAYOUT={version:1,directions:{}},CAN_EDIT_MANAGEMENT_STAFF_LAYOUT=false;
 function loadStore(){return SERVER_STORE}
 function saveStore(v){SERVER_STORE=v}
 async function reportApi(url,options={}){
@@ -1122,6 +1123,7 @@ async function loadServerStore(){
   SERVER_STORE=payload.data||{};
   DOCTOR_PAID_SNAPSHOTS=payload.doctorPaidSnapshots||{};
   DOCTOR_PAID_PERIODS=Array.isArray(payload.doctorPaidPeriods)?payload.doctorPaidPeriods:[];
+  DOCTOR_SERVICE_DAYS=Array.isArray(payload.doctorServiceDays)?payload.doctorServiceDays:[];
   PAID_PATIENTS_MONTHLY=payload.paidPatientsMonthly||{};
   PAID_PATIENTS_BY_DATE=payload.paidPatientsByDate||{};
   MANAGEMENT_STAFF_LAYOUT=payload.managementStaffLayout||{version:1,directions:{}};
@@ -1131,6 +1133,7 @@ async function loadServerStore(){
     syncProviderNames(SERVER_STORE);
     Object.values(DOCTOR_PAID_SNAPSHOTS).forEach(rows=>
       rows.forEach(r=>syncProviderNames({[r.asOf]:{dentists:r.dentists,clinicDocs:r.clinicDocs}})));
+    DOCTOR_SERVICE_DAYS.forEach(r=>syncProviderNames({[r.date]:{dentists:r.dentists,clinicDocs:r.clinicDocs}}));
     DOCTOR_PAID_PERIODS.forEach(r=>
       syncProviderNames({[r.to]:{dentists:r.dentists,clinicDocs:r.clinicDocs}}));
   }
@@ -1286,6 +1289,7 @@ def register_report_storage(app):
             data=data,
             doctorPaidSnapshots=_management_doctor_paid_snapshots(db()),
             doctorPaidPeriods=_management_doctor_paid_periods(db()),
+            doctorServiceDays=doctor_service_totals.service_days(db(), *_management_doctor_provider_mappings(db())),
             paidPatientsMonthly=_management_paid_patients_monthly(db(), payer_intervals),
             paidPatientsByDate=payer_by_date,
             managementStaffLayout=_load_management_staff_layout(db())[0],
