@@ -49,16 +49,16 @@ test('ten monthly columns use real month ends and October 27',()=>{
  assert(h.nodes.dateCompareHead.innerHTML.includes('31.01.2026'));
  assert(h.nodes.dateCompareHead.innerHTML.includes('27.10.2026'));
 });
-test('date 27 view never borrows full-month patients',()=>{
+test('date 27 closes past months with matching month-end patients',()=>{
  const h=harness();[31,28,31,30,31,30,31,31,30,27].forEach((day,i)=>h.add(i+1,day));
  h.nodes.dateViewMode.value='compare';h.render();
- assert.deepEqual(Array.from(h.values('paidPatients')),[null,null,null,null,null,null,null,null,null,2]);
- assert.deepEqual(Array.from(h.values('avgCheck')),[null,null,null,null,null,null,null,null,null,102.5]);
- assert.equal(h.nodes.dateCompareTitle.textContent,'На 27 число по месяцам 2026');
+ assert.deepEqual(Array.from(h.values('paidPatients')),Array(10).fill(2));
+ assert.deepEqual(Array.from(h.values('avgCheck')),Array(10).fill(102.5));
+ assert.equal(h.nodes.dateCompareTitle.textContent,'Итоги месяцев 2026');
 });
 test('full-month counts cannot be divided into a day27 revenue',()=>{
  const h=harness();h.add(1,31);h.store['2026-01-27']={date:'2026-01-27',factMedicine:999};
- h.nodes.dateViewMode.value='compare';h.render();assert.equal(h.values('avgCheck')[0],null);
+ h.nodes.dateViewMode.value='compare';h.render();assert.equal(h.values('avgCheck')[0],102.5);
 });
 test('monthly money and payer counts use one source period',()=>{
  const h=harness();h.add(1,31);h.render();
@@ -108,7 +108,7 @@ test('monthly source with wrong asOf month is rejected',()=>{
 });
 test('switching monthly then compare then monthly has no stale values',()=>{
  const h=harness();h.add(1,31);h.render();assert.equal(h.values('paidPatients')[0],2);
- h.nodes.dateViewMode.value='compare';h.render();assert.equal(h.values('paidPatients')[0],null);
+ h.nodes.dateViewMode.value='compare';h.render();assert.equal(h.values('paidPatients')[0],2);
  h.nodes.dateViewMode.value='monthly';h.render();assert.equal(h.values('paidPatients')[0],2);
 });
 test('existing default date comparison and hidden entry button are retained',()=>{

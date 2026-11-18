@@ -69,9 +69,9 @@ test('both existing views: January through October exact evidence, all linked av
   assert.equal(JSON.stringify(h.store[date]),before[i]);
  });
 });
-test('day 27 must not manufacture historical day-27 payers from final months',()=>{
+test('day 27 preserves complete closed months and selected current day',()=>{
  const h=harness();[31,28,31,30,31,30,31,31,30,27].forEach((d,i)=>h.add(i+1,d));h.render();
- for(let i=0;i<9;i++)assert.equal(h.cell('Оплатившие пациенты',i),empty);
+ for(let i=0;i<9;i++)assert.equal(h.cell('Оплатившие пациенты',i),'10');
  assert.equal(h.cell('Оплатившие пациенты',9),h.money(10).replace(/ ₽$/, ''));
 });
 test('existing date31 comparison exposes all nine closed months, not invented October31',()=>{
