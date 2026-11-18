@@ -1,0 +1,43 @@
+name: AZ doctor payments services balance
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/**'
+      - 'reports/**'
+      - 'tests/verify-doctor-balance.cjs'
+      - '.github/workflows/az-doctor-balance.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      AZBAZE_SECRET_KEY: synthetic-doctor-balance-only
+      AZBAZE_DB: /tmp/az-doctor-balance.db
+      AZBAZE_SITE_ROOT: /tmp/az-doctor-balance-site
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          python -m pip install -r az-baze-auth/requirements.txt playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - run: |
+          git diff --check
+          node --check reports/doctor-balance.js
+          node tests/verify-doctor-balance.cjs
+          node tests/verify-paid-asof.cjs
+          node tests/verify-paid-history.cjs
+          node tests/verify-paid-periods.cjs
+      - working-directory: az-baze-auth
+        run: |
+          python -m unittest test_doctor_service_totals test_paid_period_report test_paid_history_reporting test_management_staff_layout test_manual_entry_consistency test_report_consistency_preservation test_cash_payments
+          export CHROMIUM_PATH="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
+          python browser_doctor_balance.py
