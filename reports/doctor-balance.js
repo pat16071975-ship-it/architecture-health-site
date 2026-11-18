@@ -146,13 +146,13 @@
         final.title='Не закрыто не рассчитано: нет полных данных '+[result.paid===null?'оплат':'',result.services===null?'услуг':''].filter(Boolean).join(' и ')+' за '+(start?dateLabel(start):'—')+' — '+(end?dateLabel(end):'—')+'. Отсутствующий месяц или ошибочные записи не считаются нулём.';
       }else{
         final.textContent=(result.balance>0?'+':'')+money(result.balance);
-        if(result.loadedPeriods){const label=document.createElement('span');label.className='period-months';label.textContent='По загруженным периодам';final.appendChild(label)}
+        final.classList.add(result.balance>0?'doctor-balance-positive':result.balance<0?'doctor-balance-negative':'doctor-balance-zero');
         final.title='Оплаты '+money(result.paid)+' − услуги '+money(result.services)+' с '+dateLabel(start)+' по '+dateLabel(end)+'. По загруженным записям, без начального остатка прошлого года. Наличие записей не подтверждает полноту загрузки.'+(result.loadedPeriods?' Периоды оплат: '+result.paymentPeriods.map(p=>dateLabel(p.from)+' — '+dateLabel(p.to)).join('; ')+'. Даты вне этих периодов неизвестны, а не равны нулю.':'');
       }
     }
   }
   window.azDoctorBalance={calculator,render,loadedBounds};
   const style=document.createElement('style');
-  style.textContent='.doctor-comparison-row td{padding-top:5px!important;padding-bottom:5px!important}.doctor-comparison-row td:first-child{white-space:nowrap!important}.doctor-comparison-name{display:inline;vertical-align:middle}.doctor-comparison-label{display:block;font-size:10px;line-height:16px;color:#627269}.doctor-comparison-line{display:block;line-height:16px}.doctor-comparison-line+.doctor-comparison-line{font-weight:500;color:#627269}.doctor-balance-value,.doctor-balance-heading{min-width:155px;background:#f4efe3!important}.doctor-balance-value .period-months{display:block;font-size:10px;line-height:14px;white-space:normal}';
+  style.textContent='.doctor-balance-value.doctor-balance-positive{color:#18733c!important}.doctor-balance-value.doctor-balance-negative{color:#b42318!important}.doctor-balance-value.doctor-balance-zero{color:#354039!important}.doctor-comparison-row td{padding-top:5px!important;padding-bottom:5px!important}.doctor-comparison-row td:first-child{white-space:nowrap!important}.doctor-comparison-name{display:inline;vertical-align:middle}.doctor-comparison-label{display:block;font-size:10px;line-height:16px;color:#627269}.doctor-comparison-line{display:block;line-height:16px}.doctor-comparison-line+.doctor-comparison-line{font-weight:500;color:#627269}.doctor-balance-value,.doctor-balance-heading{min-width:155px;background:#f4efe3!important}.doctor-balance-value .period-months{display:block;font-size:10px;line-height:14px;white-space:normal}';
   document.head.appendChild(style);
 })();

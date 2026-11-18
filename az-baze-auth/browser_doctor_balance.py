@@ -175,7 +175,7 @@ with sync_playwright() as pw:
             header=page.locator('#dateCompareHead .doctor-balance-heading').inner_text()
             assert '17.02.2026' in header and f'01.{int(month):02d}.2026' in header,header
             value=row.locator('td').last.inner_text()
-            assert (expected in value and 'По загруженным периодам' in value) if expected else 'Нет данных с выбранного месяца' in value
+            assert (expected in value and 'По загруженным периодам' not in value) if expected else 'Нет данных с выбранного месяца' in value
             after=page.locator('#dateCompareBody tr').evaluate_all("rows=>rows.map(r=>[...r.cells].slice(0,-1).map(c=>c.innerHTML))")
             assert after==unchanged
         page.select_option('#doctorBalanceMonth','2')
@@ -192,6 +192,10 @@ with sync_playwright() as pw:
         assert 'Нет полных данных' in row.locator('td').last.inner_text()
         page.evaluate("delete SERVER_STORE['2026-02-18'];document.querySelector('#doctorBalanceMonth').dispatchEvent(new Event('change'))")
         assert '+93' in row.locator('td').last.inner_text()
+        for amount, text, css in [(100,'+93','rgb(24, 115, 60)'),(0,'-7','rgb(180, 35, 24)'),(7,'0','rgb(53, 64, 57)')]:
+            page.evaluate("""amount=>{DOCTOR_PAID_PERIODS=[{from:'2026-02-01',to:'2026-02-17',dentists:{'Dent Doctor':amount},clinicDocs:{}}];document.querySelector('#doctorBalanceMonth').dispatchEvent(new Event('change'))}""",amount)
+            assert row.locator('td').last.inner_text().split()==[text,'₽']
+            assert row.locator('td').last.evaluate('(e)=>getComputedStyle(e).color')==css
         page.select_option('#compareRange','year')
         if width>900:
             page.evaluate("""() => {const t=document.querySelector('.date-compare-table table');window.scrollTo(document.documentElement.scrollWidth,t.getBoundingClientRect().top+window.scrollY+200)}""")
