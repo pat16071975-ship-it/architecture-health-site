@@ -84,7 +84,7 @@ test('arbitrary exact days 9 15 and 17 render in both approved views',()=>{
    assert.equal(h.cell('Оплатившие пациенты',0),countString(medicine),date+' compare patients');
  }
 });
-test('comparison closes earlier months and keeps the selected day in current month',()=>{
+test('comparison uses the same arbitrary selected day across months',()=>{
  const h=harness();h.add(1,31);h.add(2,28);h.add(3,31);
  h.ctx.PAID_PATIENTS_BY_DATE={
   '2026-01-15':{from:'2026-01-01',to:'2026-01-15',asOf:'2026-01-15',medicine:4,dent:2,structure:2},
@@ -99,7 +99,7 @@ test('comparison closes earlier months and keeps the selected day in current mon
  h.node('reportDate').value='2026-03-15';h.node('compareRange').value='q1';h.node('dateViewMode').value='compare';h.render();
  const row=h.node('dateCompareBody').children.find(r=>r.innerHTML.startsWith('<td>Оплатившие пациенты</td>'));assert(row);
  const values=[...row.innerHTML.matchAll(/<td[^>]*>(.*?)<\/td>/g)].slice(1).map(m=>m[1]);
- assert.deepEqual(values,[countString(10),countString(10),countString(9)]);
+ assert.deepEqual(values,[countString(4),countString(7),countString(9)]);
 });
 test('later month-end must never backfill an earlier arbitrary day',()=>{
  const h=harness();h.add(1,31);
@@ -108,15 +108,21 @@ test('later month-end must never backfill an earlier arbitrary day',()=>{
     assert.equal(h.run("exactPayersForDate('"+date+"',null)"),null,date);
 });
 
-test('all earlier month headers use their own last day for every selected day',()=>{
- const h=harness();
- for(const year of [2024,2026])for(const day of [1,17,28,30]){
-  h.node('reportDate').value=year+'-11-'+String(day).padStart(2,'0');h.render();
-  const header=h.node('dateCompareHead').innerHTML;
-  const ends=year===2024?[31,29,31,30,31,30,31,31,30,31]:[31,28,31,30,31,30,31,31,30,31];
-  ends.forEach((end,i)=>assert(header.includes(String(end).padStart(2,'0')+'.'+String(i+1).padStart(2,'0')+'.'+year),header));
-  assert(header.includes(String(day).padStart(2,'0')+'.11.'+year),header);
+test('every date in leap and nonleap years uses selected-day or month-end semantics',()=>{
+ const h=harness();let checks=0;
+ for(const year of [2024,2026])for(let selectedMonth=1;selectedMonth<=12;selectedMonth++){
+  const ends=[31,year===2024?29:28,31,30,31,30,31,31,30,31,30,31];
+  for(let day=1;day<=ends[selectedMonth-1];day++){
+   h.node('reportDate').value=year+'-'+String(selectedMonth).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+   h.node('compareRange').value='year';h.render();
+   const header=h.node('dateCompareHead').innerHTML;
+   ends.forEach((last,i)=>{
+    const expected=day===ends[selectedMonth-1]?last:Math.min(day,last);
+    assert(header.includes(String(expected).padStart(2,'0')+'.'+String(i+1).padStart(2,'0')+'.'+year),header);checks++;
+   });
+  }
  }
+ assert.equal(checks,8772);
 });
 console.log('PAID_ASOF_AND_PERIOD=PASS; ADDITIONAL_SCENARIOS=12');
 `,{require,__dirname,__filename,console,process});
