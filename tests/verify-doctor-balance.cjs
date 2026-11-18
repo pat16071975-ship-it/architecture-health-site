@@ -85,3 +85,13 @@ assert.equal(query(loaded([part('2026-01-05','2026-01-31',null),...archived.slic
 const prodRanges=[['01-05','01-31'],['02-02','02-28'],['03-02','03-31'],['04-01','04-30'],['05-01','05-30'],['06-01','06-30'],['07-01','07-31'],['08-01','08-31'],['09-01','09-30'],['10-01','10-31'],['11-01','11-11'],['11-12','11-12'],['11-13','11-15'],['11-16','11-16'],['11-17','11-17']];
 assert.equal(query(loaded(prodRanges.map(([a,b])=>part('2026-'+a,'2026-'+b,100)),days)).balance,1179);
 console.log('LOADED_PAYMENT_PERIODS=PASS; explicit provenance, all 15 production-shaped periods, date changes, missing month and internal gaps');
+
+const bounds=ctx.window.azDoctorBalance.loadedBounds;
+const plain=x=>JSON.parse(JSON.stringify(x));
+assert.deepEqual(plain(bounds(3,{},[{to:'2026-11-17'}],[],{})),{start:'2026-03-01',end:'2026-11-17'});
+assert.deepEqual(plain(bounds(1,{},[],[],{})),{start:null,end:null});
+assert.equal(bounds(1,{'2026-11':[{asOf:'2026-11-16'}]},[{to:'2026-11-17'}],[{date:'2026-11-18'}],{'2026-11-19':{}}).end,'2026-11-19');
+assert.deepEqual(plain(bounds(12,{},[],[{date:'2026-02-17'}],{})),{start:'2026-12-01',end:'2026-02-17'});
+assert.deepEqual(plain(bounds(1,{},[],[{date:'2027-01-04'}],{})),{start:'2027-01-01',end:'2027-01-04'});
+assert.equal(bounds(1,{},[],[{date:'2026-02-30'}],{'bad':{}}).end,null);
+console.log('BALANCE_MONTH_FILTER=PASS; latest loaded date, empty source, year rollover, future start and invalid date');

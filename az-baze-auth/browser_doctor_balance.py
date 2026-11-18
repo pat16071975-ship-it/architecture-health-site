@@ -146,10 +146,10 @@ with sync_playwright() as pw:
             page.evaluate('DOCTOR_SERVICE_DAYS=window.savedServiceDays')
         page.select_option('#mode', 'date')
         page.select_option('#dateViewMode', 'compare')
-        # Changing date must neither reuse the future payment source nor duplicate a header.
+        # Report date does not move the independent last-uploaded balance cutoff.
         page.locator('#reportDate').fill('2026-02-16')
         page.locator('#reportDate').dispatch_event('change')
-        assert 'Нет полных данных' in row.locator('td').last.inner_text()
+        assert '+157' in row.locator('td').last.inner_text()
         assert page.locator('#dateCompareHead').inner_text().count('Не закрыто') == 1
         # Real UI refresh with sparse archived payments: different dates must
         # change both header and amount, and missing endpoint cannot reuse a value.
@@ -164,13 +164,38 @@ with sync_playwright() as pw:
             {date:'2026-02-02',complete:true,dentists:{'Dent Doctor':5},clinicDocs:{}},
             {date:'2026-02-17',complete:true,dentists:{'Dent Doctor':2},clinicDocs:{}}];
         }""")
-        for selected, expected in [('2026-02-17','+183'),('2026-02-16','+165'),('2026-02-15',None),('2026-02-17','+183')]:
+        page.locator('#reportDate').fill('2026-02-17')
+        page.locator('#reportDate').dispatch_event('change')
+        assert page.locator('#doctorBalanceMonth option').count()==12
+        page.wait_for_timeout(50)
+        unchanged=page.locator('#dateCompareBody tr').evaluate_all("rows=>rows.map(r=>[...r.cells].slice(1,-1).map(c=>({text:c.textContent,background:getComputedStyle(c).backgroundColor})))")
+        for month, expected in [('1','+183'),('2','+93'),('12',None),('1','+183')]:
+            page.select_option('#doctorBalanceMonth',month)
+            page.wait_for_timeout(50)
+            header=page.locator('#dateCompareHead .doctor-balance-heading').inner_text()
+            assert '17.02.2026' in header and f'01.{int(month):02d}.2026' in header,header
+            value=row.locator('td').last.inner_text()
+            assert (expected in value and 'По загруженным периодам' not in value) if expected else 'Нет данных с выбранного месяца' in value
+            after=page.locator('#dateCompareBody tr').evaluate_all("rows=>rows.map(r=>[...r.cells].slice(1,-1).map(c=>({text:c.textContent,background:getComputedStyle(c).backgroundColor})))")
+            assert after==unchanged, (month,[(i,a,b) for i,(a,b) in enumerate(zip(unchanged,after)) if a!=b])
+        page.select_option('#doctorBalanceMonth','2')
+        for selected in ['2026-01-10','2026-02-28','2026-02-17']:
             page.locator('#reportDate').fill(selected)
             page.locator('#reportDate').dispatch_event('change')
             page.wait_for_timeout(50)
-            assert '.'.join(reversed(selected.split('-'))) in page.locator('#dateCompareHead .doctor-balance-heading').inner_text()
-            value=row.locator('td').last.inner_text()
-            assert (expected in value and 'По загруженным периодам' in value) if expected else 'Нет полных данных' in value
+            assert '+93' in row.locator('td').last.inner_text()
+            assert '17.02.2026' in page.locator('#dateCompareHead .doctor-balance-heading').inner_text()
+        # A newly loaded date extends the cutoff; incomplete money for that
+        # date must not silently retain the earlier result.
+        page.evaluate("SERVER_STORE['2026-02-18']={date:'2026-02-18'};document.querySelector('#doctorBalanceMonth').dispatchEvent(new Event('change'))")
+        assert '18.02.2026' in page.locator('#dateCompareHead .doctor-balance-heading').inner_text()
+        assert 'Нет полных данных' in row.locator('td').last.inner_text()
+        page.evaluate("delete SERVER_STORE['2026-02-18'];document.querySelector('#doctorBalanceMonth').dispatchEvent(new Event('change'))")
+        assert '+93' in row.locator('td').last.inner_text()
+        for amount, text, css in [(100,'+93','rgb(24, 115, 60)'),(0,'-7','rgb(180, 35, 24)'),(7,'0','rgb(53, 64, 57)')]:
+            page.evaluate("""amount=>{DOCTOR_PAID_PERIODS=[{from:'2026-02-01',to:'2026-02-17',dentists:{'Dent Doctor':amount},clinicDocs:{}}];document.querySelector('#doctorBalanceMonth').dispatchEvent(new Event('change'))}""",amount)
+            assert row.locator('td').last.inner_text().split()==[text,'₽']
+            assert row.locator('td').last.evaluate('(e)=>getComputedStyle(e).color')==css
         page.select_option('#compareRange','year')
         if width>900:
             page.evaluate("""() => {const t=document.querySelector('.date-compare-table table');window.scrollTo(document.documentElement.scrollWidth,t.getBoundingClientRect().top+window.scrollY+200)}""")
