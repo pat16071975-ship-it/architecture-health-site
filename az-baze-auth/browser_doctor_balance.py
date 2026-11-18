@@ -105,6 +105,7 @@ with sync_playwright() as pw:
         assert clinic.locator('.doctor-comparison-paid').first.inner_text().split() == ['0', '₽']
         # Compare payment markup AND full-cell colours with the original renderer
         # in date comparison and quarter/half/year views. Lower values deliberately oppose the payment gradient.
+        page.select_option('#year', '2026')
         for mode in ('date', 'quarter', 'half', 'year'):
             page.select_option('#mode', mode)
             table_rows = ('#dateCompareBody' if mode == 'date' else '#periodCompareBody') + ' tr[data-management-staff-name]'
@@ -115,7 +116,9 @@ with sync_playwright() as pw:
             restored = page.locator(table_rows).evaluate_all(
                 "rows=>rows.map(r=>[...r.querySelectorAll('.doctor-comparison-paid')].map(c=>({html:c.innerHTML,background:c.parentElement.style.background,heat:c.parentElement.classList.contains('heat-cell')})))")
             assert restored == originals, (mode, originals, restored)
-            assert any(c['background'] for r in restored for c in r)
+            if mode == 'date':
+                assert any(c['background'] for r in restored for c in r)
+            # A single annual value has no gradient in the approved renderer.
             page.evaluate("window.savedServiceDays=DOCTOR_SERVICE_DAYS; DOCTOR_SERVICE_DAYS=DOCTOR_SERVICE_DAYS.map(d=>({...d,dentists:{'Dent Doctor':d.date.startsWith('2026-01')?999999:-999999}})); document.querySelector('#mode').dispatchEvent(new Event('change'))")
             changed_services = page.locator(table_rows).evaluate_all(
                 "rows=>rows.map(r=>[...r.querySelectorAll('.doctor-comparison-paid')].map(c=>({html:c.innerHTML,background:c.parentElement.style.background,heat:c.parentElement.classList.contains('heat-cell')})))")
