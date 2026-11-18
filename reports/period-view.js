@@ -37,7 +37,7 @@
     }
     .date-compare-sticky-head-inner{position:relative;left:0;top:0}
     .date-compare-sticky-head table{border-collapse:separate;border-spacing:0;table-layout:fixed;background:#f8f4ec}
-    .date-compare-sticky-head th{padding:10px 12px;border-bottom:1px solid #e7dfd3;font-size:12px;vertical-align:middle;background:#f8f4ec;text-align:center;font-weight:750;color:#354039}
+    .date-compare-sticky-head th{box-sizing:border-box;padding:10px 12px;border-bottom:1px solid #e7dfd3;font-size:12px;vertical-align:middle;background:#f8f4ec;text-align:center;font-weight:750;color:#354039}
     .date-compare-sticky-head th:first-child{text-align:left}
     .date-compare-sticky-head .period-name{font:700 17px/1.05 'Cormorant Garamond',serif;color:#2f3a33}
     .date-compare-sticky-head .period-months{display:block;margin-top:4px;font:500 10px/1.15 Inter,sans-serif;color:#777d76}
@@ -644,10 +644,11 @@
     }
 
     dateStickyTable.style.width=Math.round(table.getBoundingClientRect().width)+'px';
-    dateStickyInner.style.left=(-shell.scrollLeft)+'px';
+    const visibleLeft=Math.max(0,tableRect.left),visibleRight=Math.min(window.innerWidth,Math.max(shellRect.right,tableRect.right));
+    dateStickyInner.style.left=(tableRect.left-visibleLeft)+'px';
     dateStickyHead.style.top=navBottom+'px';
-    dateStickyHead.style.left=Math.round(shellRect.left)+'px';
-    dateStickyHead.style.width=Math.round(shellRect.width)+'px';
+    dateStickyHead.style.left=visibleLeft+'px';
+    dateStickyHead.style.width=Math.max(0,visibleRight-visibleLeft)+'px';
     dateStickyHead.style.height=Math.ceil(headRect.height)+'px';
     dateStickyHead.classList.remove('hidden');
   }

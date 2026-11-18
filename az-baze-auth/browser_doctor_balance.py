@@ -151,6 +151,43 @@ with sync_playwright() as pw:
         page.locator('#reportDate').dispatch_event('change')
         assert 'Нет полных данных' in row.locator('td').last.inner_text()
         assert page.locator('#dateCompareHead').inner_text().count('Не закрыто') == 1
+        # Real UI refresh with sparse archived payments: different dates must
+        # change both header and amount, and missing endpoint cannot reuse a value.
+        page.evaluate("""() => {
+          DOCTOR_PAID_SNAPSHOTS={};
+          DOCTOR_PAID_PERIODS=[
+            {from:'2026-01-05',to:'2026-01-31',dentists:{'Dent Doctor':100},clinicDocs:{}},
+            {from:'2026-02-02',to:'2026-02-16',dentists:{'Dent Doctor':80},clinicDocs:{}},
+            {from:'2026-02-17',to:'2026-02-17',dentists:{'Dent Doctor':20},clinicDocs:{}}];
+          DOCTOR_SERVICE_DAYS=[
+            {date:'2026-01-05',complete:true,dentists:{'Dent Doctor':10},clinicDocs:{}},
+            {date:'2026-02-02',complete:true,dentists:{'Dent Doctor':5},clinicDocs:{}},
+            {date:'2026-02-17',complete:true,dentists:{'Dent Doctor':2},clinicDocs:{}}];
+        }""")
+        for selected, expected in [('2026-02-17','+183'),('2026-02-16','+165'),('2026-02-15',None),('2026-02-17','+183')]:
+            page.locator('#reportDate').fill(selected)
+            page.locator('#reportDate').dispatch_event('change')
+            page.wait_for_timeout(50)
+            assert '.'.join(reversed(selected.split('-'))) in page.locator('#dateCompareHead .doctor-balance-heading').inner_text()
+            value=row.locator('td').last.inner_text()
+            assert (expected in value and 'По загруженным периодам' in value) if expected else 'Нет полных данных' in value
+        page.select_option('#compareRange','year')
+        if width>900:
+            page.evaluate("""() => {const t=document.querySelector('.date-compare-table table');window.scrollTo(document.documentElement.scrollWidth,t.getBoundingClientRect().top+window.scrollY+200)}""")
+            page.wait_for_timeout(150)
+            geometry=page.evaluate("""() => {
+              const overlay=document.querySelector('.date-compare-sticky-head');
+              const a=overlay.querySelector('.doctor-balance-heading').getBoundingClientRect();
+              const b=document.querySelector('#dateCompareHead .doctor-balance-heading').getBoundingClientRect();
+              const frame=overlay.getBoundingClientRect();
+              return {visible:!overlay.classList.contains('hidden'),left:a.left,right:a.right,source:b.left,frameRight:frame.right};
+            }""")
+            assert geometry['visible'],geometry
+            assert abs(geometry['left']-geometry['source'])<3,geometry
+            assert geometry['right']<=geometry['frameRight']+2,geometry
+        else:
+            page.locator('.date-compare-table').evaluate('(e)=>e.scrollLeft=e.scrollWidth')
+            assert page.locator('#dateCompareHead .doctor-balance-heading').is_visible()
         assert not errors, errors
         assert not writes, writes
         page.close()

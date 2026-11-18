@@ -9,7 +9,7 @@
   const money=value=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(value)+' ₽';
   const dateLabel=value=>value.split('-').reverse().join('.');
 
-  function calculator(snapshots={},periods=[],days=[]){
+  function calculator(snapshots={},periods=[],days=[],options={}){
     const ranges=new Map(),byDay=new Map(),cache=new Map();
     const add=p=>{if(p&&validDate(p.from)&&validDate(p.to)&&p.from<=p.to)ranges.set(p.from+'/'+p.to,p)};
     Object.entries(snapshots||{}).forEach(([month,rows])=>{
@@ -44,7 +44,35 @@
         month=d.toISOString().slice(0,7);
       }
       if(services&&services.some(day=>day.complete!==true))services=null;
-      const result={paid:cover(from),services};cache.set(key,result);return result;
+      let paid=cover(from),loaded=false;
+      // Calendar-edge gaps in archived monthly exports are not zero payments.
+      // Expose a separate, explicitly labelled sum of uploaded periods. Never
+      // bridge an internal gap, skip a month or use a source after the cutoff.
+      if(paid===null&&options.loadedPeriods){
+        const selected=[];
+        for(let month=firstMonth;month<=lastMonth;){
+          const monthEnd=new Date(Date.UTC(+month.slice(0,4),+month.slice(5,7),0)).toISOString().slice(0,10);
+          const candidates=[...ranges.values()].filter(p=>p.from>=from&&p.to<=to&&p.from.slice(0,7)===month&&p.to.slice(0,7)===month);
+          if(!candidates.length){selected.length=0;break}
+          const begin=candidates.map(p=>p.from).sort()[0],end=candidates.map(p=>p.to).sort().at(-1);
+          if(month===lastMonth&&end!==to){selected.length=0;break}
+          const seen=new Map();
+          function chain(at){
+            if(at>end)return [];
+            if(seen.has(at))return seen.get(at);
+            for(const p of candidates.filter(p=>p.from===at).sort((a,b)=>b.to.localeCompare(a.to))){
+              const tail=chain(nextDay(p.to));if(tail!==null){const out=[p,...tail];seen.set(at,out);return out}
+            }
+            seen.set(at,null);return null;
+          }
+          const parts=chain(begin);
+          if(parts===null){selected.length=0;break}
+          selected.push(...parts);
+          month=nextDay(monthEnd).slice(0,7);
+        }
+        if(selected.length){paid=selected;loaded=true}
+      }
+      const result={paid,services,loaded};cache.set(key,result);return result;
     }
     function sum(parts,kind,name){
       if(parts===null||!parts.length)return null;
@@ -61,7 +89,9 @@
     }
     return (from,to,kind,name)=>{
       const parts=coverage(from,to),paid=sum(parts.paid,kind,name),services=sum(parts.services,kind,name);
-      return {paid,services,balance:paid===null||services===null?null:(Math.round(paid*100)-Math.round(services*100))/100};
+      const result={paid,services,balance:paid===null||services===null?null:(Math.round(paid*100)-Math.round(services*100))/100};
+      if(options.loadedPeriods){result.loadedPeriods=!!parts.loaded;result.paymentPeriods=(parts.paid||[]).map(p=>({from:p.from,to:p.to}))}
+      return result;
     };
   }
 
@@ -73,7 +103,7 @@
     const calculate=calculator(
       typeof DOCTOR_PAID_SNAPSHOTS==='undefined'?{}:DOCTOR_PAID_SNAPSHOTS,
       typeof DOCTOR_PAID_PERIODS==='undefined'?[]:DOCTOR_PAID_PERIODS,
-      typeof DOCTOR_SERVICE_DAYS==='undefined'?[]:DOCTOR_SERVICE_DAYS);
+      typeof DOCTOR_SERVICE_DAYS==='undefined'?[]:DOCTOR_SERVICE_DAYS,{loadedPeriods:true});
     const header=document.createElement('th');header.className='doctor-balance-heading';
     header.innerHTML='Не закрыто<span class="period-months">'+dateLabel(start)+' — '+dateLabel(end)+'</span>';
     header.title='Оплаты минус услуги с начала года до выбранной даты, по загруженным записям. Плюс — оплат больше, минус — услуг больше.';
@@ -101,7 +131,8 @@
         final.title='Не закрыто не рассчитано: нет полных данных '+[result.paid===null?'оплат':'',result.services===null?'услуг':''].filter(Boolean).join(' и ')+' за '+dateLabel(start)+' — '+dateLabel(end)+'. Отсутствующий месяц или ошибочные записи не считаются нулём.';
       }else{
         final.textContent=(result.balance>0?'+':'')+money(result.balance);
-        final.title='Оплаты '+money(result.paid)+' − услуги '+money(result.services)+' с '+dateLabel(start)+' по '+dateLabel(end)+'. По загруженным записям, без начального остатка прошлого года. Наличие записей не подтверждает полноту загрузки.';
+        if(result.loadedPeriods){const label=document.createElement('span');label.className='period-months';label.textContent='По загруженным периодам';final.appendChild(label)}
+        final.title='Оплаты '+money(result.paid)+' − услуги '+money(result.services)+' с '+dateLabel(start)+' по '+dateLabel(end)+'. По загруженным записям, без начального остатка прошлого года. Наличие записей не подтверждает полноту загрузки.'+(result.loadedPeriods?' Периоды оплат: '+result.paymentPeriods.map(p=>dateLabel(p.from)+' — '+dateLabel(p.to)).join('; ')+'. Даты вне этих периодов неизвестны, а не равны нулю.':'');
       }
     }
   }

@@ -66,3 +66,22 @@ assert.deepEqual(query(historical,'2026-01-01','2026-06-30'),{paid:6000,services
 assert.equal(query(historical,'2026-05-01','2026-05-31').services,260);
 assert.equal(query(historical,'2026-01-01','2026-01-17').services,130);
 console.log('JANUARY_JUNE_IMPORT_SHAPE=PASS; 155 source dates, month boundaries and YTD');
+
+// Loaded-period mode is explicit and does not redefine exact coverage.
+const archived=[part('2026-01-05','2026-01-31',100),part('2026-02-02','2026-02-16',80),part('2026-02-17','2026-02-17',20)];
+const transactions=[daily('2026-01-05',10),daily('2026-02-02',5),daily('2026-02-17',2)];
+const loaded=(ps=archived,ds=transactions)=>calc({},ps,ds,{loadedPeriods:true});
+assert.equal(query(calc({},archived,transactions),'2026-01-01','2026-02-17').balance,null);
+const a=query(loaded(),'2026-01-01','2026-02-17');
+assert.equal(a.balance,183);assert.equal(a.loadedPeriods,true);assert.equal(a.paymentPeriods[0].from,'2026-01-05');
+assert.equal(query(loaded(),'2026-01-01','2026-02-16').balance,165);
+assert.equal(query(loaded(),'2026-01-01','2026-02-15').balance,null);
+assert.equal(query(loaded(),'2026-01-01','2026-02-18').balance,null);
+assert.equal(query(loaded(archived.slice(1)),'2026-01-01','2026-02-17').balance,null);
+assert.equal(query(loaded([archived[0],part('2026-02-02','2026-02-10',80),archived[2]]),'2026-01-01','2026-02-17').balance,null);
+assert.equal(query(loaded([...archived,part('2026-02-02','2026-02-17',100)]),'2026-01-01','2026-02-17').balance,183);
+assert.equal(query(loaded(archived,[transactions[0],{...transactions[1],complete:false},transactions[2]]),'2026-01-01','2026-02-17').balance,null);
+assert.equal(query(loaded([part('2026-01-05','2026-01-31',null),...archived.slice(1)]),'2026-01-01','2026-02-17').balance,null);
+const prodRanges=[['01-05','01-31'],['02-02','02-28'],['03-02','03-31'],['04-01','04-30'],['05-01','05-30'],['06-01','06-30'],['07-01','07-31'],['08-01','08-31'],['09-01','09-30'],['10-01','10-31'],['11-01','11-11'],['11-12','11-12'],['11-13','11-15'],['11-16','11-16'],['11-17','11-17']];
+assert.equal(query(loaded(prodRanges.map(([a,b])=>part('2026-'+a,'2026-'+b,100)),days)).balance,1179);
+console.log('LOADED_PAYMENT_PERIODS=PASS; explicit provenance, all 15 production-shaped periods, date changes, missing month and internal gaps');
