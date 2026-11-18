@@ -97,7 +97,7 @@ with sync_playwright() as pw:
         }''')
         actual = page.locator('#dateCompareBody tr[data-management-staff-name]').evaluate_all('rows=>rows.map(r=>[...r.querySelectorAll(".doctor-comparison-paid")].map(c=>c.textContent))')
         assert actual == baseline, (actual, baseline)
-        assert '-125' in actual[0][0], actual
+        assert row.locator('.doctor-comparison-paid').first.inner_text().split() == ['-125', '₽']
         assert clinic.locator('.doctor-comparison-paid').first.inner_text().split() == ['0', '₽']
         # Changing date must neither reuse the future payment source nor duplicate a header.
         page.locator('#reportDate').fill('2026-02-16')
