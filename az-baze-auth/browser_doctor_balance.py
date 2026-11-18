@@ -67,9 +67,37 @@ with sync_playwright() as pw:
         assert row.locator('td').nth(2).inner_text().split() == ['100', '₽', '17', '₽']
         assert row.locator('td').last.inner_text().split() == ['+152', '₽']
         assert row.locator('td').first.inner_text().find('Услуги') >= 0
+        # January has no exact 1–17 paid import: its original 150 must survive.
+        assert row.locator('.doctor-comparison-paid').first.inner_text().split() == ['150', '₽']
+        assert row.bounding_box()['height'] <= 56, row.bounding_box()
+        assert row.locator('.doctor-comparison-spacer').count() == 0
+        # The controls and doctor name share one line, even with a long name.
+        row.locator('.doctor-comparison-name').evaluate('(el)=>el.textContent="Зубачев Роман Николаевич"')
+        controls = row.locator('.az-management-staff-row-controls').bounding_box()
+        name_box = row.locator('.doctor-comparison-name').bounding_box()
+        assert controls and name_box
+        assert abs(controls['y'] - name_box['y']) < 10, (controls, name_box)
         clinic = page.locator('#dateCompareBody tr[data-management-staff-name="Clinic Doctor"]')
         assert clinic.locator('td').last.inner_text().split() == ['-46', '₽']
         assert page.locator('#dateCompareHead').inner_text().count('Не закрыто') == 1
+        # Compare every payment cell to the unchanged upstream renderer, not a
+        # synthetic replacement formula. Includes missing, zero and negative.
+        page.evaluate('''() => {
+          window.originalBalanceRender = azDoctorBalance.render;
+          SERVER_STORE['2026-01-17'].dentists['Dent Doctor'] = -125;
+          SERVER_STORE['2026-01-17'].clinicDocs['Clinic Doctor'] = 0;
+          azDoctorBalance.render = () => {};
+          document.querySelector('#reportDate').dispatchEvent(new Event('change'));
+        }''')
+        baseline = page.locator('#dateCompareBody tr[data-management-staff-name]').evaluate_all('rows=>rows.map(r=>[...r.cells].slice(1).map(c=>c.textContent))')
+        page.evaluate('''() => {
+          azDoctorBalance.render = window.originalBalanceRender;
+          document.querySelector('#reportDate').dispatchEvent(new Event('change'));
+        }''')
+        actual = page.locator('#dateCompareBody tr[data-management-staff-name]').evaluate_all('rows=>rows.map(r=>[...r.querySelectorAll(".doctor-comparison-paid")].map(c=>c.textContent))')
+        assert actual == baseline, (actual, baseline)
+        assert '-125' in actual[0][0], actual
+        assert clinic.locator('.doctor-comparison-paid').first.inner_text().split() == ['0', '₽']
         # Changing date must neither reuse the future payment source nor duplicate a header.
         page.locator('#reportDate').fill('2026-02-16')
         page.locator('#reportDate').dispatch_event('change')
