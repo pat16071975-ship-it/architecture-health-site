@@ -412,7 +412,7 @@
   const balanceField=document.createElement('div');balanceField.className='field';balanceField.id='doctorBalanceField';
   balanceField.innerHTML='<label id="doctorBalanceMonthLabel" for="doctorBalanceMonth">Не закрыто</label><select id="doctorBalanceMonth">'+['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'].map((name,i)=>'<option value="'+(i+1)+'">С '+name+'</option>').join('')+'</select>';
   if(toolbar&&actions){toolbar.insertBefore(dateViewField,actions);toolbar.insertBefore(compareRangeField,actions);toolbar.insertBefore(balanceField,actions)}
-  balanceField.querySelector('select').addEventListener('change',()=>{if(document.getElementById('mode').value==='date')renderDateComparison();else window.renderPeriod()});
+  balanceField.querySelector('select').addEventListener('change',()=>window.azDoctorBalance?.refresh());
   const entryBtn=document.createElement('button');entryBtn.id='entryBtn';entryBtn.className='btn primary entry-btn';entryBtn.textContent='Заполнить данные за день';
   const todayBtn=document.createElement('button');todayBtn.id='todayBtn';todayBtn.className='btn today-btn';todayBtn.textContent='Сегодня';
   if(actions){actions.insertBefore(todayBtn,actions.firstChild);actions.insertBefore(entryBtn,actions.firstChild)}
