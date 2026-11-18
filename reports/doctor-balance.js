@@ -80,12 +80,14 @@
       if(!['dentists','clinicDocs'].includes(kind)||!name)continue;
       row.classList.add('doctor-comparison-row');
       // One table row keeps hide/move controls attached to BOTH lines.
-      row.cells[0].innerHTML='<span class="doctor-comparison-name">'+escape(name)+'</span><span class="doctor-comparison-line">Оплаты</span><span class="doctor-comparison-line">Услуги</span>';
+      row.cells[0].innerHTML='<span class="doctor-comparison-name">'+escape(name)+'</span><span class="doctor-comparison-label">Оплаты / Услуги</span>';
       columns.forEach((bounds,index)=>{
         const result=calculate(bounds.from,bounds.to,kind,name),cell=row.cells[index+1];
+        // Keep the original renderer's historical payment amount and source selection.
+        const paidHtml=cell.innerHTML;
         cell.style.background='';cell.classList.remove('heat-cell');
         const line=(value,label,source)=>'<span class="doctor-comparison-line" title="'+escape(label+' · '+source+' · '+dateLabel(bounds.from)+' — '+dateLabel(bounds.to)+(value===null?' · Нет полных данных за период':''))+'">'+(value===null?'<span class="empty">—</span>':money(value))+'</span>';
-        cell.innerHTML='<span class="doctor-comparison-spacer" aria-hidden="true">&nbsp;</span>'+line(result.paid,'Оплаты','Выручка по направлениям (новый)')+line(result.services,'Услуги','Выручка по направлениям');
+        cell.innerHTML='<span class="doctor-comparison-line doctor-comparison-paid" title="Оплаты — прежнее значение отчёта">'+paidHtml+'</span>'+line(result.services,'Услуги','Выручка по направлениям');
       });
       const result=calculate(start,end,kind,name);final.className='doctor-balance-value';
       if(result.balance===null){
@@ -99,6 +101,6 @@
   }
   window.azDoctorBalance={calculator,render};
   const style=document.createElement('style');
-  style.textContent='.doctor-comparison-name,.doctor-comparison-spacer{display:block;min-height:18px;margin-bottom:4px}.doctor-comparison-line{display:block;line-height:1.5;min-height:20px}.doctor-comparison-line+.doctor-comparison-line{font-weight:500;color:#627269;border-top:1px solid #e7dfd3;padding-top:3px;margin-top:3px}.doctor-balance-value,.doctor-balance-heading{min-width:155px;background:#f4efe3!important}.doctor-balance-value .period-months{display:block;font-size:10px;white-space:normal}.doctor-comparison-row td:first-child .doctor-comparison-line{font-size:11px}';
+  style.textContent='.doctor-comparison-row td{padding-top:5px!important;padding-bottom:5px!important}.doctor-comparison-row td:first-child{white-space:nowrap!important}.doctor-comparison-name{display:inline;vertical-align:middle}.doctor-comparison-label{display:block;font-size:10px;line-height:16px;color:#627269}.doctor-comparison-line{display:block;line-height:16px}.doctor-comparison-line+.doctor-comparison-line{font-weight:500;color:#627269}.doctor-balance-value,.doctor-balance-heading{min-width:155px;background:#f4efe3!important}.doctor-balance-value .period-months{display:block;font-size:10px;line-height:14px;white-space:normal}';
   document.head.appendChild(style);
 })();
