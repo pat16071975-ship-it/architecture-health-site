@@ -60,18 +60,21 @@
     };
   }
 
+  // Both source series are available from July 2026 (confirmed reporting start).
+  const comparisonStart=year=>`${year}-01-01`<'2026-07-01'?'2026-07-01':`${year}-01-01`;
+
   function render({head,tbody,columns,date,year}){
     // The standalone legacy report has no server source contract. Preserve it.
     if(typeof DOCTOR_SERVICE_DAYS==='undefined')return;
     if(!head||!tbody||!Array.isArray(columns))return;
-    const end=validDate(date)&&date.slice(0,4)===String(year)?date:`${year}-12-31`,start=`${year}-01-01`;
+    const end=validDate(date)&&date.slice(0,4)===String(year)?date:`${year}-12-31`,start=comparisonStart(year);
     const calculate=calculator(
       typeof DOCTOR_PAID_SNAPSHOTS==='undefined'?{}:DOCTOR_PAID_SNAPSHOTS,
       typeof DOCTOR_PAID_PERIODS==='undefined'?[]:DOCTOR_PAID_PERIODS,
       typeof DOCTOR_SERVICE_DAYS==='undefined'?[]:DOCTOR_SERVICE_DAYS);
     const header=document.createElement('th');header.className='doctor-balance-heading';
-    header.innerHTML='Не закрыто<span class="period-months">'+dateLabel(start)+' — '+dateLabel(end)+'</span>';
-    header.title='Оплаты минус услуги с начала года до выбранной даты. Плюс — оплат больше, минус — услуг больше.';
+    header.innerHTML='Не закрыто<span class="period-months">'+(end<start?'С '+dateLabel(start):dateLabel(start)+' — '+dateLabel(end))+'</span>';
+    header.title='Оплаты минус услуги за указанный общий период. Сравнение начинается с июля 2026 года. Плюс — оплат больше, минус — услуг больше.';
     head.querySelector('tr').appendChild(header);
     for(const row of tbody.querySelectorAll('tr')){
       if(row.classList.contains('group-row')||row.classList.contains('sub-row')){row.cells[0].colSpan+=1;continue}
@@ -90,16 +93,19 @@
         cell.innerHTML='<span class="doctor-comparison-line doctor-comparison-paid" title="Оплаты — прежнее значение отчёта">'+paidHtml+'</span>'+line(result.services,'Услуги','Выручка по направлениям');
       });
       const result=calculate(start,end,kind,name);final.className='doctor-balance-value';
-      if(result.balance===null){
+      if(end<start){
+        final.innerHTML='<span class="empty">—</span><span class="period-months">Сравнение с '+dateLabel(start)+'</span>';
+        final.title='До начала общего периода оплаты и услуги не сравниваются.';
+      }else if(result.balance===null){
         final.innerHTML='<span class="empty">—</span><span class="period-months">Нет полных данных</span>';
         final.title='Не закрыто не рассчитано: нет полных данных '+[result.paid===null?'оплат':'',result.services===null?'услуг':''].filter(Boolean).join(' и ')+' за '+dateLabel(start)+' — '+dateLabel(end)+'. Пропуски не считаются нулём.';
       }else{
         final.textContent=(result.balance>0?'+':'')+money(result.balance);
-        final.title='Оплаты '+money(result.paid)+' − услуги '+money(result.services)+' с '+dateLabel(start)+' по '+dateLabel(end)+'. Это разница за период, без начального остатка прошлого года.';
+        final.title='Оплаты '+money(result.paid)+' − услуги '+money(result.services)+' с '+dateLabel(start)+' по '+dateLabel(end)+'. Это разница за период, без остатка до начала сравнения.';
       }
     }
   }
-  window.azDoctorBalance={calculator,render};
+  window.azDoctorBalance={calculator,render,comparisonStart};
   const style=document.createElement('style');
   style.textContent='.doctor-comparison-row td{padding-top:5px!important;padding-bottom:5px!important}.doctor-comparison-row td:first-child{white-space:nowrap!important}.doctor-comparison-name{display:inline;vertical-align:middle}.doctor-comparison-label{display:block;font-size:10px;line-height:16px;color:#627269}.doctor-comparison-line{display:block;line-height:16px}.doctor-comparison-line+.doctor-comparison-line{font-weight:500;color:#627269}.doctor-balance-value,.doctor-balance-heading{min-width:155px;background:#f4efe3!important}.doctor-balance-value .period-months{display:block;font-size:10px;line-height:14px;white-space:normal}';
   document.head.appendChild(style);

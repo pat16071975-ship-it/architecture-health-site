@@ -12,13 +12,13 @@ root = Path(__file__).resolve().parents[1]
 fixture = HistoricalPaidReportingTests()
 fixture.setUp()
 try:
-    fixture.store('2026-01-01', '2026-01-31')
-    fixture.store('2026-02-01', '2026-02-17')
+    fixture.store('2026-07-01', '2026-07-31')
+    fixture.store('2026-08-01', '2026-08-17')
     fixture.add_record('2026-01-17')
-    fixture.add_record('2026-02-17')
+    fixture.add_record('2026-08-17')
     fixture.conn.execute('CREATE TABLE daily_uploads(data_date TEXT PRIMARY KEY, normalized_json TEXT, services_sha256 TEXT)')
-    day = date(2026, 1, 1)
-    while day <= date(2026, 2, 17):
+    day = date(2026, 7, 1)
+    while day <= date(2026, 8, 17):
         key = day.isoformat()
         value = {'data_date': key, 'items': [
             {'date': key, 'staff': 'Dent A.', 'amount': 1, 'patient': 'DO NOT EXPOSE'},
@@ -59,12 +59,13 @@ with sync_playwright() as pw:
         page.route('**/*', route)
         page.goto('http://az-test.invalid/reports/management/')
         page.wait_for_function('typeof DOCTOR_SERVICE_DAYS !== "undefined" && DOCTOR_SERVICE_DAYS.length === 48')
-        page.locator('#reportDate').fill('2026-02-17')
+        page.locator('#reportDate').fill('2026-08-17')
         page.locator('#reportDate').dispatch_event('change')
         page.select_option('#dateViewMode', 'compare')
         row = page.locator('#dateCompareBody tr[data-management-staff-name="Dent Doctor"]')
         assert row.count() == 1
-        assert row.locator('td').nth(2).inner_text().split() == ['100', '₽', '17', '₽']
+        assert '01.07.2026 — 17.08.2026' in page.locator('#dateCompareHead').inner_text()
+        assert row.locator('td').nth(8).inner_text().split() == ['100', '₽', '17', '₽']
         assert row.locator('td').last.inner_text().split() == ['+152', '₽']
         assert row.locator('td').first.inner_text().find('Услуги') >= 0
         # January has no exact 1–17 paid import: its original 150 must survive.
@@ -100,10 +101,13 @@ with sync_playwright() as pw:
         assert row.locator('.doctor-comparison-paid').first.inner_text().split() == ['-125', '₽']
         assert clinic.locator('.doctor-comparison-paid').first.inner_text().split() == ['0', '₽']
         # Changing date must neither reuse the future payment source nor duplicate a header.
-        page.locator('#reportDate').fill('2026-02-16')
+        page.locator('#reportDate').fill('2026-08-16')
         page.locator('#reportDate').dispatch_event('change')
         assert 'Нет полных данных' in row.locator('td').last.inner_text()
         assert page.locator('#dateCompareHead').inner_text().count('Не закрыто') == 1
+        page.locator('#reportDate').fill('2026-06-17')
+        page.locator('#reportDate').dispatch_event('change')
+        assert 'Сравнение с 01.07.2026' in row.locator('td').last.inner_text()
         assert not errors, errors
         assert not writes, writes
         page.close()

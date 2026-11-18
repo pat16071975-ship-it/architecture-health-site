@@ -34,3 +34,14 @@ assert.equal(query(c,'2026-02-30','2026-11-17').balance,null);
 assert.equal(query(c,'2026-11-17','2026-01-01').balance,null);
 assert.equal(query(calc({},[part('2024-02-28','2024-03-01',10)],[daily('2024-02-28'),daily('2024-02-29'),daily('2024-03-01')]),'2024-02-28','2024-03-01').balance,7);
 console.log('DOCTOR_BALANCE=PASS; exact coverage, YTD, overlaps, gaps, zero, negative, decimals, leap year');
+
+// No January–June services: the agreed common period still calculates.
+const start=ctx.window.azDoctorBalance.comparisonStart;
+assert.equal(start(2026),'2026-07-01');
+assert.equal(start(2027),'2027-01-01');
+const july=calc({},periods,days.filter(d=>d.date>='2026-07-01'));
+assert.deepEqual(query(july,start(2026)),{paid:600,services:140,balance:460});
+assert.equal(query(july).balance,null);
+assert.equal(query(july,start(2026),'2026-06-30').balance,null);
+assert.equal(query(calc({},periods,days.filter(d=>d.date>='2026-07-01'&&d.date!=='2026-08-01')),start(2026)).balance,null);
+console.log('COMMON_PERIOD_JULY=PASS; first half excluded, internal gaps retained');
