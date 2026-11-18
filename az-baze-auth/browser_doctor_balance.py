@@ -71,9 +71,9 @@ with sync_playwright() as pw:
         assert row.locator('td').nth(2).inner_text().split() == ['100', '₽', '16', '₽']
         assert row.locator('td').last.inner_text().split() == ['+157', '₽']
         assert row.locator('td').first.inner_text().find('Услуги') >= 0
-        # Previous January uses its complete 1–31 source, not the selected day 17.
-        assert row.locator('.doctor-comparison-paid').first.inner_text().split() == ['100', '₽']
-        assert row.locator('td').nth(1).inner_text().split() == ['100', '₽', '27', '₽']
+        # January has no exact 1–17 paid import: its original 150 must survive.
+        assert row.locator('.doctor-comparison-paid').first.inner_text().split() == ['150', '₽']
+        assert row.locator('td').nth(1).inner_text().split() == ['150', '₽', '13', '₽']
         assert row.bounding_box()['height'] <= 56, row.bounding_box()
         assert row.locator('.doctor-comparison-spacer').count() == 0
         # The controls and doctor name share one line, even with a long name.
@@ -86,14 +86,31 @@ with sync_playwright() as pw:
         clinic = page.locator('#dateCompareBody tr[data-management-staff-name="Clinic Doctor"]')
         assert clinic.locator('td').last.inner_text().split() == ['-36', '₽']
         assert page.locator('#dateCompareHead').inner_text().count('Не закрыто') == 1
+        # Actual DOM checks for the approved short-month and December cases.
+        for selected, jan, feb, apr, octo in [
+            ('2026-12-30',30,28,30,30), ('2026-12-31',31,28,30,31),
+            ('2026-11-30',31,28,30,31), ('2026-02-27',27,27,27,27),
+            ('2026-02-28',31,28,30,31), ('2024-02-28',28,28,28,28),
+            ('2024-02-29',31,29,30,31)]:
+            page.locator('#reportDate').fill(selected)
+            page.locator('#reportDate').dispatch_event('change')
+            page.select_option('#compareRange','year')
+            header=page.locator('#dateCompareHead').inner_text()
+            for month, end in [(1,jan),(2,feb),(4,apr),(10,octo)]:
+                assert f'{end:02d}.{month:02d}.{selected[:4]}' in header, (selected,header)
+        page.locator('#reportDate').fill('2026-02-28')
+        page.locator('#reportDate').dispatch_event('change')
+        page.select_option('#compareRange','ytd')
+        assert row.locator('td').nth(1).inner_text().split() == ['100','₽','27','₽']
+        page.locator('#reportDate').fill('2026-02-17')
+        page.locator('#reportDate').dispatch_event('change')
+        assert row.locator('td').nth(1).inner_text().split() == ['150','₽','13','₽']
         # Compare every payment cell to the unchanged upstream renderer, not a
         # synthetic replacement formula. Includes missing, zero and negative.
         page.evaluate('''() => {
           window.originalBalanceRender = azDoctorBalance.render;
-          DOCTOR_PAID_SNAPSHOTS['2026-01'].forEach(p=>{p.dentists['Dent Doctor']=-125;p.clinicDocs['Clinic Doctor']=0});
-          DOCTOR_PAID_PERIODS.filter(p=>p.to==='2026-01-31').forEach(p=>{p.dentists['Dent Doctor']=-125;p.clinicDocs['Clinic Doctor']=0});
-          SERVER_STORE['2026-01-31'].dentists['Dent Doctor'] = -125;
-          SERVER_STORE['2026-01-31'].clinicDocs['Clinic Doctor'] = 0;
+          SERVER_STORE['2026-01-17'].dentists['Dent Doctor'] = -125;
+          SERVER_STORE['2026-01-17'].clinicDocs['Clinic Doctor'] = 0;
           azDoctorBalance.render = () => {};
           document.querySelector('#reportDate').dispatchEvent(new Event('change'));
         }''')
