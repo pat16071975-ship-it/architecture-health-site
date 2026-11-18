@@ -23,7 +23,7 @@ c=calc({'2026-11':[{asOf:'2026-11-17',dentists:{D:999},clinicDocs:{}}]},periods,
 assert.equal(query(c).paid,1600);
 c=calc({},[...periods,part('2026-01-01','2026-11-17',1700)],days);
 assert.equal(query(c).paid,1700);
-assert.equal(query(calc({},periods,days.filter(d=>d.date!=='2026-02-01'))).services,null);
+assert.equal(query(calc({},periods,days.filter(d=>d.date!=='2026-02-01'))).services,320);
 assert.equal(query(calc({},periods,days.map(d=>d.date==='2026-02-01'?{...d,complete:false}:d))).balance,null);
 assert.deepEqual(query(calc({},[part('2026-01-01','2026-01-01',0)],[daily('2026-01-01',0)]),'2026-01-01','2026-01-01'),{paid:0,services:0,balance:0});
 assert.equal(query(calc({},[part('2026-01-01','2026-01-01',10)],[daily('2026-01-01',100)]),'2026-01-01','2026-01-01').balance,-90);
@@ -35,13 +35,34 @@ assert.equal(query(c,'2026-11-17','2026-01-01').balance,null);
 assert.equal(query(calc({},[part('2024-02-28','2024-03-01',10)],[daily('2024-02-28'),daily('2024-02-29'),daily('2024-03-01')]),'2024-02-28','2024-03-01').balance,7);
 console.log('DOCTOR_BALANCE=PASS; exact coverage, YTD, overlaps, gaps, zero, negative, decimals, leap year');
 
-// No January–June services: the agreed common period still calculates.
-const start=ctx.window.azDoctorBalance.comparisonStart;
-assert.equal(start(2026),'2026-07-01');
-assert.equal(start(2027),'2027-01-01');
-const july=calc({},periods,days.filter(d=>d.date>='2026-07-01'));
-assert.deepEqual(query(july,start(2026)),{paid:600,services:140,balance:460});
-assert.equal(query(july).balance,null);
-assert.equal(query(july,start(2026),'2026-06-30').balance,null);
-assert.equal(query(calc({},periods,days.filter(d=>d.date>='2026-07-01'&&d.date!=='2026-08-01')),start(2026)).balance,null);
-console.log('COMMON_PERIOD_JULY=PASS; first half excluded, internal gaps retained');
+
+// Sparse imported dates are transactions, not a required daily calendar.
+const sparse=days.filter(d=>!['2026-01-01','2026-01-02','2026-01-03','2026-01-04','2026-02-01','2026-05-31'].includes(d.date));
+assert.deepEqual(query(calc({},periods,sparse)),{paid:1600,services:315,balance:1285});
+assert.equal(query(calc({},periods,sparse),'2026-01-01','2026-01-17').services,13);
+assert.equal(query(calc({},periods,sparse),'2026-01-01','2026-01-04').services,null);
+assert.equal(query(calc({},periods,days.filter(d=>!d.date.startsWith('2026-03')))).balance,null);
+assert.equal(query(calc({},periods,days.filter(d=>d.date>='2026-07-01'))).balance,null);
+// Replacement for an identical date is counted once; no future services leak.
+assert.equal(query(calc({},periods,[...sparse,daily('2026-01-05',-2)])).services,312);
+assert.equal(query(calc({},periods,[...sparse,daily('2026-11-18',10000)])).services,315);
+console.log('SPARSE_SOURCE_DATES=PASS; January start, missing month, invalid record, duplicate and cutoff');
+
+// Production-shaped January–June import: 24/24/26/26/26/29 transaction dates.
+// Synthetic doctor allocation; totals are fixture amounts, not a patient export.
+const counts=[24,24,26,26,26,29],starts=[5,2,2,1,1,1],ends=[31,28,31,30,30,30];
+const history=[],historyPaid=[];
+for(let i=0;i<6;i++){
+  const month='2026-'+String(i+1).padStart(2,'0');
+  for(let n=0;n<counts[i];n++){
+    const day=n===counts[i]-1?ends[i]:starts[i]+n;
+    history.push(daily(month+'-'+String(day).padStart(2,'0'),10));
+  }
+  const monthEnd=new Date(Date.UTC(2026,i+1,0)).toISOString().slice(0,10);
+  historyPaid.push(part(month+'-01',monthEnd,1000));
+}
+const historical=calc({},historyPaid,history);
+assert.deepEqual(query(historical,'2026-01-01','2026-06-30'),{paid:6000,services:1550,balance:4450});
+assert.equal(query(historical,'2026-05-01','2026-05-31').services,260);
+assert.equal(query(historical,'2026-01-01','2026-01-17').services,130);
+console.log('JANUARY_JUNE_IMPORT_SHAPE=PASS; 155 source dates, month boundaries and YTD');

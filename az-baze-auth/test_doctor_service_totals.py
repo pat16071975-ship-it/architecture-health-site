@@ -74,9 +74,21 @@ class DoctorServiceTotalsTests(unittest.TestCase):
         self.store(items=[self.item(day='2026-02-01')])
         self.assertFalse(service_days(self.db, self.maps, set())[0]['complete'])
 
+    def test_malformed_source_remains_visible_as_incomplete(self):
+        for raw in ('bad', '{}', '{"data_date":"2026-01-01","items":null}'):
+            with self.subTest(raw=raw):
+                self.db.execute('DELETE FROM daily_uploads')
+                self.db.execute('INSERT INTO daily_uploads VALUES(?,?,?)', ('2026-01-01', raw, 'hash'))
+                self.store('2026-01-05', items=[self.item(25, day='2026-01-05')])
+                rows = service_days(self.db, self.maps, set())
+                self.assertEqual(len(rows), 2)
+                self.assertFalse(rows[0]['complete'])
+                self.assertTrue(rows[1]['complete'])
+
     def test_missing_table_and_invalid_json(self):
         self.db.execute("INSERT INTO daily_uploads VALUES('2026-01-01','bad','hash')")
-        self.assertEqual(service_days(self.db, self.maps, set()), [])
+        self.assertEqual(service_days(self.db, self.maps, set()), [
+            {'date': '2026-01-01', 'complete': False, 'dentists': {}, 'clinicDocs': {}}])
         self.db.execute('DROP TABLE daily_uploads')
         self.assertEqual(service_days(self.db, self.maps, set()), [])
 
