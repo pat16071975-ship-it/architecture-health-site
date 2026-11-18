@@ -103,6 +103,24 @@ with sync_playwright() as pw:
         assert actual == baseline, (actual, baseline)
         assert row.locator('.doctor-comparison-paid').first.inner_text().split() == ['-125', '₽']
         assert clinic.locator('.doctor-comparison-paid').first.inner_text().split() == ['0', '₽']
+        # Compare payment markup AND full-cell colours with the original renderer
+        # in both views. Lower values deliberately oppose the payment gradient.
+        for mode in ('compare', 'monthly'):
+            page.select_option('#dateViewMode', mode)
+            page.evaluate("azDoctorBalance.render = () => {}; document.querySelector('#reportDate').dispatchEvent(new Event('change'))")
+            originals = page.locator('#dateCompareBody tr[data-management-staff-name]').evaluate_all(
+                "rows=>rows.map(r=>[...r.cells].slice(1).map(c=>({html:c.innerHTML,background:c.style.background,heat:c.classList.contains('heat-cell')})))")
+            page.evaluate("azDoctorBalance.render = window.originalBalanceRender; document.querySelector('#reportDate').dispatchEvent(new Event('change'))")
+            restored = page.locator('#dateCompareBody tr[data-management-staff-name]').evaluate_all(
+                "rows=>rows.map(r=>[...r.querySelectorAll('.doctor-comparison-paid')].map(c=>({html:c.innerHTML,background:c.parentElement.style.background,heat:c.parentElement.classList.contains('heat-cell')})))")
+            assert restored == originals, (mode, originals, restored)
+            assert any(c['background'] for r in restored for c in r)
+            page.evaluate("window.savedServiceDays=DOCTOR_SERVICE_DAYS; DOCTOR_SERVICE_DAYS=DOCTOR_SERVICE_DAYS.map(d=>({...d,dentists:{'Dent Doctor':d.date.startsWith('2026-01')?999999:-999999}})); document.querySelector('#reportDate').dispatchEvent(new Event('change'))")
+            changed_services = page.locator('#dateCompareBody tr[data-management-staff-name]').evaluate_all(
+                "rows=>rows.map(r=>[...r.querySelectorAll('.doctor-comparison-paid')].map(c=>({html:c.innerHTML,background:c.parentElement.style.background,heat:c.parentElement.classList.contains('heat-cell')})))")
+            assert changed_services == originals, mode
+            page.evaluate('DOCTOR_SERVICE_DAYS=window.savedServiceDays')
+        page.select_option('#dateViewMode', 'compare')
         # Changing date must neither reuse the future payment source nor duplicate a header.
         page.locator('#reportDate').fill('2026-02-16')
         page.locator('#reportDate').dispatch_event('change')

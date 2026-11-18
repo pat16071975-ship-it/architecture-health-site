@@ -90,7 +90,8 @@
         const result=calculate(bounds.from,bounds.to,kind,name),cell=row.cells[index+1];
         // Keep the original renderer's historical payment amount and source selection.
         const paidHtml=cell.innerHTML;
-        cell.style.background='';cell.classList.remove('heat-cell');
+        // Keep the upstream payment heat colour on the entire two-line cell.
+        // Service amounts must never influence or clear it.
         const line=(value,label,source)=>'<span class="doctor-comparison-line" title="'+escape(label+' · '+source+' · '+dateLabel(bounds.from)+' — '+dateLabel(bounds.to)+(value===null?' · Нет полных данных за период':''))+'">'+(value===null?'<span class="empty">—</span>':money(value))+'</span>';
         cell.innerHTML='<span class="doctor-comparison-line doctor-comparison-paid" title="Оплаты — прежнее значение отчёта">'+paidHtml+'</span>'+line(result.services,'Услуги','Выручка по направлениям · по загруженным записям');
       });
