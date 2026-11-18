@@ -95,18 +95,32 @@
     };
   }
 
+  function loadedBounds(month,snapshots={},periods=[],days=[],records={}){
+    const dates=[...Object.keys(records||{}),...(Array.isArray(days)?days.map(d=>d?.date):[]),...(Array.isArray(periods)?periods.map(p=>p?.to):[])];
+    Object.values(snapshots||{}).forEach(rows=>{if(Array.isArray(rows))rows.forEach(r=>dates.push(r?.asOf))});
+    const end=dates.filter(validDate).sort().at(-1)||null;
+    const m=Number(month);
+    return {start:end&&Number.isInteger(m)&&m>=1&&m<=12?end.slice(0,4)+'-'+String(m).padStart(2,'0')+'-01':null,end};
+  }
+
   function render({head,tbody,columns,date,year}){
     // The standalone legacy report has no server source contract. Preserve it.
     if(typeof DOCTOR_SERVICE_DAYS==='undefined')return;
     if(!head||!tbody||!Array.isArray(columns))return;
-    const end=validDate(date)&&date.slice(0,4)===String(year)?date:`${year}-12-31`,start=`${year}-01-01`;
+    const {start,end}=loadedBounds(document.getElementById('doctorBalanceMonth')?.value||1,
+      typeof DOCTOR_PAID_SNAPSHOTS==='undefined'?{}:DOCTOR_PAID_SNAPSHOTS,
+      typeof DOCTOR_PAID_PERIODS==='undefined'?[]:DOCTOR_PAID_PERIODS,
+      typeof DOCTOR_SERVICE_DAYS==='undefined'?[]:DOCTOR_SERVICE_DAYS,
+      typeof SERVER_STORE==='undefined'?{}:SERVER_STORE);
+    const label=document.getElementById('doctorBalanceMonthLabel');
+    if(label)label.textContent='Не закрыто'+(end?' · '+end.slice(0,4):'');
     const calculate=calculator(
       typeof DOCTOR_PAID_SNAPSHOTS==='undefined'?{}:DOCTOR_PAID_SNAPSHOTS,
       typeof DOCTOR_PAID_PERIODS==='undefined'?[]:DOCTOR_PAID_PERIODS,
       typeof DOCTOR_SERVICE_DAYS==='undefined'?[]:DOCTOR_SERVICE_DAYS,{loadedPeriods:true});
     const header=document.createElement('th');header.className='doctor-balance-heading';
-    header.innerHTML='Не закрыто<span class="period-months">'+dateLabel(start)+' — '+dateLabel(end)+'</span>';
-    header.title='Оплаты минус услуги с начала года до выбранной даты, по загруженным записям. Плюс — оплат больше, минус — услуг больше.';
+    header.innerHTML='Не закрыто<span class="period-months">'+(start?dateLabel(start):'—')+' — '+(end?dateLabel(end):'—')+'</span>';
+    header.title='Оплаты минус услуги с выбранного месяца по последний загруженный день, по загруженным записям. Плюс — оплат больше, минус — услуг больше.';
     head.querySelector('tr').appendChild(header);
     for(const row of tbody.querySelectorAll('tr')){
       if(row.classList.contains('group-row')||row.classList.contains('sub-row')){row.cells[0].colSpan+=1;continue}
@@ -126,9 +140,10 @@
         cell.innerHTML='<span class="doctor-comparison-line doctor-comparison-paid" title="Оплаты — прежнее значение отчёта">'+paidHtml+'</span>'+line(result.services,'Услуги','Выручка по направлениям · по загруженным записям');
       });
       const result=calculate(start,end,kind,name);final.className='doctor-balance-value';
+      if(!start||!end||start>end){final.innerHTML='<span class="empty">—</span><span class="period-months">'+(!end?'Нет загруженных данных':'Нет данных с выбранного месяца')+'</span>';continue}
       if(result.balance===null){
         final.innerHTML='<span class="empty">—</span><span class="period-months">Нет полных данных</span>';
-        final.title='Не закрыто не рассчитано: нет полных данных '+[result.paid===null?'оплат':'',result.services===null?'услуг':''].filter(Boolean).join(' и ')+' за '+dateLabel(start)+' — '+dateLabel(end)+'. Отсутствующий месяц или ошибочные записи не считаются нулём.';
+        final.title='Не закрыто не рассчитано: нет полных данных '+[result.paid===null?'оплат':'',result.services===null?'услуг':''].filter(Boolean).join(' и ')+' за '+(start?dateLabel(start):'—')+' — '+(end?dateLabel(end):'—')+'. Отсутствующий месяц или ошибочные записи не считаются нулём.';
       }else{
         final.textContent=(result.balance>0?'+':'')+money(result.balance);
         if(result.loadedPeriods){const label=document.createElement('span');label.className='period-months';label.textContent='По загруженным периодам';final.appendChild(label)}
@@ -136,7 +151,7 @@
       }
     }
   }
-  window.azDoctorBalance={calculator,render};
+  window.azDoctorBalance={calculator,render,loadedBounds};
   const style=document.createElement('style');
   style.textContent='.doctor-comparison-row td{padding-top:5px!important;padding-bottom:5px!important}.doctor-comparison-row td:first-child{white-space:nowrap!important}.doctor-comparison-name{display:inline;vertical-align:middle}.doctor-comparison-label{display:block;font-size:10px;line-height:16px;color:#627269}.doctor-comparison-line{display:block;line-height:16px}.doctor-comparison-line+.doctor-comparison-line{font-weight:500;color:#627269}.doctor-balance-value,.doctor-balance-heading{min-width:155px;background:#f4efe3!important}.doctor-balance-value .period-months{display:block;font-size:10px;line-height:14px;white-space:normal}';
   document.head.appendChild(style);

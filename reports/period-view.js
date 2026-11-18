@@ -409,7 +409,10 @@
   if(saveBtn)saveBtn.classList.add('hidden');
   const dateViewField=document.createElement('div');dateViewField.className='field date-view-field';dateViewField.id='dateViewField';dateViewField.innerHTML='<label>Просмотр</label><select id="dateViewMode"><option value="compare" selected>Сравнение</option><option value="single">На дату</option></select>';
   const compareRangeField=document.createElement('div');compareRangeField.className='field compare-range-field hidden';compareRangeField.id='compareRangeField';compareRangeField.innerHTML='<label>Период сравнения</label><select id="compareRange"><option value="ytd">С начала года</option><option value="q1">1 квартал</option><option value="q2">2 квартал</option><option value="q3">3 квартал</option><option value="q4">4 квартал</option><option value="h1">1 полугодие</option><option value="h2">2 полугодие</option><option value="year">Весь год</option></select>';
-  if(toolbar&&actions){toolbar.insertBefore(dateViewField,actions);toolbar.insertBefore(compareRangeField,actions)}
+  const balanceField=document.createElement('div');balanceField.className='field';balanceField.id='doctorBalanceField';
+  balanceField.innerHTML='<label id="doctorBalanceMonthLabel" for="doctorBalanceMonth">Не закрыто</label><select id="doctorBalanceMonth">'+['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'].map((name,i)=>'<option value="'+(i+1)+'">С '+name+'</option>').join('')+'</select>';
+  if(toolbar&&actions){toolbar.insertBefore(dateViewField,actions);toolbar.insertBefore(compareRangeField,actions);toolbar.insertBefore(balanceField,actions)}
+  balanceField.querySelector('select').addEventListener('change',()=>{if(document.getElementById('mode').value==='date')renderDateComparison();else window.renderPeriod()});
   const entryBtn=document.createElement('button');entryBtn.id='entryBtn';entryBtn.className='btn primary entry-btn';entryBtn.textContent='Заполнить данные за день';
   const todayBtn=document.createElement('button');todayBtn.id='todayBtn';todayBtn.className='btn today-btn';todayBtn.textContent='Сегодня';
   if(actions){actions.insertBefore(todayBtn,actions.firstChild);actions.insertBefore(entryBtn,actions.firstChild)}
@@ -659,7 +662,7 @@
 
   function syncDateUx(){
     const mode=document.getElementById('mode').value,isDate=mode==='date',compare=['compare','monthly'].includes(document.getElementById('dateViewMode').value);
-    dateViewField.classList.toggle('hidden',!isDate);compareRangeField.classList.toggle('hidden',!isDate||!compare);entryBtn.classList.toggle('hidden',!isDate);todayBtn.classList.toggle('hidden',!isDate);
+    balanceField.classList.toggle('hidden',isDate&&!compare);dateViewField.classList.toggle('hidden',!isDate);compareRangeField.classList.toggle('hidden',!isDate||!compare);entryBtn.classList.toggle('hidden',!isDate);todayBtn.classList.toggle('hidden',!isDate);
     if(isDate){periodView?.classList.add('hidden');dateCompareView.classList.toggle('hidden',!compare);editView?.classList.toggle('hidden',compare);if(compare)renderDateComparison();else{editView?.classList.remove('hidden');const r=currentRecord(),date=document.getElementById('reportDate').value;fillRecord(r||blankRecord(date));renderMismatchNote(r)}}
     else{dateCompareView.classList.add('hidden');editView?.classList.add('hidden')}
     queueDateStickyClone();
