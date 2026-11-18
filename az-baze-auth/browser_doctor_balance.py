@@ -15,6 +15,7 @@ try:
     fixture.store('2026-01-01', '2026-01-31')
     fixture.store('2026-02-01', '2026-02-17')
     fixture.add_record('2026-01-17')
+    fixture.add_record('2026-01-31')
     fixture.add_record('2026-02-17')
     fixture.conn.execute('CREATE TABLE daily_uploads(data_date TEXT PRIMARY KEY, normalized_json TEXT, services_sha256 TEXT)')
     day = date(2026, 1, 1)
@@ -70,9 +71,9 @@ with sync_playwright() as pw:
         assert row.locator('td').nth(2).inner_text().split() == ['100', '₽', '16', '₽']
         assert row.locator('td').last.inner_text().split() == ['+157', '₽']
         assert row.locator('td').first.inner_text().find('Услуги') >= 0
-        # January has no exact 1–17 paid import: its original 150 must survive.
-        assert row.locator('.doctor-comparison-paid').first.inner_text().split() == ['150', '₽']
-        assert row.locator('td').nth(1).inner_text().split() == ['150', '₽', '13', '₽']
+        # Previous January uses its complete 1–31 source, not the selected day 17.
+        assert row.locator('.doctor-comparison-paid').first.inner_text().split() == ['100', '₽']
+        assert row.locator('td').nth(1).inner_text().split() == ['100', '₽', '27', '₽']
         assert row.bounding_box()['height'] <= 56, row.bounding_box()
         assert row.locator('.doctor-comparison-spacer').count() == 0
         # The controls and doctor name share one line, even with a long name.
@@ -89,8 +90,10 @@ with sync_playwright() as pw:
         # synthetic replacement formula. Includes missing, zero and negative.
         page.evaluate('''() => {
           window.originalBalanceRender = azDoctorBalance.render;
-          SERVER_STORE['2026-01-17'].dentists['Dent Doctor'] = -125;
-          SERVER_STORE['2026-01-17'].clinicDocs['Clinic Doctor'] = 0;
+          DOCTOR_PAID_SNAPSHOTS['2026-01'].forEach(p=>{p.dentists['Dent Doctor']=-125;p.clinicDocs['Clinic Doctor']=0});
+          DOCTOR_PAID_PERIODS.filter(p=>p.to==='2026-01-31').forEach(p=>{p.dentists['Dent Doctor']=-125;p.clinicDocs['Clinic Doctor']=0});
+          SERVER_STORE['2026-01-31'].dentists['Dent Doctor'] = -125;
+          SERVER_STORE['2026-01-31'].clinicDocs['Clinic Doctor'] = 0;
           azDoctorBalance.render = () => {};
           document.querySelector('#reportDate').dispatchEvent(new Event('change'));
         }''')
