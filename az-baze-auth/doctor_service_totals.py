@@ -31,12 +31,19 @@ def service_days(conn, mappings, ignored):
         try:
             if date.fromisoformat(day).isoformat() != day:
                 continue
+        except (TypeError, ValueError):
+            continue
+        invalid = {"date": day, "complete": False, "dentists": {}, "clinicDocs": {}}
+        try:
             payload = json.loads(raw)
             if not isinstance(payload, dict) or payload.get("data_date") != day:
+                result.append(invalid)
                 continue
             if not isinstance(payload.get("items"), list) or not isinstance(payload.get("retail_items", []), list):
+                result.append(invalid)
                 continue
         except (TypeError, ValueError):
+            result.append(invalid)
             continue
         totals = {"dent": {}, "structure": {}, "lab": {}}
         complete = True

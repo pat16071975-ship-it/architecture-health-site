@@ -33,12 +33,17 @@
         for(const p of byStart.get(start)||[]){const tail=cover(nextDay(p.to));if(tail!==null){const result=[p,...tail];memo.set(start,result);return result}}
         memo.set(start,null);return null;
       }
-      let services=[];
-      for(let day=from;day<=to;day=nextDay(day)){
-        const source=byDay.get(day);
-        if(!source||source.complete!==true){services=null;break}
-        services.push(source);
+      // Imports contain transaction dates, not a calendar of operating days.
+      // Sum existing records once; never manufacture a zero row for an absent day.
+      let services=[...byDay.values()].filter(day=>day.date>=from&&day.date<=to);
+      const months=new Set(services.map(day=>day.date.slice(0,7)));
+      const firstMonth=from.slice(0,7),lastMonth=to.slice(0,7);
+      for(let month=firstMonth;month<=lastMonth;){
+        if(!months.has(month)){services=null;break}
+        const d=new Date(month+'-01T12:00:00Z');d.setUTCMonth(d.getUTCMonth()+1);
+        month=d.toISOString().slice(0,7);
       }
+      if(services&&services.some(day=>day.complete!==true))services=null;
       const result={paid:cover(from),services};cache.set(key,result);return result;
     }
     function sum(parts,kind,name){
@@ -71,7 +76,7 @@
       typeof DOCTOR_SERVICE_DAYS==='undefined'?[]:DOCTOR_SERVICE_DAYS);
     const header=document.createElement('th');header.className='doctor-balance-heading';
     header.innerHTML='Не закрыто<span class="period-months">'+dateLabel(start)+' — '+dateLabel(end)+'</span>';
-    header.title='Оплаты минус услуги с начала года до выбранной даты. Плюс — оплат больше, минус — услуг больше.';
+    header.title='Оплаты минус услуги с начала года до выбранной даты, по загруженным записям. Плюс — оплат больше, минус — услуг больше.';
     head.querySelector('tr').appendChild(header);
     for(const row of tbody.querySelectorAll('tr')){
       if(row.classList.contains('group-row')||row.classList.contains('sub-row')){row.cells[0].colSpan+=1;continue}
@@ -87,15 +92,15 @@
         const paidHtml=cell.innerHTML;
         cell.style.background='';cell.classList.remove('heat-cell');
         const line=(value,label,source)=>'<span class="doctor-comparison-line" title="'+escape(label+' · '+source+' · '+dateLabel(bounds.from)+' — '+dateLabel(bounds.to)+(value===null?' · Нет полных данных за период':''))+'">'+(value===null?'<span class="empty">—</span>':money(value))+'</span>';
-        cell.innerHTML='<span class="doctor-comparison-line doctor-comparison-paid" title="Оплаты — прежнее значение отчёта">'+paidHtml+'</span>'+line(result.services,'Услуги','Выручка по направлениям');
+        cell.innerHTML='<span class="doctor-comparison-line doctor-comparison-paid" title="Оплаты — прежнее значение отчёта">'+paidHtml+'</span>'+line(result.services,'Услуги','Выручка по направлениям · по загруженным записям');
       });
       const result=calculate(start,end,kind,name);final.className='doctor-balance-value';
       if(result.balance===null){
         final.innerHTML='<span class="empty">—</span><span class="period-months">Нет полных данных</span>';
-        final.title='Не закрыто не рассчитано: нет полных данных '+[result.paid===null?'оплат':'',result.services===null?'услуг':''].filter(Boolean).join(' и ')+' за '+dateLabel(start)+' — '+dateLabel(end)+'. Пропуски не считаются нулём.';
+        final.title='Не закрыто не рассчитано: нет полных данных '+[result.paid===null?'оплат':'',result.services===null?'услуг':''].filter(Boolean).join(' и ')+' за '+dateLabel(start)+' — '+dateLabel(end)+'. Отсутствующий месяц или ошибочные записи не считаются нулём.';
       }else{
         final.textContent=(result.balance>0?'+':'')+money(result.balance);
-        final.title='Оплаты '+money(result.paid)+' − услуги '+money(result.services)+' с '+dateLabel(start)+' по '+dateLabel(end)+'. Это разница за период, без начального остатка прошлого года.';
+        final.title='Оплаты '+money(result.paid)+' − услуги '+money(result.services)+' с '+dateLabel(start)+' по '+dateLabel(end)+'. По загруженным записям, без начального остатка прошлого года. Наличие записей не подтверждает полноту загрузки.';
       }
     }
   }

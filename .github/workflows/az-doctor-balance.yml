@@ -28,7 +28,6 @@ jobs:
           node-version: '22'
       - run: |
           python -m pip install -r az-baze-auth/requirements.txt playwright==1.55.0
-          python -m playwright install --with-deps chromium
       - run: |
           git diff --check
           node --check reports/doctor-balance.js
@@ -39,5 +38,6 @@ jobs:
       - working-directory: az-baze-auth
         run: |
           python -m unittest test_doctor_service_totals test_paid_period_report test_paid_history_reporting test_management_staff_layout test_manual_entry_consistency test_report_consistency_preservation test_cash_payments
-          export CHROMIUM_PATH="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
+          export CHROMIUM_PATH="$(command -v google-chrome || command -v chromium)"
+          test -x "$CHROMIUM_PATH"
           python browser_doctor_balance.py
