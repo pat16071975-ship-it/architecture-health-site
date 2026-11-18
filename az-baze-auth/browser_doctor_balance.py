@@ -77,6 +77,7 @@ with sync_playwright() as pw:
         name_box = row.locator('.doctor-comparison-name').bounding_box()
         assert controls and name_box
         assert abs(controls['y'] - name_box['y']) < 10, (controls, name_box)
+        assert row.bounding_box()['height'] <= 56, row.bounding_box()
         clinic = page.locator('#dateCompareBody tr[data-management-staff-name="Clinic Doctor"]')
         assert clinic.locator('td').last.inner_text().split() == ['-46', '₽']
         assert page.locator('#dateCompareHead').inner_text().count('Не закрыто') == 1
