@@ -61,6 +61,8 @@
   }
 
   function render({head,tbody,columns,date,year}){
+    // The standalone legacy report has no server source contract. Preserve it.
+    if(typeof DOCTOR_SERVICE_DAYS==='undefined')return;
     if(!head||!tbody||!Array.isArray(columns))return;
     const end=validDate(date)&&date.slice(0,4)===String(year)?date:`${year}-12-31`,start=`${year}-01-01`;
     const calculate=calculator(
