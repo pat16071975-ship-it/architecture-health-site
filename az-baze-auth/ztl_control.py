@@ -158,10 +158,13 @@ def save_production(conn,order_id,old_order,values,data,actor):
     old=production(conn,order_id)
     raw=data.getlist('technician_id') if hasattr(data,'getlist') else data.get('technician_id',[])
     if isinstance(raw,str):raw=[raw]
+    # Unchecked checkbox groups are absent from POST. The form marker separates
+    # an explicitly empty selection from older callers that omit this field.
+    technicians_submitted='technician_id' in data or 'technicians_present' in data
     technicians=sorted(set(integer(v) for v in raw if str(v).strip()))
-    if old and 'technician_id' not in data:technicians=json.loads(old['technicians'])
+    if old and not technicians_submitted:technicians=json.loads(old['technicians'])
     if not technicians:
-        if old_order and not old and 'technician_id' not in data:return
+        if old_order and not old and not technicians_submitted:return
         raise ValueError('Выберите хотя бы одного техника.')
     for tid in technicians:
         if ztl.row_by_id(conn,'ztl_names',tid)['kind']!='employee':raise ValueError('Исполнитель должен быть сотрудником ЗТЛ.')
@@ -178,6 +181,8 @@ def save_production(conn,order_id,old_order,values,data,actor):
         if not card:raise ValueError('Сначала заполните технологическую карту изделия в реестре.')
         recipe=json.loads(card['recipe']);fee=card['technician_fee'];cv=card['version']
     completed=ztl.day(data['completed_on']) if data.get('completed_on') else (old['completed_on'] if old and 'completed_on' not in data else None)
+    if old and old['completed_on'] and not completed:
+        raise ValueError('Снять отметку изготовления обычным сохранением нельзя. Отмена изготовления требует отдельной операции.')
     if completed and (completed>ztl.today() or completed<values['invoice_date']):raise ValueError('Дата изготовления должна быть между датой счёта и сегодняшним днём.')
     if old and old['completed_on'] and (not same or pieces!=old['pieces']):raise ValueError('У изготовленного заказа нельзя менять изделие или количество. Исправление согласуйте отдельно.')
     needs_issue=not legacy and (not old or not same or pieces!=old['pieces'])

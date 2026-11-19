@@ -80,6 +80,79 @@ class ControlTests(unittest.TestCase):
         ztl.save_order(self.c,values,1)
         self.assertEqual((c.stock(self.c)[0]['qty'],c.stock(self.c)[0]['value']),(7000,7000))
 
+    def order_http(self, oid, **changes):
+        client=self.client(2)
+        with client.session_transaction() as session:session['csrf']='token'
+        values=ztl.row_by_id(self.c,'ztl_orders',oid)
+        values.update(csrf='token',amount=c.display(values['amount'],100))
+        values.update(changes)
+        return client.post('/accounting/ztl/save/order',data=values)
+
+    def test_http_completed_order_cannot_be_reopened_then_reissued(self):
+        item=self.item();self.receipt(item);self.card(item)
+        oid=self.order(pieces='2',completed_on='2026-11-16')
+        self.grant('ztl_orders')
+        before='\n'.join(self.c.iterdump())
+        response=self.order_http(oid,completed_on='',patient='Must roll back',amount='999',
+                                 technicians_present='1',technician_id=str(self.technician))
+        self.assertEqual(response.status_code,400)
+        self.assertIn('Снять отметку изготовления',response.get_data(as_text=True))
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        # The second request cannot exploit an empty date left by the first one.
+        for changes in ({'pieces':'3'}, {'pieces':'3','completed_on':''}):
+            response=self.order_http(oid,**changes)
+            self.assertEqual(response.status_code,400)
+            self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.assertEqual(c.stock(self.c)[0]['qty'],8000)
+        rows=c.payroll_orders(self.c,'2026-11','2026-11')
+        self.assertEqual([(r['order_id'],r['pieces'],r['fee_total']) for r in rows],[(oid,2,6000)])
+
+    def test_http_empty_technician_selection_rejected_without_any_writes(self):
+        item=self.item();self.receipt(item);self.card(item)
+        with self.c:second=ztl.catalog_entry(self.c,'employee','Второй техник',1)
+        oid=self.order(technician_id=[self.technician,second],pieces='2',completed_on='2026-11-16')
+        self.grant('ztl_orders')
+        form=self.client(2).get('/accounting/ztl/order?id='+str(oid)).get_data(as_text=True)
+        self.assertIn('name="technicians_present" value="1"',form)
+        before='\n'.join(self.c.iterdump())
+        for empty in ({'technicians_present':'1'}, {'technicians_present':''}, {'technician_id':''}):
+            response=self.order_http(oid,patient='Must roll back',**empty)
+            self.assertEqual(response.status_code,400)
+            self.assertIn('Выберите хотя бы одного техника.',response.get_data(as_text=True))
+            self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.assertEqual(json.loads(c.production(self.c,oid)['technicians']),[self.technician,second])
+
+    def test_http_omitted_production_fields_preserve_state_and_valid_selection_saves(self):
+        item=self.item();self.receipt(item);self.card(item)
+        oid=self.order(pieces='2',completed_on='2026-11-16')
+        with self.c:second=ztl.catalog_entry(self.c,'employee','Второй техник',1)
+        self.grant('ztl_orders')
+        original=c.production(self.c,oid);stamp=c.stock_stamp(self.c)
+        response=self.order_http(oid,patient='Исправленное ФИО')
+        self.assertEqual(response.status_code,303)
+        self.assertEqual(c.production(self.c,oid),original)
+        response=self.order_http(oid,technicians_present='1',technician_id=[str(self.technician),str(second)])
+        self.assertEqual(response.status_code,303)
+        self.assertEqual(json.loads(c.production(self.c,oid)['technicians']),[self.technician,second])
+        response=self.order_http(oid,technicians_present='1',technician_id=str(second))
+        self.assertEqual(response.status_code,303)
+        self.assertEqual(json.loads(c.production(self.c,oid)['technicians']),[second])
+        self.assertEqual(c.production(self.c,oid)['completed_on'],'2026-11-16')
+        self.assertEqual(c.stock_stamp(self.c),stamp)
+        self.assertEqual(c.stock(self.c)[0]['qty'],8000)
+
+    def test_http_legacy_order_omission_is_preserved_but_submitted_empty_choice_rejected(self):
+        oid=self.order()
+        with self.c:self.c.execute('DELETE FROM ztl_production WHERE order_id=?',(oid,))
+        self.grant('ztl_orders')
+        self.assertEqual(self.order_http(oid,patient='Исправленный старый заказ').status_code,303)
+        self.assertIsNone(c.production(self.c,oid))
+        before='\n'.join(self.c.iterdump())
+        response=self.order_http(oid,technicians_present='1')
+        self.assertEqual(response.status_code,400)
+        self.assertIn('Выберите хотя бы одного техника.',response.get_data(as_text=True))
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+
     def test_old_order_tracking_does_not_backfill_expenses(self):
         oid=self.order()
         with self.c:self.c.execute('DELETE FROM ztl_production WHERE order_id=?',(oid,))

@@ -70,6 +70,32 @@ try:
                 print('ORDER_SUBMIT_FAILED',page.url,page.locator('body').inner_text())
                 raise
             assert 'Синтетический заказ '+str(width) in page.locator('body').inner_text()
+            row=page.locator('.ztl-orders tbody tr').filter(has_text='LAB-BROWSER-'+str(width))
+            edit_url=origin+row.get_by_role('link',name='Изменить',exact=True).get_attribute('href')
+            before='\n'.join(fixture.c.iterdump())
+            # AZ-238-01/02: real form submissions must fail atomically, including
+            # the second step after an attempted removal of the completion date.
+            for change,message in [('clear-date','Снять отметку изготовления'),
+                                   ('quantity','нельзя менять изделие или количество'),
+                                   ('no-technicians','Выберите хотя бы одного техника.')]:
+                page.goto(edit_url)
+                assert page.locator('[name=technicians_present]').input_value()=='1'
+                if change=='clear-date':page.locator('[name=completed_on]').fill('')
+                elif change=='quantity':page.locator('[name=pieces]').fill('3')
+                else:
+                    for checkbox in page.locator('[name=technician_id]').all():checkbox.uncheck()
+                with page.expect_response(lambda response: response.request.method=='POST' and '/ztl/save/order' in response.url) as response:
+                    page.get_by_role('button',name='Сохранить заказ',exact=True).click()
+                assert response.value.status==400,(change,response.value.status)
+                assert message in page.locator('body').inner_text()
+                assert '\n'.join(fixture.c.iterdump())==before,change
+            page.goto(edit_url)
+            assert page.locator('[name=completed_on]').input_value()=='2026-11-16'
+            assert page.locator('[name=pieces]').input_value()=='2'
+            assert page.locator('[name=technician_id]:checked').count()==1
+            page.get_by_role('button',name='Сохранить заказ',exact=True).click()
+            page.wait_for_url('**/ztl/?**')
+            print('AZ_238_01_02_BROWSER',width,'PASS; unchanged after each rejected request')
             page.screenshot(path=str(artifacts/('orders-'+str(width)+'.png')),full_page=True)
             page.locator('#technician').select_option(str(fixture.technician))
             page.get_by_role('button',name='Показать',exact=True).click()
