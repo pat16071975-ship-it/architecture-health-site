@@ -5,6 +5,7 @@ import sqlite3
 import personal_credentials
 import medical_supplies
 import ztl
+import ztl_control
 import financial_model
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -45,6 +46,10 @@ SECTIONS = [
     ("ztl_payroll", "ЗТЛ — ФОТ сотрудников"),
     ("ztl_lab_costs", "ЗТЛ — затраты лаборатории"),
     ("ztl_clinic_costs", "ЗТЛ — общеклинические затраты"),
+    ("ztl_receipts_view", "ЗТЛ — просмотр прихода"),
+    ("ztl_receipts_edit", "ЗТЛ — ввод и проведение прихода"),
+    ("ztl_inventory_count", "ЗТЛ — фактические остатки и объяснительные"),
+    ("ztl_inventory_manage", "ЗТЛ — контроль инвентаризации и списания"),
     ("section3", "Раздел 3"),
     ("section4", "Раздел 4"),
     ("section5", "Раздел 5"),
@@ -619,6 +624,7 @@ def create_app():
     personal_credentials.register(app)
     medical_supplies.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
     ztl.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
+    ztl_control.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
     financial_model.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
     return app
 

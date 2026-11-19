@@ -27,12 +27,14 @@ class ZtlTests(unittest.TestCase):
             self.other=ztl.catalog_entry(self.c,'party','Другой плательщик',1,'legal')
             self.work=ztl.catalog_entry(self.c,'work','Работа',1)
             self.doctor=ztl.catalog_entry(self.c,'doctor','Врач Иванов',1)
+            self.technician=ztl.catalog_entry(self.c,'employee','Техник Петров',1)
+            self.c.execute("INSERT INTO ztl_cards(work_id,recipe,technician_fee) VALUES(?,'[]',0)",(self.work,))
         self.seq=0
 
     def order(self,**change):
         self.seq+=1
         d=dict(number=str(self.seq),invoice_date='2026-11-01',scope='external',party_id=str(self.party),patient='Тестовый пациент',
-               work_id=str(self.work),doctor_id=str(self.doctor),amount='100',delay_days='30')
+               work_id=str(self.work),doctor_id=str(self.doctor),amount='100',delay_days='30',technician_id=[str(self.technician)])
         d.update(change)
         return ztl.save_order(self.c,d,1)
 
@@ -231,7 +233,7 @@ class ZtlTests(unittest.TestCase):
     def test_catalog_inline_permission_and_dedup(self):
         with self.assertRaises(PermissionError):self.order(work_id_new='Новая работа')
         count=self.c.execute('SELECT COUNT(*) FROM ztl_names').fetchone()[0]
-        self.assertEqual(count,2)
+        self.assertEqual(count,3)
         with self.c:self.assertEqual(ztl.catalog_entry(self.c,'work','Работа',1),self.work)
         self.assertEqual(self.c.execute('SELECT COUNT(*) FROM ztl_names').fetchone()[0],count)
 
@@ -276,7 +278,7 @@ class ZtlTests(unittest.TestCase):
         self.assertEqual(self.post('catalog',dict(kind='doctor',id=self.doctor,version='1',name='Врач Петров')).status_code,303)
         self.assertEqual(ztl.row_by_id(self.c,'ztl_names',self.doctor)['name'],'Врач Петров')
         self.grant('ztl_orders')
-        data=dict(number='42',invoice_date='2026-11-01',scope='internal',party_id=self.party,patient='Пациент',doctor_id=self.doctor,work_id=self.work,amount='36500',delay_days='15')
+        data=dict(number='42',invoice_date='2026-11-01',scope='internal',party_id=self.party,patient='Пациент',doctor_id=self.doctor,work_id=self.work,amount='36500',delay_days='15',technician_id=str(self.technician))
         self.assertEqual(self.post('order',data).status_code,303)
         self.assertEqual(self.post('order',data).status_code,409)
         self.grant('ztl_payroll')
@@ -285,9 +287,9 @@ class ZtlTests(unittest.TestCase):
 
     def test_creation_transaction_rolls_back_inline_dictionary(self):
         self.seq+=1
-        data=dict(number='new',invoice_date='2026-11-01',scope='internal',party_id=self.party,patient='Пациент',doctor_id=self.doctor,work_id_new='Несохранённая работа',amount='-1',delay_days='0')
+        data=dict(number='new',invoice_date='2026-11-01',scope='internal',party_id=self.party,patient='Пациент',doctor_id=self.doctor,work_id=self.work,customer_id_new='Несохранённый заказчик',amount='-1',delay_days='0')
         with self.assertRaises(ValueError):ztl.save_order(self.c,data,1,can_catalog=True)
-        self.assertIsNone(self.c.execute("SELECT id FROM ztl_names WHERE name='Несохранённая работа'").fetchone())
+        self.assertIsNone(self.c.execute("SELECT id FROM ztl_names WHERE name='Несохранённый заказчик'").fetchone())
 
     def test_no_orders_zero_costs_no_margin_and_report_filters(self):
         self.close_costs()

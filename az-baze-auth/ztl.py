@@ -4,6 +4,7 @@ import io
 import json
 import re
 import sqlite3
+import ztl_control
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -66,6 +67,7 @@ def today():
 
 def init_schema(conn):
     conn.executescript(SCHEMA)
+    ztl_control.init_schema(conn)
 
 
 def day(value):
@@ -175,7 +177,7 @@ def save_order(conn, data, actor, can_catalog=False):
                       patient=text(data.get('patient'),200),
                       customer_id=resolve(conn,data,'customer_id','customer',actor,can_catalog,False),
                       doctor_id=resolve(conn,data,'doctor_id','doctor',actor,can_catalog) if scope=='internal' else None,
-                      work_id=resolve(conn,data,'work_id','work',actor,can_catalog),
+                      work_id=resolve(conn,data,'work_id','work',actor,False),
                       description=str(data.get('description','')).strip()[:4000],
                       amount=number(data.get('amount'),100),delay_days=integer(data.get('delay_days')))
         if values['delay_days'] > 3650:
@@ -192,6 +194,7 @@ def save_order(conn, data, actor, can_catalog=False):
             iid=old['id']
         else:
             iid=conn.execute('INSERT INTO ztl_orders('+','.join(values)+') VALUES('+','.join(':'+k for k in values)+')',values).lastrowid
+        ztl_control.save_production(conn,iid,old,values,data,actor)
         log(conn,'Заказ',iid,'Изменение' if old else 'Создание',actor,old,row_by_id(conn,'ztl_orders',iid))
     return iid
 
@@ -376,12 +379,12 @@ def report(conn, start, end):
 
 def register(app,db,permission_required,require_csrf,csrf_token,user_permissions):
     def rights():
-        return {r for r in RIGHTS if 'ztl_'+r in user_permissions(g.user)}
+        return {r for r in (*RIGHTS,*ztl_control.RIGHTS) if 'ztl_'+r in user_permissions(g.user)}
 
     def context():
         conn=db()
         return dict(rights=rights(),csrf=csrf_token(),fmt=lambda v: display(v,100) if v is not None else 'Неполные данные',
-                    today=today(),methods=METHODS,kinds=KINDS,
+                    today=today(),methods=METHODS,kinds=KINDS,ztl_tabs=ztl_control.TABS,qty_fmt=display,
                     parties=[dict(r) for r in conn.execute('SELECT * FROM ztl_parties ORDER BY name,id')],
                     names=[dict(r) for r in conn.execute('SELECT * FROM ztl_names ORDER BY name,id')])
 
@@ -396,8 +399,11 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
             return 'Учёт ЗТЛ ещё не подготовлен к работе.',503
         start=request.args.get('start') or today()[:7];end=request.args.get('end') or start
         tab=request.args.get('tab','orders')
-        if tab not in ('orders','doctors','payments','costs','catalog','history'):
+        if tab not in ('orders','doctors','payments','costs','catalog','history','products','receipts','inventory','payroll','economics'):
             abort(400)
+        if tab=='costs':tab='economics'
+        if tab=='receipts' and not rights() & {'receipts_view','receipts_edit'}:abort(403)
+        if tab=='inventory' and not rights() & {'inventory_count','inventory_manage'}:abort(403)
         try:
             conn.execute('BEGIN')
             r=report(conn,start,end)
@@ -405,6 +411,14 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
             if mode not in ('all','group','internal','external','legal','private'):
                 abort(400)
             visible=[o for o in r['orders'] if (mode not in ('internal','external') or o['scope']==mode) and (mode not in ('legal','private') or o['party_kind']==mode) and (not unpaid or o['debt']>0)]
+            technician=integer(request.args['technician']) if request.args.get('technician') else None
+            employees={n['id']:n['name'] for n in conn.execute("SELECT id,name FROM ztl_names WHERE kind='employee'")}
+            for o in visible:
+                p=ztl_control.production(conn,o['id'])
+                o['production']=p
+                o['technician_ids']=json.loads(p['technicians']) if p else []
+                o['technician_names']=[employees[i] for i in o['technician_ids']]
+            if technician:visible=[o for o in visible if technician in o['technician_ids']]
             if mode=='group':
                 visible.sort(key=lambda o:(o['scope'],o['invoice_date'],o['id']))
             payments=[dict(p) for p in conn.execute('SELECT p.id,p.party_id,p.scope,p.paid_date,p.amount,p.method,p.comment,p.service,p.service_total,p.paid_patient,p.document_name,p.void_reason,p.version,q.name AS party_name FROM ztl_payments p JOIN ztl_parties q ON q.id=p.party_id ORDER BY p.paid_date DESC,p.id DESC')] if tab=='payments' else []
@@ -421,7 +435,27 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
                         if debt or advance:
                             balances.append(dict(name=party['name'],party_id=party['id'],scope=scope,debt=debt,advance=advance,balance=advance-debt))
             events=[dict(e) for e in conn.execute('SELECT h.*,u.full_name AS actor FROM ztl_history h LEFT JOIN users u ON u.id=h.actor_id ORDER BY h.id DESC LIMIT 200')] if tab=='history' else []
-            result=render(tab=tab,start=start,end=end,r=r,visible=visible,mode=mode,unpaid=unpaid,payments=payments,balances=balances,events=events,stamp=ledger_stamp(conn),saved=request.args.get('saved')=='1')
+            if 'inventory_manage' not in rights():events=[e for e in events if e['entity'] not in ('Инвентаризация','Списание ЗТЛ','Производство')]
+            if not rights() & {'receipts_view','receipts_edit'}:events=[e for e in events if e['entity']!='Приход ЗТЛ']
+            extra=dict(technician=technician,stock_stamp=ztl_control.stock_stamp(conn))
+            if tab=='products':extra.update(items=ztl_control.stock(conn),cards=ztl_control.catalog(conn))
+            if tab=='receipts':
+                receipts=[dict(row) for row in conn.execute('SELECT id,supplier,reference,received_on,lines,confirmed,paid,posted,version,document_name FROM ztl_receipts ORDER BY id DESC')]
+                for row in receipts:row['parts']=json.loads(row['lines'])
+                extra.update(items=ztl_control.stock(conn),receipts=receipts)
+            if tab=='inventory':
+                inventories=[dict(row) for row in conn.execute('SELECT * FROM ztl_inventories ORDER BY id DESC')]
+                full='inventory_manage' in rights()
+                for inv in inventories:
+                    snap=json.loads(inv['snapshot']);counts=json.loads(inv['counts']) if inv['counts'] else {}
+                    inv['rows']=[{**({k:v for k,v in row.items() if full or k in ('id','name','unit','received')}), 'count':counts.get(str(row['id']))} for row in snap]
+                    if not full:
+                        for key in ('snapshot','stamp','counts','counts_first'):inv.pop(key,None)
+                extra.update(inventories=inventories,items=ztl_control.stock(conn) if full else [],full_inventory=full)
+            if tab in ('payroll','economics'):
+                extra.update(payroll_orders=ztl_control.payroll_orders(conn,start,end,technician))
+            if tab=='economics':extra.update(economics=ztl_control.economic_summary(conn,r))
+            result=render(**extra,tab=tab,start=start,end=end,r=r,visible=visible,mode=mode,unpaid=unpaid,payments=payments,balances=balances,events=events,stamp=ledger_stamp(conn),saved=request.args.get('saved')=='1')
             return result
         except ValueError as exc:
             return str(exc),400
@@ -434,7 +468,9 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
         if 'orders' not in rights():abort(403)
         try:
             edit=row_by_id(db(),'ztl_orders',integer(request.args['id'])) if request.args.get('id') else None
-            return render(tab='order_form',edit=edit)
+            production=ztl_control.production(db(),edit['id']) if edit else None
+            if production:production['technician_ids']=json.loads(production['technicians'])
+            return render(tab='order_form',edit=edit,production=production)
         except ValueError as exc:return str(exc),400
 
     @app.get('/accounting/ztl/payment')
@@ -489,10 +525,10 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
             elif action=='void':void_payment(conn,request.form,g.user['id'])
             else:save_cost(conn,request.form,g.user['id'],action)
         except PermissionError:abort(403)
-        except Conflict as exc:return str(exc),409
-        except (ValueError,BadSignature) as exc:return 'Данные не сохранены: '+str(exc),400
+        except Conflict as exc:return str(exc),409,{'Content-Type':'text/plain; charset=utf-8'}
+        except (ValueError,BadSignature) as exc:return 'Данные не сохранены: '+str(exc),400,{'Content-Type':'text/plain; charset=utf-8'}
         except sqlite3.IntegrityError:return 'Данные не сохранены: номер заказа уже существует или ссылка некорректна.',409
-        return redirect(url_for('ztl_page',tab='payments' if needed=='payments' else 'costs' if action in ('payroll','lab_costs','clinic_costs') else 'catalog' if action=='catalog' else 'orders',start=request.form.get('month') or today()[:7],end=request.form.get('month') or today()[:7],saved='1'),303)
+        return redirect(url_for('ztl_page',tab='payments' if needed=='payments' else 'payroll' if action=='payroll' else 'economics' if action in ('lab_costs','clinic_costs') else 'catalog' if action=='catalog' else 'orders',start=request.form.get('month') or today()[:7],end=request.form.get('month') or today()[:7],saved='1'),303)
 
     @app.get('/accounting/ztl/document/<int:payment_id>')
     @permission_required('accounting')
