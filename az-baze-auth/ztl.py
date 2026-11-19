@@ -525,8 +525,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
             elif action=='void':void_payment(conn,request.form,g.user['id'])
             else:save_cost(conn,request.form,g.user['id'],action)
         except PermissionError:abort(403)
-        except Conflict as exc:return str(exc),409
-        except (ValueError,BadSignature) as exc:return 'Данные не сохранены: '+str(exc),400
+        except Conflict as exc:return str(exc),409,{'Content-Type':'text/plain; charset=utf-8'}
+        except (ValueError,BadSignature) as exc:return 'Данные не сохранены: '+str(exc),400,{'Content-Type':'text/plain; charset=utf-8'}
         except sqlite3.IntegrityError:return 'Данные не сохранены: номер заказа уже существует или ссылка некорректна.',409
         return redirect(url_for('ztl_page',tab='payments' if needed=='payments' else 'payroll' if action=='payroll' else 'economics' if action in ('lab_costs','clinic_costs') else 'catalog' if action=='catalog' else 'orders',start=request.form.get('month') or today()[:7],end=request.form.get('month') or today()[:7],saved='1'),303)
 

@@ -34,3 +34,9 @@ jobs:
           export CHROMIUM_PATH="$(command -v google-chrome || command -v chromium)"
           test -x "$CHROMIUM_PATH"
           python -B browser_ztl_control.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ztl-control-browser
+          path: az-baze-auth/ztl-browser-artifacts/
+          if-no-files-found: ignore

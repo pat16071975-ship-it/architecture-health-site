@@ -126,6 +126,23 @@ class ControlTests(unittest.TestCase):
         printed=self.client(1).get('/accounting/ztl/inventory/'+str(iid)+'/print')
         self.assertEqual(printed.status_code,200);self.assertIn('Казанцева',printed.get_data(as_text=True))
 
+    def test_receipt_route_accepts_document_limit_and_error_names_are_plain_text(self):
+        self.grant('ztl_receipts_edit')
+        data=dict(supplier='S',reference='HTTP-document',received_on='2026-11-01',document=(io.BytesIO(b'%PDF-'+b'0'*(3*1024*1024)),'test.pdf'))
+        response=self.post('receipt',data)
+        self.assertEqual(response.status_code,303)
+        data.update(reference='HTTP-too-large',document=(io.BytesIO(b'%PDF-'+b'0'*(5*1024*1024)),'large.pdf'))
+        self.assertEqual(self.post('receipt',data).status_code,400)
+        self.assertEqual(self.c.execute('SELECT COUNT(*) FROM ztl_receipts').fetchone()[0],1)
+        item=self.item(name='<img src=x onerror=alert(1)>');self.card(item)
+        self.grant('ztl_orders')
+        client=self.client(2)
+        with client.session_transaction() as session:session['csrf']='token'
+        response=client.post('/accounting/ztl/save/order',data=dict(csrf='token',number='ERR',invoice_date='2026-11-16',scope='external',party_id=self.party,patient='test',work_id=self.work,amount='1',delay_days='0',technician_id=self.technician))
+        self.assertEqual(response.status_code,400)
+        self.assertEqual(response.mimetype,'text/plain')
+        self.assertIn('<img',response.get_data(as_text=True))
+
     def test_inventory_match_zero_and_stock_concurrency(self):
         item=self.item();self.receipt(item)
         iid=self.inv('start');self.inv('count',iid,**{'count_'+str(item):'10'})

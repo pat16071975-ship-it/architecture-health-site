@@ -374,6 +374,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
         if not needed:abort(404)
         if needed=='inventory_count' and 'inventory_manage' in rights():pass
         else:require(needed)
+        if action=='receipt':request.max_content_length=6*1024*1024
         require_csrf();conn=db();data=request.form;tab='products'
         try:
             if action=='item':save_item(conn,data,g.user['id'])
@@ -390,8 +391,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
                     conn.execute('INSERT INTO ztl_cost_reconciliation(month,mode,stamp) VALUES(?,?,?) ON CONFLICT(month) DO UPDATE SET mode=excluded.mode,stamp=excluded.stamp,version=ztl_cost_reconciliation.version+1',(period,mode,current['stamp']))
                     ztl.log(conn,'Сверка затрат ЗТЛ',0,'Подтверждение',g.user['id'],current,dict(month=period,mode=mode))
                 tab='economics'
-        except Conflict as exc:return str(exc),409
-        except ValueError as exc:return 'Данные не сохранены: '+str(exc),400
+        except Conflict as exc:return str(exc),409,{'Content-Type':'text/plain; charset=utf-8'}
+        except ValueError as exc:return 'Данные не сохранены: '+str(exc),400,{'Content-Type':'text/plain; charset=utf-8'}
         except sqlite3.IntegrityError:return 'Такая запись или документ уже существует. Дубликат не проведён.',409
         return redirect(url_for('ztl_page',tab=tab,start=data.get('start') or ztl.today()[:7],end=data.get('end') or ztl.today()[:7],saved='1'),303)
 
