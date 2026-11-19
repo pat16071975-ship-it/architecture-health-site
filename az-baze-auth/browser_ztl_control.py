@@ -1,5 +1,6 @@
 """Synthetic UI checks through real Flask routes, without a network server or live DB."""
 import os
+from pathlib import Path
 from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright
 from test_ztl_control import ControlTests
@@ -21,6 +22,8 @@ try:
                 headers={}
                 if req.headers.get('content-type'):headers['Content-Type']=req.headers['content-type']
                 response=client.open(target,method=req.method,data=req.post_data_buffer,headers=headers)
+                if response.status_code>=400:
+                    raise AssertionError((req.method,target,response.status_code,response.get_data(as_text=True)[:2000]))
                 response_headers={k:v for k,v in response.headers.items() if k.lower() not in ('content-length','set-cookie')}
                 route.fulfill(status=response.status_code,headers=response_headers,body=response.data)
             page.route('**/*',route)
@@ -40,8 +43,14 @@ try:
             page.locator('[name=pieces]').fill('2')
             page.locator('[name=amount]').fill('500')
             page.locator('[name=completed_on]').fill('2026-11-16')
+            invalid=page.locator('form input:invalid,form select:invalid').evaluate_all('(els)=>els.map(e=>({name:e.name,value:e.value,error:e.validationMessage}))')
+            assert not invalid,invalid
             page.get_by_role('button',name='Сохранить заказ',exact=True).click()
-            page.wait_for_url('**/ztl/?**')
+            try:
+                page.wait_for_url('**/ztl/?**',timeout=10000)
+            except Exception:
+                print('ORDER_SUBMIT_FAILED',page.url,page.locator('body').inner_text())
+                raise
             assert 'Синтетический заказ '+str(width) in page.locator('body').inner_text()
             page.locator('#technician').select_option(str(fixture.technician))
             page.get_by_role('button',name='Показать',exact=True).click()
