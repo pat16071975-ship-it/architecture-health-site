@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import sqlite3
 import unittest
 from unittest.mock import patch
@@ -61,6 +62,113 @@ class ControlTests(unittest.TestCase):
         client=self.client(2)
         with client.session_transaction() as session:session['csrf']='token'
         return client.post('/accounting/ztl/save/order',data={**data,'csrf':'token'})
+
+    def test_registry_price_rows_match_filled_prices_after_http_save_and_edit(self):
+        self.grant('ztl_catalog')
+        for internal,external,scopes in [('', '24000', ['external']), ('1250', '', ['internal']),
+                                         ('100', '200', ['internal','external']), ('0', '', ['internal']),
+                                         ('', '0', ['external']), ('0', '0', ['internal','external']),
+                                         (' ', '', [])]:
+            with self.subTest(internal=internal,external=external):
+                data=self.product_data(work_id=self.work,work_version=1,version=self.c.execute(
+                    'SELECT version FROM ztl_cards WHERE work_id=?',(self.work,)).fetchone()[0],
+                    name='Работа',material_row=[],no_materials='1',internal_price=internal,external_price=external)
+                self.assertEqual(self.post('card',data).status_code,303)
+                before='\n'.join(self.c.iterdump())
+                page=self.client(2).get('/accounting/ztl/products/').get_data(as_text=True)
+                entry=page.split('data-product-entry="'+str(self.work)+'"',1)[1].split('</tbody>',1)[0]
+                self.assertEqual(re.findall(r'data-price-type="([^"]+)"',entry),scopes)
+                self.assertEqual(entry.count('data-unpriced-product'),int(not scopes))
+                self.assertEqual(entry.count('data-edit-product='),len(scopes) or 1)
+                self.assertEqual([p['scope'] for p in c.order_price_choices(self.c)],scopes)
+                self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_external_only_new_product_uses_one_card_and_keeps_existing_orders(self):
+        oid=self.order();before_order=ztl.row_by_id(self.c,'ztl_orders',oid)
+        before_production=c.production(self.c,oid);stamp=c.stock_stamp(self.c)
+        self.grant('ztl_catalog')
+        self.assertEqual(self.post('card',self.product_data(internal_price='',external_price='24000',ident_code='001.02')).status_code,303)
+        card=next(r for r in c.catalog(self.c) if r['name']=='Новое изделие')
+        self.assertEqual((card['internal_price'],card['external_price'],card['ident_code']),(None,2400000,'001.02'))
+        self.assertEqual(self.c.execute('SELECT COUNT(*) FROM ztl_cards WHERE work_id=?',(card['id'],)).fetchone()[0],1)
+        self.assertEqual(ztl.row_by_id(self.c,'ztl_orders',oid),before_order)
+        self.assertEqual(c.production(self.c,oid),before_production)
+        self.assertEqual(c.stock_stamp(self.c),stamp)
+
+    def test_ident_code_http_edit_legacy_omission_clear_and_audit(self):
+        self.grant('ztl_catalog')
+        self.assertEqual(self.post('card',self.product_data(ident_code='  0007.А-01  ')).status_code,303)
+        card=next(r for r in c.catalog(self.c) if r['name']=='Новое изделие');wid=card['id']
+        self.assertEqual(card['ident_code'],'0007.А-01')
+        page=self.client(2).get('/accounting/ztl/products/').get_data(as_text=True)
+        self.assertLess(page.index('name="ident_code"'),page.index('name="name"'))
+        entry=page.split('data-product-entry="'+str(wid)+'"',1)[1].split('</tbody>',1)[0]
+        self.assertEqual(entry.count('data-list-label="Код IDENT">0007.А-01</td>'),2)
+        self.assertIn('name="ident_code" value="0007.А-01"',entry)
+        data=self.product_data(work_id=wid,work_version=card['work_version'],version=card['version'],
+                               material_0=str(card['parts'][0]['item_id']),ident_code='0008')
+        self.assertEqual(self.post('card',data).status_code,303)
+        history=self.c.execute("SELECT before_json,after_json FROM ztl_history WHERE entity='Технологическая карта' AND entity_id=? ORDER BY id DESC LIMIT 1",(wid,)).fetchone()
+        self.assertEqual(json.loads(history['before_json'])['ident_code'],'0007.А-01')
+        self.assertEqual(json.loads(history['after_json'])['ident_code'],'0008')
+        before='\n'.join(self.c.iterdump())
+        self.assertEqual(self.post('card',data).status_code,409)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        data['version']+=1;del data['ident_code']
+        self.assertEqual(self.post('card',data).status_code,303)
+        self.assertEqual(next(r for r in c.catalog(self.c) if r['id']==wid)['ident_code'],'0008')
+        data.update(version=data['version']+1,ident_code='')
+        self.assertEqual(self.post('card',data).status_code,303)
+        self.assertEqual(next(r for r in c.catalog(self.c) if r['id']==wid)['ident_code'],'')
+        self.assertIsNone(self.c.execute('SELECT * FROM ztl_product_codes WHERE work_id=?',(wid,)).fetchone())
+
+    def test_ident_code_invalid_and_failed_save_leave_no_partial_records(self):
+        self.grant('ztl_catalog');before='\n'.join(self.c.iterdump())
+        for code in ('a'*101,'00\n17','00\x0017','00\x7f17'):
+            with self.subTest(code=repr(code)):
+                response=self.post('card',self.product_data(ident_code=code))
+                self.assertEqual(response.status_code,400)
+                self.assertIn('Код IDENT',response.get_data(as_text=True))
+                self.assertEqual('\n'.join(self.c.iterdump()),before)
+        # This fails after the code insert, and must roll it back with the material.
+        self.assertEqual(self.post('card',self.product_data(ident_code='007',external_price='-1')).status_code,400)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        original=ztl.log
+        def fail_card(*args,**kwargs):
+            if args[1]=='Технологическая карта':raise RuntimeError('audit failed')
+            return original(*args,**kwargs)
+        with patch.object(ztl,'log',side_effect=fail_card),self.assertRaisesRegex(RuntimeError,'audit failed'):
+            c.save_card(self.c,self.product_data(ident_code='007'),1)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_ident_code_archive_restore_delete_and_permission(self):
+        c.save_card(self.c,self.product_data(ident_code='00005'),1)
+        wid=next(r['id'] for r in c.catalog(self.c) if r['name']=='Новое изделие')
+        before='\n'.join(self.c.iterdump())
+        self.assertEqual(self.post('card',self.product_data(ident_code='007')).status_code,403)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.grant('ztl_catalog')
+        for action in ('archive','restore'):
+            self.assertEqual(self.post('product-action',self.product_operation(wid,action)).status_code,303)
+            self.assertEqual(next(r for r in c.catalog(self.c) if r['id']==wid)['ident_code'],'00005')
+        self.assertEqual(self.post('product-action',self.product_operation(wid,'delete')).status_code,303)
+        self.assertIsNone(self.c.execute('SELECT * FROM ztl_product_codes WHERE work_id=?',(wid,)).fetchone())
+        history=self.c.execute("SELECT before_json FROM ztl_history WHERE entity='Изделие ЗТЛ' AND entity_id=? ORDER BY id DESC LIMIT 1",(wid,)).fetchone()
+        self.assertEqual(json.loads(history[0])['ident_code'],'00005')
+
+    def test_ident_code_html_escaped_and_optional_for_legacy_cards(self):
+        c.save_card(self.c,self.product_data(ident_code='00<svg/onload=alert(1)>'),1)
+        page=self.client(1).get('/accounting/ztl/products/').get_data(as_text=True)
+        self.assertNotIn('00<svg/onload=alert(1)>',page)
+        self.assertIn('00&lt;svg/onload=alert(1)&gt;',page)
+        self.assertEqual(next(r for r in c.catalog(self.c) if r['id']==self.work)['ident_code'],'')
+
+    def test_code_schema_init_is_idempotent_and_does_not_fill_existing_products(self):
+        before='\n'.join(self.c.iterdump())
+        self.c.execute('DROP TABLE ztl_product_codes');self.c.commit()
+        c.init_schema(self.c);c.init_schema(self.c)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.assertEqual(self.c.execute('SELECT COUNT(*) FROM ztl_product_codes').fetchone()[0],0)
 
     def test_order_price_positions_filter_missing_zero_and_archive(self):
         with self.c:self.c.execute('UPDATE ztl_product_prices SET internal_price=0,external_price=NULL WHERE work_id=?',(self.work,))
