@@ -1,0 +1,120 @@
+{% macro material_row(index,part=none) %}
+<div class="ztl-material-row" data-material-row>
+{{ hidden('material_row',index) }}
+<div><label>Материал<select name="material_{{ index }}" data-material-choice><option value="">Выберите материал</option>{% for item in items if item.kind=='material' %}<option value="{{ item.id }}" data-unit="{{ item.unit }}" data-price="{{ item.unit_cost if item.unit_cost is not none else '' }}" {{ 'selected' if part and part.item_id==item.id else '' }}>{{ item.name }}</option>{% endfor %}<option value="new">+ Новый материал…</option></select></label><label data-material-name hidden>Название нового материала<input name="material_name_{{ index }}" maxlength="200" required disabled placeholder="Например, проволока 0,8 мм"></label></div>
+{{ unit_select('material_unit_'~index,'material_custom_unit_'~index,part.unit if part else '',true) }}
+<label>Расход на одно изделие<input name="material_qty_{{ index }}" data-material-qty inputmode="decimal" value="{{ qty_fmt(part.qty) if part else '' }}" placeholder="Например, 0,25"></label>
+<div class="ztl-material-price"><span>Стоимость материала</span><output data-material-cost>—</output><small data-material-price-note></small></div>
+<button type="button" class="btn" data-remove-material>Удалить строку</button>
+</div>
+{% endmacro %}
+
+{% macro product_form(card=none) %}
+<form method="post" action="{{ post('card') }}" class="ztl-product-form" data-product-form data-inline-save>
+{{ base() }}{{ hidden('materials_present','1') }}{{ hidden('version',card.version or 0 if card else 0) }}
+{% if card %}{{ hidden('work_id',card.id) }}{{ hidden('work_version',card.work_version) }}{% endif %}
+<label class="ztl-product-name">Название изделия<input name="name" value="{{ card.name if card else '' }}" maxlength="200" required placeholder="Введите название изделия"></label>
+<h4>Состав на одно изделие</h4>
+<div data-materials-section><div data-material-rows>{% if card and card.parts %}{% for part in card.parts %}{{ material_row(loop.index0,part) }}{% endfor %}{% else %}{{ material_row(0) }}{% endif %}</div>
+<button type="button" class="btn" data-add-material>+ Добавить материал</button></div>
+<label class="ztl-no-materials"><input type="checkbox" name="no_materials" value="1" {{ 'checked' if card and card.version and not card.parts else '' }}>Материалы не расходуются</label>
+<div class="ztl-product-totals">
+<label>Оплата технику за одно изделие, ₽<input name="technician_fee" data-technician-fee inputmode="decimal" value="{{ fmt(card.technician_fee) if card and card.technician_fee is not none else '' }}" required></label>
+<div><span>Материалы на одно изделие</span><output data-material-total>—</output></div>
+<div><strong>Себестоимость изделия</strong><output data-product-total>—</output></div>
+</div>
+<p class="muted" data-price-note>Себестоимость = материалы + оплата технику. Закупочные цены берутся из прихода; без цены материала итог не подменяется нулём.</p>
+<p class="error" role="alert" data-save-error hidden></p>
+<button class="btn primary" type="submit">{{ 'Сохранить изменения' if card else 'Добавить изделие' }}</button>
+</form>
+{% endmacro %}
+
+{% macro product_actions(card) %}
+{% if 'catalog' in rights %}<div class="ztl-product-actions">
+<form method="post" action="{{ post('product-action') }}" data-inline-save data-confirm="{{ 'Вернуть изделие в ассортимент?' if card.archived else 'Убрать изделие из выбора новых заказов? Старые заказы сохранятся.' }}">{{ base() }}{{ hidden('work_id',card.id) }}{{ hidden('work_version',card.work_version) }}{{ hidden('version',card.version or 0) }}{{ hidden('operation','restore' if card.archived else 'archive') }}{{ hidden('confirm','1') }}<p class="error" role="alert" data-save-error hidden></p><button class="btn">{{ 'Вернуть в ассортимент' if card.archived else 'Убрать из ассортимента' }}</button></form>
+{% if not card.used %}<form method="post" action="{{ post('product-action') }}" data-inline-save data-confirm="Удалить изделие «{{ card.name }}»? В заказах оно ещё не использовалось.">{{ base() }}{{ hidden('work_id',card.id) }}{{ hidden('work_version',card.work_version) }}{{ hidden('version',card.version or 0) }}{{ hidden('operation','delete') }}{{ hidden('confirm','1') }}<p class="error" role="alert" data-save-error hidden></p><button class="btn warn">Удалить изделие</button></form>{% endif %}
+</div>{% endif %}
+{% endmacro %}
+
+{% macro product_card(card) %}
+<details class="card ztl-product-entry" data-product-entry="{{ card.id }}"><summary><strong>{{ card.name }}</strong><span>Материалы: {{ fmt(card.material_cost)~' ₽' if card.material_cost is not none else 'нет закупочной цены' }}</span><span>Технику: {{ fmt(card.technician_fee)~' ₽' if card.technician_fee is not none else 'не задано' }}</span><strong>Себестоимость: {{ fmt(card.total_cost)~' ₽' if card.total_cost is not none else '—' }}</strong><span class="ztl-edit-label">{{ 'Редактировать' if 'catalog' in rights else 'Состав' }}</span></summary>
+{% if not card.version %}<p class="muted">Технологическая карта пока не заполнена.</p>{% endif %}
+{% if 'catalog' in rights %}{{ product_form(card) }}{% else %}{% for part in card.parts %}<p>{{ part.name }}: {{ qty_fmt(part.qty) }} {{ part.unit }} · {{ fmt(part.cost) }} ₽</p>{% endfor %}{% endif %}
+{{ product_actions(card) }}</details>
+{% endmacro %}
+
+<style>
+.ztl .ztl-product-form{display:grid;gap:14px}.ztl-product-form label,.ztl [data-unit-control] label{display:grid;gap:5px;font-size:13px;min-width:0}.ztl-product-form h4{margin:4px 0;font-size:15px}.ztl-product-form .muted{margin:0;font-size:12px}.ztl .ztl-product-form input:not([type=checkbox]),.ztl .ztl-product-form select{min-height:38px;padding:8px;font-size:13px}.ztl .ztl-product-form button[type=submit]{justify-self:start}.ztl-product-new{padding:18px!important;box-shadow:none!important}.ztl-product-new>summary{font-size:18px;cursor:pointer}.ztl-product-new[open]>.ztl-product-form{margin-top:16px}
+.ztl-material-row{display:grid;grid-template-columns:minmax(180px,2fr) minmax(120px,1fr) minmax(130px,1fr) minmax(135px,1fr) auto;gap:12px;align-items:start;border-bottom:1px solid var(--line);padding:12px 0}.ztl-material-row>div{min-width:0}.ztl-material-row [data-material-name],.ztl-material-row [data-custom-unit]{margin-top:8px}.ztl-material-row>[data-remove-material]{align-self:start;margin-top:23px}.ztl-material-price{display:grid;gap:8px;font-size:12px}.ztl-material-price output{font-size:14px;font-weight:600}.ztl-material-price small{color:#6c746d;overflow-wrap:anywhere}.ztl [data-add-material]{margin-top:12px}.ztl-product-form .ztl-no-materials{display:flex;align-items:center;gap:8px}.ztl-product-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;background:#f3f1e9;padding:14px;border-radius:8px}.ztl-product-totals>div{display:grid;gap:8px;align-content:start;font-size:13px}.ztl-product-totals output{font-size:17px;font-weight:600}.ztl-product-entry{padding:14px!important;box-shadow:none!important}.ztl-product-entry>summary{display:grid;grid-template-columns:1.5fr 1fr 1fr 1.2fr auto;gap:10px;align-items:center;font-size:12px;cursor:pointer}.ztl-product-entry[open]>.ztl-product-form{margin-top:18px}.ztl-edit-label{color:var(--green);text-decoration:underline}.ztl-product-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}.ztl-product-actions form{margin:0}.ztl-material-catalog{margin-top:20px!important}.ztl-material-entry{padding:8px 0;border-bottom:1px solid var(--line)}.ztl-material-entry form{margin-top:10px}.ztl-material-entry .ztl-fields{margin-bottom:10px}.ztl-material-entry label{display:grid;gap:5px;font-size:13px}
+@media(max-width:700px){.ztl-material-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ztl-material-row>div:first-of-type{grid-column:1/-1}.ztl-material-row>[data-remove-material]{margin-top:0;justify-self:end}.ztl-product-totals{grid-template-columns:1fr;gap:12px}.ztl-product-entry>summary{grid-template-columns:1fr}.ztl-product-new{padding:12px!important}.ztl-product-title{font-size:18px}}
+</style>
+
+{% if 'catalog' in rights %}<details class="card ztl-product-new" {{ 'open' if not cards else '' }}><summary>Новое изделие</summary>{{ product_form() }}</details>{% endif %}
+<h3 class="ztl-product-title">Изделия в ассортименте</h3>
+{% for card in cards if not card.archived %}{{ product_card(card) }}{% else %}<p class="muted">Изделия пока не добавлены.</p>{% endfor %}
+{% set archived=cards|selectattr('archived')|list %}{% if archived %}<details class="ztl-archived"><summary>Убраны из ассортимента ({{ archived|length }})</summary>{% for card in archived %}{{ product_card(card) }}{% endfor %}</details>{% endif %}
+
+{% if 'catalog' in rights %}<details class="ztl-material-catalog"><summary>Сохранённые материалы для изготовления</summary><p class="muted">Здесь можно исправить название материала или удалить ошибочную запись. Единицу использованного материала менять нельзя.</p>
+{% for item in items if item.kind=='material' %}<details class="ztl-material-entry" data-material-entry="{{ item.id }}"><summary>{{ item.name }} · {{ item.unit }} — редактировать</summary>
+<form method="post" action="{{ post('material-action') }}" data-inline-save>{{ base() }}{{ hidden('id',item.id) }}{{ hidden('version',item.version) }}{{ hidden('operation','edit') }}<div class="ztl-fields"><label>Название материала<input name="name" maxlength="200" value="{{ item.name }}" required></label>{{ unit_select('unit','custom_unit',item.unit) }}</div><p class="error" role="alert" data-save-error hidden></p><button class="btn">Сохранить материал</button></form>
+<form method="post" action="{{ post('material-action') }}" data-inline-save data-confirm="Удалить материал «{{ item.name }}»? Удаление возможно, только если он ещё не используется.">{{ base() }}{{ hidden('id',item.id) }}{{ hidden('version',item.version) }}{{ hidden('operation','delete') }}{{ hidden('confirm','1') }}<p class="error" role="alert" data-save-error hidden></p><button class="btn warn">Удалить материал</button></form>
+</details>{% else %}<p class="muted">Материалы появятся здесь после сохранения изделия или добавления позиции в приходе.</p>{% endfor %}</details>{% endif %}
+
+<template id="ztl-material-template">{{ material_row('__row__') }}</template>
+<script>
+(()=>{
+ const money=cents=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:2}).format(cents/100);
+ const numeric=value=>{const s=value.trim().replace(',','.');return /^\d+(?:\.\d+)?$/.test(s)?Number(s):null;};
+ document.querySelectorAll('[data-product-form]').forEach(form=>{
+  const rows=form.querySelector('[data-material-rows]'),section=form.querySelector('[data-materials-section]'),none=form.querySelector('[name=no_materials]');
+  let next=rows.children.length;
+  function update(){
+   let total=0,known=true,count=0;
+   rows.querySelectorAll('[data-material-row]').forEach(row=>{
+    const choice=row.querySelector('[data-material-choice]'),qty=row.querySelector('[data-material-qty]'),unit=row.querySelector('[data-unit-select]'),newName=row.querySelector('[data-material-name]'),custom=row.querySelector('[data-custom-unit]');
+    const option=choice.selectedOptions[0],isNew=choice.value==='new',selected=Boolean(choice.value);
+    row.querySelectorAll('input,select,button').forEach(input=>input.disabled=none.checked);
+    newName.hidden=!isNew;newName.querySelector('input').disabled=!isNew||none.checked;
+    unit.disabled=!isNew||none.checked;
+    if(selected&&!isNew)unit.value=option.dataset.unit;
+    if(!selected)unit.value='';
+    custom.hidden=unit.value!=='__custom__'||unit.disabled;custom.querySelector('input').disabled=custom.hidden;
+    qty.required=selected&&!none.checked;
+    const quantity=numeric(qty.value),price=selected&&!isNew&&option.dataset.price!==''?Number(option.dataset.price):null;
+    const cost=quantity!==null&&quantity>0&&price!==null?price*quantity:null;
+    row.querySelector('[data-material-cost]').textContent=cost===null?'—':money(Math.round(cost));
+    row.querySelector('[data-material-price-note]').textContent=selected?(price===null?'Нет закупочной цены':money(price)+' за '+option.dataset.unit):'';
+    if(selected||qty.value.trim()||newName.querySelector('input').value.trim()){count++;if(cost===null)known=false;else total+=cost;}
+   });
+   section.hidden=none.checked;
+   known=none.checked||(known&&count>0);if(none.checked)total=0;
+   const fee=numeric(form.querySelector('[data-technician-fee]').value);
+   form.querySelector('[data-material-total]').textContent=known?money(Math.round(total)):'—';
+   form.querySelector('[data-product-total]').textContent=known&&fee!==null?money(Math.round(total)+Math.round(fee*100)):'—';
+  }
+  form.addEventListener('input',update);form.addEventListener('change',update);
+  form.querySelector('[data-add-material]').addEventListener('click',()=>{
+   if(rows.children.length>=200)return;
+   const fragment=document.getElementById('ztl-material-template').content.cloneNode(true);
+   fragment.querySelectorAll('[name]').forEach(el=>{el.name=el.name.replace('__row__',String(next));if(el.name==='material_row')el.value=String(next);});next++;
+   rows.append(fragment);update();rows.lastElementChild.querySelector('select').focus();
+  });
+  rows.addEventListener('click',event=>{const button=event.target.closest('[data-remove-material]');if(button){button.closest('[data-material-row]').remove();update();}});
+  update();
+ });
+ document.querySelectorAll('[data-inline-save]').forEach(form=>{
+  form.addEventListener('submit',async event=>{
+   event.preventDefault();if(form.dataset.busy==='1')return;
+   if(form.dataset.confirm&&!window.confirm(form.dataset.confirm))return;
+   const error=form.querySelector('[data-save-error]'),body=new FormData(form),button=event.submitter||form.querySelector('button[type=submit],button:not([type])');
+   error.hidden=true;form.dataset.busy='1';button.disabled=true;
+   try{
+    const response=await fetch(form.action,{method:'POST',body,credentials:'same-origin'});
+    if(response.ok&&response.redirected&&new URL(response.url).pathname==='/accounting/ztl/products/'){window.location.assign(response.url);return;}
+    error.textContent=response.redirected?'Сессия завершилась. Откройте вход в новой вкладке, затем повторите сохранение.':await response.text();error.hidden=false;error.scrollIntoView({block:'nearest'});
+   }catch(e){error.textContent='Не удалось получить ответ сервера. Введённые данные сохранены в форме. Перед повтором проверьте реестр в новой вкладке.';error.hidden=false;}
+   finally{form.dataset.busy='0';button.disabled=false;}
+  });
+ });
+})();
+</script>

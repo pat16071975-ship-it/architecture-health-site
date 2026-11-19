@@ -20,6 +20,9 @@ origin='http://127.0.0.1:'+str(server.server_port)
 artifacts=Path(os.environ.get('ZTL_BROWSER_ARTIFACTS','ztl-browser-artifacts'));artifacts.mkdir(exist_ok=True)
 try:
     item=fixture.item();fixture.receipt(item,qty='100',value='1000');fixture.card(item)
+    plastic=fixture.item('Пластик ортодонтический',unit='г');fixture.receipt(plastic,qty='1000',value='20000')
+    screw=fixture.item('Винт расширяющий',unit='шт.');fixture.receipt(screw,qty='100',value='12000')
+    asset=fixture.item('Шкаф для проверки изоляции','asset','шт.')
     with sync_playwright() as pw:
         browser=pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
         for width in (1365,390):
@@ -56,6 +59,92 @@ try:
                 assert 'start=2026-11' in page.url and 'end=2026-11' in page.url
                 assert page.locator('table,form').count()==0
             print('ZTL_SEPARATE_PAGES',width,'PASS; seven vertical tiles, independent pages and return')
+            menu.get_by_role('link',name='Реестр изделий (технологические карты)',exact=True).click()
+            assert page.locator('form[action$="/item"],select[name=kind]').count()==0
+            assert 'Шкаф для проверки изоляции' not in page.locator('body').inner_text()
+            panel=page.locator('.ztl-product-new');panel.locator('summary').click()
+            product=panel.locator('[data-product-form]')
+            name='Ортодонтическая пластинка' if width==1365 else 'Пластинка с расширяющим винтом'
+            product.locator('[name=name]').fill(name)
+            for idx,(iid,qty) in enumerate([(item,'0,35'),(plastic,'12'),(screw,'1')]):
+                if idx:product.get_by_role('button',name='+ Добавить материал',exact=True).click()
+                product.locator('[name=material_'+str(idx)+']').select_option(str(iid))
+                product.locator('[name=material_qty_'+str(idx)+']').fill(qty)
+            product.get_by_role('button',name='+ Добавить материал',exact=True).click()
+            product.locator('[name=material_3]').select_option('new')
+            product.locator('[name=material_name_3]').fill('Проволока')  # Existing name must fail without losing the form.
+            product.locator('[name=material_unit_3]').select_option('__custom__')
+            product.locator('[name=material_custom_unit_3]').fill('капля')
+            product.locator('[name=material_qty_3]').fill('2')
+            product.locator('[name=technician_fee]').fill('900')
+            before='\n'.join(fixture.c.iterdump())
+            product.get_by_role('button',name='Добавить изделие',exact=True).click()
+            product.locator('[data-save-error]:not([hidden])').wait_for()
+            assert 'уже есть' in product.locator('[data-save-error]').inner_text()
+            assert product.locator('[name=name]').input_value()==name
+            assert product.locator('[name=material_qty_1]').input_value()=='12'
+            assert '\n'.join(fixture.c.iterdump())==before
+            material_name='Разделительный лак '+str(width)
+            product.locator('[name=material_name_3]').fill(material_name)
+            product.get_by_role('button',name='Добавить изделие',exact=True).click()
+            page.wait_for_url('**/ztl/products/?**')
+            wid=fixture.c.execute('SELECT id FROM ztl_names WHERE name=?',(name,)).fetchone()[0]
+            lacquer=fixture.c.execute('SELECT id FROM ztl_items WHERE name=?',(material_name,)).fetchone()[0]
+            fixture.receipt(lacquer,qty='100',value='100')
+            page.reload()
+            entry=page.locator('[data-product-entry="'+str(wid)+'"]');entry.locator('summary').first.click()
+            assert len(next(r['parts'] for r in control.catalog(fixture.c) if r['id']==wid))==4
+            assert next(r['total_cost'] for r in control.catalog(fixture.c) if r['id']==wid)==126550
+            assert '1\xa0265,50' in entry.locator('[data-product-total]').inner_text()
+            entry.screenshot(path=str(artifacts/('product-card-'+str(width)+'.png')))
+            page.screenshot(path=str(artifacts/('products-'+str(width)+'.png')),full_page=True)
+            entry.locator('[name=name]').fill(name+' — исправлено')
+            entry.get_by_role('button',name='Сохранить изменения',exact=True).click()
+            page.wait_for_load_state('networkidle')
+            entry.locator('summary').first.click()
+            assert name+' — исправлено' in entry.locator('summary').first.inner_text()
+            page.once('dialog',lambda dialog:dialog.accept())
+            entry.get_by_role('button',name='Убрать из ассортимента',exact=True).click()
+            page.wait_for_load_state('networkidle')
+            page.goto(origin+'/accounting/ztl/order')
+            assert page.locator('[name=work_id] option[value="'+str(wid)+'"]').count()==0
+            page.goto(origin+'/accounting/ztl/products/')
+            page.locator('.ztl-archived>summary').click();entry.locator('summary').first.click()
+            page.once('dialog',lambda dialog:dialog.accept())
+            entry.get_by_role('button',name='Вернуть в ассортимент',exact=True).click()
+            page.wait_for_load_state('networkidle')
+            entry.locator('summary').first.click()
+            page.once('dialog',lambda dialog:dialog.accept())
+            entry.get_by_role('button',name='Удалить изделие',exact=True).click()
+            page.wait_for_load_state('networkidle')
+            assert entry.count()==0
+            typo=fixture.item('Ошибочная запись '+str(width),unit='ууу')
+            page.reload();page.locator('.ztl-material-catalog>summary').click()
+            material=page.locator('[data-material-entry="'+str(typo)+'"]');material.locator('summary').click()
+            material.locator('[name=name]').fill('Исправленный материал')
+            material.locator('[name=unit]').select_option('г')
+            material.get_by_role('button',name='Сохранить материал',exact=True).click()
+            page.wait_for_load_state('networkidle')
+            page.locator('.ztl-material-catalog>summary').click();material.locator('summary').click()
+            assert 'Исправленный материал · г' in material.locator('summary').inner_text()
+            page.once('dialog',lambda dialog:dialog.accept())
+            material.get_by_role('button',name='Удалить материал',exact=True).click()
+            page.wait_for_load_state('networkidle');assert material.count()==0
+            # A filled, unsaved example of the same real creation form for owner approval.
+            panel=page.locator('.ztl-product-new');panel.locator('summary').click();product=panel.locator('[data-product-form]')
+            product.locator('[name=name]').fill(name)
+            for idx,(iid,qty) in enumerate([(item,'0,35'),(plastic,'12'),(screw,'1'),(lacquer,'2')]):
+                if idx:product.get_by_role('button',name='+ Добавить материал',exact=True).click()
+                product.locator('[name=material_'+str(idx)+']').select_option(str(iid))
+                product.locator('[name=material_qty_'+str(idx)+']').fill(qty)
+            product.locator('[name=technician_fee]').fill('900')
+            product.get_by_role('button',name='+ Добавить материал',exact=True).click()
+            product.locator('[data-material-row]').last.get_by_role('button',name='Удалить строку').click()
+            assert product.locator('[data-material-row]').count()==4
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+            panel.screenshot(path=str(artifacts/('new-product-'+str(width)+'.png')))
+            print('ZTL_UNIFIED_PRODUCT',width,'PASS; four materials, custom unit, errors preserve input, edit/delete/archive/restore')
+            page.get_by_role('link',name='← К разделам ЗТЛ',exact=True).click()
             menu.get_by_role('link',name='Приход',exact=True).click()
             panel=page.locator('details').filter(has=page.get_by_text('Добавить приход / загрузить УПД',exact=True))
             panel.locator('summary').click()
@@ -129,7 +218,8 @@ try:
             page.get_by_role('link',name='← К разделам ЗТЛ',exact=True).click()
             menu.get_by_role('link',name='Инвентаризация',exact=True).click()
             page.get_by_role('button',name='Начать инвентаризацию').click()
-            page.locator('[name=count_'+str(item)+']').fill(str(control.stock(fixture.c)[0]['qty']/1000))
+            for stock_item in control.stock(fixture.c):
+                page.locator('[name=count_'+str(stock_item['id'])+']').fill(str(stock_item['qty']/1000))
             page.get_by_role('button',name='Сдать остатки на проверку').click()
             page.get_by_role('button',name='Принять инвентаризацию',exact=True).click()
             assert 'Принята' in page.locator('body').inner_text()

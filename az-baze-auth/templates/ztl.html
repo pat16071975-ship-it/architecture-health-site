@@ -6,7 +6,7 @@
 <div class="field ztl-reference" data-reference>
 <label for="{{ key }}">{{ label }}</label>
 <div data-existing><select id="{{ key }}" name="{{ key }}" {% if required %}required{% endif %}><option value="">Выберите из списка…</option>
-{% for n in (parties if kind=='party' else names) %}{% if kind=='party' or n.kind==kind %}<option value="{{ n.id }}" {% if selected==n.id %}selected{% endif %}>{{ n.name }}{% if kind=='party' %} — {{ 'юрлицо' if n.kind=='legal' else 'частный клиент' }}{% endif %}</option>{% endif %}{% endfor %}</select></div>
+{% for n in (parties if kind=='party' else names) %}{% if (kind=='party' or n.kind==kind) and (kind!='work' or not n.archived or selected==n.id) %}<option value="{{ n.id }}" {% if selected==n.id %}selected{% endif %}>{{ n.name }}{% if kind=='party' %} — {{ 'юрлицо' if n.kind=='legal' else 'частный клиент' }}{% elif kind=='work' and n.archived %} — убрано из ассортимента{% endif %}</option>{% endif %}{% endfor %}</select></div>
 {% if can_add %}
 <button type="button" class="ztl-add-reference" data-add-reference aria-expanded="false" aria-controls="{{ key }}-new-panel">+ Добавить: {{ label|lower }}</button>
 <div id="{{ key }}-new-panel" class="ztl-new-reference" data-new hidden>

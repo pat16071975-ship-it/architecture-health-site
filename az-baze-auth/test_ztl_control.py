@@ -40,6 +40,170 @@ class ControlTests(unittest.TestCase):
         with client.session_transaction() as session:session['csrf']='token'
         return client.post('/accounting/ztl/control/'+action,data={**(data or {}),'csrf':'token'})
 
+    def product_data(self,**changes):
+        data=dict(name='Новое изделие',version='0',materials_present='1',material_row=['0'],
+                  material_0='new',material_name_0='Пластик',material_unit_0='г',material_qty_0='2,5',technician_fee='150')
+        data.update(changes);return data
+
+    def product_operation(self,wid,operation):
+        work=ztl.row_by_id(self.c,'ztl_names',wid)
+        card=self.c.execute('SELECT version FROM ztl_cards WHERE work_id=?',(wid,)).fetchone()
+        return dict(work_id=wid,work_version=work['version'],version=card['version'] if card else 0,operation=operation,confirm='1')
+
+    def test_unified_http_creates_product_and_many_materials_atomically(self):
+        wire=self.item();self.receipt(wire)
+        data=self.product_data(material_row=['0','1','2'],material_0=str(wire),material_name_0='',material_qty_0='0,25',material_unit_0='м',
+             material_1='new',material_name_1='Винт',material_qty_1='2',material_unit_1='шт.',
+             material_2='new',material_name_2='Особый пластик',material_qty_2='1.5',material_unit_2='__custom__',material_custom_unit_2='порция')
+        self.grant('ztl_catalog')
+        response=self.post('card',data)
+        self.assertEqual(response.status_code,303)
+        self.assertIn('/ztl/products/',response.location)
+        card=next(r for r in c.catalog(self.c) if r['name']==data['name'])
+        self.assertEqual([p['qty'] for p in card['parts']],[250,2000,1500])
+        self.assertEqual(card['technician_fee'],15000)
+        self.assertIsNone(card['total_cost'])
+        self.assertIn('порция',c.units(self.c))
+        self.assertTrue(all(r['kind']=='material' for r in c.stock(self.c)))
+        self.assertEqual(c.stock_stamp(self.c),1)  # Saving a recipe never posts stock.
+        page=self.client(2).get('/accounting/ztl/products/').get_data(as_text=True)
+        self.assertIn('<option value="порция"',page)
+
+    def test_bad_composition_rolls_back_name_materials_and_history(self):
+        self.grant('ztl_catalog')
+        asset=self.item('Шкаф','asset','шт.')
+        before='\n'.join(self.c.iterdump())
+        cases=[{'technician_fee':'oops'}, {'material_qty_0':'0'}, {'material_qty_0':'-1'},
+               {'material_unit_0':'__custom__','material_custom_unit_0':''},
+               {'material_row':['0','1'],'material_1':str(asset),'material_qty_1':'1'},
+               {'material_row':['0','0']}, {'material_0':''}, {'no_materials':'1'},
+               {'material_row':['0','1'],'material_1':'new','material_name_1':'Пластик','material_qty_1':'1','material_unit_1':'г'}]
+        for change in cases:
+            with self.subTest(change=change):
+                response=self.post('card',self.product_data(**change))
+                self.assertEqual(response.status_code,400,response.get_data(as_text=True))
+                self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_composition_existing_units_and_duplicate_items_are_protected(self):
+        iid=self.item();self.grant('ztl_catalog');before='\n'.join(self.c.iterdump())
+        cases=[dict(material_unit_0='кг'),dict(material_row=['0','1'],material_1=str(iid),material_qty_1='2')]
+        for change in cases:
+            data=self.product_data(material_0=str(iid),material_unit_0='м',material_name_0='')
+            data.update(change)
+            self.assertEqual(self.post('card',data).status_code,400)
+            self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_unified_edit_name_composition_fee_does_not_reprice_old_order(self):
+        iid=self.item();self.receipt(iid);self.card(iid)
+        oid=self.order();original=c.production(self.c,oid);stamp=c.stock_stamp(self.c)
+        work=ztl.row_by_id(self.c,'ztl_names',self.work)
+        data=self.product_data(work_id=self.work,work_version=work['version'],version=2,name='Исправленное изделие',
+             material_0=str(iid),material_name_0='',material_unit_0='м',material_qty_0='2',technician_fee='99')
+        self.grant('ztl_catalog')
+        self.assertEqual(self.post('card',data).status_code,303)
+        self.assertEqual(ztl.row_by_id(self.c,'ztl_names',self.work)['name'],'Исправленное изделие')
+        self.assertEqual(c.production(self.c,oid),original)
+        self.assertEqual(c.stock_stamp(self.c),stamp)
+        before='\n'.join(self.c.iterdump())
+        self.assertEqual(self.post('card',data).status_code,409)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_products_screen_has_full_title_one_creation_form_and_materials_only(self):
+        self.item('Только материал');self.item('Скрытый шкаф','asset','шт.')
+        before='\n'.join(self.c.iterdump())
+        page=self.client(1).get('/accounting/ztl/products/').get_data(as_text=True)
+        self.assertIn('Реестр изделий (технологические карты)',page)
+        self.assertEqual(page.count('Добавить изделие</button>'),1)
+        self.assertNotIn('action="/accounting/ztl/control/item"',page)
+        self.assertNotIn('name="kind"',page)
+        self.assertNotIn('Скрытый шкаф',page)
+        self.assertIn('+ Добавить материал',page)
+        self.assertIn('+ Своя единица',page)
+        self.assertIn('Сохранённые материалы для изготовления',page)
+        self.assertIn('name="material_qty_0"',page)
+        receipts=self.client(1).get('/accounting/ztl/receipts/').get_data(as_text=True)
+        self.assertIn('Добавить позицию для прихода',receipts)
+        self.assertIn('Имущество (например, шкаф)',receipts)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_archive_preserves_orders_and_blocks_new_orders_until_restore(self):
+        iid=self.item();self.receipt(iid);self.card(iid)
+        oid=self.order(completed_on='2026-11-16');saved=c.production(self.c,oid);stamp=c.stock_stamp(self.c)
+        self.grant('ztl_catalog')
+        self.assertEqual(self.post('product-action',self.product_operation(self.work,'archive')).status_code,303)
+        before='\n'.join(self.c.iterdump())
+        with self.assertRaisesRegex(ValueError,'убрано из ассортимента'):self.order()
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.grant('ztl_orders')
+        new=self.client(2).get('/accounting/ztl/order').get_data(as_text=True)
+        self.assertNotIn('value="'+str(self.work)+'" >Работа',new)
+        edit=self.client(2).get('/accounting/ztl/order?id='+str(oid)).get_data(as_text=True)
+        self.assertIn('Работа — убрано из ассортимента',edit)
+        self.assertEqual(self.order_http(oid,patient='Исправлен пациент').status_code,303)
+        self.assertEqual(c.production(self.c,oid),saved)
+        self.assertEqual(c.stock_stamp(self.c),stamp)
+        self.grant('ztl_catalog')
+        self.assertEqual(self.post('product-action',self.product_operation(self.work,'restore')).status_code,303)
+        self.order()
+        self.assertEqual(self.c.execute('SELECT COUNT(*) FROM ztl_orders').fetchone()[0],2)
+
+    def test_delete_unused_product_keeps_history_and_never_reuses_id(self):
+        c.save_card(self.c,self.product_data(),1)
+        wid=next(r['id'] for r in c.catalog(self.c) if r['name']=='Новое изделие')
+        self.grant('ztl_catalog')
+        self.assertEqual(self.post('product-action',self.product_operation(wid,'delete')).status_code,303)
+        self.assertFalse(self.c.execute('SELECT 1 FROM ztl_cards WHERE work_id=?',(wid,)).fetchone())
+        self.assertFalse(self.c.execute('SELECT 1 FROM ztl_names WHERE id=?',(wid,)).fetchone())
+        self.assertTrue(self.c.execute("SELECT 1 FROM ztl_history WHERE entity='Изделие ЗТЛ' AND entity_id=? AND action='Удаление'",(wid,)).fetchone())
+        with self.c:newid=ztl.catalog_entry(self.c,'work','Следующее изделие',1)
+        self.assertGreater(newid,wid)
+
+    def test_product_actions_used_delete_stale_version_and_confirm_guards(self):
+        self.order();self.grant('ztl_catalog');before='\n'.join(self.c.iterdump())
+        for op,change,status in [('delete',{},400),('archive',{'confirm':'0'},400),('archive',{'work_version':999},409),('archive',{'version':999},409)]:
+            data=self.product_operation(self.work,op);data.update(change)
+            self.assertEqual(self.post('product-action',data).status_code,status)
+            self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_material_error_correction_delete_and_id_history(self):
+        iid=self.item('ааа',unit='ууу');self.grant('ztl_catalog')
+        self.assertEqual(self.post('material-action',dict(id=iid,version=1,operation='edit',name='Пластик',unit='__custom__',custom_unit='порция')).status_code,303)
+        item=ztl.row_by_id(self.c,'ztl_items',iid)
+        self.assertEqual((item['name'],item['unit']),('Пластик','порция'))
+        self.assertEqual(self.post('material-action',dict(id=iid,version=2,operation='delete',confirm='1')).status_code,303)
+        self.assertGreater(self.item('Новый материал'),iid)
+
+    def test_material_used_in_card_or_receipt_cannot_be_deleted_or_change_unit(self):
+        iid=self.item();self.card(iid);other=self.item('Для черновика');self.receipt(other,paid='0')
+        self.grant('ztl_catalog');before='\n'.join(self.c.iterdump())
+        for material in (iid,other):
+            for data in (dict(operation='delete',confirm='1'),dict(operation='edit',name='Новое имя',unit='г')):
+                self.assertEqual(self.post('material-action',dict(id=material,version=1,**data)).status_code,400)
+                self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.assertEqual(self.post('material-action',dict(id=iid,version=1,operation='edit',name='Проволока новая',unit='м')).status_code,303)
+
+    def test_new_actions_require_catalog_accounting_csrf_and_rollback_failed_history(self):
+        iid=self.item();actions=[('card',self.product_data()),
+                ('product-action',self.product_operation(self.work,'archive')),
+                ('material-action',dict(id=iid,version=1,operation='delete',confirm='1'))]
+        for rights in ((),('ztl_orders',),('ztl_receipts_edit',)):
+            self.grant(*rights)
+            for action,data in actions:self.assertEqual(self.post(action,data).status_code,403)
+        self.grant('ztl_catalog')
+        before='\n'.join(self.c.iterdump())
+        for action,data in actions:
+            self.assertEqual(self.client(2).post('/accounting/ztl/control/'+action,data=data).status_code,400)
+            self.assertEqual(self.post(action,data,uid=3).status_code,403)
+        original=ztl.log
+        def fail_last(conn,entity,*args):
+            if entity in ('Технологическая карта','Изделие ЗТЛ') or (entity=='Номенклатура ЗТЛ' and args[1]=='Удаление'):
+                raise RuntimeError('history unavailable')
+            return original(conn,entity,*args)
+        with patch.object(ztl,'log',side_effect=fail_last):
+            for action,data in actions:
+                with self.assertRaisesRegex(RuntimeError,'history unavailable'):self.post(action,data)
+                self.assertEqual('\n'.join(self.c.iterdump()),before)
+
     def test_dynamic_card_average_and_frozen_order_fee(self):
         item=self.item();self.receipt(item);self.card(item,qty='2')
         self.assertEqual(c.catalog(self.c)[0]['material_cost'],2000)

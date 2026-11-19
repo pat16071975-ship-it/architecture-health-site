@@ -46,10 +46,26 @@ CREATE TABLE IF NOT EXISTS ztl_cost_reconciliation (
  month TEXT PRIMARY KEY, mode TEXT NOT NULL CHECK(mode IN ('included','additional')),
  stamp TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1
 );
+CREATE TABLE IF NOT EXISTS ztl_product_archive (
+ work_id INTEGER PRIMARY KEY REFERENCES ztl_names(id), archived_on TEXT NOT NULL, actor_id INTEGER NOT NULL
+);
 """
 RIGHTS = ('receipts_view','receipts_edit','inventory_count','inventory_manage')
-TABS = [('orders','Учёт заказов'),('products','Реестр изделий'),('receipts','Приход'),
+TABS = [('orders','Учёт заказов'),('products','Реестр изделий (технологические карты)'),('receipts','Приход'),
         ('payments','Реестр оплат'),('inventory','Инвентаризация'),('payroll','ФОТ'),('economics','Экономика')]
+UNITS = ('м','см','мм','г','кг','шт.','мл','л')
+
+
+def units(conn):
+    return list(dict.fromkeys((*UNITS, *(r[0] for r in conn.execute('SELECT DISTINCT unit FROM ztl_items ORDER BY unit')))))
+
+
+def selected_unit(data, key='unit', custom_key='custom_unit'):
+    value=data.get(custom_key) if data.get(key)=='__custom__' else data.get(key)
+    try:unit=text(value,30)
+    except ValueError:raise ValueError('Выберите единицу измерения или введите свою (до 30 символов).') from None
+    if unit=='__custom__':raise ValueError('Введите название своей единицы измерения.')
+    return unit
 
 
 def init_schema(conn):
@@ -100,7 +116,10 @@ def consume(conn, item_id, qty, kind, ref_id, reason, on_date):
 def catalog(conn):
     items = {r['id']:r for r in stock(conn)}
     result = []
-    for row in conn.execute("SELECT n.id,n.name,c.recipe,c.technician_fee,c.version FROM ztl_names n LEFT JOIN ztl_cards c ON c.work_id=n.id WHERE n.kind='work' ORDER BY n.name,n.id"):
+    for row in conn.execute("""SELECT n.id,n.name,n.version AS work_version,c.recipe,c.technician_fee,c.version,
+        a.work_id IS NOT NULL AS archived, EXISTS(SELECT 1 FROM ztl_orders o WHERE o.work_id=n.id) AS used
+        FROM ztl_names n LEFT JOIN ztl_cards c ON c.work_id=n.id
+        LEFT JOIN ztl_product_archive a ON a.work_id=n.id WHERE n.kind='work' ORDER BY n.name,n.id"""):
         r = dict(row); r['parts'] = []; cost = Decimal(0)
         if r['recipe'] is None:
             r.update(material_cost=None,total_cost=None);result.append(r);continue
@@ -115,15 +134,58 @@ def catalog(conn):
     return result
 
 
-def save_item(conn,data,actor):
+def insert_item(conn,name,unit,kind,actor):
+    """Insert and audit inside the caller's transaction."""
     import ztl
+    if kind not in ('material','asset','other'):raise ValueError('Выберите тип позиции.')
+    iid=conn.execute("SELECT MAX(value)+1 FROM (SELECT COALESCE(MAX(id),0) AS value FROM ztl_items UNION ALL SELECT COALESCE(MAX(entity_id),0) FROM ztl_history WHERE entity='Номенклатура ЗТЛ')").fetchone()[0]
+    conn.execute('INSERT INTO ztl_items(id,name,unit,kind) VALUES(?,?,?,?)',(iid,text(name,200),unit,kind))
+    ztl.log(conn,'Номенклатура ЗТЛ',iid,'Создание',actor,None,ztl.row_by_id(conn,'ztl_items',iid))
+    return iid
+
+
+def save_item(conn,data,actor):
     with conn:
         conn.execute('BEGIN IMMEDIATE')
-        kind=data.get('kind');unit=text(data.get('unit'),30)
-        if kind not in ('material','asset','other'):raise ValueError('Выберите тип позиции.')
-        iid=conn.execute('INSERT INTO ztl_items(name,unit,kind) VALUES(?,?,?)',(text(data.get('name'),200),unit,kind)).lastrowid
-        ztl.log(conn,'Номенклатура ЗТЛ',iid,'Создание',actor,None,ztl.row_by_id(conn,'ztl_items',iid))
+        iid=insert_item(conn,data.get('name'),selected_unit(data),data.get('kind'),actor)
     return iid
+
+
+def form_card_parts(conn,data,actor):
+    """One form can select existing materials or create them with the card."""
+    import ztl
+    rows=data.getlist('material_row') if hasattr(data,'getlist') else data.get('material_row',[])
+    if isinstance(rows,str):rows=[rows]
+    if len(rows)>200 or len(rows)!=len(set(rows)):
+        raise ValueError('В составе допускается до 200 разных строк материалов.')
+    parts=[];seen=set()
+    for raw in rows:
+        row=str(integer(raw))
+        if row!=str(raw):raise ValueError('Некорректная строка материала.')
+        choice=str(data.get('material_'+row,'')).strip()
+        qty_value=str(data.get('material_qty_'+row,'')).strip()
+        name=str(data.get('material_name_'+row,'')).strip()
+        if not choice and not qty_value and not name:continue
+        if data.get('no_materials')=='1':raise ValueError('Уберите материалы из состава или снимите отметку «Материалы не расходуются».')
+        if not choice:raise ValueError('Выберите материал или добавьте новый в строке состава.')
+        qty=number(qty_value)
+        if qty<=0:raise ValueError('Расход материала на одно изделие должен быть больше нуля.')
+        if choice=='new':
+            name=text(name,200)
+            if conn.execute('SELECT 1 FROM ztl_items WHERE name=?',(name,)).fetchone():
+                raise ValueError('Позиция «'+name+'» уже есть. Выберите её из списка материалов.')
+            unit=selected_unit(data,'material_unit_'+row,'material_custom_unit_'+row)
+            iid=insert_item(conn,name,unit,'material',actor)
+        else:
+            iid=integer(choice)
+            item=ztl.row_by_id(conn,'ztl_items',iid)
+            if item['kind']!='material':raise ValueError('В состав изделия можно включать только материалы.')
+            # A saved material's unit cannot be changed by editing its recipe.
+            unit=str(data.get('material_unit_'+row,'')).strip()
+            if unit and unit!=item['unit']:raise ValueError('Единица выбранного материала не совпадает с сохранённой.')
+        if iid in seen:raise ValueError('Материал повторяется. Укажите его общий расход в одной строке.')
+        seen.add(iid);parts.append(dict(item_id=iid,qty=qty))
+    return parts
 
 
 def save_card(conn,data,actor):
@@ -133,18 +195,89 @@ def save_card(conn,data,actor):
         wid=integer(data['work_id']) if data.get('work_id') else ztl.catalog_entry(conn,'work',data.get('name'),actor)
         work=ztl.row_by_id(conn,'ztl_names',wid)
         if work['kind']!='work':raise ValueError('Выберите изделие.')
+        if data.get('work_id') and data.get('materials_present')=='1':
+            ztl.version(work,{'version':data.get('work_version')})
+            name=text(data.get('name'),200)
+            if name!=work['name']:
+                conn.execute('UPDATE ztl_names SET name=?,version=version+1 WHERE id=?',(name,wid))
+                ztl.log(conn,'ztl_names',wid,'Изменение наименования',actor,work,ztl.row_by_id(conn,'ztl_names',wid))
         old=conn.execute('SELECT * FROM ztl_cards WHERE work_id=?',(wid,)).fetchone()
         if integer(data.get('version','0')) != (old['version'] if old else 0):raise Conflict('Карта изменена. Откройте её заново.')
-        parts=[]
-        for item in conn.execute("SELECT * FROM ztl_items WHERE kind='material'"):
-            value=data.get('qty_'+str(item['id']),'')
-            if str(value).strip():
-                qty=number(value)
-                if qty:parts.append(dict(item_id=item['id'],qty=qty))
+        if data.get('materials_present')=='1':
+            parts=form_card_parts(conn,data,actor)
+        else:
+            parts=[]
+            for item in conn.execute("SELECT * FROM ztl_items WHERE kind='material'"):
+                value=data.get('qty_'+str(item['id']),'')
+                if str(value).strip():
+                    qty=number(value)
+                    if qty:parts.append(dict(item_id=item['id'],qty=qty))
         if not parts and data.get('no_materials')!='1':raise ValueError('Заполните нормы материалов или явно подтвердите отсутствие расхода.')
         fee=number(data.get('technician_fee'),100)
         conn.execute('INSERT INTO ztl_cards(work_id,recipe,technician_fee) VALUES(?,?,?) ON CONFLICT(work_id) DO UPDATE SET recipe=excluded.recipe,technician_fee=excluded.technician_fee,version=ztl_cards.version+1',(wid,encode(parts),fee))
         ztl.log(conn,'Технологическая карта',wid,'Сохранение',actor,dict(old) if old else None,dict(recipe=parts,technician_fee=fee))
+
+
+def product_action(conn,data,actor):
+    import ztl
+    action=data.get('operation')
+    if action not in ('archive','restore','delete') or data.get('confirm')!='1':
+        raise ValueError('Подтвердите выбранное действие с изделием.')
+    with conn:
+        conn.execute('BEGIN IMMEDIATE')
+        wid=integer(data.get('work_id'));work=ztl.row_by_id(conn,'ztl_names',wid)
+        if work['kind']!='work':raise ValueError('Выберите изделие.')
+        ztl.version(work,{'version':data.get('work_version')})
+        card=conn.execute('SELECT * FROM ztl_cards WHERE work_id=?',(wid,)).fetchone()
+        if integer(data.get('version'))!=(card['version'] if card else 0):raise Conflict('Карта изменена. Откройте её заново.')
+        archived=conn.execute('SELECT 1 FROM ztl_product_archive WHERE work_id=?',(wid,)).fetchone() is not None
+        if action=='delete':
+            if conn.execute('SELECT 1 FROM ztl_orders WHERE work_id=?',(wid,)).fetchone():
+                raise ValueError('Изделие используется в заказах. Можно убрать его из ассортимента, сохранив историю.')
+            conn.execute('DELETE FROM ztl_product_archive WHERE work_id=?',(wid,))
+            conn.execute('DELETE FROM ztl_cards WHERE work_id=?',(wid,))
+            conn.execute('DELETE FROM ztl_names WHERE id=?',(wid,))
+        else:
+            if archived==(action=='archive'):raise Conflict('Статус изделия уже изменён. Обновите страницу.')
+            if action=='archive':conn.execute('INSERT INTO ztl_product_archive VALUES(?,?,?)',(wid,ztl.today(),actor))
+            else:conn.execute('DELETE FROM ztl_product_archive WHERE work_id=?',(wid,))
+            conn.execute('UPDATE ztl_names SET version=version+1 WHERE id=?',(wid,))
+        ztl.log(conn,'Изделие ЗТЛ',wid,{'archive':'Убрано из ассортимента','restore':'Возвращено в ассортимент','delete':'Удаление'}[action],actor,
+                dict(work=work,card=dict(card) if card else None,archived=archived),dict(operation=action))
+
+
+def material_used(conn,iid):
+    if conn.execute('SELECT 1 FROM ztl_moves WHERE item_id=?',(iid,)).fetchone():return True
+    for table,column,key in [('ztl_cards','recipe','item_id'),('ztl_production','recipe','item_id'),
+                             ('ztl_receipts','lines','item_id'),('ztl_inventories','snapshot','id')]:
+        for row in conn.execute('SELECT '+column+' FROM '+table):
+            try:
+                parts=json.loads(row[0])
+                if not isinstance(parts,list) or any(not isinstance(p,dict) for p in parts):raise ValueError()
+                if any(str(p.get(key))==str(iid) for p in parts):return True
+            except (ValueError,TypeError):raise ValueError('Не удалось проверить связи материала. Изменение не сохранено.') from None
+    return False
+
+
+def material_action(conn,data,actor):
+    import ztl
+    action=data.get('operation')
+    if action not in ('edit','delete'):raise ValueError('Выберите действие с материалом.')
+    with conn:
+        conn.execute('BEGIN IMMEDIATE')
+        iid=integer(data.get('id'));old=ztl.row_by_id(conn,'ztl_items',iid);ztl.version(old,data)
+        if old['kind']!='material':raise ValueError('Здесь доступны только материалы для изготовления.')
+        if action=='delete':
+            if data.get('confirm')!='1':raise ValueError('Подтвердите удаление материала.')
+            if material_used(conn,iid):raise ValueError('Материал используется в учёте или технологических картах. Удаление недоступно.')
+            conn.execute('DELETE FROM ztl_items WHERE id=?',(iid,));after=dict(deleted=True)
+        else:
+            name=text(data.get('name'),200);unit=selected_unit(data)
+            if unit!=old['unit'] and material_used(conn,iid):
+                raise ValueError('Нельзя менять единицу материала, который уже используется. Создайте отдельный материал с нужной единицей.')
+            conn.execute('UPDATE ztl_items SET name=?,unit=?,version=version+1 WHERE id=?',(name,unit,iid))
+            after=ztl.row_by_id(conn,'ztl_items',iid)
+        ztl.log(conn,'Номенклатура ЗТЛ',iid,'Удаление' if action=='delete' else 'Редактирование',actor,old,after)
 
 
 def production(conn,order_id):
@@ -373,7 +506,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
     @app.post('/accounting/ztl/control/<action>')
     @permission_required('accounting')
     def ztl_control_save(action):
-        needed={'item':'catalog','card':'catalog','receipt':'receipts_edit','inventory-start':'inventory_manage',
+        needed={'item':'catalog','card':'catalog','product-action':'catalog','material-action':'catalog','receipt':'receipts_edit','inventory-start':'inventory_manage',
                 'inventory-count':'inventory_count','inventory-recheck':'inventory_manage','inventory-explain':'inventory_count',
                 'inventory-accept':'inventory_manage','inventory-cancel':'inventory_manage','writeoff':'inventory_manage','reconcile':'lab_costs'}.get(action)
         if not needed:abort(404)
@@ -382,8 +515,12 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
         if action=='receipt':request.max_content_length=6*1024*1024
         require_csrf();conn=db();data=request.form;tab='products'
         try:
-            if action=='item':save_item(conn,data,g.user['id'])
+            if action=='item':
+                save_item(conn,data,g.user['id'])
+                if data.get('return_tab')=='receipts':tab='receipts'
             elif action=='card':save_card(conn,data,g.user['id'])
+            elif action=='product-action':product_action(conn,data,g.user['id'])
+            elif action=='material-action':material_action(conn,data,g.user['id'])
             elif action=='receipt':save_receipt(conn,data,g.user['id'],request.files.get('document'));tab='receipts'
             elif action.startswith('inventory-'):inventory_action(conn,action[10:],data,g.user['id']);tab='inventory'
             elif action=='writeoff':write_off(conn,data,g.user['id']);tab='inventory'

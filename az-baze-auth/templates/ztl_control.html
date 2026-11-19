@@ -1,18 +1,15 @@
 {% macro post(action) %}{{ url_for('ztl_control_save',action=action) }}{% endmacro %}
 {% macro base() %}{{ hidden('csrf',csrf) }}{{ hidden('start',start) }}{{ hidden('end',end) }}{% endmacro %}
 {% macro item_options(chosen=None) %}<option value="">Выберите позицию</option>{% for i in items %}<option value="{{ i.id }}" {{ 'selected' if chosen==i.id else '' }}>{{ i.name }} · {{ i.unit }}</option>{% endfor %}{% endmacro %}
+{% macro unit_select(name,custom_name,chosen='',disabled=false) %}
+<div data-unit-control><label>Единица измерения<select name="{{ name }}" data-unit-select required {{ 'disabled' if disabled else '' }}><option value="">Выберите единицу</option>{% for unit in units %}<option value="{{ unit }}" {{ 'selected' if unit==chosen else '' }}>{{ unit }}</option>{% endfor %}<option value="__custom__">+ Своя единица…</option></select></label><label data-custom-unit hidden>Своя единица<input name="{{ custom_name }}" maxlength="30" required disabled placeholder="Например, упаковка"></label></div>
+{% endmacro %}
 <style>.ztl-control-table{min-width:680px}.ztl-match{background:#e1efdf;color:#1e602c}.ztl-mismatch{background:#f8e0dd;color:#9e2929}.ztl table input{min-width:90px}.ztl .recipe-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}.ztl .recipe-grid label{display:grid;gap:5px}.ztl .inventory-state{padding:10px;border-radius:6px}.ztl .two-actions{display:flex;gap:8px;flex-wrap:wrap}</style>
 {% if tab=='products' %}
-<h3>Реестр изделий и технологические карты</h3>
-<p class="muted">Материалы — по текущей средней стоимости остатка; при нулевом остатке — по последнему приходу. Новая закупка обновляет оценку карты. Себестоимость здесь — материалы + оплата технику, без общих расходов и налогов на ФОТ. Стоимость ранее созданных заказов сохраняется.</p>
-{% if 'catalog' in rights %}<details class="card ztl-panel"><summary>Добавить материал или имущество</summary><form method="post" action="{{ post('item') }}">{{ base() }}<div class="ztl-fields">{{ field('name','Название (например, проволока)') }}{{ field('unit','Единица (м, г, шт. и другие)') }}<label>Тип<select name="kind"><option value="material">Материал для изготовления</option><option value="asset">Имущество (например, шкаф)</option><option value="other">Прочие позиции</option></select></label></div><button class="btn">Добавить</button></form></details>{% endif %}
-{% for c in cards %}<details class="card ztl-panel"><summary><strong>{{ c.name }}</strong> · Материалы: {{ fmt(c.material_cost) }} ₽ · Оплата технику: {{ fmt(c.technician_fee) }} ₽ · Себестоимость: {{ fmt(c.total_cost) }} ₽</summary>
-{% if not c.version %}<p>Историческое наименование. Карта пока не заполнена.</p>{% endif %}
-{% if 'catalog' in rights %}<form method="post" action="{{ post('card') }}">{{ base() }}{{ hidden('work_id',c.id) }}{{ hidden('version',c.version or 0) }}<div class="recipe-grid">{% for i in items if i.kind=='material' %}{% set part=c.parts|selectattr('item_id','equalto',i.id)|first %}<label>{{ i.name }}, {{ i.unit }} на одно изделие<input name="qty_{{ i.id }}" inputmode="decimal" value="{{ qty_fmt(part.qty) if part else '' }}"></label>{% endfor %}</div><label class="check"><input type="checkbox" name="no_materials" value="1" {{ 'checked' if c.version and not c.parts else '' }}>Материалы по этой карте не расходуются</label>{{ field('technician_fee','Оплата технику за одно изделие, ₽',fmt(c.technician_fee) if c.technician_fee is not none else '') }}<button class="btn">Сохранить карту</button></form>
-{% else %}{% for p in c.parts %}<p>{{ p.name }}: {{ qty_fmt(p.qty) }} {{ p.unit }} · {{ fmt(p.cost) }} ₽</p>{% endfor %}{% endif %}</details>{% endfor %}
-{% if 'catalog' in rights %}<details class="card ztl-panel"><summary>Новое изделие</summary><form method="post" action="{{ post('card') }}">{{ base() }}{{ hidden('version',0) }}{{ field('name','Название изделия') }}<div class="recipe-grid">{% for i in items if i.kind=='material' %}<label>{{ i.name }}, {{ i.unit }} на одно изделие<input name="qty_{{ i.id }}" inputmode="decimal"></label>{% endfor %}</div><label class="check"><input type="checkbox" name="no_materials" value="1">Материалы не расходуются</label>{{ field('technician_fee','Оплата технику за одно изделие, ₽') }}<button class="btn primary">Добавить изделие</button></form></details>{% endif %}
+{% include 'ztl_products.html' %}
 {% elif tab=='receipts' %}
 <h3>Приход</h3><p class="muted">Подтверждённый и оплаченный документ проводится один раз. Дата документа сохраняется отдельно: движение по складу создаётся в день проведения, без пересчёта прошлых заказов. Количество вводите в единице номенклатуры, стоимость — за всю строку. Упаковки предварительно пересчитайте в метры, граммы или штуки.</p>
+{% if 'catalog' in rights %}<details class="card ztl-panel"><summary>Добавить позицию для прихода</summary><form method="post" action="{{ post('item') }}">{{ base() }}{{ hidden('return_tab','receipts') }}<div class="ztl-fields">{{ field('name','Название позиции') }}{{ unit_select('unit','custom_unit') }}<label>Тип<select name="kind"><option value="material">Материал для изготовления</option><option value="asset">Имущество (например, шкаф)</option><option value="other">Прочие позиции</option></select></label></div><button class="btn">Добавить позицию</button></form></details>{% endif %}
 {% for receipt in receipts %}<details class="card ztl-panel"><summary>{{ receipt.received_on }} · {{ receipt.supplier }} · {{ receipt.reference }} · {{ 'Проведён' if receipt.posted else 'Ожидает подтверждения / оплаты' }}</summary>
 {% if receipt.document_name %}<p><a href="{{ url_for('ztl_receipt_document',iid=receipt.id) }}">{{ receipt.document_name }}</a></p>{% endif %}
 {% if not receipt.posted and 'receipts_edit' in rights %}
@@ -39,6 +36,12 @@
 {% endif %}
 
 <script>
+document.querySelectorAll('[data-unit-control]').forEach(control=>{
+ const select=control.querySelector('[data-unit-select]'),custom=control.querySelector('[data-custom-unit]'),input=custom.querySelector('input');
+ const sync=()=>{const show=select.value==='__custom__'&&!select.disabled;custom.hidden=!show;input.disabled=!show;};
+ select.addEventListener('change',sync);sync();
+});
+
 document.querySelectorAll('form[action$="/receipt"]').forEach(form=>{
  const table=form.querySelector('table');if(!table)return;
  const button=document.createElement('button');button.type='button';button.className='btn';button.textContent='+ Строка прихода';table.parentElement.after(button);

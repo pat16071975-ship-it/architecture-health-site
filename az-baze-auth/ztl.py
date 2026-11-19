@@ -121,7 +121,12 @@ def catalog_entry(conn, kind, name, actor, party_kind='private'):
     existing = conn.execute(f'SELECT id FROM {table} WHERE name=? AND {col}=?',(name,val)).fetchone()
     if existing:
         return existing['id']
-    iid = conn.execute(f'INSERT INTO {table}(name,{col}) VALUES(?,?)',(name,val)).lastrowid
+    if table=='ztl_names':
+        # Deleted unused products remain in history; never reuse their IDs.
+        iid=conn.execute("SELECT MAX(value)+1 FROM (SELECT COALESCE(MAX(id),0) AS value FROM ztl_names UNION ALL SELECT COALESCE(MAX(entity_id),0) FROM ztl_history WHERE entity='ztl_names')").fetchone()[0]
+        conn.execute('INSERT INTO ztl_names(id,name,kind) VALUES(?,?,?)',(iid,name,val))
+    else:
+        iid = conn.execute(f'INSERT INTO {table}(name,{col}) VALUES(?,?)',(name,val)).lastrowid
     log(conn,table,iid,'Создание',actor,None,dict(name=name,kind=val))
     return iid
 
@@ -182,6 +187,8 @@ def save_order(conn, data, actor, can_catalog=False):
                       amount=number(data.get('amount'),100),delay_days=integer(data.get('delay_days')))
         if values['delay_days'] > 3650:
             raise ValueError('Отсрочка не может превышать 3650 дней.')
+        if (not old or old['work_id']!=values['work_id']) and conn.execute('SELECT 1 FROM ztl_product_archive WHERE work_id=?',(values['work_id'],)).fetchone():
+            raise ValueError('Изделие убрано из ассортимента. Выберите действующее изделие.')
         if values['invoice_date'] > today():
             raise ValueError('Дата счёта не может быть в будущем.')
         if old:
@@ -386,7 +393,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
         return dict(rights=rights(),csrf=csrf_token(),fmt=lambda v: display(v,100) if v is not None else 'Неполные данные',
                     today=today(),methods=METHODS,kinds=KINDS,ztl_tabs=ztl_control.TABS,qty_fmt=display,
                     parties=[dict(r) for r in conn.execute('SELECT * FROM ztl_parties ORDER BY name,id')],
-                    names=[dict(r) for r in conn.execute('SELECT * FROM ztl_names ORDER BY name,id')])
+                    names=[dict(r) for r in conn.execute('SELECT n.*,a.work_id IS NOT NULL AS archived FROM ztl_names n LEFT JOIN ztl_product_archive a ON a.work_id=n.id ORDER BY n.name,n.id')])
 
     def render(error=None,status=200,**extra):
         labels=dict(ztl_control.TABS,doctors='Заказы по врачам',catalog='Справочники',history='История',
@@ -445,11 +452,11 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
             if 'inventory_manage' not in rights():events=[e for e in events if e['entity'] not in ('Инвентаризация','Списание ЗТЛ','Производство')]
             if not rights() & {'receipts_view','receipts_edit'}:events=[e for e in events if e['entity']!='Приход ЗТЛ']
             extra=dict(technician=technician)
-            if tab=='products':extra.update(items=ztl_control.stock(conn),cards=ztl_control.catalog(conn))
+            if tab=='products':extra.update(items=ztl_control.stock(conn),cards=ztl_control.catalog(conn),units=ztl_control.units(conn))
             if tab=='receipts':
                 receipts=[dict(row) for row in conn.execute('SELECT id,supplier,reference,received_on,lines,confirmed,paid,posted,version,document_name FROM ztl_receipts ORDER BY id DESC')]
                 for row in receipts:row['parts']=json.loads(row['lines'])
-                extra.update(items=ztl_control.stock(conn),receipts=receipts)
+                extra.update(items=ztl_control.stock(conn),receipts=receipts,units=ztl_control.units(conn))
             if tab=='inventory':
                 inventories=[dict(row) for row in conn.execute('SELECT * FROM ztl_inventories ORDER BY id DESC')]
                 full='inventory_manage' in rights()
