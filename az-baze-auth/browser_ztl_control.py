@@ -169,10 +169,24 @@ try:
             assert list_box['y']>=form_box['y']+form_box['height']
             if width==1365:
                 assert form_box['height']<=650,form_box
-                assert all(box['height']<=46 for box in page.locator('.ztl-products-list [data-product-entry]').evaluate_all('(rows)=>rows.map(row=>({height:row.getBoundingClientRect().height}))'))
+                assert all(box['height']<=64 for box in page.locator('.ztl-products-list [data-product-entry]').evaluate_all('(rows)=>rows.map(row=>({height:row.getBoundingClientRect().height}))'))
+            for saved_entry in page.locator('.ztl-products-list [data-product-entry]').all():
+                price_rows=saved_entry.locator('summary [data-price-type]')
+                assert price_rows.count()==2
+                assert price_rows.nth(0).get_attribute('data-price-type')=='internal'
+                assert price_rows.nth(1).get_attribute('data-price-type')=='external'
+                internal_box=price_rows.nth(0).bounding_box();external_box=price_rows.nth(1).bounding_box()
+                assert external_box['y']>=internal_box['y']+internal_box['height']-1
+                assert abs(internal_box['x']-external_box['x'])<1
+                saved=next(r for r in control.catalog(fixture.c) if r['id']==int(saved_entry.get_attribute('data-product-entry')))
+                for idx,key in enumerate(('internal_price','external_price')):
+                    expected=control.display(saved[key],100)+' ₽' if saved[key] is not None else 'Не задан'
+                    assert price_rows.nth(idx).locator('span').last.inner_text()==expected
+                assert saved_entry.locator('[data-product-form]').count()==1
             panel.screenshot(path=str(artifacts/('new-product-'+str(width)+'.png')))
+            page.locator('.ztl-products-list').screenshot(path=str(artifacts/('price-list-'+str(width)+'.png')))
             page.locator('.ztl-products-registry').screenshot(path=str(artifacts/('registry-'+str(width)+'.png')))
-            print('ZTL_UNIFIED_PRODUCT',width,'PASS; compact form, list below, internal/external prices, four materials, custom unit, errors preserve input, edit/delete/archive/restore')
+            print('ZTL_UNIFIED_PRODUCT',width,'PASS; compact form, two price rows per product below form, internal/external prices, four materials, custom unit, errors preserve input, edit/delete/archive/restore')
             page.get_by_role('link',name='← К разделам ЗТЛ',exact=True).click()
             menu.get_by_role('link',name='Приход',exact=True).click()
             panel=page.locator('details').filter(has=page.get_by_text('Добавить приход / загрузить УПД',exact=True))
