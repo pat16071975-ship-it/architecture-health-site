@@ -6,7 +6,7 @@
 <div class="field ztl-reference" data-reference>
 <label for="{{ key }}">{{ label }}</label>
 <div data-existing><select id="{{ key }}" name="{{ key }}" {% if required %}required{% endif %}><option value="">Выберите из списка…</option>
-{% for n in (parties if kind=='party' else names) %}{% if kind=='party' or n.kind==kind %}<option value="{{ n.id }}" {% if selected==n.id %}selected{% endif %}>{{ n.name }}{% if kind=='party' %} — {{ 'юрлицо' if n.kind=='legal' else 'частный клиент' }}{% endif %}</option>{% endif %}{% endfor %}</select></div>
+{% for n in (parties if kind=='party' else names) %}{% if (kind=='party' or n.kind==kind) and (kind!='work' or not n.archived or selected==n.id) %}<option value="{{ n.id }}" {% if selected==n.id %}selected{% endif %}>{{ n.name }}{% if kind=='party' %} — {{ 'юрлицо' if n.kind=='legal' else 'частный клиент' }}{% elif kind=='work' and n.archived %} — убрано из ассортимента{% endif %}</option>{% endif %}{% endfor %}</select></div>
 {% if can_add %}
 <button type="button" class="ztl-add-reference" data-add-reference aria-expanded="false" aria-controls="{{ key }}-new-panel">+ Добавить: {{ label|lower }}</button>
 <div id="{{ key }}-new-panel" class="ztl-new-reference" data-new hidden>
@@ -86,18 +86,54 @@
 <tr><td>{{ o.invoice_date }}</td><td>{{ o.number }}<br><small>{{ 'Внутренний' if o.scope=='internal' else 'Внешний' }}</small></td><td>{{ o.work_name }}{% if o.description %}<details><summary>Описание</summary>{{ o.description }}</details>{% endif %}</td><td>{{ o.party_name }}<br><small>{{ 'Юрлицо' if o.party_kind=='legal' else 'Частный клиент' }}</small></td><td>{{ o.patient }}</td><td>{{ o.customer_name or '—' }}</td><td>{{ o.doctor_name or '—' }}</td><td class="amount">{{ fmt(o.amount) }}</td><td>{{ o.delay_days }} дн.<br>до {{ o.due_date }}<br><small>От создания {{ o.created_date }}</small></td><td>{{ fmt(o.paid) }}</td><td class="{{ 'ztl-overdue' if o.overdue else '' }}">{{ fmt(o.debt) }}{% if o.overdue %}<br>Просрочено{% endif %}</td><td>{{ 'Оплачено' if o.debt==0 else 'Оплачено частично' if o.paid else 'Не оплачено' }}<br><small>{{ o.technician_names|join(', ') or 'Техник не указан' }}</small>{% if o.production and o.production.completed_on %}<br><small>Изготовлен {{ o.production.completed_on }}</small>{% endif %}</td><td>{% if 'orders' in rights %}<a class="btn" href="{{ url_for('ztl_order_form',id=o.id) }}">Изменить</a>{% endif %}</td></tr>{% else %}<tr><td colspan="13">Данные пока не добавлены. Заказов по выбранным условиям нет.</td></tr>{% endfor %}</tbody></table></div></div>
 {% elif tab=='order_form' %}
 <div class="card ztl-panel ztl-order-form"><h3 class="section-title">{{ 'Изменить заказ' if edit else 'Новый заказ' }}</h3>
-<form method="post" action="{{ url_for('ztl_save',action='order') }}">{{ hidden('csrf',csrf) }}{{ hidden('technicians_present',1) }}{% if edit %}{{ hidden('id',edit.id) }}{{ hidden('version',edit.version) }}{% endif %}
+<form method="post" action="{{ url_for('ztl_save',action='order') }}">{{ hidden('csrf',csrf) }}{{ hidden('technicians_present',1) }}{{ hidden('price_selection_present',1) }}{{ hidden('price_version','') }}{% if edit %}{{ hidden('id',edit.id) }}{{ hidden('version',edit.version) }}{% endif %}
 <div class="ztl-order-line-wrap"><div class="ztl-fields ztl-order-line">{{ field('invoice_date','Дата счёта',edit.invoice_date if edit else today,'date') }}{{ field('number','Номер LAB-',edit.number if edit else 'LAB-') }}
 <div class="field"><label for="scope">Тип заказа</label><select id="scope" name="scope"><option value="internal" {{ 'selected' if edit and edit.scope=='internal' else '' }}>Внутренний</option><option value="external" {{ 'selected' if edit and edit.scope=='external' else '' }}>Внешний</option></select></div>
 {{ field('patient','ФИО пациента',edit.patient if edit else '') }}{{ reference('party_id','Плательщик','party',edit.party_id if edit else None,true) }}{{ reference('customer_id','Заказчик','customer',edit.customer_id if edit else None) }}
 <div id="doctor-field">{{ reference('doctor_id','Врач (внутренний заказ)','doctor',edit.doctor_id if edit else None) }}</div>
-{{ reference('work_id','Изделие','work',edit.work_id if edit else None,true) }}{{ field('amount','Счёт, ₽',fmt(edit.amount) if edit else '') }}{{ field('delay_days','Отсрочка, дней',edit.delay_days if edit else '0','number') }}</div></div>
+<div class="field ztl-price-choice"><label for="price_key" id="price-choice-label">Изделие — {{ 'внешний' if edit and edit.scope=='external' else 'внутренний' }} прайс</label><select id="price_key" name="price_key" required><option value="">Выберите позицию прайса…</option>{% for choice in price_choices if choice.scope==(edit.scope if edit else 'internal') %}<option value="{{ choice.key }}" {{ 'selected' if edit and choice.work_id==edit.work_id else '' }}>{{ choice.name }} — {{ fmt(choice.price)~' ₽' if choice.price is not none else 'сохранённая позиция заказа' }}</option>{% endfor %}</select></div>{{ field('amount','Счёт, ₽',fmt(edit.amount) if edit else '') }}{{ field('delay_days','Отсрочка, дней',edit.delay_days if edit else '0','number') }}</div></div>
+<p id="price-choice-description" class="muted" role="status"></p>
 <div class="ztl-fields"><div class="field"><label>Техники (можно несколько)</label>{% for n in names if n.kind=='employee' %}<label class="check"><input type="checkbox" name="technician_id" value="{{ n.id }}" {% if production and n.id in production.technician_ids %}checked{% endif %}>{{ n.name }}</label>{% else %}<p>Добавьте сотрудников в справочнике.</p>{% endfor %}</div>{{ field('pieces','Количество изделий',production.pieces if production else 1,'number') }}{{ field('completed_on','Изготовлен — дата выполнения',production.completed_on if production and production.completed_on else '', 'date',false) }}</div>
 <p class="muted">Материалы списываются при создании заказа по карте изделия. Для старого заказа расход задним числом не создаётся. Дата изготовления определяет показ заказа в ФОТ. Распределение оплаты между несколькими техниками пока не задано.</p>
 {% if production and production.completed_on %}<p class="muted">Заказ уже изготовлен. Очистить дату изготовления, изменить изделие или количество обычным сохранением нельзя.</p>{% endif %}
 <div class="field"><label for="description">Описание и комментарий к заказу</label><textarea id="description" name="description" maxlength="4000">{{ edit.description if edit else '' }}</textarea></div>
 <p class="muted">Для внутреннего заказа указывается стоимость работы лаборатории для клиники. Отсрочка отсчитывается от даты создания записи. Все изменения сохраняются в журнале. Оплаты и зачёт аванса выполняются отдельно пользователем с соответствующим правом.</p><button class="btn primary">Сохранить заказ</button></form></div>
-<script>const s=document.getElementById('scope'),d=document.getElementById('doctor-field');function toggleDoctor(){d.hidden=s.value!=='internal';}s.addEventListener('change',toggleDoctor);toggleDoctor();</script>
+<p class="muted">При выборе позиции сумма счёта подставляется из её прайса × количество изделий. Сумму можно уточнить вручную. Открытие старого заказа сохраняет его сумму.</p>
+<script>
+(()=>{
+ const choices={{ price_choices|tojson }},scope=document.getElementById('scope'),select=document.getElementById('price_key'),doctor=document.getElementById('doctor-field');
+ const amount=document.getElementById('amount'),pieces=document.getElementById('pieces'),version=document.querySelector('[name=price_version]');
+ let automatic=false;
+ const description=document.getElementById('price-choice-description');
+ function describe(){const p=choices.find(p=>p.key===select.value);description.textContent=p?p.name+' · '+(p.scope==='internal'?'Внутренний':'Внешний')+' прайс · '+(p.price===null?'сохранённая позиция заказа':new Intl.NumberFormat('ru-RU').format(p.price/100)+' ₽ за изделие'):'Выберите изделие из '+(scope.value==='internal'?'внутреннего':'внешнего')+' прайса.';}
+ function updateAmount(){
+  if(!automatic)return;
+  const choice=choices.find(p=>p.key===select.value),count=Number(pieces.value);
+  amount.value=choice&&choice.price!==null&&Number.isInteger(count)&&count>0&&count<=10000?String(choice.price*count/100):'';
+ }
+ function rebuild(initial){
+  const selected=initial?select.value:'';
+  select.replaceChildren(new Option('Выберите позицию прайса…',''));
+  choices.filter(p=>p.scope===scope.value).forEach(p=>select.add(new Option(p.name+' — '+(p.price===null?'сохранённая позиция заказа':new Intl.NumberFormat('ru-RU').format(p.price/100)+' ₽'),p.key)));
+  select.value=selected;version.value='';
+  doctor.hidden=scope.value!=='internal';
+  document.getElementById('price-choice-label').textContent='Изделие — '+(scope.value==='internal'?'внутренний':'внешний')+' прайс';
+  if(!initial){amount.value='';automatic=false;}
+  describe();
+ }
+ scope.addEventListener('change',()=>rebuild(false));
+ select.addEventListener('change',()=>{
+  const choice=choices.find(p=>p.key===select.value);
+  version.value=choice&&choice.version!==null?String(choice.version):'';
+  automatic=Boolean(choice&&choice.price!==null);
+  if(automatic)updateAmount();else if(!choice)amount.value='';
+  describe();
+ });
+ pieces.addEventListener('input',updateAmount);
+ amount.addEventListener('input',()=>automatic=false);
+ rebuild(true);
+})();
+</script>
 {% elif tab=='doctors' %}
 <div class="card ztl-panel"><h3 class="section-title">Услуги ЗТЛ по врачам</h3><p class="muted">Только внутренние заказы по дате выставления счёта за {{ start }} — {{ end }}. Оплата не влияет на показатель. Ничего не вычитается из оборота врача.</p>
 {% if r.doctors %}<div class="table-wrap"><table class="table"><thead><tr><th>Врач</th><th>Заказов</th><th>Стоимость услуг ЗТЛ, ₽</th></tr></thead><tbody>{% for d in r.doctors %}<tr><td>{{ d.name }}<details><summary>Заказы и пациенты</summary>{% for o in d.orders %}<p>{{ o.invoice_date }} · {{ o.number }} · {{ o.patient }} · {{ o.work_name }} · {{ fmt(o.amount) }} ₽</p>{% endfor %}</details></td><td>{{ d.count }}</td><td>{{ fmt(d.amount) }}</td></tr>{% endfor %}<tr><th>Итого</th><th>{{ r.doctors|sum(attribute='count') }}</th><th>{{ fmt(r.doctors|sum(attribute='amount')) }}</th></tr></tbody></table></div>{% else %}<p>Внутренних заказов за период нет.</p>{% endif %}</div>

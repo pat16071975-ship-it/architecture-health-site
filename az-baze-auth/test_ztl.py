@@ -29,6 +29,7 @@ class ZtlTests(unittest.TestCase):
             self.doctor=ztl.catalog_entry(self.c,'doctor','Врач Иванов',1)
             self.technician=ztl.catalog_entry(self.c,'employee','Техник Петров',1)
             self.c.execute("INSERT INTO ztl_cards(work_id,recipe,technician_fee) VALUES(?,'[]',0)",(self.work,))
+            self.c.execute('INSERT INTO ztl_product_prices(work_id,internal_price,external_price) VALUES(?,?,?)',(self.work,10000,10000))
         self.seq=0
 
     def order(self,**change):
