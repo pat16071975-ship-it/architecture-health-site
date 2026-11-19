@@ -1,5 +1,6 @@
 """Synthetic UI checks against a loopback Flask server and a temporary database."""
 import os
+import shutil
 from pathlib import Path
 from threading import Thread
 from urllib.parse import urlsplit
@@ -7,8 +8,11 @@ from playwright.sync_api import sync_playwright
 from werkzeug.serving import make_server
 from test_ztl_control import ControlTests
 import ztl_control as control
+import app as core
 
 fixture=ControlTests();fixture.setUp()
+(core.SITE_ROOT/'assets').mkdir()
+shutil.copyfile(Path(__file__).resolve().parents[1]/'assets/logo-site.webp',core.SITE_ROOT/'assets/logo-site.webp')
 fixture.web.config['SESSION_COOKIE_SECURE']=False  # loopback test HTTP only
 server=make_server('127.0.0.1',0,fixture.web,threaded=True)
 thread=Thread(target=server.serve_forever,daemon=True);thread.start()
@@ -28,14 +32,31 @@ try:
                 if u.hostname!='127.0.0.1':return route.abort()
                 route.continue_()
             page.route('**/*',route)
+            response=page.goto(origin+'/accounting/ztl/?start=2026-11&end=2026-11')
+            assert response.status==200
+            menu=page.get_by_role('navigation',name='Разделы ЗТЛ')
+            assert menu.get_by_role('link').count()==7
+            assert page.get_by_role('heading',name='ЗТЛ',exact=True).count()==1
+            assert page.locator('table,form,.ztl-filter').count()==0
+            boxes=menu.get_by_role('link').evaluate_all('(links)=>links.map(a=>{const r=a.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height}})')
+            assert all(b['h']>=60 and b['w']>=280 and b['x']>=0 and b['x']+b['w']<=width for b in boxes),boxes
+            assert all(abs(b['x']-boxes[0]['x'])<1 and abs(b['w']-boxes[0]['w'])<1 for b in boxes),boxes
+            assert all(boxes[i]['y']>=boxes[i-1]['y']+boxes[i-1]['h']+9 for i in range(1,len(boxes))),boxes
+            page.screenshot(path=str(artifacts/('menu-'+str(width)+'.png')),full_page=True)
             for tab,label in control.TABS:
-                response=page.goto(origin+'/accounting/ztl/?tab='+tab+'&start=2026-11&end=2026-11')
-                assert response.status==200,(tab,response.status)
-                assert page.get_by_role('navigation',name='Разделы ЗТЛ').get_by_role('link').count()==7
-                assert page.get_by_role('navigation',name='Разделы ЗТЛ').get_by_role('link',name=label,exact=True).count()==1
+                menu.get_by_role('link',name=label,exact=True).click()
+                page.wait_for_url('**/ztl/'+tab+'/**')
+                assert page.locator('.ztl-title').inner_text()==label
+                assert page.get_by_role('navigation',name='Разделы ЗТЛ').count()==0
+                assert page.locator('nav.menu').count()==0
                 assert page.locator('#technician').count()==int(tab in ('orders','payroll'))
                 assert page.locator('[name=unpaid]').count()==int(tab=='orders')
-            page.get_by_role('link',name='Приход',exact=True).click()
+                page.get_by_role('link',name='← К разделам ЗТЛ',exact=True).click()
+                assert menu.get_by_role('link').count()==7
+                assert 'start=2026-11' in page.url and 'end=2026-11' in page.url
+                assert page.locator('table,form').count()==0
+            print('ZTL_SEPARATE_PAGES',width,'PASS; seven vertical tiles, independent pages and return')
+            menu.get_by_role('link',name='Приход',exact=True).click()
             panel=page.locator('details').filter(has=page.get_by_text('Добавить приход / загрузить УПД',exact=True))
             panel.locator('summary').click()
             panel.locator('[name=supplier]').fill('Поставщик UI')
@@ -65,7 +86,7 @@ try:
             assert not invalid,invalid
             page.get_by_role('button',name='Сохранить заказ',exact=True).click()
             try:
-                page.wait_for_url('**/ztl/?**',timeout=10000)
+                page.wait_for_url('**/ztl/orders/?**',timeout=10000)
             except Exception:
                 print('ORDER_SUBMIT_FAILED',page.url,page.locator('body').inner_text())
                 raise
@@ -94,17 +115,19 @@ try:
             assert page.locator('[name=pieces]').input_value()=='2'
             assert page.locator('[name=technician_id]:checked').count()==1
             page.get_by_role('button',name='Сохранить заказ',exact=True).click()
-            page.wait_for_url('**/ztl/?**')
+            page.wait_for_url('**/ztl/orders/?**')
             print('AZ_238_01_02_BROWSER',width,'PASS; unchanged after each rejected request')
             page.screenshot(path=str(artifacts/('orders-'+str(width)+'.png')),full_page=True)
             page.locator('#technician').select_option(str(fixture.technician))
             page.get_by_role('button',name='Показать',exact=True).click()
             assert 'Синтетический заказ '+str(width) in page.locator('body').inner_text()
-            page.get_by_role('link',name='ФОТ',exact=True).click()
+            page.get_by_role('link',name='← К разделам ЗТЛ',exact=True).click()
+            menu.get_by_role('link',name='ФОТ',exact=True).click()
             assert 'LAB-BROWSER-'+str(width) in page.locator('body').inner_text()
             assert page.locator('table').first.locator('tbody tr').filter(has_text='LAB-BROWSER-'+str(width)).count()==1
             page.screenshot(path=str(artifacts/('payroll-'+str(width)+'.png')),full_page=True)
-            page.get_by_role('link',name='Инвентаризация',exact=True).click()
+            page.get_by_role('link',name='← К разделам ЗТЛ',exact=True).click()
+            menu.get_by_role('link',name='Инвентаризация',exact=True).click()
             page.get_by_role('button',name='Начать инвентаризацию').click()
             page.locator('[name=count_'+str(item)+']').fill(str(control.stock(fixture.c)[0]['qty']/1000))
             page.get_by_role('button',name='Сдать остатки на проверку').click()

@@ -298,10 +298,10 @@ class ZtlTests(unittest.TestCase):
         self.order(scope='internal',patient='Только внутренний')
         self.order(scope='external',party_id=self.other,patient='Только внешний')
         client=self.client(1)
-        page=client.get('/accounting/ztl/?start=2026-11&end=2026-11&mode=legal').get_data(as_text=True)
+        page=client.get('/accounting/ztl/orders/?start=2026-11&end=2026-11&mode=legal').get_data(as_text=True)
         self.assertIn('Только внешний',page);self.assertNotIn('Только внутренний',page)
         self.payment(scope='internal',paid_patient='Только внутренний',service='Лечение',service_total='500')
-        page=client.get('/accounting/ztl/?start=2026-11&end=2026-11&unpaid=1').get_data(as_text=True)
+        page=client.get('/accounting/ztl/orders/?start=2026-11&end=2026-11&unpaid=1').get_data(as_text=True)
         self.assertIn('Только внешний',page);self.assertNotIn('Только внутренний',page)
 
 

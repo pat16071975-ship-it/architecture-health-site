@@ -61,7 +61,11 @@ class AccountingSectionTests(unittest.TestCase):
             self.assertIn(f'/accounting/{slug}/',hub)
             self.assertIn(label,hub)
             page=client.get(f'/accounting/{slug}/').get_data(as_text=True)
-            self.assertIn('Данные пока не добавлены.',page)
+            if slug=='ztl':
+                self.assertIn('aria-label="Разделы ЗТЛ"',page)
+                self.assertNotIn('<table',page)
+            else:
+                self.assertIn('Данные пока не добавлены.',page)
             rendered = nav.inject_navigation(page, f'/accounting/{slug}/')
             self.assertIn('href="/accounting/">УЧЕТ</a>', rendered)
             self.assertEqual(rendered.count('aria-label="Навигация по разделу"'), 1)

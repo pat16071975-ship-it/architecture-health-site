@@ -389,16 +389,23 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
                     names=[dict(r) for r in conn.execute('SELECT * FROM ztl_names ORDER BY name,id')])
 
     def render(error=None,status=200,**extra):
-        return render_template('ztl.html',title='ЗТЛ — УЧЕТ',error=error,**context(),**extra),status
+        labels=dict(ztl_control.TABS,doctors='Заказы по врачам',catalog='Справочники',history='История',
+                    order_form='Учёт заказов',payment_form='Реестр оплат',payment_preview='Реестр оплат')
+        section_title=labels[extra['tab']]
+        return render_template('ztl.html',title=section_title+' — ЗТЛ',section_title=section_title,error=error,**context(),**extra),status
 
     @app.get('/accounting/ztl/')
+    @app.get('/accounting/ztl/<tab>/')
     @permission_required('accounting')
-    def ztl_page():
+    def ztl_page(tab=None):
         conn=db()
         if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='ztl_orders'").fetchone():
             return 'Учёт ЗТЛ ещё не подготовлен к работе.',503
         start=request.args.get('start') or today()[:7];end=request.args.get('end') or start
-        tab=request.args.get('tab','orders')
+        # The entrance is a menu, not a ledger. Old explicit ?tab= links still work.
+        tab=tab if tab is not None else request.args.get('tab')
+        if tab is None:
+            return render_template('ztl_menu.html',rights=rights(),ztl_tabs=ztl_control.TABS,start=start,end=end)
         if tab not in ('orders','doctors','payments','costs','catalog','history','products','receipts','inventory','payroll','economics'):
             abort(400)
         if tab=='costs':tab='economics'
@@ -406,11 +413,11 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
         if tab=='inventory' and not rights() & {'inventory_count','inventory_manage'}:abort(403)
         try:
             conn.execute('BEGIN')
-            r=report(conn,start,end)
+            r=report(conn,start,end) if tab in ('orders','doctors','payroll','economics') else None
             mode=request.args.get('mode','all');unpaid=request.args.get('unpaid')=='1'
             if mode not in ('all','group','internal','external','legal','private'):
                 abort(400)
-            visible=[o for o in r['orders'] if (mode not in ('internal','external') or o['scope']==mode) and (mode not in ('legal','private') or o['party_kind']==mode) and (not unpaid or o['debt']>0)]
+            visible=[o for o in r['orders'] if (mode not in ('internal','external') or o['scope']==mode) and (mode not in ('legal','private') or o['party_kind']==mode) and (not unpaid or o['debt']>0)] if tab=='orders' else []
             technician=integer(request.args['technician']) if request.args.get('technician') else None
             employees={n['id']:n['name'] for n in conn.execute("SELECT id,name FROM ztl_names WHERE kind='employee'")}
             for o in visible:
@@ -437,7 +444,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
             events=[dict(e) for e in conn.execute('SELECT h.*,u.full_name AS actor FROM ztl_history h LEFT JOIN users u ON u.id=h.actor_id ORDER BY h.id DESC LIMIT 200')] if tab=='history' else []
             if 'inventory_manage' not in rights():events=[e for e in events if e['entity'] not in ('Инвентаризация','Списание ЗТЛ','Производство')]
             if not rights() & {'receipts_view','receipts_edit'}:events=[e for e in events if e['entity']!='Приход ЗТЛ']
-            extra=dict(technician=technician,stock_stamp=ztl_control.stock_stamp(conn))
+            extra=dict(technician=technician)
             if tab=='products':extra.update(items=ztl_control.stock(conn),cards=ztl_control.catalog(conn))
             if tab=='receipts':
                 receipts=[dict(row) for row in conn.execute('SELECT id,supplier,reference,received_on,lines,confirmed,paid,posted,version,document_name FROM ztl_receipts ORDER BY id DESC')]
@@ -451,11 +458,11 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
                     inv['rows']=[{**({k:v for k,v in row.items() if full or k in ('id','name','unit','received')}), 'count':counts.get(str(row['id']))} for row in snap]
                     if not full:
                         for key in ('snapshot','stamp','counts','counts_first'):inv.pop(key,None)
-                extra.update(inventories=inventories,items=ztl_control.stock(conn) if full else [],full_inventory=full)
-            if tab in ('payroll','economics'):
+                extra.update(inventories=inventories,items=ztl_control.stock(conn) if full else [],full_inventory=full,stock_stamp=ztl_control.stock_stamp(conn))
+            if tab=='payroll':
                 extra.update(payroll_orders=ztl_control.payroll_orders(conn,start,end,technician))
             if tab=='economics':extra.update(economics=ztl_control.economic_summary(conn,r))
-            result=render(**extra,tab=tab,start=start,end=end,r=r,visible=visible,mode=mode,unpaid=unpaid,payments=payments,balances=balances,events=events,stamp=ledger_stamp(conn),saved=request.args.get('saved')=='1')
+            result=render(**extra,tab=tab,start=start,end=end,r=r,visible=visible,mode=mode,unpaid=unpaid,payments=payments,balances=balances,events=events,stamp=ledger_stamp(conn) if tab=='payments' else None,saved=request.args.get('saved')=='1')
             return result
         except ValueError as exc:
             return str(exc),400
