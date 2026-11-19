@@ -62,7 +62,9 @@
 @media(max-width:650px){.ztl-order-line{min-width:0;grid-template-columns:repeat(2,minmax(0,1fr))}.ztl-order-form{padding:12px}}
 </style>
 <div class="ztl">
-<h2 class="ztl-title">ЗТЛ</h2>
+<div class="ztl-toolbar"><a class="btn" href="{{ url_for('ztl_page',start=start|default(none),end=end|default(none)) }}">← К разделам ЗТЛ</a>
+{% if tab not in ['order_form','payment_form','payment_preview'] %}<div class="row">{% if tab=='orders' and 'orders' in rights %}<a class="btn primary" href="{{ url_for('ztl_order_form') }}">Новый заказ</a>{% endif %}{% if tab=='payments' and 'payments' in rights %}<a class="btn primary" href="{{ url_for('ztl_payment_form') }}">Внести оплату</a>{% endif %}<a class="btn" href="{{ url_for('ztl_page',tab='catalog',start=start,end=end) }}">Справочники</a><a class="btn" href="{{ url_for('ztl_page',tab='history',start=start,end=end) }}">История</a></div>{% endif %}</div>
+<h2 class="ztl-title">{{ section_title }}</h2>
 {% if tab in ['order_form','payment_form','payment_preview'] %}<a class="btn" href="{{ url_for('ztl_page',tab='payments' if tab!='order_form' else 'orders') }}">К реестру</a>{% else %}
 {% if tab in ['orders','payroll','economics','doctors'] %}
 <form method="get" class="row ztl-filter">
@@ -72,8 +74,6 @@
 {% if tab=='orders' %}<label class="check"><input type="checkbox" name="unpaid" value="1" {{ 'checked' if unpaid else '' }}>Неоплаченные</label>{% endif %}<button class="btn primary">Показать</button>
 </form>
 {% endif %}
-<div class="ztl-toolbar"><nav class="row" aria-label="Разделы ЗТЛ">{% for key,label in ztl_tabs %}{% if (key!='receipts' or 'receipts_view' in rights or 'receipts_edit' in rights) and (key!='inventory' or 'inventory_count' in rights or 'inventory_manage' in rights) %}<a class="btn {{ 'active' if tab==key else '' }}" href="{{ url_for('ztl_page',tab=key,start=start,end=end) }}">{{ label }}</a>{% endif %}{% endfor %}</nav>
-<div class="row">{% if tab=='orders' and 'orders' in rights %}<a class="btn primary" href="{{ url_for('ztl_order_form') }}">Новый заказ</a>{% endif %}{% if tab=='payments' and 'payments' in rights %}<a class="btn primary" href="{{ url_for('ztl_payment_form') }}">Внести оплату</a>{% endif %}<a class="btn" href="{{ url_for('ztl_page',tab='catalog') }}">Справочники</a><a class="btn" href="{{ url_for('ztl_page',tab='history') }}">История</a></div></div>
 {% endif %}
 {% if saved %}<p class="ztl-success" role="status">Изменения сохранены.</p>{% endif %}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}

@@ -273,6 +273,66 @@ class ControlTests(unittest.TestCase):
         res=self.client(1).get('/accounting/ztl/?tab=orders&start=2026-11&technician=99999')
         self.assertNotIn('Заказ техника',res.get_data(as_text=True))
 
+    def test_tiles_are_an_entrance_without_loading_ledgers(self):
+        self.order(patient='Только внутри заказов')
+        before='\n'.join(self.c.iterdump())
+        with patch.object(ztl,'report',side_effect=AssertionError('menu must not calculate report')), \
+             patch.object(c,'stock',side_effect=AssertionError('menu must not read stock')), \
+             patch.object(c,'payroll_orders',side_effect=AssertionError('menu must not calculate payroll')):
+            response=self.client(1).get('/accounting/ztl/?start=2026-10&end=2026-11')
+        self.assertEqual(response.status_code,200)
+        body=response.get_data(as_text=True)
+        self.assertIn('<h1 class="title">ЗТЛ</h1>',body)
+        self.assertIn('aria-label="Разделы ЗТЛ"',body)
+        self.assertEqual(body.count('class="btn active"'),7)
+        for key,label in c.TABS:
+            self.assertIn('/accounting/ztl/'+key+'/?start=2026-10&amp;end=2026-11',body)
+            self.assertIn(label,body)
+        for absent in ('<table','<form','Только внутри заказов','ztl-filter','ztl-toolbar'):
+            self.assertNotIn(absent,body)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_separate_sections_legacy_links_and_back_preserve_records(self):
+        self.order(patient='Заказ на отдельной странице')
+        before='\n'.join(self.c.iterdump());client=self.client(1)
+        for key,label in c.TABS:
+            with self.subTest(section=key):
+                path='/accounting/ztl/'+key+'/?start=2026-10&end=2026-11'
+                response=client.get(path);self.assertEqual(response.status_code,200)
+                body=response.get_data(as_text=True)
+                self.assertIn('<h2 class="ztl-title">'+label+'</h2>',body)
+                self.assertIn('href="/accounting/ztl/?start=2026-10&amp;end=2026-11"',body)
+                self.assertNotIn('aria-label="Разделы ЗТЛ"',body)
+                self.assertNotIn('class="menu"',body)
+                if key not in ('orders','economics'):
+                    self.assertNotIn('Заказ на отдельной странице',body)
+                legacy=client.get('/accounting/ztl/?tab='+key+'&start=2026-10&end=2026-11')
+                self.assertEqual(legacy.status_code,200)
+                self.assertEqual(legacy.get_data(as_text=True),body)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.assertEqual(client.get('/accounting/ztl/unknown/').status_code,400)
+
+    def test_tiles_and_direct_sections_keep_permissions(self):
+        for uid in (None,3):
+            for path in ('/accounting/ztl/',*(('/accounting/ztl/'+key+'/') for key,_ in c.TABS)):
+                self.assertEqual(self.client(uid).get(path).status_code,302 if uid is None else 403)
+        for rights,allowed in [((),()),(('ztl_receipts_view',),('receipts',)),
+                               (('ztl_receipts_edit',),('receipts',)),
+                               (('ztl_inventory_count',),('inventory',)),
+                               (('ztl_inventory_manage',),('inventory',))]:
+            self.grant(*rights);client=self.client(2)
+            body=client.get('/accounting/ztl/').get_data(as_text=True)
+            for key in ('receipts','inventory'):
+                self.assertEqual(('/accounting/ztl/'+key+'/') in body,key in allowed)
+                self.assertEqual(client.get('/accounting/ztl/'+key+'/').status_code,200 if key in allowed else 403)
+
+    def test_reference_sections_do_not_calculate_unselected_report(self):
+        client=self.client(1)
+        with patch.object(ztl,'report',side_effect=AssertionError('unselected report')), \
+             patch.object(c,'payroll_orders',side_effect=AssertionError('unselected payroll')):
+            for key in ('products','receipts','inventory','payments','catalog','history'):
+                self.assertEqual(client.get('/accounting/ztl/'+key+'/').status_code,200,key)
+
     def test_audit_failure_rolls_back_and_csrf(self):
         item=self.item()
         with patch.object(ztl,'log',side_effect=RuntimeError('audit failed')):
