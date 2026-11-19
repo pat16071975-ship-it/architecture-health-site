@@ -1,0 +1,29 @@
+name: AZ PR240 guarded delivery
+on:
+  push:
+    branches: [ops/az-pr240-deploy-20261119]
+    paths:
+      - 'ops/apply_pr240_guarded.py'
+      - 'ops/test_pr240_deploy.py'
+      - '.github/workflows/az-pr240-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 12
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify tested application unchanged
+        run: |
+          test "$(git rev-parse 1b0504df208d5dd00aa9a3de7da3fccce25753e0^{tree})" = c097e309c76107090f89df0fc4605bd1d71153d8
+          git diff --exit-code 1b0504df208d5dd00aa9a3de7da3fccce25753e0 HEAD -- az-baze-auth reports
+      - name: Test installation and failure recovery on synthetic data
+        run: python3 -B -m unittest discover -s ops -p 'test_pr240_deploy.py' -v
+      - name: Delivery checksum
+        run: sha256sum ops/apply_pr240_guarded.py
