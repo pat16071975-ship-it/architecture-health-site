@@ -14,7 +14,7 @@
 <a class="btn" href="{{ url_for('medical_supplies_export', month=month) }}">Excel</a>
 </form>
 <nav class="row med-tabs" aria-label="Разделы медрасходки">
-{% for key,label in [('movement','Движение'),('order','К заказу'),('catalog','Справочник'),('history','История изменений')] %}
+{% for key,label in [('stock','Остатки из файла'),('movement','Движение'),('order','К заказу'),('catalog','Справочник'),('history','История изменений')] %}
 <a class="btn {{ 'primary' if tab==key else '' }}" {% if tab==key %}aria-current="page"{% endif %} href="{{ url_for('medical_supplies', month=month, tab=key) }}">{{ label }}</a>
 {% endfor %}
 </nav>

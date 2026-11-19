@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from flask import abort, g, redirect, render_template, request, send_file, url_for
 from openpyxl import Workbook
+import medical_supplies_import as stock_import
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS med_supply_items (
@@ -43,6 +44,7 @@ class Conflict(ValueError):
 
 def init_schema(conn):
     conn.executescript(SCHEMA)
+    stock_import.init_schema(conn)
 
 
 def month(value):
@@ -254,7 +256,9 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
     def page(error=None, status=200):
         try:
             period = month(request.values.get('month') or datetime.now(ZoneInfo('Asia/Novosibirsk')).strftime('%Y-%m'))
-            tab = request.values.get('tab', 'movement')
+            tab = request.values.get('tab') or ('stock' if stock_import.has_import(db()) else 'movement')
+            if tab == 'stock':
+                return stock_import.render_stock(db(), rights(), csrf_token())
             if tab not in ('movement', 'order', 'catalog', 'history'):
                 abort(400)
             conn = db()
@@ -289,6 +293,8 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
             return str(exc), 400
 
     app.add_url_rule('/accounting/medical-supplies/', 'medical_supplies', permission_required('accounting')(page))
+
+    stock_import.register(app, db, permission_required, require_csrf, csrf_token, rights)
 
     @app.post('/accounting/medical-supplies/save/<action>')
     @permission_required('accounting')
