@@ -23,6 +23,8 @@ try:
     plastic=fixture.item('Пластик ортодонтический',unit='г');fixture.receipt(plastic,qty='1000',value='20000')
     screw=fixture.item('Винт расширяющий',unit='шт.');fixture.receipt(screw,qty='100',value='12000')
     asset=fixture.item('Шкаф для проверки изоляции','asset','шт.')
+    for name,qty,fee,internal,external in [('Каппа','10','600','2200','3500'),('Ретенционный аппарат','12','800','2500','4000')]:
+        control.save_card(fixture.c,dict(name=name,version=0,technician_fee=fee,prices_present='1',internal_price=internal,external_price=external,**{'qty_'+str(plastic):qty}),1)
     with sync_playwright() as pw:
         browser=pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
         for width in (1365,390):
@@ -69,6 +71,8 @@ try:
             product=panel.locator('[data-product-form]')
             name='Ортодонтическая пластинка' if width==1365 else 'Пластинка с расширяющим винтом'
             product.locator('[name=name]').fill(name)
+            product.locator('[name=internal_price]').fill('2500')
+            product.locator('[name=external_price]').fill('4000')
             for idx,(iid,qty) in enumerate([(item,'0,35'),(plastic,'12'),(screw,'1')]):
                 if idx:product.get_by_role('button',name='+ Добавить материал',exact=True).click()
                 product.locator('[name=material_'+str(idx)+']').select_option(str(iid))
@@ -86,8 +90,10 @@ try:
             assert 'уже есть' in product.locator('[data-save-error]').inner_text()
             assert product.locator('[name=name]').input_value()==name
             assert product.locator('[name=material_qty_1]').input_value()=='12'
+            assert product.locator('[name=internal_price]').input_value()=='2500'
+            assert product.locator('[name=external_price]').input_value()=='4000'
             assert '\n'.join(fixture.c.iterdump())==before
-            material_name='Разделительный лак '+str(width)
+            material_name='Разделительный лак' if width==1365 else 'Изолирующий лак'
             product.locator('[name=material_name_3]').fill(material_name)
             submit(product,'Добавить изделие')
             wid=fixture.c.execute('SELECT id FROM ztl_names WHERE name=?',(name,)).fetchone()[0]
@@ -97,13 +103,31 @@ try:
             entry=page.locator('[data-product-entry="'+str(wid)+'"]');entry.locator('summary').first.click()
             assert len(next(r['parts'] for r in control.catalog(fixture.c) if r['id']==wid))==4
             assert next(r['total_cost'] for r in control.catalog(fixture.c) if r['id']==wid)==126550
+            saved=next(r for r in control.catalog(fixture.c) if r['id']==wid)
+            assert (saved['internal_price'],saved['external_price'])==(250000,400000)
+            assert entry.locator('[name=internal_price]').input_value()=='2500'
+            assert entry.locator('[name=external_price]').input_value()=='4000'
             assert '1\xa0265,50' in entry.locator('[data-product-total]').inner_text()
             entry.screenshot(path=str(artifacts/('product-card-'+str(width)+'.png')))
             page.screenshot(path=str(artifacts/('products-'+str(width)+'.png')),full_page=True)
             entry.locator('[name=name]').fill(name+' — исправлено')
+            entry.locator('[name=internal_price]').fill('2600,50')
+            entry.locator('[name=external_price]').fill('4200')
             submit(entry,'Сохранить изменения')
             entry.locator('summary').first.click()
             assert name+' — исправлено' in entry.locator('summary').first.inner_text()
+            saved=next(r for r in control.catalog(fixture.c) if r['id']==wid)
+            assert (saved['internal_price'],saved['external_price'],saved['total_cost'])==(260050,420000,126550)
+            # Bad prices must retain all input and leave the database unchanged.
+            before='\n'.join(fixture.c.iterdump())
+            entry.locator('[name=external_price]').fill('-1')
+            entry.get_by_role('button',name='Сохранить изменения',exact=True).click()
+            entry.locator('[data-save-error]:not([hidden])').wait_for()
+            assert 'Внешний прайс' in entry.locator('[data-save-error]:not([hidden])').inner_text()
+            assert entry.locator('[name=internal_price]').input_value()=='2600.5'
+            assert entry.locator('[name=external_price]').input_value()=='-1'
+            assert '\n'.join(fixture.c.iterdump())==before
+            entry.locator('[name=external_price]').fill('4200')
             page.once('dialog',lambda dialog:dialog.accept())
             submit(entry,'Убрать из ассортимента')
             page.goto(origin+'/accounting/ztl/order')
@@ -129,6 +153,8 @@ try:
             # A filled, unsaved example of the same real creation form for owner approval.
             panel=page.locator('.ztl-product-new');panel.locator('summary').click();product=panel.locator('[data-product-form]')
             product.locator('[name=name]').fill(name)
+            product.locator('[name=internal_price]').fill('2500')
+            product.locator('[name=external_price]').fill('4000')
             for idx,(iid,qty) in enumerate([(item,'0,35'),(plastic,'12'),(screw,'1'),(lacquer,'2')]):
                 if idx:product.get_by_role('button',name='+ Добавить материал',exact=True).click()
                 product.locator('[name=material_'+str(idx)+']').select_option(str(iid))
@@ -138,8 +164,15 @@ try:
             product.locator('[data-material-row]').last.get_by_role('button',name='Удалить строку').click()
             assert product.locator('[data-material-row]').count()==4
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+            assert page.locator('.ztl-products-list [data-product-entry][open]').count()==0
+            form_box=panel.bounding_box();list_box=page.locator('.ztl-products-list').bounding_box()
+            assert list_box['y']>=form_box['y']+form_box['height']
+            if width==1365:
+                assert form_box['height']<=650,form_box
+                assert all(box['height']<=46 for box in page.locator('.ztl-products-list [data-product-entry]').evaluate_all('(rows)=>rows.map(row=>({height:row.getBoundingClientRect().height}))'))
             panel.screenshot(path=str(artifacts/('new-product-'+str(width)+'.png')))
-            print('ZTL_UNIFIED_PRODUCT',width,'PASS; four materials, custom unit, errors preserve input, edit/delete/archive/restore')
+            page.locator('.ztl-products-registry').screenshot(path=str(artifacts/('registry-'+str(width)+'.png')))
+            print('ZTL_UNIFIED_PRODUCT',width,'PASS; compact form, list below, internal/external prices, four materials, custom unit, errors preserve input, edit/delete/archive/restore')
             page.get_by_role('link',name='← К разделам ЗТЛ',exact=True).click()
             menu.get_by_role('link',name='Приход',exact=True).click()
             panel=page.locator('details').filter(has=page.get_by_text('Добавить приход / загрузить УПД',exact=True))

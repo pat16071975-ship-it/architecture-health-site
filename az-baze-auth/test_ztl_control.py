@@ -41,7 +41,7 @@ class ControlTests(unittest.TestCase):
         return client.post('/accounting/ztl/control/'+action,data={**(data or {}),'csrf':'token'})
 
     def product_data(self,**changes):
-        data=dict(name='Новое изделие',version='0',materials_present='1',material_row=['0'],
+        data=dict(name='Новое изделие',version='0',materials_present='1',prices_present='1',internal_price='2500,50',external_price='4000',material_row=['0'],
                   material_0='new',material_name_0='Пластик',material_unit_0='г',material_qty_0='2,5',technician_fee='150')
         data.update(changes);return data
 
@@ -62,6 +62,7 @@ class ControlTests(unittest.TestCase):
         card=next(r for r in c.catalog(self.c) if r['name']==data['name'])
         self.assertEqual([p['qty'] for p in card['parts']],[250,2000,1500])
         self.assertEqual(card['technician_fee'],15000)
+        self.assertEqual((card['internal_price'],card['external_price']),(250050,400000))
         self.assertIsNone(card['total_cost'])
         self.assertIn('порция',c.units(self.c))
         self.assertTrue(all(r['kind']=='material' for r in c.stock(self.c)))
@@ -74,6 +75,8 @@ class ControlTests(unittest.TestCase):
         asset=self.item('Шкаф','asset','шт.')
         before='\n'.join(self.c.iterdump())
         cases=[{'technician_fee':'oops'}, {'material_qty_0':'0'}, {'material_qty_0':'-1'},
+               {'internal_price':'-1'}, {'external_price':'abc'}, {'internal_price':'0.001'},
+               {'external_price':'NaN'}, {'internal_price':'Infinity'}, {'external_price':'1000000001'},
                {'material_unit_0':'__custom__','material_custom_unit_0':''},
                {'material_row':['0','1'],'material_1':str(asset),'material_qty_1':'1'},
                {'material_row':['0','0']}, {'material_0':''}, {'no_materials':'1'},
@@ -104,6 +107,7 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(ztl.row_by_id(self.c,'ztl_names',self.work)['name'],'Исправленное изделие')
         self.assertEqual(c.production(self.c,oid),original)
         self.assertEqual(c.stock_stamp(self.c),stamp)
+        self.assertEqual(ztl.row_by_id(self.c,'ztl_orders',oid)['amount'],10000)
         before='\n'.join(self.c.iterdump())
         self.assertEqual(self.post('card',data).status_code,409)
         self.assertEqual('\n'.join(self.c.iterdump()),before)
@@ -121,6 +125,9 @@ class ControlTests(unittest.TestCase):
         self.assertIn('+ Своя единица',page)
         self.assertIn('Сохранённые материалы для изготовления',page)
         self.assertIn('name="material_qty_0"',page)
+        self.assertIn('name="internal_price"',page)
+        self.assertIn('name="external_price"',page)
+        self.assertLess(page.index('class="card ztl-product-new"'),page.index('aria-label="Список созданных изделий"'))
         receipts=self.client(1).get('/accounting/ztl/receipts/').get_data(as_text=True)
         self.assertIn('Добавить позицию для прихода',receipts)
         self.assertIn('Имущество (например, шкаф)',receipts)
@@ -153,10 +160,60 @@ class ControlTests(unittest.TestCase):
         self.grant('ztl_catalog')
         self.assertEqual(self.post('product-action',self.product_operation(wid,'delete')).status_code,303)
         self.assertFalse(self.c.execute('SELECT 1 FROM ztl_cards WHERE work_id=?',(wid,)).fetchone())
+        self.assertFalse(self.c.execute('SELECT 1 FROM ztl_product_prices WHERE work_id=?',(wid,)).fetchone())
         self.assertFalse(self.c.execute('SELECT 1 FROM ztl_names WHERE id=?',(wid,)).fetchone())
         self.assertTrue(self.c.execute("SELECT 1 FROM ztl_history WHERE entity='Изделие ЗТЛ' AND entity_id=? AND action='Удаление'",(wid,)).fetchone())
         with self.c:newid=ztl.catalog_entry(self.c,'work','Следующее изделие',1)
         self.assertGreater(newid,wid)
+
+    def test_prices_zero_unknown_edit_history_and_legacy_preservation(self):
+        self.grant('ztl_catalog')
+        self.assertEqual(self.post('card',self.product_data(internal_price='0',external_price=' ')).status_code,303)
+        card=next(r for r in c.catalog(self.c) if r['name']=='Новое изделие')
+        wid=card['id'];iid=card['parts'][0]['item_id']
+        self.assertEqual((card['internal_price'],card['external_price']),(0,None))
+        self.assertIsNone(card['total_cost'])  # Prices never replace unknown material cost.
+        data=self.product_data(work_id=wid,work_version=card['work_version'],version=card['version'],
+             material_0=str(iid),material_name_0='',internal_price='',external_price='1234.56')
+        self.assertEqual(self.post('card',data).status_code,303)
+        saved=next(r for r in c.catalog(self.c) if r['id']==wid)
+        self.assertEqual((saved['internal_price'],saved['external_price']),(None,123456))
+        history=self.c.execute("SELECT before_json,after_json FROM ztl_history WHERE entity='Технологическая карта' AND entity_id=? ORDER BY id DESC LIMIT 1",(wid,)).fetchone()
+        self.assertEqual(json.loads(history['before_json'])['internal_price'],0)
+        self.assertIsNone(json.loads(history['after_json'])['internal_price'])
+        self.assertEqual(json.loads(history['after_json'])['external_price'],123456)
+        # Earlier clients that omit the price controls must not wipe saved prices.
+        c.save_card(self.c,dict(work_id=wid,version=saved['version'],technician_fee='150',**{'qty_'+str(iid):'2.5'}),1)
+        saved=next(r for r in c.catalog(self.c) if r['id']==wid)
+        self.assertEqual((saved['internal_price'],saved['external_price']),(None,123456))
+        for operation in ('archive','restore'):
+            self.assertEqual(self.post('product-action',self.product_operation(wid,operation)).status_code,303)
+            self.assertEqual(self.c.execute('SELECT external_price FROM ztl_product_prices WHERE work_id=?',(wid,)).fetchone()[0],123456)
+        before='\n'.join(self.c.iterdump())
+        self.assertEqual(self.post('card',data).status_code,409)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_incomplete_prices_request_is_atomic_and_catalog_prices_are_read_only(self):
+        self.grant('ztl_catalog');before='\n'.join(self.c.iterdump())
+        data=self.product_data();del data['external_price']
+        self.assertEqual(self.post('card',data).status_code,400)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.assertEqual(self.post('card',self.product_data()).status_code,303)
+        self.grant()
+        before='\n'.join(self.c.iterdump())
+        page=self.client(2).get('/accounting/ztl/products/').get_data(as_text=True)
+        self.assertIn('2500.5 ₽',page)
+        self.assertIn('4000 ₽',page)
+        self.assertNotIn('data-product-form data-inline-save',page)
+        self.assertEqual(self.post('card',self.product_data()).status_code,403)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_new_price_schema_init_does_not_rewrite_existing_cards_or_create_prices(self):
+        before='\n'.join(self.c.iterdump())
+        self.c.execute('DROP TABLE ztl_product_prices');self.c.commit()
+        c.init_schema(self.c)
+        self.assertEqual(self.c.execute('SELECT COUNT(*) FROM ztl_product_prices').fetchone()[0],0)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
 
     def test_product_actions_used_delete_stale_version_and_confirm_guards(self):
         self.order();self.grant('ztl_catalog');before='\n'.join(self.c.iterdump())

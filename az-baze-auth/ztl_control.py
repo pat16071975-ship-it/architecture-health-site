@@ -49,6 +49,10 @@ CREATE TABLE IF NOT EXISTS ztl_cost_reconciliation (
 CREATE TABLE IF NOT EXISTS ztl_product_archive (
  work_id INTEGER PRIMARY KEY REFERENCES ztl_names(id), archived_on TEXT NOT NULL, actor_id INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ztl_product_prices (
+ work_id INTEGER PRIMARY KEY REFERENCES ztl_names(id),
+ internal_price INTEGER CHECK(internal_price>=0), external_price INTEGER CHECK(external_price>=0)
+);
 """
 RIGHTS = ('receipts_view','receipts_edit','inventory_count','inventory_manage')
 TABS = [('orders','Учёт заказов'),('products','Реестр изделий (технологические карты)'),('receipts','Приход'),
@@ -117,8 +121,10 @@ def catalog(conn):
     items = {r['id']:r for r in stock(conn)}
     result = []
     for row in conn.execute("""SELECT n.id,n.name,n.version AS work_version,c.recipe,c.technician_fee,c.version,
+        p.internal_price,p.external_price,
         a.work_id IS NOT NULL AS archived, EXISTS(SELECT 1 FROM ztl_orders o WHERE o.work_id=n.id) AS used
         FROM ztl_names n LEFT JOIN ztl_cards c ON c.work_id=n.id
+        LEFT JOIN ztl_product_prices p ON p.work_id=n.id
         LEFT JOIN ztl_product_archive a ON a.work_id=n.id WHERE n.kind='work' ORDER BY n.name,n.id"""):
         r = dict(row); r['parts'] = []; cost = Decimal(0)
         if r['recipe'] is None:
@@ -214,8 +220,19 @@ def save_card(conn,data,actor):
                     if qty:parts.append(dict(item_id=item['id'],qty=qty))
         if not parts and data.get('no_materials')!='1':raise ValueError('Заполните нормы материалов или явно подтвердите отсутствие расхода.')
         fee=number(data.get('technician_fee'),100)
+        old_prices=conn.execute('SELECT internal_price,external_price FROM ztl_product_prices WHERE work_id=?',(wid,)).fetchone()
+        prices=dict(old_prices) if old_prices else dict(internal_price=None,external_price=None)
+        if data.get('prices_present')=='1':
+            for key,label in [('internal_price','Внутренний прайс'),('external_price','Внешний прайс')]:
+                if key not in data:raise ValueError('Заполните форму прайсов полностью; незаданную цену оставьте пустой.')
+                try:prices[key]=number(str(data.get(key,'')).strip(),100,optional=True)
+                except ValueError:raise ValueError(label+': введите неотрицательную сумму в рублях, до двух знаков после запятой.') from None
+            conn.execute('INSERT INTO ztl_product_prices(work_id,internal_price,external_price) VALUES(?,?,?) ON CONFLICT(work_id) DO UPDATE SET internal_price=excluded.internal_price,external_price=excluded.external_price',
+                         (wid,prices['internal_price'],prices['external_price']))
         conn.execute('INSERT INTO ztl_cards(work_id,recipe,technician_fee) VALUES(?,?,?) ON CONFLICT(work_id) DO UPDATE SET recipe=excluded.recipe,technician_fee=excluded.technician_fee,version=ztl_cards.version+1',(wid,encode(parts),fee))
-        ztl.log(conn,'Технологическая карта',wid,'Сохранение',actor,dict(old) if old else None,dict(recipe=parts,technician_fee=fee))
+        ztl.log(conn,'Технологическая карта',wid,'Сохранение',actor,
+                {**dict(old),**(dict(old_prices) if old_prices else dict(internal_price=None,external_price=None))} if old else None,
+                dict(recipe=parts,technician_fee=fee,**prices))
 
 
 def product_action(conn,data,actor):
@@ -231,10 +248,12 @@ def product_action(conn,data,actor):
         card=conn.execute('SELECT * FROM ztl_cards WHERE work_id=?',(wid,)).fetchone()
         if integer(data.get('version'))!=(card['version'] if card else 0):raise Conflict('Карта изменена. Откройте её заново.')
         archived=conn.execute('SELECT 1 FROM ztl_product_archive WHERE work_id=?',(wid,)).fetchone() is not None
+        prices=conn.execute('SELECT internal_price,external_price FROM ztl_product_prices WHERE work_id=?',(wid,)).fetchone()
         if action=='delete':
             if conn.execute('SELECT 1 FROM ztl_orders WHERE work_id=?',(wid,)).fetchone():
                 raise ValueError('Изделие используется в заказах. Можно убрать его из ассортимента, сохранив историю.')
             conn.execute('DELETE FROM ztl_product_archive WHERE work_id=?',(wid,))
+            conn.execute('DELETE FROM ztl_product_prices WHERE work_id=?',(wid,))
             conn.execute('DELETE FROM ztl_cards WHERE work_id=?',(wid,))
             conn.execute('DELETE FROM ztl_names WHERE id=?',(wid,))
         else:
@@ -243,7 +262,7 @@ def product_action(conn,data,actor):
             else:conn.execute('DELETE FROM ztl_product_archive WHERE work_id=?',(wid,))
             conn.execute('UPDATE ztl_names SET version=version+1 WHERE id=?',(wid,))
         ztl.log(conn,'Изделие ЗТЛ',wid,{'archive':'Убрано из ассортимента','restore':'Возвращено в ассортимент','delete':'Удаление'}[action],actor,
-                dict(work=work,card=dict(card) if card else None,archived=archived),dict(operation=action))
+                dict(work=work,card=dict(card) if card else None,prices=dict(prices) if prices else None,archived=archived),dict(operation=action))
 
 
 def material_used(conn,iid):
