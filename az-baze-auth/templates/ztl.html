@@ -64,12 +64,14 @@
 <div class="ztl">
 <h2 class="ztl-title">ЗТЛ</h2>
 {% if tab in ['order_form','payment_form','payment_preview'] %}<a class="btn" href="{{ url_for('ztl_page',tab='payments' if tab!='order_form' else 'orders') }}">К реестру</a>{% else %}
+{% if tab in ['orders','payroll','economics','doctors'] %}
 <form method="get" class="row ztl-filter">
 {{ hidden('tab',tab) }}<div class="field"><label for="start">Период с</label><input id="start" type="month" name="start" value="{{ start }}" required></div><div class="field"><label for="end">По</label><input id="end" type="month" name="end" value="{{ end }}" required></div>
-<div class="field"><label for="mode">Отображение заказов</label><select id="mode" name="mode">{% for key,label in [('all','Общий список'),('group','Группировать: внешние / внутренние'),('internal','Внутренние'),('external','Внешние'),('legal','Юридические лица'),('private','Частные клиенты')] %}<option value="{{ key }}" {{ 'selected' if mode==key else '' }}>{{ label }}</option>{% endfor %}</select></div>
-{% if tab in ['orders','payroll','economics'] %}<div class="field"><label for="technician">Техник</label><select id="technician" name="technician"><option value="">Все техники</option>{% for n in names if n.kind=='employee' %}<option value="{{ n.id }}" {{ 'selected' if technician==n.id else '' }}>{{ n.name }}</option>{% endfor %}</select></div>{% endif %}
-<label class="check"><input type="checkbox" name="unpaid" value="1" {{ 'checked' if unpaid else '' }}>Неоплаченные</label><button class="btn primary">Показать</button>
+{% if tab=='orders' %}<div class="field"><label for="mode">Отображение заказов</label><select id="mode" name="mode">{% for key,label in [('all','Общий список'),('group','Группировать: внешние / внутренние'),('internal','Внутренние'),('external','Внешние'),('legal','Юридические лица'),('private','Частные клиенты')] %}<option value="{{ key }}" {{ 'selected' if mode==key else '' }}>{{ label }}</option>{% endfor %}</select></div>{% endif %}
+{% if tab in ['orders','payroll'] %}<div class="field"><label for="technician">Техник</label><select id="technician" name="technician"><option value="">Все техники</option>{% for n in names if n.kind=='employee' %}<option value="{{ n.id }}" {{ 'selected' if technician==n.id else '' }}>{{ n.name }}</option>{% endfor %}</select></div>{% endif %}
+{% if tab=='orders' %}<label class="check"><input type="checkbox" name="unpaid" value="1" {{ 'checked' if unpaid else '' }}>Неоплаченные</label>{% endif %}<button class="btn primary">Показать</button>
 </form>
+{% endif %}
 <div class="ztl-toolbar"><nav class="row" aria-label="Разделы ЗТЛ">{% for key,label in ztl_tabs %}{% if (key!='receipts' or 'receipts_view' in rights or 'receipts_edit' in rights) and (key!='inventory' or 'inventory_count' in rights or 'inventory_manage' in rights) %}<a class="btn {{ 'active' if tab==key else '' }}" href="{{ url_for('ztl_page',tab=key,start=start,end=end) }}">{{ label }}</a>{% endif %}{% endfor %}</nav>
 <div class="row">{% if tab=='orders' and 'orders' in rights %}<a class="btn primary" href="{{ url_for('ztl_order_form') }}">Новый заказ</a>{% endif %}{% if tab=='payments' and 'payments' in rights %}<a class="btn primary" href="{{ url_for('ztl_payment_form') }}">Внести оплату</a>{% endif %}<a class="btn" href="{{ url_for('ztl_page',tab='catalog') }}">Справочники</a><a class="btn" href="{{ url_for('ztl_page',tab='history') }}">История</a></div></div>
 {% endif %}

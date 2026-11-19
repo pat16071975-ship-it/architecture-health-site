@@ -33,6 +33,8 @@ try:
                 assert response.status==200,(tab,response.status)
                 assert page.get_by_role('navigation',name='Разделы ЗТЛ').get_by_role('link').count()==7
                 assert page.get_by_role('navigation',name='Разделы ЗТЛ').get_by_role('link',name=label,exact=True).count()==1
+                assert page.locator('#technician').count()==int(tab in ('orders','payroll'))
+                assert page.locator('[name=unpaid]').count()==int(tab=='orders')
             page.get_by_role('link',name='Приход',exact=True).click()
             panel=page.locator('details').filter(has=page.get_by_text('Добавить приход / загрузить УПД',exact=True))
             panel.locator('summary').click()
