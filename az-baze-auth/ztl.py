@@ -173,6 +173,18 @@ def save_order(conn, data, actor, can_catalog=False):
         scope = data.get('scope')
         if scope not in ('internal','external'):
             raise ValueError('Выберите внутренний или внешний заказ.')
+        price_key=str(data.get('price_key','')).strip()
+        if price_key:
+            match=re.fullmatch(r'(internal|external):([1-9][0-9]{0,11})',price_key)
+            if not match or match[1]!=scope:
+                raise ValueError('Позиция прайса не соответствует типу заказа. Выберите позицию заново.')
+            work_id=integer(match[2])
+            if data.get('work_id') and integer(data['work_id'])!=work_id:
+                raise ValueError('Изделие не соответствует выбранной позиции прайса.')
+            if row_by_id(conn,'ztl_names',work_id)['kind']!='work':raise ValueError('Выберите изделие.')
+        else:
+            if 'price_selection_present' in data:raise ValueError('Выберите позицию прайса для этого типа заказа.')
+            work_id=resolve(conn,data,'work_id','work',actor,False)
         suffix = str(data.get('number','')).strip().removeprefix('LAB-')
         if not re.fullmatch(r'[0-9A-Za-zА-Яа-я._/-]{1,40}',suffix):
             raise ValueError('Введите номер заказа после LAB-.')
@@ -182,13 +194,22 @@ def save_order(conn, data, actor, can_catalog=False):
                       patient=text(data.get('patient'),200),
                       customer_id=resolve(conn,data,'customer_id','customer',actor,can_catalog,False),
                       doctor_id=resolve(conn,data,'doctor_id','doctor',actor,can_catalog) if scope=='internal' else None,
-                      work_id=resolve(conn,data,'work_id','work',actor,False),
+                      work_id=work_id,
                       description=str(data.get('description','')).strip()[:4000],
                       amount=number(data.get('amount'),100),delay_days=integer(data.get('delay_days')))
         if values['delay_days'] > 3650:
             raise ValueError('Отсрочка не может превышать 3650 дней.')
-        if (not old or old['work_id']!=values['work_id']) and conn.execute('SELECT 1 FROM ztl_product_archive WHERE work_id=?',(values['work_id'],)).fetchone():
+        same_position=bool(old and old['work_id']==work_id and old['scope']==scope)
+        if not same_position and conn.execute('SELECT 1 FROM ztl_product_archive WHERE work_id=?',(work_id,)).fetchone():
             raise ValueError('Изделие убрано из ассортимента. Выберите действующее изделие.')
+        quoted=conn.execute('SELECT p.internal_price,p.external_price,c.version FROM ztl_product_prices p JOIN ztl_cards c ON c.work_id=p.work_id WHERE p.work_id=?',(work_id,)).fetchone()
+        if not same_position and (quoted is None or quoted[scope+'_price'] is None):
+            raise ValueError('Для изделия не задан '+('внутренний' if scope=='internal' else 'внешний')+' прайс. Заполните его в реестре изделий.')
+        if data.get('price_version'):
+            if quoted is None or integer(data['price_version'])!=quoted['version']:
+                raise Conflict('Позиция прайса изменилась. Откройте заказ заново и проверьте цену.')
+        elif not same_position and 'price_selection_present' in data:
+            raise ValueError('Выберите действующую позицию прайса заново.')
         if values['invoice_date'] > today():
             raise ValueError('Дата счёта не может быть в будущем.')
         if old:
@@ -484,7 +505,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
             edit=row_by_id(db(),'ztl_orders',integer(request.args['id'])) if request.args.get('id') else None
             production=ztl_control.production(db(),edit['id']) if edit else None
             if production:production['technician_ids']=json.loads(production['technicians'])
-            return render(tab='order_form',edit=edit,production=production)
+            choices=ztl_control.order_price_choices(db(),edit)
+            return render(tab='order_form',edit=edit,production=production,price_choices=choices)
         except ValueError as exc:return str(exc),400
 
     @app.get('/accounting/ztl/payment')

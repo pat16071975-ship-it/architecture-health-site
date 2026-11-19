@@ -40,27 +40,40 @@
 </div>{% endif %}
 {% endmacro %}
 
+{% macro product_head() %}<thead><tr><th>Изделие</th><th>Себестоимость</th><th>Прайс</th><th>Цена за изделие</th><th></th></tr></thead>{% endmacro %}
 {% macro product_card(card) %}
-<details class="ztl-product-entry" data-product-entry="{{ card.id }}"><summary><strong class="ztl-product-list-name">{{ card.name }}</strong><span data-list-label="Себестоимость">{{ fmt(card.total_cost)~' ₽' if card.total_cost is not none else '—' }}</span><span class="ztl-price-lines"><span class="ztl-price-row" data-price-type="internal"><span>Внутренний прайс</span><span>{{ fmt(card.internal_price)~' ₽' if card.internal_price is not none else 'Не задан' }}</span></span><span class="ztl-price-row" data-price-type="external"><span>Внешний прайс</span><span>{{ fmt(card.external_price)~' ₽' if card.external_price is not none else 'Не задан' }}</span></span></span><span class="ztl-edit-label">{{ 'Редактировать' if 'catalog' in rights else 'Состав' }}</span></summary>
+<tbody data-product-entry="{{ card.id }}">
+{% for scope,label,price in [('internal','Внутренний',card.internal_price),('external','Внешний',card.external_price)] %}
+<tr class="ztl-price-row" data-price-type="{{ scope }}" data-price-key="{{ scope }}:{{ card.id }}">
+<td class="ztl-product-list-name" data-list-label="Изделие"><strong>{{ card.name }}</strong></td>
+<td data-list-label="Себестоимость">{{ fmt(card.total_cost)~' ₽' if card.total_cost is not none else '—' }}</td>
+<td data-list-label="Прайс">{{ label }}</td>
+<td data-list-label="Цена за изделие" data-listed-price>{{ fmt(price)~' ₽' if price is not none else 'Не задан' }}</td>
+<td class="ztl-price-row-actions"><button type="button" class="ztl-edit-label" data-edit-product="{{ card.id }}" aria-controls="ztl-product-editor-{{ card.id }}" aria-expanded="false">{{ 'Редактировать' if 'catalog' in rights else 'Состав' }}</button></td>
+</tr>
+{% endfor %}
+<tr id="ztl-product-editor-{{ card.id }}" data-product-editor hidden><td colspan="5">
 {% if not card.version %}<p class="muted">Технологическая карта пока не заполнена.</p>{% endif %}
 {% if 'catalog' in rights %}{{ product_form(card) }}{% else %}{% for part in card.parts %}<p>{{ part.name }}: {{ qty_fmt(part.qty) }} {{ part.unit }} · {{ fmt(part.cost) }} ₽</p>{% endfor %}{% endif %}
-{{ product_actions(card) }}</details>
+{{ product_actions(card) }}</td></tr>
+</tbody>
 {% endmacro %}
 
 <style>
 .ztl .ztl-product-form{display:grid;gap:9px;line-height:1.3}.ztl-product-form label,.ztl [data-unit-control] label{display:grid;gap:4px;font-size:12px;min-width:0}.ztl-product-form h4{margin:2px 0;font-size:14px}.ztl-product-form .muted{margin:0;font-size:11px}.ztl .ztl-product-form input:not([type=checkbox]),.ztl .ztl-product-form select{height:32px;min-height:32px;padding:5px 7px;font-size:12px;border-radius:5px}.ztl .ztl-product-form button[type=submit]{justify-self:start}.ztl-product-main{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}.ztl-product-new{padding:12px!important;box-shadow:none!important}.ztl-product-new>summary{font-size:16px;cursor:pointer}.ztl-product-new[open]>.ztl-product-form{margin-top:10px}
 .ztl-material-row{display:grid;grid-template-columns:minmax(180px,2fr) minmax(120px,1fr) minmax(130px,1fr) minmax(135px,1fr) auto;gap:9px;align-items:start;border-bottom:1px solid var(--line);padding:7px 0}.ztl-material-row>div{min-width:0}.ztl-material-row [data-material-name],.ztl-material-row [data-custom-unit]{margin-top:6px}.ztl-material-row>[data-remove-material]{align-self:start;margin-top:19px}.ztl-material-price{display:grid;gap:3px;font-size:11px}.ztl-material-price output{font-size:13px;font-weight:600}.ztl-material-price small{color:#6c746d;overflow-wrap:anywhere}.ztl [data-add-material]{margin-top:8px}.ztl-product-form .ztl-no-materials{display:flex;align-items:center;gap:6px}.ztl-product-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;background:#f3f1e9;padding:10px;border-radius:6px}.ztl-product-totals>div{display:grid;gap:5px;align-content:start;font-size:12px}.ztl-product-totals output{font-size:15px;font-weight:600}
-.ztl-product-title{font-size:17px;margin:16px 0 8px}.ztl-products-list{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fffdf8}.ztl .ztl-product-entry{margin:0;border-bottom:1px solid var(--line);padding:0;box-shadow:none}.ztl-product-entry:last-child{border-bottom:0}.ztl-product-entry>summary,.ztl-products-list-head{display:grid;grid-template-columns:minmax(180px,2fr) minmax(110px,1fr) minmax(240px,2fr) 95px;gap:10px;align-items:center;padding:6px 12px;font-size:12px;line-height:1.3}.ztl-product-entry>summary{cursor:pointer;list-style:none}.ztl-product-entry>summary::-webkit-details-marker{display:none}.ztl-product-list-name{overflow-wrap:anywhere}.ztl-price-lines{min-width:0}.ztl-price-row,.ztl-price-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:center}.ztl-price-row{padding:3px 0;min-height:23px}.ztl-price-row+.ztl-price-row{border-top:1px solid var(--line)}.ztl-products-list-head{background:#f3f1e9;font-size:11px;color:#61685f}.ztl-product-entry[open]>summary{background:#f3f1e9}.ztl-product-entry[open]>.ztl-product-form,.ztl-product-entry>p{margin:10px 12px}.ztl-edit-label{color:var(--green);text-decoration:underline}.ztl-product-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 12px;padding-top:10px;border-top:1px solid var(--line)}.ztl-product-actions form{margin:0}.ztl-material-catalog{margin-top:16px!important;font-size:13px}.ztl-material-entry{padding:8px 0;border-bottom:1px solid var(--line)}.ztl-material-entry form{margin-top:10px}.ztl-material-entry .ztl-fields{margin-bottom:10px}.ztl-material-entry label{display:grid;gap:5px;font-size:12px}
-@media(max-width:700px){.ztl-product-main{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ztl-product-name{grid-column:1/-1}.ztl-material-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ztl-material-row>div:first-of-type{grid-column:1/-1}.ztl-material-row>[data-remove-material]{margin-top:0;justify-self:end}.ztl-product-totals{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ztl-product-totals>label{grid-column:1/-1}.ztl-products-list-head{display:none}.ztl-product-entry>summary{grid-template-columns:2fr 1fr;gap:8px;padding:10px}.ztl-price-lines,.ztl-edit-label{grid-column:1/-1}.ztl-edit-label{justify-self:end}.ztl-product-entry [data-list-label]::before{content:attr(data-list-label);display:block;font-size:10px;color:#61685f;margin-bottom:3px}.ztl-product-new{padding:10px!important}}
+.ztl-product-title{font-size:17px;margin:16px 0 8px}.ztl-products-list{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fffdf8}.ztl-price-table{width:100%;border-collapse:collapse;table-layout:fixed}.ztl-price-table th,.ztl-price-table td{text-align:left;padding:9px 12px;font-size:12px;line-height:1.3;vertical-align:middle;border-bottom:1px solid var(--line)}.ztl-price-table th{background:#f3f1e9;font-size:11px;color:#61685f;font-weight:400}.ztl-price-table input[type=checkbox]{min-width:0}.ztl-price-table th:first-child{width:36%}.ztl-price-table th:last-child{width:120px}.ztl-product-list-name{overflow-wrap:anywhere}.ztl-price-table [data-product-editor]>td{padding:12px;background:#fffdf8}.ztl-edit-label{background:none;border:0;padding:0;font:inherit;color:var(--green);text-decoration:underline;cursor:pointer}.ztl-product-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line)}.ztl-product-actions form{margin:0}.ztl-material-catalog{margin-top:16px!important;font-size:13px}.ztl-material-entry{padding:8px 0;border-bottom:1px solid var(--line)}.ztl-material-entry form{margin-top:10px}.ztl-material-entry .ztl-fields{margin-bottom:10px}.ztl-material-entry label{display:grid;gap:5px;font-size:12px}
+@media(max-width:700px){.ztl-product-main{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ztl-product-name{grid-column:1/-1}.ztl-material-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ztl-material-row>div:first-of-type{grid-column:1/-1}.ztl-material-row>[data-remove-material]{margin-top:0;justify-self:end}.ztl-product-totals{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ztl-product-totals>label{grid-column:1/-1}.ztl-price-table,.ztl-price-table tbody{display:block}.ztl-price-table thead{display:none}.ztl-price-table .ztl-price-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px;border-bottom:1px solid var(--line)}.ztl-price-table .ztl-price-row td{display:block;padding:0;border:0}.ztl-price-table .ztl-product-list-name,.ztl-price-table .ztl-price-row-actions{grid-column:1/-1}.ztl-price-row-actions{text-align:right!important}.ztl-price-table [data-list-label]:not(.ztl-product-list-name)::before{content:attr(data-list-label);display:block;font-size:10px;color:#61685f;margin-bottom:3px}.ztl-price-table [data-product-editor]:not([hidden]),.ztl-price-table [data-product-editor]>td{display:block}.ztl-price-table [data-product-editor]>td{padding:10px}.ztl-product-new{padding:10px!important}}
+
 </style>
 
 <section class="ztl-products-registry" aria-label="Изделия и технологические карты">
 {% if 'catalog' in rights %}<details class="card ztl-product-new" {{ 'open' if not cards else '' }}><summary>Новое изделие</summary>{{ product_form() }}</details>{% endif %}
 <h3 class="ztl-product-title">Изделия в ассортименте</h3>
-<div class="ztl-products-list" aria-label="Список созданных изделий"><div class="ztl-products-list-head"><span>Изделие</span><span>Себестоимость</span><span class="ztl-price-head"><span>Прайс</span><span>Цена за изделие</span></span><span></span></div>
-{% for card in cards if not card.archived %}{{ product_card(card) }}{% else %}<p class="muted">Изделия пока не добавлены.</p>{% endfor %}
-</div>
-{% set archived=cards|selectattr('archived')|list %}{% if archived %}<details class="ztl-archived"><summary>Убраны из ассортимента ({{ archived|length }})</summary>{% for card in archived %}{{ product_card(card) }}{% endfor %}</details>{% endif %}
+<div class="ztl-products-list" aria-label="Список созданных изделий"><table class="ztl-price-table">{{ product_head() }}
+{% for card in cards if not card.archived %}{{ product_card(card) }}{% else %}<tbody><tr><td colspan="5">Изделия пока не добавлены.</td></tr></tbody>{% endfor %}
+</table></div>
+{% set archived=cards|selectattr('archived')|list %}{% if archived %}<details class="ztl-archived"><summary>Убраны из ассортимента ({{ archived|length }})</summary><table class="ztl-price-table">{{ product_head() }}{% for card in archived %}{{ product_card(card) }}{% endfor %}</table></details>{% endif %}
 </section>
 
 {% if 'catalog' in rights %}<details class="ztl-material-catalog"><summary>Сохранённые материалы для изготовления</summary><p class="muted">Здесь можно исправить название материала или удалить ошибочную запись. Единицу использованного материала менять нельзя.</p>
@@ -72,6 +85,11 @@
 <template id="ztl-material-template">{{ material_row('__row__') }}</template>
 <script>
 (()=>{
+ document.querySelectorAll('[data-edit-product]').forEach(button=>button.addEventListener('click',()=>{
+  const entry=button.closest('[data-product-entry]'),editor=entry.querySelector('[data-product-editor]');
+  editor.hidden=!editor.hidden;
+  entry.querySelectorAll('[data-edit-product]').forEach(b=>b.setAttribute('aria-expanded',String(!editor.hidden)));
+ }));
  const money=cents=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:2}).format(cents/100);
  const numeric=value=>{const s=value.trim().replace(',','.');return /^\d+(?:\.\d+)?$/.test(s)?Number(s):null;};
  document.querySelectorAll('[data-product-form]').forEach(form=>{

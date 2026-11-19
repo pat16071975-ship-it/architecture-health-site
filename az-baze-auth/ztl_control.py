@@ -140,6 +140,28 @@ def catalog(conn):
     return result
 
 
+def order_price_choices(conn, old_order=None):
+    """Separate selectable price positions share one manufacturing card."""
+    result=[]
+    for row in conn.execute('''SELECT n.id,n.name,c.version,p.internal_price,p.external_price
+        FROM ztl_names n JOIN ztl_cards c ON c.work_id=n.id
+        JOIN ztl_product_prices p ON p.work_id=n.id
+        WHERE n.kind='work' AND NOT EXISTS(SELECT 1 FROM ztl_product_archive a WHERE a.work_id=n.id)
+        ORDER BY n.name,n.id'''):
+        for scope in ('internal','external'):
+            price=row[scope+'_price']
+            if price is not None:
+                result.append(dict(key=scope+':'+str(row['id']),work_id=row['id'],name=row['name'],
+                                   scope=scope,price=price,version=row['version'],saved=False))
+    if old_order:
+        key=old_order['scope']+':'+str(old_order['work_id'])
+        if not any(p['key']==key for p in result):
+            name=conn.execute('SELECT name FROM ztl_names WHERE id=?',(old_order['work_id'],)).fetchone()[0]
+            result.append(dict(key=key,work_id=old_order['work_id'],name=name,scope=old_order['scope'],
+                               price=None,version=None,saved=True))
+    return result
+
+
 def insert_item(conn,name,unit,kind,actor):
     """Insert and audit inside the caller's transaction."""
     import ztl

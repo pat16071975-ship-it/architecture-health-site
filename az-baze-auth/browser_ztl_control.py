@@ -25,6 +25,10 @@ try:
     asset=fixture.item('Шкаф для проверки изоляции','asset','шт.')
     for name,qty,fee,internal,external in [('Каппа','10','600','2200','3500'),('Ретенционный аппарат','12','800','2500','4000')]:
         control.save_card(fixture.c,dict(name=name,version='0',technician_fee=fee,prices_present='1',internal_price=internal,external_price=external,**{'qty_'+str(plastic):qty}),1)
+    for name,internal,external in [('Ремонт для клиники','0',''),('Работа для внешнего заказчика','','6000')]:
+        control.save_card(fixture.c,dict(name=name,version='0',no_materials='1',technician_fee='0',prices_present='1',internal_price=internal,external_price=external),1)
+    internal_only=fixture.c.execute("SELECT id FROM ztl_names WHERE name='Ремонт для клиники'").fetchone()[0]
+    external_only=fixture.c.execute("SELECT id FROM ztl_names WHERE name='Работа для внешнего заказчика'").fetchone()[0]
     with sync_playwright() as pw:
         browser=pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
         for width in (1365,390):
@@ -100,7 +104,7 @@ try:
             lacquer=fixture.c.execute('SELECT id FROM ztl_items WHERE name=?',(material_name,)).fetchone()[0]
             fixture.receipt(lacquer,qty='100',value='100')
             page.reload()
-            entry=page.locator('[data-product-entry="'+str(wid)+'"]');entry.locator('summary').first.click()
+            entry=page.locator('[data-product-entry="'+str(wid)+'"]');entry.locator('[data-edit-product]').first.click()
             assert len(next(r['parts'] for r in control.catalog(fixture.c) if r['id']==wid))==4
             assert next(r['total_cost'] for r in control.catalog(fixture.c) if r['id']==wid)==126550
             saved=next(r for r in control.catalog(fixture.c) if r['id']==wid)
@@ -114,8 +118,8 @@ try:
             entry.locator('[name=internal_price]').fill('2600,50')
             entry.locator('[name=external_price]').fill('4200')
             submit(entry,'Сохранить изменения')
-            entry.locator('summary').first.click()
-            assert name+' — исправлено' in entry.locator('summary').first.inner_text()
+            entry.locator('[data-edit-product]').first.click()
+            assert name+' — исправлено' in entry.locator('.ztl-product-list-name').first.inner_text()
             saved=next(r for r in control.catalog(fixture.c) if r['id']==wid)
             assert (saved['internal_price'],saved['external_price'],saved['total_cost'])==(260050,420000,126550)
             # Bad prices must retain all input and leave the database unchanged.
@@ -131,12 +135,12 @@ try:
             page.once('dialog',lambda dialog:dialog.accept())
             submit(entry,'Убрать из ассортимента')
             page.goto(origin+'/accounting/ztl/order')
-            assert page.locator('[name=work_id] option[value="'+str(wid)+'"]').count()==0
+            assert page.locator('[name=price_key] option[value$=":'+str(wid)+'"]').count()==0
             page.goto(origin+'/accounting/ztl/products/')
-            page.locator('.ztl-archived>summary').click();entry.locator('summary').first.click()
+            page.locator('.ztl-archived>summary').click();entry.locator('[data-edit-product]').first.click()
             page.once('dialog',lambda dialog:dialog.accept())
             submit(entry,'Вернуть в ассортимент')
-            entry.locator('summary').first.click()
+            entry.locator('[data-edit-product]').first.click()
             page.once('dialog',lambda dialog:dialog.accept())
             submit(entry,'Удалить изделие')
             assert entry.count()==0
@@ -164,15 +168,17 @@ try:
             product.locator('[data-material-row]').last.get_by_role('button',name='Удалить строку').click()
             assert product.locator('[data-material-row]').count()==4
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
-            assert page.locator('.ztl-products-list [data-product-entry][open]').count()==0
+            assert page.locator('.ztl-products-list [data-product-editor]:not([hidden])').count()==0
             form_box=panel.bounding_box();list_box=page.locator('.ztl-products-list').bounding_box()
             assert list_box['y']>=form_box['y']+form_box['height']
             if width==1365:
                 assert form_box['height']<=650,form_box
-                assert all(box['height']<=64 for box in page.locator('.ztl-products-list [data-product-entry]').evaluate_all('(rows)=>rows.map(row=>({height:row.getBoundingClientRect().height}))'))
+                assert all(box['height']<=46 for box in page.locator('.ztl-products-list .ztl-price-row').evaluate_all('(rows)=>rows.map(row=>({height:row.getBoundingClientRect().height}))'))
             for saved_entry in page.locator('.ztl-products-list [data-product-entry]').all():
-                price_rows=saved_entry.locator('summary [data-price-type]')
+                price_rows=saved_entry.locator('[data-price-type]')
                 assert price_rows.count()==2
+                assert price_rows.evaluate_all('(rows)=>rows.every(row=>row.tagName==="TR" && row.cells.length===5)')
+                assert price_rows.nth(0).locator('.ztl-product-list-name').inner_text()==price_rows.nth(1).locator('.ztl-product-list-name').inner_text()
                 assert price_rows.nth(0).get_attribute('data-price-type')=='internal'
                 assert price_rows.nth(1).get_attribute('data-price-type')=='external'
                 internal_box=price_rows.nth(0).bounding_box();external_box=price_rows.nth(1).bounding_box()
@@ -181,12 +187,38 @@ try:
                 saved=next(r for r in control.catalog(fixture.c) if r['id']==int(saved_entry.get_attribute('data-product-entry')))
                 for idx,key in enumerate(('internal_price','external_price')):
                     expected=control.display(saved[key],100)+' ₽' if saved[key] is not None else 'Не задан'
-                    assert price_rows.nth(idx).locator('span').last.inner_text()==expected
+                    assert price_rows.nth(idx).locator('[data-listed-price]').inner_text()==expected
                 assert saved_entry.locator('[data-product-form]').count()==1
             panel.screenshot(path=str(artifacts/('new-product-'+str(width)+'.png')))
             page.locator('.ztl-products-list').screenshot(path=str(artifacts/('price-list-'+str(width)+'.png')))
             page.locator('.ztl-products-registry').screenshot(path=str(artifacts/('registry-'+str(width)+'.png')))
-            print('ZTL_UNIFIED_PRODUCT',width,'PASS; compact form, two price rows per product below form, internal/external prices, four materials, custom unit, errors preserve input, edit/delete/archive/restore')
+            print('ZTL_UNIFIED_PRODUCT',width,'PASS; compact form, two separate price entries below form, internal/external prices, four materials, custom unit, errors preserve input, edit/delete/archive/restore')
+            # Actual order selector: only the selected scope, clearing on switches,
+            # correct price/quantity autofill, and preserved manual invoice amount.
+            cap=fixture.c.execute("SELECT id FROM ztl_names WHERE name='Каппа'").fetchone()[0]
+            for scope,price in [('internal',2200),('external',3500)]:
+                page.goto(origin+'/accounting/ztl/order')
+                page.locator('[name=scope]').select_option(scope)
+                selector=page.locator('[name=price_key]')
+                values=selector.locator('option').evaluate_all('(options)=>options.map(o=>o.value).filter(Boolean)')
+                assert values and all(value.startswith(scope+':') for value in values)
+                assert ('internal:'+str(internal_only) in values)==(scope=='internal')
+                assert ('external:'+str(external_only) in values)==(scope=='external')
+                selector.select_option(scope+':'+str(cap))
+                assert page.locator('[name=amount]').input_value()==str(price)
+                page.locator('[name=pieces]').fill('2')
+                assert page.locator('[name=amount]').input_value()==str(price*2)
+                page.locator('.ztl-order-form').screenshot(path=str(artifacts/('order-price-'+scope+'-'+str(width)+'.png')))
+                page.locator('[name=amount]').fill('1234')
+                page.locator('[name=pieces]').fill('3')
+                assert page.locator('[name=amount]').input_value()=='1234'
+                page.locator('[name=scope]').select_option('external' if scope=='internal' else 'internal')
+                assert selector.input_value()=='' and page.locator('[name=amount]').input_value()==''
+                assert selector.locator('option[value="'+scope+':'+str(cap)+'"]').count()==0
+            page.locator('[name=scope]').select_option('internal')
+            page.locator('[name=price_key]').select_option('internal:'+str(internal_only))
+            assert page.locator('[name=amount]').input_value()=='0'
+            print('ZTL_SCOPED_ORDER_PRICES',width,'PASS; scope-filtered positions, reset on switch, zero, price × quantity, manual amount preserved')
             page.get_by_role('link',name='← К разделам ЗТЛ',exact=True).click()
             menu.get_by_role('link',name='Приход',exact=True).click()
             panel=page.locator('details').filter(has=page.get_by_text('Добавить приход / загрузить УПД',exact=True))
@@ -208,7 +240,7 @@ try:
             page.locator('[name=scope]').select_option('external')
             page.locator('[name=party_id]').select_option(str(fixture.party))
             page.locator('[name=patient]').fill('Синтетический заказ '+str(width))
-            page.locator('[name=work_id]').select_option(str(fixture.work))
+            page.locator('[name=price_key]').select_option('external:'+str(fixture.work))
             assert page.locator('[name=work_id_new]').count()==0
             page.locator('[name=technician_id]').first.check()
             page.locator('[name=pieces]').fill('2')
@@ -233,6 +265,8 @@ try:
                                    ('no-technicians','Выберите хотя бы одного техника.')]:
                 page.goto(edit_url)
                 assert page.locator('[name=technicians_present]').input_value()=='1'
+                assert page.locator('[name=amount]').input_value()=='500'
+                assert page.locator('[name=price_key]').input_value()=='external:'+str(fixture.work)
                 if change=='clear-date':page.locator('[name=completed_on]').fill('')
                 elif change=='quantity':page.locator('[name=pieces]').fill('3')
                 else:

@@ -50,6 +50,97 @@ class ControlTests(unittest.TestCase):
         card=self.c.execute('SELECT version FROM ztl_cards WHERE work_id=?',(wid,)).fetchone()
         return dict(work_id=wid,work_version=work['version'],version=card['version'] if card else 0,operation=operation,confirm='1')
 
+    def priced_order_data(self, scope='external', **changes):
+        data=dict(number='PRICE-HTTP',invoice_date='2026-11-01',scope=scope,party_id=self.party,
+                  patient='Проверка прайса',doctor_id=self.doctor,amount='100',delay_days='0',
+                  price_key=scope+':'+str(self.work),price_version='1',price_selection_present='1',
+                  technician_id=str(self.technician),technicians_present='1',pieces='1')
+        data.update(changes);return data
+
+    def post_order(self,data):
+        client=self.client(2)
+        with client.session_transaction() as session:session['csrf']='token'
+        return client.post('/accounting/ztl/save/order',data={**data,'csrf':'token'})
+
+    def test_order_price_positions_filter_missing_zero_and_archive(self):
+        with self.c:self.c.execute('UPDATE ztl_product_prices SET internal_price=0,external_price=NULL WHERE work_id=?',(self.work,))
+        choices=c.order_price_choices(self.c)
+        self.assertEqual([(p['key'],p['price']) for p in choices],[('internal:'+str(self.work),0)])
+        self.grant('ztl_orders')
+        before='\n'.join(self.c.iterdump())
+        page=self.client(2).get('/accounting/ztl/order').get_data(as_text=True)
+        self.assertIn('value="internal:'+str(self.work)+'"',page)
+        self.assertNotIn('value="external:'+str(self.work)+'"',page)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.assertEqual(self.post_order(self.priced_order_data()).status_code,400)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.assertEqual(self.post_order(self.priced_order_data('internal',amount='0')).status_code,303)
+        c.product_action(self.c,self.product_operation(self.work,'archive'),1)
+        self.assertEqual(c.order_price_choices(self.c),[])
+
+    def test_http_wrong_price_scope_forged_work_and_missing_selection_are_atomic(self):
+        self.grant('ztl_orders');before='\n'.join(self.c.iterdump())
+        cases=[{'scope':'internal'}, {'price_key':'internal:1:extra'}, {'price_key':''},
+               {'price_key':'external:0'}, {'price_key':'external:'+str(self.technician)},
+               {'work_id':self.technician}, {'price_version':'999'}, {'price_version':''}]
+        for change in cases:
+            with self.subTest(change=change):
+                data=self.priced_order_data();data.update(change)
+                response=self.post_order(data)
+                self.assertIn(response.status_code,(400,409))
+                self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_http_both_price_positions_use_one_card_and_one_stock_issue_per_order(self):
+        item=self.item();self.receipt(item);self.card(item)
+        self.grant('ztl_orders')
+        for scope in ('internal','external'):
+            data=self.priced_order_data(scope,number='PRICE-'+scope,price_version='2',pieces='2')
+            self.assertEqual(self.post_order(data).status_code,303)
+        rows=ztl.orders(self.c)
+        self.assertEqual({(r['scope'],r['work_id']) for r in rows},{('internal',self.work),('external',self.work)})
+        self.assertEqual(self.c.execute('SELECT COUNT(*) FROM ztl_cards').fetchone()[0],1)
+        self.assertEqual(c.stock(self.c)[0]['qty'],6000)
+        self.assertEqual(self.c.execute("SELECT COUNT(*) FROM ztl_moves WHERE kind='order'").fetchone()[0],2)
+
+    def test_old_order_without_current_price_keeps_its_position_amount_and_production(self):
+        oid=self.order(amount='123.45')
+        with self.c:self.c.execute('DELETE FROM ztl_product_prices WHERE work_id=?',(self.work,))
+        old=ztl.row_by_id(self.c,'ztl_orders',oid);production=c.production(self.c,oid)
+        choices=c.order_price_choices(self.c,old)
+        self.assertEqual([(p['key'],p['saved']) for p in choices],[('external:'+str(self.work),True)])
+        self.grant('ztl_orders');before='\n'.join(self.c.iterdump())
+        page=self.client(2).get('/accounting/ztl/order?id='+str(oid)).get_data(as_text=True)
+        self.assertIn('сохранённая позиция заказа',page)
+        self.assertIn('value="123.45"',page)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        data=self.priced_order_data(id=oid,version=old['version'],number=old['number'],amount='123.45',price_version='')
+        self.assertEqual(self.post_order(data).status_code,303)
+        self.assertEqual(ztl.row_by_id(self.c,'ztl_orders',oid)['amount'],12345)
+        self.assertEqual(c.production(self.c,oid),production)
+        before='\n'.join(self.c.iterdump())
+        data.update(scope='internal',price_key='internal:'+str(self.work),version=old['version']+1)
+        self.assertEqual(self.post_order(data).status_code,400)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+
+    def test_old_client_cannot_create_order_with_missing_scope_price(self):
+        with self.c:self.c.execute('UPDATE ztl_product_prices SET external_price=NULL WHERE work_id=?',(self.work,))
+        before='\n'.join(self.c.iterdump())
+        with self.assertRaisesRegex(ValueError,'внешний прайс'):self.order()
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        self.order(scope='internal')
+
+    def test_changed_price_version_and_failed_history_roll_back_entire_order(self):
+        self.grant('ztl_orders')
+        c.save_card(self.c,dict(work_id=self.work,version='1',no_materials='1',technician_fee='0',
+                    prices_present='1',internal_price='150',external_price='250'),1)
+        before='\n'.join(self.c.iterdump())
+        self.assertEqual(self.post_order(self.priced_order_data()).status_code,409)
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+        with patch.object(ztl,'log',side_effect=RuntimeError('history unavailable')):
+            with self.assertRaisesRegex(RuntimeError,'history unavailable'):
+                self.post_order(self.priced_order_data(price_version='2'))
+        self.assertEqual('\n'.join(self.c.iterdump()),before)
+
     def test_unified_http_creates_product_and_many_materials_atomically(self):
         wire=self.item();self.receipt(wire)
         data=self.product_data(material_row=['0','1','2'],material_0=str(wire),material_name_0='',material_qty_0='0,25',material_unit_0='м',
@@ -145,7 +236,7 @@ class ControlTests(unittest.TestCase):
         new=self.client(2).get('/accounting/ztl/order').get_data(as_text=True)
         self.assertNotIn('value="'+str(self.work)+'" >Работа',new)
         edit=self.client(2).get('/accounting/ztl/order?id='+str(oid)).get_data(as_text=True)
-        self.assertIn('Работа — убрано из ассортимента',edit)
+        self.assertIn('Работа — сохранённая позиция заказа',edit)
         self.assertEqual(self.order_http(oid,patient='Исправлен пациент').status_code,303)
         self.assertEqual(c.production(self.c,oid),saved)
         self.assertEqual(c.stock_stamp(self.c),stamp)
@@ -209,6 +300,7 @@ class ControlTests(unittest.TestCase):
         self.assertEqual('\n'.join(self.c.iterdump()),before)
 
     def test_new_price_schema_init_does_not_rewrite_existing_cards_or_create_prices(self):
+        with self.c:self.c.execute('DELETE FROM ztl_product_prices')
         before='\n'.join(self.c.iterdump())
         self.c.execute('DROP TABLE ztl_product_prices');self.c.commit()
         c.init_schema(self.c)
