@@ -1,0 +1,29 @@
+name: AZ PR239 guarded delivery
+on:
+  push:
+    branches: [ops/az-pr239-deploy-20261119]
+    paths:
+      - 'ops/apply_pr239_guarded.py'
+      - 'ops/test_pr239_deploy.py'
+      - '.github/workflows/az-pr239-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify audited application unchanged
+        run: |
+          test "$(git rev-parse 42c69ff90e80848fa429ec797cddd1d566b6ace5^{tree})" = fddf3f194d03656d068596577acc515bdcafbd42
+          git diff --exit-code 42c69ff90e80848fa429ec797cddd1d566b6ace5 HEAD -- az-baze-auth reports
+      - name: Test installation and failure recovery on synthetic data
+        run: python3 -B -m unittest discover -s ops -p 'test_pr239_deploy.py' -v
+      - name: Delivery checksum
+        run: sha256sum ops/apply_pr239_guarded.py
