@@ -24,7 +24,7 @@ try:
     screw=fixture.item('Винт расширяющий',unit='шт.');fixture.receipt(screw,qty='100',value='12000')
     asset=fixture.item('Шкаф для проверки изоляции','asset','шт.')
     for name,qty,fee,internal,external in [('Каппа','10','600','2200','3500'),('Ретенционный аппарат','12','800','2500','4000')]:
-        control.save_card(fixture.c,dict(name=name,version=0,technician_fee=fee,prices_present='1',internal_price=internal,external_price=external,**{'qty_'+str(plastic):qty}),1)
+        control.save_card(fixture.c,dict(name=name,version='0',technician_fee=fee,prices_present='1',internal_price=internal,external_price=external,**{'qty_'+str(plastic):qty}),1)
     with sync_playwright() as pw:
         browser=pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
         for width in (1365,390):
