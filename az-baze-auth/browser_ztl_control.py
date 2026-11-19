@@ -35,6 +35,9 @@ try:
                 if u.hostname!='127.0.0.1':return route.abort()
                 route.continue_()
             page.route('**/*',route)
+            def submit(form,label):
+                with page.expect_navigation(wait_until='networkidle'):
+                    form.get_by_role('button',name=label,exact=True).click()
             response=page.goto(origin+'/accounting/ztl/?start=2026-11&end=2026-11')
             assert response.status==200
             menu=page.get_by_role('navigation',name='Разделы ЗТЛ')
@@ -86,8 +89,7 @@ try:
             assert '\n'.join(fixture.c.iterdump())==before
             material_name='Разделительный лак '+str(width)
             product.locator('[name=material_name_3]').fill(material_name)
-            product.get_by_role('button',name='Добавить изделие',exact=True).click()
-            page.wait_for_url('**/ztl/products/?**')
+            submit(product,'Добавить изделие')
             wid=fixture.c.execute('SELECT id FROM ztl_names WHERE name=?',(name,)).fetchone()[0]
             lacquer=fixture.c.execute('SELECT id FROM ztl_items WHERE name=?',(material_name,)).fetchone()[0]
             fixture.receipt(lacquer,qty='100',value='100')
@@ -99,37 +101,31 @@ try:
             entry.screenshot(path=str(artifacts/('product-card-'+str(width)+'.png')))
             page.screenshot(path=str(artifacts/('products-'+str(width)+'.png')),full_page=True)
             entry.locator('[name=name]').fill(name+' — исправлено')
-            entry.get_by_role('button',name='Сохранить изменения',exact=True).click()
-            page.wait_for_load_state('networkidle')
+            submit(entry,'Сохранить изменения')
             entry.locator('summary').first.click()
             assert name+' — исправлено' in entry.locator('summary').first.inner_text()
             page.once('dialog',lambda dialog:dialog.accept())
-            entry.get_by_role('button',name='Убрать из ассортимента',exact=True).click()
-            page.wait_for_load_state('networkidle')
+            submit(entry,'Убрать из ассортимента')
             page.goto(origin+'/accounting/ztl/order')
             assert page.locator('[name=work_id] option[value="'+str(wid)+'"]').count()==0
             page.goto(origin+'/accounting/ztl/products/')
             page.locator('.ztl-archived>summary').click();entry.locator('summary').first.click()
             page.once('dialog',lambda dialog:dialog.accept())
-            entry.get_by_role('button',name='Вернуть в ассортимент',exact=True).click()
-            page.wait_for_load_state('networkidle')
+            submit(entry,'Вернуть в ассортимент')
             entry.locator('summary').first.click()
             page.once('dialog',lambda dialog:dialog.accept())
-            entry.get_by_role('button',name='Удалить изделие',exact=True).click()
-            page.wait_for_load_state('networkidle')
+            submit(entry,'Удалить изделие')
             assert entry.count()==0
             typo=fixture.item('Ошибочная запись '+str(width),unit='ууу')
             page.reload();page.locator('.ztl-material-catalog>summary').click()
             material=page.locator('[data-material-entry="'+str(typo)+'"]');material.locator('summary').click()
             material.locator('[name=name]').fill('Исправленный материал')
             material.locator('[name=unit]').select_option('г')
-            material.get_by_role('button',name='Сохранить материал',exact=True).click()
-            page.wait_for_load_state('networkidle')
+            submit(material,'Сохранить материал')
             page.locator('.ztl-material-catalog>summary').click();material.locator('summary').click()
             assert 'Исправленный материал · г' in material.locator('summary').inner_text()
             page.once('dialog',lambda dialog:dialog.accept())
-            material.get_by_role('button',name='Удалить материал',exact=True).click()
-            page.wait_for_load_state('networkidle');assert material.count()==0
+            submit(material,'Удалить материал');assert material.count()==0
             # A filled, unsaved example of the same real creation form for owner approval.
             panel=page.locator('.ztl-product-new');panel.locator('summary').click();product=panel.locator('[data-product-form]')
             product.locator('[name=name]').fill(name)
