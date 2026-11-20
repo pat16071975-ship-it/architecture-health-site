@@ -29,23 +29,23 @@ try:
             page.locator('#stock-file').set_input_files({'name':'Остатки (2026.11.19).xlsx','mimeType':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','buffer':content})
             page.locator('#stock-date').fill('2026-11-19')
             with page.expect_navigation():page.get_by_role('button',name='Загрузить файл',exact=True).click()
-            assert page.locator('tbody tr').count()==3
+            assert page.locator('.md-review tbody tr').count()==3
             assert page.locator('[data-source-row="4"]').inner_text().count('146,45')==2
             assert 'Требует решения' in page.locator('[data-source-row="5"]').inner_text()
             assert '0,00' in page.locator('[data-source-row="6"]').inner_text()
-            assert page.get_by_role('heading',name='Остатки на 19.11.2026').count()==1
+            assert page.get_by_text('Остатки на 19.11.2026',exact=True).count()==1
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'page-level overflow'
             page.screenshot(path=str(artifacts/f'import-{width}.png'),full_page=True)
             page.get_by_label('Только с вопросами').check()
             with page.expect_navigation():page.get_by_role('button',name='Показать',exact=True).click()
-            assert page.locator('tbody tr').count()==2
+            assert page.locator('.md-review tbody tr').count()==2
             page.locator('#stock-search').fill('нулевая')
             with page.expect_navigation():page.get_by_role('button',name='Показать',exact=True).click()
-            assert page.locator('tbody tr').count()==1
+            assert page.locator('.md-review tbody tr').count()==1
             page.get_by_role('link',name='Движение',exact=True).click()
-            assert 'Данные пока не добавлены' in page.locator('body').inner_text()
-            page.get_by_role('link',name='Остатки из файла',exact=True).click()
-            assert page.locator('tbody tr').count()==3
+            assert 'Распределение материалов' in page.locator('body').inner_text()
+            page.get_by_role('link',name='Движение',exact=True).click()
+            assert page.locator('.md-review tbody tr').count()==3
             assert not errors,errors
             page.close();print('MED_STOCK_IMPORT_BROWSER',width,'PASS')
         browser.close()
