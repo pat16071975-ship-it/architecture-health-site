@@ -25,7 +25,10 @@
     },
     "browser_preview": "NOT_ESTABLISHED: local Chromium launch prohibited by environment; cloud browser cannot reach local preview",
     "production_install": "PENDING_USER_COMMAND",
-    "ci": "NOT_RUN"
+    "ci": "NOT_RUN",
+    "network_delivery": "PASS: all 26 files downloaded from pinned GitHub commit and combined to exact original archive SHA256",
+    "review_findings": "CLOSED: nginx condition compatibility and extended file attribute preservation",
+    "posix_acl_runtime": "NOT_ESTABLISHED: verification filesystem does not support POSIX ACL; user xattr round-trip tested"
   },
   "apply_sha256": "91ec93f000736cb687ed23651c2b0383cf6e677ab4d24c7772dd774e7464f1f0",
   "release_boundaries": [
@@ -34,5 +37,7 @@
     "Installer discovers the actual nginx vhost root and rejects ambiguity",
     "Backup, checksum verification, automatic rollback, and standalone guarded manual rollback are included"
   ],
-  "gallery_note": "Original full panels are retained. Some narrow panels include small adjacent source-sheet text fragments; no clinical photo is cut off."
+  "gallery_note": "Original full panels are retained. Some narrow panels include small adjacent source-sheet text fragments; no clinical photo is cut off.",
+  "data_commit": "69fabead23fe361c95bca7034563757d8ff26929",
+  "bootstrap_sha256": "be8dcf6b402277618e1d68a2f397e6d8f164470a82a8c39173b5d4aa3d48aa33"
 }
