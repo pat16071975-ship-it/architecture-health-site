@@ -14,7 +14,7 @@ async function scenario(width){
   const v1Rows=await page.locator('#rows').innerText();
   await page.locator('#modelVariant').selectOption('/reports/financial-model/v2/');
   await page.waitForURL('**/financial-model/v2/');await page.locator('#rows tr').first().waitFor();
-  assert.match(await page.locator('header').innerText(),/Вариант 2/);
+  assert.match(await page.locator('main > header').innerText(),/Вариант 2/);
   const row=label=>page.locator('#rows tr').filter({has:page.locator('td:first-child',{hasText:label})});
   assert.match(await row('Цель выручки, ₽').locator('td').nth(1).innerText(),/10\s040\s000/);
   assert.equal(await row('Нужно оплативших пациентов: вся медицина').locator('td').nth(1).innerText(),'—');
@@ -69,7 +69,7 @@ async function scenario(width){
   assert.ok(await page.locator('#editor').evaluate(e=>e.scrollWidth<=e.clientWidth+1));
   await page.screenshot({path:root+'/'+width+'-editor.png'});await page.locator('#close').click();
   await page.locator('#modelVariant').selectOption('/reports/financial-model/');await page.waitForURL('**/financial-model/');
-  assert.equal(await page.locator('#rows').innerText(),v1Rows);assert.match(await page.locator('header').innerText(),/Версия 0/);
+  assert.equal(await page.locator('#rows').innerText(),v1Rows);assert.match(await page.locator('main > header').innerText(),/Версия 0/);
   assert.deepEqual(errors,[]);console.log('FINMODEL_V2_BROWSER=PASS; WIDTH='+width+'; independent variants, source, patients, whitening, keep, history');
  }finally{if(browser)await browser.close();if(server.exitCode===null&&server.signalCode===null){await new Promise(resolve=>{server.once('exit',resolve);server.kill('SIGTERM')});}}
 }
