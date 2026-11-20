@@ -5,7 +5,7 @@
 [aria-invalid="true"]{border:2px solid #a33c25}#error:not(:empty){padding:10px;background:#fff0e8;margin-top:12px}
 </style></head><body><main>
 <header><div><h1>Финмодель 2027</h1><div class="muted">Один план клиники · кабинеты, персонал, маркетинг и финансовый результат</div></div><span class="muted">Версия {{ state.version }}{% if not state.version %} · исходный проект{% endif %}</span></header>
-<div class="toolbar">{% if can_edit %}<button id="settings" class="primary">Управление параметрами</button>{% endif %}<button id="history">Журнал изменений</button><span class="muted">Маркетинг — предварительный план</span></div>
+<div class="toolbar"><label>Вариант модели<select id="modelVariant" aria-label="Вариант модели" onchange="location.href=this.value"><option value="/reports/financial-model/" selected>Вариант 1</option><option value="/reports/financial-model/v2/">Вариант 2 — достижение цели</option></select></label>{% if can_edit %}<button id="settings" class="primary">Управление параметрами</button>{% endif %}<button id="history">Журнал изменений</button><span class="muted">Маркетинг — предварительный план</span></div>
 <p class="muted">Плановый финрезультат: базовые взносы учтены внутри резерва (в исходном файле — 4% выручки). Строка «Доп. взносы сверх резерва» — только дополнительное начисление; 0 здесь не означает отсутствие фактических взносов. Увеличение официального ФОТ показано отдельно ниже.</p>
 <div id="status" class="note" hidden></div>
 <div class="sheet" tabindex="0" aria-label="Помесячная финансовая модель"><table id="model"><thead><tr><th>Показатель</th>{% for month in months %}<th>{{ month }}</th>{% endfor %}<th>Год / итог</th></tr></thead><tbody id="rows"></tbody></table></div>
