@@ -1,0 +1,38 @@
+{
+  "project": "azmednsk.ru",
+  "date": "2026-11-20",
+  "scope": {
+    "html_pages": 11,
+    "new_webp": 22,
+    "allowed_production_paths": 33,
+    "content_change": "Only the complete original photo/diagnostic gallery section is added to each clinical story."
+  },
+  "archive": {
+    "sha256": "df01b3a7ea5f8bbd4ac7fe6d8e706f88da24765eae67df8466765ddb7602f64e",
+    "bytes": 9337538
+  },
+  "checks": {
+    "source_pdf_comparison": "PASS: all 11 complete original sheets and clinical panels visually compared",
+    "html_scope": "PASS: removing the added gallery section restores byte-identical baseline on all 11 pages",
+    "live_before_install": "PASS: HTTP 200 and exact OLD manifest SHA256 for every one of the 11 live pages",
+    "installer_regressions": {
+      "passed": 29,
+      "failed": 0
+    },
+    "delivery_unit_tests": {
+      "passed": 6,
+      "failed": 0
+    },
+    "browser_preview": "NOT_ESTABLISHED: local Chromium launch prohibited by environment; cloud browser cannot reach local preview",
+    "production_install": "PENDING_USER_COMMAND",
+    "ci": "NOT_RUN"
+  },
+  "apply_sha256": "91ec93f000736cb687ed23651c2b0383cf6e677ab4d24c7772dd774e7464f1f0",
+  "release_boundaries": [
+    "No merge into the repository default branch",
+    "No Production files changed during preparation",
+    "Installer discovers the actual nginx vhost root and rejects ambiguity",
+    "Backup, checksum verification, automatic rollback, and standalone guarded manual rollback are included"
+  ],
+  "gallery_note": "Original full panels are retained. Some narrow panels include small adjacent source-sheet text fragments; no clinical photo is cut off."
+}
