@@ -1,0 +1,29 @@
+name: AZ PR244 guarded delivery
+on:
+  push:
+    branches: [ops/pr244-guarded-deploy-20261120]
+    paths:
+      - 'ops/apply_pr244_guarded.py'
+      - 'ops/test_pr244_deploy.py'
+      - '.github/workflows/az-pr244-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 12
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify tested application unchanged
+        run: |
+          test "$(git rev-parse c66ab7f9fef1acfbecb806f29f70d608d0280a1b^{tree})" = 43e1693af0c08caca257aa0e793d06a3efb23df6
+          git diff --exit-code c66ab7f9fef1acfbecb806f29f70d608d0280a1b HEAD -- az-baze-auth reports
+      - name: Test installation and failure recovery on synthetic data
+        run: python3 -B -m unittest discover -s ops -p 'test_pr244_deploy.py' -v
+      - name: Delivery checksum
+        run: sha256sum ops/apply_pr244_guarded.py
