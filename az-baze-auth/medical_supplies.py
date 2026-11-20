@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from flask import abort, g, redirect, render_template, request, send_file, url_for
 from openpyxl import Workbook
 import medical_supplies_import as stock_import
+import medical_supplies_daily as daily
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS med_supply_items (
@@ -45,6 +46,7 @@ class Conflict(ValueError):
 def init_schema(conn):
     conn.executescript(SCHEMA)
     stock_import.init_schema(conn)
+    daily.init_schema(conn)
 
 
 def month(value):
@@ -151,6 +153,8 @@ def save_period(conn, data, actor, allowed=None):
         item = conn.execute('SELECT * FROM med_supply_items WHERE id=?', (iid,)).fetchone()
         if item is None or period < item['opening_month']:
             raise ValueError('Период раньше начала учёта или позиция не найдена.')
+        if daily.ready(conn) and conn.execute('SELECT 1 FROM med_supply_daily_items WHERE item_id=?', (iid,)).fetchone():
+            raise ValueError('Эта позиция ведётся по дням. Месячный итог нельзя добавить повторно.')
         old = conn.execute('SELECT * FROM med_supply_periods WHERE item_id=? AND month=?', (iid, period)).fetchone()
         if version != (old['version'] if old else 0):
             raise Conflict('Этот месяц уже изменили. Обновите страницу и повторите ввод.')
@@ -184,6 +188,9 @@ def snapshot(conn, period):
         conn.execute('BEGIN')
     try:
         items = [dict(r) for r in conn.execute('SELECT * FROM med_supply_items ORDER BY name COLLATE NOCASE,id')]
+        if daily.ready(conn):
+            dated = {r[0] for r in conn.execute('SELECT item_id FROM med_supply_daily_items')}
+            items = [r for r in items if r['id'] not in dated]
         moves = [dict(r) for r in conn.execute('SELECT p.*,COALESCE(c.in_known,1) AS in_known,COALESCE(c.out_known,1) AS out_known FROM med_supply_periods p LEFT JOIN med_supply_coverage c USING(item_id,month) WHERE p.month<=? ORDER BY p.month', (period,))]
     finally:
         if own_transaction:
@@ -256,9 +263,15 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
     def page(error=None, status=200):
         try:
             period = month(request.values.get('month') or datetime.now(ZoneInfo('Asia/Novosibirsk')).strftime('%Y-%m'))
-            tab = request.values.get('tab') or ('stock' if stock_import.has_import(db()) else 'movement')
+            tab = request.values.get('tab') or 'movement'
+            if tab in ('movement', 'stock') and daily.ready(db()) and stock_import.has_import(db()):
+                if request.args.get('import_id') and not db().execute('SELECT 1 FROM med_supply_stock_imports WHERE id=?', (integer(request.args['import_id']),)).fetchone():
+                    abort(404)
+                return daily.render(db(), rights(), csrf_token(), period, error, status)
             if tab == 'stock':
                 return stock_import.render_stock(db(), rights(), csrf_token())
+            if tab == 'monthly':
+                tab = 'movement'
             if tab not in ('movement', 'order', 'catalog', 'history'):
                 abort(400)
             conn = db()
@@ -266,6 +279,7 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
                 return render_template('medical_supplies.html', title='Медрасходка — УЧЕТ', setup_pending=True), 503
             rows = snapshot(conn, period)
             catalog = [dict(r) for r in conn.execute('SELECT * FROM med_supply_items ORDER BY name COLLATE NOCASE,id')]
+            dated_items = {r['item_id']:dict(r) for r in db().execute('SELECT * FROM med_supply_daily_items')} if daily.ready(db()) else {}
             events = [dict(r) for r in conn.execute('SELECT h.*,i.name,u.full_name AS actor_name FROM med_supply_history h JOIN med_supply_items i ON i.id=h.item_id LEFT JOIN users u ON u.id=h.actor_id ORDER BY h.id DESC LIMIT 100')] if tab == 'history' else []
             for event in events:
                 before = json.loads(event['before_json']) if event['before_json'] else None
@@ -276,7 +290,17 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
                     old = movement_label(before) if before else 'не внесены'
                     event['summary'] = f"{event['month']}: {old} → {movement_label(after)}"
                 else:
-                    event['summary'] = 'Создание материала' if before is None else 'Изменение карточки материала'
+                    labels = {'classify':'Распределение по папкам', 'pieces':'Количество штук в единице',
+                              'day_in':'Приход за день', 'day_out':'Расход за день'}
+                    event['summary'] = labels.get(event['action'], 'Создание материала' if before is None else 'Изменение карточки материала')
+                    if event['action'] in labels:
+                        if event['action'] == 'classify':
+                            f = conn.execute('SELECT name FROM med_supply_folders WHERE id=?',(after['folder_id'],)).fetchone()
+                            event['summary'] += ': ' + (f['name'] if f else 'Папка')
+                        elif event['action'] == 'pieces':
+                            event['summary'] += ': ' + str(after.get('pieces_per_unit') or 'не указано')
+                        else:
+                            event['summary'] += ': ' + after['day'] + ', количество ' + after['qty_'+event['action'][4:]]
 
             edit = None
             if request.args.get('edit'):
@@ -286,15 +310,18 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
                 if edit is None:
                     abort(404)
             return render_template('medical_supplies.html', title='Медрасходка — УЧЕТ', setup_pending=False,
-                                   rows=rows, catalog=catalog, events=events, edit=edit, month=period, tab=tab,
+                                   rows=rows, catalog=catalog, events=events, edit=edit, month=period, tab=tab, dated_items=dated_items,
                                    editable=editable(), rights=rights(), csrf=csrf_token(), fmt=display, error=error,
-                                   saved=request.args.get('saved') == '1'), status
+                                   can_import=stock_import.ready(conn) and {'catalog','purchase','in','out'} <= rights(),
+                                   today=datetime.now(ZoneInfo('Asia/Novosibirsk')).date().isoformat(),
+                                   saved=request.args.get('saved') == '1', daily_order=daily.orders(conn,period) if tab=='order' and daily.ready(conn) else [], daily_money=stock_import.money, daily_qty=stock_import.quantity), status
         except ValueError as exc:
             return str(exc), 400
 
     app.add_url_rule('/accounting/medical-supplies/', 'medical_supplies', permission_required('accounting')(page))
 
     stock_import.register(app, db, permission_required, require_csrf, csrf_token, rights)
+    daily.register(app, db, permission_required, require_csrf, csrf_token, rights)
 
     @app.post('/accounting/medical-supplies/save/<action>')
     @permission_required('accounting')
@@ -323,6 +350,7 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
             period = month(request.args.get('month'))
         except ValueError as exc:
             return str(exc), 400
-        return send_file(workbook(snapshot(db(), period), period), as_attachment=True,
+        book = daily.export(db(),period) if daily.ready(db()) and db().execute('SELECT 1 FROM med_supply_daily_items LIMIT 1').fetchone() else workbook(snapshot(db(), period), period)
+        return send_file(book, as_attachment=True,
                          download_name=f'medical-supplies-{period}.xlsx',
                          mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

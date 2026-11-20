@@ -2,6 +2,7 @@
 {% block content %}
 <style>
 .med-title{font-size:30px;font-weight:500;color:var(--green);margin:0 0 18px}.med-tabs{margin:18px 0}.med-panel{margin:18px 0}.med-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.med-fields .field{margin:0}.med-table input{width:100px;padding:8px;border:1px solid var(--line);border-radius:7px;font:inherit;background:white}.med-table th{white-space:nowrap}.med-table td{vertical-align:middle}.med-number{white-space:nowrap;font-variant-numeric:tabular-nums}.med-low{color:#8b5325;background:#fff0d9}.med-negative{color:var(--red);font-weight:600}.med-success{color:var(--green);padding:12px;border:1px solid var(--green);border-radius:9px}.med-tabs .primary{pointer-events:none}.med-empty{padding:24px 0}.med-period{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px}.med-hint{max-width:780px;line-height:1.6}@media(max-width:650px){.med-title{font-size:26px}.med-fields{grid-template-columns:1fr}.med-tabs{gap:6px}}
+.med-upload .md-inline{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0}.med-upload summary{cursor:pointer;font-size:13px}.med-upload input,.med-upload label{max-width:100%;font-size:12px}
 </style>
 <h2 class="med-title">Медрасходка</h2>
 {% if setup_pending %}
@@ -14,10 +15,11 @@
 <a class="btn" href="{{ url_for('medical_supplies_export', month=month) }}">Excel</a>
 </form>
 <nav class="row med-tabs" aria-label="Разделы медрасходки">
-{% for key,label in [('stock','Остатки из файла'),('movement','Движение'),('order','К заказу'),('catalog','Справочник'),('history','История изменений')] %}
+{% for key,label in [('movement','Движение'),('order','К заказу'),('catalog','Справочник'),('history','История изменений')] %}
 <a class="btn {{ 'primary' if tab==key else '' }}" {% if tab==key %}aria-current="page"{% endif %} href="{{ url_for('medical_supplies', month=month, tab=key) }}">{{ label }}</a>
 {% endfor %}
 </nav>
+<div class="med-upload">{% include 'medical_supplies_upload.html' %}</div>
 {% if error %}<p class="error" role="alert">{{ error }} Введённые значения не сохранены.</p>{% endif %}
 {% if saved %}<p class="med-success" role="status">Изменения сохранены.</p>{% endif %}
 {% if not editable %}<p class="muted">Доступен просмотр. Для внесения данных требуется право редактирования медрасходки.</p>{% endif %}
@@ -41,6 +43,7 @@
 {% elif tab == 'order' %}
 <div class="card med-panel"><h3 class="section-title">К заказу на конец {{ month }}</h3>
 <p class="muted">Расчёт до минимального запаса, с округлением до целых упаковок. Цены ориентировочные, из справочника. Это список для закупки; заказ поставщику не отправляется.</p>
+{% if daily_order %}<h4>Позиции дневного учёта</h4><p class="muted">Стоимость ориентировочная. Заказ рассчитывается после подтверждения прихода и расхода за каждый день после исходного остатка. Нулевое движение подтверждается значением 0.</p><div class="table-wrap"><table class="table"><thead><tr><th>Материал</th><th>Остаток</th><th>Минимум</th><th>В упаковке</th><th>Заказать упаковок</th><th>Ориентировочная сумма, ₽</th></tr></thead><tbody>{% for r in daily_order %}<tr><td>{{ r.name }}</td><td>{{ daily_qty(r.end) if r.end is not none else 'Нет данных' }} {{ r.unit }}</td><td>{{ daily_qty(r.minimum) }}</td><td>{{ daily_qty(r.pack) }}</td><td>{{ r.packs if r.packs is not none else 'Подтвердите движение: дней ' ~ r.missing_days }}</td><td>{{ daily_money(r.order_value) }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
 {% set order=rows|selectattr('packs')|list %}
 {% set unknown=rows|rejectattr('complete')|rejectattr('excluded')|list %}
 {% if order %}<div class="table-wrap"><table class="table"><thead><tr><th>Материал</th><th>Остаток</th><th>Минимум</th><th>В упаковке</th><th>Заказать упаковок</th><th>Ориентировочная сумма, ₽</th></tr></thead><tbody>
@@ -48,13 +51,13 @@
 </tbody></table></div>
 <details><summary>Список для копирования</summary><textarea readonly aria-label="Список заказа" style="width:100%;min-height:130px">{% for r in order %}{{ r.name }} — {{ r.packs }} уп.
 {% endfor %}</textarea></details>
-{% elif not unknown %}<p>{{ 'Справочник пока пуст.' if not rows else 'По внесённым данным позиций к заказу нет.' }}</p>{% endif %}
+{% elif not unknown and not daily_order %}<p>{{ 'Справочник пока пуст.' if not rows else 'По внесённым данным позиций к заказу нет.' }}</p>{% endif %}
 {% if unknown %}<p class="error">Для следующих позиций остаток неполный, количество к заказу не рассчитано:</p><ul>{% for r in unknown %}<li>{{ r.name }} — не заполнено месяцев: {{ r.missing_months }}</li>{% endfor %}</ul>{% endif %}
 </div>
 {% elif tab == 'catalog' %}
 <div class="card med-panel"><h3 class="section-title">Справочник материалов</h3>
-{% if catalog %}<div class="table-wrap"><table class="table"><thead><tr><th>Материал</th><th>Ед.</th><th>Начало учёта</th><th>Начальный остаток</th><th>В упаковке</th><th>Цена упаковки, ₽</th><th>Минимум</th><th>Контроль</th>{% if 'catalog' in rights or 'purchase' in rights %}<th></th>{% endif %}</tr></thead><tbody>
-{% for r in catalog %}<tr><td>{{ r.name }}</td><td>{{ r.unit }}</td><td>{{ r.opening_month }}</td><td>{{ fmt(r.opening_qty) }}</td><td>{{ fmt(r.pack_qty) }}</td><td>{{ fmt(r.pack_price,100) if r.pack_price is not none else 'Не задана' }}</td><td>{{ fmt(r.min_stock) }}</td><td>{{ 'Вне контроля' if r.excluded else 'Включён' }}</td>{% if 'catalog' in rights or 'purchase' in rights %}<td><a class="btn" href="{{ url_for('medical_supplies', month=month, tab='catalog', edit=r.id) }}">Изменить</a></td>{% endif %}</tr>{% endfor %}
+{% if catalog %}<div class="table-wrap"><table class="table"><thead><tr><th>Материал</th><th>Ед.</th><th>Дата / месяц начала учёта</th><th>Начальный остаток</th><th>В упаковке</th><th>Цена упаковки, ₽</th><th>Минимум</th><th>Контроль</th>{% if 'catalog' in rights or 'purchase' in rights %}<th></th>{% endif %}</tr></thead><tbody>
+{% for r in catalog %}<tr><td>{{ r.name }}</td><td>{{ r.unit }}</td><td>{{ dated_items[r.id].opening_date if r.id in dated_items else r.opening_month }}</td><td>{{ dated_items[r.id].opening_qty if r.id in dated_items else fmt(r.opening_qty) }}</td><td>{{ fmt(r.pack_qty) }}</td><td>{{ fmt(r.pack_price,100) if r.pack_price is not none else 'Не задана' }}</td><td>{{ fmt(r.min_stock) }}</td><td>{{ 'Вне контроля' if r.excluded else 'Включён' }}</td>{% if 'catalog' in rights or 'purchase' in rights %}<td><a class="btn" href="{{ url_for('medical_supplies', month=month, tab='catalog', edit=r.id) }}">Изменить</a></td>{% endif %}</tr>{% endfor %}
 </tbody></table></div>{% else %}<p>Данные пока не добавлены. Справочник заполняется материалами вашей клиники.</p>{% endif %}</div>
 {% if 'catalog' in rights or (edit and 'purchase' in rights) %}<div class="card med-panel"><h3 class="section-title">{{ 'Изменить материал' if edit else 'Добавить материал' }}</h3>
 <form method="post" action="{{ url_for('medical_supplies_save', action='item') }}">

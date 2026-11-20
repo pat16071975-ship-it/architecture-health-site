@@ -151,4 +151,55 @@ class ImportTests(SuppliesTests):
         self.assertEqual(core.DB_PATH.read_bytes(),before)
 
 
+class FirstUploadTests(unittest.TestCase):
+    def setUp(self):
+        self.case=SuppliesTests();self.case.setUp()
+        self.addCleanup(self.case.doCleanups)
+        self.c=self.case.c
+
+    def test_first_upload_form_reachable_from_normal_entry_and_all_four_tabs(self):
+        self.assertEqual(self.c.execute('SELECT COUNT(*) FROM med_supply_stock_imports').fetchone()[0],0)
+        before='\n'.join(self.c.iterdump())
+        for uid in (1,2):
+            client=self.case.client(uid)
+            self.assertIn('href="/accounting/medical-supplies/"',client.get('/accounting/').get_data(as_text=True))
+            for query in ('','?tab=movement','?tab=order','?tab=catalog','?tab=history'):
+                with self.subTest(uid=uid,query=query):
+                    response=client.get('/accounting/medical-supplies/'+query)
+                    self.assertEqual(response.status_code,200)
+                    html=response.get_data(as_text=True)
+                    self.assertEqual(html.count('id="stock-file"'),1)
+                    self.assertIn('action="/accounting/medical-supplies/import"',html)
+                    self.assertIn('enctype="multipart/form-data"',html)
+                    self.assertIn('name="csrf"',html)
+                    self.assertIn('name="snapshot_date"',html)
+        self.assertEqual(before,'\n'.join(self.c.iterdump()))
+
+    def test_upload_entry_keeps_existing_permission_boundary(self):
+        with self.c:self.c.execute("DELETE FROM permissions WHERE user_id=2 AND section='medical_supplies_edit'")
+        for grant in (None,'medical_supplies_catalog','medical_supplies_purchase','medical_supplies_in','medical_supplies_out'):
+            with self.c:
+                self.c.execute("DELETE FROM permissions WHERE user_id=2 AND section LIKE 'medical_supplies_%'")
+                if grant:self.c.execute('INSERT INTO permissions VALUES(2,?)',(grant,))
+            client=self.case.client(2)
+            before='\n'.join(self.c.iterdump())
+            for query in ('','?tab=movement','?tab=order','?tab=catalog','?tab=history'):
+                response=client.get('/accounting/medical-supplies/'+query)
+                self.assertEqual(response.status_code,200)
+                self.assertNotIn('id="stock-file"',response.get_data(as_text=True))
+            self.assertEqual(client.post('/accounting/medical-supplies/import').status_code,403)
+            self.assertEqual(before,'\n'.join(self.c.iterdump()))
+
+    def test_first_upload_entry_preserves_existing_monthly_screen(self):
+        iid=self.case.item();self.case.period(iid,qty_in='4',qty_out='2')
+        before='\n'.join(self.c.iterdump())
+        response=self.case.client(2).get('/accounting/medical-supplies/?month=2026-11')
+        self.assertEqual(response.status_code,200)
+        html=response.get_data(as_text=True)
+        self.assertIn('id="stock-file"',html)
+        self.assertIn('Тестовый материал',html)
+        self.assertIn('id="period-'+str(iid)+'"',html)
+        self.assertEqual(before,'\n'.join(self.c.iterdump()))
+
+
 if __name__=='__main__':unittest.main()
