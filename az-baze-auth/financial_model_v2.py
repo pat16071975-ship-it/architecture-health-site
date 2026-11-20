@@ -177,7 +177,30 @@ def read_state(conn):
     c.update(payer_checks={k: [None]*12 for k in DIRECTIONS},
              payer_sources={k: [None]*12 for k in DIRECTIONS},
              variant=2, origin_version=first['version'])
-    return dict(version=0, config=c, results=calculate(c), stale=[])
+    initialization = dict(status='missing')
+    try:
+        refs = references(conn)
+    except (ValueError, sqlite3.DatabaseError, OSError):
+        # A source failure must not make the whole planning screen unavailable,
+        # nor substitute a fabricated check. The UI shows an explicit reason.
+        refs = []
+        initialization = dict(status='error')
+    if refs:
+        source = max(refs, key=lambda r: r['end'])
+        apply_payer_source(c, source, range(12))
+        initialization = dict(status='source', month=source['month'])
+    return dict(version=0, config=c, results=calculate(c), stale=[],
+                payer_initialization=initialization)
+
+
+def apply_payer_source(config, source, indices):
+    """Freeze the same source for all directions, including unknown checks."""
+    for key in DIRECTIONS:
+        for i in indices:
+            config['payer_checks'][key][i] = source['values'][key]['check']
+            config['payer_sources'][key][i] = dict(kind='report', month=source['month'],
+                digest=source['digest'], start=source['start'], end=source['end'],
+                **source['values'][key], evidence=copy.deepcopy(source['evidence']))
 
 
 def references(conn, today=None):
@@ -283,12 +306,7 @@ def candidate(old, change, refs=(), validate_ramp=True):
             raise ValueError('Исходные данные месяца изменились или неполны. Обновите список.')
         # All three directions deliberately replace the selected period together,
         # including unknown checks, never retain an unrelated old value silently.
-        for key in DIRECTIONS:
-            for i in indices:
-                c['payer_checks'][key][i] = source['values'][key]['check']
-                c['payer_sources'][key][i] = dict(kind='report', month=source['month'],
-                    digest=source['digest'], start=source['start'], end=source['end'],
-                    **source['values'][key], evidence=source['evidence'])
+        apply_payer_source(c, source, indices)
     return c, start, indices
 
 

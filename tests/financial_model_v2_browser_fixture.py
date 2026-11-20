@@ -23,8 +23,9 @@ with sqlite3.connect(auth.DB_PATH) as conn:
     payload=dict(version=3,period_start='2026-10-01',period_end='2026-10-31',
                  providers={d:{'paid':100000},s:{'paid':20000}},paid_patient_evidence_complete=True,
                  paid_patients={d:['fixture-a','fixture-b'],s:['fixture-b','fixture-c']})
-    conn.execute('INSERT INTO service_payment_periods(period_start,period_end,payload_json,source_filename,source_sha256,imported_at,imported_by) VALUES(?,?,?,?,?,?,?)',
-                 ('2026-10-01','2026-10-31',json.dumps(payload),'fixture.xlsx','a'*64,'2026-11-01T00:00:00Z',1))
+    if not os.environ.get('FINMODEL_V2_EMPTY_REFERENCE'):
+        conn.execute('INSERT INTO service_payment_periods(period_start,period_end,payload_json,source_filename,source_sha256,imported_at,imported_by) VALUES(?,?,?,?,?,?,?)',
+                     ('2026-10-01','2026-10-31',json.dumps(payload),'fixture.xlsx','a'*64,'2026-11-01T00:00:00Z',1))
 app=auth.create_app()
 @app.get('/fixture-login')
 def login_fixture_v2():
