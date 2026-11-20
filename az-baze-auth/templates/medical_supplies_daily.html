@@ -12,10 +12,7 @@
 {% if error %}<p role="alert" class="md-alert">{{ error }}</p>{% endif %}{% if saved %}<p role="status">Изменения сохранены.</p>{% endif %}
 {% if already %}<p role="status">Этот файл уже загружен. Повторных позиций не создано.</p>{% endif %}
 {% if not rights %}<p>Доступен просмотр. Для внесения данных требуется право редактирования медрасходки.</p>{% endif %}
-{% if can_import %}
-<details class="md-import"><summary>Загрузить остатки из Excel</summary>
-<form class="md-inline" method="post" enctype="multipart/form-data" action="{{ url_for('medical_supplies_import') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><label for="stock-file">Отчёт «По обороту и остаткам»</label><input type="file" id="stock-file" name="file" accept=".xlsx" required><label for="stock-date">Дата остатков</label><input type="date" id="stock-date" name="snapshot_date" value="{{ today }}" required><button class="btn" type="submit">Загрузить файл</button></form></details>
-{% endif %}
+{% include 'medical_supplies_upload.html' %}
 <details id="md-distribute" {% if pending_count %}open{% endif %}>
 <summary>Распределение материалов · осталось {{ pending_count }}</summary>
 {% for source in sources %}<p><strong>Остатки на {{ source.date }}</strong> · {{ source.count }} позиций · {{ money(source.value) }} ₽ · {{ source.issues }} строк с вопросами</p>{% endfor %}

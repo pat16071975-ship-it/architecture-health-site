@@ -312,6 +312,8 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
             return render_template('medical_supplies.html', title='Медрасходка — УЧЕТ', setup_pending=False,
                                    rows=rows, catalog=catalog, events=events, edit=edit, month=period, tab=tab, dated_items=dated_items,
                                    editable=editable(), rights=rights(), csrf=csrf_token(), fmt=display, error=error,
+                                   can_import=stock_import.ready(conn) and {'catalog','purchase','in','out'} <= rights(),
+                                   today=datetime.now(ZoneInfo('Asia/Novosibirsk')).date().isoformat(),
                                    saved=request.args.get('saved') == '1', daily_order=daily.orders(conn,period) if tab=='order' and daily.ready(conn) else [], daily_money=stock_import.money, daily_qty=stock_import.quantity), status
         except ValueError as exc:
             return str(exc), 400
