@@ -203,3 +203,46 @@ class DailyTests(unittest.TestCase):
         a=self.classify();b=self.classify(row=5)
         self.assertNotEqual(a,b)
         self.assertEqual(daily.totals(daily.snapshot(self.c,'2026-11'))['end_value'],40)
+
+    def test_selected_source_files_do_not_mix_pending_rows(self):
+        second,_=stock.save_import(self.c,fixture([('Другой файл',1,'шт',15)]),'other.xlsx','2026-11-20',2)
+        response=self.client(2).get('/accounting/medical-supplies/?import_id='+str(self.import_id))
+        self.assertIn('Материал А',response.get_data(as_text=True))
+        self.assertNotIn('Другой файл',response.get_data(as_text=True))
+        response=self.client(2).get('/accounting/medical-supplies/?import_id='+str(second))
+        self.assertIn('Другой файл',response.get_data(as_text=True))
+        self.assertNotIn('Материал А',response.get_data(as_text=True))
+
+    def test_daily_order_requires_coverage_and_preserves_unknown_price(self):
+        iid=self.classify()
+        with self.c:self.c.execute('UPDATE med_supply_items SET min_stock=110000 WHERE id=?',(iid,))
+        with patch.object(daily,'today',return_value=date(2026,11,20)):
+            row=daily.orders(self.c,'2026-11')[0]
+            self.assertIsNone(row['packs']);self.assertEqual(row['missing_days'],1)
+            self.move(iid,qty='0',kind='in',value='0')
+            self.move(iid,qty='0',version='1')
+            row=daily.orders(self.c,'2026-11')[0]
+            self.assertEqual((row['packs'],row['order_value']),(10,D('1464.50')))
+
+    def test_expense_revaluation_is_limited_to_dates_after_changed_receipt(self):
+        iid=self.classify();self.move(iid,day='2026-11-20',qty='10')
+        self.move(iid,day='2026-12-01',qty='10',kind='in',value='5000')
+        self.move(iid,day='2026-12-02',qty='5')
+        november=daily.snapshot(self.c,'2026-11')[0]
+        december=daily.snapshot(self.c,'2026-12')[0]
+        self.assertEqual(november['spent'],D('1464.50'))
+        self.assertEqual(december['spent'],D('909.025'))
+        self.move(iid,day='2026-12-01',qty='10',kind='in',value='1000',version='1')
+        self.assertEqual(daily.snapshot(self.c,'2026-11')[0]['spent'],november['spent'])
+        self.assertEqual(daily.snapshot(self.c,'2026-12')[0]['spent'],D('709.025'))
+
+    def test_existing_export_keeps_both_legacy_and_dated_positions(self):
+        old=self.item(name='Месячная позиция');self.period(old,qty_in='2',qty_out='1')
+        iid=self.classify();self.move(iid)
+        response=self.client(2).get('/accounting/medical-supplies/export?month=2026-11')
+        self.assertEqual(response.status_code,200)
+        book=load_workbook(io.BytesIO(response.data))
+        self.assertIn('Месячные итоги',book.sheetnames)
+        self.assertEqual(book['Движение']['C2'].value,'Материал А')
+        self.assertEqual(book['Месячные итоги']['B2'].value,'Месячная позиция')
+        book.close()

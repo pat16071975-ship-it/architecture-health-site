@@ -348,6 +348,7 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
             period = month(request.args.get('month'))
         except ValueError as exc:
             return str(exc), 400
-        return send_file(workbook(snapshot(db(), period), period), as_attachment=True,
+        book = daily.export(db(),period) if daily.ready(db()) and db().execute('SELECT 1 FROM med_supply_daily_items LIMIT 1').fetchone() else workbook(snapshot(db(), period), period)
+        return send_file(book, as_attachment=True,
                          download_name=f'medical-supplies-{period}.xlsx',
                          mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

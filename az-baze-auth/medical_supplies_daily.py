@@ -356,8 +356,13 @@ def render(conn, rights, csrf, period, error=None, status=200):
         return 'Дневной учёт ещё не подготовлен: требуется установка схемы.', 503
     rows = snapshot(conn, period)
     imported = import_rows(conn)
+    imports=[dict(r) for r in conn.execute('SELECT id,snapshot_date,filename FROM med_supply_stock_imports ORDER BY snapshot_date DESC,id DESC')]
+    selected_import=ident(request.args['import_id']) if request.args.get('import_id') else (imports[0]['id'] if imports else None)
+    if selected_import is not None and selected_import not in {r['id'] for r in imports}:
+        abort(404)
+    imported=[r for r in imported if r['import_id']==selected_import]
     source_summaries = []
-    for record in conn.execute('SELECT id,snapshot_date,payload_json FROM med_supply_stock_imports ORDER BY id'):
+    for record in conn.execute('SELECT id,snapshot_date,payload_json FROM med_supply_stock_imports WHERE id=?',(selected_import,)):
         payload=json.loads(record['payload_json'])
         source_summaries.append({'date':date.fromisoformat(record['snapshot_date']).strftime('%d.%m.%Y'),
                                 'count':len(payload['rows']),'value':payload['total'],'issues':payload['issue_count']})
@@ -381,12 +386,13 @@ def render(conn, rights, csrf, period, error=None, status=200):
     next_month = date(year+1,1,1) if m == 12 else date(year,m+1,1)
     return render_template('medical_supplies_daily.html', title='Медрасходка',
         month=period, rows=rows, groups=tree(conn,rows), total=totals(rows),
-        folders=fs, pending=pending, sources=source_summaries, pending_count=sum(not r['assigned'] for r in imported),
+        folders=fs, pending=pending, sources=source_summaries, imports=imports, selected_import=selected_import,
+        pending_count=sum(not r['assigned'] for r in imported),
         show_assigned=show_assigned, q=q, issues_only=request.args.get('issues')=='1',
         rights=rights, can_import={'catalog','purchase','in','out'} <= rights, csrf=csrf, days=days, today=today().isoformat(),
         prev_month=prev_month.strftime('%Y-%m'), next_month=next_month.strftime('%Y-%m'),
         kind='in' if request.args.get('kind')=='in' else 'out',
-        error=error, saved=request.args.get('saved')=='1', legacy=legacy,
+        error=error, saved=request.args.get('saved')=='1', already=request.args.get('saved')=='already', legacy=legacy,
         money=stock.money, qty=lambda v:'—' if v is None else stock.quantity(v), legacy_qty=med.display), status
 
 
@@ -410,6 +416,22 @@ def export(conn, period):
             daily.append([r['name'],cell['day'],float(cell['qty_in']) if cell['in_known'] else None,
                           float(cell['value_in']) if cell['value_in'] is not None else None,
                           float(cell['qty_out']) if cell['out_known'] else None])
+    import medical_supplies as med
+    from openpyxl import load_workbook
+    legacy=med.snapshot(conn,period)
+    if legacy:
+        old=load_workbook(med.workbook(legacy,period))
+        for old_sheet,title in zip(old.worksheets,('Месячные итоги','К заказу — месячный учёт')):
+            ws=book.create_sheet(title)
+            for line in old_sheet.iter_rows(values_only=True):ws.append(list(line))
+        old.close()
+    order_rows=orders(conn,period)
+    if order_rows:
+        ws=book.create_sheet('К заказу — дневной учёт')
+        ws.append(['Материал','Остаток','Минимум','В упаковке','Заказать упаковок','Сумма, ₽','Подтвердить дней'])
+        for r in order_rows:
+            ws.append([r['name'],float(r['end']) if r['end'] is not None else None,float(r['minimum']),float(r['pack']),r['packs'],
+                       float(r['order_value']) if r['order_value'] is not None else None,r['missing_days']])
     for ws in book:
         ws.freeze_panes='C2'
         ws.auto_filter.ref=ws.dimensions
@@ -444,7 +466,8 @@ def register(app, db, permission_required, require_csrf, csrf_token, rights):
             # Do not silently discard a failed save or move on to another item.
             return render_template('medical_supplies_error.html', title='Медрасходка', error=str(exc),
                                    back=url_for('medical_supplies', month=request.form.get('month',''))), 409 if isinstance(exc,Conflict) else 400
-        return redirect(url_for('medical_supplies',month=period,saved='1',kind=request.form.get('kind','out')),code=303)
+        return redirect(url_for('medical_supplies',month=period,saved='1',kind=request.form.get('kind','out'),
+                                **({'import_id':request.form['import_id']} if action=='assign' else {})),code=303)
 
     @app.get('/accounting/medical-supplies/daily/export')
     @permission_required('accounting')

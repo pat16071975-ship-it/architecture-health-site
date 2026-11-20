@@ -16,6 +16,7 @@ server=make_server('127.0.0.1',0,case.web,threaded=True)
 thread=Thread(target=server.serve_forever,daemon=True);thread.start()
 origin=f'http://127.0.0.1:{server.server_port}'
 artifacts=Path(os.environ.get('MED_BROWSER_ARTIFACTS','med-browser-artifacts'));artifacts.mkdir(exist_ok=True)
+content=fixture([('Тест: материал А',100,'шт',14645),('Тест: салфетки, упаковка',2,'упак',600),('Тест: нулевая стоимость',7,'шт',0)])
 try:
     with sync_playwright() as pw:
         browser=pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
@@ -25,7 +26,6 @@ try:
             errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
             page.goto(origin+'/accounting/medical-supplies/?tab=stock')
             if not page.locator('#stock-file').is_visible():page.get_by_text('Загрузить остатки из Excel',exact=True).click()
-            content=fixture([('Тест: материал А',100,'шт',14645),('Тест: салфетки, упаковка',2,'упак',600),('Тест: нулевая стоимость',7,'шт',0)])
             page.locator('#stock-file').set_input_files({'name':'Остатки (2026.11.19).xlsx','mimeType':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','buffer':content})
             page.locator('#stock-date').fill('2026-11-19')
             with page.expect_navigation():page.get_by_role('button',name='Загрузить файл',exact=True).click()
