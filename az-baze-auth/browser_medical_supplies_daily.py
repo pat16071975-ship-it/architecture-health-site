@@ -40,7 +40,9 @@ with sync_playwright() as pw:
             page.locator('#md-expand').click()
             assert page.locator('.md-product:visible').count()==1
             product=page.locator('.md-product')
-            assert product.bounding_box()['height']<=28
+            page.screenshot(path=str(artifacts/f'expanded-{width}.png'),full_page=True)
+            height=product.bounding_box()['height']
+            assert height<=28,f'product row height {height}'
             iid=product.locator('[data-day]').first.get_attribute('data-item')
             product.locator('[data-day="2026-11-20"]').click()
             page.locator('#md-day-qty').fill('10')
