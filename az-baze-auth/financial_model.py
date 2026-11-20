@@ -54,6 +54,8 @@ NULLABLE={'payroll_tax','marketing_fixed','search_months','official_base_pct','o
 
 def init_schema(conn):
  conn.executescript(SCHEMA)
+ import financial_model_v2
+ financial_model_v2.init_schema(conn)
 
 
 def initial():
@@ -282,6 +284,8 @@ def commit_change(conn,version,change,mode,actor):
 
 
 def register(app,db,permission_required,require_csrf,csrf_token,user_permissions):
+ import financial_model_v2
+ financial_model_v2.register(app,db,permission_required,require_csrf,csrf_token,user_permissions)
  def edit_guard():
   if 'financial_model_edit' not in user_permissions(g.user):abort(403)
  def serializer():return URLSafeTimedSerializer(current_app.secret_key,salt='financial-model-preview-v1')
