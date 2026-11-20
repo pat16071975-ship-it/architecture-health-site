@@ -235,7 +235,7 @@ class ReferenceTests(unittest.TestCase):
         period(self.conn);refs=self.refs();old=model.read_state(self.conn)
         edit=dict(group='payer_source',month=refs[0]['month'],digest=refs[0]['digest'],scope='future',**{'from':3})
         new,_=model.transition(old,edit,'recalculate',refs)
-        self.assertEqual(new['config']['payer_checks']['medicine'],[None,None]+[750]*10)
+        self.assertEqual(new['config']['payer_checks']['medicine'],[750]*12)
         self.assertEqual(new['results'][:2],old['results'][:2])
         manual=change('medicine',999,4,'month','payer_check')
         modified,_=model.transition(new,manual,'recalculate')
@@ -297,6 +297,91 @@ class IsolationTests(unittest.TestCase):
         self.assertIsNone(old['config']['payer_checks']['medicine'][2])
 
 
+class InitialPayerDefaultsTests(unittest.TestCase):
+    def setUp(self):
+        self.conn=memory();self.addCleanup(self.conn.close)
+        original=model.references
+        clock=patch.object(model,'references',side_effect=lambda conn: original(conn,today=date(2026,11,20)))
+        clock.start();self.addCleanup(clock.stop)
+
+    def test_latest_complete_month_populates_all_months_readonly(self):
+        period(self.conn,start='2026-09-01',end='2026-09-30',paid=500)
+        period(self.conn)
+        period(self.conn,start='2026-11-01',end='2026-11-17',paid=999999)
+        period(self.conn,start='2026-12-01',end='2026-12-31',paid=888888)
+        before=list(self.conn.iterdump());first=v1.read_state(self.conn)
+        self.conn.execute('PRAGMA query_only=ON')
+        state=model.read_state(self.conn)
+        self.assertEqual(state['payer_initialization'],dict(status='source',month='2026-10'))
+        for key,check in [('medicine',750),('dentistry',1000),('structure',250)]:
+            self.assertEqual(state['config']['payer_checks'][key],[check]*12)
+            self.assertTrue(all(s['month']=='2026-10' for s in state['config']['payer_sources'][key]))
+        self.assertTrue(all(r['paid_patients']>0 and r['paid_dentistry']>0 and r['paid_structure']>0 for r in state['results']))
+        self.assertEqual(model.digest(model.read_state(self.conn)),model.digest(state))
+        self.assertEqual(v1.read_state(self.conn),first)
+        self.assertEqual(list(self.conn.iterdump()),before)
+
+    def test_gap_in_latest_month_uses_last_fully_covered_month(self):
+        period(self.conn,start='2026-09-01',end='2026-09-30',paid=300,structure_paid=100)
+        period(self.conn,end='2026-10-15')
+        period(self.conn,start='2026-10-17')
+        state=model.read_state(self.conn)
+        self.assertEqual(state['payer_initialization']['month'],'2026-09')
+        self.assertEqual(state['config']['payer_checks']['medicine'],[200]*12)
+
+    def test_latest_source_does_not_mix_directions_or_fabricate_zero_check(self):
+        period(self.conn,start='2026-09-01',end='2026-09-30')
+        period(self.conn,paid=0,tokens=())
+        state=model.read_state(self.conn)
+        self.assertEqual(state['payer_initialization']['month'],'2026-10')
+        self.assertEqual(state['config']['payer_checks']['dentistry'],[None]*12)
+        self.assertTrue(all(r['paid_dentistry'] is None for r in state['results']))
+        self.assertEqual(state['config']['payer_checks']['structure'],[250]*12)
+
+    def test_absent_and_failed_source_have_explicit_status_without_writes(self):
+        before=list(self.conn.iterdump())
+        self.assertEqual(model.read_state(self.conn)['payer_initialization']['status'],'missing')
+        for error in (ValueError('bad confirmation'),sqlite3.DatabaseError('unavailable'),OSError('unreadable')):
+            with patch.object(model,'references',side_effect=error):
+                state=model.read_state(self.conn)
+            self.assertEqual(state['payer_initialization']['status'],'error')
+            self.assertTrue(all(r['paid_patients'] is None for r in state['results']))
+        self.assertEqual(list(self.conn.iterdump()),before)
+
+    def test_first_save_freezes_source_and_new_uploads_do_not_change_plan(self):
+        period(self.conn);first=v1.read_state(self.conn)
+        old=model.read_state(self.conn)
+        saved=model.commit_change(self.conn,signed(old,dict(group='refresh')),1)
+        period(self.conn,paid=100000)
+        with patch.object(model,'references',side_effect=AssertionError('saved plan must not reload facts')):
+            self.assertEqual(model.read_state(self.conn),saved)
+        self.assertEqual(v1.read_state(self.conn),first)
+        journal=json.loads(self.conn.execute('SELECT after_json FROM financial_model_v2_history').fetchone()[0])
+        self.assertEqual(journal['config']['payer_sources'],saved['config']['payer_sources'])
+        self.assertEqual(saved['config']['payer_checks']['medicine'],[750]*12)
+
+    def test_changed_auto_source_rejects_first_save_and_no_partial_records(self):
+        period(self.conn);old=model.read_state(self.conn)
+        preview=signed(old,dict(group='refresh'))
+        period(self.conn,paid=3000);before=list(self.conn.iterdump())
+        with self.assertRaisesRegex(RuntimeError,'Модель изменилась'):
+            model.commit_change(self.conn,preview,1)
+        self.assertEqual(list(self.conn.iterdump()),before)
+        self.assertEqual(self.conn.execute('SELECT count(*) FROM financial_model_v2_plan').fetchone()[0],0)
+        self.assertEqual(self.conn.execute('SELECT count(*) FROM financial_model_v2_history').fetchone()[0],0)
+
+    def test_saved_manual_checks_including_empty_and_zero_are_never_replaced(self):
+        period(self.conn);old=model.read_state(self.conn)
+        edits=dict(group='batch',changes=[change('medicine',None,1,'month','payer_check'),
+            change('dentistry',0,1,'month','payer_check'),change('structure',999,1,'month','payer_check')])
+        saved=model.commit_change(self.conn,signed(old,edits),1)
+        period(self.conn,paid=50000)
+        self.assertEqual(model.read_state(self.conn),saved)
+        self.assertIsNone(saved['config']['payer_checks']['medicine'][0])
+        self.assertEqual(saved['config']['payer_checks']['dentistry'][0],0)
+        self.assertEqual(saved['config']['payer_checks']['structure'][0],999)
+
+
 class RoutesTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
@@ -342,7 +427,7 @@ class RoutesTests(unittest.TestCase):
         edit=dict(group='payer_source',month=source['month'],digest=source['digest'],scope='future',**{'from':1})
         token=self.preview(c,edit).get_json()['token']
         with sqlite3.connect(auth.DB_PATH) as conn:period(conn,paid=4000)
-        self.assertEqual(c.post('/reports/financial-model/v2/save',data=dict(csrf='test',token=token)).status_code,400)
+        self.assertEqual(c.post('/reports/financial-model/v2/save',data=dict(csrf='test',token=token)).status_code,409)
         with sqlite3.connect(auth.DB_PATH) as conn:
             self.assertEqual(conn.execute('SELECT count(*) FROM financial_model_v2_plan').fetchone()[0],0)
     def test_both_variants_navigable_and_missing_checks_explicit(self):

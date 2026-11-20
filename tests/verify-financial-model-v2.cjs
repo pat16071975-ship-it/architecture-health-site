@@ -3,8 +3,8 @@ const {spawn}=require('node:child_process');
 const fs=require('node:fs');
 const assert=require('node:assert/strict');
 const root='/tmp/finmodel-v2-browser';fs.mkdirSync(root,{recursive:true});
-async function scenario(width){
- const server=spawn(process.env.TEST_PYTHON||'python',['tests/financial_model_v2_browser_fixture.py'],{stdio:'pipe'});
+async function scenario(width,empty=false){
+ const server=spawn(process.env.TEST_PYTHON||'python',['tests/financial_model_v2_browser_fixture.py'],{stdio:'pipe',env:{...process.env,FINMODEL_V2_EMPTY_REFERENCE:empty?'1':''}});
  let browser;
  try{
   await new Promise((resolve,reject)=>{let log='';const timer=setTimeout(()=>reject(Error('Fixture timeout: '+log)),20000);server.stderr.on('data',d=>{log+=d;if(log.includes('Running on')){clearTimeout(timer);resolve()}});server.on('exit',code=>{clearTimeout(timer);reject(Error('Fixture exit '+code+': '+log))})});
@@ -17,7 +17,22 @@ async function scenario(width){
   assert.match(await page.locator('main > header').innerText(),/Вариант 2/);
   const row=label=>page.locator('#rows tr').filter({has:page.locator('td:first-child',{hasText:label})});
   assert.match(await row('Цель выручки, ₽').locator('td').nth(1).innerText(),/10\s040\s000/);
-  assert.equal(await row('Нужно оплативших пациентов: вся медицина').locator('td').nth(1).innerText(),'—');
+  assert.equal(await row('Обеспечено текущим планом ресурсов').count(),0);
+  assert.equal(await row('Нужно дополнительно обеспечить').count(),0);
+  if(empty){
+   assert.equal(await row('Нужно оплативших пациентов: вся медицина').locator('td').nth(1).innerText(),'Нет среднего чека');
+   assert.match(await page.locator('#payerSourceNotice').innerText(),/Не найден завершённый месяц/);
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+   await page.screenshot({path:root+'/'+width+'-no-source.png',fullPage:true});
+   await page.locator('#modelVariant').selectOption('/reports/financial-model/');await page.waitForURL('**/financial-model/');
+   assert.equal(await page.locator('#rows').innerText(),v1Rows);
+   assert.deepEqual(errors,[]);console.log('FINMODEL_V2_NO_SOURCE_BROWSER=PASS; WIDTH='+width);return;
+  }
+  const firstCount=Math.ceil((10040000/1.035)/40000);
+  assert.equal(await row('Нужно оплативших пациентов: вся медицина').locator('td').nth(1).innerText(),String(firstCount));
+  assert.match(await page.locator('#payerSourceNotice').innerText(),/автоматически.*2026-10/);
+  assert.ok((await row('Нужно оплативших пациентов: вся медицина').innerText()).indexOf('—')<0);
+  await page.screenshot({path:root+'/'+width+'-first-open.png',fullPage:true});
   assert.match(await row('Официальная доля ФОТ (год — декабрь)').locator('td').nth(1).innerText(),/27,5/);
   let version=0;
   async function save(keep=false){
@@ -33,7 +48,6 @@ async function scenario(width){
   assert.equal(await page.locator('[data-field="payer_check::medicine"]').inputValue(),'40000');
   assert.equal(await page.locator('[data-field="payer_check::dentistry"]').inputValue(),'50000');
   await save();
-  const firstCount=Math.ceil((10040000/1.035)/40000);
   assert.equal(await row('Нужно оплативших пациентов: вся медицина').locator('td').nth(1).innerText(),String(firstCount));
   await page.locator('[data-toggle="patients"]').click();assert.match(await page.locator('#rows').innerText(),/2026-10/);
   const beforeProfit=await row('Итоговая прибыль с выбелением ФОТ, ₽').innerText();
@@ -62,7 +76,7 @@ async function scenario(width){
   await page.locator('#from').selectOption('1');await page.locator('[data-field="payer_check::medicine"]').fill('-1');
   await page.locator('#previewBtn').click();assert.match(await page.locator('#error').innerText(),/от 0/);
   await page.locator('[data-field="payer_check::medicine"]').fill('');await save();
-  assert.equal(await row('Нужно оплативших пациентов: вся медицина').locator('td').nth(1).innerText(),'—');
+  assert.equal(await row('Нужно оплативших пациентов: вся медицина').locator('td').nth(1).innerText(),'Нет среднего чека');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await page.screenshot({path:root+'/'+width+'.png',fullPage:true});
   await page.locator('#settings').click();await page.locator('[data-block="official"]').click();
@@ -73,4 +87,4 @@ async function scenario(width){
   assert.deepEqual(errors,[]);console.log('FINMODEL_V2_BROWSER=PASS; WIDTH='+width+'; independent variants, source, patients, whitening, keep, history');
  }finally{if(browser)await browser.close();if(server.exitCode===null&&server.signalCode===null){await new Promise(resolve=>{server.once('exit',resolve);server.kill('SIGTERM')});}}
 }
-(async()=>{for(const width of [1365,390])await scenario(width)})().catch(e=>{console.error(e);process.exitCode=1});
+(async()=>{for(const width of [1365,390]){await scenario(width);await scenario(width,true)}})().catch(e=>{console.error(e);process.exitCode=1});
