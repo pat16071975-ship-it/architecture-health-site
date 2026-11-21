@@ -79,7 +79,7 @@ async function scenario(width){
   await page.waitForURL('**/credentials/');await page.locator('#groupsExpand').click();
   assert.match(await page.locator(`[data-group="${accessGroup}"]`).innerText(),/Fixture service/);
   await page.locator('a[href="/access-contacts/groups/credentials/"]').click();
-  assert.match(await page.locator('h2').innerText(),/Группы служебных доступов/);
+  assert.equal(await page.locator('.groups-page > h2').innerText(),'Группы служебных доступов');
   assert.equal(await page.locator(`.group-create select option[value="${group}"]`).count(),0);
   await page.locator('.group-create input[name="name"]').fill('Поддержка');
   await page.locator('.group-create select').selectOption(accessGroup);await page.locator('.group-create button').click();
