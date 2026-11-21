@@ -1,0 +1,12 @@
+name: Check Besedina certificate gallery
+on: [push]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install playwright
+      - run: python tilda-migration/tests/check_besedina_gallery.py
