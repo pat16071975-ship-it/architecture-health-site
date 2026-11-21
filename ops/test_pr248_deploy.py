@@ -1,5 +1,5 @@
 """Installer checks use only temporary files/DB and mocked network/systemd."""
-import ast,contextlib,importlib.util,io,sqlite3,subprocess,sys,tempfile,unittest
+import ast,contextlib,importlib.util,io,os,shutil,sqlite3,subprocess,sys,tempfile,unittest
 from pathlib import Path
 from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[1]
@@ -78,7 +78,13 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(m.data_fingerprint(c,self.tables),self.data)
             self.assertEqual(sorted(c.execute("SELECT name,seq FROM sqlite_sequence WHERE name<>'work_groups'").fetchall()),self.sequence)
             if rolled_back:
-                self.assertEqual('\n'.join(c.iterdump()),self.original_dump)
+                # Rebuilding this table may reorder sqlite_sequence rows. Check
+                # every schema object and every row value, not dump row order.
+                with sqlite3.connect(':memory:') as expected:
+                    expected.executescript(self.original_dump)
+                    self.assertEqual(m.schema_objects(c),m.schema_objects(expected))
+                    tables=[n for n,r in m.schema_objects(expected).items() if r[0]=='table']
+                    self.assertEqual(m.data_fingerprint(c,tables),m.data_fingerprint(expected,tables))
             else:
                 self.assertEqual(c.execute("SELECT id,name,name_key,parent_id,version FROM work_groups WHERE kind='contacts' ORDER BY id").fetchall(),self.old_groups)
                 paths=c.execute('SELECT a.record_id,g.name,p.name,g.version FROM work_credential_groups a JOIN work_groups g ON g.id=a.group_id LEFT JOIN work_groups p ON p.id=g.parent_id ORDER BY a.record_id').fetchall()
@@ -180,12 +186,12 @@ class InstallerTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'synthetic health failure'):self.m.main()
         self.preserved(True);self.assertNotIn('PRODUCTION_DEPLOY=PASS',self.output.getvalue())
 
-    def test_writer_lock_held_until_health_and_migration_hidden_from_readers(self):
+    def test_migration_committed_and_writer_lock_released_before_startup(self):
         def check_health():
             self.m.health()
             with sqlite3.connect(self.m.DB,timeout=0.01) as c:
-                self.assertNotIn('kind',{r[1] for r in c.execute('PRAGMA table_info(work_groups)')})
-                with self.assertRaisesRegex(sqlite3.OperationalError,'locked'):c.execute("UPDATE reports SET note='concurrent'")
+                self.assertIn('kind',{r[1] for r in c.execute('PRAGMA table_info(work_groups)')})
+                c.execute('BEGIN IMMEDIATE');c.rollback()
         self.m.wait_health=check_health;self.m.main();self.preserved()
 
     def test_repeat_does_not_change_data(self):
@@ -215,6 +221,87 @@ class InstallerTests(unittest.TestCase):
         self.m.main()
         with sqlite3.connect(self.m.DB) as c:
             self.assertEqual(c.execute('SELECT kind,count(*) FROM work_groups GROUP BY kind ORDER BY kind').fetchall(),[('contacts',8),('credentials',9)])
+
+    def test_rollback_preserves_unrelated_writes_after_restart(self):
+        calls=0
+        def fail_once():
+            nonlocal calls
+            calls+=1
+            if calls==1:
+                with sqlite3.connect(self.m.DB) as c:c.execute("UPDATE reports SET note='new user value' WHERE id=2")
+                raise RuntimeError('synthetic health failure')
+            self.m.health()
+        self.m.wait_health=fail_once
+        with self.assertRaisesRegex(RuntimeError,'synthetic health failure'):self.m.main()
+        with sqlite3.connect(self.m.DB) as c:
+            self.assertEqual(c.execute('SELECT note FROM reports WHERE id=2').fetchone()[0],'new user value')
+            self.assertNotIn('kind',{r[1] for r in c.execute('PRAGMA table_info(work_groups)')})
+            self.assertEqual(c.execute('SELECT * FROM work_groups ORDER BY id').fetchall(),self.old_groups)
+        for name,old,new in self.m.ROWS:self.assertEqual(self.m.blob(self.m.live(name).read_bytes()),old)
+        self.assertTrue(all(self.active.values()));self.assertIn('PREVIOUS_SERVICE_HEALTH=PASS',self.output.getvalue())
+
+    def test_rollback_does_not_overwrite_groups_changed_after_restart(self):
+        calls=0
+        def fail_once():
+            nonlocal calls
+            calls+=1
+            if calls==1:
+                with sqlite3.connect(self.m.DB) as c:c.execute("UPDATE work_groups SET name='User renamed' WHERE kind='credentials' AND name='Реклама и аналитика'")
+                raise RuntimeError('synthetic health failure')
+            self.m.health()
+        self.m.wait_health=fail_once
+        with self.assertRaisesRegex(RuntimeError,'automatic rollback blocked'):self.m.main()
+        with sqlite3.connect(self.m.DB) as c:
+            self.assertIn('kind',{r[1] for r in c.execute('PRAGMA table_info(work_groups)')})
+            self.assertEqual(c.execute("SELECT count(*) FROM work_groups WHERE name='User renamed'").fetchone()[0],1)
+        for name,old,new in self.m.ROWS:self.assertEqual(self.m.blob(self.m.live(name).read_bytes()),new)
+        self.assertTrue(all(self.active.values()));self.assertNotIn('PRODUCTION_DEPLOY=PASS',self.output.getvalue())
+
+    def real_server(self):
+        appdir=self.m.live('az-baze-auth/app.py').parent
+        for path in (ROOT/'az-baze-auth').glob('*.py'):shutil.copy2(path,appdir/path.name)
+        shutil.copytree(ROOT/'az-baze-auth/templates',appdir/'templates',dirs_exist_ok=True)
+        for name,content in self.old.items():self.m.live(name).write_bytes(content)
+        env=dict(os.environ,AZBAZE_SECRET_KEY='synthetic-startup-test',AZBAZE_DB=str(self.m.DB),AZBAZE_CREDENTIALS_KEY=str(self.root/'key'),AZBAZE_SITE_ROOT=str(self.root))
+        startup="import server; c=server.app.test_client(); assert c.get('/health').status_code==200"
+        def boot(extra=''):
+            return subprocess.run([sys.executable,'-B','-c',startup+extra],cwd=appdir,env=env,capture_output=True,text=True,timeout=20)
+        baseline=boot();self.assertEqual(baseline.returncode,0,baseline.stderr)
+        return boot
+
+    def test_real_server_bootstrap_and_group_pages_after_install(self):
+        boot=self.real_server()
+        # This is the original installer defect: actual bootstrap requires a
+        # write lock, unlike the former mock of systemctl + /health.
+        with sqlite3.connect(self.m.DB) as locked:
+            locked.execute('BEGIN IMMEDIATE')
+            blocked=boot();self.assertNotEqual(blocked.returncode,0)
+            self.assertIn('database is locked',blocked.stderr);locked.rollback()
+        def actual_health():
+            extra="\nwith c.session_transaction() as s:s['user_id']=1\nfor p in ('/credentials/','/contacts/','/access-contacts/groups/credentials/','/access-contacts/groups/contacts/'):\n r=c.get(p); assert r.status_code==200,(p,r.status_code)\nprint('REAL_SERVER_HEALTH_AND_GROUP_PAGES=PASS')"
+            result=boot(extra);self.assertEqual(result.returncode,0,result.stderr)
+            self.assertIn('REAL_SERVER_HEALTH_AND_GROUP_PAGES=PASS',result.stdout)
+        self.m.wait_health=actual_health
+        self.m.main()
+        self.assertIn('PR248_PRODUCTION_DEPLOY=PASS',self.output.getvalue())
+
+    def test_real_server_recovers_old_pages_after_health_failure(self):
+        boot=self.real_server();before=self.dump();calls=0
+        def check_and_fail_once():
+            nonlocal calls
+            calls+=1
+            path='/access-contacts/groups/credentials/' if calls==1 else '/access-contacts/groups/'
+            result=boot("\nwith c.session_transaction() as s:s['user_id']=1\nfor p in ('/credentials/','/contacts/',"+repr(path)+"):\n r=c.get(p); assert r.status_code==200,(p,r.status_code)")
+            self.assertEqual(result.returncode,0,result.stderr)
+            if calls==1:raise RuntimeError('synthetic post-start health failure')
+        self.m.wait_health=check_and_fail_once
+        with self.assertRaisesRegex(RuntimeError,'synthetic post-start health failure'):self.m.main()
+        with sqlite3.connect(':memory:') as expected,sqlite3.connect(self.m.DB) as actual:
+            expected.executescript(before)
+            self.assertEqual(self.m.schema_objects(actual),self.m.schema_objects(expected))
+            tables=[n for n,r in self.m.schema_objects(expected).items() if r[0]=='table']
+            self.assertEqual(self.m.data_fingerprint(actual,tables),self.m.data_fingerprint(expected,tables))
+        self.assertIn('PREVIOUS_SERVICE_HEALTH=PASS',self.output.getvalue())
 
 if __name__=='__main__':unittest.main()
 

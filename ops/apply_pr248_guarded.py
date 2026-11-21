@@ -59,7 +59,7 @@ def group_path(rows,ident):
     return (rows[parent][2],row[2])
 
 def prepare_groups(conn,source):
-    # Caller owns BEGIN IMMEDIATE until installed service health succeeds.
+    # Caller owns BEGIN IMMEDIATE until verified migration and files are ready.
     check_legacy(conn)
     before=schema_objects(conn)
     protected=[n for n,r in before.items() if r[0]=='table' and n not in ('work_groups','work_credential_groups','sqlite_sequence')]
@@ -115,6 +115,55 @@ def prepare_groups(conn,source):
         if conn.execute('PRAGMA foreign_key_check('+table+')').fetchone():raise RuntimeError('invalid resulting group relation')
     if conn.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise RuntimeError('database integrity')
     return len(services),len(assignments)
+
+GROUP_TABLES=('work_groups','work_contact_groups','work_credential_groups')
+def group_snapshot(conn):
+    return {
+        'schema':{n:r for n,r in schema_objects(conn).items() if r[1] in GROUP_TABLES},
+        'data':data_fingerprint(conn,GROUP_TABLES),
+        'sequence':conn.execute("SELECT seq FROM sqlite_sequence WHERE name='work_groups'").fetchall(),
+    }
+
+def rollback_groups(backup,expected):
+    # Undo only this migration. Never restore the whole DB over records that
+    # startup or a user may have written after the service was restarted.
+    with sqlite3.connect((backup/'auth.db').as_uri()+'?mode=ro',uri=True) as old:
+        check_legacy(old)
+        original=group_snapshot(old)
+        groups=old.execute('SELECT id,name,name_key,parent_id,version FROM work_groups').fetchall()
+        links=old.execute('SELECT record_id,group_id FROM work_credential_groups').fetchall()
+    conn=sqlite3.connect(DB.as_uri()+'?mode=rw',uri=True)
+    try:
+        conn.execute('PRAGMA foreign_keys=OFF');conn.execute('BEGIN IMMEDIATE')
+        if group_snapshot(conn)!=expected:
+            raise RuntimeError('group metadata changed after startup; automatic rollback blocked')
+        before=schema_objects(conn)
+        protected=[n for n,r in before.items() if r[0]=='table' and n not in (*GROUP_TABLES,'sqlite_sequence')]
+        data_before=data_fingerprint(conn,protected)
+        sequences=conn.execute("SELECT name,seq FROM sqlite_sequence WHERE name<>'work_groups' ORDER BY name").fetchall()
+        conn.execute('DELETE FROM work_credential_groups')
+        conn.execute('DROP TABLE work_groups')
+        conn.execute(original['schema']['work_groups'][2])
+        conn.executemany('INSERT INTO work_groups(id,name,name_key,parent_id,version) VALUES(?,?,?,?,?)',groups)
+        for name,row in original['schema'].items():
+            if row[1]=='work_groups' and row[0]!='table' and row[2]:conn.execute(row[2])
+        conn.executemany('INSERT INTO work_credential_groups(record_id,group_id) VALUES(?,?)',links)
+        conn.execute("DELETE FROM sqlite_sequence WHERE name='work_groups'")
+        conn.executemany("INSERT INTO sqlite_sequence(name,seq) VALUES('work_groups',?)",original['sequence'])
+        desired={n:r for n,r in before.items() if r[1]!='work_groups'}
+        desired.update({n:r for n,r in original['schema'].items() if r[1]=='work_groups'})
+        if schema_objects(conn)!=desired or group_snapshot(conn)!=original:
+            raise RuntimeError('group rollback verification failed')
+        if data_fingerprint(conn,protected)!=data_before or conn.execute("SELECT name,seq FROM sqlite_sequence WHERE name<>'work_groups' ORDER BY name").fetchall()!=sequences:
+            raise RuntimeError('unrelated data changed during rollback')
+        for table in GROUP_TABLES:
+            if conn.execute('PRAGMA foreign_key_check('+table+')').fetchone():raise RuntimeError('rollback relation verification failed')
+        if conn.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise RuntimeError('rollback database integrity failed')
+        conn.commit()
+    except BaseException:
+        conn.rollback();raise
+    finally:
+        conn.close()
 SERVICE='az-baze-auth' 
 DB=pathlib.Path('/var/lib/az-baze/auth.db')
 BACKUP_ROOT=pathlib.Path('/var/lib/az-baze/backups')
@@ -198,20 +247,30 @@ def deploy():
         for name,old,new in ROWS:install(data[name],live(name),attrs[name])
         for name,old,new in ROWS:
             if blob(live(name).read_bytes())!=new:raise RuntimeError('installed hash mismatch')
-        # Health has no DB writes. Keep the migration uncommitted until the new
-        # service starts; failure rolls it back without restoring an old DB copy.
-        run('systemctl','start',SERVICE);wait_health();run('systemctl','is-active','--quiet',SERVICE)
+        # The real server bootstrap seeds the provider registry even when every
+        # provider exists. It must start only AFTER this writer lock is released.
         if not conn.in_transaction:raise RuntimeError('migration transaction lost')
+        separated=group_snapshot(conn)
         conn.commit();committed=True
+        conn.close();conn=None
+        run('systemctl','start',SERVICE);wait_health();run('systemctl','is-active','--quiet',SERVICE)
         print('SCHEMA_SEPARATION=PASS; SERVICE_GROUPS='+str(count)+'; PRESERVED_CREDENTIAL_ASSIGNMENTS='+str(moved),flush=True)
         print('FILES_VERIFY=PASS; HEALTH=PASS',flush=True)
-    except BaseException:
-        if mutated and not committed:run('systemctl','stop',SERVICE)
+    except BaseException as error:
+        if mutated:run('systemctl','stop',SERVICE)
         if conn is not None and not committed:conn.rollback()
-        if mutated and not committed:
+        if committed:
+            try:rollback_groups(backup,separated)
+            except Exception as rollback_error:
+                print('GROUP_ROLLBACK=BLOCKED; NEW_FILES_RETAINED; DATABASE_RESTORE=NOT_RUN',flush=True)
+                run('systemctl','start',SERVICE);wait_health()
+                raise RuntimeError(str(error)+'; '+str(rollback_error)) from rollback_error
+        if mutated:
             for i,(name,old,new) in enumerate(ROWS):install((backup/str(i)).read_bytes(),live(name),attrs[name])
-            print('ROLLBACK_FILES=PASS; MIGRATION_ROLLBACK=PASS; DATABASE_RESTORE=NOT_NEEDED',flush=True)
-        if stopped:run('systemctl','start',SERVICE);wait_health()
+            print('ROLLBACK_FILES=PASS; MIGRATION_ROLLBACK=PASS; DATABASE_RESTORE=NOT_RUN',flush=True)
+        if stopped:
+            run('systemctl','start',SERVICE);wait_health()
+            print('PREVIOUS_SERVICE_HEALTH=PASS',flush=True)
         raise
     finally:
         if conn is not None:conn.close()
