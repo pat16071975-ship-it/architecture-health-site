@@ -1,0 +1,16 @@
+name: Check case photo layout
+on: [push]
+permissions:
+  contents: read
+jobs:
+  layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install playwright
+      - run: |
+          cat tilda-migration/delivery/cases-gallery/data-*.part > /tmp/original.zip
+          unzip -q /tmp/original.zip 'data/assets/*' -d /tmp/gallery
+          cp -r /tmp/gallery/data/assets/full-20261119 tilda-migration/sections/cases/assets/
+          python tilda-migration/tests/check_cases_layout.py
