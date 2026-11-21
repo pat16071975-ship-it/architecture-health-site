@@ -1,0 +1,18 @@
+<style>
+.work-tools{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:10px 0}.work-tools input[type=search]{flex:1;min-width:160px;padding:7px 9px;font-size:12px}.work-tools .btn,.group-move .btn{padding:6px 9px;min-height:30px;font-size:11px}.group-move{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin:8px 0;font-size:11px}.group-move select{padding:6px;font-size:11px;max-width:270px}.work-group>summary{padding:7px 10px;background:#f2eee5;border-bottom:1px solid #ded5c8;cursor:pointer;font-weight:600;font-size:12px;list-style:none}.work-group>summary::before{content:'+';display:inline-block;width:18px}.work-group[open]>summary::before{content:'−'}.work-group .work-group>summary{background:#f8f6f0;padding-left:22px}.work-group-count{color:#73766f;font-weight:400}.record-title{display:flex;align-items:center;min-width:0}.record-pick{margin:0 7px 0 0!important;width:14px!important;height:14px!important;flex:none}.work-group[hidden],.contact-card[hidden],.credential-card[hidden]{display:none!important}.group-move [type=checkbox]{width:14px;height:14px}.work-tools [hidden]{display:none}@media(max-width:650px){.group-move select{max-width:100%;flex:1}.work-tools input[type=search]{width:100%}}
+</style>
+<div class="work-tools">
+<input id="workSearch" type="search" aria-label="Поиск по разделу" placeholder="Поиск по всему разделу">
+<button class="btn" id="groupsExpand" type="button">Раскрыть всё</button><button class="btn" id="groupsCollapse" type="button">Свернуть всё</button>
+{% if can_edit %}<a class="btn" href="/access-contacts/groups/">Управление группами</a>{% endif %}
+</div>
+{% if can_edit %}
+<form id="groupMove" class="group-move" method="post" action="/access-contacts/groups/{{ grouping.kind }}/move">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label><input id="selectFound" type="checkbox"> Выбрать найденные</label>
+<span id="selectionCount" aria-live="polite">Выбрано: 0</span>
+<select name="group_id" aria-label="Перенести в группу" required><option value="">Перенести в группу…</option>{% for group in grouping.groups %}<option value="{{ group.id }}">{{ group.label }}</option>{% endfor %}</select>
+<button class="btn" id="moveSelected" type="submit" disabled>Перенести</button>
+</form>
+{% endif %}
+<p id="workNoResults" class="muted" hidden>Ничего не найдено.</p>

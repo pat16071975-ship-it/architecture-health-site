@@ -3,6 +3,7 @@ import re
 import secrets
 import sqlite3
 import personal_credentials
+import access_groups
 import medical_supplies
 import ztl
 import ztl_control
@@ -645,6 +646,7 @@ def init_db_file(path=None):
     conn = sqlite3.connect(target)
     conn.executescript(SCHEMA)
     personal_credentials.init_schema(conn)
+    access_groups.init_schema(conn)
     medical_supplies.init_schema(conn)
     ztl.init_schema(conn)
     financial_model.init_schema(conn)

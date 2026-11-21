@@ -1,0 +1,46 @@
+name: AZ work contact groups
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/app.py'
+      - 'az-baze-auth/access_groups.py'
+      - 'az-baze-auth/access_contacts_ext.py'
+      - 'az-baze-auth/contact_excel_import.py'
+      - 'az-baze-auth/credentials_store.py'
+      - 'az-baze-auth/personal_credentials.py'
+      - 'az-baze-auth/templates/contact*.html'
+      - 'az-baze-auth/templates/credential*.html'
+      - 'az-baze-auth/templates/work_*.html'
+      - 'az-baze-auth/test_access_groups.py'
+      - 'tests/access_groups_browser_fixture.py'
+      - 'tests/verify-access-groups.cjs'
+      - '.github/workflows/az-access-groups.yml'
+jobs:
+  verify-groups:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -r az-baze-auth/requirements.txt
+      - working-directory: az-baze-auth
+        run: |
+          python -B -m unittest test_access_groups test_credentials_purge test_personal_credentials test_contact_excel_import test_accounting_section test_section_navigation
+          python -B -m unittest test_nn_foundation
+      - run: npm install --no-save --package-lock=false playwright@1.55.0
+      - run: |
+          export CHROMIUM_PATH="$(command -v google-chrome || command -v chromium)"
+          test -x "$CHROMIUM_PATH"
+          node tests/verify-access-groups.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: access-groups-browser
+          path: /tmp/access-groups-browser

@@ -52,46 +52,17 @@
     </div>
   </div>
 
+  {% if grouping is defined %}{% include "work_group_controls.html" %}{% endif %}
   {% if rows %}
   <div class="contacts-list">
     <div class="contacts-columns" aria-hidden="true">
       <div>Организация</div><div>Роль</div><div>ФИО</div><div>Телефон</div><div>Курирует</div><div>Действия</div>
     </div>
-    {% for row in rows %}
-    <article class="contact-card">
-      <div class="contact-cell">
-        <span class="mobile-label">Организация</span>
-        {% if row['organization'] %}<div class="contact-value organization-value truncate" title="{{ row['organization'] }}">{{ row['organization'] }}</div>{% endif %}
-      </div>
-
-      <div class="contact-cell">
-        <span class="mobile-label">Роль</span>
-        {% if row['organization_role'] %}<div class="contact-value truncate" title="{{ row['organization_role'] }}">{{ row['organization_role'] }}</div>{% endif %}
-      </div>
-
-      <div class="contact-cell">
-        <span class="mobile-label">ФИО</span>
-        <div class="contact-value name-value truncate" title="{{ row['full_name'] or '' }}">{{ row['full_name'] or row['organization'] or 'Контакт без названия' }}</div>
-      </div>
-
-      <div class="contact-cell">
-        <span class="mobile-label">Телефон</span>
-        <div class="inline-cell">
-          {% if row['phone'] %}<div class="contact-value phone-value truncate" title="{{ row['phone'] }}">{{ row['phone'] }}</div><button class="btn mini-btn copy-phone" type="button">Копировать</button>{% endif %}
-        </div>
-      </div>
-
-      <div class="contact-cell">
-        <span class="mobile-label">Курирует</span>
-        {% if row['responsibility'] %}<div class="contact-value responsibility-value" title="{{ row['responsibility'] }}">{{ row['responsibility'] }}</div>{% endif %}
-      </div>
-
-      <div class="actions-cell">
-        {% if can_edit %}<a class="btn mini-btn" href="/contacts/{{ row['id'] }}/edit">Изменить</a>{% endif %}
-        {% if can_delete %}<a class="btn warn mini-btn" href="/contacts/{{ row['id'] }}/delete">Удалить</a>{% endif %}
-      </div>
-    </article>
-    {% endfor %}
+    {% if grouping is defined %}
+    {% set row_template = "work_contact_row.html" %}{% include "work_group_rows.html" %}
+    {% else %}
+    {% for row in rows %}{% include "work_contact_row.html" %}{% endfor %}
+    {% endif %}
   </div>
   {% else %}
   <div class="empty-state muted">
@@ -139,4 +110,5 @@
   });
 })();
 </script>
+{% if grouping is defined %}{% include "work_group_script.html" %}{% endif %}
 {% endblock %}
