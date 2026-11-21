@@ -103,67 +103,6 @@ def load_bundle(_):
 
 
 @dataclass(frozen=True)
-class Bundle:
-    hashes: dict
-    files: dict
-
-
-def load_bundle(archive_path):
-    raw = Path(archive_path).read_bytes()
-    if sha(raw) != ARCHIVE_SHA256:
-        raise DeployError("SHA256 установочного PYZ не совпадает")
-    expected_files = {"__main__.py", "manifest.json"} | {"data/" + p for p in ALLOWED_PATHS}
-    expected_dirs = {
-        parent.as_posix() + "/" for p in expected_files
-        for parent in PurePosixPath(p).parents if parent.as_posix() != "."
-    }
-    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
-        seen = set()
-        total = 0
-        for member in archive.infolist():
-            name = member.filename
-            if name in seen or member.flag_bits & 1:
-                raise DeployError("Повторяющийся или зашифрованный ZIP entry")
-            seen.add(name)
-            mode = member.external_attr >> 16
-            kind = stat.S_IFMT(mode)
-            if member.is_dir():
-                if name not in expected_dirs or kind not in (0, stat.S_IFDIR):
-                    raise DeployError("Недопустимый каталог ZIP: " + name)
-            elif name not in expected_files or kind not in (0, stat.S_IFREG):
-                raise DeployError("Недопустимый файл ZIP: " + name)
-            if member.file_size > MAX_FILE:
-                raise DeployError("Слишком большой файл ZIP")
-            total += member.file_size
-        if total > MAX_PACKAGE or seen - expected_dirs != expected_files:
-            raise DeployError("Неверный состав ZIP")
-        hashes = parse_json(archive.read("manifest.json"))
-        if not isinstance(hashes, dict) or set(hashes) != ALLOWED_PATHS:
-            raise DeployError("В manifest должны быть ровно 11 HTML и 22 WebP")
-        files = {}
-        for name in sorted(ALLOWED_PATHS):
-            item = hashes[name]
-            if not isinstance(item, dict) or set(item) != {"old", "new"}:
-                raise DeployError("Неверная запись manifest: " + name)
-            if not isinstance(item["new"], str) or not HEX.fullmatch(item["new"]):
-                raise DeployError("Неверный новый hash: " + name)
-            if name in HTML_PATHS:
-                if not isinstance(item["old"], str) or not HEX.fullmatch(item["old"]):
-                    raise DeployError("Отсутствует исходный hash HTML: " + name)
-            elif item["old"] is not None:
-                raise DeployError("Новый WebP не должен перезаписывать иной asset")
-            data = archive.read("data/" + name)
-            if not data or sha(data) != item["new"]:
-                raise DeployError("Неверный hash содержимого: " + name)
-            if name in ASSET_PATHS and not (data[:4] == b"RIFF" and data[8:12] == b"WEBP"):
-                raise DeployError("Неверный WebP: " + name)
-            if name in HTML_PATHS:
-                data.decode("utf-8")
-            files[name] = data
-    return Bundle(hashes, files)
-
-
-@dataclass(frozen=True)
 class Directive:
     words: tuple
     children: tuple | None = None
