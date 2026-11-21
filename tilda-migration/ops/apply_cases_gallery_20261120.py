@@ -425,7 +425,7 @@ def safe_absolute(path, may_be_missing=False):
 
 def target_path(cases_root, name):
     if name not in ALLOWED_PATHS:
-        raise DeployError("Путь вне разрешённых 33 файлов: " + str(name))
+        raise DeployError(f"Путь вне разрешённых {len(ALLOWED_PATHS)} файлов: " + str(name))
     return safe_absolute(cases_root / name, may_be_missing=True)
 
 
@@ -682,7 +682,7 @@ def load_rollback_manifest(backup):
     if manifest.get("schema") != 1 or manifest.get("archive_sha256") != ARCHIVE_SHA256:
         raise DeployError("Неизвестный manifest резервной копии")
     if set(manifest.get("entries", {})) != ALLOWED_PATHS:
-        raise DeployError("Rollback manifest выходит за 33 разрешённых пути")
+        raise DeployError(f"Rollback manifest выходит за {len(ALLOWED_PATHS)} разрешённых пути")
     web_root = safe_absolute(Path(manifest["web_root"]))
     if manifest.get("cases_root") != str(web_root / "cases"):
         raise DeployError("Несовпадение root в rollback manifest")
@@ -755,7 +755,7 @@ def rollback_backup(backup, *, locked=False, log=print):
         assert_neighbors(web_root, neighbors)
         manifest["status"] = "rolled_back"
         save_json(backup / "manifest.json", manifest)
-        log("ROLLBACK=PASS; FILES_VERIFIED=33; NEIGHBORS=UNCHANGED")
+        log(f"ROLLBACK=PASS; FILES_VERIFIED={len(ALLOWED_PATHS)}; NEIGHBORS=UNCHANGED")
         return {"status": "rolled_back", "backup": str(backup)}
     finally:
         if root_fd is not None:
@@ -785,13 +785,13 @@ def deploy(archive_path, web_root, backups, *, apply=False, fetcher=fetch_public
         pending = sorted((n for n, s in states.items() if s["pending"]), key=lambda n: (n in HTML_PATHS, n))
         log("ROOT=" + str(web_root))
         log("ARCHIVE_SHA256=" + ARCHIVE_SHA256)
-        log("PREFLIGHT=PASS; HTTPS_PAGES=11; ALLOWED_FILES=33; PENDING=" + str(len(pending)))
+        log(f"PREFLIGHT=PASS; HTTPS_PAGES={len(HTML_PATHS)}; ALLOWED_FILES={len(ALLOWED_PATHS)}; PENDING=" + str(len(pending)))
         if not apply:
             return {"status": "check_only", "pending": len(pending), "web_root": str(web_root)}
         if not pending:
             verify_https({n: bundle.hashes[n]["new"] for n in ALLOWED_PATHS}, fetcher)
             assert_neighbors(web_root, neighbors)
-            log("CASES=ALREADY_INSTALLED; FILES_VERIFIED=33; HTTPS_FILES=33; NEIGHBORS=UNCHANGED")
+            log(f"CASES=ALREADY_INSTALLED; FILES_VERIFIED={len(ALLOWED_PATHS)}; HTTPS_FILES={len(ALLOWED_PATHS)}; NEIGHBORS=UNCHANGED")
             return {"status": "already_installed", "pending": 0, "web_root": str(web_root)}
         backup, manifest = make_backup(web_root, backups, bundle, states, neighbors)
         log("BACKUP=" + str(backup))
@@ -827,8 +827,8 @@ def deploy(archive_path, web_root, backups, *, apply=False, fetcher=fetch_public
             except BaseException as rollback_error:
                 log("ROLLBACK=BLOCKED; BACKUP=" + str(backup))
                 raise DeployError("Ошибка установки: " + str(error) + "; rollback: " + str(rollback_error)) from error
-            raise DeployError("Установка отменена, исходные 33 пути восстановлены: " + str(error)) from error
-        log("CASES=PASS; GALLERIES=11; FULL_SHEETS=11; FILES_VERIFIED=33; HTTPS_FILES=33; NEIGHBORS=UNCHANGED")
+            raise DeployError(f"Установка отменена, исходные {len(ALLOWED_PATHS)} пути восстановлены: " + str(error)) from error
+        log(f"CASES=PASS; GALLERIES=11; FULL_SHEETS=11; FILES_VERIFIED={len(ALLOWED_PATHS)}; HTTPS_FILES={len(ALLOWED_PATHS)}; NEIGHBORS=UNCHANGED")
         return {"status": "applied", "pending": len(pending), "backup": str(backup), "web_root": str(web_root)}
     finally:
         os.close(root_fd)
