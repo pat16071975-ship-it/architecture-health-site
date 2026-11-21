@@ -4,7 +4,7 @@
 <div class="work-tools">
 <input id="workSearch" type="search" aria-label="Поиск по разделу" placeholder="Поиск по всему разделу">
 <button class="btn" id="groupsExpand" type="button">Раскрыть всё</button><button class="btn" id="groupsCollapse" type="button">Свернуть всё</button>
-{% if can_edit %}<a class="btn" href="/access-contacts/groups/">Управление группами</a>{% endif %}
+{% if can_edit %}<a class="btn" href="/access-contacts/groups/{{ grouping.kind }}/">Управление группами</a>{% endif %}
 </div>
 {% if can_edit %}
 <form id="groupMove" class="group-move" method="post" action="/access-contacts/groups/{{ grouping.kind }}/move">

@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% set title = "Рабочие группы — AZ-BAZE" %}
+{% set title = heading ~ " — AZ-BAZE" %}
 {% block content %}
 <style>.groups-page{max-width:900px;margin:auto}.groups-page h3{margin:12px 0 8px}.group-edit{display:flex;gap:8px;align-items:center;margin:4px 0}.group-edit input:not([type=hidden]){flex:1;min-width:0;padding:7px;font-size:12px}.group-edit .btn{padding:7px 10px;font-size:11px}.group-child{margin-left:22px}.group-create{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}.group-create label{display:block}.group-create input,.group-create select{width:100%;padding:8px}.groups-links{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}@media(max-width:650px){.group-create{grid-template-columns:1fr}.group-child{margin-left:12px}}</style>
 <div class="card groups-page">
-<h2 class="section-title">Рабочие группы</h2>
+<h2 class="section-title">{{ heading }}</h2>
 <div class="groups-links"><a class="btn" href="/contacts/">Рабочие контакты</a><a class="btn" href="/credentials/">Служебные доступы</a></div>
-<p class="muted">Общие группы для контактов и служебных доступов. Пустые группы видны здесь и в формах добавления.</p>
+<p class="muted">Группы относятся только к этому разделу. Пустые группы видны здесь и в формах добавления.</p>
 {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
 <h3>Добавить свою группу</h3>
 <form method="post" class="group-create">
