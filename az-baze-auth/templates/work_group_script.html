@@ -1,0 +1,12 @@
+<script>
+(()=>{
+const search=document.getElementById('workSearch'),groups=[...document.querySelectorAll('.work-group')],cards=[...document.querySelectorAll('[data-work-search]')],form=document.getElementById('groupMove'),all=document.getElementById('selectFound');
+const initial=new Map(groups.map(g=>[g,g.open]));let searching=false;
+const normalize=s=>s.toLocaleLowerCase('ru').replace(/ё/g,'е').trim();
+function selection(){if(!form)return;const chosen=cards.flatMap(c=>[...c.querySelectorAll('.record-pick:checked')]);document.getElementById('selectionCount').textContent='Выбрано: '+chosen.length;document.getElementById('moveSelected').disabled=!chosen.length;const found=cards.filter(c=>!c.hidden).flatMap(c=>[...c.querySelectorAll('.record-pick')]);all.checked=!!found.length&&found.every(c=>c.checked);all.indeterminate=found.some(c=>c.checked)&&!all.checked;}
+search.addEventListener('input',()=>{const q=normalize(search.value);if(q&&!searching)groups.forEach(g=>initial.set(g,g.open));cards.forEach(card=>{let text=card.dataset.workSearch,parent=card.parentElement;while(parent){if(parent.matches('.work-group'))text+=' '+parent.dataset.label;parent=parent.parentElement;}card.hidden=!!q&&!normalize(text).includes(q);if(card.hidden)card.querySelectorAll('.record-pick').forEach(c=>c.checked=false);});groups.forEach(group=>{const found=[...group.querySelectorAll('[data-work-search]')].filter(c=>!c.hidden).length;group.hidden=found===0;group.querySelector('.work-group-count').textContent='· '+found;if(q)group.open=true;else if(searching)group.open=initial.get(group);});searching=!!q;document.getElementById('workNoResults').hidden=cards.some(c=>!c.hidden);selection();});
+document.getElementById('groupsExpand').addEventListener('click',()=>groups.forEach(g=>g.open=true));document.getElementById('groupsCollapse').addEventListener('click',()=>groups.forEach(g=>g.open=false));
+if(form){all.addEventListener('change',()=>{cards.filter(c=>!c.hidden).forEach(c=>c.querySelectorAll('.record-pick').forEach(x=>x.checked=all.checked));selection();});document.addEventListener('change',e=>{if(e.target.matches('.record-pick'))selection();});form.addEventListener('submit',e=>{if(!document.querySelector('.record-pick:checked'))e.preventDefault();});}
+const target=new URLSearchParams(location.search).get('group');if(target)groups.filter(g=>g.dataset.group===target).forEach(g=>{g.open=true;let p=g.parentElement;while(p){if(p.matches('.work-group'))p.open=true;p=p.parentElement;}});
+})();
+</script>

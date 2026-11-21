@@ -20,7 +20,7 @@
   <div class="row between">
     <div>
       <h2 class="section-title">Импорт контактов из Excel</h2>
-      <div class="muted">Выберите файл на компьютере — контакты разнесутся автоматически.</div>
+      <div class="muted">Выберите файл и группу для новых контактов. Группы уже существующих контактов сохранятся.</div>
     </div>
     <a class="btn" href="/contacts/">Назад</a>
   </div>
@@ -55,6 +55,7 @@
   {% else %}
     <form method="post" enctype="multipart/form-data" autocomplete="off">
       <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% include "work_group_field.html" %}
       <div class="filebox">
         <input type="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
       </div>

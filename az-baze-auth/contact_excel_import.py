@@ -280,7 +280,7 @@ def backup_database(db_path):
     return str(directory)
 
 
-def import_contacts(conn, contacts, actor_user_id, source_name):
+def import_contacts(conn, contacts, actor_user_id, source_name, group_id=None):
     existing = [dict(r) for r in conn.execute("SELECT * FROM work_contacts ORDER BY id").fetchall()]
     already_present = []
     conflicts = []
@@ -309,6 +309,9 @@ def import_contacts(conn, contacts, actor_user_id, source_name):
     inserted_ids = []
     conn.execute("BEGIN IMMEDIATE")
     try:
+        if group_id is not None:
+            import access_groups
+            group_id = access_groups.group_id(conn, str(group_id))
         for contact in pending:
             cur = conn.execute(
                 """
@@ -330,6 +333,8 @@ def import_contacts(conn, contacts, actor_user_id, source_name):
                 ),
             )
             inserted_ids.append(cur.lastrowid)
+            if group_id is not None:
+                access_groups.assign(conn, "contacts", cur.lastrowid, group_id)
             conn.execute(
                 """
                 INSERT INTO audit_log(actor_user_id,action,target_user_id,details,created_at)

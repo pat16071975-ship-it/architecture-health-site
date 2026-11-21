@@ -5,6 +5,7 @@ from flask import abort, g, redirect, render_template, request, url_for
 import app as app_core
 import credentials_store
 import contact_excel_import
+import access_groups as groups
 
 PERMISSION_OPTIONS = [
     ("credentials_view", "Просматривать служебные доступы и рабочие контакты"),
@@ -84,6 +85,7 @@ def _credential_label(row):
 
 def register(app):
     _init_contacts_schema()
+    groups.register(app)
 
     @app.context_processor
     def access_contacts_permissions_context():
@@ -124,56 +126,64 @@ def register(app):
         perms = app_core.user_permissions(g.user)
         return render_template("credentials.html", rows=rows,
             can_reveal="credentials_reveal" in perms, can_edit="credentials_edit" in perms,
-            can_delete="credentials_delete" in perms, trash_count=trash_count, csrf=app_core.csrf_token())
+            can_delete="credentials_delete" in perms, trash_count=trash_count, csrf=app_core.csrf_token(),
+            grouping=groups.listing(app_core.db(), "credentials", rows))
 
     @app_core.permission_required("credentials_view")
     @app_core.permission_required("credentials_edit")
     def credentials_new_override():
         error = None
-        values = {"service_name":"", "login":"", "note":""}
+        conn = app_core.db()
+        values = request.form if request.method == "POST" else {}
         if request.method == "POST":
             app_core.require_csrf()
             try:
                 service, login, password, note = _credential_values()
-                values = {"service_name":service, "login":login, "note":note}
-                now = app_core.iso_now()
                 token = credentials_store._encrypt_secret(password) if password else ""
-                cur = app_core.db().execute("""
-                    INSERT INTO credentials(service_name,site_url,login,secret_token,note,created_by,updated_by,created_at,updated_at)
-                    VALUES(?,'',?,?,?,?,?,?,?)
-                """, (service,login,token,note,g.user["id"],g.user["id"],now,now))
-                app_core.db().commit(); app_core.audit("credential_created", details=f"credential_id={cur.lastrowid}")
-                return redirect(url_for("credentials_index"))
+                now = app_core.iso_now()
+                with conn:
+                    conn.execute("BEGIN IMMEDIATE")
+                    target = groups.from_form(conn, required=False)
+                    cur = conn.execute("""
+                        INSERT INTO credentials(service_name,site_url,login,secret_token,note,created_by,updated_by,created_at,updated_at)
+                        VALUES(?,'',?,?,?,?,?,?,?)
+                    """, (service,login,token,note,g.user["id"],g.user["id"],now,now))
+                    groups.assign(conn, 'credentials', cur.lastrowid, target)
+                    groups.log(conn, 'credential_created', f'credential_id={cur.lastrowid}; group_id={target}')
+                return redirect(url_for("credentials_index", group=target))
             except ValueError as exc: error = str(exc)
         return render_template("credential_form.html", title="Новый служебный доступ", values=values,
-            editing=False, has_password=False, error=error, csrf=app_core.csrf_token())
+            editing=False, has_password=False, error=error, csrf=app_core.csrf_token(),
+            group_options=groups.catalogue(conn), group_required=False), 400 if error else 200
 
     @app_core.permission_required("credentials_view")
     @app_core.permission_required("credentials_edit")
     def credentials_edit_override(credential_id):
         row = credentials_store._get_credential(credential_id)
+        conn = app_core.db()
         error = None
-        values = {"service_name":row["service_name"], "login":row["login"], "note":row["note"]}
+        current_group = groups.assigned(conn, 'credentials', credential_id)
+        values = request.form if request.method == "POST" else dict(row, group_id=str(current_group))
         if request.method == "POST":
             app_core.require_csrf()
             try:
                 service, login, password, note = _credential_values()
-                values = {"service_name":service, "login":login, "note":note}
-                clear = request.form.get("clear_password") == "1"; now = app_core.iso_now()
-                if clear:
-                    app_core.db().execute("UPDATE credentials SET service_name=?,login=?,secret_token='',note=?,updated_by=?,updated_at=? WHERE id=?",
-                        (service,login,note,g.user["id"],now,credential_id))
-                elif password:
-                    app_core.db().execute("UPDATE credentials SET service_name=?,login=?,secret_token=?,note=?,updated_by=?,updated_at=? WHERE id=?",
-                        (service,login,credentials_store._encrypt_secret(password),note,g.user["id"],now,credential_id))
-                else:
-                    app_core.db().execute("UPDATE credentials SET service_name=?,login=?,note=?,updated_by=?,updated_at=? WHERE id=?",
-                        (service,login,note,g.user["id"],now,credential_id))
-                app_core.db().commit(); app_core.audit("credential_updated", details=f"credential_id={credential_id}; password_changed={bool(password) or clear}")
-                return redirect(url_for("credentials_index"))
+                clear = request.form.get("clear_password") == "1"
+                with conn:
+                    conn.execute("BEGIN IMMEDIATE")
+                    row = credentials_store._get_credential(credential_id)
+                    groups.check_expected(conn, 'credentials', credential_id, request.form.get('expected_group_id'))
+                    target = groups.from_form(conn, required=False)
+                    token = '' if clear else credentials_store._encrypt_secret(password) if password else row['secret_token']
+                    conn.execute("UPDATE credentials SET service_name=?,login=?,secret_token=?,note=?,updated_by=?,updated_at=? WHERE id=?",
+                        (service,login,token,note,g.user["id"],app_core.iso_now(),credential_id))
+                    groups.assign(conn, 'credentials', credential_id, target)
+                    groups.log(conn, 'credential_updated', f'credential_id={credential_id}; group_id={target}; password_changed={bool(password) or clear}')
+                return redirect(url_for("credentials_index", group=target))
             except ValueError as exc: error = str(exc)
         return render_template("credential_form.html", title="Изменить служебный доступ", values=values,
-            editing=True, has_password=bool(row["secret_token"]), error=error, csrf=app_core.csrf_token())
+            editing=True, has_password=bool(row["secret_token"]), error=error, csrf=app_core.csrf_token(),
+            group_options=groups.catalogue(conn), group_required=False, expected_group_id=current_group), 400 if error else 200
 
     @app_core.permission_required("credentials_view")
     @app_core.permission_required("credentials_delete")
@@ -234,6 +244,7 @@ def register(app):
             can_edit="credentials_edit" in perms,
             can_delete="credentials_delete" in perms,
             can_import="credentials_edit" in perms,
+            grouping=groups.listing(app_core.db(), "contacts", rows), csrf=app_core.csrf_token(),
         )
 
     @app.route("/contacts/import", methods=["GET","POST"])
@@ -253,22 +264,24 @@ def register(app):
                 try:
                     data = uploaded.stream.read(contact_excel_import.MAX_XLSX_BYTES + 1)
                     contacts, skipped = contact_excel_import.extract_contacts(data)
+                    target = groups.group_id(app_core.db(), request.form.get("group_id"))
                     backup = contact_excel_import.backup_database(app_core.DB_PATH)
                     result = contact_excel_import.import_contacts(
                         app_core.db(),
                         contacts,
                         g.user["id"],
-                        uploaded.filename,
+                        uploaded.filename, group_id=target,
                     )
                     result["skipped"] = skipped
                     result["backup"] = backup
-                except contact_excel_import.ContactImportError as exc:
+                except (contact_excel_import.ContactImportError, ValueError) as exc:
                     error = str(exc)
                 except Exception:
                     app.logger.exception("Contact Excel import failed")
                     error = "Не удалось импортировать контакты. База не изменена."
         return render_template(
             "contact_import.html",
+            group_options=groups.catalogue(app_core.db()), values=request.form, group_required=True, allow_new_group=False,
             error=error,
             result=result,
             csrf=app_core.csrf_token(),
@@ -278,37 +291,56 @@ def register(app):
     @app_core.permission_required("credentials_view")
     @app_core.permission_required("credentials_edit")
     def work_contacts_new():
-        values = {k:"" for k in ("organization","organization_role","full_name","phone","responsibility")}; error = None
+        values = request.form if request.method == "POST" else {}
+        error = None
+        conn = app_core.db()
         if request.method == "POST":
             app_core.require_csrf()
             try:
-                vals = _contact_values(); values = dict(zip(values, vals)); now = app_core.iso_now()
-                cur = app_core.db().execute("""
-                    INSERT INTO work_contacts(organization,organization_role,full_name,phone,responsibility,created_by,updated_by,created_at,updated_at)
-                    VALUES(?,?,?,?,?,?,?,?,?)
-                """, (*vals,g.user["id"],g.user["id"],now,now))
-                app_core.db().commit(); app_core.audit("work_contact_created", details=f"contact_id={cur.lastrowid}")
-                return redirect(url_for("work_contacts_index"))
+                vals = _contact_values()
+                now = app_core.iso_now()
+                with conn:
+                    conn.execute('BEGIN IMMEDIATE')
+                    target = groups.from_form(conn)
+                    cur = conn.execute("""
+                        INSERT INTO work_contacts(organization,organization_role,full_name,phone,responsibility,created_by,updated_by,created_at,updated_at)
+                        VALUES(?,?,?,?,?,?,?,?,?)
+                    """, (*vals,g.user["id"],g.user["id"],now,now))
+                    groups.assign(conn, 'contacts', cur.lastrowid, target)
+                    groups.log(conn, 'work_contact_created', f'contact_id={cur.lastrowid}; group_id={target}')
+                return redirect(url_for("work_contacts_index", group=target))
             except ValueError as exc: error = str(exc)
-        return render_template("contact_form.html", title="Новый рабочий контакт", values=values, error=error, csrf=app_core.csrf_token())
+        return render_template("contact_form.html", title="Новый рабочий контакт", values=values, error=error,
+            csrf=app_core.csrf_token(), group_options=groups.catalogue(conn), group_required=True), 400 if error else 200
 
     @app.route("/contacts/<int:contact_id>/edit", methods=["GET","POST"])
     @app_core.permission_required("credentials_view")
     @app_core.permission_required("credentials_edit")
     def work_contacts_edit(contact_id):
-        row = _contact(contact_id); keys=("organization","organization_role","full_name","phone","responsibility")
-        values = {k:row[k] for k in keys}; error = None
+        row = _contact(contact_id)
+        conn = app_core.db()
+        current_group = groups.assigned(conn, 'contacts', contact_id)
+        values = request.form if request.method == "POST" else dict(row, group_id=str(current_group))
+        error = None
         if request.method == "POST":
             app_core.require_csrf()
             try:
-                vals = _contact_values(); values = dict(zip(keys, vals)); now = app_core.iso_now()
-                app_core.db().execute("""
-                    UPDATE work_contacts SET organization=?,organization_role=?,full_name=?,phone=?,responsibility=?,updated_by=?,updated_at=? WHERE id=?
-                """, (*vals,g.user["id"],now,contact_id))
-                app_core.db().commit(); app_core.audit("work_contact_updated", details=f"contact_id={contact_id}")
-                return redirect(url_for("work_contacts_index"))
+                vals = _contact_values()
+                with conn:
+                    conn.execute('BEGIN IMMEDIATE')
+                    _contact(contact_id)
+                    groups.check_expected(conn, 'contacts', contact_id, request.form.get('expected_group_id'))
+                    target = groups.from_form(conn)
+                    conn.execute("""
+                        UPDATE work_contacts SET organization=?,organization_role=?,full_name=?,phone=?,responsibility=?,updated_by=?,updated_at=? WHERE id=?
+                    """, (*vals,g.user["id"],app_core.iso_now(),contact_id))
+                    groups.assign(conn, 'contacts', contact_id, target)
+                    groups.log(conn, 'work_contact_updated', f'contact_id={contact_id}; group_id={target}')
+                return redirect(url_for("work_contacts_index", group=target))
             except ValueError as exc: error = str(exc)
-        return render_template("contact_form.html", title="Изменить рабочий контакт", values=values, error=error, csrf=app_core.csrf_token())
+        return render_template("contact_form.html", title="Изменить рабочий контакт", values=values, error=error,
+            csrf=app_core.csrf_token(), group_options=groups.catalogue(conn), group_required=True,
+            expected_group_id=current_group), 400 if error else 200
 
     @app.route("/contacts/<int:contact_id>/delete", methods=["GET","POST"])
     @app_core.permission_required("credentials_view")
