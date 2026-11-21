@@ -143,7 +143,7 @@ def register(app):
                 now = app_core.iso_now()
                 with conn:
                     conn.execute("BEGIN IMMEDIATE")
-                    target = groups.from_form(conn, required=False)
+                    target = groups.from_form(conn, required=False, kind="credentials")
                     cur = conn.execute("""
                         INSERT INTO credentials(service_name,site_url,login,secret_token,note,created_by,updated_by,created_at,updated_at)
                         VALUES(?,'',?,?,?,?,?,?,?)
@@ -154,7 +154,7 @@ def register(app):
             except ValueError as exc: error = str(exc)
         return render_template("credential_form.html", title="Новый служебный доступ", values=values,
             editing=False, has_password=False, error=error, csrf=app_core.csrf_token(),
-            group_options=groups.catalogue(conn), group_required=False), 400 if error else 200
+            group_options=groups.catalogue(conn, "credentials"), group_required=False), 400 if error else 200
 
     @app_core.permission_required("credentials_view")
     @app_core.permission_required("credentials_edit")
@@ -173,7 +173,7 @@ def register(app):
                     conn.execute("BEGIN IMMEDIATE")
                     row = credentials_store._get_credential(credential_id)
                     groups.check_expected(conn, 'credentials', credential_id, request.form.get('expected_group_id'))
-                    target = groups.from_form(conn, required=False)
+                    target = groups.from_form(conn, required=False, kind="credentials")
                     token = '' if clear else credentials_store._encrypt_secret(password) if password else row['secret_token']
                     conn.execute("UPDATE credentials SET service_name=?,login=?,secret_token=?,note=?,updated_by=?,updated_at=? WHERE id=?",
                         (service,login,token,note,g.user["id"],app_core.iso_now(),credential_id))
@@ -183,7 +183,7 @@ def register(app):
             except ValueError as exc: error = str(exc)
         return render_template("credential_form.html", title="Изменить служебный доступ", values=values,
             editing=True, has_password=bool(row["secret_token"]), error=error, csrf=app_core.csrf_token(),
-            group_options=groups.catalogue(conn), group_required=False, expected_group_id=current_group), 400 if error else 200
+            group_options=groups.catalogue(conn, "credentials"), group_required=False, expected_group_id=current_group), 400 if error else 200
 
     @app_core.permission_required("credentials_view")
     @app_core.permission_required("credentials_delete")
