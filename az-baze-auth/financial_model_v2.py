@@ -230,10 +230,18 @@ def references(conn, today=None):
             direction = next((k for k in amounts if provider in mappings[k]), None)
             try:
                 value = values['paid']
-                if direction is None or value is None or isinstance(value, bool):
+                if value is None or isinstance(value, bool):
                     raise ValueError()
                 value = float(value)
                 if not math.isfinite(value):
+                    raise ValueError()
+                if direction is None:
+                    # MIS exports retain unused provider headers with zero paid.
+                    # _paid_patient_interval already rejected any unclassified
+                    # payer identities. A genuine zero adds neither money nor
+                    # people; missing/invalid amounts and nonzero money still block.
+                    if value == 0:
+                        continue
                     raise ValueError()
                 amounts[direction] += value
             except (TypeError, ValueError, KeyError, OverflowError):

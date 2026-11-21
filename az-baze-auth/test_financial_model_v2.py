@@ -231,6 +231,42 @@ class ReferenceTests(unittest.TestCase):
         self.conn.execute('UPDATE service_payment_periods SET payload_json=?',(json.dumps(payload),));self.conn.commit()
         self.assertEqual(self.refs()[0]['values']['medicine']['revenue'],1500)
         self.assertEqual(self.refs()[0]['values']['medicine']['patients'],2)
+    def test_unused_zero_provider_headers_do_not_discard_paid_month(self):
+        payload=period(self.conn)
+        for name,value in [('Unused A',0),('Unused B',0.0),('Unused C','0.00')]:
+            payload['providers'][name]={'opening':0,'billed':500,'paid':value,'closing':500}
+            payload['paid_patients'][name]=[]
+        self.conn.execute('UPDATE service_payment_periods SET payload_json=?',(json.dumps(payload),));self.conn.commit()
+        before=list(self.conn.iterdump());self.conn.execute('PRAGMA query_only=ON')
+        refs=self.refs()
+        self.assertEqual(len(refs),1)
+        self.assertEqual(refs[0]['values']['medicine'],dict(revenue=1500,patients=2,check=750))
+        self.assertEqual(refs[0]['values']['dentistry']['check'],1000)
+        self.assertEqual(refs[0]['values']['structure']['check'],250)
+        self.assertEqual(list(self.conn.iterdump()),before)
+    def test_snapshot_zero_headers_have_same_result_as_period(self):
+        payload=period(self.conn)
+        payload.update(version=2,month='2026-10',as_of_date='2026-10-31')
+        payload['providers']['Unused snapshot provider']={'paid':0}
+        self.conn.execute('DROP TABLE service_payment_periods')
+        self.conn.execute('CREATE TABLE service_payment_snapshots(month TEXT,as_of_date TEXT,payload_json TEXT)')
+        self.conn.execute('INSERT INTO service_payment_snapshots VALUES(?,?,?)',('2026-10','2026-10-31',json.dumps(payload)))
+        self.conn.commit()
+        self.assertEqual(self.refs()[0]['values']['medicine'],dict(revenue=1500,patients=2,check=750))
+    def test_unknown_nonzero_or_invalid_paid_is_not_treated_as_unused(self):
+        for value in (1,-1,0.001,None,True,False,'','NaN','Infinity','bad'):
+            with self.subTest(value=value):
+                payload=period(self.conn);payload['providers']['Unclassified']={'paid':value}
+                self.conn.execute('UPDATE service_payment_periods SET payload_json=?',(json.dumps(payload),));self.conn.commit()
+                self.assertEqual(self.refs(),[])
+        payload=period(self.conn);payload['providers']['Unclassified']={}
+        self.conn.execute('UPDATE service_payment_periods SET payload_json=?',(json.dumps(payload),));self.conn.commit()
+        self.assertEqual(self.refs(),[])
+    def test_zero_unknown_provider_with_payer_evidence_still_blocks(self):
+        payload=period(self.conn);payload['providers']['Unclassified']={'paid':0}
+        payload['paid_patients']['Unclassified']=['private-unallocated-payer']
+        self.conn.execute('UPDATE service_payment_periods SET payload_json=?',(json.dumps(payload),));self.conn.commit()
+        self.assertEqual(self.refs(),[])
     def test_source_snapshot_manual_override_and_changed_source_refused(self):
         period(self.conn);refs=self.refs();old=model.read_state(self.conn)
         edit=dict(group='payer_source',month=refs[0]['month'],digest=refs[0]['digest'],scope='future',**{'from':3})
@@ -303,6 +339,27 @@ class InitialPayerDefaultsTests(unittest.TestCase):
         original=model.references
         clock=patch.object(model,'references',side_effect=lambda conn: original(conn,today=date(2026,11,20)))
         clock.start();self.addCleanup(clock.stop)
+
+    def test_latest_month_with_unused_headers_initializes_and_new_money_invalidates_preview(self):
+        period(self.conn,start='2026-09-01',end='2026-09-30',paid=300,structure_paid=100)
+        payload=period(self.conn)
+        payload['providers']['Unused A']={'paid':0}
+        payload['providers']['Unused B']={'paid':0.0}
+        payload['providers']['Unused C']={'paid':0}
+        self.conn.execute('UPDATE service_payment_periods SET payload_json=? WHERE period_start=?',
+                          (json.dumps(payload),'2026-10-01'));self.conn.commit()
+        state=model.read_state(self.conn)
+        self.assertEqual(state['payer_initialization'],dict(status='source',month='2026-10'))
+        self.assertEqual(state['config']['payer_checks']['medicine'],[750]*12)
+        self.assertTrue(all(row['paid_patients']>0 for row in state['results']))
+        token=signed(state,dict(group='refresh'))
+        payload['providers']['Unused B']['paid']=10
+        self.conn.execute('UPDATE service_payment_periods SET payload_json=? WHERE period_start=?',
+                          (json.dumps(payload),'2026-10-01'));self.conn.commit()
+        before=list(self.conn.iterdump())
+        with self.assertRaisesRegex(RuntimeError,'Модель изменилась'):
+            model.commit_change(self.conn,token,1)
+        self.assertEqual(list(self.conn.iterdump()),before)
 
     def test_latest_complete_month_populates_all_months_readonly(self):
         period(self.conn,start='2026-09-01',end='2026-09-30',paid=500)
