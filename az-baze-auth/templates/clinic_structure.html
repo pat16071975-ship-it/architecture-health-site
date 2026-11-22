@@ -9,6 +9,10 @@
     <a class="btn" href="/">На главную</a>
   </div>
 
+  {% if can_order_menu %}
+  <p><a class="btn" href="{{ url_for('clinic_menu_order') }}">Порядок плашек разделов</a></p>
+  {% endif %}
+
   {% if not foundation_ready %}
     <div class="error">Фундамент структуры ещё не применён. Настройки клиник недоступны.</div>
   {% elif not rows %}

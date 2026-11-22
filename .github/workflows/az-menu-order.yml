@@ -1,0 +1,45 @@
+name: AZ menu order settings
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/menu_order.py'
+      - 'az-baze-auth/clinic_structure_settings.py'
+      - 'az-baze-auth/templates/clinic_structure.html'
+      - 'az-baze-auth/templates/menu_order.html'
+      - 'az-baze-auth/test_menu_order.py'
+      - 'az-baze-auth/browser_menu_order.py'
+      - '.github/workflows/az-menu-order.yml'
+permissions:
+  contents: read
+jobs:
+  navigation-order:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r az-baze-auth/requirements.txt playwright==1.55.0
+      - name: Settings, navigation and permission checks
+        working-directory: az-baze-auth
+        run: |
+          python -B -m unittest -v test_menu_order
+          python -B -m unittest -v test_clinic_timezone_settings
+          python -B -m unittest -v test_section_navigation test_accounting_section
+          python -B -m unittest -v test_nn_foundation
+          python -B -m unittest -v test_control_center.OwnerControlTests
+      - name: Real browser 1365 and 390
+        working-directory: az-baze-auth
+        run: |
+          export CHROMIUM_PATH="$(command -v google-chrome || command -v chromium)"
+          test -x "$CHROMIUM_PATH"
+          python -B browser_menu_order.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: menu-order-browser
+          path: az-baze-auth/menu-order-browser-artifacts/
+          if-no-files-found: ignore

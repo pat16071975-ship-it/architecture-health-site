@@ -1,6 +1,7 @@
 from flask import abort, g, redirect, render_template, request, url_for
 
 import app as app_core
+import menu_order
 from clinic_timezone import (
     ClinicTimezoneConflict,
     ClinicTimezoneError,
@@ -63,6 +64,7 @@ def _clinic_rows(conn):
 def register(app):
     app_core.SECTION_KEYS.add(PERMISSION_KEY)
     app_core.EXPLICIT_PERMISSION_KEYS.add(PERMISSION_KEY)
+    menu_order.register(app, app_core)
 
     @app.context_processor
     def clinic_structure_permissions_context():
@@ -78,6 +80,7 @@ def register(app):
             "clinic_structure.html",
             rows=rows,
             foundation_ready=foundation_ready,
+            can_order_menu=app_core.is_owner(g.user),
         )
 
     @app.route("/structure/clinics/<int:clinic_id>/timezone", methods=["GET", "POST"])
