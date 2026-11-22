@@ -142,7 +142,7 @@ try:
             login(1);page.goto(origin+'/control/ztl/?start=2000-01-01&end=2090-12-31&category=inventory')
             ev=page.locator('[data-event="'+str(event)+'"]');ev.locator('summary').first.click()
             assert ev.locator('.diff tbody tr td:first-child').all_inner_texts()==['Ответственный']
-            assert ev.locator('.new').inner_text()==person
+            assert ev.locator('.diff .new').inner_text()==person
             assert 'Исправлено ФИО по акту' in ev.locator('.reason').first.inner_text()
             page.screenshot(path=str(artifacts/('az-250-02-'+str(width)+'.png')),full_page=True)
             print('AZ_250_01_02_BROWSER',width,'PASS; cancellation snapshots, separate person edit reason, complete rollback')
