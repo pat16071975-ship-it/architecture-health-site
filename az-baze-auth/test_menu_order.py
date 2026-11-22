@@ -239,6 +239,13 @@ class ParserTests(unittest.TestCase):
         for text in ['<nav aria-label="Разделы учёта"><a href="/accounting/ztl/">Z</a><a href="/accounting/ztl/">Z2</a></nav>', '<nav aria-label="Разделы учёта"><a href="/accounting/ztl/">Z</a><a href="/accounting/bookkeeping/">B']:
             self.assertEqual(ordering.reorder(text, '/accounting/', lambda _: ['bookkeeping']), text)
 
+    def test_raw_closing_tag_whitespace_and_case_are_preserved(self):
+        a = '<a href="/accounting/ztl/"><span>Z</span></A >'
+        b = '<a href="/accounting/bookkeeping/">B</a\n>'
+        text = '<nav aria-label="Разделы учёта">' + a + '\n' + b + '</nav>'
+        self.assertEqual(ordering.reorder(text, '/accounting/', lambda _: ['bookkeeping']),
+                         '<nav aria-label="Разделы учёта">' + b + '\n' + a + '</nav>')
+
     def test_legacy_ztl_query_and_periods_preserved(self):
         text = '<nav aria-label="Разделы ЗТЛ"><a href="/accounting/ztl/?tab=orders&amp;start=2026-08">Orders</a><a href="/accounting/ztl/payroll/?start=2026-08&amp;end=2026-11">Payroll</a></nav>'
         out = ordering.reorder(text, '/accounting/ztl/', lambda _: ['payroll', 'orders'])

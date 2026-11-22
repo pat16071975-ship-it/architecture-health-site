@@ -251,7 +251,7 @@ class TileParser(HTMLParser):
             return
         node = self.stack.pop()
         if node['tile']:
-            node['tile']['end'] = self.position() + len('</' + tag + '>')
+            node['tile']['end'] = self.text.index('>', self.position()) + 1
 
 
 def reorder(text, path, read_order):

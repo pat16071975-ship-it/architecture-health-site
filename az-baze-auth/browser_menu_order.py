@@ -25,7 +25,8 @@ try:
             context.add_cookies([{'name':'session','value':fixture.client(1).get_cookie('session').value,'url':origin}])
             context.route('**/*',lambda r:r.continue_() if urlsplit(r.request.url).hostname=='127.0.0.1' else r.abort())
             page=context.new_page(); errors=[]; page.on('pageerror',lambda e:errors.append(str(e)))
-            page.goto(origin+'/'); page.get_by_role('link',name='Настройка клиник',exact=True).click()
+            page.goto(origin+'/'); page.get_by_role('button',name='Закрыть',exact=True).click()
+            page.get_by_role('link',name='Настройка клиник',exact=True).click()
             page.get_by_role('link',name='Порядок плашек разделов',exact=True).click()
             assert page.url.startswith(origin+PATH)
             assert page.locator('.order-row').count()==len(menu_order.ids('home'))
@@ -80,5 +81,10 @@ try:
             context.close()
             print('MENU_ORDER_BROWSER',width,'PASS; 9 menus, save, reload, shared order, periods, permissions, stale form, reset')
         browser.close()
+except Exception:
+    if 'page' in locals() and not page.is_closed():
+        try: page.screenshot(path=str(artifacts/'failure.png'),full_page=True)
+        except Exception: pass
+    raise
 finally:
     server.shutdown();fixture.doCleanups()
