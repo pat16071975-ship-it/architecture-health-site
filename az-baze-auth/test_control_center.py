@@ -211,5 +211,55 @@ class OwnerControlTests(unittest.TestCase):
         for qs in ('start=bad','start=2026-12-01&end=2026-01-01','end=9999-12-31','actor=bad','category=bad','status=bad'):
             self.assertEqual(self.owner.get('/control/ztl/?'+qs).status_code,400)
 
+    def test_json_looking_names_and_codes_remain_plain_text(self):
+        data=self.product_data(name='{"item_id":"код"}',ident_code='[123]',no_materials='1',material_row=[])
+        self.assertEqual(self.post('card',data).status_code,303)
+        row=next(r for r in self.rows() if r['entity']=='Технологическая карта')
+        code=next(d for d in row['diff'] if d['field']=='Код IDENT')
+        self.assertEqual(code['after'],'[123]')
+        self.assertIn('Материалы не расходуются',[d['after'] for d in row['diff']])
+        self.assertEqual(self.owner.get(self.path).status_code,200)
+
+    def test_inventory_recount_explanation_and_acceptance_evidence(self):
+        item=self.item();self.receipt(item)
+        self.assertEqual(self.post('inventory-start',{}).status_code,303)
+        iid=self.c.execute('SELECT MAX(id) FROM ztl_inventories').fetchone()[0]
+        def data(**kw):
+            return dict(id=iid,version=ztl.row_by_id(self.c,'ztl_inventories',iid)['version'],**kw)
+        self.assertEqual(self.post('inventory-count',data(**{'count_'+str(item):'9'})).status_code,303)
+        self.assertEqual(self.post('inventory-recheck',data()).status_code,303)
+        self.assertEqual(self.post('inventory-count',data(**{'count_'+str(item):'9'})).status_code,303)
+        self.assertEqual(self.post('inventory-explain',data(person='Начальник ЗТЛ',explanation='Потери при обучении')).status_code,303)
+        before=self.snapshot()
+        self.assertEqual(self.post('inventory-explain',data(person='Начальник ЗТЛ',explanation='Уточнение')).status_code,400)
+        self.assertEqual(self.snapshot(),before)
+        self.assertEqual(self.post('inventory-explain',data(person='Начальник ЗТЛ',explanation='Уточнение'),'Исправлена причина по документам').status_code,303)
+        self.assertEqual(self.post('inventory-accept',data()).status_code,303)
+        work,quality=oversight.workload(self.c,self.rows(),2)
+        self.assertEqual(work['inventory']['count'],2)
+        self.assertEqual(quality['explanations']['count'],0)
+        row=next(r for r in self.rows() if r['entity']=='Инвентаризация' and r['action']=='accept')
+        self.assertTrue(row['attention'])
+        delta=next(d for d in row['diff'] if d['field'].startswith('Сверка'))
+        self.assertEqual((delta['before'],delta['after'],delta['delta']),('Расчёт: 10','Факт: 9','-1'))
+
+    def test_payroll_change_reason_does_not_create_duplicate_work_or_payment(self):
+        path='/accounting/ztl/save/payroll'
+        data=dict(csrf='token',month='2026-11',employee_id=self.technician,amount='1000',taxes='300',version=0)
+        self.assertEqual(self.editor.post(path,data=data).status_code,303)
+        data.update(amount='1100',version=1);before=self.snapshot()
+        self.assertEqual(self.editor.post(path,data=data).status_code,400);self.assertEqual(self.snapshot(),before)
+        data['change_reason']='Уточнено начисление по выполненным заказам'
+        self.assertEqual(self.editor.post(path,data=data).status_code,303)
+        work,quality=oversight.workload(self.c,self.rows(),2)
+        self.assertEqual(work['payroll']['count'],1)
+        self.assertEqual(work['payments']['count'],0)
+        self.assertEqual(quality['unconfirmed_payroll']['count'],1)
+        self.assertEqual(self.editor.post(path,data=dict(csrf='token',month='2026-11',employee_id=0,amount=0,taxes=0,version=0)).status_code,303)
+        work,quality=oversight.workload(self.c,self.rows(),2)
+        self.assertEqual(work['confirmed_payroll']['count'],1)
+        self.assertEqual(quality['unconfirmed_payroll']['count'],0)
+        self.assertEqual(self.owner.get('/control/ztl/record/payroll/2026-11').status_code,200)
+
 
 if __name__=='__main__':unittest.main()

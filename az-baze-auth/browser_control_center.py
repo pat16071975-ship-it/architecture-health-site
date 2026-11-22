@@ -53,7 +53,7 @@ try:
             login(1)
             page.goto(origin+'/');page.get_by_role('link',name='Контроль',exact=True).click()
             page.get_by_role('navigation',name='Разделы контроля').get_by_role('link').click()
-            page.locator('[name=start]').fill('2000-01-01');page.locator('[name=end]').fill('2090-12-31')
+            page.locator('.filters [name=start]').fill('2000-01-01');page.locator('.filters [name=end]').fill('2090-12-31')
             page.get_by_role('button',name='Показать',exact=True).click()
             ev=page.locator('[data-event="'+str(event)+'"]');ev.locator('summary').first.click()
             assert 'Уточнена норма' in ev.inner_text();assert 'Начальник ЗТЛ' in ev.inner_text()

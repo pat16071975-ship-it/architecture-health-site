@@ -89,9 +89,12 @@ def decoded(value):
     return value
 
 
-def clean(value):
-    value=decoded(value)
-    if isinstance(value,dict):return {k:clean(v) for k,v in value.items() if k not in IGNORED}
+STRUCTURED={'recipe','technicians','entries','counts','counts_first','lines','allocations','snapshot'}
+
+
+def clean(value,field=''):
+    if field in STRUCTURED:value=decoded(value)
+    if isinstance(value,dict):return {k:clean(v,k) for k,v in value.items() if k not in IGNORED}
     if isinstance(value,list):return [clean(v) for v in value]
     return value
 
@@ -114,7 +117,7 @@ def needs_reason(entity,action,before,after):
     if entity=='Распределение оплаты ЗТЛ' and before.get('total') is None:return False
     if entity=='Производство':
         keys=('pieces','recipe','technician_fee','technicians')
-        return any(clean(before.get(k))!=clean(after.get(k)) for k in keys) or bool(
+        return any(clean(before.get(k),k)!=clean(after.get(k),k) for k in keys) or bool(
             before.get('completed_on') and before.get('completed_on')!=after.get('completed_on'))
     if entity=='Приход ЗТЛ':
         keys=('supplier','reference','received_on','document_hash')
@@ -135,7 +138,7 @@ def labels_for(conn,entity,iid,before,after):
     # Snapshot only labels used by this event, not an entire growing catalogue.
     names=set();items=set();parties=set()
     def collect(value,parent=''):
-        value=decoded(value)
+        if parent in STRUCTURED:value=decoded(value)
         if isinstance(value,list):
             if parent=='technicians':names.update(int(x) for x in value)
             else:
@@ -227,6 +230,8 @@ def field_changes(before,after,labels,entity=''):
         a,b=before.get(key),after.get(key)
         if a==b:continue
         if key=='recipe':
+            if not a and not b:
+                result.append(dict(field='Состав',before='Не задан' if a is None else 'Материалы не расходуются',after='Не задан' if b is None else 'Материалы не расходуются',delta=''))
             aa={r['item_id']:r['qty'] for r in (a or [])};bb={r['item_id']:r['qty'] for r in (b or [])}
             for iid in sorted(set(aa)|set(bb)):
                 x,y=aa.get(iid),bb.get(iid)
