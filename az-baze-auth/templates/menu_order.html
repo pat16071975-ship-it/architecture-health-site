@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.menu-order{max-width:780px;margin:0 auto;padding:18px}.menu-order h2{margin:0 0 8px;font-size:24px}.menu-order p{line-height:1.5;margin:8px 0 14px}.menu-order-picker{display:grid;gap:5px;margin:14px 0}.menu-order-picker select{width:100%;min-height:40px;padding:8px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit}.order-list{list-style:none;padding:0;margin:12px 0;display:grid;gap:5px}.order-row{display:flex;align-items:center;gap:9px;min-height:44px;padding:5px 8px;border:1px solid #ded5c8;border-radius:8px;background:#fff}.order-number{min-width:22px;color:#767b73;text-align:center;font-variant-numeric:tabular-nums}.order-label{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px}.order-moves{display:flex;gap:4px;flex-shrink:0}.order-moves button{width:36px;height:34px;padding:0;border:1px solid #cfc5b5;border-radius:6px;background:#faf7f1;color:#354039;font-size:19px;cursor:pointer}.order-moves button:disabled{opacity:.3;cursor:default}.order-moves button:focus-visible{outline:2px solid #44634f;outline-offset:2px}.order-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.order-status{min-height:18px;margin:8px 0;font-size:12px;color:#44634f}.order-success{color:#315a40}.menu-order [hidden]{display:none!important}@media(max-width:600px){.menu-order{padding:12px}.order-row{gap:5px;padding:4px 6px}.order-label{font-size:12px}.order-moves button{width:38px;height:38px}.menu-order h2{font-size:21px}}
+</style>
+<section class="card menu-order">
+<h2>Порядок плашек разделов</h2>
+<p class="muted">Порядок общий для сотрудников. Каждый видит только доступные ему разделы. Изменение порядка доступно владельцу.</p>
+<a class="btn" href="{{ url_for('clinic_structure_index') }}">← Настройка клиник</a>
+<form method="get" class="menu-order-picker">
+<label for="order-menu">Какое меню настроить</label>
+<select id="order-menu" name="menu">{% for key, data in menus.items() %}<option value="{{ key }}" {% if key==menu %}selected{% endif %}>{{ data[0] }}</option>{% endfor %}</select>
+<button class="btn" type="submit" id="open-menu">Открыть меню</button>
+</form>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if saved %}<p class="order-success" role="status">Порядок сохранён.</p>{% endif %}
+{% if not prepared %}<p class="error" role="alert">Настройка порядка ещё не подготовлена к работе.</p>{% endif %}
+{% if damaged %}<p class="error">Сохранённый порядок повреждён. Сейчас показан исходный список; сохраните нужный порядок заново.</p>{% endif %}
+<form method="post" id="order-form">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ version }}"><input type="hidden" name="catalog" value="{{ catalog }}">
+<p class="muted">Передвиньте плашки кнопками ↑ и ↓, затем нажмите «Сохранить порядок».</p>
+<ol class="order-list" id="order-list">{% for item in items %}<li class="order-row" data-key="{{ item.key }}"><span class="order-number">{{ loop.index }}</span><span class="order-label">{{ item.label }}</span><input type="hidden" name="item" value="{{ item.key }}"><span class="order-moves"><button type="button" data-move="-1" aria-label="Выше: {{ item.label }}" {% if loop.first or not prepared %}disabled{% endif %}>↑</button><button type="button" data-move="1" aria-label="Ниже: {{ item.label }}" {% if loop.last or not prepared %}disabled{% endif %}>↓</button></span></li>{% endfor %}</ol>
+<div class="order-status" id="order-status" role="status" aria-live="polite"></div>
+<div class="order-actions"><button class="btn primary" type="submit" name="action" value="save" {% if not prepared %}disabled{% endif %}>Сохранить порядок</button><button class="btn" type="submit" name="action" value="reset" {% if not prepared %}disabled{% endif %}>Вернуть исходный порядок</button></div>
+<noscript><p class="error">Для перемещения плашек включите JavaScript в браузере.</p></noscript>
+</form>
+</section>
+<script>
+(()=>{
+ const form=document.querySelector('#order-form'),list=document.querySelector('#order-list'),picker=document.querySelector('#order-menu'),status=document.querySelector('#order-status');
+ let dirty=false,submitting=false;
+ const refresh=()=>[...list.children].forEach((row,i,rows)=>{row.querySelector('.order-number').textContent=i+1;row.querySelector('[data-move="-1"]').disabled=i===0;row.querySelector('[data-move="1"]').disabled=i===rows.length-1;});
+ list.addEventListener('click',event=>{
+  const button=event.target.closest('[data-move]');if(!button||button.disabled)return;
+  const row=button.closest('.order-row'),up=button.dataset.move==='-1',other=up?row.previousElementSibling:row.nextElementSibling;
+  if(!other)return;
+  if(up)list.insertBefore(row,other);else list.insertBefore(other,row);
+  dirty=true;refresh();status.textContent='Порядок изменён. Нажмите «Сохранить порядок».';
+  const focus=button.disabled?row.querySelector(up?'[data-move="1"]':'[data-move="-1"]'):button;focus.focus();
+ });
+ picker.addEventListener('change',()=>{
+  if(dirty&&!confirm('Изменения порядка не сохранены. Перейти к другому меню?')){picker.value={{ menu|tojson }};return;}
+  submitting=true;picker.form.requestSubmit();
+ });
+ form.addEventListener('submit',event=>{
+  if(event.submitter?.value==='reset'&&!confirm('Вернуть исходный порядок этого меню?')){event.preventDefault();return;}
+  submitting=true;
+ });
+ window.addEventListener('beforeunload',event=>{if(dirty&&!submitting){event.preventDefault();event.returnValue='';}});
+ document.querySelector('#open-menu').hidden=true;
+})();
+</script>
+{% endblock %}
