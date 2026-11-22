@@ -39,7 +39,7 @@ class ControlTests(unittest.TestCase):
     def post(self,action,data=None,uid=2):
         client=self.client(uid)
         with client.session_transaction() as session:session['csrf']='token'
-        return client.post('/accounting/ztl/control/'+action,data={**(data or {}),'csrf':'token'})
+        return client.post('/accounting/ztl/control/'+action,data={'change_reason':'Проверка изменения сохранённой записи',**(data or {}),'csrf':'token'})
 
     def product_data(self,**changes):
         data=dict(name='Новое изделие',version='0',materials_present='1',prices_present='1',internal_price='2500,50',external_price='4000',material_row=['0'],
@@ -61,7 +61,7 @@ class ControlTests(unittest.TestCase):
     def post_order(self,data):
         client=self.client(2)
         with client.session_transaction() as session:session['csrf']='token'
-        return client.post('/accounting/ztl/save/order',data={**data,'csrf':'token'})
+        return client.post('/accounting/ztl/save/order',data={'change_reason':'Проверка изменения сохранённой записи',**data,'csrf':'token'})
 
     def test_registry_price_rows_match_filled_prices_after_http_save_and_edit(self):
         self.grant('ztl_catalog')
@@ -505,7 +505,7 @@ class ControlTests(unittest.TestCase):
         client=self.client(2)
         with client.session_transaction() as session:session['csrf']='token'
         values=ztl.row_by_id(self.c,'ztl_orders',oid)
-        values.update(csrf='token',amount=c.display(values['amount'],100))
+        values.update(change_reason='Проверка изменения сохранённой записи',csrf='token',amount=c.display(values['amount'],100))
         values.update(changes)
         return client.post('/accounting/ztl/save/order',data=values)
 

@@ -31,14 +31,15 @@
 </div>
 <p class="muted" data-price-note>Себестоимость = материалы + оплата технику. Закупочные цены берутся из прихода; без цены материала итог не подменяется нулём.</p>
 <p class="error" role="alert" data-save-error hidden></p>
+{% if card %}{{ change_reason() }}{% endif %}
 <button class="btn primary" type="submit">{{ 'Сохранить изменения' if card else 'Добавить изделие' }}</button>
 </form>
 {% endmacro %}
 
 {% macro product_actions(card) %}
 {% if 'catalog' in rights %}<div class="ztl-product-actions">
-<form method="post" action="{{ post('product-action') }}" data-inline-save data-confirm="{{ 'Вернуть изделие в ассортимент?' if card.archived else 'Убрать изделие из выбора новых заказов? Старые заказы сохранятся.' }}">{{ base() }}{{ hidden('work_id',card.id) }}{{ hidden('work_version',card.work_version) }}{{ hidden('version',card.version or 0) }}{{ hidden('operation','restore' if card.archived else 'archive') }}{{ hidden('confirm','1') }}<p class="error" role="alert" data-save-error hidden></p><button class="btn">{{ 'Вернуть в ассортимент' if card.archived else 'Убрать из ассортимента' }}</button></form>
-{% if not card.used %}<form method="post" action="{{ post('product-action') }}" data-inline-save data-confirm="Удалить изделие «{{ card.name }}»? В заказах оно ещё не использовалось.">{{ base() }}{{ hidden('work_id',card.id) }}{{ hidden('work_version',card.work_version) }}{{ hidden('version',card.version or 0) }}{{ hidden('operation','delete') }}{{ hidden('confirm','1') }}<p class="error" role="alert" data-save-error hidden></p><button class="btn warn">Удалить изделие</button></form>{% endif %}
+<form method="post" action="{{ post('product-action') }}" data-inline-save data-confirm="{{ 'Вернуть изделие в ассортимент?' if card.archived else 'Убрать изделие из выбора новых заказов? Старые заказы сохранятся.' }}">{{ base() }}{{ hidden('work_id',card.id) }}{{ hidden('work_version',card.work_version) }}{{ hidden('version',card.version or 0) }}{{ hidden('operation','restore' if card.archived else 'archive') }}{{ hidden('confirm','1') }}{{ change_reason() }}<p class="error" role="alert" data-save-error hidden></p><button class="btn">{{ 'Вернуть в ассортимент' if card.archived else 'Убрать из ассортимента' }}</button></form>
+{% if not card.used %}<form method="post" action="{{ post('product-action') }}" data-inline-save data-confirm="Удалить изделие «{{ card.name }}»? В заказах оно ещё не использовалось.">{{ base() }}{{ hidden('work_id',card.id) }}{{ hidden('work_version',card.work_version) }}{{ hidden('version',card.version or 0) }}{{ hidden('operation','delete') }}{{ hidden('confirm','1') }}{{ change_reason() }}<p class="error" role="alert" data-save-error hidden></p><button class="btn warn">Удалить изделие</button></form>{% endif %}
 </div>{% endif %}
 {% endmacro %}
 
@@ -82,8 +83,8 @@
 
 {% if 'catalog' in rights %}<details class="ztl-material-catalog"><summary>Сохранённые материалы для изготовления</summary><p class="muted">Здесь можно исправить название материала или удалить ошибочную запись. Единицу использованного материала менять нельзя.</p>
 {% for item in items if item.kind=='material' %}<details class="ztl-material-entry" data-material-entry="{{ item.id }}"><summary>{{ item.name }} · {{ item.unit }} — редактировать</summary>
-<form method="post" action="{{ post('material-action') }}" data-inline-save>{{ base() }}{{ hidden('id',item.id) }}{{ hidden('version',item.version) }}{{ hidden('operation','edit') }}<div class="ztl-fields"><label>Название материала<input name="name" maxlength="200" value="{{ item.name }}" required></label>{{ unit_select('unit','custom_unit',item.unit) }}</div><p class="error" role="alert" data-save-error hidden></p><button class="btn">Сохранить материал</button></form>
-<form method="post" action="{{ post('material-action') }}" data-inline-save data-confirm="Удалить материал «{{ item.name }}»? Удаление возможно, только если он ещё не используется.">{{ base() }}{{ hidden('id',item.id) }}{{ hidden('version',item.version) }}{{ hidden('operation','delete') }}{{ hidden('confirm','1') }}<p class="error" role="alert" data-save-error hidden></p><button class="btn warn">Удалить материал</button></form>
+<form method="post" action="{{ post('material-action') }}" data-inline-save>{{ base() }}{{ hidden('id',item.id) }}{{ hidden('version',item.version) }}{{ hidden('operation','edit') }}<div class="ztl-fields"><label>Название материала<input name="name" maxlength="200" value="{{ item.name }}" required></label>{{ unit_select('unit','custom_unit',item.unit) }}</div>{{ change_reason() }}<p class="error" role="alert" data-save-error hidden></p><button class="btn">Сохранить материал</button></form>
+<form method="post" action="{{ post('material-action') }}" data-inline-save data-confirm="Удалить материал «{{ item.name }}»? Удаление возможно, только если он ещё не используется.">{{ base() }}{{ hidden('id',item.id) }}{{ hidden('version',item.version) }}{{ hidden('operation','delete') }}{{ hidden('confirm','1') }}{{ change_reason() }}<p class="error" role="alert" data-save-error hidden></p><button class="btn warn">Удалить материал</button></form>
 </details>{% else %}<p class="muted">Материалы появятся здесь после сохранения изделия или добавления позиции в приходе.</p>{% endfor %}</details>{% endif %}
 
 <template id="ztl-material-template">{{ material_row('__row__') }}</template>

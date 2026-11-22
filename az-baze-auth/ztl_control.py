@@ -448,11 +448,20 @@ def save_receipt(conn,data,actor,file=None):
         if old:
             iid=old['id'];conn.execute('UPDATE ztl_receipts SET '+','.join(k+'=:'+k for k in values)+',version=version+1 WHERE id=:id',{**values,'id':iid})
         else:iid=conn.execute('INSERT INTO ztl_receipts('+','.join(values)+') VALUES('+','.join(':'+k for k in values)+')',values).lastrowid
+        prior_costs={r['id']:r['unit_cost'] for r in stock(conn)} if confirmed and paid else {}
         if confirmed and paid:
             # Source receipt is kept at its original date. Stock is posted now, never repricing old issues.
             for line in lines:move(conn,line['item_id'],line['qty'],line['value'],'receipt',iid,'Подтверждённый и оплаченный приход',ztl.today())
             conn.execute('UPDATE ztl_receipts SET posted=1 WHERE id=?',(iid,))
         ztl.log(conn,'Приход ЗТЛ',iid,'Проведение' if confirmed and paid else 'Черновик',actor,old,ztl.row_by_id(conn,'ztl_receipts',iid))
+        if confirmed and paid:
+            for row in stock(conn):
+                if row['id'] not in {line['item_id'] for line in lines}:continue
+                old_cost=prior_costs.get(row['id']);new_cost=row['unit_cost']
+                if old_cost!=new_cost:
+                    ztl.log(conn,'Закупочная стоимость',row['id'],'Пересчёт после прихода',actor,
+                        dict(unit_cost=str(old_cost) if old_cost is not None else None),
+                        dict(unit_cost=str(new_cost) if new_cost is not None else None,receipt_id=iid))
     return iid
 
 

@@ -80,6 +80,7 @@ try:
             form.locator('[name=labor_value_'+ids[1]+']').fill('40')
             form.locator('[name=labor_mode_'+ids[2]+']').select_option('percent')
             form.locator('[name=labor_value_'+ids[2]+']').fill('20')
+            form.locator('[name=change_reason]').fill('Изменены доли по выполненной работе')
             form.get_by_role('button',name='Сохранить распределение',exact=True).click();page.wait_for_url('**/ztl/payroll/?**')
             assert [e['amount'] for e in fixture.state(oid)['entries']]==[240000,240000,120000]
             assert fixture.c.execute('SELECT COUNT(*) FROM ztl_costs').fetchone()[0]==0
@@ -88,6 +89,7 @@ try:
             page.goto(edit_url);page.locator('[name=technician_id][value="'+ids[2]+'"]').uncheck()
             assert page.locator('[name=labor_value_'+ids[2]+']').is_disabled()
             for tid in ids[:2]:page.locator('[name=labor_value_'+tid+']').fill('50')
+            page.locator('[name=change_reason]').fill('Уточнены исполнители')
             page.get_by_role('button',name='Сохранить заказ',exact=True).click();page.wait_for_url('**/ztl/orders/?**')
             assert fixture.state(oid)['complete'] and len(fixture.state(oid)['entries'])==2
             assert control.stock_stamp(fixture.c)==stock_before

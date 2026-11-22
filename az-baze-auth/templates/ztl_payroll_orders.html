@@ -6,7 +6,7 @@
 {% if not o.labor.complete %}<small>Распределение не завершено.</small>{% endif %}
 {% if 'payroll' in rights and o.card_version %}<details><summary>Распределить оплату</summary><form method="post" action="{{ url_for('ztl_control_save',action='labor') }}">
 {{ hidden('csrf',csrf) }}{{ hidden('order_id',o.id) }}{{ hidden('version',o.version) }}{{ hidden('start',start) }}{{ hidden('end',end) }}
-{{ labor_fields(o.labor.rows,o.labor.total,true) }}<button class="btn primary">Сохранить распределение</button></form></details>{% endif %}</td>
+{{ labor_fields(o.labor.rows,o.labor.total,true) }}{{ change_reason() }}<button class="btn primary">Сохранить распределение</button></form></details>{% endif %}</td>
 <td data-selected-labor>{{ fmt(o.labor.selected_amount) if o.labor.total is not none and o.labor.selected_known else 'Не задана' }}</td><td>{{ fmt(o.labor.remaining) if o.labor.remaining is not none else 'Не рассчитан' }}</td></tr>
 {% else %}<tr><td colspan="8">Выполненных заказов за период нет.</td></tr>{% endfor %}</tbody></table></div>
 {% set known=payroll_orders|selectattr('card_version')|list %}

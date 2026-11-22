@@ -6,6 +6,7 @@ import personal_credentials
 import access_groups
 import medical_supplies
 import ztl
+import control_center
 import ztl_control
 import financial_model
 from datetime import datetime, timedelta, timezone
@@ -507,6 +508,8 @@ def create_app():
             require_csrf()
             full_name = request.form.get("full_name", "").strip()
             email = request.form.get("email", "").strip().lower()
+            if OWNER_EMAIL and email == OWNER_EMAIL and not is_owner(g.user):
+                abort(403)
             is_admin = 1 if request.form.get("is_admin") == "1" else 0
             permissions = selected_permissions(include_nn=is_owner(g.user))
             if not full_name or not valid_email(email):
@@ -553,13 +556,15 @@ def create_app():
         user = db().execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             abort(404)
-        if is_owner(user) and not is_owner(g.user):
+        if (is_owner(user) or control_center.protected_user(db(),user_id)) and not is_owner(g.user):
             abort(403)
         error = None
         if request.method == "POST":
             require_csrf()
             full_name = request.form.get("full_name", "").strip()
             email = request.form.get("email", "").strip().lower()
+            if OWNER_EMAIL and email == OWNER_EMAIL and not is_owner(g.user):
+                abort(403)
             is_admin = 1 if request.form.get("is_admin") == "1" else 0
             active = 1 if request.form.get("active") == "1" else 0
             permissions = selected_permissions(include_nn=is_owner(g.user))
@@ -605,7 +610,7 @@ def create_app():
         user = db().execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             abort(404)
-        if is_owner(user) and not is_owner(g.user):
+        if (is_owner(user) or control_center.protected_user(db(),user_id)) and not is_owner(g.user):
             abort(403)
         temp_password = secrets.token_urlsafe(10)
         db().execute(
@@ -622,6 +627,7 @@ def create_app():
             login_url=request.url_root.rstrip("/") + url_for("login"),
         )
 
+    control_center.register(app, db, is_owner, login_required, require_csrf, csrf_token)
     personal_credentials.register(app)
     medical_supplies.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
     ztl.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
@@ -810,6 +816,9 @@ def render_home_for_user():
         nn_link = '<a class="menu-btn active" href="/nn/" id="nn-private">Варикоза нет - KZ</a>'
         if nn_link not in html:
             html = html.replace("</nav>", nn_link + "\n</nav>", 1)
+
+    if control_center.has_access(db(),g.user,is_owner):
+        html = html.replace("</nav>", '<a class="menu-btn active" href="/control/" id="control">Контроль</a>\n</nav>', 1)
 
     admin_link = ""
     if g.user["is_admin"]:
