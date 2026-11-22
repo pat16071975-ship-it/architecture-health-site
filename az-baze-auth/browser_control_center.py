@@ -21,7 +21,8 @@ try:
     oid=fixture.order(pieces='2')
     original=tuple(fixture.c.execute('SELECT * FROM ztl_production WHERE order_id=?',(oid,)).fetchone())
     inventory=ztl_control.inventory_action(fixture.c,'start',{},1)
-    for action,fields in [('count',{'count_'+str(item):'9'}),('recheck',{}),('count',{'count_'+str(item):'9'}),
+    actual=ztl_control.display(next(r['qty'] for r in ztl_control.stock(fixture.c) if r['id']==item)-1000)
+    for action,fields in [('count',{'count_'+str(item):actual}),('recheck',{}),('count',{'count_'+str(item):actual}),
                           ('explain',dict(person='Первый ответственный',explanation='Недостача при пересчёте'))]:
         version=ztl.row_by_id(fixture.c,'ztl_inventories',inventory)['version']
         ztl_control.inventory_action(fixture.c,action,dict(id=inventory,version=version,**fields),1)
