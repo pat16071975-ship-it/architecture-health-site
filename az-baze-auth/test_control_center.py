@@ -27,7 +27,7 @@ class OwnerControlTests(unittest.TestCase):
     def setUp(self):
         ControlTests.setUp(self)
         owner=patch.object(core,'OWNER_EMAIL','1@example.test');owner.start();self.addCleanup(owner.stop)
-        self.grant('ztl_catalog','ztl_orders','ztl_payroll','ztl_receipts_edit','ztl_inventory_manage','ztl_inventory_count')
+        self.grant('ztl_catalog','ztl_orders','ztl_payroll','ztl_payments','ztl_receipts_edit','ztl_inventory_manage','ztl_inventory_count')
         self.editor=self.client(2);self.owner=self.client(1)
         for c in (self.editor,self.owner):
             with c.session_transaction() as s:s['csrf']='token'
@@ -260,6 +260,105 @@ class OwnerControlTests(unittest.TestCase):
         self.assertEqual(work['confirmed_payroll']['count'],1)
         self.assertEqual(quality['unconfirmed_payroll']['count'],0)
         self.assertEqual(self.owner.get('/control/ztl/record/payroll/2026-11').status_code,200)
+
+    def test_payment_cancellation_records_actual_snapshots_and_preserves_fields(self):
+        self.grant('ztl_payments')
+        oid=self.order()
+        values=ztl.payment_values(self.c,dict(party_id=self.party,scope='external',amount='100',
+            paid_date='2026-11-15',method='bank',comment='Подтверждено документом',order_id=oid))
+        pid=ztl.save_payment(self.c,values,(b'%PDF-1.4 test','application/pdf','payment.pdf'),1,ztl.ledger_stamp(self.c),'cancel-test')
+        original=ztl.row_by_id(self.c,'ztl_payments',pid)
+        allocations=list(self.c.execute('SELECT * FROM ztl_allocations'))
+        path='/accounting/ztl/save/void'
+        data=dict(csrf='token',id=pid,version=original['version'],reason='Дублирующая оплата')
+        before=self.snapshot()
+        self.assertEqual(self.editor.post(path,data={**data,'reason':''}).status_code,400)
+        self.assertEqual(self.snapshot(),before)
+        with self.c:self.c.execute("CREATE TRIGGER fail_cancel_context BEFORE INSERT ON ztl_event_context BEGIN SELECT RAISE(ABORT,'cancel context failure'); END")
+        before=self.snapshot()
+        self.assertEqual(self.editor.post(path,data=data).status_code,409)
+        self.assertEqual(self.snapshot(),before)
+        with self.c:self.c.execute('DROP TRIGGER fail_cancel_context')
+        self.assertEqual(self.editor.post(path,data=data).status_code,303)
+        current=ztl.row_by_id(self.c,'ztl_payments',pid)
+        self.assertEqual(current,{**original,'void_reason':data['reason'],'version':original['version']+1})
+        self.assertEqual(list(self.c.execute('SELECT * FROM ztl_allocations')),allocations)
+        self.assertEqual(next(o for o in ztl.orders(self.c) if o['id']==oid)['paid'],0)
+        event=next(r for r in self.rows() if r['entity']=='Оплата' and r['entity_id']==pid)
+        # Complete stored snapshots; an unchanged document, payer, date and amount are not deletions.
+        for key in original:
+            self.assertIn(key,json.loads(event['after_json']))
+            if key not in ('version','void_reason'):
+                self.assertEqual(event['before'][key],event['after'][key])
+        self.assertEqual({d['field'] for d in event['diff']},{'Оплата отменена','Причина отмены'})
+        status=next(d for d in event['diff'] if d['field']=='Оплата отменена')
+        self.assertEqual((status['before'],status['after']),('Нет','Да'))
+        self.assertEqual(event['reason'],data['reason'])
+        self.assertIn(('Дата оплаты','2026-11-15'),event['dates'])
+        before=self.snapshot()
+        page=self.owner.get(self.path+'&category=payments').get_data(as_text=True)
+        self.assertIn('Дублирующая оплата',page)
+        self.assertNotIn('<td>Сумма</td>',page.split('data-event="'+str(event['id'])+'"',1)[1].split('</details>',1)[0])
+        self.assertEqual(self.snapshot(),before)
+
+    def test_legacy_payment_cancellation_patch_is_not_a_deleted_record(self):
+        before=dict(id=987,party_id=self.party,paid_date='2026-11-15',amount=10000,
+            method='bank',comment='Сохранённое пояснение',void_reason=None,version=1)
+        with self.c:
+            # Historical operation payload, deliberately without a live payment to consult.
+            hid=self.c.execute('INSERT INTO ztl_history(entity,entity_id,action,actor_id,changed_at,before_json,after_json) VALUES(?,?,?,?,?,?,?)',
+                ('Оплата',987,'Отмена ошибочной записи (не возврат денег)',2,'2026-11-22T10:00:00+00:00',
+                 json.dumps(before),json.dumps(dict(reason='Историческая отмена')))).lastrowid
+        snapshot=self.snapshot()
+        event=next(r for r in self.rows() if r['id']==hid)
+        self.assertEqual(event['after'],{**before,'void_reason':'Историческая отмена'})
+        self.assertEqual({d['field'] for d in event['diff']},{'Оплата отменена','Причина отмены'})
+        self.assertIn('Историческая отмена',self.owner.get(self.path).get_data(as_text=True))
+        self.assertEqual(self.snapshot(),snapshot)
+
+    def saved_explanation(self):
+        item=self.item();self.receipt(item)
+        self.assertEqual(self.post('inventory-start',{}).status_code,303)
+        iid=self.c.execute('SELECT MAX(id) FROM ztl_inventories').fetchone()[0]
+        def data(**kw):return dict(id=iid,version=ztl.row_by_id(self.c,'ztl_inventories',iid)['version'],**kw)
+        for action,fields in [('count',{'count_'+str(item):'9'}),('recheck',{}),('count',{'count_'+str(item):'9'}),
+                              ('explain',dict(person='Первый ответственный',explanation='Недостача при пересчёте'))]:
+            self.assertEqual(self.post('inventory-'+action,data(**fields)).status_code,303)
+        return iid
+
+    def test_saved_explanation_person_or_text_edit_requires_separate_reason(self):
+        iid=self.saved_explanation()
+        original=ztl.row_by_id(self.c,'ztl_inventories',iid)
+        data=dict(id=iid,version=original['version'],person=original['person'],explanation=original['explanation'])
+        before=self.snapshot()
+        for change in (dict(person='Другой ответственный'),dict(explanation='Уточнённый текст'),
+                       dict(person='Другой ответственный',explanation='Уточнённый текст')):
+            for reason_fields in ({},{'change_reason':'  '},{'reason':original['explanation']},
+                                  {'change_reason':'  ','reason':'Старое основание'}):
+                with self.subTest(change=change,reason_fields=reason_fields):
+                    response=self.post('inventory-explain',{**data,**change,**reason_fields})
+                    self.assertEqual(response.status_code,400,response.data)
+                    self.assertIn('Укажите причину',response.get_data(as_text=True))
+                    self.assertEqual(self.snapshot(),before)
+        self.assertEqual(self.post('inventory-explain',{**data,'person':'Другой ответственный'},'Исправлено ФИО по акту').status_code,303)
+        current=ztl.row_by_id(self.c,'ztl_inventories',iid)
+        self.assertEqual(current,{**original,'person':'Другой ответственный','version':original['version']+1})
+        event=next(r for r in self.rows() if r['entity']=='Инвентаризация' and r['entity_id']==iid)
+        self.assertEqual(event['reason'],'Исправлено ФИО по акту')
+        self.assertEqual(event['diff'],[dict(field='Ответственный',before=original['person'],after=current['person'],delta='')])
+        # First explanation and an identical repeat are not edits requiring a reason.
+        self.assertEqual(self.post('inventory-explain',{**data,'person':current['person'],'version':current['version']}).status_code,303)
+        event=next(r for r in self.rows() if r['entity']=='Инвентаризация' and r['entity_id']==iid)
+        self.assertFalse(event['meaningful'])
+
+    def test_explanation_person_change_rolls_back_when_context_fails(self):
+        iid=self.saved_explanation();original=ztl.row_by_id(self.c,'ztl_inventories',iid)
+        with self.c:self.c.execute("CREATE TRIGGER fail_person_context BEFORE INSERT ON ztl_event_context BEGIN SELECT RAISE(ABORT,'person context failure'); END")
+        before=self.snapshot()
+        response=self.post('inventory-explain',dict(id=iid,version=original['version'],
+            person='Другой ответственный',explanation=original['explanation']),'Исправлено ФИО по акту')
+        self.assertEqual(response.status_code,409)
+        self.assertEqual(self.snapshot(),before)
 
 
 if __name__=='__main__':unittest.main()

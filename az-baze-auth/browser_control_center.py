@@ -7,6 +7,8 @@ from playwright.sync_api import sync_playwright
 from werkzeug.serving import make_server
 from test_control_center import OwnerControlTests
 import control_center as oversight
+import ztl
+import ztl_control
 
 fixture=OwnerControlTests();fixture.setUp()
 fixture.web.config['SESSION_COOKIE_SECURE']=False
@@ -18,6 +20,11 @@ try:
     item=fixture.item();fixture.receipt(item);fixture.card(item,qty='0.5')
     oid=fixture.order(pieces='2')
     original=tuple(fixture.c.execute('SELECT * FROM ztl_production WHERE order_id=?',(oid,)).fetchone())
+    inventory=ztl_control.inventory_action(fixture.c,'start',{},1)
+    for action,fields in [('count',{'count_'+str(item):'9'}),('recheck',{}),('count',{'count_'+str(item):'9'}),
+                          ('explain',dict(person='Первый ответственный',explanation='Недостача при пересчёте'))]:
+        version=ztl.row_by_id(fixture.c,'ztl_inventories',inventory)['version']
+        ztl_control.inventory_action(fixture.c,action,dict(id=inventory,version=version,**fields),1)
     with sync_playwright() as pw:
         browser=pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
         for width in (1365,390):
@@ -90,6 +97,54 @@ try:
             form=page.locator('form.access').filter(has=page.locator('input[name=user_id][value="2"]'))
             form.locator('[name=mode]').select_option('none');form.get_by_role('button',name='Сохранить доступ').click()
             login(2);assert page.goto(origin+'/control/').status==403
+            # AZ-250-01: real cancellation form, then its actual owner-visible diff.
+            values=ztl.payment_values(fixture.c,dict(party_id=fixture.party,scope='external',amount='100',
+                paid_date='2026-11-15',method='bank',comment='Проверка отмены',order_id=oid))
+            pid=ztl.save_payment(fixture.c,values,(None,None,None),1,ztl.ledger_stamp(fixture.c),'browser-cancel-'+str(width))
+            old_payment=ztl.row_by_id(fixture.c,'ztl_payments',pid)
+            page.goto(origin+'/accounting/ztl/payments/')
+            form=page.locator('form[action$="/void"]').filter(has=page.locator('input[name=id][value="'+str(pid)+'"]'))
+            form.locator('xpath=ancestor::details[2]').locator('summary').first.click()
+            form.locator('xpath=ancestor::details[1]').locator('summary').first.click()
+            reason='Ошибка повторного ввода '+str(width)
+            form.locator('[name=reason]').fill(reason)
+            with page.expect_navigation(wait_until='networkidle'):
+                form.get_by_role('button',name='Отменить ошибочную запись',exact=True).click()
+            assert ztl.row_by_id(fixture.c,'ztl_payments',pid)=={**old_payment,'version':old_payment['version']+1,'void_reason':reason}
+            event=fixture.c.execute("SELECT MAX(id) FROM ztl_history WHERE entity='Оплата'").fetchone()[0]
+            login(1);page.goto(origin+'/control/ztl/?start=2000-01-01&end=2090-12-31&category=payments')
+            ev=page.locator('[data-event="'+str(event)+'"]');ev.locator('summary').first.click()
+            assert set(ev.locator('.diff tbody tr td:first-child').all_inner_texts())=={'Оплата отменена','Причина отмены'}
+            assert reason in ev.locator('.reason').first.inner_text()
+            assert '2026-11-15' in ev.inner_text()
+            page.screenshot(path=str(artifacts/('az-250-01-'+str(width)+'.png')),full_page=True)
+            # AZ-250-02: change only the responsible person, preserve explanation text.
+            login(2);page.goto(origin+'/accounting/ztl/inventory/')
+            form=page.locator('form[action$="/inventory-explain"]')
+            old_inventory=ztl.row_by_id(fixture.c,'ztl_inventories',inventory)
+            person='Ответственный '+str(width)
+            form.locator('[name=person]').fill(person)
+            before=fixture.snapshot()
+            with page.expect_navigation(wait_until='networkidle') as response:
+                form.get_by_role('button',name='Сохранить объяснительную',exact=True).click()
+            assert response.value.status==400
+            assert 'Укажите причину' in page.locator('body').inner_text()
+            assert fixture.snapshot()==before
+            page.goto(origin+'/accounting/ztl/inventory/')
+            form=page.locator('form[action$="/inventory-explain"]')
+            form.locator('[name=person]').fill(person)
+            form.locator('[name=change_reason]').fill('Исправлено ФИО по акту '+str(width))
+            with page.expect_navigation(wait_until='networkidle'):
+                form.get_by_role('button',name='Сохранить объяснительную',exact=True).click()
+            assert ztl.row_by_id(fixture.c,'ztl_inventories',inventory)=={**old_inventory,'person':person,'version':old_inventory['version']+1}
+            event=fixture.c.execute("SELECT MAX(id) FROM ztl_history WHERE entity='Инвентаризация'").fetchone()[0]
+            login(1);page.goto(origin+'/control/ztl/?start=2000-01-01&end=2090-12-31&category=inventory')
+            ev=page.locator('[data-event="'+str(event)+'"]');ev.locator('summary').first.click()
+            assert ev.locator('.diff tbody tr td:first-child').all_inner_texts()==['Ответственный']
+            assert ev.locator('.new').inner_text()==person
+            assert 'Исправлено ФИО по акту' in ev.locator('.reason').first.inner_text()
+            page.screenshot(path=str(artifacts/('az-250-02-'+str(width)+'.png')),full_page=True)
+            print('AZ_250_01_02_BROWSER',width,'PASS; cancellation snapshots, separate person edit reason, complete rollback')
             assert errors==[],errors
             page.close();print('OWNER_CONTROL_BROWSER',width,'PASS; entry, reason, snapshot, review, work drilldown, delegated view and revoke')
         browser.close()

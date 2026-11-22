@@ -104,6 +104,7 @@ def normalized(entity,value):
     if isinstance(value,dict):
         if entity=='Технологическая карта':value={k:v for k,v in value.items() if k!='work_id'}
         if entity=='Распределение оплаты ЗТЛ':value={k:value.get(k) for k in ('total','entries')}
+        if entity=='Оплата' and 'void_reason' in value:value['voided']=bool(value['void_reason'])
     return value
 
 
@@ -127,7 +128,8 @@ def needs_reason(entity,action,before,after):
         if old_lines and all(r.get('item_id') for r in old_lines):return clean(old_lines)!=clean(new_lines)
         return bool(old_lines and ([ (r.get('qty'),r.get('value')) for r in old_lines ] != [ (r.get('qty'),r.get('value')) for r in new_lines ]))
     if entity=='Инвентаризация':
-        return action=='explain' and bool(before.get('explanation')) and before.get('explanation')!=after.get('explanation')
+        return action=='explain' and bool(before.get('explanation')) and any(
+            before.get(k)!=after.get(k) for k in ('person','explanation'))
     if entity=='Затраты' and ('подтверждения' in action or before.get('employee_id')==0 and before.get('kind')=='payroll'):
         return False
     if entity=='Сверка затрат ЗТЛ':return bool(before.get('mode') and before.get('mode')!=after.get('mode'))
@@ -176,14 +178,19 @@ def labels_for(conn,entity,iid,before,after):
 def capture(conn,history_id,entity,iid,action,before,after):
     reason=''
     if has_request_context():
-        reason=(request.form.get('change_reason') or request.form.get('reason') or '').strip()
-        if needs_reason(entity,action,before,after) and not reason:
+        required=needs_reason(entity,action,before,after)
+        reason=(request.form.get('change_reason') or '').strip()
+        # A saved explanation needs a separate edit reason, never its previous text
+        # or an unrelated legacy `reason` field supplied by the caller.
+        if not reason and not (required and entity=='Инвентаризация' and action=='explain'):
+            reason=(request.form.get('reason') or '').strip()
+        if required and not reason:
             raise ValueError('Укажите причину изменения сохранённых данных.')
         if len(reason)>4000:raise ValueError('Причина изменения: не более 4000 символов.')
         if not getattr(g,'ztl_change_token',None):g.ztl_change_token=uuid4().hex
         token=g.ztl_change_token
     else:token=uuid4().hex
-    if not reason and isinstance(after,dict):reason=str(after.get('reason') or after.get('explanation') or '')
+    if not reason and isinstance(after,dict):reason=str(after.get('reason') or after.get('void_reason') or after.get('explanation') or '')
     conn.execute('INSERT INTO ztl_event_context VALUES(?,?,?,?)',
                  (history_id,reason,token,encode(labels_for(conn,entity,iid,before,after))))
 
@@ -217,7 +224,7 @@ def display_value(key,value,labels):
         return labels.get('name:'+str(value),'Запись №'+str(value))
     if key=='party_id':return labels.get('party:'+str(value),'Плательщик №'+str(value))
     if key=='technicians':return ', '.join(labels.get('name:'+str(v),'Техник №'+str(v)) for v in (decoded(value) or [])) or 'Не указаны'
-    if key in ('confirmed','paid','posted','deleted','archived','complete') and isinstance(value,(bool,int)):
+    if key in ('confirmed','paid','posted','deleted','archived','complete','voided') and isinstance(value,(bool,int)):
         return 'Да' if value else 'Нет'
     if isinstance(value,(dict,list)):return encode(value)
     return VALUES.get(str(value),str(value)) or 'Пусто'
@@ -297,6 +304,12 @@ def events(conn,start,end,actor=None,entities=None,iid=None):
         query+=' AND h.entity IN ('+','.join('?' for _ in entities)+') AND h.entity_id=?';params.extend([*entities,iid])
     for row in conn.execute(query+' ORDER BY h.id DESC',params):
         r=dict(row);r['before']=json.loads(r['before_json']) if r['before_json'] else None;r['after']=json.loads(r['after_json'])
+        # This historical operation stored only its cancellation reason, not a full
+        # after snapshot. Reconstruct only this known patch from its own before data;
+        # never consult today's record or rewrite the immutable source history.
+        if (r['entity']=='Оплата' and r['action']=='Отмена ошибочной записи (не возврат денег)'
+                and isinstance(r['before'],dict) and isinstance(r['after'],dict) and set(r['after'])=={'reason'}):
+            r['after']={**r['before'],'void_reason':r['after']['reason']}
         r['meaningful']=changed(r['before'],r['after'],r['entity'])
         r['labels']=json.loads(r['labels']) if r['labels'] else {}
         r['title']=r['labels'].get('title') or ('Справочник' if r['entity'] in ('ztl_names','ztl_parties') else r['entity'])+' №'+str(r['entity_id'])

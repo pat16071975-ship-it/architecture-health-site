@@ -350,7 +350,7 @@ def void_payment(conn, data, actor):
             raise Conflict('Оплата уже отменена.')
         reason=text(data.get('reason'),1000)
         conn.execute('UPDATE ztl_payments SET void_reason=?,version=version+1 WHERE id=?',(reason,p['id']))
-        log(conn,'Оплата',p['id'],'Отмена ошибочной записи (не возврат денег)',actor,p,dict(reason=reason))
+        log(conn,'Оплата',p['id'],'Отмена ошибочной записи (не возврат денег)',actor,p,row_by_id(conn,'ztl_payments',p['id']))
 
 
 def save_cost(conn,data,actor,kind):
