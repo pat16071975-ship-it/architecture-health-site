@@ -59,7 +59,8 @@ try:
             assert 'Уточнена норма' in ev.inner_text();assert 'Начальник ЗТЛ' in ev.inner_text()
             assert wanted in ev.locator('.new').all_inner_texts()
             if width==1365:assert '+0.1 / 20%' in ev.inner_text()
-            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+            page.screenshot(path=str(artifacts/('owner-control-layout-'+str(width)+'.png')),full_page=True)
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),page.locator('body *').evaluate_all("els=>els.filter(e=>e.getBoundingClientRect().right>innerWidth+1&&!e.closest('.scroll')).map(e=>({tag:e.tagName,cls:e.className,name:e.getAttribute('name'),width:e.getBoundingClientRect().width,right:e.getBoundingClientRect().right})).slice(0,20)")
             page.screenshot(path=str(artifacts/('owner-control-event-'+str(width)+'.png')),full_page=True)
             ev.locator('[name=status]').select_option('question');ev.locator('[name=comment]').fill('Проверить норму по пробному изделию')
             ev.get_by_role('button',name='Сохранить проверку').click()
@@ -74,7 +75,8 @@ try:
             assert page.locator('input,textarea,select').count()==0
             assert fixture.snapshot()==before
             page.goto(origin+'/control/ztl/?view=work&start=2000-01-01&end=2090-12-31&actor=2')
-            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+            page.screenshot(path=str(artifacts/('owner-control-layout-'+str(width)+'.png')),full_page=True)
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),page.locator('body *').evaluate_all("els=>els.filter(e=>e.getBoundingClientRect().right>innerWidth+1&&!e.closest('.scroll')).map(e=>({tag:e.tagName,cls:e.className,name:e.getAttribute('name'),width:e.getBoundingClientRect().width,right:e.getBoundingClientRect().right})).slice(0,20)")
             page.screenshot(path=str(artifacts/('owner-control-work-'+str(width)+'.png')),full_page=True)
             page.get_by_role('link',name='Доступ к контролю',exact=True).click()
             form=page.locator('form.access').filter(has=page.locator('input[name=user_id][value="2"]'))
