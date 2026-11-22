@@ -139,7 +139,7 @@ def rollback_migration(backup,expected,changes):
     except BaseException:
         conn.rollback();raise
     finally:conn.close()
-SERVICE='az-baze-auth' 
+SERVICE='az-baze-auth'
 DB=pathlib.Path('/var/lib/az-baze/auth.db')
 BACKUP_ROOT=pathlib.Path('/var/lib/az-baze/backups')
 LOCK=pathlib.Path('/run/az-advertising-hourly-install.lock')
