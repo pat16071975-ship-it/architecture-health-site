@@ -164,7 +164,7 @@ def resolve(conn, data, key, kind, actor, can_catalog, required=True):
     return iid
 
 
-def save_order(conn, data, actor, can_catalog=False):
+def save_order(conn, data, actor, can_catalog=False, can_payroll=False):
     with conn:
         conn.execute('BEGIN IMMEDIATE')
         old = row_by_id(conn,'ztl_orders',integer(data['id'])) if data.get('id') else None
@@ -222,7 +222,7 @@ def save_order(conn, data, actor, can_catalog=False):
             iid=old['id']
         else:
             iid=conn.execute('INSERT INTO ztl_orders('+','.join(values)+') VALUES('+','.join(':'+k for k in values)+')',values).lastrowid
-        ztl_control.save_production(conn,iid,old,values,data,actor)
+        ztl_control.save_production(conn,iid,old,values,data,actor,can_payroll)
         log(conn,'Заказ',iid,'Изменение' if old else 'Создание',actor,old,row_by_id(conn,'ztl_orders',iid))
     return iid
 
@@ -506,7 +506,11 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
             production=ztl_control.production(db(),edit['id']) if edit else None
             if production:production['technician_ids']=json.loads(production['technicians'])
             choices=ztl_control.order_price_choices(db(),edit)
-            return render(tab='order_form',edit=edit,production=production,price_choices=choices)
+            labor=ztl_control.ztl_labor.allocation(db(),production)
+            labor_entries={e['technician_id']:e for e in labor['entries']}
+            labor_rows=[dict(id=n['id'],name=n['name'],selected=bool(production and n['id'] in production['technician_ids']),
+                             entry=labor_entries.get(n['id'])) for n in db().execute("SELECT id,name FROM ztl_names WHERE kind='employee' ORDER BY name,id")]
+            return render(tab='order_form',edit=edit,production=production,price_choices=choices,labor=labor,labor_rows=labor_rows)
         except ValueError as exc:return str(exc),400
 
     @app.get('/accounting/ztl/payment')
@@ -547,7 +551,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
         require_csrf()
         conn=db()
         try:
-            if action=='order':save_order(conn,request.form,g.user['id'],'catalog' in rights())
+            if action=='order':save_order(conn,request.form,g.user['id'],'catalog' in rights(),'payroll' in rights())
             elif action=='catalog':save_catalog(conn,request.form,g.user['id'])
             elif action=='payment':
                 signed=text(request.form.get('signed'),20000)

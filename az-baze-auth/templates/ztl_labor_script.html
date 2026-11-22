@@ -1,0 +1,49 @@
+<style>
+.ztl-labor{margin:12px 0;font-size:12px;max-width:850px}.ztl-labor p{margin:7px 0}.ztl-labor-head,.ztl-labor-row{display:grid;grid-template-columns:minmax(180px,1fr) 65px 110px 100px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line)}.ztl-labor-head{color:#66736a;font-size:11px}.ztl-tech-choice{display:flex;align-items:center;gap:8px;margin:0}.ztl .ztl-labor input:not([type=checkbox]),.ztl .ztl-labor select{height:30px;min-height:30px;padding:4px 7px;font-size:12px;border-radius:5px}.ztl-labor output{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.ztl-labor-result[data-error="1"]{color:var(--red)}.ztl-sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:650px){.ztl-labor-head{display:none}.ztl-labor-row{grid-template-columns:65px minmax(80px,1fr) 100px;gap:5px}.ztl-labor-row>:first-child{grid-column:1/-1}.ztl-labor{max-width:100%}}
+</style>
+<script>
+(()=>{
+ const money=n=>{const s=n.toString();return new Intl.NumberFormat('ru-RU').format(Number(n/100n))+','+s.slice(-2).padStart(2,'0');};
+ const parse=value=>{const s=value.trim().replace(',','.');if(!/^\d+(\.\d{1,2})?$/.test(s))return null;const [a,b='']=s.split('.');return BigInt(a)*100n+BigInt(b.padEnd(2,'0'));};
+ document.querySelectorAll('[data-labor]').forEach(root=>{
+  function recalc(){
+   const total=/^\d+$/.test(root.dataset.total)?BigInt(root.dataset.total):null;
+   root.querySelector('[data-labor-total]').textContent=total===null?'Не задана':money(total)+' ₽';
+   if(!root.querySelector('[data-labor-mode]'))return;
+   const rows=[...root.querySelectorAll('[data-labor-row]')];let selected=0,filled=0,error='',fixed=0n,pct=0n,entries=[];
+   rows.forEach(row=>{
+    const checked=row.querySelector('[name=technician_id]'),mode=row.querySelector('[data-labor-mode]'),input=row.querySelector('[data-labor-value]'),out=row.querySelector('[data-labor-amount]');
+    const active=checked?checked.checked:row.dataset.selected==='1';
+    if(!mode||!input)return;
+    mode.disabled=input.disabled=!active;out.textContent='—';if(!active)return;selected++;
+    if(input.value.trim()==='')return;filled++;
+    const value=parse(input.value);if(value===null||value>100000000000n){error='Введите неотрицательное значение, до двух знаков после запятой.';return;}
+    if(mode.value==='percent'&&value>10000n){error='Доля техника не может превышать 100%.';return;}
+    if(total===null)return;
+    const entry={row,value,mode:mode.value,amount:mode.value==='rub'?value:total*value/10000n,id:Number(row.dataset.technician)};
+    entries.push(entry);if(mode.value==='rub')fixed+=value;else pct+=value;
+   });
+   const summary=root.querySelector('[data-labor-summary]');
+   if(total===null){summary.textContent='Выберите изделие с сохранённой оплатой работы.';summary.dataset.error='0';return;}
+   const percent=entries.filter(e=>e.mode==='percent');
+   let extra=(total*pct+5000n)/10000n-percent.reduce((s,e)=>s+e.amount,0n);
+   percent.sort((a,b)=>{const ar=total*a.value%10000n,br=total*b.value%10000n;return ar===br?a.id-b.id:ar>br?-1:1;});
+   for(const e of percent){if(extra<=0n)break;e.amount++;extra--;}
+   let assigned=0n;for(const e of entries){assigned+=e.amount;e.row.querySelector('[data-labor-amount]').textContent=money(e.amount);}
+   if(pct>10000n||fixed*10000n+total*pct>total*10000n)error='Распределение превышает общую оплату работы по заказу.';
+   summary.dataset.error=error?'1':'0';
+   summary.textContent=error||('Распределено: '+money(assigned)+' ₽. Осталось распределить: '+money(total-assigned)+' ₽.'+(filled<selected?' Есть техники без заданной доли.':''));
+  }
+  root.addEventListener('change',event=>{
+   if(event.target.name==='technician_id'){
+    const checked=[...root.querySelectorAll('[name=technician_id]:checked')];
+    if(checked.length===1&&!root.dataset.wasShared){const row=checked[0].closest('[data-labor-row]'),input=row.querySelector('[data-labor-value]');if(input&&!input.value){row.querySelector('[data-labor-mode]').value='percent';input.value='100';}}
+    if(checked.length>1)root.dataset.wasShared='1';
+   }
+   recalc();
+  });
+  root.addEventListener('input',recalc);root.addEventListener('labor-total-change',recalc);recalc();
+ });
+})();
+</script>
