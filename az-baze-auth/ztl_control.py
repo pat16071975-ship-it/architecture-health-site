@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import sqlite3
+import ztl_labor
 import xml.etree.ElementTree as ET
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -77,6 +78,7 @@ def selected_unit(data, key='unit', custom_key='custom_unit'):
 
 def init_schema(conn):
     conn.executescript(SCHEMA)
+    ztl_labor.init_schema(conn)
 
 
 def encode(value):
@@ -147,7 +149,7 @@ def catalog(conn):
 def order_price_choices(conn, old_order=None):
     """Separate selectable price positions share one manufacturing card."""
     result=[]
-    for row in conn.execute('''SELECT n.id,n.name,c.version,p.internal_price,p.external_price
+    for row in conn.execute('''SELECT n.id,n.name,c.version,c.technician_fee,p.internal_price,p.external_price
         FROM ztl_names n JOIN ztl_cards c ON c.work_id=n.id
         JOIN ztl_product_prices p ON p.work_id=n.id
         WHERE n.kind='work' AND NOT EXISTS(SELECT 1 FROM ztl_product_archive a WHERE a.work_id=n.id)
@@ -156,13 +158,13 @@ def order_price_choices(conn, old_order=None):
             price=row[scope+'_price']
             if price is not None:
                 result.append(dict(key=scope+':'+str(row['id']),work_id=row['id'],name=row['name'],
-                                   scope=scope,price=price,version=row['version'],saved=False))
+                                   scope=scope,price=price,version=row['version'],saved=False,technician_fee=row['technician_fee']))
     if old_order:
         key=old_order['scope']+':'+str(old_order['work_id'])
         if not any(p['key']==key for p in result):
             name=conn.execute('SELECT name FROM ztl_names WHERE id=?',(old_order['work_id'],)).fetchone()[0]
             result.append(dict(key=key,work_id=old_order['work_id'],name=name,scope=old_order['scope'],
-                               price=None,version=None,saved=True))
+                               price=None,version=None,saved=True,technician_fee=None))
     return result
 
 
@@ -341,7 +343,7 @@ def production(conn,order_id):
     return dict(row) if row else None
 
 
-def save_production(conn,order_id,old_order,values,data,actor):
+def save_production(conn,order_id,old_order,values,data,actor,can_payroll=False):
     """Called inside save_order's transaction. Old orders are never backfilled on GET."""
     import ztl
     old=production(conn,order_id)
@@ -384,6 +386,7 @@ def save_production(conn,order_id,old_order,values,data,actor):
             consume(conn,part['item_id'],part['qty']*pieces,'order',order_id,'Создание / изменение заказа',ztl.today())
     conn.execute('INSERT INTO ztl_production(order_id,pieces,recipe,card_version,technician_fee,completed_on,technicians) VALUES(?,?,?,?,?,?,?) ON CONFLICT(order_id) DO UPDATE SET pieces=excluded.pieces,recipe=excluded.recipe,card_version=excluded.card_version,technician_fee=excluded.technician_fee,completed_on=excluded.completed_on,technicians=excluded.technicians',
                  (order_id,pieces,encode(recipe),cv,fee,completed,encode(technicians)))
+    ztl_labor.save_for_order(conn,old,production(conn,order_id),data,actor,can_payroll)
     ztl.log(conn,'Производство',order_id,'Сохранение',actor,old,production(conn,order_id))
 
 
@@ -548,8 +551,13 @@ def payroll_orders(conn,start,end,technician=None):
         if not p or not p['completed_on'] or not start<=p['completed_on'][:7]<=end:continue
         ids=json.loads(p['technicians'])
         if technician and technician not in ids:continue
+        labor=ztl_labor.allocation(conn,p)
+        entries={e['technician_id']:e for e in labor['entries']}
+        labor['rows']=[dict(id=i,name=names[i],entry=entries.get(i)) for i in ids]
+        labor['selected_amount']=sum(e['amount'] for e in labor['entries'] if not technician or e['technician_id']==technician)
+        labor['selected_known']=not technician or technician in entries
         result.append({**o,**p,'technician_names':[names[i] for i in ids], 'shared':len(ids)>1,
-                       'fee_total':p['pieces']*p['technician_fee']})
+                       'fee_total':p['pieces']*p['technician_fee'],'labor':labor})
     return result
 
 
@@ -564,7 +572,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
     def ztl_control_save(action):
         needed={'item':'catalog','card':'catalog','product-action':'catalog','material-action':'catalog','receipt':'receipts_edit','inventory-start':'inventory_manage',
                 'inventory-count':'inventory_count','inventory-recheck':'inventory_manage','inventory-explain':'inventory_count',
-                'inventory-accept':'inventory_manage','inventory-cancel':'inventory_manage','writeoff':'inventory_manage','reconcile':'lab_costs'}.get(action)
+                'inventory-accept':'inventory_manage','inventory-cancel':'inventory_manage','writeoff':'inventory_manage','reconcile':'lab_costs',
+                'labor':'payroll'}.get(action)
         if not needed:abort(404)
         if needed=='inventory_count' and 'inventory_manage' in rights():pass
         else:require(needed)
@@ -580,6 +589,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,user_permissions
             elif action=='receipt':save_receipt(conn,data,g.user['id'],request.files.get('document'));tab='receipts'
             elif action.startswith('inventory-'):inventory_action(conn,action[10:],data,g.user['id']);tab='inventory'
             elif action=='writeoff':write_off(conn,data,g.user['id']);tab='inventory'
+            elif action=='labor':ztl_labor.save_allocation(conn,data,g.user['id']);tab='payroll'
             elif action=='reconcile':
                 period=ztl.month(data.get('month'));mode=data.get('mode')
                 if mode not in ('included','additional'):raise ValueError('Укажите, включены ли эти затраты в ручную сумму.')

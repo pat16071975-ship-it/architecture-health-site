@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from 'ztl_labor_fields.html' import labor_fields with context %}
 {% macro hidden(name,value) %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endmacro %}
 {% macro field(name,label,value='',type='text',required=true) %}<div class="field"><label for="{{ name }}">{{ label }}</label><input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}" {% if required %}required{% endif %}></div>{% endmacro %}
 {% macro reference(key,label,kind,selected=None,required=false) %}
@@ -93,8 +94,10 @@
 <div id="doctor-field">{{ reference('doctor_id','Врач (внутренний заказ)','doctor',edit.doctor_id if edit else None) }}</div>
 <div class="field ztl-price-choice"><label for="price_key" id="price-choice-label">Изделие — {{ 'внешний' if edit and edit.scope=='external' else 'внутренний' }} прайс</label><select id="price_key" name="price_key" required><option value="">Выберите позицию прайса…</option>{% for choice in price_choices if choice.scope==(edit.scope if edit else 'internal') %}<option value="{{ choice.key }}" {{ 'selected' if edit and choice.work_id==edit.work_id else '' }}>{{ choice.name }} — {{ fmt(choice.price)~' ₽' if choice.price is not none else 'сохранённая позиция заказа' }}</option>{% endfor %}</select></div>{{ field('amount','Счёт, ₽',fmt(edit.amount) if edit else '') }}{{ field('delay_days','Отсрочка, дней',edit.delay_days if edit else '0','number') }}</div></div>
 <p id="price-choice-description" class="muted" role="status"></p>
-<div class="ztl-fields"><div class="field"><label>Техники (можно несколько)</label>{% for n in names if n.kind=='employee' %}<label class="check"><input type="checkbox" name="technician_id" value="{{ n.id }}" {% if production and n.id in production.technician_ids %}checked{% endif %}>{{ n.name }}</label>{% else %}<p>Добавьте сотрудников в справочнике.</p>{% endfor %}</div>{{ field('pieces','Количество изделий',production.pieces if production else 1,'number') }}{{ field('completed_on','Изготовлен — дата выполнения',production.completed_on if production and production.completed_on else '', 'date',false) }}</div>
-<p class="muted">Материалы списываются при создании заказа по карте изделия. Для старого заказа расход задним числом не создаётся. Дата изготовления определяет показ заказа в ФОТ. Распределение оплаты между несколькими техниками пока не задано.</p>
+<div class="ztl-fields">{{ field('pieces','Количество изделий',production.pieces if production else 1,'number') }}{{ field('completed_on','Изготовлен — дата выполнения',production.completed_on if production and production.completed_on else '', 'date',false) }}</div>
+{{ labor_fields(labor_rows,labor.total,'payroll' in rights,true,'order') }}
+{% if 'payroll' not in rights %}<p class="muted">Распределение оплаты редактируется с правом ФОТ.</p>{% endif %}
+<p class="muted">Материалы списываются при создании заказа по карте изделия. Для старого заказа расход задним числом не создаётся. Дата изготовления определяет показ заказа в ФОТ.</p>
 {% if production and production.completed_on %}<p class="muted">Заказ уже изготовлен. Очистить дату изготовления, изменить изделие или количество обычным сохранением нельзя.</p>{% endif %}
 <div class="field"><label for="description">Описание и комментарий к заказу</label><textarea id="description" name="description" maxlength="4000">{{ edit.description if edit else '' }}</textarea></div>
 <p class="muted">Для внутреннего заказа указывается стоимость работы лаборатории для клиники. Отсрочка отсчитывается от даты создания записи. Все изменения сохраняются в журнале. Оплаты и зачёт аванса выполняются отдельно пользователем с соответствующим правом.</p><button class="btn primary">Сохранить заказ</button></form></div>
@@ -105,6 +108,13 @@
  const amount=document.getElementById('amount'),pieces=document.getElementById('pieces'),version=document.querySelector('[name=price_version]');
  let automatic=false;
  const description=document.getElementById('price-choice-description');
+ const laborRoot=document.querySelector('[data-labor]'),savedWork={{ edit.work_id|tojson if edit else 'null' }},savedFee={{ production.technician_fee|tojson if production and production.card_version else 'null' }};
+ function updateLabor(){
+  const choice=choices.find(p=>p.key===select.value),count=Number(pieces.value);
+  const fee=choice?(choice.work_id===savedWork?savedFee:choice.technician_fee):null;
+  laborRoot.dataset.total=fee!==null&&fee!==undefined&&Number.isInteger(count)&&count>0&&count<=10000?String(fee*count):'';
+  laborRoot.dispatchEvent(new Event('labor-total-change'));
+ }
  function describe(){const p=choices.find(p=>p.key===select.value);description.textContent=p?p.name+' · '+(p.scope==='internal'?'Внутренний':'Внешний')+' прайс · '+(p.price===null?'сохранённая позиция заказа':new Intl.NumberFormat('ru-RU').format(p.price/100)+' ₽ за изделие'):'Выберите изделие из '+(scope.value==='internal'?'внутреннего':'внешнего')+' прайса.';}
  function updateAmount(){
   if(!automatic)return;
@@ -120,6 +130,7 @@
   document.getElementById('price-choice-label').textContent='Изделие — '+(scope.value==='internal'?'внутренний':'внешний')+' прайс';
   if(!initial){amount.value='';automatic=false;}
   describe();
+  updateLabor();
  }
  scope.addEventListener('change',()=>rebuild(false));
  select.addEventListener('change',()=>{
@@ -128,8 +139,10 @@
   automatic=Boolean(choice&&choice.price!==null);
   if(automatic)updateAmount();else if(!choice)amount.value='';
   describe();
+  updateLabor();
  });
  pieces.addEventListener('input',updateAmount);
+ pieces.addEventListener('input',updateLabor);
  amount.addEventListener('input',()=>automatic=false);
  rebuild(true);
 })();
@@ -202,4 +215,5 @@ document.querySelectorAll('select').forEach(select=>{
  select.before(search);search.addEventListener('input',()=>{const q=search.value.toLocaleLowerCase('ru');Array.from(select.options).forEach(o=>o.hidden=!!o.value&&!o.text.toLocaleLowerCase('ru').includes(q));});
 });
 </script>
+{% if tab in ['order_form','payroll'] %}{% include 'ztl_labor_script.html' %}{% endif %}
 {% endblock %}

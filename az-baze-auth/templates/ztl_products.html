@@ -25,7 +25,7 @@
 <button type="button" class="btn" data-add-material>+ Добавить материал</button></div>
 <label class="ztl-no-materials"><input type="checkbox" name="no_materials" value="1" {{ 'checked' if card and card.version and not card.parts else '' }}>Материалы не расходуются</label>
 <div class="ztl-product-totals">
-<label>Оплата технику за одно изделие, ₽<input name="technician_fee" data-technician-fee inputmode="decimal" value="{{ fmt(card.technician_fee) if card and card.technician_fee is not none else '' }}" required></label>
+<label title="Эта сумма распределяется между техниками">Общая оплата работы за изделие, ₽<input name="technician_fee" data-technician-fee inputmode="decimal" value="{{ fmt(card.technician_fee) if card and card.technician_fee is not none else '' }}" required></label>
 <div><span>Материалы на одно изделие</span><output data-material-total>—</output></div>
 <div><strong>Себестоимость изделия</strong><output data-product-total>—</output></div>
 </div>
