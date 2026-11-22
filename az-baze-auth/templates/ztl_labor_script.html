@@ -38,7 +38,7 @@
   root.addEventListener('change',event=>{
    if(event.target.name==='technician_id'){
     const checked=[...root.querySelectorAll('[name=technician_id]:checked')];
-    if(checked.length===1&&!root.dataset.wasShared){const row=checked[0].closest('[data-labor-row]'),input=row.querySelector('[data-labor-value]');if(input&&!input.value){row.querySelector('[data-labor-mode]').value='percent';input.value='100';}}
+    if(checked.length===1&&!root.dataset.wasShared&&/^\d+$/.test(root.dataset.total)){const row=checked[0].closest('[data-labor-row]'),input=row.querySelector('[data-labor-value]');if(input&&!input.value){row.querySelector('[data-labor-mode]').value='percent';input.value='100';}}
     if(checked.length>1)root.dataset.wasShared='1';
    }
    recalc();
