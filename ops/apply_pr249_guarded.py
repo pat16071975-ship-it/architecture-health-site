@@ -8,6 +8,12 @@ HEAD='0815348e0d03492595fc827851869a8ef06ed8c8'
 BASE='0892b78b49086edff3c7d81b63b1a7c55faaa760'
 ROWS=[['az-baze-auth/templates/ztl.html', '5bbc774829b218d0c030107d37d289f1117f8de3', '30b3445e9e6317316393b040c0cd608efb936523'], ['az-baze-auth/templates/ztl_labor_fields.html', None, 'e8f4cf92f9ff144ce9e8c2b4999d96856ed6f62d'], ['az-baze-auth/templates/ztl_labor_script.html', None, 'ffcf635b92d7df0b77af0ba70d5846c0c82a6d78'], ['az-baze-auth/templates/ztl_payroll_orders.html', '098142d252377e901d93a48de217523931526658', '84499124e77f532d7b926f3d1f59371bb3737dbc'], ['az-baze-auth/templates/ztl_products.html', '95a3c3da91f4f1cc4a2d99496df86cc4ae2192ea', '81a0c3bf1d6b3ae28df24952baa9e422a53ac322'], ['az-baze-auth/ztl.py', 'fe23781d9e7fff609ed8c80a49f115ff9d3f6248', '93f4de54fcc883e9571a8d6390ebc443a33d93a2'], ['az-baze-auth/ztl_control.py', '2a7d6726c3096a4db0f2fdc53c707cb3d6b1679a', '4114bee55e60f417338b66a34921b858b07ed3d8'], ['az-baze-auth/ztl_labor.py', None, '04ec70231b9346dbc3f53ca61ab2b27c11781fc1']]
 DEPENDENCIES={'az-baze-auth/app.py': 'ca05d3854b37c2e227fb2101fd83d056718b5088', 'az-baze-auth/server.py': '7d186761a727baa1fe50707c80b3d9ab154a3b96', 'az-baze-auth/medical_supplies.py': '0c8866461ab5a75561154fd977665673822b783f', 'az-baze-auth/section_navigation.py': '949987e39f768be9e208d9263e7e133e242aa501', 'az-baze-auth/templates/base.html': '80b5bdb1ee05197d8eb9235b831bae9d14e810c7', 'az-baze-auth/templates/ztl_menu.html': '8983b485441f13b5fa74949220824a82b4028ae8', 'az-baze-auth/templates/ztl_economics.html': '8ee1f06a9bee2dd92195edc597392ffa70a894bb', 'az-baze-auth/templates/ztl_control.html': 'bee2f008303a9d5ed6c14f289d3be8d70aceb16e', 'az-baze-auth/templates/ztl_explanation.html': '3107fbc931873959159272ff8c58606492223d34'}
+# Owner-supplied production diff, 2026-11-22: server.py additionally imports
+# knowledge_catalog and calls knowledge_catalog.register(app). Reconstructing
+# those exact two lines from BASE yields this blob. It is never deployed here.
+COMPATIBLE_DEPENDENCIES={
+    'az-baze-auth/server.py':('8c9a1b45390e273a1e8f1bc8a12f331cf0fbdd47',),
+}
 def schema_objects(conn):
     return {r[0]:tuple(r[1:]) for r in conn.execute('SELECT name,type,tbl_name,sql FROM sqlite_master')}
 def data_fingerprint(conn,tables):
@@ -156,14 +162,18 @@ def wait_health():
         except Exception: time.sleep(1)
     raise RuntimeError('service health failed')
 def check_base():
+    mismatches=[]
     for name,old,new in ROWS + [[n,h,h] for n,h in DEPENDENCIES.items()]:
         p=live(name)
         if p.is_symlink() or p.parent.is_symlink(): raise RuntimeError('symlink: '+str(p))
         if not p.parent.is_dir(): raise RuntimeError('target directory missing: '+str(p.parent))
         if old is None:
-            if p.exists(): raise RuntimeError('new target already exists: '+str(p))
-        elif not p.is_file() or blob(p.read_bytes()) != old:
-            raise RuntimeError('LIVE_BASE_MISMATCH: '+str(p))
+            if p.exists():mismatches.append('new target already exists: '+str(p))
+        else:
+            actual=blob(p.read_bytes()) if p.is_file() else 'MISSING'
+            accepted=(old,*COMPATIBLE_DEPENDENCIES.get(name,())) if name in DEPENDENCIES else (old,)
+            if actual not in accepted:mismatches.append('LIVE_BASE_MISMATCH: '+str(p)+'; expected='+'|'.join(accepted)+'; actual='+actual)
+    if mismatches:raise RuntimeError('\n'.join(mismatches))
 def install(data,p,st):
     fd,tmp=tempfile.mkstemp(prefix='.'+p.name+'.',dir=p.parent)
     try:

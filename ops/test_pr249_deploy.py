@@ -25,9 +25,11 @@ class InstallerTests(unittest.TestCase):
                 data=subprocess.check_output(['git','show',BASE+':'+name],cwd=ROOT)
                 self.assertEqual(m.blob(data),old);self.old[name]=data
                 m.live(name).write_bytes(data);m.live(name).chmod(0o640)
+        self.dependencies={};self.extra_files={}
         for name,expected in m.DEPENDENCIES.items():
             data=(ROOT/name).read_bytes();self.assertEqual(m.blob(data),expected)
             m.live(name).parent.mkdir(parents=True,exist_ok=True);m.live(name).write_bytes(data)
+            self.dependencies[name]=data
         with sqlite3.connect(m.DB) as c:
             for path in ('app.py','ztl.py','ztl_control.py'):c.executescript(constant(ROOT/'az-baze-auth'/path))
             c.execute("INSERT INTO users(id,email,full_name,password_hash,is_admin,active,must_change_password,created_at,updated_at) VALUES(1,'a@invalid','Fixture','hash',1,1,0,'t','t')")
@@ -91,6 +93,8 @@ class InstallerTests(unittest.TestCase):
         for name,old,new in m.ROWS:
             if rolled_back and old is None:self.assertFalse(m.live(name).exists())
             else:self.assertEqual(m.blob(m.live(name).read_bytes()),old if rolled_back else new)
+        for name,data in self.dependencies.items():self.assertEqual(m.live(name).read_bytes(),data)
+        for name,data in self.extra_files.items():self.assertEqual(m.live(name).read_bytes(),data)
         self.assertTrue(all(self.active.values()));self.assertEqual(m.STATE.read_bytes(),b'{"preserve":"retry"}')
 
     def test_success_adds_five_keeps_old_orders_fees_stock_payroll_and_backup(self):
@@ -159,11 +163,24 @@ class InstallerTests(unittest.TestCase):
         self.preserved(True);self.assertNotIn(('systemctl','stop',self.m.SERVICE),self.calls)
 
     def test_live_and_dependency_mismatch_stop(self):
-        for name in ('az-baze-auth/ztl.py','az-baze-auth/medical_supplies.py'):
+        for name in ('az-baze-auth/ztl.py','az-baze-auth/medical_supplies.py','az-baze-auth/server.py'):
             p=self.m.live(name);saved=p.read_bytes();p.write_bytes(b'newer file')
             with self.assertRaisesRegex(RuntimeError,'LIVE_BASE_MISMATCH'):self.m.main()
             self.assertEqual(p.read_bytes(),b'newer file');p.write_bytes(saved)
         self.preserved(True);self.assertFalse(self.calls)
+
+    def test_reports_all_file_mismatches_without_stopping_services(self):
+        paths=('az-baze-auth/server.py','az-baze-auth/medical_supplies.py')
+        for name in paths:self.m.live(name).write_bytes(b'unrecognized version')
+        try:
+            with self.assertRaises(RuntimeError) as raised:self.m.main()
+            message=str(raised.exception)
+            for name in paths:self.assertIn(str(self.m.live(name)),message)
+            self.assertEqual(message.count('actual='+self.m.blob(b'unrecognized version')),2)
+            self.assertFalse(self.calls);self.assertEqual(self.dump(),self.original_dump)
+        finally:
+            for name in paths:self.m.live(name).write_bytes(self.dependencies[name])
+        self.preserved(True)
 
     def test_existing_new_file_not_overwritten(self):
         p=self.m.live('az-baze-auth/ztl_labor.py');p.write_bytes(b'unrelated')
@@ -292,13 +309,47 @@ class InstallerTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'root and --apply required'):self.m.main()
         self.assertFalse(self.calls);self.preserved(True)
 
-    def real_server(self):
+    def use_knowledge_server(self):
+        name='az-baze-auth/server.py'
+        data=(ROOT/name).read_bytes()
+        self.assertEqual(data.count(b'import upload_reconcile\n'),1)
+        self.assertEqual(data.count(b'clinic_structure_settings.register(app)\n'),1)
+        data=data.replace(b'import upload_reconcile\n',b'import upload_reconcile\nimport knowledge_catalog\n')
+        data=data.replace(b'clinic_structure_settings.register(app)\n',b'clinic_structure_settings.register(app)\nknowledge_catalog.register(app)\n')
+        self.assertEqual(self.m.blob(data),'8c9a1b45390e273a1e8f1bc8a12f331cf0fbdd47')
+        self.m.live(name).write_bytes(data);self.dependencies[name]=data
+        # The production module is outside the PR/repository. This test double
+        # checks retention and register(app) execution, not its business logic.
+        module=b"def register(app):\n    app.add_url_rule('/synthetic-knowledge-check', 'synthetic_knowledge', lambda: 'registered')\n"
+        self.m.live('az-baze-auth/knowledge_catalog.py').write_bytes(module)
+        self.extra_files['az-baze-auth/knowledge_catalog.py']=module
+
+    def test_known_production_server_accepted_and_kept_byte_for_byte(self):
+        self.use_knowledge_server();self.m.main();self.preserved()
+        backup,=self.m.BACKUP_ROOT.glob('pr249-*')
+        files=json.loads((backup/'manifest.json').read_text())['files']
+        self.assertFalse(any('server.py' in n or 'knowledge_catalog' in n for n,old,new in files))
+
+    def test_other_server_changes_remain_rejected(self):
+        self.use_knowledge_server();p=self.m.live('az-baze-auth/server.py')
+        p.write_bytes(p.read_bytes()+b'\n# unknown modification\n')
+        with self.assertRaisesRegex(RuntimeError,'LIVE_BASE_MISMATCH'):self.m.main()
+        self.assertFalse(self.calls);self.assertEqual(self.dump(),self.original_dump)
+        p.write_bytes(self.dependencies['az-baze-auth/server.py']);self.preserved(True)
+
+    def test_rollback_retains_knowledge_registration_and_module(self):
+        self.use_knowledge_server();self.fail_once()
+        with self.assertRaisesRegex(RuntimeError,'synthetic health failure'):self.m.main()
+        self.preserved(True)
+
+    def real_server(self,knowledge=False):
         appdir=self.m.live('az-baze-auth/app.py').parent
         for path in (ROOT/'az-baze-auth').glob('*.py'):shutil.copy2(path,appdir/path.name)
         shutil.copytree(ROOT/'az-baze-auth/templates',appdir/'templates',dirs_exist_ok=True)
         for name,old,new in self.m.ROWS:
             if old is None:self.m.live(name).unlink()
             else:self.m.live(name).write_bytes(self.old[name])
+        if knowledge:self.use_knowledge_server()
         env=dict(os.environ,AZBAZE_SECRET_KEY='synthetic-startup-test',AZBAZE_DB=str(self.m.DB),AZBAZE_CREDENTIALS_KEY=str(self.root/'key'),AZBAZE_SITE_ROOT=str(self.root))
         startup="import server; c=server.app.test_client(); assert c.get('/health').status_code==200"
         def boot(extra=''):
@@ -317,6 +368,15 @@ class InstallerTests(unittest.TestCase):
         names=constant(ROOT/'az-baze-auth/ztl_labor.py','TECHNICIANS')
         result=boot("\nwith c.session_transaction() as s:s['user_id']=1\nfor p in ('/accounting/ztl/order','/accounting/ztl/orders/','/accounting/ztl/payroll/'):\n html=c.get(p).get_data(as_text=True)\n for n in "+repr(names)+":assert n in html,(p,n)\n")
         self.assertEqual(result.returncode,0,result.stderr)
+
+    def test_real_server_with_known_registration_starts_and_keeps_ztl_pages(self):
+        boot=self.real_server(knowledge=True)
+        def verify():
+            self.pages(boot)
+            result=boot("\nr=c.get('/synthetic-knowledge-check'); assert r.status_code==200 and r.get_data(as_text=True)=='registered'\n")
+            self.assertEqual(result.returncode,0,result.stderr)
+        self.m.wait_health=verify
+        self.m.main();self.preserved()
 
     def test_real_server_recovers_old_forms_after_health_failure(self):
         boot=self.real_server();calls=0
