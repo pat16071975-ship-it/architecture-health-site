@@ -1,0 +1,21 @@
+name: AZ PR250 guarded delivery
+on:
+  push:
+    branches: ['ops/az-pr250-guarded-20261122']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-installer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r az-baze-auth/requirements.txt
+      - run: python -B -m unittest discover -s ops -p test_pr250_deploy.py
+      - run: sha256sum ops/apply_pr250_guarded.py
