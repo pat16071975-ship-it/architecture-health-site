@@ -68,6 +68,8 @@ def today():
 def init_schema(conn):
     conn.executescript(SCHEMA)
     ztl_control.init_schema(conn)
+    import control_center
+    control_center.init_schema(conn)
 
 
 def day(value):
@@ -89,10 +91,12 @@ def log(conn, entity, iid, action, actor, before, after):
         if isinstance(v, list):
             return [safe(x) for x in v]
         return v
-    conn.execute('INSERT INTO ztl_history(entity,entity_id,action,actor_id,changed_at,before_json,after_json) VALUES(?,?,?,?,?,?,?)',
+    cursor = conn.execute('INSERT INTO ztl_history(entity,entity_id,action,actor_id,changed_at,before_json,after_json) VALUES(?,?,?,?,?,?,?)',
                  (entity,iid,action,actor,datetime.now(ZoneInfo('UTC')).isoformat(),
                   json.dumps(safe(before),ensure_ascii=False) if before is not None else None,
                   json.dumps(safe(after),ensure_ascii=False)))
+    import control_center
+    control_center.capture(conn,cursor.lastrowid,entity,iid,action,safe(before),safe(after))
 
 
 def row_by_id(conn, table, iid):
@@ -346,7 +350,7 @@ def void_payment(conn, data, actor):
             raise Conflict('Оплата уже отменена.')
         reason=text(data.get('reason'),1000)
         conn.execute('UPDATE ztl_payments SET void_reason=?,version=version+1 WHERE id=?',(reason,p['id']))
-        log(conn,'Оплата',p['id'],'Отмена ошибочной записи (не возврат денег)',actor,p,dict(reason=reason))
+        log(conn,'Оплата',p['id'],'Отмена ошибочной записи (не возврат денег)',actor,p,row_by_id(conn,'ztl_payments',p['id']))
 
 
 def save_cost(conn,data,actor,kind):

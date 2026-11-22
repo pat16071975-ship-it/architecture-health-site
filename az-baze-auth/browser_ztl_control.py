@@ -42,6 +42,10 @@ try:
                 route.continue_()
             page.route('**/*',route)
             def submit(form,label):
+                button=form.get_by_role('button',name=label,exact=True)
+                own_form=button.locator('xpath=ancestor::form[1]')
+                reason=own_form.locator('[name=change_reason]')
+                if reason.count():reason.fill('Проверка изменения в браузере')
                 with page.expect_navigation(wait_until='networkidle'):
                     form.get_by_role('button',name=label,exact=True).click()
             response=page.goto(origin+'/accounting/ztl/?start=2026-11&end=2026-11')
@@ -297,6 +301,7 @@ try:
             page.locator('[name=completed_on]').fill('2026-11-16')
             invalid=page.locator('form input:invalid,form select:invalid').evaluate_all('(els)=>els.map(e=>({name:e.name,value:e.value,error:e.validationMessage}))')
             assert not invalid,invalid
+            if page.locator('[name=change_reason]').count():page.locator('[name=change_reason]').fill('Проверка изменения заказа')
             page.get_by_role('button',name='Сохранить заказ',exact=True).click()
             try:
                 page.wait_for_url('**/ztl/orders/?**',timeout=10000)
@@ -321,6 +326,7 @@ try:
                 else:
                     for checkbox in page.locator('[name=technician_id]').all():checkbox.uncheck()
                 with page.expect_response(lambda response: response.request.method=='POST' and '/ztl/save/order' in response.url) as response:
+                    if page.locator('[name=change_reason]').count():page.locator('[name=change_reason]').fill('Проверка изменения заказа')
                     page.get_by_role('button',name='Сохранить заказ',exact=True).click()
                 assert response.value.status==400,(change,response.value.status)
                 assert message in page.locator('body').inner_text()
@@ -329,6 +335,7 @@ try:
             assert page.locator('[name=completed_on]').input_value()=='2026-11-16'
             assert page.locator('[name=pieces]').input_value()=='2'
             assert page.locator('[name=technician_id]:checked').count()==1
+            if page.locator('[name=change_reason]').count():page.locator('[name=change_reason]').fill('Проверка изменения заказа')
             page.get_by_role('button',name='Сохранить заказ',exact=True).click()
             page.wait_for_url('**/ztl/orders/?**')
             print('AZ_238_01_02_BROWSER',width,'PASS; unchanged after each rejected request')

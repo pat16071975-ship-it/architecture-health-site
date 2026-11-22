@@ -56,7 +56,7 @@ class ZtlTests(unittest.TestCase):
     def post(self,action,data=None,client=None):
         client=client or self.client(2)
         with client.session_transaction() as s:s['csrf']='token'
-        return client.post('/accounting/ztl/save/'+action,data={**(data or {}),'csrf':'token'})
+        return client.post('/accounting/ztl/save/'+action,data={'change_reason':'Проверка изменения сохранённой записи',**(data or {}),'csrf':'token'})
 
     def cost(self,kind,period='2026-11',**kw):
         ztl.save_cost(self.c,dict(month=period,amount='10',taxes='0',version='0',**kw),1,kind)
@@ -322,7 +322,7 @@ class SuppliesPermissionsTests(unittest.TestCase):
     def post(self,action,data):
         client=self.client(2)
         with client.session_transaction() as s:s['csrf']='token'
-        return client.post('/accounting/medical-supplies/save/'+action,data={**data,'csrf':'token'})
+        return client.post('/accounting/medical-supplies/save/'+action,data={'change_reason':'Проверка изменения сохранённой записи',**data,'csrf':'token'})
 
     def test_in_only_cannot_write_out_and_missing_is_not_zero(self):
         self.grant('medical_supplies_in')

@@ -4,6 +4,10 @@ on:
     paths:
       - 'az-baze-auth/app.py'
       - 'az-baze-auth/ztl.py'
+      - 'az-baze-auth/control_center.py'
+      - 'az-baze-auth/test_control_center.py'
+      - 'az-baze-auth/browser_control_center.py'
+      - 'az-baze-auth/templates/control_center.html'
       - 'az-baze-auth/ztl_control.py'
       - 'az-baze-auth/ztl_labor.py'
       - 'az-baze-auth/test_ztl_labor.py'
@@ -33,11 +37,13 @@ jobs:
       - working-directory: az-baze-auth
         run: |
           python -B -m unittest test_ztl test_ztl_control test_ztl_labor test_medical_supplies test_accounting_section test_section_navigation
+          python -B -m unittest test_control_center.OwnerControlTests
           python -B -m unittest test_nn_foundation
           export CHROMIUM_PATH="$(command -v google-chrome || command -v chromium)"
           test -x "$CHROMIUM_PATH"
           python -B browser_ztl_control.py
           python -B browser_ztl_labor.py
+          python -B browser_control_center.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
