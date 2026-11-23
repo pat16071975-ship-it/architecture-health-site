@@ -498,8 +498,8 @@ def register(app):
             return response
         html = response.get_data(as_text=True)
         link = '<a class="menu-btn active" href="/administrators/" id="administrators">Администраторы</a>'
-        if link not in html and '<nav class="menu-column">' in html:
-            html = html.replace('<nav class="menu-column">',
-                                '<nav class="menu-column">\n' + link, 1)
+        anchor = re.search(r'<nav\b[^>]*\bclass="menu-column"[^>]*>', html)
+        if link not in html and anchor:
+            html = html.replace(anchor.group(0), anchor.group(0) + "\n" + link, 1)
             response.set_data(html)
         return response
