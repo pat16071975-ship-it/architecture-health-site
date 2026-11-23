@@ -7,6 +7,7 @@ alter existing finance modules, reports, users, roles, or payroll records.
 """
 import argparse
 import ast
+import base64
 import hashlib
 import json
 import os
@@ -161,7 +162,8 @@ def fetch_audited_files(stage):
     for name, (_before, expected) in FILES.items():
         url = f"https://raw.githubusercontent.com/{REPO}/{MERGED_SHA}/az-baze-auth/{name}"
         data = None
-        for attempt in range(3):
+        source_sha = AUDITED_SERVER_BLOB if name == "server.py" else expected
+        for attempt in range(2):
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "az-pr252-deployer"})
                 with urllib.request.urlopen(req, timeout=30) as response:
@@ -170,11 +172,25 @@ def fetch_audited_files(stage):
                     data = response.read(512 * 1024 + 1)
                 break
             except (urllib.error.URLError, TimeoutError):
-                if attempt == 2:
-                    raise
                 time.sleep(1)
+        if data is None:
+            # Fallback is pinned to the same immutable source SHA.
+            api_url = f"https://api.github.com/repos/{REPO}/git/blobs/{source_sha}"
+            req = urllib.request.Request(api_url, headers={
+                "User-Agent": "az-pr252-deployer", "Accept": "application/vnd.github+json"
+            })
+            with urllib.request.urlopen(req, timeout=30) as response:
+                if response.status != 200:
+                    fail(f"GITHUB_API_STATUS_BAD: {name}")
+                item = json.loads(response.read(1024 * 1024 + 1))
+            if item.get("encoding") != "base64":
+                fail(f"GITHUB_API_ENCODING_BAD: {name}")
+            data = base64.b64decode(item["content"])
+            print(f"FETCH_FALLBACK=GITHUB_API; FILE={name}")
         if data is None or len(data) > 512 * 1024:
             fail(f"SOURCE_TOO_LARGE_OR_MISSING: {name}")
+        if git_blob(data) != source_sha:
+            fail(f"IMMUTABLE_SOURCE_BLOB_MISMATCH: {name}")
         if name == "server.py":
             data = preserve_knowledge_catalog(data, AUDITED_SERVER_BLOB)
             if git_blob(data) != PRESERVED_SERVER_BLOB:
