@@ -195,7 +195,9 @@ def valid_confirmation(core, store, state, month):
                         Decimal(str(confirmed['adjustment'])))
         if not old_base.is_finite():
             return None
-        return old_base.quantize(Decimal('.01')) == Decimal(str(new_base)).quantize(Decimal('.01'))
+        if old_base.quantize(Decimal('.01')) != Decimal(str(new_base)).quantize(Decimal('.01')):
+            return None
+        return confirmed
     except (KeyError, TypeError, InvalidOperation, ValueError):
         return None
 
