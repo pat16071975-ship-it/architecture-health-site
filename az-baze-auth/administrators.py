@@ -1,5 +1,6 @@
 """Isolated AZ-BAZE administrators timesheet and payroll (no financial integrations)."""
 import calendar
+import hashlib
 import json
 import re
 from datetime import datetime
@@ -149,10 +150,19 @@ def form_version():
     return int(raw)
 
 
-def require_month_version(conn, month, expected, allow_closed=False):
-    """Called INSIDE BEGIN IMMEDIATE; old forms must not overwrite newer changes."""
+def form_view_revision():
+    """The immutable form token binds the POST to all values actually displayed."""
+    value = request.form.get("view_revision")
+    if not value or not re.fullmatch(r"[0-9a-f]{64}", value):
+        abort(400, description="Не указана корректная версия данных. Обновите страницу.")
+    return value
+
+
+def require_month_version(conn, month, expected, expected_view_revision, allow_closed=False):
+    """Compare both local and inherited state INSIDE BEGIN IMMEDIATE."""
     state = month_state(conn, month)
-    if state["version"] != expected:
+    if (state["version"] != expected
+            or month_view_revision(conn, month) != expected_view_revision):
         abort(409, description="Данные месяца изменились в другом окне. Обновите страницу.")
     if state["closed"] and not allow_closed:
         abort(409, description="Месяц закрыт. Для изменения его нужно повторно открыть.")
@@ -283,6 +293,26 @@ def model(conn, month):
     return state, read_rows(conn, month)
 
 
+def month_view_revision(conn, month):
+    """Fingerprint the current *visible* month, including rates inherited from earlier months.
+
+    Local month_version alone cannot detect changes in a prior month's salary rate,
+    staff name or activity that are visible in a later month. A stored future-month
+    revision would also miss a month that has never had a local row. Recalculate from
+    the effective model and check it in the same write transaction as each POST.
+    """
+    state, rows = model(conn, month)
+    payload = {
+        "month": month,
+        "version": state["version"],
+        "closed": state["closed"],
+        "rows": rows,
+    }
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True,
+                           separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
 def checked_staff(conn, staff_id):
     try:
         sid = int(staff_id)
@@ -337,6 +367,7 @@ def register(app):
         conn = core.db()
         available = ready(conn)
         state, rows = model(conn, month) if available else (dict(closed=0), [])
+        view_revision = month_view_revision(conn, month) if available else ""
         days = [
             dict(day=d, weekend=calendar.weekday(*map(int, month.split('-')), d) >= 5,
                  holiday=HOLIDAYS.get((int(month[-2:]), d)))
@@ -351,7 +382,7 @@ def register(app):
             can_settings=can(g.user, "admins_settings"),
             can_close=can(g.user, "admins_close"), can_reopen=can(g.user, "admins_reopen"),
             hour_options=options, total_fot=sum(row["total"] for row in rows),
-            csrf=core.csrf_token(),
+            csrf=core.csrf_token(), view_revision=view_revision,
         )
 
     @app.post("/administrators/hours")
@@ -361,6 +392,7 @@ def register(app):
         core.require_csrf()
         month = month_value(request.form.get("month"))
         version = form_version()
+        expected_view_revision = form_view_revision()
         conn = core.db()
         require_ready(conn)
         work_date = str(request.form.get("work_date", ""))
@@ -375,7 +407,7 @@ def register(app):
             abort(400)
         minutes = parse_hours(request.form.get("value"))
         def save():
-            require_month_version(conn, month, version)
+            require_month_version(conn, month, version, expected_view_revision)
             before = conn.execute(
                 "SELECT minutes FROM az_admin_days WHERE staff_id=? AND work_date=?",
                 (staff["id"], work_date),
@@ -405,6 +437,7 @@ def register(app):
         core.require_csrf()
         month = month_value(request.form.get("month"))
         version = form_version()
+        expected_view_revision = form_view_revision()
         conn = core.db()
         require_ready(conn)
         staff = checked_staff(conn, request.form.get("staff_id"))
@@ -412,7 +445,7 @@ def register(app):
             abort(400)
         amounts = {key: money_to_kopecks(request.form.get(key, "")) for key in BONUS_FIELDS}
         def save():
-            require_month_version(conn, month, version)
+            require_month_version(conn, month, version, expected_view_revision)
             old = conn.execute("SELECT * FROM az_admin_bonuses WHERE staff_id=? AND month=?",
                                (staff["id"], month)).fetchone()
             previous = {key: old[key] if old else 0 for key in BONUS_FIELDS}
@@ -437,6 +470,7 @@ def register(app):
         core.require_csrf()
         month = month_value(request.form.get("month"))
         version = form_version()
+        expected_view_revision = form_view_revision()
         conn = core.db()
         require_ready(conn)
         name = str(request.form.get("full_name", "")).strip()
@@ -446,7 +480,7 @@ def register(app):
         active = request.form.get("active") == "1"
         raw_id = request.form.get("staff_id", "")
         def save():
-            require_month_version(conn, month, version)
+            require_month_version(conn, month, version, expected_view_revision)
             if not raw_id:
                 if not active:
                     abort(400)
@@ -501,6 +535,7 @@ def register(app):
         core.require_csrf()
         month = month_value(request.form.get("month"))
         version = form_version()
+        expected_view_revision = form_view_revision()
         action = request.form.get("action")
         if action not in ("close", "reopen"):
             abort(400)
@@ -508,7 +543,8 @@ def register(app):
         conn = core.db()
         require_ready(conn)
         def save():
-            old = require_month_version(conn, month, version, allow_closed=True)
+            old = require_month_version(conn, month, version, expected_view_revision,
+                                        allow_closed=True)
             if action == "close":
                 if old["closed"]:
                     abort(409, description="Месяц уже закрыт.")
