@@ -733,4 +733,182 @@ class MonthlyCostsTests(unittest.TestCase):
 
 
 
+
+    def test_az254_03_new_clinic_source_100k_wins_over_old_campaign_60k(self):
+        """Auditor: parent must equal children even with mixed source and archive evidence."""
+        keys=self.instagram_owner_november_fixture()
+        state=costs.load(self.c)
+        clinic=state['entries'].pop('owner-instagram-clinic')
+        state['entries']['new-clinic-source']={
+            **clinic, 'id':'new-clinic-source', 'level':'source',
+        }
+        state['entries']['new-clinic-source'].pop('key',None)
+        self.c.execute("UPDATE report_blobs SET payload=? WHERE key=?",
+                       (costs.encode(state),costs.KEY))
+        store=core._load_cost_store(self.c)
+        store['periods']['campaigns'][keys['old_clinic']]=[{
+            'from':'2026-11-01','to':'2026-11-30',
+            'advertising_payment':60000,'contractors_payment':None,'total_spend':60000
+        }]
+        core._persist_cost_store(self.c,store);self.c.commit()
+        before_store=core._load_cost_store(self.c)
+        before_state=costs.load(self.c)
+        before_changes=self.c.total_changes
+        self.assertEqual(self.view()['fixed'],250000)
+        a,b=date(2026,11,1),date(2026,11,23)
+        parent=next(r for r in core._group_breakdown(self.c,a,b,'source')
+                    if r['source_key']=='instagram')
+        kids={r['campaign_name']:r for r in core._group_breakdown(self.c,a,b,'campaign')
+              if r['source_key']=='instagram'}
+        self.assertEqual(parent['spend'],191666.67)
+        self.assertEqual(kids['Зубачев']['spend'],115000)
+        self.assertEqual(kids['Клиника']['spend'],76666.67)
+        self.assertEqual(round(sum(r['spend'] for r in kids.values()),2),parent['spend'])
+        # A new confirmation must approve the corrected basis, not historical 60k.
+        self.approve()
+        confirmed=self.view()['confirmed']
+        self.assertEqual(confirmed['fixed'],250000)
+        self.assertEqual(confirmed['base_fixed'],250000)
+        self.assertEqual(confirmed['calculation_version'],costs.CONFIRMATION_CALC_VERSION)
+        self.assertEqual(costs.period_costs(core,self.c,a,b)['fixed'],191666.67)
+        self.assertEqual(core._load_cost_store(self.c),before_store)
+        self.assertEqual(before_state['entries'],costs.load(self.c)['entries'])
+        self.assertGreaterEqual(self.c.total_changes,before_changes)
+        # Reading never changes stored rows; explicit confirmation alone does.
+        read_changes=self.c.total_changes
+        core._group_breakdown(self.c,a,b,'campaign')
+        core._group_breakdown(self.c,a,b,'source')
+        self.assertEqual(read_changes,self.c.total_changes)
+
+    def az254_old_100k_approval_fixture(self, *, adjustment=0):
+        """A true pre-v3 confirmation, created when any source-level row hid children."""
+        keys=self.instagram_owner_november_fixture()
+        state=costs.load(self.c)
+        state['entries']['old-clinic-source-duplicate']={
+            'id':'old-clinic-source-duplicate','month':'2026-11',
+            'source':'instagram','level':'source',
+            'label':'Отделение структуры','amount':100000,
+            'comment':'','legacy':False,
+        }
+        store=core._load_cost_store(self.c)
+        fixed=100000+adjustment
+        original={
+            'fixed':fixed,'adjustment':adjustment,'direct_at_confirmation':100,
+            'at':'2026-11-12T11:00:00Z','actor':1,
+            'records_digest':costs.digest(costs.selected_records(
+                costs.records(core,store,state),'2026-11')),
+        }
+        state['confirmed']['2026-11']=original
+        state['history'].append({
+            'action':'confirm','before':None,'after':dict(original),
+            'actor':1,'at':'2026-11-12T11:00:00Z',
+            'months':['2026-11'],'invalidated_confirmations':{},
+        })
+        self.c.execute("UPDATE report_blobs SET payload=? WHERE key=?",
+                       (costs.encode(state),costs.KEY))
+        self.c.commit()
+        return original
+
+    def test_az254_04_old_auto_confirmation_cannot_certify_changed_base(self):
+        old=self.az254_old_100k_approval_fixture()
+        before_state=costs.load(self.c)
+        before_store=core._load_cost_store(self.c)
+        before_changes=self.c.total_changes
+        month=self.view()
+        self.assertEqual(month['fixed'],250000)
+        self.assertIsNone(month['confirmed'])
+        self.assertIsNone(month['confirmed_total'])
+        self.assertEqual(month['stale_confirmation'],
+                         {'fixed':100000,'adjustment':0})
+        a,b=date(2026,11,1),date(2026,11,23)
+        self.assertIsNone(costs.valid_confirmation(
+            core,before_store,before_state,'2026-11'))
+        period=costs.period_costs(core,self.c,a,b)
+        self.assertIsNone(period['fixed'])
+        self.assertIsNone(period['total'])
+        self.assertIsNone(core._summary(self.c,a,b)['spend'])
+        children={r['campaign_name']:r for r in core._group_breakdown(
+            self.c,a,b,'campaign') if r['source_key']=='instagram'}
+        parent=next(r for r in core._group_breakdown(self.c,a,b,'source')
+                    if r['source_key']=='instagram')
+        self.assertEqual(children['Зубачев']['spend'],115000)
+        self.assertEqual(children['Клиника']['spend'],76666.67)
+        self.assertEqual(parent['spend'],191666.67)
+        self.assertEqual(before_state,costs.load(self.c))
+        self.assertEqual(before_store,core._load_cost_store(self.c))
+        self.assertEqual(before_changes,self.c.total_changes)
+        # Reapproval is explicit: raw history keeps the original fixed=100k.
+        self.approve()
+        self.assertEqual(self.view()['confirmed']['fixed'],250000)
+        self.assertEqual(costs.period_costs(core,self.c,a,b)['fixed'],191666.67)
+        history=costs.load(self.c)['history']
+        self.assertEqual(history[0]['after'],old)
+        self.assertEqual(history[-1]['before'],old)
+        self.assertEqual(len(history),2)
+
+    def test_az254_04_manual_adjustment_is_preserved_until_explicit_reapproval(self):
+        old=self.az254_old_100k_approval_fixture(adjustment=30000)
+        before_state=costs.load(self.c)
+        before_changes=self.c.total_changes
+        m=self.view()
+        self.assertEqual(m['fixed'],250000)
+        self.assertIsNone(m['confirmed'])
+        self.assertEqual(m['stale_confirmation'],
+                         {'fixed':130000,'adjustment':30000})
+        a,b=date(2026,11,1),date(2026,11,23)
+        self.assertIsNone(costs.period_costs(core,self.c,a,b)['total'])
+        self.assertEqual(before_changes,self.c.total_changes)
+        self.assertEqual(costs.load(self.c),before_state)
+        # Only an explicit owner action restores the SAME manual +30k delta.
+        # Direct's 100 RUB is added to the entered total for this test fixture.
+        self.change(action='confirm',mode='manual',total='280100')
+        confirmed=self.view()['confirmed']
+        self.assertEqual(confirmed['fixed'],280000)
+        self.assertEqual(confirmed['adjustment'],30000)
+        self.assertEqual(confirmed['base_fixed'],250000)
+        self.assertEqual(confirmed['mode'],'manual')
+        self.assertEqual(costs.period_costs(core,self.c,a,b)['fixed'],214666.67)
+        history=costs.load(self.c)['history']
+        self.assertEqual(history[0]['after'],old)
+        self.assertEqual(history[-1]['before'],old)
+
+    def test_az254_04_unchanged_legacy_auto_and_manual_approvals_still_work(self):
+        self.add(3000)
+        self.change(action='confirm',mode='manual',total='3400')
+        state=costs.load(self.c)
+        old=state['confirmed']['2026-11']
+        self.assertEqual(old['fixed'],3300)
+        for field in ('calculation_version','base_fixed','mode'):
+            old.pop(field,None)
+        self.c.execute("UPDATE report_blobs SET payload=? WHERE key=?",
+                       (costs.encode(state),costs.KEY))
+        self.c.commit()
+        self.assertEqual(self.view()['confirmed']['fixed'],3300)
+        self.assertIsNone(self.view()['stale_confirmation'])
+        self.assertEqual(costs.period_costs(
+            core,self.c,date(2026,11,1),date(2026,11,15))['fixed'],1650)
+        before=costs.load(self.c)
+        changes=self.c.total_changes
+        self.view()
+        self.assertEqual(changes,self.c.total_changes)
+        self.assertEqual(before,costs.load(self.c))
+
+    def test_az254_04_new_confirmation_version_tampering_fails_closed(self):
+        self.add(3000)
+        self.approve()
+        original=costs.load(self.c)
+        for key,value in [('calculation_version','outdated-engine-v1'),
+                          ('base_fixed',2900)]:
+            mutated=costs.load(self.c)
+            mutated['confirmed']['2026-11'][key]=value
+            self.c.execute("UPDATE report_blobs SET payload=? WHERE key=?",
+                           (costs.encode(mutated),costs.KEY))
+            self.c.commit()
+            self.assertIsNone(self.view()['confirmed'])
+        self.c.execute("UPDATE report_blobs SET payload=? WHERE key=?",
+                       (costs.encode(original),costs.KEY))
+        self.c.commit()
+        self.assertIsNotNone(self.view()['confirmed'])
+
+
 if __name__=='__main__':unittest.main()
