@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS az_admin_bonuses (
 CREATE TABLE IF NOT EXISTS az_admin_months (
     month TEXT PRIMARY KEY,
     closed INTEGER NOT NULL DEFAULT 0 CHECK(closed IN (0,1)),
+    version INTEGER NOT NULL DEFAULT 0 CHECK(version >= 0),
     snapshot TEXT,
     closed_by INTEGER,
     closed_at TEXT
@@ -141,10 +142,30 @@ def require_ready(conn):
         abort(409, description="Раздел ещё не подготовлен к работе.")
 
 
-def not_closed(conn, month):
-    row = conn.execute("SELECT closed FROM az_admin_months WHERE month=?", (month,)).fetchone()
-    if row and row["closed"]:
+def form_version():
+    raw = request.form.get("version")
+    if not raw or not re.fullmatch(r"(0|[1-9][0-9]*)", raw) or len(raw) > 18:
+        abort(400, description="Не указана корректная версия месяца. Обновите страницу.")
+    return int(raw)
+
+
+def require_month_version(conn, month, expected, allow_closed=False):
+    """Called INSIDE BEGIN IMMEDIATE; old forms must not overwrite newer changes."""
+    state = month_state(conn, month)
+    if state["version"] != expected:
+        abort(409, description="Данные месяца изменились в другом окне. Обновите страницу.")
+    if state["closed"] and not allow_closed:
         abort(409, description="Месяц закрыт. Для изменения его нужно повторно открыть.")
+    return state
+
+
+def advance_month_version(conn, month):
+    """Bump only after a real edit and in the same transaction as its audit."""
+    conn.execute(
+        "INSERT INTO az_admin_months(month,version) VALUES(?,1) "
+        "ON CONFLICT(month) DO UPDATE SET version=az_admin_months.version+1",
+        (month,),
+    )
 
 
 def money_to_kopecks(value):
@@ -192,7 +213,7 @@ def hourly_pay(kopecks, minutes):
 
 def month_state(conn, month):
     row = conn.execute("SELECT * FROM az_admin_months WHERE month=?", (month,)).fetchone()
-    return dict(row) if row else dict(month=month, closed=0, snapshot=None,
+    return dict(row) if row else dict(month=month, closed=0, version=0, snapshot=None,
                                       closed_by=None, closed_at=None)
 
 
@@ -339,6 +360,7 @@ def register(app):
         require("admins_hours")
         core.require_csrf()
         month = month_value(request.form.get("month"))
+        version = form_version()
         conn = core.db()
         require_ready(conn)
         work_date = str(request.form.get("work_date", ""))
@@ -353,7 +375,7 @@ def register(app):
             abort(400)
         minutes = parse_hours(request.form.get("value"))
         def save():
-            not_closed(conn, month)
+            require_month_version(conn, month, version)
             before = conn.execute(
                 "SELECT minutes FROM az_admin_days WHERE staff_id=? AND work_date=?",
                 (staff["id"], work_date),
@@ -372,6 +394,7 @@ def register(app):
                 )
             audit(conn, month, "hours", {"date": work_date, "minutes": previous},
                   {"date": work_date, "minutes": minutes}, staff["id"])
+            advance_month_version(conn, month)
         transaction(conn, save)
         return redirect_tab(month, "table")
 
@@ -381,6 +404,7 @@ def register(app):
         require("admins_payroll")
         core.require_csrf()
         month = month_value(request.form.get("month"))
+        version = form_version()
         conn = core.db()
         require_ready(conn)
         staff = checked_staff(conn, request.form.get("staff_id"))
@@ -388,7 +412,7 @@ def register(app):
             abort(400)
         amounts = {key: money_to_kopecks(request.form.get(key, "")) for key in BONUS_FIELDS}
         def save():
-            not_closed(conn, month)
+            require_month_version(conn, month, version)
             old = conn.execute("SELECT * FROM az_admin_bonuses WHERE staff_id=? AND month=?",
                                (staff["id"], month)).fetchone()
             previous = {key: old[key] if old else 0 for key in BONUS_FIELDS}
@@ -402,6 +426,7 @@ def register(app):
                 (staff["id"], month, *(amounts[k] for k in BONUS_FIELDS)),
             )
             audit(conn, month, "premiums", previous, amounts, staff["id"])
+            advance_month_version(conn, month)
         transaction(conn, save)
         return redirect_tab(month, "payroll")
 
@@ -411,6 +436,7 @@ def register(app):
         require("admins_settings")
         core.require_csrf()
         month = month_value(request.form.get("month"))
+        version = form_version()
         conn = core.db()
         require_ready(conn)
         name = str(request.form.get("full_name", "")).strip()
@@ -420,7 +446,7 @@ def register(app):
         active = request.form.get("active") == "1"
         raw_id = request.form.get("staff_id", "")
         def save():
-            not_closed(conn, month)
+            require_month_version(conn, month, version)
             if not raw_id:
                 if not active:
                     abort(400)
@@ -446,7 +472,12 @@ def register(app):
                 was_active = not bool(old["inactive_month"] and old["inactive_month"] <= month)
                 if old["full_name"] == name and old_rate == rate and was_active == active:
                     return
-                inactive_month = None if active else month
+                # Editing an earlier month's rate must preserve a scheduled future deactivation.
+                inactive_month = (
+                    old["inactive_month"]
+                    if active and old["inactive_month"] and old["inactive_month"] > month
+                    else (None if active else month)
+                )
                 conn.execute("UPDATE az_admin_staff SET full_name=?,inactive_month=?,updated_at=? "
                              "WHERE id=?", (name, inactive_month, now(), sid))
                 if old_rate != rate:
@@ -456,8 +487,11 @@ def register(app):
                         (sid, month, rate),
                     )
                 audit(conn, month, "staff_updated",
-                      {"name": old["full_name"], "rate": old_rate, "active": was_active},
-                      {"name": name, "rate": rate, "active": active}, sid)
+                      {"name": old["full_name"], "rate": old_rate,
+                       "active": was_active, "inactive_month": old["inactive_month"]},
+                      {"name": name, "rate": rate, "active": active,
+                       "inactive_month": inactive_month}, sid)
+            advance_month_version(conn, month)
         transaction(conn, save)
         return redirect_tab(month, "settings")
 
@@ -466,6 +500,7 @@ def register(app):
     def administrators_month():
         core.require_csrf()
         month = month_value(request.form.get("month"))
+        version = form_version()
         action = request.form.get("action")
         if action not in ("close", "reopen"):
             abort(400)
@@ -473,7 +508,7 @@ def register(app):
         conn = core.db()
         require_ready(conn)
         def save():
-            old = month_state(conn, month)
+            old = require_month_version(conn, month, version, allow_closed=True)
             if action == "close":
                 if old["closed"]:
                     abort(409, description="Месяц уже закрыт.")
@@ -487,12 +522,14 @@ def register(app):
                 )
                 audit(conn, month, "month_closed", {"closed": False},
                       {"closed": True, "snapshot": snapshot})
+                advance_month_version(conn, month)
             else:
                 if not old["closed"]:
                     abort(409, description="Месяц уже открыт.")
                 conn.execute("UPDATE az_admin_months SET closed=0 WHERE month=?", (month,))
                 audit(conn, month, "month_reopened",
                       {"closed": True, "snapshot": old["snapshot"]}, {"closed": False})
+                advance_month_version(conn, month)
         transaction(conn, save)
         return redirect_tab(month, "payroll")
 
