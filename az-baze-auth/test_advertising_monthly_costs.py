@@ -764,6 +764,7 @@ class MonthlyCostsTests(unittest.TestCase):
         self.assertEqual(kids['Зубачев']['spend'],115000)
         self.assertEqual(kids['Клиника']['spend'],76666.67)
         self.assertEqual(round(sum(r['spend'] for r in kids.values()),2),parent['spend'])
+        self.assertEqual(before_changes,self.c.total_changes)
         # A new confirmation must approve the corrected basis, not historical 60k.
         self.approve()
         confirmed=self.view()['confirmed']
@@ -773,7 +774,6 @@ class MonthlyCostsTests(unittest.TestCase):
         self.assertEqual(costs.period_costs(core,self.c,a,b)['fixed'],191666.67)
         self.assertEqual(core._load_cost_store(self.c),before_store)
         self.assertEqual(before_state['entries'],costs.load(self.c)['entries'])
-        self.assertGreaterEqual(self.c.total_changes,before_changes)
         # Reading never changes stored rows; explicit confirmation alone does.
         read_changes=self.c.total_changes
         core._group_breakdown(self.c,a,b,'campaign')
