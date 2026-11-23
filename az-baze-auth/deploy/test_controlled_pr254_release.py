@@ -97,8 +97,13 @@ class ControlledPR254ReleaseTests(unittest.TestCase):
             sha = req.full_url.rsplit("/", 1)[-1]
             self.assertIn(sha, data_map)
             encoded = base64.b64encode(data_map[sha]).decode()
+            # Match actual GitHub Git Blob API: base64 is wrapped in
+            # newlines, sometimes with trailing whitespace.
+            wrapped = "\n".join(
+                encoded[i:i+76] for i in range(0, len(encoded), 76)
+            ) + "\n"
             return Response(json.dumps({
-                "encoding": "base64", "content": encoded
+                "encoding": "base64", "content": wrapped
             }).encode())
         with patch.object(pkg.urllib.request, "urlopen", side_effect=fake_open):
             for sha, expected in data_map.items():
@@ -111,6 +116,14 @@ class ControlledPR254ReleaseTests(unittest.TestCase):
             }).encode())
         with patch.object(pkg.urllib.request, "urlopen", side_effect=fake_bad):
             with self.assertRaisesRegex(RuntimeError, "BLOB_INVALID"):
+                pkg.fetch_blob(next(iter(data_map)))
+
+        def fake_corrupted(_req, timeout):
+            return Response(json.dumps({
+                "encoding": "base64", "content": "SGVsbG8=\\n@@bad"
+            }).encode())
+        with patch.object(pkg.urllib.request, "urlopen", side_effect=fake_corrupted):
+            with self.assertRaisesRegex(RuntimeError, "BASE64_INVALID"):
                 pkg.fetch_blob(next(iter(data_map)))
 
     def test_db_backup_readonly_and_no_schema_changes(self):
