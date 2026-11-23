@@ -8,6 +8,7 @@ import access_contacts_ext
 import attention
 import credentials_store
 import clinic_structure_settings
+import administrators
 import daily_upload
 import completed_upload
 import services_upload
@@ -81,6 +82,7 @@ paid_services_upload.register_paid_services_upload(app)
 credentials_store.register_credentials(app)
 access_contacts_ext.register(app)
 clinic_structure_settings.register(app)
+administrators.register(app)
 
 
 @app.context_processor
