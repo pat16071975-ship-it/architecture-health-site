@@ -2,6 +2,7 @@
 {% block content %}
 <style>
 .az-admin{--az-name:196px;--az-total:86px}
+@media(min-width:1000px){body .shell{width:min(1320px,96vw)}}
 .az-admin-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 .az-admin-sub{font-size:12px;line-height:1.5;color:#6c746d;margin:5px 0 0}
 .az-admin-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:19px 0 16px}
@@ -79,7 +80,7 @@
   {% if not ready %}
     <p class="error">Раздел ещё не подготовлен в базе данных. Просмотр и ввод будут доступны после отдельной установки.</p>
   {% elif tab == 'table' %}
-    <p class="az-admin-note">По умолчанию все дни — «вых». Для рабочего дня выберите часы. Субботы, воскресенья и праздники подсвечены независимо от графика. Итого часов находится рядом с ФИО.</p>
+    <p class="az-admin-note">По умолчанию все дни — «вых». Для рабочего дня выберите часы. Субботы, воскресенья и праздники подсвечены независимо от графика. Итого часов находится рядом с ФИО. Остальные даты — прокруткой таблицы вправо.</p>
     {% if not rows %}
       <p class="muted">Администраторы ещё не добавлены. Добавьте сотрудников во вкладке «Настройки».</p>
     {% else %}
