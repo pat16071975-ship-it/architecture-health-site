@@ -291,7 +291,10 @@ def register(app):
 
     @app.context_processor
     def administrators_permissions():
-        return {"administrators_permission_options": PERMISSIONS}
+        return {"administrators_permission_options": tuple(
+            (key, label) for key, label in PERMISSIONS
+            if key != "admins_reopen" or core.is_owner(getattr(g, "user", None))
+        )}
 
     @app.template_filter("az_admin_money")
     def admin_money(value):
