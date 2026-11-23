@@ -118,7 +118,8 @@ def read_db(path):
     return conn
 
 
-def check_db(path=DB):
+def check_db(path=None):
+    path = path or DB
     conn = read_db(path)
     try:
         if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
