@@ -71,7 +71,9 @@ class AdministratorsTests(unittest.TestCase):
     def post(self, uid, endpoint, **fields):
         month = fields.pop("month", "2026-11")
         version = fields.pop("version", adm.month_state(self.conn, month)["version"])
-        data = dict(csrf="admin-test-csrf", month=month, version=str(version))
+        view_revision = fields.pop("view_revision", adm.month_view_revision(self.conn, month))
+        data = dict(csrf="admin-test-csrf", month=month, version=str(version),
+                    view_revision=str(view_revision))
         data.update(fields)
         return self.client(uid).post("/administrators/" + endpoint, data=data)
 
@@ -152,6 +154,7 @@ class AdministratorsTests(unittest.TestCase):
         self.assertEqual(self.client(1).post("/administrators/settings", data=dict(
             csrf="admin-test-csrf", month="2026-12",
             version=str(adm.month_state(self.conn, "2026-12")["version"]),
+            view_revision=adm.month_view_revision(self.conn, "2026-12"),
             staff_id=str(sid), full_name="Иванова Анна",
             rate="250,00", active="1",
         )).status_code, 303)
@@ -295,6 +298,113 @@ class AdministratorsTests(unittest.TestCase):
             "csrf": "admin-test-csrf", "month": "2026-11", "action": "close"})
         self.assertEqual(raw.status_code, 400)
         self.assertEqual(self.snapshot(), before)
+
+
+
+    def test_az_252_01_cross_month_old_december_settings_cannot_restore_november_rate(self):
+        """Review reproduction: December 200 RUB form, November 200→210, stale December POST."""
+        sid = self.staff(rate="200")
+        self.assertEqual(self.post(
+            4, "hours", month="2026-12", staff_id=str(sid),
+            work_date="2026-12-03", value="10",
+        ).status_code, 303)
+        dec_state = adm.month_state(self.conn, "2026-12")
+        dec_version = dec_state["version"]
+        stale_revision = adm.month_view_revision(self.conn, "2026-12")
+        old_form = self.client(1).get("/administrators/?tab=settings&month=2026-12")
+        self.assertEqual(old_form.status_code, 200)
+        self.assertIn('name="view_revision" value="' + stale_revision + '"', old_form.text)
+        self.assertIn('name="rate"', old_form.text)
+        self.assertEqual(adm.read_rows(self.conn, "2026-12")[0]["rate"], 20000)
+
+        self.assertEqual(self.post(
+            1, "settings", month="2026-11", staff_id=str(sid),
+            full_name="Иванова Анна", rate="210", active="1",
+        ).status_code, 303)
+        self.assertEqual(adm.month_state(self.conn, "2026-12")["version"], dec_version)
+        self.assertNotEqual(adm.month_view_revision(self.conn, "2026-12"), stale_revision)
+        self.assertEqual(adm.read_rows(self.conn, "2026-12")[0]["rate"], 21000)
+        before = self.snapshot()
+
+        stale = self.post(
+            1, "settings", month="2026-12", staff_id=str(sid),
+            full_name="Иванова Анна", rate="200", active="1",
+            version=dec_version, view_revision=stale_revision,
+        )
+        self.assertEqual(stale.status_code, 409)
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(adm.read_rows(self.conn, "2026-12")[0]["rate"], 21000)
+        self.assertEqual(adm.month_state(self.conn, "2026-12")["version"], dec_version)
+        refreshed = self.client(1).get("/administrators/?tab=settings&month=2026-12")
+        self.assertIn('value="210,00"', refreshed.text)
+        self.assertEqual(self.post(
+            1, "settings", month="2026-12", staff_id=str(sid),
+            full_name="Иванова Анна", rate="210", active="1",
+        ).status_code, 303)
+
+    def test_az_252_01_cross_month_stale_december_close_must_not_approve_2100_after_seeing_2000(self):
+        """Review reproduction: old 2,000 RUB close form must reject after inherited rate becomes 2,100."""
+        sid = self.staff(rate="200")
+        self.assertEqual(self.post(
+            4, "hours", month="2026-12", staff_id=str(sid),
+            work_date="2026-12-03", value="10",
+        ).status_code, 303)
+        old_version = adm.month_state(self.conn, "2026-12")["version"]
+        old_revision = adm.month_view_revision(self.conn, "2026-12")
+        old_form = self.client(5).get("/administrators/?tab=payroll&month=2026-12")
+        self.assertIn("2 000,00", old_form.text)
+        self.assertIn('name="view_revision" value="' + old_revision + '"', old_form.text)
+
+        self.assertEqual(self.post(
+            1, "settings", month="2026-11", staff_id=str(sid),
+            full_name="Иванова Анна", rate="210", active="1",
+        ).status_code, 303)
+        self.assertEqual(adm.month_state(self.conn, "2026-12")["version"], old_version)
+        self.assertNotEqual(adm.month_view_revision(self.conn, "2026-12"), old_revision)
+        self.assertEqual(adm.read_rows(self.conn, "2026-12")[0]["total"], 210000)
+        before = self.snapshot()
+
+        stale_close = self.post(
+            5, "month", month="2026-12", action="close",
+            version=old_version, view_revision=old_revision,
+        )
+        self.assertEqual(stale_close.status_code, 409)
+        self.assertEqual(self.snapshot(), before)
+        self.assertFalse(adm.month_state(self.conn, "2026-12")["closed"])
+
+        fresh = self.client(5).get("/administrators/?tab=payroll&month=2026-12")
+        self.assertIn("2 100,00", fresh.text)
+        self.assertEqual(self.post(
+            5, "month", month="2026-12", action="close",
+        ).status_code, 303)
+        state, rows = adm.model(self.conn, "2026-12")
+        self.assertEqual(state["closed"], 1)
+        self.assertEqual(rows[0]["total"], 210000)
+
+    def test_az_252_01_cross_month_revision_guards_hours_and_payroll_too(self):
+        sid = self.staff(rate="200")
+        dec_version = adm.month_state(self.conn, "2026-12")["version"]
+        dec_revision = adm.month_view_revision(self.conn, "2026-12")
+        self.assertEqual(self.post(
+            1, "settings", month="2026-11", staff_id=str(sid),
+            full_name="Иванова Анна", rate="210", active="1",
+        ).status_code, 303)
+        before = self.snapshot()
+        self.assertEqual(self.post(
+            4, "hours", month="2026-12", staff_id=str(sid),
+            work_date="2026-12-03", value="10",
+            version=dec_version, view_revision=dec_revision,
+        ).status_code, 409)
+        self.assertEqual(self.post(
+            5, "payroll", month="2026-12", staff_id=str(sid),
+            standards="1800", conversion="0", category="0", plan="0", extras="0",
+            version=dec_version, view_revision=dec_revision,
+        ).status_code, 409)
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.post(
+            4, "hours", month="2026-12", staff_id=str(sid),
+            work_date="2026-12-03", value="10",
+        ).status_code, 303)
 
 
 if __name__ == "__main__":
