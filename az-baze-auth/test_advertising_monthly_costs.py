@@ -651,12 +651,45 @@ class MonthlyCostsTests(unittest.TestCase):
         kids={r['campaign_name']:r for r in core._group_breakdown(self.c,a,b,'campaign')
               if r['source_key']=='instagram'}
         self.assertEqual(kids['Клиника']['spend'],100000)
+        self.assertEqual(self.view()['fixed'],100000)
+        self.assertEqual(next(x['spend'] for x in core._group_breakdown(
+            self.c,a,b,'source') if x['source_key']=='instagram'),100000)
         store['periods']['campaigns'][keys['real_clinic']][0]['total_spend']=110000
         store['periods']['campaigns'][keys['real_clinic']][0]['advertising_payment']=110000
         core._persist_cost_store(self.c,store);self.c.commit()
         kids={r['campaign_name']:r for r in core._group_breakdown(self.c,a,b,'campaign')
               if r['source_key']=='instagram'}
         self.assertIsNone(kids['Клиника']['spend'])
+        self.assertIsNone(self.view()['fixed'])
+        self.assertIsNone(next(x['spend'] for x in core._group_breakdown(
+            self.c,a,b,'source') if x['source_key']=='instagram'))
+
+    def test_az254_02_monthly_payment_supersedes_duplicate_legacy_old_key(self):
+        keys=self.instagram_owner_november_fixture()
+        store=core._load_cost_store(self.c)
+        store['periods']['campaigns'][keys['old_clinic']]=[{
+            'from':'2026-11-01','to':'2026-11-30',
+            'advertising_payment':100000,'contractors_payment':None,
+            'total_spend':100000,
+        }]
+        core._persist_cost_store(self.c,store);self.c.commit()
+        before_store=core._load_cost_store(self.c)
+        before_state=costs.load(self.c)
+        before_changes=self.c.total_changes
+        a,b=date(2026,11,1),date(2026,11,23)
+        children={x['campaign_name']:x for x in core._group_breakdown(
+            self.c,a,b,'campaign') if x['source_key']=='instagram'}
+        parent=next(x for x in core._group_breakdown(
+            self.c,a,b,'source') if x['source_key']=='instagram')
+        self.assertEqual(children['Клиника']['spend'],76666.67)
+        self.assertEqual(children['Зубачев']['spend'],115000)
+        self.assertEqual(parent['spend'],191666.67)
+        self.assertEqual(round(sum(x['spend'] for x in children.values()),2),
+                         parent['spend'])
+        self.assertEqual(self.view()['fixed'],250000)
+        self.assertEqual(before_changes,self.c.total_changes)
+        self.assertEqual(before_store,core._load_cost_store(self.c))
+        self.assertEqual(before_state,costs.load(self.c))
 
 
 if __name__=='__main__':unittest.main()
