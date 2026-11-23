@@ -1,5 +1,6 @@
 """AZ administrators independent worktime/pay tests. No production data."""
 import os
+import re
 import shutil
 import sqlite3
 import tempfile
@@ -405,6 +406,95 @@ class AdministratorsTests(unittest.TestCase):
             4, "hours", month="2026-12", staff_id=str(sid),
             work_date="2026-12-03", value="10",
         ).status_code, 303)
+
+
+
+    def test_az_252_01_consistent_html_and_token_when_rate_changes_at_token_boundary(self):
+        """HTTP concurrency: page still says 2000; POST may not close refreshed 2100."""
+        sid = self.staff(rate="200")
+        self.assertEqual(self.post(
+            4, "hours", month="2026-12", staff_id=str(sid),
+            work_date="2026-12-03", value="10",
+        ).status_code, 303)
+        self.assertEqual(self.conn.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
+        old_version = adm.month_state(self.conn, "2026-12")["version"]
+        old_revision = adm.month_view_revision(self.conn, "2026-12")
+        original = adm.month_view_revision_from_model
+        switched = []
+
+        def concurrent_update_between_model_and_token(month, state, rows):
+            if month == "2026-12" and not switched:
+                self.assertEqual(rows[0]["total"], 200000)
+                switched.append(True)
+                # Separate authenticated HTTP request during the reader's GET.
+                update = self.post(
+                    1, "settings", month="2026-11", staff_id=str(sid),
+                    full_name="Иванова Анна", rate="210", active="1",
+                )
+                self.assertEqual(update.status_code, 303)
+            return original(month, state, rows)
+
+        with patch.object(adm, "month_view_revision_from_model",
+                          side_effect=concurrent_update_between_model_and_token):
+            page = self.client(5).get("/administrators/?tab=payroll&month=2026-12")
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(len(switched), 1)
+        self.assertIn("2 000,00", page.text)
+        match = re.search(r'name="view_revision" value="([0-9a-f]{64})"', page.text)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), old_revision)
+        self.assertEqual(adm.read_rows(self.conn, "2026-12")[0]["total"], 210000)
+        self.assertNotEqual(adm.month_view_revision(self.conn, "2026-12"), old_revision)
+        before = self.snapshot()
+        result = self.post(
+            5, "month", month="2026-12", action="close",
+            version=old_version, view_revision=match.group(1),
+        )
+        self.assertEqual(result.status_code, 409)
+        self.assertEqual(self.snapshot(), before)
+        self.assertFalse(adm.month_state(self.conn, "2026-12")["closed"])
+        refreshed = self.client(5).get("/administrators/?tab=payroll&month=2026-12")
+        self.assertIn("2 100,00", refreshed.text)
+
+    def test_az_252_01_reads_page_model_on_one_sqlite_snapshot(self):
+        """WAL writer commits after the first GET SELECT, before read_rows SELECTs."""
+        sid = self.staff(rate="200")
+        self.assertEqual(self.post(
+            4, "hours", month="2026-12", staff_id=str(sid),
+            work_date="2026-12-03", value="10",
+        ).status_code, 303)
+        self.assertEqual(self.conn.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
+        old_revision = adm.month_view_revision(self.conn, "2026-12")
+        old_version = adm.month_state(self.conn, "2026-12")["version"]
+        original_rows = adm.read_rows
+        switched = []
+
+        def update_after_first_select(conn, month):
+            if month == "2026-12" and not switched:
+                switched.append(True)
+                update = self.post(
+                    1, "settings", month="2026-11", staff_id=str(sid),
+                    full_name="Иванова Анна", rate="210", active="1",
+                )
+                self.assertEqual(update.status_code, 303)
+            return original_rows(conn, month)
+
+        with patch.object(adm, "read_rows", side_effect=update_after_first_select):
+            page = self.client(5).get("/administrators/?tab=payroll&month=2026-12")
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(len(switched), 1)
+        self.assertIn("2 000,00", page.text)
+        match = re.search(r'name="view_revision" value="([0-9a-f]{64})"', page.text)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), old_revision)
+        self.assertEqual(adm.read_rows(self.conn, "2026-12")[0]["total"], 210000)
+        before = self.snapshot()
+        self.assertEqual(self.post(
+            5, "month", month="2026-12", action="close",
+            version=old_version, view_revision=old_revision,
+        ).status_code, 409)
+        self.assertEqual(self.snapshot(), before)
+        self.assertFalse(adm.month_state(self.conn, "2026-12")["closed"])
 
 
 if __name__ == "__main__":
