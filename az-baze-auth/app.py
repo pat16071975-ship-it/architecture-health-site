@@ -556,7 +556,7 @@ def create_app():
         user = db().execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             abort(404)
-        if (is_owner(user) or control_center.protected_user(db(),user_id)) and not is_owner(g.user):
+        if protected_admin_target(user) and not is_owner(g.user):
             abort(403)
         error = None
         if request.method == "POST":
@@ -610,7 +610,7 @@ def create_app():
         user = db().execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             abort(404)
-        if (is_owner(user) or control_center.protected_user(db(),user_id)) and not is_owner(g.user):
+        if protected_admin_target(user) and not is_owner(g.user):
             abort(403)
         temp_password = secrets.token_urlsafe(10)
         db().execute(
@@ -715,6 +715,17 @@ def explicit_permissions(user_id):
 
 def is_owner(user):
     return bool(user and OWNER_EMAIL and str(user["email"]).strip().lower() == OWNER_EMAIL)
+
+
+def protected_admin_target(user):
+    """Account takeover guard for privileged users; applies to edit and password reset."""
+    return bool(
+        user and (
+            is_owner(user)
+            or control_center.protected_user(db(), user["id"])
+            or "admins_reopen" in explicit_permissions(user["id"])
+        )
+    )
 
 
 def user_permissions(user):
