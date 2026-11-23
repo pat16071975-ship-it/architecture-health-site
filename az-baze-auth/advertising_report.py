@@ -1118,6 +1118,51 @@ def _effective_cost_components(summary, direct_spend=None):
     }
 
 
+def _historical_campaign_summary(store, meta, start, end):
+    """Resolve old Instagram campaign keys without changing stored periods.
+
+    The user-visible Instagram identity can be canonicalized from «Отделение
+    структуры» to «Клиника», while existing `store.periods.campaigns` remain
+    indexed by their ORIGINAL key. A canonical-only lookup silently loses the
+    historical expense. Combine all equivalent keys strictly for this report
+    lookup, preserving the established exact date-range contract.
+    """
+    canonical = meta["campaign_key"]
+    if meta["source_key"] != "instagram" or not meta.get("cost_record_keys"):
+        return _cost_entity_summary(store, "campaign", canonical, start, end)
+    keys = list(dict.fromkeys([canonical, *meta["cost_record_keys"]]))
+    if len(keys) == 1:
+        return _cost_entity_summary(store, "campaign", canonical, start, end)
+    unique = {}
+    conflicting = False
+    for key in keys:
+        for period in _cost_entity_periods(store, "campaign", key):
+            interval = (period["from"], period["to"])
+            previous = unique.get(interval)
+            if previous is None:
+                unique[interval] = period
+                continue
+            money_fields = ("advertising_payment", "contractors_payment",
+                            "total_spend", "legacy_partial")
+            if any(previous.get(field) != period.get(field) for field in money_fields):
+                conflicting = True
+    if conflicting:
+        # Different saved amounts over exactly the same date range are not
+        # unambiguously one payment; do not add them or silently prefer one.
+        return {
+            "complete": False,
+            "periods": [],
+            "advertising_payment": None,
+            "contractors_payment": None,
+            "total_spend": None,
+            "legacy_partial": False,
+        }
+    # Build an ephemeral view of the old periods; no mutation of `store`.
+    merged = sorted(unique.values(), key=lambda period: (period["from"], period["to"]))
+    effective = {"periods": {"campaigns": {"_instagram_alias": merged}}}
+    return _cost_entity_summary(effective, "campaign", "_instagram_alias", start, end)
+
+
 def _campaign_economics(conn, start, end, store=None):
     store = store or _load_cost_store(conn)
     direct_complete = _dataset_period_complete(conn, "direct", start, end)
@@ -1126,7 +1171,7 @@ def _campaign_economics(conn, start, end, store=None):
     result = {}
     for meta in _campaign_registry(conn, store):
         key = meta["campaign_key"]
-        summary = _cost_entity_summary(store, "campaign", key, start, end)
+        summary = _historical_campaign_summary(store, meta, start, end)
         if meta["source_key"] != "yandex_ads":
             # The editor writes campaign payments to the monthly ledger, NOT
             # to the old hierarchical cost periods. Use the same apportioned
