@@ -230,8 +230,7 @@ def read_rows(conn, month):
         inactive = staff["inactive_month"]
         daily = days_by_staff.get(sid, {})
         bonus = {field: int(bonus_rows.get(sid, {}).get(field, 0)) for field in BONUS_FIELDS}
-        if inactive and inactive <= month and not daily and not any(bonus.values()):
-            continue
+        # Keep inactive staff visible for reactivation and historic review.
         rate_row = conn.execute(
             "SELECT kopecks FROM az_admin_rates WHERE staff_id=? AND valid_from<=? "
             "ORDER BY valid_from DESC LIMIT 1", (sid, month),
