@@ -149,7 +149,11 @@ def campaign_period(core, conn, store, campaign, first, last, state=None):
     if not source or source == 'yandex_ads':
         return None
     state = state if state is not None else load(conn)
-    all_rows = records(core, store, state)
+    # This path serves ONLY actual new month-bound payment entries.
+    # Historical store.periods.campaigns are exact date-range expenses and
+    # stay governed by the existing _cost_entity_summary() contract. Do NOT
+    # reinterpret an old 70 RUB on one day as 70 RUB for an entire month.
+    all_rows = list(state['entries'].values())
     keys = set(campaign.get('cost_record_keys') or ())
     keys.add(campaign['campaign_key'])
     name = str(campaign.get('campaign_name') or '').strip()
