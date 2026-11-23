@@ -105,6 +105,7 @@
                         <input type="hidden" name="csrf" value="{{ csrf }}">
                         <input type="hidden" name="month" value="{{ month }}">
                         <input type="hidden" name="version" value="{{ state.version }}">
+                        <input type="hidden" name="view_revision" value="{{ view_revision }}">
                         <input type="hidden" name="staff_id" value="{{ row.id }}">
                         <input type="hidden" name="work_date" value="{{ month }}-{{ '%02d'|format(day.day) }}">
                         <select name="value" aria-label="{{ row.name }} {{ day.day }} число, часы" onchange="this.form.requestSubmit()">
@@ -170,6 +171,7 @@
                       <input type="hidden" name="csrf" value="{{ csrf }}">
                       <input type="hidden" name="month" value="{{ month }}">
                       <input type="hidden" name="version" value="{{ state.version }}">
+                        <input type="hidden" name="view_revision" value="{{ view_revision }}">
                       <input type="hidden" name="staff_id" value="{{ row.id }}">
                       <button type="submit" class="btn primary">Сохранить</button>
                     </form>
@@ -195,6 +197,7 @@
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="month" value="{{ month }}">
             <input type="hidden" name="version" value="{{ state.version }}">
+                        <input type="hidden" name="view_revision" value="{{ view_revision }}">
             <input type="hidden" name="action" value="reopen">
             <button class="btn warn" type="submit" onclick="return confirm('Повторно открыть {{ month }}? История закрытия сохранится.')">Повторно открыть месяц</button>
           </form>
@@ -204,6 +207,7 @@
           <input type="hidden" name="csrf" value="{{ csrf }}">
           <input type="hidden" name="month" value="{{ month }}">
           <input type="hidden" name="version" value="{{ state.version }}">
+                        <input type="hidden" name="view_revision" value="{{ view_revision }}">
           <input type="hidden" name="action" value="close">
           <button class="btn primary" type="submit" onclick="return confirm('Закрыть {{ month }} и зафиксировать расчёт ФОТ?')">Закрыть месяц</button>
         </form>
@@ -229,6 +233,7 @@
                       <input type="hidden" name="csrf" value="{{ csrf }}">
                       <input type="hidden" name="month" value="{{ month }}">
                       <input type="hidden" name="version" value="{{ state.version }}">
+                        <input type="hidden" name="view_revision" value="{{ view_revision }}">
                       <input type="hidden" name="staff_id" value="{{ row.id }}">
                       <button type="submit" class="btn">Сохранить</button>
                     </form>
@@ -249,6 +254,7 @@
           <input type="hidden" name="csrf" value="{{ csrf }}">
           <input type="hidden" name="month" value="{{ month }}">
           <input type="hidden" name="version" value="{{ state.version }}">
+                        <input type="hidden" name="view_revision" value="{{ view_revision }}">
           <input type="hidden" name="active" value="1">
           <label class="field" style="flex:1 1 240px;margin:0">ФИО
             <input type="text" name="full_name" maxlength="160" required placeholder="Фамилия Имя Отчество"></label>
