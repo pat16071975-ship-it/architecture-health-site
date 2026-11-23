@@ -293,15 +293,11 @@ def model(conn, month):
     return state, read_rows(conn, month)
 
 
-def month_view_revision(conn, month):
-    """Fingerprint the current *visible* month, including rates inherited from earlier months.
+def month_view_revision_from_model(month, state, rows):
+    """Bind the form to the EXACT model used to render its visible figures.
 
-    Local month_version alone cannot detect changes in a prior month's salary rate,
-    staff name or activity that are visible in a later month. A stored future-month
-    revision would also miss a month that has never had a local row. Recalculate from
-    the effective model and check it in the same write transaction as each POST.
+    No database reads: the same state/rows objects feed both the HTML and token.
     """
-    state, rows = model(conn, month)
     payload = {
         "month": month,
         "version": state["version"],
@@ -311,6 +307,31 @@ def month_view_revision(conn, month):
     canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True,
                            separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
+
+
+def month_view_revision(conn, month):
+    """Recompute current token under the caller's write transaction on POST."""
+    state, rows = model(conn, month)
+    return month_view_revision_from_model(month, state, rows)
+
+
+def month_page_snapshot(conn, month):
+    """Read-only SQLite snapshot: all SELECTs and the form token agree.
+
+    BEGIN establishes a consistent DB snapshot on the first read; subsequent
+    SELECTs in model() see that same snapshot even when another request commits
+    an inherited rate in WAL mode. The token is computed solely from those
+    materialized rows, never by starting a second read after the first one.
+    """
+    conn.execute("BEGIN")
+    try:
+        state, rows = model(conn, month)
+        view_revision = month_view_revision_from_model(month, state, rows)
+        return state, rows, view_revision
+    finally:
+        # Do not leave an open SQLite read transaction during template rendering;
+        # GET must not modify any table.
+        conn.rollback()
 
 
 def checked_staff(conn, staff_id):
@@ -366,8 +387,10 @@ def register(app):
             abort(404)
         conn = core.db()
         available = ready(conn)
-        state, rows = model(conn, month) if available else (dict(closed=0), [])
-        view_revision = month_view_revision(conn, month) if available else ""
+        if available:
+            state, rows, view_revision = month_page_snapshot(conn, month)
+        else:
+            state, rows, view_revision = dict(closed=0), [], ""
         days = [
             dict(day=d, weekend=calendar.weekday(*map(int, month.split('-')), d) >= 5,
                  holiday=HOLIDAYS.get((int(month[-2:]), d)))
