@@ -39,7 +39,12 @@ METRIKA_GOALS = {
 INSTAGRAM_CAMPAIGN_LABELS = {
     "starostenko": "Старостенко",
     "zubachev": "Зубачев",
+    "зубачев": "Зубачев",
+    "зубачёв": "Зубачев",
     "clinic": "Клиника",
+    "клиника": "Клиника",
+    # Legacy cost-editor label: same Instagram clinic campaign, not a new department.
+    "отделение структуры": "Клиника",
 }
 LEGACY_INSTAGRAM_SOURCE_KEYS = {
     "instagram_starostenko": "starostenko",
@@ -881,6 +886,36 @@ def _campaign_registry(conn, store=None):
             and not _source_allows_name_only_campaign(source_key, channel_name)
         ):
             continue
+        if source_key == "instagram":
+            normalized_name = INSTAGRAM_CAMPAIGN_LABELS.get(
+                campaign_name.casefold(), campaign_name
+            )
+            if normalized_name in ("Клиника", "Зубачев"):
+                # Old saved cost metadata may call the clinic «Отделение
+                # структуры» and/or use a different storage key. Merge its
+                # editable record IDs into the same factual UTM campaign.
+                # Do not rewrite or delete the historical store record.
+                canonical_key = _campaign_cost_key("instagram", "", normalized_name)
+                existing = registry.setdefault(canonical_key, {
+                    "campaign_key": canonical_key,
+                    "source_key": "instagram",
+                    "campaign_id": "",
+                    "campaign_name": normalized_name,
+                })
+                existing["campaign_name"] = normalized_name
+                saved_keys = existing.setdefault("cost_record_keys", [])
+                if key not in saved_keys:
+                    saved_keys.append(key)
+                continue
+        if key in registry:
+            # A saved display name is not allowed to override an already
+            # normalized factual Instagram name from Metrika.
+            if source_key == "instagram":
+                existing = registry[key]
+                saved_keys = existing.setdefault("cost_record_keys", [])
+                if key not in saved_keys:
+                    saved_keys.append(key)
+                continue
         registry[key] = {
             "campaign_key": key,
             "source_key": source_key,
@@ -1087,10 +1122,26 @@ def _campaign_economics(conn, start, end, store=None):
     store = store or _load_cost_store(conn)
     direct_complete = _dataset_period_complete(conn, "direct", start, end)
     direct = _direct_campaign_values(conn, start, end) if direct_complete else {}
+    monthly_state = advertising_monthly_costs.load(conn)
     result = {}
     for meta in _campaign_registry(conn, store):
         key = meta["campaign_key"]
         summary = _cost_entity_summary(store, "campaign", key, start, end)
+        if meta["source_key"] != "yandex_ads":
+            # The editor writes campaign payments to the monthly ledger, NOT
+            # to the old hierarchical cost periods. Use the same apportioned
+            # month data as source economics, preserving unfilled as unknown.
+            monthly = advertising_monthly_costs.campaign_period(
+                _monthly_core, conn, store, meta, start, end, monthly_state
+            )
+            summary = {
+                **summary,
+                "complete": monthly is not None,
+                "legacy_partial": False,
+                "advertising_payment": monthly,
+                "contractors_payment": None,
+                "total_spend": monthly,
+            }
         direct_value = direct.get(key) or {}
         components = _effective_cost_components(
             summary,
