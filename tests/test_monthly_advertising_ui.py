@@ -120,6 +120,28 @@ window.fetch=async(url,options={})=>{if(options.method==='POST'){posts.push(Obje
         self.assertEqual((post['id'],post['source'],post['campaign_key'],post['amount']),
                          ('clinic-old','instagram','clinic','100000'))
 
+    def test_reapproval_notice_preserves_old_manual_adjustment_without_auto_applying(self):
+        self.page.evaluate("""() => {
+          fixture.fixed=250000;
+          fixture.direct=100;
+          fixture.automatic_total=250100;
+          fixture.confirmed=null;
+          fixture.confirmed_total=null;
+          fixture.stale_confirmation={fixed:130000,adjustment:30000};
+        }""")
+        self.page.locator('#adRefresh').click()
+        text=self.page.locator('#adAdjustment').inner_text()
+        self.assertIn('Ранее подтверждено',text)
+        self.assertIn('130',text)
+        self.assertIn('30',text)
+        self.assertIn('повторная проверка',text)
+        self.assertEqual(self.page.locator('#adApproved').inner_text(),'—')
+        self.assertEqual(self.page.evaluate('posts.length'),0)
+        # Reapproval only after pressing a confirmation button.
+        self.page.locator('#adAccept').click()
+        self.assertEqual(self.page.evaluate('posts[0].action'),'confirm')
+        self.assertEqual(self.page.evaluate('posts[0].mode'),'auto')
+
     def test_direct_breakdown_is_readonly_and_old_table_columns_preserved(self):
         self.page.locator('[data-expand-source="yandex_ads"]').click()
         campaign=self.page.locator('[data-entity-key="direct1"]')
