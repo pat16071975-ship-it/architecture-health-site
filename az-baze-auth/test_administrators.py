@@ -5,6 +5,7 @@ import shutil
 import sqlite3
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
@@ -85,6 +86,26 @@ class AdministratorsTests(unittest.TestCase):
 
     def snapshot(self):
         return "\n".join(self.conn.iterdump())
+
+    def independent_http_rate_update(self, staff_id):
+        """Separate thread => separate Flask request context and DB connection."""
+        month = "2026-11"
+        post_data = {
+            "csrf": "admin-test-csrf",
+            "month": month,
+            "version": str(adm.month_state(self.conn, month)["version"]),
+            "view_revision": adm.month_view_revision(self.conn, month),
+            "staff_id": str(staff_id),
+            "full_name": "Иванова Анна",
+            "rate": "210",
+            "active": "1",
+        }
+
+        def write_http():
+            return self.client(1).post("/administrators/settings", data=post_data).status_code
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(write_http).result(timeout=10)
 
     def test_access_and_permissions_explicit_for_system_admin(self):
         for uid, code in ((None, 302), (1, 200), (2, 403), (3, 200), (4, 200), (5, 200)):
@@ -427,11 +448,7 @@ class AdministratorsTests(unittest.TestCase):
                 self.assertEqual(rows[0]["total"], 200000)
                 switched.append(True)
                 # Separate authenticated HTTP request during the reader's GET.
-                update = self.post(
-                    1, "settings", month="2026-11", staff_id=str(sid),
-                    full_name="Иванова Анна", rate="210", active="1",
-                )
-                self.assertEqual(update.status_code, 303)
+                self.assertEqual(self.independent_http_rate_update(sid), 303)
             return original(month, state, rows)
 
         with patch.object(adm, "month_view_revision_from_model",
@@ -472,11 +489,7 @@ class AdministratorsTests(unittest.TestCase):
         def update_after_first_select(conn, month):
             if month == "2026-12" and not switched:
                 switched.append(True)
-                update = self.post(
-                    1, "settings", month="2026-11", staff_id=str(sid),
-                    full_name="Иванова Анна", rate="210", active="1",
-                )
-                self.assertEqual(update.status_code, 303)
+                self.assertEqual(self.independent_http_rate_update(sid), 303)
             return original_rows(conn, month)
 
         with patch.object(adm, "read_rows", side_effect=update_after_first_select):
