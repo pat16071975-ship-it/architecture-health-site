@@ -125,6 +125,60 @@ def source_period(core, conn, store, key, first, last, state=None):
     return float(total)
 
 
+# Explicit compatibility for two owner-identified legacy Instagram payments.
+# This affects only campaign attribution; original rows, approval digest and
+# source-level totals remain unchanged. Free-form labels in other sources are
+# NEVER treated as campaign identities.
+LEGACY_INSTAGRAM_PAYMENT_NAMES = {
+    'зубачёв': 'Зубачев',
+    'зубачев': 'Зубачев',
+    'отделение структуры': 'Клиника',
+    'клиника': 'Клиника',
+}
+
+
+def campaign_period(core, conn, store, campaign, first, last, state=None):
+    """Calendar-day spend for one existing campaign, sourced from the monthly ledger.
+
+    An actual campaign-linked payment always wins over the legacy source-level
+    named counterpart within that month; never count both representations.
+    Missing campaign months remain unknown, not zero. Caller must not combine
+    child costs with its source budget a second time.
+    """
+    source = str(campaign.get('source_key') or '')
+    if not source or source == 'yandex_ads':
+        return None
+    state = state if state is not None else load(conn)
+    all_rows = records(core, store, state)
+    keys = set(campaign.get('cost_record_keys') or ())
+    keys.add(campaign['campaign_key'])
+    name = str(campaign.get('campaign_name') or '').strip()
+    total = Decimal(0)
+    cursor = first
+    while cursor <= last:
+        month = cursor.strftime('%Y-%m')
+        end = min(bounds(month)[1], last)
+        subset = [r for r in selected_records(all_rows, month) if r['source'] == source]
+        linked = [
+            r for r in subset
+            if r.get('level') == 'campaign' and r.get('key') in keys
+        ]
+        if not linked and source == 'instagram' and name in ('Зубачев', 'Клиника'):
+            linked = [
+                r for r in subset
+                if r.get('level') == 'source'
+                and LEGACY_INSTAGRAM_PAYMENT_NAMES.get(
+                    str(r.get('label') or '').strip().casefold()
+                ) == name
+            ]
+        if not linked or any(r.get('month') is None for r in linked):
+            return None
+        monthly_amount = sum((Decimal(str(r['amount'])) for r in linked), Decimal(0))
+        total += apportioned(monthly_amount, cursor, end)
+        cursor = end + timedelta(days=1)
+    return float(total)
+
+
 def direct(core, conn, first, last):
     values = list(core._direct_source_values(conn, first, last).values())
     known = core._nullable_sum(values, 'spend')
@@ -153,7 +207,8 @@ def channel_rows(core, conn, store, rows, first, through):
         for campaign in campaigns:
             if campaign['source_key'] != key:
                 continue
-            entries = [r for r in source_rows if r.get('key') == campaign['campaign_key'] and r['level'] == 'campaign']
+            keys = set(campaign.get('cost_record_keys') or ()) | {campaign['campaign_key']}
+            entries = [r for r in source_rows if r.get('key') in keys and r['level'] == 'campaign']
             children.append({**campaign, **values(entries),
                              'direct': (campaign_direct.get(campaign['campaign_key']) or {}).get('spend')})
         result.append({**meta, **values(own), 'campaigns': children,
