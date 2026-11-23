@@ -1159,6 +1159,33 @@ def _historical_campaign_summary(store, meta, start, end):
         }
     # Build an ephemeral view of the old periods; no mutation of `store`.
     merged = sorted(unique.values(), key=lambda period: (period["from"], period["to"]))
+    # An archived payment for an ENTIRE calendar month is a fixed monthly
+    # amount, even though its original key was an old Instagram campaign name.
+    # Pro-rate it for partial-month report screens just as source_period does.
+    # A genuinely one-day or custom historical interval keeps its exact
+    # original date-range semantics (AZ-254-02, A-COST-05).
+    if len(merged) == 1:
+        period = merged[0]
+        a, b = date.fromisoformat(period["from"]), date.fromisoformat(period["to"])
+        is_calendar_month = (
+            a.day == 1
+            and a.year == b.year and a.month == b.month
+            and b.day == calendar.monthrange(a.year, a.month)[1]
+        )
+        if (is_calendar_month and a <= start <= end <= b
+                and not period.get("legacy_partial")
+                and period.get("advertising_payment") is not None):
+            subtotal = float(advertising_monthly_costs.apportioned(
+                period["advertising_payment"], start, end
+            ))
+            return {
+                "complete": True,
+                "periods": [period],
+                "advertising_payment": subtotal,
+                "contractors_payment": None,
+                "total_spend": subtotal,
+                "legacy_partial": False,
+            }
     effective = {"periods": {"campaigns": {"_instagram_alias": merged}}}
     return _cost_entity_summary(effective, "campaign", "_instagram_alias", start, end)
 
