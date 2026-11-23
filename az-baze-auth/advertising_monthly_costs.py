@@ -95,6 +95,83 @@ def _instagram_campaign_identity(row, store):
     return LEGACY_INSTAGRAM_PAYMENT_NAMES.get(name)
 
 
+def _full_calendar_month_legacy(row):
+    """Only an archived exact calendar month may be apportioned as a month."""
+    if not row.get('legacy'):
+        return False
+    try:
+        a, b = date.fromisoformat(row['from']), date.fromisoformat(row['to'])
+        start, end = bounds(a.strftime('%Y-%m'))
+        return a == start and b == end
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _instagram_partial_legacy_active(rows, store):
+    """Detect historic exact-range campaign costs not superseded by new payment.
+
+    For a name-linked generic Instagram parent the existing budget contract
+    wins. Otherwise only legacy periods *actually selected* for a campaign
+    matter: a modern month entry of that same campaign wins over its archive.
+    """
+    instagram = [r for r in rows if r['source'] == 'instagram']
+    if not instagram:
+        return False
+    if any(r.get('level') != 'campaign'
+           and _instagram_campaign_identity(r, store) is None
+           for r in instagram):
+        return False
+    grouped = {}
+    for row in instagram:
+        ident = _instagram_campaign_identity(row, store)
+        ident = ident or ('key', row.get('key') or row.get('id'))
+        grouped.setdefault(ident, []).append(row)
+    return any(
+        not any(not r.get('legacy') for r in group)
+        and any(r.get('legacy') and not _full_calendar_month_legacy(r)
+                for r in group)
+        for group in grouped.values()
+    )
+
+
+def _instagram_exact_source_spend(core, conn, store, rows, first, last):
+    """Sum the SAME period-specific campaign figures used by report children.
+
+    Called only when an unsuperseded partial-day/archive campaign exists.
+    Never extrapolate a one-day cost to the rest of the month; an incomplete
+    interval yields None, matching the child. No SELECT/INSERT writes.
+    """
+    registry = [meta for meta in core._campaign_registry(conn, store)
+                if meta['source_key'] == 'instagram']
+    selected = {}
+    for record in rows:
+        if record['source'] != 'instagram':
+            continue
+        ident = _instagram_campaign_identity(record, store)
+        matching = []
+        for meta in registry:
+            keys = set(meta.get('cost_record_keys') or ()) | {meta['campaign_key']}
+            if ((record.get('level') == 'campaign' and record.get('key') in keys)
+                    or (record.get('level') != 'campaign'
+                        and ident is not None
+                        and meta['campaign_name'] == ident)):
+                matching.append(meta)
+        if len(matching) != 1:
+            # An unidentified payment must never silently disappear from total.
+            return None
+        selected[matching[0]['campaign_key']] = matching[0]
+    if not selected:
+        return None
+    calculated = core._campaign_economics(conn, first, last, store)['campaigns']
+    total = Decimal(0)
+    for key in selected:
+        spend = (calculated.get(key) or {}).get('spend')
+        if spend is None:
+            return None
+        total += Decimal(str(spend))
+    return float(round(total, 2))
+
+
 def fixed_total(rows, store=None):
     if any(r.get('month') is None for r in rows):
         return None
@@ -108,6 +185,12 @@ def fixed_total(rows, store=None):
         by_source.setdefault(row['source'], []).append(row)
     result = Decimal(0)
     for source, subset in by_source.items():
+        # Exact historical date-ranges do not constitute a fixed MONTH budget.
+        # In particular a 1,000 RUB archive for 8 November is not 1,000 RUB
+        # for each of 30 calendar days. The selected period is calculated
+        # separately in source_period(), agreeing with the campaign row.
+        if source == 'instagram' and _instagram_partial_legacy_active(subset, store):
+            return None
         parents = [r for r in subset if r.get('level') != 'campaign']
         children = [r for r in subset if r.get('level') == 'campaign']
         if source != 'instagram' or any(
@@ -212,6 +295,20 @@ def source_period(core, conn, store, key, first, last, state=None):
     all_rows = records(core, store, state)
     if key != "yandex_ads" and not any(r["source"] == key for r in all_rows):
         return None
+    if key == 'instagram':
+        relevant = []
+        cursor = first
+        while cursor <= last:
+            month = cursor.strftime('%Y-%m')
+            relevant.extend(
+                r for r in selected_records(all_rows, month)
+                if r['source'] == key and r not in relevant
+            )
+            cursor = bounds(month)[1] + timedelta(days=1)
+        if _instagram_partial_legacy_active(relevant, store):
+            return _instagram_exact_source_spend(
+                core, conn, store, relevant, first, last
+            )
     total = Decimal(0)
     cursor = first
     while cursor <= last:
