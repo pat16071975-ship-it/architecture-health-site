@@ -26,6 +26,9 @@ REPO = "pat16071975-ship-it/architecture-health-site"
 AUDITED_HEAD = "46f4d9b1c133818c8f0ac1cfdde8bc6640b53a27"
 MERGED_SHA = "83405d50bd1a508d4a90641907c8a5586f541147"
 BASE_SHA = "5d7115050a86adca281af681da25f6b22b09e53d"
+AUDITED_SERVER_BLOB = "b0934c61c722ab006a405d1aaefebf4cd4a86fbb"
+LIVE_SERVER_BLOB = "8c9a1b45390e273a1e8f1bc8a12f331cf0fbdd47"
+PRESERVED_SERVER_BLOB = "99dbe7ac9bd35bcc131d0c321b0d269716c4ceb9"
 ROOT = Path("/opt/az-baze-auth")
 DB = Path("/var/lib/az-baze/auth.db")
 BACKUPS = Path("/var/lib/az-baze/backups")
@@ -53,8 +56,8 @@ FILES = {
         "89b9cd8a3e842c14646a3bf33c2fa6db188d7195",
     ),
     "server.py": (
-        "7d186761a727baa1fe50707c80b3d9ab154a3b96",
-        "b0934c61c722ab006a405d1aaefebf4cd4a86fbb",
+        LIVE_SERVER_BLOB,
+        PRESERVED_SERVER_BLOB,
     ),
     "templates/admin.html": (
         "b775de7450582e3e0bf17cf5557b82b47451377f",
@@ -84,6 +87,39 @@ def fail(message):
 
 def git_blob(data):
     return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+
+
+def preserve_knowledge_catalog(data, expected_source_blob):
+    """Carry over exactly two already-live knowledge_catalog registrations.
+
+    Only valid against the approved Git source blob. The resulting merged server
+    must exactly match the precomputed combined Git blob, never an arbitrary
+    live-file patch. No knowledge_catalog module is downloaded or replaced.
+    """
+    if git_blob(data) != expected_source_blob:
+        fail("KNOWLEDGE_MERGE_UNEXPECTED_SOURCE_BLOB")
+    insertions = (
+        (b"import upload_reconcile\n",
+         b"import upload_reconcile\nimport knowledge_catalog\n"),
+        (b"clinic_structure_settings.register(app)\n",
+         b"clinic_structure_settings.register(app)\nknowledge_catalog.register(app)\n"),
+    )
+    if b"import knowledge_catalog" in data or b"knowledge_catalog.register" in data:
+        fail("KNOWLEDGE_MERGE_DUPLICATE_REGISTRATION")
+    for original, replacement in insertions:
+        if data.count(original) != 1:
+            fail("KNOWLEDGE_MERGE_ANCHOR_MISMATCH")
+        data = data.replace(original, replacement, 1)
+    return data
+
+
+def verify_knowledge_catalog_available():
+    module = ROOT / "knowledge_catalog.py"
+    package = ROOT / "knowledge_catalog" / "__init__.py"
+    if not ((module.is_file() and not module.is_symlink())
+            or (package.is_file() and not package.is_symlink())):
+        fail("LIVE_KNOWLEDGE_CATALOG_MODULE_NOT_FOUND")
+    print("LIVE_KNOWLEDGE_CATALOG=PRESENT; WILL_NOT_REPLACE")
 
 
 def run(*args, check=True):
@@ -139,6 +175,11 @@ def fetch_audited_files(stage):
                 time.sleep(1)
         if data is None or len(data) > 512 * 1024:
             fail(f"SOURCE_TOO_LARGE_OR_MISSING: {name}")
+        if name == "server.py":
+            data = preserve_knowledge_catalog(data, AUDITED_SERVER_BLOB)
+            if git_blob(data) != PRESERVED_SERVER_BLOB:
+                fail("KNOWLEDGE_MERGE_TARGET_BLOB_MISMATCH")
+            print("KNOWLEDGE_CATALOG=EXACTLY_PRESERVED_IN_SERVER")
         actual = git_blob(data)
         if actual != expected:
             fail(f"TARGET_BLOB_MISMATCH: {name}; expected={expected}; actual={actual}")
@@ -276,6 +317,7 @@ def preflight(stage):
         fail("AZ_BAZE_SERVICE_ENV_MISSING")
     health_check()
     check_live_files()
+    verify_knowledge_catalog_available()
     check_live_database()
     fetch_audited_files(stage)
     statements = schema_statements(stage)
@@ -417,6 +459,7 @@ def apply(stage, statements):
         if is_active():
             fail("SERVICE_DID_NOT_STOP")
         check_live_files()
+        verify_knowledge_catalog_available()
         check_live_database()
         backup_runtime(backup)
         dbsha = copy_database_backup(backup / "auth-pre-pr252.sqlite")
