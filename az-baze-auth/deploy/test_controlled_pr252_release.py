@@ -1,5 +1,8 @@
 """Source-only tests for immutable PR252 deploy package. Never touches Production."""
+import base64
 import importlib.util
+import io
+import json
 import os
 import shutil
 import sqlite3
@@ -8,6 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import URLError
 
 SCRIPT = Path(__file__).with_name("controlled-pr252-administrators.py")
 SPEC = importlib.util.spec_from_file_location("pr252_release_package", SCRIPT)
@@ -141,6 +145,40 @@ class ControlledPR252Tests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "DUPLICATE_REGISTRATION"):
             pkg.preserve_knowledge_catalog(already, pkg.PRESERVED_SERVER_BLOB)
         self.assertEqual(already.count(b"knowledge_catalog.register(app)"), 1)
+
+    def test_github_api_fallback_retains_exact_immutable_blobs(self):
+        """If RAW DNS fails, GitHub API supplies verified bytes, not arbitrary code."""
+        source_by_sha = {
+            (pkg.AUDITED_SERVER_BLOB if relative == "server.py" else target): relative
+            for relative, (_base, target) in pkg.FILES.items()
+        }
+
+        class Response(io.BytesIO):
+            status = 200
+
+        def fake_urlopen(request, timeout):
+            url = request.full_url
+            if "raw.githubusercontent.com" in url:
+                raise URLError("simulated raw GitHub DNS failure")
+            sha = url.rsplit("/", 1)[-1]
+            if sha not in source_by_sha:
+                raise AssertionError("unexpected API request: " + url)
+            raw = git_show(pkg.MERGED_SHA, source_by_sha[sha])
+            payload = json.dumps({
+                "encoding": "base64", "content": base64.b64encode(raw).decode("ascii"),
+            }).encode("utf-8")
+            return Response(payload)
+
+        with patch.object(pkg.urllib.request, "urlopen", side_effect=fake_urlopen), \
+             patch.object(pkg.time, "sleep", return_value=None), \
+             patch.object(pkg, "run", return_value=type("Ok", (), {"returncode": 0})()):
+            pkg.fetch_audited_files(self.stage)
+        for name, (_base, target) in pkg.FILES.items():
+            self.assertEqual(pkg.git_blob((self.stage / name).read_bytes()), target)
+        self.assertIn(b"knowledge_catalog.register(app)",
+                      (self.stage / "server.py").read_bytes())
+        self.assertIn(b"administrators.register(app)",
+                      (self.stage / "server.py").read_bytes())
 
     def test_no_restore_of_db_in_automatic_rollback_contract(self):
         src = SCRIPT.read_text(encoding="utf-8")
