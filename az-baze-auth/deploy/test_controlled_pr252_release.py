@@ -34,15 +34,31 @@ class ControlledPR252Tests(unittest.TestCase):
         self.assertEqual(len(pkg.FILES), 8)
         for relative, (before, after) in pkg.FILES.items():
             with self.subTest(relative=relative):
-                self.assertEqual(pkg.git_blob(git_show(pkg.MERGED_SHA, relative)), after)
-                if before is None:
-                    result = subprocess.run(
-                        ["git", "cat-file", "-e", f"{pkg.BASE_SHA}:az-baze-auth/{relative}"],
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                pristine = git_show(pkg.MERGED_SHA, relative)
+                if relative == "server.py":
+                    self.assertEqual(pkg.git_blob(pristine), pkg.AUDITED_SERVER_BLOB)
+                    patched = pkg.preserve_knowledge_catalog(pristine, pkg.AUDITED_SERVER_BLOB)
+                    self.assertEqual(pkg.git_blob(patched), pkg.PRESERVED_SERVER_BLOB)
+                    self.assertEqual(pkg.git_blob(patched), after)
+                    original_base = git_show(pkg.BASE_SHA, relative)
+                    self.assertEqual(pkg.git_blob(original_base),
+                                     "7d186761a727baa1fe50707c80b3d9ab154a3b96")
+                    preserved_live = pkg.preserve_knowledge_catalog(
+                        original_base, "7d186761a727baa1fe50707c80b3d9ab154a3b96"
                     )
-                    self.assertNotEqual(result.returncode, 0)
+                    # Exactly the actual blob reported by read-only host diagnostics.
+                    self.assertEqual(pkg.git_blob(preserved_live), pkg.LIVE_SERVER_BLOB)
+                    self.assertEqual(pkg.git_blob(preserved_live), before)
                 else:
-                    self.assertEqual(pkg.git_blob(git_show(pkg.BASE_SHA, relative)), before)
+                    self.assertEqual(pkg.git_blob(pristine), after)
+                    if before is None:
+                        result = subprocess.run(
+                            ["git", "cat-file", "-e", f"{pkg.BASE_SHA}:az-baze-auth/{relative}"],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        )
+                        self.assertNotEqual(result.returncode, 0)
+                    else:
+                        self.assertEqual(pkg.git_blob(git_show(pkg.BASE_SHA, relative)), before)
 
     def test_exact_additive_schema_and_rejected_unrelated_db_changes(self):
         statements = pkg.schema_statements(self.stage)
@@ -79,28 +95,52 @@ class ControlledPR252Tests(unittest.TestCase):
         live = self.root / "live"
         (live / "templates").mkdir(parents=True)
         (live / "venv").mkdir()
+        (live / "knowledge_catalog.py").write_bytes(b"# live module preserved\n")
         backup = self.root / "backup"
         backup.mkdir()
         for relative, (before, target) in pkg.FILES.items():
             destination = self.stage / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(git_show(pkg.MERGED_SHA, relative))
+            new_data = git_show(pkg.MERGED_SHA, relative)
+            if relative == "server.py":
+                new_data = pkg.preserve_knowledge_catalog(new_data, pkg.AUDITED_SERVER_BLOB)
+            destination.write_bytes(new_data)
             if before:
                 old = live / relative
                 old.parent.mkdir(parents=True, exist_ok=True)
-                old.write_bytes(git_show(pkg.BASE_SHA, relative))
+                old_data = git_show(pkg.BASE_SHA, relative)
+                if relative == "server.py":
+                    old_data = pkg.preserve_knowledge_catalog(
+                        old_data, "7d186761a727baa1fe50707c80b3d9ab154a3b96"
+                    )
+                old.write_bytes(old_data)
         with patch.object(pkg, "ROOT", live), patch.object(os, "chown", return_value=None):
+            pkg.verify_knowledge_catalog_available()
             pkg.check_live_files()
             pkg.backup_runtime(backup)
             pkg.install_runtime(self.stage)
             for relative, (_before, target) in pkg.FILES.items():
                 pkg.blob_check(live / relative, target, "TEST_NEW")
+            self.assertEqual((live / "knowledge_catalog.py").read_bytes(), b"# live module preserved\n")
+            self.assertEqual((live / "server.py").read_bytes().count(b"import knowledge_catalog"), 1)
+            self.assertEqual((live / "server.py").read_bytes().count(b"knowledge_catalog.register(app)"), 1)
+            self.assertEqual((live / "server.py").read_bytes().count(b"administrators.register(app)"), 1)
             pkg.restore_runtime(backup)
             pkg.check_live_files()
+            self.assertEqual((live / "knowledge_catalog.py").read_bytes(), b"# live module preserved\n")
             old_server = live / "server.py"
             old_server.write_bytes(old_server.read_bytes() + b"\n# drift\n")
             with self.assertRaisesRegex(RuntimeError, "BLOB_MISMATCH"):
                 pkg.check_live_files()
+
+    def test_refuse_to_patch_unexpected_server_or_duplicate_catalog(self):
+        valid = git_show(pkg.MERGED_SHA, "server.py")
+        with self.assertRaisesRegex(RuntimeError, "UNEXPECTED_SOURCE_BLOB"):
+            pkg.preserve_knowledge_catalog(valid + b"\n# unknown\n", pkg.AUDITED_SERVER_BLOB)
+        already = pkg.preserve_knowledge_catalog(valid, pkg.AUDITED_SERVER_BLOB)
+        with self.assertRaisesRegex(RuntimeError, "DUPLICATE_REGISTRATION"):
+            pkg.preserve_knowledge_catalog(already, pkg.PRESERVED_SERVER_BLOB)
+        self.assertEqual(already.count(b"knowledge_catalog.register(app)"), 1)
 
     def test_no_restore_of_db_in_automatic_rollback_contract(self):
         src = SCRIPT.read_text(encoding="utf-8")
