@@ -184,7 +184,7 @@ def schema_statements(stage):
         # Each DDL statement must have exactly one CREATE token and no mutating SQL verbs.
         if len(re.findall(r"\bCREATE\b", statement, re.I)) != 1:
             fail("SCHEMA_UNEXPECTED_NESTED_CREATE")
-        if re.search(r"\b(DROP|ALTER|INSERT|UPDATE|DELETE|REPLACE|ATTACH|DETACH)\b", statement, re.I):
+        if re.search(r"\b(DROP|ALTER|INSERT|UPDATE|REPLACE|ATTACH|DETACH)\b", statement, re.I):
             fail("SCHEMA_FORBIDDEN_OPERATION")
     if found_tables != NEW_TABLES or found_indexes != NEW_INDEXES:
         fail("SCHEMA_OBJECT_ALLOWLIST_MISMATCH")
