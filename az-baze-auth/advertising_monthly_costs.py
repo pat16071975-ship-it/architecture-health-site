@@ -123,6 +123,34 @@ def fixed_total(rows, store=None):
             bucket[kind].append(row)
         for bucket in grouped.values():
             chosen = bucket['campaign'] or bucket['source']
+            if bucket['campaign']:
+                # The modern monthly ledger supersedes an archived historical
+                # cost for that same campaign/month. Align the source total
+                # with campaign_period() / _campaign_economics() precedence.
+                newer_months = {
+                    r['month'] for r in chosen
+                    if not r.get('legacy') and r.get('month')
+                }
+                chosen = [
+                    r for r in chosen
+                    if not r.get('legacy') or r.get('month') not in newer_months
+                ]
+                legacy_intervals = {}
+                deduped = []
+                for row in chosen:
+                    if row.get('legacy'):
+                        interval = (row.get('from'), row.get('to'))
+                        previous = legacy_intervals.get(interval)
+                        if previous is not None:
+                            if Decimal(str(previous['amount'])) != Decimal(str(row['amount'])):
+                                # Two different historical amounts refer to
+                                # the same canonical campaign/date interval.
+                                # Do not silently add or choose one: unknown.
+                                return None
+                            continue
+                        legacy_intervals[interval] = row
+                    deduped.append(row)
+                chosen = deduped
             result += sum((Decimal(str(r['amount'])) for r in chosen), Decimal(0))
     return float(round(result, 2))
 
