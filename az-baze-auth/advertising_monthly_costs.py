@@ -82,12 +82,49 @@ def selected_records(rows, month):
         r.get('month') is None and r.get('from', '9999') <= last.isoformat() and r.get('to', '') >= first.isoformat())]
 
 
-def fixed_total(rows):
+def _instagram_campaign_identity(row, store):
+    """Only owner-confirmed legacy Instagram names, never arbitrary campaign labels."""
+    label = str(row.get('label') or '').strip().casefold()
+    if row.get('level') != 'campaign':
+        return LEGACY_INSTAGRAM_PAYMENT_NAMES.get(label)
+    meta = (store.get('campaigns') or {}).get(row.get('key') or '') if store else None
+    name = str((meta or {}).get('campaign_name') or row.get('label') or '').strip().casefold()
+    return LEGACY_INSTAGRAM_PAYMENT_NAMES.get(name)
+
+
+def fixed_total(rows, store=None):
     if any(r.get('month') is None for r in rows):
         return None
-    # Source payments and their campaign detail must not be counted twice.
-    parents = {r['source'] for r in rows if r.get('level') != 'campaign'}
-    return round(sum(r['amount'] for r in rows if r.get('level') != 'campaign' or r['source'] not in parents), 2)
+    # Each source is independent. An ordinary source-level payment is a
+    # parent budget and suppresses ALL child detail, as before (A-COST-06).
+    # A specifically labelled historical Instagram *campaign* payment stored
+    # at source level is different: it suppresses ONLY the same campaign's
+    # duplicated child payment, not a different Instagram campaign.
+    by_source = {}
+    for row in rows:
+        by_source.setdefault(row['source'], []).append(row)
+    result = Decimal(0)
+    for source, subset in by_source.items():
+        parents = [r for r in subset if r.get('level') != 'campaign']
+        children = [r for r in subset if r.get('level') == 'campaign']
+        if source != 'instagram' or any(
+            _instagram_campaign_identity(r, store) is None for r in parents
+        ):
+            chosen = parents if parents else children
+            result += sum((Decimal(str(r['amount'])) for r in chosen), Decimal(0))
+            continue
+        grouped = {}
+        for row in subset:
+            identity = _instagram_campaign_identity(row, store)
+            # Independent, unrecognized child campaigns are still additive.
+            identity = identity or ('key', row.get('key') or row.get('id'))
+            bucket = grouped.setdefault(identity, {'source': [], 'campaign': []})
+            kind = 'campaign' if row.get('level') == 'campaign' else 'source'
+            bucket[kind].append(row)
+        for bucket in grouped.values():
+            chosen = bucket['campaign'] or bucket['source']
+            result += sum((Decimal(str(r['amount'])) for r in chosen), Decimal(0))
+    return float(round(result, 2))
 
 
 def valid_confirmation(core, store, state, month):
@@ -117,7 +154,7 @@ def source_period(core, conn, store, key, first, last, state=None):
         rows = [r for r in selected_records(all_rows, month) if r['source'] == key]
         if (key == 'yandex_ads' or not rows) and not confirmed:
             return None
-        fixed = fixed_total(rows)
+        fixed = fixed_total(rows, store)
         if fixed is None:
             return None  # A cross-month legacy payment needs an explicit month.
         total += apportioned(fixed, cursor, end)
@@ -216,7 +253,7 @@ def channel_rows(core, conn, store, rows, first, through):
             children.append({**campaign, **values(entries),
                              'direct': (campaign_direct.get(campaign['campaign_key']) or {}).get('spend')})
         result.append({**meta, **values(own), 'campaigns': children,
-                       'fixed_total': fixed_total(source_rows) if source_rows else None,
+                       'fixed_total': fixed_total(source_rows, store) if source_rows else None,
                        'direct': (source_direct.get(key) or {}).get('spend')})
     return result
 
@@ -225,7 +262,7 @@ def view(core, conn, month):
     first, last = bounds(month)
     state, store = load(conn), core._load_cost_store(conn)
     rows = selected_records(records(core, store, state), month)
-    fixed = fixed_total(rows)
+    fixed = fixed_total(rows, store)
     through = min(last, core._today())
     known, complete = direct(core, conn, first, through) if through >= first else (None, False)
     confirmed = valid_confirmation(core, store, state, month)
