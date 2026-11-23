@@ -104,6 +104,7 @@
                       <form action="/administrators/hours" method="post">
                         <input type="hidden" name="csrf" value="{{ csrf }}">
                         <input type="hidden" name="month" value="{{ month }}">
+                        <input type="hidden" name="version" value="{{ state.version }}">
                         <input type="hidden" name="staff_id" value="{{ row.id }}">
                         <input type="hidden" name="work_date" value="{{ month }}-{{ '%02d'|format(day.day) }}">
                         <select name="value" aria-label="{{ row.name }} {{ day.day }} число, часы" onchange="this.form.requestSubmit()">
@@ -168,6 +169,7 @@
                     <form method="post" action="/administrators/payroll" id="az-pay-{{ row.id }}">
                       <input type="hidden" name="csrf" value="{{ csrf }}">
                       <input type="hidden" name="month" value="{{ month }}">
+                      <input type="hidden" name="version" value="{{ state.version }}">
                       <input type="hidden" name="staff_id" value="{{ row.id }}">
                       <button type="submit" class="btn primary">Сохранить</button>
                     </form>
@@ -192,6 +194,7 @@
           <form method="post" action="/administrators/month">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="month" value="{{ month }}">
+            <input type="hidden" name="version" value="{{ state.version }}">
             <input type="hidden" name="action" value="reopen">
             <button class="btn warn" type="submit" onclick="return confirm('Повторно открыть {{ month }}? История закрытия сохранится.')">Повторно открыть месяц</button>
           </form>
@@ -200,6 +203,7 @@
         <form method="post" action="/administrators/month">
           <input type="hidden" name="csrf" value="{{ csrf }}">
           <input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="version" value="{{ state.version }}">
           <input type="hidden" name="action" value="close">
           <button class="btn primary" type="submit" onclick="return confirm('Закрыть {{ month }} и зафиксировать расчёт ФОТ?')">Закрыть месяц</button>
         </form>
@@ -224,6 +228,7 @@
                     <form action="/administrators/settings" method="post" id="az-staff-{{ row.id }}">
                       <input type="hidden" name="csrf" value="{{ csrf }}">
                       <input type="hidden" name="month" value="{{ month }}">
+                      <input type="hidden" name="version" value="{{ state.version }}">
                       <input type="hidden" name="staff_id" value="{{ row.id }}">
                       <button type="submit" class="btn">Сохранить</button>
                     </form>
@@ -243,6 +248,7 @@
         <form method="post" action="/administrators/settings" class="row" style="align-items:end">
           <input type="hidden" name="csrf" value="{{ csrf }}">
           <input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="version" value="{{ state.version }}">
           <input type="hidden" name="active" value="1">
           <label class="field" style="flex:1 1 240px;margin:0">ФИО
             <input type="text" name="full_name" maxlength="160" required placeholder="Фамилия Имя Отчество"></label>
