@@ -9,6 +9,9 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 KEY = 'az-advertising-monthly-costs-v1'
+# Bump this when the meaning of a monthly fixed sum changes; never silently
+# reuse a prior confirmation just because its raw rows did not change.
+CONFIRMATION_CALC_VERSION = 'instagram-campaign-reconcile-v3'
 
 
 def encode(value):
@@ -82,20 +85,204 @@ def selected_records(rows, month):
         r.get('month') is None and r.get('from', '9999') <= last.isoformat() and r.get('to', '') >= first.isoformat())]
 
 
-def fixed_total(rows):
+def _instagram_campaign_identity(row, store):
+    """Only owner-confirmed legacy Instagram names, never arbitrary campaign labels."""
+    label = str(row.get('label') or '').strip().casefold()
+    if row.get('level') != 'campaign':
+        return LEGACY_INSTAGRAM_PAYMENT_NAMES.get(label)
+    meta = (store.get('campaigns') or {}).get(row.get('key') or '') if store else None
+    name = str((meta or {}).get('campaign_name') or row.get('label') or '').strip().casefold()
+    return LEGACY_INSTAGRAM_PAYMENT_NAMES.get(name)
+
+
+def _full_calendar_month_legacy(row):
+    """Only an archived exact calendar month may be apportioned as a month."""
+    if not row.get('legacy'):
+        return False
+    try:
+        a, b = date.fromisoformat(row['from']), date.fromisoformat(row['to'])
+        start, end = bounds(a.strftime('%Y-%m'))
+        return a == start and b == end
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _instagram_partial_legacy_active(rows, store):
+    """Detect historic exact-range campaign costs not superseded by new payment.
+
+    For a name-linked generic Instagram parent the existing budget contract
+    wins. Otherwise only legacy periods *actually selected* for a campaign
+    matter: a modern month entry of that same campaign wins over its archive.
+    """
+    instagram = [r for r in rows if r['source'] == 'instagram']
+    if not instagram:
+        return False
+    if any(r.get('level') != 'campaign'
+           and _instagram_campaign_identity(r, store) is None
+           for r in instagram):
+        return False
+    grouped = {}
+    for row in instagram:
+        ident = _instagram_campaign_identity(row, store)
+        ident = ident or ('key', row.get('key') or row.get('id'))
+        grouped.setdefault(ident, []).append(row)
+    return any(
+        not any(not r.get('legacy') for r in group)
+        and any(r.get('legacy') and not _full_calendar_month_legacy(r)
+                for r in group)
+        for group in grouped.values()
+    )
+
+
+def _instagram_exact_source_spend(core, conn, store, rows, first, last):
+    """Sum the SAME period-specific campaign figures used by report children.
+
+    Called only when an unsuperseded partial-day/archive campaign exists.
+    Never extrapolate a one-day cost to the rest of the month; an incomplete
+    interval yields None, matching the child. No SELECT/INSERT writes.
+    """
+    registry = [meta for meta in core._campaign_registry(conn, store)
+                if meta['source_key'] == 'instagram']
+    selected = {}
+    for record in rows:
+        if record['source'] != 'instagram':
+            continue
+        ident = _instagram_campaign_identity(record, store)
+        matching = []
+        for meta in registry:
+            keys = set(meta.get('cost_record_keys') or ()) | {meta['campaign_key']}
+            if ((record.get('level') == 'campaign' and record.get('key') in keys)
+                    or (record.get('level') != 'campaign'
+                        and ident is not None
+                        and meta['campaign_name'] == ident)):
+                matching.append(meta)
+        if len(matching) != 1:
+            # An unidentified payment must never silently disappear from total.
+            return None
+        selected[matching[0]['campaign_key']] = matching[0]
+    if not selected:
+        return None
+    calculated = core._campaign_economics(conn, first, last, store)['campaigns']
+    total = Decimal(0)
+    for key in selected:
+        spend = (calculated.get(key) or {}).get('spend')
+        if spend is None:
+            return None
+        total += Decimal(str(spend))
+    return float(round(total, 2))
+
+
+def fixed_total(rows, store=None):
     if any(r.get('month') is None for r in rows):
         return None
-    # Source payments and their campaign detail must not be counted twice.
-    parents = {r['source'] for r in rows if r.get('level') != 'campaign'}
-    return round(sum(r['amount'] for r in rows if r.get('level') != 'campaign' or r['source'] not in parents), 2)
+    # Each source is independent. An ordinary source-level payment is a
+    # parent budget and suppresses ALL child detail, as before (A-COST-06).
+    # A specifically labelled historical Instagram *campaign* payment stored
+    # at source level is different: it suppresses ONLY the same campaign's
+    # duplicated child payment, not a different Instagram campaign.
+    by_source = {}
+    for row in rows:
+        by_source.setdefault(row['source'], []).append(row)
+    result = Decimal(0)
+    for source, subset in by_source.items():
+        # Exact historical date-ranges do not constitute a fixed MONTH budget.
+        # In particular a 1,000 RUB archive for 8 November is not 1,000 RUB
+        # for each of 30 calendar days. The selected period is calculated
+        # separately in source_period(), agreeing with the campaign row.
+        if source == 'instagram' and _instagram_partial_legacy_active(subset, store):
+            return None
+        parents = [r for r in subset if r.get('level') != 'campaign']
+        children = [r for r in subset if r.get('level') == 'campaign']
+        if source != 'instagram' or any(
+            _instagram_campaign_identity(r, store) is None for r in parents
+        ):
+            chosen = parents if parents else children
+            result += sum((Decimal(str(r['amount'])) for r in chosen), Decimal(0))
+            continue
+        grouped = {}
+        for row in subset:
+            identity = _instagram_campaign_identity(row, store)
+            # Independent, unrecognized child campaigns are still additive.
+            identity = identity or ('key', row.get('key') or row.get('id'))
+            bucket = grouped.setdefault(identity, {'source': [], 'campaign': []})
+            kind = 'campaign' if row.get('level') == 'campaign' else 'source'
+            bucket[kind].append(row)
+        for bucket in grouped.values():
+            # AZ-254-03: within one canonical Instagram campaign, NEW monthly
+            # evidence always wins over old archived metadata, regardless
+            # whether a legacy-named monthly payment was saved at source or
+            # campaign level. A modern campaign payment outranks its matching
+            # modern source-level duplicate, but an archived 60k campaign
+            # must never suppress a newer 100k source-level clinic payment.
+            new_campaign = [r for r in bucket['campaign'] if not r.get('legacy')]
+            new_source = [r for r in bucket['source'] if not r.get('legacy')]
+            chosen = (new_campaign or new_source
+                      or bucket['campaign'] or bucket['source'])
+            if chosen:
+                # The modern monthly ledger supersedes archival history for
+                # this same campaign/month; do not append it in the source.
+                newer_months = {
+                    r['month'] for r in chosen
+                    if not r.get('legacy') and r.get('month')
+                }
+                chosen = [
+                    r for r in chosen
+                    if not r.get('legacy') or r.get('month') not in newer_months
+                ]
+                legacy_intervals = {}
+                deduped = []
+                for row in chosen:
+                    if row.get('legacy'):
+                        interval = (row.get('from'), row.get('to'))
+                        previous = legacy_intervals.get(interval)
+                        if previous is not None:
+                            if Decimal(str(previous['amount'])) != Decimal(str(row['amount'])):
+                                # Two different historical amounts refer to
+                                # the same canonical campaign/date interval.
+                                # Do not silently add or choose one: unknown.
+                                return None
+                            continue
+                        legacy_intervals[interval] = row
+                    deduped.append(row)
+                chosen = deduped
+            result += sum((Decimal(str(r['amount'])) for r in chosen), Decimal(0))
+    return float(round(result, 2))
 
 
 def valid_confirmation(core, store, state, month):
+    """A confirmation covers BOTH rows and the calculation visible at approval.
+
+    Legacy confirmations have no version. Their saved fixed and adjustment
+    reconstruct the *original automatic basis*, so unaffected old months
+    remain approved, while changed calculations require owner reapproval.
+    A previous manual adjustment stays in the untouched stored confirmation
+    and its audit history; it is never silently rebased or erased.
+    """
     confirmed = state['confirmed'].get(month)
+    if not confirmed:
+        return None
     rows = selected_records(records(core, store, state), month)
-    if confirmed and confirmed.get('records_digest') == digest(rows):
+    if confirmed.get('records_digest') != digest(rows):
+        return None
+    new_base = fixed_total(rows, store)
+    if new_base is None:
+        return None
+    try:
+        if 'calculation_version' in confirmed:
+            if confirmed['calculation_version'] != CONFIRMATION_CALC_VERSION:
+                return None
+            old_base = Decimal(str(confirmed['base_fixed']))
+        else:
+            # Existing historical confirmations: fixed = old_base + adjustment.
+            old_base = (Decimal(str(confirmed['fixed'])) -
+                        Decimal(str(confirmed['adjustment'])))
+        if not old_base.is_finite():
+            return None
+        if old_base.quantize(Decimal('.01')) != Decimal(str(new_base)).quantize(Decimal('.01')):
+            return None
         return confirmed
-    return None
+    except (KeyError, TypeError, InvalidOperation, ValueError):
+        return None
 
 
 def source_period(core, conn, store, key, first, last, state=None):
@@ -108,6 +295,20 @@ def source_period(core, conn, store, key, first, last, state=None):
     all_rows = records(core, store, state)
     if key != "yandex_ads" and not any(r["source"] == key for r in all_rows):
         return None
+    if key == 'instagram':
+        relevant = []
+        cursor = first
+        while cursor <= last:
+            month = cursor.strftime('%Y-%m')
+            relevant.extend(
+                r for r in selected_records(all_rows, month)
+                if r['source'] == key and r not in relevant
+            )
+            cursor = bounds(month)[1] + timedelta(days=1)
+        if _instagram_partial_legacy_active(relevant, store):
+            return _instagram_exact_source_spend(
+                core, conn, store, relevant, first, last
+            )
     total = Decimal(0)
     cursor = first
     while cursor <= last:
@@ -117,10 +318,68 @@ def source_period(core, conn, store, key, first, last, state=None):
         rows = [r for r in selected_records(all_rows, month) if r['source'] == key]
         if (key == 'yandex_ads' or not rows) and not confirmed:
             return None
-        fixed = fixed_total(rows)
+        fixed = fixed_total(rows, store)
         if fixed is None:
             return None  # A cross-month legacy payment needs an explicit month.
         total += apportioned(fixed, cursor, end)
+        cursor = end + timedelta(days=1)
+    return float(total)
+
+
+# Explicit compatibility for two owner-identified legacy Instagram payments.
+# This affects only campaign attribution; original rows, approval digest and
+# source-level totals remain unchanged. Free-form labels in other sources are
+# NEVER treated as campaign identities.
+LEGACY_INSTAGRAM_PAYMENT_NAMES = {
+    'зубачёв': 'Зубачев',
+    'зубачев': 'Зубачев',
+    'отделение структуры': 'Клиника',
+    'клиника': 'Клиника',
+}
+
+
+def campaign_period(core, conn, store, campaign, first, last, state=None):
+    """Calendar-day spend for one existing campaign, sourced from the monthly ledger.
+
+    An actual campaign-linked payment always wins over the legacy source-level
+    named counterpart within that month; never count both representations.
+    Missing campaign months remain unknown, not zero. Caller must not combine
+    child costs with its source budget a second time.
+    """
+    source = str(campaign.get('source_key') or '')
+    if not source or source == 'yandex_ads':
+        return None
+    state = state if state is not None else load(conn)
+    # This path serves ONLY actual new month-bound payment entries.
+    # Historical store.periods.campaigns are exact date-range expenses and
+    # stay governed by the existing _cost_entity_summary() contract. Do NOT
+    # reinterpret an old 70 RUB on one day as 70 RUB for an entire month.
+    all_rows = list(state['entries'].values())
+    keys = set(campaign.get('cost_record_keys') or ())
+    keys.add(campaign['campaign_key'])
+    name = str(campaign.get('campaign_name') or '').strip()
+    total = Decimal(0)
+    cursor = first
+    while cursor <= last:
+        month = cursor.strftime('%Y-%m')
+        end = min(bounds(month)[1], last)
+        subset = [r for r in selected_records(all_rows, month) if r['source'] == source]
+        linked = [
+            r for r in subset
+            if r.get('level') == 'campaign' and r.get('key') in keys
+        ]
+        if not linked and source == 'instagram' and name in ('Зубачев', 'Клиника'):
+            linked = [
+                r for r in subset
+                if r.get('level') == 'source'
+                and LEGACY_INSTAGRAM_PAYMENT_NAMES.get(
+                    str(r.get('label') or '').strip().casefold()
+                ) == name
+            ]
+        if not linked or any(r.get('month') is None for r in linked):
+            return None
+        monthly_amount = sum((Decimal(str(r['amount'])) for r in linked), Decimal(0))
+        total += apportioned(monthly_amount, cursor, end)
         cursor = end + timedelta(days=1)
     return float(total)
 
@@ -153,11 +412,12 @@ def channel_rows(core, conn, store, rows, first, through):
         for campaign in campaigns:
             if campaign['source_key'] != key:
                 continue
-            entries = [r for r in source_rows if r.get('key') == campaign['campaign_key'] and r['level'] == 'campaign']
+            keys = set(campaign.get('cost_record_keys') or ()) | {campaign['campaign_key']}
+            entries = [r for r in source_rows if r.get('key') in keys and r['level'] == 'campaign']
             children.append({**campaign, **values(entries),
                              'direct': (campaign_direct.get(campaign['campaign_key']) or {}).get('spend')})
         result.append({**meta, **values(own), 'campaigns': children,
-                       'fixed_total': fixed_total(source_rows) if source_rows else None,
+                       'fixed_total': fixed_total(source_rows, store) if source_rows else None,
                        'direct': (source_direct.get(key) or {}).get('spend')})
     return result
 
@@ -166,10 +426,13 @@ def view(core, conn, month):
     first, last = bounds(month)
     state, store = load(conn), core._load_cost_store(conn)
     rows = selected_records(records(core, store, state), month)
-    fixed = fixed_total(rows)
+    fixed = fixed_total(rows, store)
     through = min(last, core._today())
     known, complete = direct(core, conn, first, through) if through >= first else (None, False)
     confirmed = valid_confirmation(core, store, state, month)
+    # The obsolete approval remains stored read-only for review; preserve
+    # manual adjustments and show why the current month needs new approval.
+    stale = state['confirmed'].get(month) if confirmed is None else None
     sources = [{'key': r['source_key'], 'name': r['source_name']} for r in core._source_registry(conn, store)]
     if not any(r['key'] == 'yandex_ads' for r in sources):
         sources.append({'key': 'yandex_ads', 'name': 'Подрядчик Яндекс-рекламы'})
@@ -179,6 +442,10 @@ def view(core, conn, month):
         'direct_through': through.isoformat() if through >= first else None,
         'automatic_total': round(fixed + known, 2) if fixed is not None and known is not None else None,
         'confirmed': confirmed,
+        'stale_confirmation': (
+            {'fixed': stale.get('fixed'), 'adjustment': stale.get('adjustment')}
+            if stale else None
+        ),
         'confirmed_total': round(confirmed['fixed'] + known, 2) if confirmed and known is not None else None,
         'revision': digest([state, store, month, known, complete, through.isoformat()]),
         'history': [r for r in state['history'] if month in r['months']][::-1]}
@@ -247,7 +514,10 @@ def mutate(core, conn, form, actor, now):
             before = state['confirmed'].get(month)
             after = {'fixed': fixed, 'adjustment': round(fixed - current['fixed'], 2),
                      'direct_at_confirmation': current['direct'], 'at': now, 'actor': actor,
-                     'records_digest': digest(current['records'])}
+                     'records_digest': digest(current['records']),
+                     'calculation_version': CONFIRMATION_CALC_VERSION,
+                     'base_fixed': current['fixed'],
+                     'mode': 'auto' if form.get('mode') == 'auto' else 'manual'}
             state['confirmed'][month] = after
         elif action in ('save', 'delete'):
             entry_id = str(form.get('id') or '')

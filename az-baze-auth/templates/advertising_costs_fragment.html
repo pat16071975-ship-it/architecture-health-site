@@ -127,7 +127,11 @@ function renderChannels(){
 function render(){
  renderChannels();$('adTotalMonth').textContent=state.month;
  $('adApproved').textContent=money(state.confirmed_total);$('adAutomatic').textContent=money(state.automatic_total);$('adFixed').textContent=money(state.fixed);$('adDirect').textContent=money(state.direct);
- $('adAdjustment').textContent=state.confirmed?'Подтверждённая фиксированная часть: '+money(state.confirmed.fixed)+' ₽; корректировка: '+money(state.confirmed.adjustment)+' ₽':'Месяц не подтверждён';
+ $('adAdjustment').textContent=state.confirmed
+   ?'Подтверждённая фиксированная часть: '+money(state.confirmed.fixed)+' ₽; корректировка: '+money(state.confirmed.adjustment)+' ₽'
+   :state.stale_confirmation
+     ?'Ранее подтверждено '+money(state.stale_confirmation.fixed)+' ₽; прежняя корректировка '+money(state.stale_confirmation.adjustment)+' ₽ сохранена. Расчёт изменился: требуется повторная проверка и подтверждение. Предыдущая сумма и история не удалены.'
+     :'Месяц не подтверждён';
  $('adDirectCoverage').textContent=(state.direct_through?'По '+state.direct_through+'. ':'')+(state.direct_complete?'Покрытие Директа полное.':'Покрытие Директа неполное; показана известная часть.');
  $('adPayments').replaceChildren();for(const r of state.records){const tr=row($('adPayments'),[r.month||r.from+' — '+r.to,r.label+(r.level==='campaign'?' (детализация кампании)':''),money(r.amount),r.comment]);const td=cell(tr,'');for(const [label,action] of [['Изменить',()=>editor(r)],['Удалить',()=>remove(r)]]){const b=document.createElement('button');b.type='button';b.className='ad-cost-add';b.textContent=label;b.addEventListener('click',action);td.append(b,' ');}}
  if(!state.records.length)row($('adPayments'),['','Платежей за месяц нет','','','']);

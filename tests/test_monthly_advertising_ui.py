@@ -84,6 +84,64 @@ window.fetch=async(url,options={})=>{if(options.method==='POST'){posts.push(Obje
         self.assertEqual((post['source'],post['level'],post['campaign_key'],post['amount']),('instagram','campaign','clinic','200'))
         self.assertEqual(self.page.locator('#adCostRows .campaign').count(),3)
 
+    def test_instagram_existing_spend_shows_clinic_not_old_structure_name(self):
+        self.page.evaluate("""() => {
+          fixture.fixed=250000;
+          fixture.automatic_total=250100;
+          fixture.records=[
+            {id:'z-old',month:'2026-11',source:'instagram',level:'campaign',
+             key:'old-z',label:'Зубачёв',amount:150000,comment:''},
+            {id:'clinic-old',month:'2026-11',source:'instagram',level:'campaign',
+             key:'old-clinic',label:'Отделение структуры',amount:100000,comment:''}
+          ];
+          const ig=fixture.channels.find(x=>x.source_key==='instagram');
+          ig.fixed_total=250000;
+          ig.campaigns=[
+            {campaign_key:'zubachev',source_key:'instagram',campaign_id:'',
+             campaign_name:'Зубачев',record_ids:['z-old'],amount:150000,direct:null},
+            {campaign_key:'clinic',source_key:'instagram',campaign_id:'',
+             campaign_name:'Клиника',record_ids:['clinic-old'],amount:100000,direct:null}
+          ];
+        }""")
+        self.page.locator('#adRefresh').click()
+        self.page.locator('[data-expand-source="instagram"]').click()
+        names=self.page.locator('#adCostRows .campaign').all_inner_texts()
+        self.assertEqual(len(names),2)
+        self.assertTrue(any('Клиника' in n for n in names))
+        self.assertTrue(any('Зубачев' in n for n in names))
+        self.assertFalse(any('Отделение структуры' in n for n in names))
+        self.assertEqual(self.page.locator(
+            '[data-entity-key="zubachev"] input').input_value(), '150000')
+        self.assertEqual(self.page.locator(
+            '[data-entity-key="clinic"] input').input_value(), '100000')
+        self.page.locator('[data-entity-key="clinic"]').get_by_role(
+            'button',name='Сохранить',exact=True).click()
+        post=self.page.evaluate('posts[0]')
+        self.assertEqual((post['id'],post['source'],post['campaign_key'],post['amount']),
+                         ('clinic-old','instagram','clinic','100000'))
+
+    def test_reapproval_notice_preserves_old_manual_adjustment_without_auto_applying(self):
+        self.page.evaluate("""() => {
+          fixture.fixed=250000;
+          fixture.direct=100;
+          fixture.automatic_total=250100;
+          fixture.confirmed=null;
+          fixture.confirmed_total=null;
+          fixture.stale_confirmation={fixed:130000,adjustment:30000};
+        }""")
+        self.page.locator('#adRefresh').click()
+        text=self.page.locator('#adAdjustment').inner_text()
+        self.assertIn('Ранее подтверждено',text)
+        self.assertIn('130',text)
+        self.assertIn('30',text)
+        self.assertIn('повторная проверка',text)
+        self.assertEqual(self.page.locator('#adApproved').inner_text(),'—')
+        self.assertEqual(self.page.evaluate('posts.length'),0)
+        # Reapproval only after pressing a confirmation button.
+        self.page.locator('#adAccept').click()
+        self.assertEqual(self.page.evaluate('posts[0].action'),'confirm')
+        self.assertEqual(self.page.evaluate('posts[0].mode'),'auto')
+
     def test_direct_breakdown_is_readonly_and_old_table_columns_preserved(self):
         self.page.locator('[data-expand-source="yandex_ads"]').click()
         campaign=self.page.locator('[data-entity-key="direct1"]')
