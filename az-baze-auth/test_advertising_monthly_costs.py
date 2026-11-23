@@ -496,7 +496,7 @@ class MonthlyCostsTests(unittest.TestCase):
         self.assertEqual(source['spend'],191666.67)
         self.assertEqual(children['Зубачев']['spend'],115000)
         self.assertEqual(children['Клиника']['spend'],76666.67)
-        self.assertEqual(sum(r['spend'] for r in children.values()),source['spend'])
+        self.assertEqual(round(sum(r['spend'] for r in children.values()),2),source['spend'])
         self.assertEqual(costs.source_period(
             core,self.c,before_store,'instagram',first,last),191666.67)
         self.assertEqual(before_db,self.c.total_changes)
@@ -553,7 +553,7 @@ class MonthlyCostsTests(unittest.TestCase):
         self.assertEqual(rows['Зубачев']['spend'],115000)
         self.assertEqual(rows['Клиника']['spend'],76666.67)
         self.assertEqual(costs.load(self.c),before)
-        self.assertEqual(sum(x['spend'] for x in rows.values()),source['spend'])
+        self.assertEqual(round(sum(x['spend'] for x in rows.values()),2),source['spend'])
 
     def test_az254_01_unknown_generic_source_parent_keeps_existing_precedence(self):
         self.instagram_owner_november_fixture()
@@ -641,6 +641,9 @@ class MonthlyCostsTests(unittest.TestCase):
              'advertising_payment':100000,'contractors_payment':None,
              'total_spend':100000}
         store['periods']['campaigns'][keys['old_clinic']]=[old]
+        store['campaigns'][keys['real_clinic']] = {
+            'source_key':'instagram', 'campaign_id':'', 'campaign_name':'Клиника'
+        }
         store['periods']['campaigns'][keys['real_clinic']]=[dict(old)]
         # A matching duplicate interval is the same expense, not two.
         core._persist_cost_store(self.c,store);self.c.commit()
