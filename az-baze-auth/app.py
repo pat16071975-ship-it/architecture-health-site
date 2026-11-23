@@ -569,7 +569,7 @@ def create_app():
             active = 1 if request.form.get("active") == "1" else 0
             permissions = selected_permissions(include_nn=is_owner(g.user))
             if not is_owner(g.user):
-                permissions |= explicit_permissions(user_id) & NN_PERMISSION_KEYS
+                permissions |= explicit_permissions(user_id) & (NN_PERMISSION_KEYS | {'admins_reopen'})
 
             if user_id == g.user["id"] and (not is_admin or not active):
                 error = "Нельзя снять права администратора или отключить собственную учётную запись."
@@ -758,6 +758,9 @@ def selected_permissions(include_nn=False):
     allowed = set(SECTION_KEYS)
     if not include_nn:
         allowed -= NN_PERMISSION_KEYS
+    # Reopening a closed payroll month is granted only by the owner.
+    if not is_owner(g.user):
+        allowed.discard("admins_reopen")
     return {key for key in allowed if request.form.get(f"perm_{key}") == "1"}
 
 
