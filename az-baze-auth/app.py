@@ -759,7 +759,7 @@ def selected_permissions(include_nn=False):
     if not include_nn:
         allowed -= NN_PERMISSION_KEYS
     # Reopening a closed payroll month is granted only by the owner.
-    if not is_owner(g.user):
+    if not is_owner(getattr(g, "user", None)):
         allowed.discard("admins_reopen")
     return {key for key in allowed if request.form.get(f"perm_{key}") == "1"}
 
