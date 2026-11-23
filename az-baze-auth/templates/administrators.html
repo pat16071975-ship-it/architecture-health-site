@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+.az-admin{--az-name:196px;--az-total:86px}
+.az-admin-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.az-admin-sub{font-size:12px;line-height:1.5;color:#6c746d;margin:5px 0 0}
+.az-admin-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:19px 0 16px}
+.az-admin-tabs a{border:1px solid #d8cdbb;border-radius:9px;padding:10px 13px;text-decoration:none;color:#354039;background:#faf7f1;font-size:12px;font-weight:600}
+.az-admin-tabs a[aria-current]{background:#44634f;color:#fff;border-color:#44634f}
+.az-admin-month{display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:11px 12px;background:#faf7f1;border:1px solid #e0d5c4;border-radius:12px}
+.az-admin-month label{font-size:12px;font-weight:600}
+.az-admin-month input{padding:7px 8px;border:1px solid #d4c6b5;border-radius:8px;background:#fff;font:500 12px Montserrat,Arial,sans-serif}
+.az-admin-state{margin-left:auto;white-space:nowrap;font-size:11px;border-radius:999px;padding:6px 10px;background:#e9f2e9;color:#3a6449}
+.az-admin-state.closed{background:#f5e8d5;color:#835b27}
+.az-admin-note{font-size:11px;line-height:1.6;color:#697269;margin:10px 0}
+.az-admin-grid{overflow:auto;max-width:100%;max-height:70vh;border:1px solid #e0d5c4;border-radius:12px;background:#fff}
+.az-admin-grid table{width:100%;border-collapse:separate;border-spacing:0;min-width:max-content}
+.az-admin-grid th,.az-admin-grid td{padding:6px 5px;text-align:center;vertical-align:middle;border-bottom:1px solid #ede6db;border-right:1px solid #f0e9de;font-size:11px;height:42px;min-width:53px}
+.az-admin-grid thead th{position:sticky;top:0;background:#eee7dc;z-index:2;font-weight:600}
+.az-admin-grid .az-name{width:var(--az-name);min-width:var(--az-name);max-width:var(--az-name);position:sticky;left:0;text-align:left;padding-left:12px;background:#fff;z-index:3;white-space:normal}
+.az-admin-grid thead .az-name{z-index:5;background:#eee7dc}
+.az-admin-grid .az-total{width:var(--az-total);min-width:var(--az-total);max-width:var(--az-total);position:sticky;left:var(--az-name);background:#f3efe7;z-index:3;font-weight:600}
+.az-admin-grid thead .az-total{z-index:5;background:#e5ded2}
+.az-admin-grid .az-weekend{background:#f2f0f7}
+.az-admin-grid .az-holiday{background:#fff0d9}
+.az-admin-grid thead .az-weekend{background:#e9e6ef}
+.az-admin-grid thead .az-holiday{background:#f1dfbf}
+.az-admin-grid select{width:56px;border:1px solid #e1d9cc;border-radius:6px;background:#fff;padding:5px 1px;font:500 10px Montserrat,Arial,sans-serif;text-align:center}
+.az-admin-grid select:focus{outline:2px solid #b59662}
+.az-admin-grid .az-off{color:#9b948b}
+.az-admin-grid form{margin:0}
+.az-admin-grid .az-staff-small{display:block;color:#9b948b;font-size:9px;margin-top:3px}
+.az-admin-pay{overflow-x:auto;border:1px solid #e0d5c4;border-radius:12px}
+.az-admin-pay table{min-width:1080px;width:100%;border-collapse:collapse;background:#fff}
+.az-admin-pay th,.az-admin-pay td{padding:9px 7px;text-align:left;border-bottom:1px solid #ebe3d7;font-size:11px;vertical-align:middle}
+.az-admin-pay thead th{font-size:10px;color:#5e665f;background:#eee8de}
+.az-admin-pay input{width:105px;max-width:100%;padding:7px 5px;border:1px solid #d9cebd;border-radius:7px;font:500 11px Montserrat,Arial,sans-serif}
+.az-admin-pay .az-money{text-align:right;white-space:nowrap;font-weight:700}
+.az-admin-pay tfoot td{background:#f1ede4;font-size:12px;font-weight:700}
+.az-admin-pay .az-subinfo{display:block;margin-top:4px;font-size:9px;color:#6a746a;font-weight:400}
+.az-admin-settings table{width:100%;border-collapse:collapse}
+.az-admin-settings th,.az-admin-settings td{padding:10px 7px;border-bottom:1px solid #e9e1d4;font-size:11px;text-align:left}
+.az-admin-settings input[type=text],.az-admin-settings input[type=number]{width:100%;padding:8px 9px;border-radius:8px;border:1px solid #d9cebd;font:500 12px Montserrat,Arial,sans-serif}
+.az-admin-settings .az-rate{width:130px}
+.az-admin-status-actions{margin:16px 0 0;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.az-admin-summary{margin:16px 0 0;padding:13px 16px;border-radius:10px;border:1px solid #d9c8ad;background:#f5f0e7;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px}
+.az-admin-summary strong{font-size:18px;color:#44634f;white-space:nowrap}
+@media(max-width:700px){.az-admin{--az-name:145px;--az-total:72px}.az-admin-grid th,.az-admin-grid td{font-size:10px}.az-admin-tabs a{font-size:10px;padding:9px 9px}.az-admin-head h2{font-size:22px}.az-admin-summary strong{font-size:15px}.az-admin-month{padding:8px}}
+</style>
+<div class="card az-admin" style="padding:clamp(10px,2.4vw,26px)">
+  <header class="az-admin-head">
+    <div>
+      <h2 class="section-title" style="margin:0">Администраторы</h2>
+      <p class="az-admin-sub">Табель и расчёт ФОТ административного штата. Данные этого раздела не передаются в Финрез и другие отчёты.</p>
+    </div>
+    <a class="btn" href="/">На главную</a>
+  </header>
+
+  <nav class="az-admin-tabs" aria-label="Вкладки администраторов">
+    <a href="?tab=table&amp;month={{ month }}" {% if tab == 'table' %}aria-current="page"{% endif %}>Табель рабочего времени</a>
+    <a href="?tab=payroll&amp;month={{ month }}" {% if tab == 'payroll' %}aria-current="page"{% endif %}>ФОТ админов</a>
+    <a href="?tab=settings&amp;month={{ month }}" {% if tab == 'settings' %}aria-current="page"{% endif %}>Настройки</a>
+  </nav>
+
+  <div class="az-admin-month">
+    <a class="btn" href="?tab={{ tab }}&amp;month={{ prev_month }}" aria-label="Предыдущий месяц">←</a>
+    <form method="get" id="az-admin-date-form">
+      <input type="hidden" name="tab" value="{{ tab }}">
+      <label for="az-admin-month">Месяц</label>
+      <input id="az-admin-month" type="month" name="month" value="{{ month }}" min="2000-01" max="2099-12" onchange="this.form.requestSubmit()">
+      <noscript><button class="btn" type="submit">Показать</button></noscript>
+    </form>
+    <a class="btn" href="?tab={{ tab }}&amp;month={{ next_month }}" aria-label="Следующий месяц">→</a>
+    {% if ready %}
+      <span class="az-admin-state{% if state.closed %} closed{% endif %}">{{ 'Месяц закрыт' if state.closed else 'Месяц открыт' }}</span>
+    {% endif %}
+  </div>
+
+  {% if not ready %}
+    <p class="error">Раздел ещё не подготовлен в базе данных. Просмотр и ввод будут доступны после отдельной установки.</p>
+  {% elif tab == 'table' %}
+    <p class="az-admin-note">По умолчанию все дни — «вых». Для рабочего дня выберите часы. Субботы, воскресенья и праздники подсвечены независимо от графика. Итого часов находится рядом с ФИО.</p>
+    {% if not rows %}
+      <p class="muted">Администраторы ещё не добавлены. Добавьте сотрудников во вкладке «Настройки».</p>
+    {% else %}
+      <div class="az-admin-grid" role="region" aria-label="Табель рабочего времени с горизонтальной прокруткой" tabindex="0">
+        <table>
+          <thead><tr>
+            <th class="az-name">ФИО администратора</th><th class="az-total">Часов</th>
+            {% for day in days %}
+              <th class="{% if day.holiday %}az-holiday{% elif day.weekend %}az-weekend{% endif %}" title="{{ day.holiday or ('Выходной по календарю' if day.weekend else '') }}">{{ day.day }}</th>
+            {% endfor %}
+          </tr></thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <th scope="row" class="az-name">{{ row.name }}{% if not row.active %}<span class="az-staff-small">Неактивен</span>{% endif %}</th>
+                <td class="az-total">{{ row.hours }}</td>
+                {% for day in days %}
+                  {% set value = row.days.get(day.day, 'off') %}
+                  <td class="{% if day.holiday %}az-holiday{% elif day.weekend %}az-weekend{% endif %}">
+                    {% if can_hours and not state.closed %}
+                      <form action="/administrators/hours" method="post">
+                        <input type="hidden" name="csrf" value="{{ csrf }}">
+                        <input type="hidden" name="month" value="{{ month }}">
+                        <input type="hidden" name="staff_id" value="{{ row.id }}">
+                        <input type="hidden" name="work_date" value="{{ month }}-{{ '%02d'|format(day.day) }}">
+                        <select name="value" aria-label="{{ row.name }} {{ day.day }} число, часы" onchange="this.form.requestSubmit()">
+                          <option value="off" {% if value == 'off' %}selected{% endif %}>вых</option>
+                          {% for option in hour_options %}
+                            <option value="{{ option }}" {% if value == option %}selected{% endif %}>{{ option }}</option>
+                          {% endfor %}
+                        </select>
+                      </form>
+                    {% else %}
+                      <span class="{{ 'az-off' if value == 'off' else '' }}">{{ 'вых' if value == 'off' else value }}</span>
+                    {% endif %}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  {% elif tab == 'payroll' %}
+    <p class="az-admin-note">Оплата часов = ставка × часы. Премии за стандарты и конверсию = указанная сумма ÷ 180 × часы из табеля. Остальные суммы фиксированные. Налоги и удержания не рассчитываются.</p>
+    {% if not rows %}
+      <p class="muted">Нет сотрудников для расчёта за выбранный месяц.</p>
+    {% else %}
+      <div class="az-admin-pay" role="region" aria-label="Расчёт фонда оплаты труда" tabindex="0">
+        <table>
+          <thead>
+            <tr>
+              <th>ФИО администратора</th>
+              <th>Ставка, ₽/ч</th>
+              <th>Премия за стандарты, ₽</th>
+              <th>Премия за конверсию, ₽</th>
+              <th>Премия за категорию, ₽</th>
+              <th>Премия за план, ₽</th>
+              <th>Допначисления, ₽</th>
+              <th>Часов</th>
+              <th>Итого на руки, ₽</th>
+              {% if can_payroll and not state.closed %}<th> </th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <th scope="row">{{ row.name }}</th>
+                <td>{{ row.rate|az_admin_money }}</td>
+                {% for field in ('standards', 'conversion', 'category', 'plan', 'extras') %}
+                  <td>
+                    {% if can_payroll and not state.closed %}
+                      <input form="az-pay-{{ row.id }}" name="{{ field }}" aria-label="{{ row.name }} — {{ field }}" value="{{ row.bonus[field]|az_admin_money }}" inputmode="decimal" required>
+                    {% else %}
+                      {{ row.bonus[field]|az_admin_money }}
+                    {% endif %}
+                  </td>
+                {% endfor %}
+                <td>{{ row.hours }}</td>
+                <td class="az-money">{{ row.total|az_admin_money }}
+                  <span class="az-subinfo">Часы: {{ row.calculated.base|az_admin_money }} ₽</span>
+                </td>
+                {% if can_payroll and not state.closed %}
+                  <td>
+                    <form method="post" action="/administrators/payroll" id="az-pay-{{ row.id }}">
+                      <input type="hidden" name="csrf" value="{{ csrf }}">
+                      <input type="hidden" name="month" value="{{ month }}">
+                      <input type="hidden" name="staff_id" value="{{ row.id }}">
+                      <button type="submit" class="btn primary">Сохранить</button>
+                    </form>
+                  </td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr><td colspan="8">Итого ФОТ административного штата</td>
+              <td class="az-money">{{ total_fot|az_admin_money }} ₽</td>
+              {% if can_payroll and not state.closed %}<td></td>{% endif %}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    {% endif %}
+    <div class="az-admin-status-actions">
+      {% if state.closed %}
+        <span class="az-admin-state closed">Закрыто: изменение часов и премий заблокировано</span>
+        {% if can_reopen %}
+          <form method="post" action="/administrators/month">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="month" value="{{ month }}">
+            <input type="hidden" name="action" value="reopen">
+            <button class="btn warn" type="submit" onclick="return confirm('Повторно открыть {{ month }}? История закрытия сохранится.')">Повторно открыть месяц</button>
+          </form>
+        {% endif %}
+      {% elif can_close and rows %}
+        <form method="post" action="/administrators/month">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="action" value="close">
+          <button class="btn primary" type="submit" onclick="return confirm('Закрыть {{ month }} и зафиксировать расчёт ФОТ?')">Закрыть месяц</button>
+        </form>
+      {% endif %}
+    </div>
+    <div class="az-admin-summary"><span>Фонд оплаты труда административного штата</span><strong>{{ total_fot|az_admin_money }} ₽</strong></div>
+  {% else %}
+    <p class="az-admin-note">Ставка действует с выбранного месяца и не пересчитывает предыдущие периоды. Неактивные администраторы сохраняются в истории. Внесённые здесь сотрудники не создаются автоматически в разделе управления доступом.</p>
+    <div class="az-admin-settings">
+      {% if rows %}
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ФИО</th><th>Ставка, ₽/ч</th><th>Активен</th>{% if can_settings and not state.closed %}<th></th>{% endif %}</tr></thead>
+            <tbody>
+            {% for row in rows %}
+              <tr>
+                {% if can_settings and not state.closed %}
+                  <td><input form="az-staff-{{ row.id }}" type="text" name="full_name" value="{{ row.name }}" maxlength="160" required></td>
+                  <td class="az-rate"><input form="az-staff-{{ row.id }}" name="rate" type="text" inputmode="decimal" value="{{ row.rate|az_admin_money }}" required></td>
+                  <td><label><input form="az-staff-{{ row.id }}" type="checkbox" name="active" value="1" {% if row.active %}checked{% endif %}> Да</label></td>
+                  <td>
+                    <form action="/administrators/settings" method="post" id="az-staff-{{ row.id }}">
+                      <input type="hidden" name="csrf" value="{{ csrf }}">
+                      <input type="hidden" name="month" value="{{ month }}">
+                      <input type="hidden" name="staff_id" value="{{ row.id }}">
+                      <button type="submit" class="btn">Сохранить</button>
+                    </form>
+                  </td>
+                {% else %}
+                  <td>{{ row.name }}</td><td>{{ row.rate|az_admin_money }}</td>
+                  <td>{{ 'Да' if row.active else 'Нет' }}</td>
+                {% endif %}
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+      {% if can_settings and not state.closed %}
+        <h3 style="font-size:14px;margin:23px 0 8px">Добавить администратора</h3>
+        <form method="post" action="/administrators/settings" class="row" style="align-items:end">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="active" value="1">
+          <label class="field" style="flex:1 1 240px;margin:0">ФИО
+            <input type="text" name="full_name" maxlength="160" required placeholder="Фамилия Имя Отчество"></label>
+          <label class="field" style="flex:0 1 160px;margin:0">Ставка, ₽/ч
+            <input type="text" name="rate" inputmode="decimal" required placeholder="0,00"></label>
+          <button class="btn primary" type="submit">Добавить</button>
+        </form>
+      {% elif state.closed %}
+        <p class="muted">Чтобы изменить сотрудников или ставки этого месяца, его нужно повторно открыть.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
