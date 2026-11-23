@@ -606,6 +606,21 @@ class MonthlyCostsTests(unittest.TestCase):
         self.assertEqual(core._load_cost_store(self.c),before_store)
         self.assertEqual(costs.load(self.c),before_ledger)
         self.assertEqual(self.view()['fixed'],250000)
+        # A full-month archived legacy payment has the same calendar-day
+        # allocation as its parent's source line in a partial-month report.
+        partial_start,partial_end=date(2026,11,1),date(2026,11,23)
+        partial_rows={r['campaign_name']:r for r in core._group_breakdown(
+            self.c,partial_start,partial_end,'campaign') if r['source_key']=='instagram'}
+        partial_parent=next(r for r in core._group_breakdown(
+            self.c,partial_start,partial_end,'source') if r['source_key']=='instagram')
+        self.assertEqual(partial_rows['Клиника']['spend'],76666.67)
+        self.assertEqual(partial_rows['Зубачев']['spend'],115000)
+        self.assertEqual(partial_parent['spend'],191666.67)
+        self.assertEqual(round(sum(r['spend'] for r in partial_rows.values()),2),
+                         partial_parent['spend'])
+        self.assertEqual(changes,self.c.total_changes)
+        self.assertEqual(core._load_cost_store(self.c),before_store)
+        self.assertEqual(costs.load(self.c),before_ledger)
 
     def test_az254_02_historical_old_key_works_with_no_other_monthly_entries(self):
         keys=self.instagram_owner_november_fixture()
@@ -690,6 +705,32 @@ class MonthlyCostsTests(unittest.TestCase):
         self.assertEqual(before_changes,self.c.total_changes)
         self.assertEqual(before_store,core._load_cost_store(self.c))
         self.assertEqual(before_state,costs.load(self.c))
+
+
+    def test_az254_02_one_day_archived_instagram_alias_keeps_exact_day_rule(self):
+        keys=self.instagram_owner_november_fixture()
+        state=costs.load(self.c)
+        state['entries'].clear()
+        self.c.execute("UPDATE report_blobs SET payload=? WHERE key=?",
+                       (costs.encode(state),costs.KEY))
+        store=core._load_cost_store(self.c)
+        store['periods']['campaigns'][keys['old_clinic']]=[{
+            'from':'2026-11-08','to':'2026-11-08',
+            'advertising_payment':1000,
+            'contractors_payment':None,'total_spend':1000,
+        }]
+        core._persist_cost_store(self.c,store);self.c.commit()
+        before=self.c.total_changes
+        rows={r['campaign_name']:r for r in core._group_breakdown(
+            self.c,date(2026,11,8),date(2026,11,8),'campaign')
+              if r['source_key']=='instagram'}
+        self.assertEqual(rows['Клиника']['spend'],1000)
+        rows={r['campaign_name']:r for r in core._group_breakdown(
+            self.c,date(2026,11,1),date(2026,11,23),'campaign')
+              if r['source_key']=='instagram'}
+        self.assertIsNone(rows['Клиника']['spend'])
+        self.assertEqual(self.c.total_changes,before)
+
 
 
 if __name__=='__main__':unittest.main()
