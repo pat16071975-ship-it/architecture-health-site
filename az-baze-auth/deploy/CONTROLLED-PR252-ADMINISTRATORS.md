@@ -13,3 +13,18 @@ Deployment artifact, not a product change. Audit source HEAD `46f4d9b1c133818c8f
 **Boundary:** script runs on the AZ BAZE host only, from VS Code remote terminal; not remotely executable through the GitHub/Drive connectors. Source checks and CI do not imply Production changed. An authenticated physical walkthrough on live AZ BAZE still requires the owner after the controlled apply. Never paste passwords or service environment variables into a chat.
 
 **CLI:** `python3 -B <script> --preflight` or `python3 -B <script> --apply`. The operator should fetch the script from an **exact commit SHA**, verify its exact Git blob SHA before running, and provide stdout/stderr log with no secrets.
+
+## Live knowledge_catalog preservation (preflight STOP resolved in package)
+
+Owner confirmed only this development thread works on AZ BAZE. A verified read-only live server comparison found exactly two pre-existing lines missing from the PR252 Git baseline:
+
+```python
+import knowledge_catalog
+knowledge_catalog.register(app)
+```
+
+Live `server.py` SHA is **`8c9a1b45390e273a1e8f1bc8a12f331cf0fbdd47`**, while the earlier release installer mistakenly expected `7d186761a727baa1fe50707c80b3d9ab154a3b96`. No other one of the eight runtime files differs; the two new files remain absent. The first live `--apply` stopped in preflight, before stopping services or modifying data. It must NOT be rerun.
+
+The corrected installer now requires **exactly that verified live server Git blob**, preserves the existing `knowledge_catalog` module in place, downloads the audited merged server blob **`b0934c61c722ab006a405d1aaefebf4cd4a86fbb`**, and inserts only those two existing registration lines at verified anchors. Its resulting exact pinned server blob is **`99dbe7ac9bd35bcc131d0c321b0d269716c4ceb9`**, containing both `knowledge_catalog.register(app)` and `administrators.register(app)`. Any mismatch, unexpected edited source, missing local knowledge module, or duplicate registration causes a hard STOP before changes. If rollback is required, the verified live server version with the knowledge catalog registration is restored, NOT the older Git baseline.
+
+The deploy package fixture CI checks the expected live server hash from the original Git baseline plus exactly the two observed lines, the resulting combined target hash, knowledge module preservation, original runtime rollback, protection from unrecognised changes, and isolated additive DB migration. **The audited PR252 source remains unchanged.** The preserved two-line live patch is an intentional compatibility layer of the installer and is not silently treated as identical to the reviewed Git source tree.
