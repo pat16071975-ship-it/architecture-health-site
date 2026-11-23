@@ -405,6 +405,7 @@ class MonthlyCostsTests(unittest.TestCase):
     def test_instagram_november_expenses_land_in_real_campaign_rows(self):
         old = self.instagram_owner_november_fixture()
         self.approve()
+        before_state = costs.load(self.c)
         before_changes = self.c.total_changes
         first, last = date(2026,11,1), date(2026,11,23)
         # Original source/month money is 250,000, independently of labels.
@@ -431,7 +432,7 @@ class MonthlyCostsTests(unittest.TestCase):
         self.assertAlmostEqual(by_name['Клиника']['cost_per_visit'], 76666.67/12)
         # Reporting and editor GET do not migrate/modify the owner's raw records.
         self.assertEqual(self.c.total_changes, before_changes)
-        self.assertEqual(costs.load(self.c), costs.load(self.c))
+        self.assertEqual(costs.load(self.c), before_state)
         self.assertEqual(core._load_cost_store(self.c), old['costs_before'])
 
     def test_instagram_editor_names_clinic_and_keeps_old_payment_editable(self):
