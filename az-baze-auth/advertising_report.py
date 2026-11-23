@@ -1134,14 +1134,17 @@ def _campaign_economics(conn, start, end, store=None):
             monthly = advertising_monthly_costs.campaign_period(
                 _monthly_core, conn, store, meta, start, end, monthly_state
             )
-            summary = {
-                **summary,
-                "complete": monthly is not None,
-                "legacy_partial": False,
-                "advertising_payment": monthly,
-                "contractors_payment": None,
-                "total_spend": monthly,
-            }
+            if monthly is not None:
+                # New monthly payments use day proration. Historical campaign
+                # intervals continue to use their exact original date range.
+                summary = {
+                    **summary,
+                    "complete": True,
+                    "legacy_partial": False,
+                    "advertising_payment": monthly,
+                    "contractors_payment": None,
+                    "total_spend": monthly,
+                }
         direct_value = direct.get(key) or {}
         components = _effective_cost_components(
             summary,
