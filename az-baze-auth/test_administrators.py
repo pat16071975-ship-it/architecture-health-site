@@ -69,10 +69,11 @@ class AdministratorsTests(unittest.TestCase):
         return client
 
     def post(self, uid, endpoint, **fields):
-        return self.client(uid).post(
-            "/administrators/" + endpoint,
-            data=dict(csrf="admin-test-csrf", month="2026-11", **fields),
-        )
+        month = fields.pop("month", "2026-11")
+        version = fields.pop("version", adm.month_state(self.conn, month)["version"])
+        data = dict(csrf="admin-test-csrf", month=month, version=str(version))
+        data.update(fields)
+        return self.client(uid).post("/administrators/" + endpoint, data=data)
 
     def staff(self, rate="200,00", name="Иванова Анна"):
         response = self.post(1, "settings", full_name=name, rate=rate, active="1")
@@ -149,7 +150,9 @@ class AdministratorsTests(unittest.TestCase):
                                    category="0", plan="0", extras="0").status_code, 409)
         self.assertEqual(self.snapshot(), before)
         self.assertEqual(self.client(1).post("/administrators/settings", data=dict(
-            csrf="admin-test-csrf", month="2026-12", staff_id=str(sid), full_name="Иванова Анна",
+            csrf="admin-test-csrf", month="2026-12",
+            version=str(adm.month_state(self.conn, "2026-12")["version"]),
+            staff_id=str(sid), full_name="Иванова Анна",
             rate="250,00", active="1",
         )).status_code, 303)
         self.assertEqual(adm.model(self.conn, "2026-11")[1][0]["total"], 318000)
@@ -195,6 +198,103 @@ class AdministratorsTests(unittest.TestCase):
         self.assertTrue(set(adm.TABLES).issubset(tables))
         self.assertEqual(adm.month_shift("2026-12", 1), "2027-01")
         self.assertEqual(adm.month_shift("2027-01", -1), "2026-12")
+
+
+
+    def test_az_252_01_stale_month_form_cannot_erase_premiums_or_close(self):
+        sid = self.staff()
+        stale = adm.month_state(self.conn, "2026-11")["version"]
+        self.assertEqual(
+            self.post(5, "payroll", staff_id=str(sid), version=stale,
+                      standards="1800", conversion="0", category="0", plan="0", extras="0").status_code,
+            303,
+        )
+        self.assertEqual(adm.month_state(self.conn, "2026-11")["version"], stale + 1)
+        after_first = self.snapshot()
+        self.assertEqual(
+            self.post(5, "payroll", staff_id=str(sid), version=stale,
+                      standards="0", conversion="0", category="500", plan="0", extras="0").status_code,
+            409,
+        )
+        self.assertEqual(self.snapshot(), after_first)
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["bonus"]["standards"], 180000)
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["bonus"]["category"], 0)
+        self.assertEqual(self.post(5, "month", action="close", version=stale).status_code, 409)
+        self.assertEqual(self.snapshot(), after_first)
+        refreshed = adm.month_state(self.conn, "2026-11")["version"]
+        self.assertEqual(self.post(5, "month", action="close", version=refreshed).status_code, 303)
+        closed_version = adm.month_state(self.conn, "2026-11")["version"]
+        self.assertEqual(closed_version, refreshed + 1)
+        self.assertEqual(self.post(1, "month", action="reopen", version=refreshed).status_code, 409)
+        self.assertTrue(adm.month_state(self.conn, "2026-11")["closed"])
+        self.assertEqual(self.post(1, "month", action="reopen", version=closed_version).status_code, 303)
+
+    def test_az_252_01_old_hours_and_settings_forms_are_rejected(self):
+        sid = self.staff()
+        stale = adm.month_state(self.conn, "2026-11")["version"]
+        self.assertEqual(
+            self.post(4, "hours", staff_id=str(sid), work_date="2026-11-03",
+                      value="12", version=stale).status_code, 303
+        )
+        saved = self.snapshot()
+        self.assertEqual(
+            self.post(4, "hours", staff_id=str(sid), work_date="2026-11-03",
+                      value="8", version=stale).status_code, 409
+        )
+        self.assertEqual(
+            self.post(1, "settings", staff_id=str(sid), full_name="Другое ФИО",
+                      rate="250", active="1", version=stale).status_code, 409
+        )
+        self.assertEqual(self.snapshot(), saved)
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["minutes"], 720)
+
+    def test_az_252_02_reopen_grant_protects_account_edit_and_password_reset(self):
+        self.conn.execute("INSERT INTO permissions(user_id,section) VALUES(?,?)",
+                          (5, "admins_reopen"))
+        self.conn.commit()
+        before = self.snapshot()
+        url = "/admin/users/5"
+        non_owner = self.client(2)
+        self.assertEqual(non_owner.get(url + "/edit").status_code, 403)
+        self.assertEqual(non_owner.post(url + "/edit", data={
+            "csrf": "admin-test-csrf", "full_name": "Взлом",
+            "email": "attacker@example.test", "active": "1", "is_admin": "1"
+        }).status_code, 403)
+        reset = non_owner.post(url + "/reset-password", data={"csrf": "admin-test-csrf"})
+        self.assertEqual(reset.status_code, 403)
+        self.assertNotIn("Временный пароль", reset.get_data(as_text=True))
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.client(1).get(url + "/edit").status_code, 200)
+        owner_reset = self.client(1).post(url + "/reset-password",
+                                          data={"csrf": "admin-test-csrf"})
+        self.assertEqual(owner_reset.status_code, 200)
+        self.assertIn("Временный пароль", owner_reset.get_data(as_text=True))
+
+    def test_az_252_03_past_rate_change_preserves_future_inactive_month(self):
+        sid = self.staff(rate="200")
+        self.assertEqual(self.post(1, "settings", month="2026-12", staff_id=str(sid),
+                                   full_name="Иванова Анна", rate="200", active="0").status_code, 303)
+        self.assertEqual(adm.read_rows(self.conn, "2026-12")[0]["active"], False)
+        self.assertEqual(self.post(1, "settings", month="2026-11", staff_id=str(sid),
+                                   full_name="Иванова Анна", rate="210", active="1").status_code, 303)
+        self.assertEqual(self.conn.execute(
+            "SELECT inactive_month FROM az_admin_staff WHERE id=?", (sid,)).fetchone()[0],
+            "2026-12")
+        self.assertTrue(adm.read_rows(self.conn, "2026-11")[0]["active"])
+        self.assertFalse(adm.read_rows(self.conn, "2026-12")[0]["active"])
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["rate"], 21000)
+
+    def test_az_252_01_missing_or_invalid_version_fails_closed(self):
+        sid = self.staff()
+        before = self.snapshot()
+        for version in ("", "-1", "abc", "9999999999999999999999"):
+            self.assertEqual(self.post(5, "payroll", staff_id=str(sid),
+                standards="1800", conversion="0", category="0", plan="0",
+                extras="0", version=version).status_code, 400)
+        raw = self.client(5).post("/administrators/month", data={
+            "csrf": "admin-test-csrf", "month": "2026-11", "action": "close"})
+        self.assertEqual(raw.status_code, 400)
+        self.assertEqual(self.snapshot(), before)
 
 
 if __name__ == "__main__":
