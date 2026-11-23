@@ -556,7 +556,7 @@ def create_app():
         user = db().execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             abort(404)
-        if (is_owner(user) or control_center.protected_user(db(),user_id)) and not is_owner(g.user):
+        if protected_admin_target(user) and not is_owner(g.user):
             abort(403)
         error = None
         if request.method == "POST":
@@ -569,7 +569,7 @@ def create_app():
             active = 1 if request.form.get("active") == "1" else 0
             permissions = selected_permissions(include_nn=is_owner(g.user))
             if not is_owner(g.user):
-                permissions |= explicit_permissions(user_id) & NN_PERMISSION_KEYS
+                permissions |= explicit_permissions(user_id) & (NN_PERMISSION_KEYS | {'admins_reopen'})
 
             if user_id == g.user["id"] and (not is_admin or not active):
                 error = "Нельзя снять права администратора или отключить собственную учётную запись."
@@ -610,7 +610,7 @@ def create_app():
         user = db().execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
         if not user:
             abort(404)
-        if (is_owner(user) or control_center.protected_user(db(),user_id)) and not is_owner(g.user):
+        if protected_admin_target(user) and not is_owner(g.user):
             abort(403)
         temp_password = secrets.token_urlsafe(10)
         db().execute(
@@ -717,6 +717,17 @@ def is_owner(user):
     return bool(user and OWNER_EMAIL and str(user["email"]).strip().lower() == OWNER_EMAIL)
 
 
+def protected_admin_target(user):
+    """Account takeover guard for privileged users; applies to edit and password reset."""
+    return bool(
+        user and (
+            is_owner(user)
+            or control_center.protected_user(db(), user["id"])
+            or "admins_reopen" in explicit_permissions(user["id"])
+        )
+    )
+
+
 def user_permissions(user):
     explicit = explicit_permissions(user["id"])
     if bool(user["is_admin"]):
@@ -758,6 +769,9 @@ def selected_permissions(include_nn=False):
     allowed = set(SECTION_KEYS)
     if not include_nn:
         allowed -= NN_PERMISSION_KEYS
+    # Reopening a closed payroll month is granted only by the owner.
+    if not is_owner(getattr(g, "user", None)):
+        allowed.discard("admins_reopen")
     return {key for key in allowed if request.form.get(f"perm_{key}") == "1"}
 
 

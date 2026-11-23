@@ -6,6 +6,7 @@ SECTION_RULES = (
     ("/control/", "Контроль", "/control/"),
     ("/personal-credentials/", "Доступы и контакты", "/access-contacts/"),
     ("/accounting/", "УЧЕТ", "/accounting/"),
+    ("/administrators/", "Администраторы", "/administrators/"),
     ("/reports/", "Отчёты", "/reports/"),
     ("/access-contacts/", "Доступы и контакты", "/access-contacts/"),
     ("/contacts/", "Доступы и контакты", "/access-contacts/"),

@@ -22,6 +22,11 @@
     </div>
     <p class="muted">Эти права доступны для назначения только владельцу системы и не выдаются автоматически администраторам.</p>
     {% endif %}
+    <h3 style="margin:24px 0 8px;font-size:15px">Администраторы — отдельные права</h3>
+    <div class="checks">
+      {% for key,label in administrators_permission_options %}<label class="check"><input type="checkbox" name="perm_{{ key }}" value="1" {% if key in current_permissions %}checked{% endif %}> {{ label }}</label>{% endfor %}
+    </div>
+    <p class="muted">Просмотр, табель, премии, настройки, закрытие и повторное открытие месяца назначаются независимо. Администратор системы не получает эти права автоматически.</p>
     <h3 style="margin:24px 0 8px;font-size:15px">Опросы — персональные права</h3>
     <div class="checks">
       {% for key,label in survey_permission_options %}<label class="check"><input type="checkbox" name="perm_{{ key }}" value="1" {% if key in current_permissions %}checked{% endif %}> {{ label }}</label>{% endfor %}
