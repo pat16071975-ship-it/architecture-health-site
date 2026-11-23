@@ -9,6 +9,9 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 KEY = 'az-advertising-monthly-costs-v1'
+# Bump this when the meaning of a monthly fixed sum changes; never silently
+# reuse a prior confirmation just because its raw rows did not change.
+CONFIRMATION_CALC_VERSION = 'instagram-campaign-reconcile-v3'
 
 
 def encode(value):
@@ -122,11 +125,19 @@ def fixed_total(rows, store=None):
             kind = 'campaign' if row.get('level') == 'campaign' else 'source'
             bucket[kind].append(row)
         for bucket in grouped.values():
-            chosen = bucket['campaign'] or bucket['source']
-            if bucket['campaign']:
-                # The modern monthly ledger supersedes an archived historical
-                # cost for that same campaign/month. Align the source total
-                # with campaign_period() / _campaign_economics() precedence.
+            # AZ-254-03: within one canonical Instagram campaign, NEW monthly
+            # evidence always wins over old archived metadata, regardless
+            # whether a legacy-named monthly payment was saved at source or
+            # campaign level. A modern campaign payment outranks its matching
+            # modern source-level duplicate, but an archived 60k campaign
+            # must never suppress a newer 100k source-level clinic payment.
+            new_campaign = [r for r in bucket['campaign'] if not r.get('legacy')]
+            new_source = [r for r in bucket['source'] if not r.get('legacy')]
+            chosen = (new_campaign or new_source
+                      or bucket['campaign'] or bucket['source'])
+            if chosen:
+                # The modern monthly ledger supersedes archival history for
+                # this same campaign/month; do not append it in the source.
                 newer_months = {
                     r['month'] for r in chosen
                     if not r.get('legacy') and r.get('month')
@@ -156,11 +167,37 @@ def fixed_total(rows, store=None):
 
 
 def valid_confirmation(core, store, state, month):
+    """A confirmation covers BOTH rows and the calculation visible at approval.
+
+    Legacy confirmations have no version. Their saved fixed and adjustment
+    reconstruct the *original automatic basis*, so unaffected old months
+    remain approved, while changed calculations require owner reapproval.
+    A previous manual adjustment stays in the untouched stored confirmation
+    and its audit history; it is never silently rebased or erased.
+    """
     confirmed = state['confirmed'].get(month)
+    if not confirmed:
+        return None
     rows = selected_records(records(core, store, state), month)
-    if confirmed and confirmed.get('records_digest') == digest(rows):
-        return confirmed
-    return None
+    if confirmed.get('records_digest') != digest(rows):
+        return None
+    new_base = fixed_total(rows, store)
+    if new_base is None:
+        return None
+    try:
+        if 'calculation_version' in confirmed:
+            if confirmed['calculation_version'] != CONFIRMATION_CALC_VERSION:
+                return None
+            old_base = Decimal(str(confirmed['base_fixed']))
+        else:
+            # Existing historical confirmations: fixed = old_base + adjustment.
+            old_base = (Decimal(str(confirmed['fixed'])) -
+                        Decimal(str(confirmed['adjustment'])))
+        if not old_base.is_finite():
+            return None
+        return old_base.quantize(Decimal('.01')) == Decimal(str(new_base)).quantize(Decimal('.01'))
+    except (KeyError, TypeError, InvalidOperation, ValueError):
+        return None
 
 
 def source_period(core, conn, store, key, first, last, state=None):
@@ -294,6 +331,9 @@ def view(core, conn, month):
     through = min(last, core._today())
     known, complete = direct(core, conn, first, through) if through >= first else (None, False)
     confirmed = valid_confirmation(core, store, state, month)
+    # The obsolete approval remains stored read-only for review; preserve
+    # manual adjustments and show why the current month needs new approval.
+    stale = state['confirmed'].get(month) if confirmed is None else None
     sources = [{'key': r['source_key'], 'name': r['source_name']} for r in core._source_registry(conn, store)]
     if not any(r['key'] == 'yandex_ads' for r in sources):
         sources.append({'key': 'yandex_ads', 'name': 'Подрядчик Яндекс-рекламы'})
@@ -303,6 +343,10 @@ def view(core, conn, month):
         'direct_through': through.isoformat() if through >= first else None,
         'automatic_total': round(fixed + known, 2) if fixed is not None and known is not None else None,
         'confirmed': confirmed,
+        'stale_confirmation': (
+            {'fixed': stale.get('fixed'), 'adjustment': stale.get('adjustment')}
+            if stale else None
+        ),
         'confirmed_total': round(confirmed['fixed'] + known, 2) if confirmed and known is not None else None,
         'revision': digest([state, store, month, known, complete, through.isoformat()]),
         'history': [r for r in state['history'] if month in r['months']][::-1]}
@@ -371,7 +415,10 @@ def mutate(core, conn, form, actor, now):
             before = state['confirmed'].get(month)
             after = {'fixed': fixed, 'adjustment': round(fixed - current['fixed'], 2),
                      'direct_at_confirmation': current['direct'], 'at': now, 'actor': actor,
-                     'records_digest': digest(current['records'])}
+                     'records_digest': digest(current['records']),
+                     'calculation_version': CONFIRMATION_CALC_VERSION,
+                     'base_fixed': current['fixed'],
+                     'mode': 'auto' if form.get('mode') == 'auto' else 'manual'}
             state['confirmed'][month] = after
         elif action in ('save', 'delete'):
             entry_id = str(form.get('id') or '')
