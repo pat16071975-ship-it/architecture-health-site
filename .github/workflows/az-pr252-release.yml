@@ -1,0 +1,26 @@
+name: AZ PR252 controlled deployment package
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/deploy/controlled-pr252-administrators.py'
+      - 'az-baze-auth/deploy/test_controlled_pr252_release.py'
+      - '.github/workflows/az-pr252-release.yml'
+permissions:
+  contents: read
+jobs:
+  deploy-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Syntax and immutable-source manifest tests
+        run: |
+          python3 -B -m py_compile az-baze-auth/deploy/controlled-pr252-administrators.py
+          python3 -B -m py_compile az-baze-auth/deploy/test_controlled_pr252_release.py
+          python3 -B -m unittest discover -v -s az-baze-auth/deploy -p 'test_controlled_pr252_release.py'
