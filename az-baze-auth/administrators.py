@@ -502,8 +502,14 @@ def register(app):
             return response
         html = response.get_data(as_text=True)
         link = '<a class="menu-btn active" href="/administrators/" id="administrators">Администраторы</a>'
+        # Keep the canonical default tile order used by menu_order.CATALOG.
+        accounting = '<a class="menu-btn active" href="/accounting/" id="accounting">УЧЕТ</a>'
         anchor = re.search(r'<nav\b[^>]*\bclass="menu-column"[^>]*>', html)
-        if link not in html and anchor:
+        if link not in html and accounting in html:
+            html = html.replace(accounting, accounting + "\n" + link, 1)
+            response.set_data(html)
+        elif link not in html and anchor:
+            # A user with only administrators permissions may have no accounting tile.
             html = html.replace(anchor.group(0), anchor.group(0) + "\n" + link, 1)
             response.set_data(html)
         return response
