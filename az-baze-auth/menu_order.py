@@ -31,6 +31,7 @@ CATALOG = {
         ('birthdays', 'Дни рождения сотрудников', '#birthdays'),
         ('uploads', 'Загрузка данных', '/uploads/'),
         ('accounting', 'УЧЕТ', '/accounting/'),
+        ('administrators', 'Администраторы', '/administrators/'),
         ('nn', 'Варикоза нет - KZ', '/nn/'),
         ('control', 'Контроль', '/control/'),
     ]),
