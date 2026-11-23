@@ -254,7 +254,11 @@ def read_rows(conn, month):
 def model(conn, month):
     state = month_state(conn, month)
     if state["closed"] and state["snapshot"]:
-        return state, json.loads(state["snapshot"])
+        rows = json.loads(state["snapshot"])
+        for row in rows:
+            # JSON object keys are strings, while the table uses numeric dates.
+            row["days"] = {int(day): hours for day, hours in row["days"].items()}
+        return state, rows
     return state, read_rows(conn, month)
 
 
