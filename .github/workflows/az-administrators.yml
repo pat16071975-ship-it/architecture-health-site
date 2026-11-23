@@ -5,6 +5,7 @@ on:
       - 'az-baze-auth/administrators.py'
       - 'az-baze-auth/templates/administrators.html'
       - 'az-baze-auth/test_administrators.py'
+      - 'az-baze-auth/browser_administrators.py'
       - 'az-baze-auth/server.py'
       - 'az-baze-auth/app.py'
       - 'az-baze-auth/section_navigation.py'
@@ -25,13 +26,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install -r az-baze-auth/requirements.txt
+      - run: pip install -r az-baze-auth/requirements.txt playwright==1.55.0
       - name: Syntax and module tests
         working-directory: az-baze-auth
         run: |
           python -B -m py_compile administrators.py test_administrators.py server.py
           python -B -m unittest -v test_administrators
           python -B -m unittest -v test_menu_order test_section_navigation test_accounting_section
+      - name: Desktop and mobile browser smoke
+        working-directory: az-baze-auth
+        run: |
+          export CHROMIUM_PATH="$(command -v google-chrome || command -v chromium)"
+          test -x "$CHROMIUM_PATH"
+          python -B browser_administrators.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: administrators-desktop-mobile-preview
+          path: az-baze-auth/administrators-browser-artifacts/
+          if-no-files-found: ignore
       - name: Scope guard
         run: |
           ! git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep -E '^(reports/|az-baze-auth/(finrez|payroll_registry|report_accounting|advertising_report)\.py)'
