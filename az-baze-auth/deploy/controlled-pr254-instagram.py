@@ -152,7 +152,16 @@ def fetch_blob(expected):
                 obj = json.loads(response.read(2 * 1024 * 1024))
             if obj.get("encoding") != "base64":
                 fail("GITHUB_BLOB_ENCODING_INVALID")
-            data = base64.b64decode(obj["content"], validate=True)
+            # GitHub Git Blob API wraps base64 at line boundaries. Remove
+            # whitespace, but keep strict validation of all other characters
+            # and verify the exact immutable Git blob before using bytes.
+            encoded = obj.get("content")
+            if not isinstance(encoded, str):
+                fail("GITHUB_BLOB_CONTENT_INVALID")
+            try:
+                data = base64.b64decode("".join(encoded.split()), validate=True)
+            except (ValueError, base64.binascii.Error) as exc:
+                fail(f"GITHUB_BLOB_BASE64_INVALID: {type(exc).__name__}")
             if len(data) > 1024 * 1024 or git_blob(data) != expected:
                 fail(f"IMMUTABLE_GIT_BLOB_INVALID: {expected}")
             return data
