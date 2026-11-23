@@ -61,7 +61,7 @@ try:
             page.get_by_role("link", name="ФОТ админов").click()
             with page.expect_navigation(): page.get_by_role("button", name="Повторно открыть месяц").click()
             page.get_by_role("link", name="Настройки").click()
-            assert "Иванова Анна" in page.locator(".az-admin-settings").inner_text()
+            assert page.locator(".az-admin-settings input[name=full_name]").first.input_value() == "Иванова Анна"
             page.screenshot(path=str(artifacts / f"settings-{width}.png"), full_page=True)
             assert not errors, errors
             context.close()
