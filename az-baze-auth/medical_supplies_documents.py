@@ -247,6 +247,9 @@ def save_upload(conn, raw, filename, form, actor):
     """Atomic original + metadata + history; same SHA cannot be saved twice."""
     name, mime = validate_file(raw, filename)
     info = details(form)
+    # Upload always enters the review queue; a forged hidden status field
+    # cannot mark a newly received document as already reviewed.
+    info["status"] = "pending"
     sha = hashlib.sha256(raw).hexdigest()
     now = _now()
     conn.execute("BEGIN IMMEDIATE")
