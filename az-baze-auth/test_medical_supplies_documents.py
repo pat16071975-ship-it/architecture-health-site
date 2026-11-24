@@ -317,6 +317,122 @@ class IncomingDocumentTests(unittest.TestCase):
         self.assertEqual(self.get_doc()["content_type"], "application/pdf")
         self.assertEqual(inbox._filename("folder\\invoice.pdf"), "invoice.pdf")
 
+    @staticmethod
+    def make_zip(files, compression=zipfile.ZIP_STORED):
+        stream = io.BytesIO()
+        with zipfile.ZipFile(stream, "w", compression=compression) as z:
+            for name, data in files:
+                z.writestr(name, data)
+        return stream.getvalue()
+
+    @classmethod
+    def valid_docx(cls):
+        types = ('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                 '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+                 '</Types>')
+        rels = ('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+                '</Relationships>')
+        body = ('<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                '<w:body><w:p/></w:body></w:document>')
+        return cls.make_zip([
+            ("[Content_Types].xml", types),
+            ("_rels/.rels", rels),
+            ("word/document.xml", body),
+        ])
+
+    def test_az256_01_reject_windows_traversal_drive_unc_root_and_ads_paths(self):
+        bad_paths = [
+            r"..\secret.txt", r"docs\..\secret.txt", r"a/b\..\secret.txt",
+            r"C:\Users\secret.txt", r"C:secret.txt", r"E:/data.txt",
+            r"\\server\share\document.xml", r"\Windows\temp.txt",
+            r"//server/share/doc.txt", "/etc/passwd", r"a\b\..\..\x.txt",
+            r"folder\file.txt:evil", "a/./file.txt", "a//file.txt",
+            r"dir\CON.txt", "COM1.txt", "folder/../../s.txt",
+        ]
+        for path in bad_paths:
+            with self.subTest(path=path):
+                payload = self.make_zip([(path, "data")])
+                with self.assertRaises(ValueError):
+                    inbox.validate_file(payload, "supplier.zip")
+        for safe in ("docs\\\\sample.txt", "docs/report.pdf", "Единицы/документ.pdf"):
+            # Ordinary Windows separators are normalized but never extracted.
+            self.assertEqual(inbox.validate_file(
+                self.make_zip([(safe, "example")]), "supplier.zip"
+            )[1], "application/zip")
+        with self.assertRaises(ValueError):
+            inbox.validate_file(self.make_zip([
+                ("docs/a.txt", "a"), (r"docs\a.txt", "b"),
+            ]), "invoice.zip")
+
+    def test_az256_02_invalid_crc_rejected_in_zip_docx_and_upload(self):
+        zip_source = self.make_zip([("invoice.txt", b"UNIQUE_CRC_PAYLOAD_123")])
+        damaged = zip_source.replace(b"UNIQUE_CRC_PAYLOAD_123",
+                                     b"UNIQUE_CRC_PAYLOAD_124", 1)
+        self.assertNotEqual(damaged, zip_source)
+        with self.assertRaises(ValueError):
+            inbox.validate_file(damaged, "invoice.zip")
+        self.assertEqual(self.upload(damaged, "invoice.zip").status_code, 400)
+        docx = self.valid_docx()
+        needle = b"<w:p/>"
+        self.assertIn(needle, docx)
+        bad_docx = docx.replace(needle, b"<w:x/>", 1)
+        with self.assertRaises(ValueError):
+            inbox.validate_file(bad_docx, "invoice.docx")
+        self.assertEqual(self.conn.execute(
+            "SELECT COUNT(*) FROM med_supply_documents").fetchone()[0], 0)
+
+    def test_az256_02_invalid_office_structure_names_only_rejected(self):
+        types = '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>'
+        rels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>'
+        bogus = [
+            [("[Content_Types].xml", types), ("word/document.xml", "<document/>")],
+            [("[Content_Types].xml", types), ("_rels/.rels", rels),
+             ("word/document.xml", "<document/>")],
+            [("[Content_Types].xml", "<malformed"), ("_rels/.rels", rels),
+             ("word/document.xml", "<document/>")],
+        ]
+        for items in bogus:
+            with self.subTest(items=items):
+                with self.assertRaises(ValueError):
+                    inbox.validate_file(self.make_zip(items), "fake.docx")
+        bad_rels = self.valid_docx().replace(b"word/document.xml",
+                                            b"word/missingpart.xml", 1)
+        with self.assertRaises(ValueError):
+            inbox.validate_file(bad_rels, "broken.docx")
+        docx = self.valid_docx()
+        with self.assertRaises(ValueError):
+            inbox.validate_file(docx, "fake.xlsx")  # wrong OOXML package kind
+        with self.assertRaises(ValueError):
+            inbox.validate_file(self.make_zip([
+                ("mimetype", "application/vnd.oasis.opendocument.text"),
+                ("content.xml", "bad"), ("META-INF/manifest.xml", "<bad/>"),
+            ]), "not-a-real.odt")
+        with self.assertRaises(ValueError):
+            inbox.validate_file(self.make_zip([
+                ("mimetype", "application/vnd.oasis.opendocument.spreadsheet"),
+                ("content.xml", "<a/>"), ("META-INF/manifest.xml", "<bad/>"),
+            ]), "fake.ods")
+
+    def test_az256_02_zip_resource_limits_and_truncation(self):
+        archive = self.make_zip([("first.txt", "a"), ("second.txt", "b")])
+        with patch.object(inbox, "ZIP_MAX_MEMBERS", 1):
+            with self.assertRaises(ValueError):
+                inbox.validate_file(archive, "two.zip")
+        with patch.object(inbox, "ZIP_MAX_UNCOMPRESSED", 1):
+            with self.assertRaises(ValueError):
+                inbox.validate_file(archive, "two.zip")
+        with patch.object(inbox, "ZIP_MAX_MEMBER", 1):
+            with self.assertRaises(ValueError):
+                inbox.validate_file(self.make_zip([("large.txt", b"xx")]), "large.zip")
+        with self.assertRaises(ValueError):
+            inbox.validate_file(archive[:-12], "truncated.zip")
+        # The entire validation must fail atomically; no document or event.
+        self.assertEqual(self.conn.execute(
+            "SELECT COUNT(*) FROM med_supply_documents").fetchone()[0], 0)
+        self.assertEqual(self.conn.execute(
+            "SELECT COUNT(*) FROM med_supply_document_events").fetchone()[0], 0)
+
     def test_multiple_supported_formats_and_zip_path_checks(self):
         workbook = Workbook()
         workbook.active["A1"] = "УПД"
@@ -335,11 +451,7 @@ class IncomingDocumentTests(unittest.TestCase):
                 name, actual = inbox.validate_file(raw, filename)
                 self.assertEqual(name, filename)
                 self.assertEqual(actual, mime)
-        with io.BytesIO() as raw:
-            with zipfile.ZipFile(raw, "w") as z:
-                z.writestr("[Content_Types].xml", "test")
-                z.writestr("word/document.xml", "<document/>")
-            docx = raw.getvalue()
+        docx = self.valid_docx()
         self.assertEqual(inbox.validate_file(docx, "letter.docx")[1],
                          "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         self.assertEqual(self.upload(raw=XML, filename="УПД.xml").status_code, 303)
