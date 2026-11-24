@@ -10,6 +10,7 @@ import json
 import re
 import sqlite3
 import zipfile
+from xml.parsers import expat
 from datetime import date, datetime, timezone
 from pathlib import PurePath
 
@@ -128,28 +129,192 @@ def _filename(name):
     return name
 
 
+ZIP_MAX_MEMBERS = 1000
+ZIP_MAX_UNCOMPRESSED = 100 * 1024 * 1024
+ZIP_MAX_MEMBER = 32 * 1024 * 1024
+ZIP_MAX_METADATA = 2 * 1024 * 1024
+ZIP_CHUNK = 64 * 1024
+OOXML_CONTENT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+OOXML_RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+OOXML_OFFICE_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+
+
+def _zip_safe_name(name):
+    """Accept harmless Windows separators, reject any absolute/traversing path.
+
+    Validate paths without extracting files. The same canonical comparison is
+    used to reject duplicate members, case and separator aliases across OSes.
+    """
+    if not name or len(name) > 1024 or any(ord(c) < 32 or ord(c) == 127 for c in name):
+        raise ValueError("Недопустимое имя файла внутри архива.")
+    normalized = name.replace("\\", "/")
+    if normalized.startswith("/") or re.match(r"^[A-Za-z]:", normalized):
+        raise ValueError("Абсолютный путь или диск Windows внутри архива.")
+    # Reject dot navigation, alternate data streams, empty components and
+    # colon-based drive escapes on any OS. Directory trailing / is permitted.
+    parts = normalized.rstrip("/").split("/")
+    if any(p in ("", ".", "..") or ":" in p or p.endswith((" ", "."))
+           for p in parts):
+        raise ValueError("Недопустимый относительный путь внутри архива.")
+    for segment in parts:
+        # Win32 device names and trailing extensions must not be valid archive
+        # paths in a portable inbox (even though originals are not extracted).
+        stem = segment.split(".", 1)[0].upper()
+        if stem in {"CON", "PRN", "AUX", "NUL"} or re.fullmatch(
+            r"(COM|LPT)[1-9]", stem
+        ):
+            raise ValueError("Недопустимое имя устройства Windows в архиве.")
+    return normalized
+
+
+def _zip_member_xml(archive, info, expected_root, *, inspect=None):
+    """Bounded streaming XML validation with DTD/entity rejection, no XML tree."""
+    parser = expat.ParserCreate(namespace_separator="}")
+    state = {"root": None}
+    def start(name, attrs):
+        if state["root"] is None:
+            state["root"] = name
+        if inspect:
+            inspect(name, attrs)
+    def reject(*_args):
+        raise ValueError("DTD и пользовательские сущности запрещены в Office XML.")
+    parser.StartElementHandler = start
+    parser.StartDoctypeDeclHandler = reject
+    parser.EntityDeclHandler = reject
+    parser.ExternalEntityRefHandler = lambda *_args: 0
+    seen = 0
+    try:
+        with archive.open(info, "r") as reader:
+            while True:
+                chunk = reader.read(ZIP_CHUNK)
+                if not chunk:
+                    break
+                seen += len(chunk)
+                if seen > ZIP_MAX_UNCOMPRESSED:
+                    raise ValueError("Превышен лимит разбора Office XML.")
+                parser.Parse(chunk, False)
+            parser.Parse(b"", True)
+    except (expat.ExpatError, UnicodeError) as exc:
+        raise ValueError("Повреждённая структура Office XML.") from exc
+    if state["root"] != expected_root:
+        raise ValueError("Тип внутреннего Office XML не соответствует формату.")
+
+
 def _zip_kind(raw, ext):
+    """Check portable paths, full member CRCs and actual Office structure.
+
+    Every compressed member is streamed to EOF (CRC is then checked by Python's
+    zipfile reader). No member is extracted and no decompressed bytes are
+    retained. Total uncompressed work and member count are strictly bounded.
+    """
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             infos = archive.infolist()
-            if not infos or len(infos) > 1000:
+            if not infos or len(infos) > ZIP_MAX_MEMBERS:
                 raise ValueError("Некорректный архив документа.")
-            if sum(i.file_size for i in infos) > 100 * 1024 * 1024:
+            if sum(i.file_size for i in infos) > ZIP_MAX_UNCOMPRESSED:
                 raise ValueError("Слишком большой распакованный документ.")
-            if any(i.filename.startswith("/") or ".." in i.filename.split("/")
-                   for i in infos):
-                raise ValueError("Недопустимые пути внутри архива.")
-            names = {i.filename for i in infos}
-            if ext == ".docx" and ("word/document.xml" not in names
-                                    or "[Content_Types].xml" not in names):
-                raise ValueError("Содержимое файла не соответствует DOCX.")
-            if ext == ".xlsx" and ("xl/workbook.xml" not in names
-                                    or "[Content_Types].xml" not in names):
-                raise ValueError("Содержимое файла не соответствует XLSX.")
-            if ext in (".odt", ".ods") and "mimetype" not in names:
-                raise ValueError("Содержимое файла не соответствует ODF.")
-    except (zipfile.BadZipFile, OSError) as exc:
-        raise ValueError("Некорректный ZIP/Office-документ.") from exc
+            names = {}
+            for info in infos:
+                normalized = _zip_safe_name(info.filename)
+                alias = normalized.casefold()
+                if alias in names:
+                    raise ValueError("Повторяющиеся имена внутри архива.")
+                names[alias] = info
+                if info.flag_bits & 1:
+                    raise ValueError("Зашифрованные ZIP-файлы не поддерживаются.")
+                if info.compress_type not in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED):
+                    raise ValueError("Недопустимый способ сжатия ZIP.")
+                if info.file_size > ZIP_MAX_MEMBER:
+                    raise ValueError("Слишком большой файл внутри ZIP.")
+                if info.file_size and info.compress_size == 0:
+                    raise ValueError("Повреждённые размеры ZIP.")
+                if info.compress_size and info.file_size > info.compress_size * 1000:
+                    raise ValueError("Слишком высокая степень распаковки ZIP.")
+                # Symlinks and platform-specific special files do not belong
+                # in a document inbox. ZIP directories are harmless.
+                mode = (info.external_attr >> 16) & 0o170000
+                if mode not in (0, 0o100000, 0o040000):
+                    raise ValueError("Специальные файлы запрещены в ZIP.")
+                if info.is_dir() and info.file_size:
+                    raise ValueError("Каталог ZIP содержит данные.")
+
+            # Fully read every member in bounded chunks: CRC is checked when
+            # the last chunk is consumed, not by listing names or headers.
+            total = 0
+            for info in infos:
+                size = 0
+                with archive.open(info, "r") as member:
+                    while True:
+                        chunk = member.read(ZIP_CHUNK)
+                        if not chunk:
+                            break
+                        size += len(chunk)
+                        total += len(chunk)
+                        if size > ZIP_MAX_MEMBER or total > ZIP_MAX_UNCOMPRESSED:
+                            raise ValueError("Превышен лимит распаковки ZIP.")
+                if size != info.file_size:
+                    raise ValueError("Размер файла внутри ZIP не совпадает.")
+
+            if ext not in (".docx", ".xlsx", ".odt", ".ods"):
+                return
+            if ext in (".docx", ".xlsx"):
+                kind = "word/document.xml" if ext == ".docx" else "xl/workbook.xml"
+                expected_content = (
+                    "application/vnd.openxmlformats-officedocument."
+                    + ("wordprocessingml.document.main+xml" if ext == ".docx"
+                       else "spreadsheetml.sheet.main+xml")
+                )
+                if not {"[content_types].xml", "_rels/.rels", kind} <= set(names):
+                    raise ValueError("В Office-документе отсутствуют обязательные части.")
+                if any(names[n].file_size > ZIP_MAX_METADATA
+                       for n in ("[content_types].xml", "_rels/.rels")):
+                    raise ValueError("Слишком большие метаданные Office.")
+
+                found = {"override": False, "relationship": False}
+                def content_item(name, attrs):
+                    if name == f"{OOXML_CONTENT_NS}}}Override":
+                        if (attrs.get("PartName") == "/" + kind
+                                and attrs.get("ContentType") == expected_content):
+                            found["override"] = True
+                def root_relation(name, attrs):
+                    if name == f"{OOXML_RELS_NS}}}Relationship":
+                        target = str(attrs.get("Target") or "").replace("\\", "/").lstrip("/")
+                        if (attrs.get("Type") == OOXML_OFFICE_REL
+                                and attrs.get("TargetMode", "Internal") == "Internal"
+                                and target == kind):
+                            found["relationship"] = True
+                _zip_member_xml(archive, names["[content_types].xml"],
+                                f"{OOXML_CONTENT_NS}}}Types", inspect=content_item)
+                _zip_member_xml(archive, names["_rels/.rels"],
+                                f"{OOXML_RELS_NS}}}Relationships", inspect=root_relation)
+                expected_main_root = (
+                    "http://schemas.openxmlformats.org/wordprocessingml/2006/main}document"
+                    if ext == ".docx" else
+                    "http://schemas.openxmlformats.org/spreadsheetml/2006/main}workbook"
+                )
+                _zip_member_xml(archive, names[kind], expected_main_root)
+                if not all(found.values()):
+                    raise ValueError("Тип и связи Office-документа не подтверждены.")
+            else:
+                if not {"mimetype", "content.xml", "meta-inf/manifest.xml"} <= set(names):
+                    raise ValueError("В ODF отсутствуют обязательные части.")
+                if names["mimetype"].file_size > 200:
+                    raise ValueError("Некорректный MIME внутри ODF.")
+                expected_mime = (
+                    b"application/vnd.oasis.opendocument.text"
+                    if ext == ".odt" else
+                    b"application/vnd.oasis.opendocument.spreadsheet"
+                )
+                if archive.read(names["mimetype"]) != expected_mime:
+                    raise ValueError("Тип ODF не соответствует расширению.")
+                _zip_member_xml(archive, names["content.xml"],
+                                "urn:oasis:names:tc:opendocument:xmlns:office:1.0}document-content")
+                _zip_member_xml(archive, names["meta-inf/manifest.xml"],
+                                "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}manifest")
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, RuntimeError, OSError,
+            EOFError, NotImplementedError, ValueError, expat.ExpatError) as exc:
+        raise ValueError("Небезопасный или повреждённый ZIP/Office-документ: " + str(exc)) from exc
 
 
 def validate_file(raw, filename):
