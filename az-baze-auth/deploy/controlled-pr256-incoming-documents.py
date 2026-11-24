@@ -36,11 +36,11 @@ SERVICE = "az-baze-auth"
 LOCAL = "http://127.0.0.1:8001"
 FILES = {
     "medical_supplies.py": ("0c8866461ab5a75561154fd977665673822b783f", "226437cd0ccce5ceef6fe84f3e9f43b7e355aed0"),
-    "medical_supplies_documents.py": (null, "f9bcf89dd2f3cf54df9d8392d5ce269318923713"),
+    "medical_supplies_documents.py": (None, "f9bcf89dd2f3cf54df9d8392d5ce269318923713"),
     "templates/medical_supplies.html": ("fe43bd742106e8af608a1965ffe1ceeeab80413e", "0314a1a4608db48ba96574fb9bbcf8551b3af8be"),
     "templates/medical_supplies_daily.html": ("e1a22d6b9941b3cf24bbffda0808728a7a3328c1", "5eccbce7093256b95412e9744cdc8902bc2434f6"),
     "templates/medical_supplies_stock.html": ("a122a2c8eca0a2855caebca84e12380c045749d4", "97e66d537759e3731ef9056e9ce7934fd162bbd0"),
-    "templates/medical_supplies_documents.html": (null, "4333551d4939ed6632651dd014836c9ca4a57402"),
+    "templates/medical_supplies_documents.html": (None, "4333551d4939ed6632651dd014836c9ca4a57402"),
 }
 NEW_TABLES = frozenset(("med_supply_documents", "med_supply_document_events"))
 NEW_INDEXES = frozenset(("ix_med_supply_documents_status",
