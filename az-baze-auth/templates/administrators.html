@@ -103,7 +103,7 @@
   {% if not ready %}
     <p class="error">Раздел ещё не подготовлен в базе данных. Просмотр и ввод будут доступны после отдельной установки.</p>
   {% elif tab == 'table' %}
-    <p class="az-admin-note">Вводите часы вручную — пустая ячейка или 0 означает отсутствие работы. Выходные и праздники подсвечены только по календарю. Все дни месяца, фамилии с инициалами и итоги помещаются на экране без горизонтальной прокрутки на компьютере. Данные записываются после нажатия «Сохранить».</p>
+    <p class="az-admin-note">Вводите часы вручную: 8 или 7,5 часа; для точных минут — 0:07 (7 минут), 1:01 (1 час 1 минута), 8:20. Пустая ячейка или 0 означает отсутствие работы. Минуты не округляются. Выходные и праздники подсвечены только по календарю. Все дни месяца, фамилии с инициалами и итоги помещаются на экране без горизонтальной прокрутки на компьютере. Данные записываются после нажатия «Сохранить».</p>
     {% if not rows %}
       <p class="muted">Администраторы ещё не добавлены. Добавьте сотрудников во вкладке «Настройки».</p>
     {% else %}
@@ -131,7 +131,7 @@
                   {% set value = row.days.get(day.day, '') %}
                   <td data-day="{{ day.day }}" class="{% if day.holiday %}az-holiday{% elif day.weekend %}az-weekend{% endif %}" title="{{ day.holiday or ('Выходной по календарю' if day.weekend else '') }}">
                     {% if can_hours and not state.closed %}
-                      <input class="az-hour-input" type="text" inputmode="decimal" name="hours_{{ row.id }}_{{ '%02d'|format(day.day) }}" maxlength="8" autocomplete="off" aria-label="{{ row.name }} — {{ day.day }} число, часов" value="{{ value }}">
+                      <input class="az-hour-input" type="text" inputmode="text" name="hours_{{ row.id }}_{{ '%02d'|format(day.day) }}" maxlength="8" autocomplete="off" title="Примеры: 8; 7,5; 0:07; 1:01; 8:20 (ч:мм)" aria-label="{{ row.name }} — {{ day.day }} число, часов" value="{{ value }}">
                     {% else %}
                       <span class="{{ 'az-empty' if not value else '' }}">{{ value or '—' }}</span>
                     {% endif %}
@@ -336,28 +336,47 @@
   const status = document.getElementById('az-hours-save-status');
   if (!form || !status) return;
   const inputs = form.querySelectorAll('.az-hour-input');
+  function parseMinutes(value) {
+    const text = value.trim();
+    if (!text) return 0;
+    if (text.includes(':')) {
+      const match = /^([0-9]{1,2}):([0-5][0-9])$/.exec(text);
+      if (!match) return null;
+      const minutes = Number(match[1])*60 + Number(match[2]);
+      return minutes <= 1440 ? minutes : null;
+    }
+    const hours = Number(text.replace(',', '.'));
+    if (!Number.isFinite(hours) || hours < 0 || hours > 24) return null;
+    const minutes = hours * 60;
+    if (Math.abs(minutes - Math.round(minutes)) > 0.0000001) return null;
+    return Math.round(minutes);
+  }
+  function formatMinutes(minutes) {
+    // Never round minutes to hundredths of an hour: 7 min is 0:07,
+    // not 0,12. For exact decimal-hour values retain the compact display.
+    if (minutes % 3) {
+      return Math.floor(minutes / 60) + ':' +
+        String(minutes % 60).padStart(2, '0');
+    }
+    return new Intl.NumberFormat('ru-RU', {
+      maximumFractionDigits: 2
+    }).format(minutes / 60);
+  }
   function updateTotal(input) {
     const row = input.closest('tr[data-staff-id]');
     if (!row) return;
     let total = 0;
-    let valid = true;
     for (const day of row.querySelectorAll('.az-hour-input')) {
-      const value = day.value.trim().replace(',', '.');
-      if (!value) continue;
-      const number = Number(value);
-      if (!Number.isFinite(number) || number < 0 || number > 24 ||
-          Math.abs(number * 60 - Math.round(number * 60)) > 0.0000001) {
-        valid = false;
-        break;
+      const minutes = parseMinutes(day.value);
+      if (minutes === null) {
+        const target = row.querySelector('[data-total-for]');
+        if (target) target.textContent = '—';
+        return;
       }
-      total += Math.round(number * 60);
+      total += minutes;
     }
     const result = row.querySelector('[data-total-for]');
-    if (result) {
-      result.textContent = valid
-        ? new Intl.NumberFormat('ru-RU', {maximumFractionDigits:2}).format(total/60)
-        : '—';
-    }
+    if (result) result.textContent = formatMinutes(total);
   }
   for (const input of inputs) {
     input.addEventListener('input', () => {
