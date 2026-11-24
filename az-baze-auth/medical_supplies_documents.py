@@ -98,7 +98,10 @@ def ready(conn):
 
 def _str(value, limit, field):
     value = str(value or "").strip()
-    if len(value) > limit or any(ord(c) < 32 and c not in "\t" for c in value):
+    # A reviewer may write multiple lines in notes; names and references
+    # must remain single-line and free from control characters.
+    allowed = "\t\r\n" if field == "Комментарий" else ""
+    if len(value) > limit or any(ord(c) < 32 and c not in allowed for c in value):
         raise ValueError(f"{field}: не больше {limit} символов, без управляющих знаков.")
     return value
 
