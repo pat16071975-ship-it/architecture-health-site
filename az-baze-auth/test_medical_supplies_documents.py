@@ -355,7 +355,7 @@ class IncomingDocumentTests(unittest.TestCase):
                 payload = self.make_zip([(path, "data")])
                 with self.assertRaises(ValueError):
                     inbox.validate_file(payload, "supplier.zip")
-        for safe in ("docs\\\\sample.txt", "docs/report.pdf", "Единицы/документ.pdf"):
+        for safe in (r"docs\sample.txt", "docs/report.pdf", "Единицы/документ.pdf"):
             # Ordinary Windows separators are normalized but never extracted.
             self.assertEqual(inbox.validate_file(
                 self.make_zip([(safe, "example")]), "supplier.zip"
@@ -396,8 +396,8 @@ class IncomingDocumentTests(unittest.TestCase):
             with self.subTest(items=items):
                 with self.assertRaises(ValueError):
                     inbox.validate_file(self.make_zip(items), "fake.docx")
-        bad_rels = self.valid_docx().replace(b"word/document.xml",
-                                            b"word/missingpart.xml", 1)
+        bad_rels = self.valid_docx().replace(b'Target="word/document.xml"',
+                                            b'Target="word/unknown.xml"', 1)
         with self.assertRaises(ValueError):
             inbox.validate_file(bad_rels, "broken.docx")
         docx = self.valid_docx()
