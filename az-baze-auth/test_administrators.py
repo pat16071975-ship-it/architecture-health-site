@@ -92,7 +92,10 @@ class AdministratorsTests(unittest.TestCase):
                     version=str(state["version"]), view_revision=revision)
         for row in rows:
             for day in range(1, count + 1):
-                data[f"hours_{row['id']}_{day:02d}"] = row["days"].get(day, "")
+                data[f"hours_{row['id']}_{day:02d}"] = (
+                    "" if day in row.get("legacy_days", {})
+                    else row["days"].get(day, "")
+                )
         for (sid, day), value in (changes or {}).items():
             data[f"hours_{sid}_{day:02d}"] = value
         return data
@@ -192,8 +195,8 @@ class AdministratorsTests(unittest.TestCase):
     def test_az_admin_batch_saved_only_on_explicit_submit_and_success_proof(self):
         first = self.staff(name="Иванова Анна Петровна")
         second = self.staff(name="Петрова Мария")
-        data = self.batch_data(changes={(first, 4): "8", (first, 5): "7,5",
-                                        (second, 24): "9.25"})
+        data = self.batch_data(changes={(first, 4): "8", (first, 5): "7",
+                                        (second, 24): "9"})
         before = self.snapshot()
         self.assertIn('value=""', self.client(4).get(
             "/administrators/?month=2026-11").text)
@@ -203,9 +206,9 @@ class AdministratorsTests(unittest.TestCase):
         result = self.save_batch(data=data)
         self.assertEqual(result.status_code, 303)
         self.assertEqual(self.snapshot().count("INSERT INTO \"az_admin_days\""), 3)
-        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["minutes"], 930)
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["minutes"], 900)
         self.assertEqual(sum(r["minutes"] for r in adm.read_rows(self.conn, "2026-11")),
-                         1485)
+                         1440)
         self.assertEqual(self.conn.execute(
             "SELECT version FROM az_admin_months WHERE month='2026-11'"
         ).fetchone()[0], 3)  # two staff settings + one batch save
@@ -225,13 +228,12 @@ class AdministratorsTests(unittest.TestCase):
             "SELECT COUNT(*) FROM az_admin_events WHERE action='hours'"
         ).fetchone()[0], 3)  # no-op save leaves history unchanged
 
-    def test_az_admin_batch_blank_zero_and_fractional_hours(self):
+    def test_az_admin_batch_blank_zero_and_whole_hours(self):
         sid = self.staff()
         self.assertEqual(self.save_batch(changes={
-            (sid, 1): "8,5", (sid, 2): "7.25",
-            (sid, 3): "0", (sid, 4): ""
+            (sid, 1): "8", (sid, 2): "7", (sid, 3): "0", (sid, 4): ""
         }).status_code, 303)
-        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["hours"], "15.75")
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["hours"], "15")
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM az_admin_days")
                          .fetchone()[0], 2)
         self.assertEqual(self.save_batch(changes={(sid, 1): "", (sid, 2): "0"})
@@ -239,110 +241,95 @@ class AdministratorsTests(unittest.TestCase):
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM az_admin_days")
                          .fetchone()[0], 0)
         self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["hours"], "0")
-        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM az_admin_events "
-                         "WHERE action='hours'").fetchone()[0], 4)
+        self.assertEqual(self.conn.execute(
+            "SELECT COUNT(*) FROM az_admin_events WHERE action='hours'"
+        ).fetchone()[0], 4)
 
-    def test_az_258_01_every_integer_minute_round_trips_losslessly(self):
-        """A saved day must always be representable in its own editable field."""
-        for minutes in range(1, 1441):
-            with self.subTest(minutes=minutes):
-                value = adm.hours_text(minutes)
-                self.assertLessEqual(len(value), 8)
-                self.assertEqual(adm.parse_hours_entry(value), minutes)
-        self.assertEqual(adm.hours_text(7), "0:07")
-        self.assertEqual(adm.hours_text(61), "1:01")
-        self.assertEqual(adm.hours_text(500), "8:20")
-        self.assertEqual(adm.hours_text(1440), "24")
-        for value, expected in (
-            ("0:07", 7), ("1:01", 61), ("8:20", 500),
-            ("0:01", 1), ("23:59", 1439), ("24:00", 1440),
-            ("7,5", 450), ("7.25", 435), ("0,05", 3),
-        ):
-            with self.subTest(value=value):
-                self.assertEqual(adm.parse_hours_entry(value), expected)
-        self.assertIsNone(adm.parse_hours_entry("0"))
+    def test_az_258_01_owner_requires_only_integer_hours(self):
+        """Whole hours 0..24 only; reject every fractional/minute representation."""
         self.assertIsNone(adm.parse_hours_entry(""))
-        self.assertIsNone(adm.parse_hours_entry("0:00"))
+        self.assertIsNone(adm.parse_hours_entry("0"))
+        for hour in range(1, 25):
+            with self.subTest(hour=hour):
+                self.assertEqual(adm.parse_hours_entry(str(hour)), hour * 60)
+        sid = self.staff()
+        for invalid in ("7,5", "7.5", "1,01", "0:07", "1:01",
+                        "8:20", "1.0", "0.0", "25", "99", "-1",
+                        "NaN", "off", "вых", "7e0", "8,333", "1:60"):
+            with self.subTest(value=invalid):
+                before = self.snapshot()
+                self.assertEqual(self.save_batch(changes={
+                    (sid, 1): "8", (sid, 2): invalid, (sid, 3): "10"
+                }).status_code, 400)
+                self.assertEqual(self.snapshot(), before)
+        self.assertEqual(self.conn.execute(
+            "SELECT COUNT(*) FROM az_admin_days"
+        ).fetchone()[0], 0)
 
-    def test_az_258_01_exact_minutes_save_noop_and_payroll_unchanged(self):
-        """HTTP save and no-op resave both preserve historical minutes and FOT."""
-        sid = self.staff(rate="360,00")
-        self.assertEqual(self.save_batch(changes={
-            (sid, 1): "0:07", (sid, 2): "1:01", (sid, 3): "8:20",
-        }).status_code, 303)
-        row = adm.read_rows(self.conn, "2026-11")[0]
-        self.assertEqual(row["minutes"], 568)
-        self.assertEqual(row["hours"], "9:28")
-        self.assertEqual([row["days"][i] for i in (1, 2, 3)],
-                         ["0:07", "1:01", "8:20"])
-        self.assertEqual(row["calculated"]["base"], 340800)
-        self.assertEqual(self.post(
-            5, "payroll", staff_id=str(sid), standards="1800",
-            conversion="900", category="200", plan="300", extras="100"
-        ).status_code, 303)
-        before_calculation = adm.read_rows(self.conn, "2026-11")[0]
-        self.assertEqual(before_calculation["calculated"], {
-            "base": 340800, "standards": 9467, "conversion": 4733,
-            "category": 20000, "plan": 30000, "extras": 10000
-        })
-        self.assertEqual(before_calculation["total"], 415000)
-        page = self.client(4).get("/administrators/?month=2026-11")
-        for day, value in [(1, "0:07"), (2, "1:01"), (3, "8:20")]:
-            self.assertIn(
-                f'name="hours_{sid}_{day:02d}"', page.text
-            )
-            self.assertIn(f'value="{value}"', page.text)
-        previous_db = self.snapshot()
-        previous_state = adm.month_state(self.conn, "2026-11")
-        self.assertEqual(self.save_batch(data=self.batch_data()).status_code, 303)
-        self.assertEqual(self.snapshot(), previous_db)
-        self.assertEqual(adm.month_state(self.conn, "2026-11"), previous_state)
-        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["calculated"],
-                         before_calculation["calculated"])
-        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["total"], 415000)
-
-    def test_az_258_01_persisted_legacy_whole_minutes_noop_resave(self):
-        """Values written by the old UI must be safe to load and re-submit."""
+    def test_az_258_01_existing_legacy_minutes_stay_unchanged_on_save(self):
+        """Old hour fractions are historical DB evidence, not new input options."""
         sid = self.staff(rate="360,00")
         with self.conn:
             self.conn.executemany(
                 "INSERT INTO az_admin_days(staff_id,work_date,minutes)"
                 " VALUES(?,?,?)",
-                [(sid, "2026-11-01", 7), (sid, "2026-11-02", 61),
-                 (sid, "2026-11-03", 500), (sid, "2026-11-04", 1)]
+                [(sid, "2026-11-01", 7),
+                 (sid, "2026-11-02", 61),
+                 (sid, "2026-11-03", 500),
+                 (sid, "2026-11-04", 30)]
             )
-        old = adm.read_rows(self.conn, "2026-11")[0]
-        self.assertEqual(
-            [old["days"][n] for n in (1, 2, 3, 4)],
-            ["0:07", "1:01", "8:20", "0:01"]
-        )
-        self.assertEqual(old["minutes"], 569)
-        self.assertEqual(old["calculated"]["base"], 341400)
+        rows = adm.read_rows(self.conn, "2026-11")
+        self.assertEqual(rows[0]["legacy_days"], {1: 7, 2: 61, 3: 500, 4: 30})
+        self.assertEqual(rows[0]["minutes"], 598)
+        self.assertEqual(rows[0]["calculated"]["base"], 358800)
+        page = self.client(4).get("/administrators/?month=2026-11")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('data-legacy-minutes="7"', page.text)
+        self.assertIn('data-legacy-minutes="61"', page.text)
+        self.assertIn('data-legacy-minutes="500"', page.text)
+        self.assertIn('type="number" inputmode="numeric"', page.text)
+        for day in range(1, 5):
+            # A historical fractional cell has no fractional value that the
+            # user would need to type into the new integer-only form.
+            name = f'hours_{sid}_{day:02d}'
+            self.assertRegex(page.text, rf'name="{name}"[^>]+value=""')
+        old_state = adm.month_state(self.conn, "2026-11")
         before = self.snapshot()
         self.assertEqual(self.save_batch(data=self.batch_data()).status_code, 303)
         self.assertEqual(self.snapshot(), before)
-        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["total"],
-                         old["total"])
-        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["minutes"], 569)
+        self.assertEqual(adm.month_state(self.conn, "2026-11"), old_state)
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["calculated"]["base"],
+                         358800)
+        # New whole-hour input on a different day must not rewrite old rows.
+        self.assertEqual(self.save_batch(changes={(sid, 5): "8"}).status_code, 303)
+        data = list(self.conn.execute(
+            "SELECT work_date, minutes FROM az_admin_days "
+            "WHERE staff_id=? ORDER BY work_date", (sid,)
+        ))
+        self.assertEqual([r["minutes"] for r in data],
+                         [7, 61, 500, 30, 480])
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["calculated"]["base"],
+                         646800)
 
-    def test_az_258_01_invalid_hhmm_fails_entire_month_atomically(self):
-        sid = self.staff()
-        invalid = (
-            "0:60", "1:1", "8:80", "24:01", "99:00",
-            "-1:01", "1:01:00", "8:2x", "10:99",
-            "8.333", "NaN", "вых", "off",
-        )
-        for value in invalid:
-            with self.subTest(value=value):
-                initial = self.snapshot()
-                r = self.save_batch(changes={(sid, 1): "0:07",
-                                             (sid, 2): value,
-                                             (sid, 3): "8:20"})
-                self.assertEqual(r.status_code, 400)
-                self.assertEqual(self.snapshot(), initial)
-        self.assertEqual(self.conn.execute(
-            "SELECT COUNT(*) FROM az_admin_days"
-        ).fetchone()[0], 0)
+    def test_az_258_01_legacy_fractions_only_replaced_by_explicit_integer(self):
+        sid = self.staff(rate="300,00")
+        with self.conn:
+            self.conn.executemany(
+                "INSERT INTO az_admin_days(staff_id,work_date,minutes)"
+                " VALUES(?,?,?)",
+                [(sid, "2026-11-01", 7),
+                 (sid, "2026-11-02", 61)]
+            )
+        self.assertEqual(self.save_batch(changes={(sid, 1): "8"}).status_code, 303)
+        self.assertEqual([r[0] for r in self.conn.execute(
+            "SELECT minutes FROM az_admin_days ORDER BY work_date"
+        )], [480, 61])
+        self.assertEqual(self.save_batch(changes={(sid, 2): "0"}).status_code, 303)
+        self.assertEqual([r[0] for r in self.conn.execute(
+            "SELECT minutes FROM az_admin_days ORDER BY work_date"
+        )], [480])
+        for r in self.conn.execute("SELECT minutes FROM az_admin_days"):
+            self.assertEqual(r[0] % 60, 0)
 
     def test_az_admin_batch_atomic_rejects_invalid_extra_missing_or_duplicate(self):
         sid = self.staff()
