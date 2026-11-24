@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from zoneinfo import ZoneInfo
 
-from flask import abort, g, redirect, render_template, request
+from flask import abort, g, redirect, render_template, request, session
 
 import app as core
 
@@ -211,6 +211,122 @@ def parse_hours(value):
     return int(minutes)
 
 
+def parse_hours_entry(value):
+    """Blank or numeric zero means no worked hours; never store 'вых' in the new form."""
+    text = str(value if value is not None else "").strip()
+    if not text:
+        return None
+    if text.casefold() == "off" or text.casefold() == "вых":
+        abort(400, description="В табеле вводятся только часы, без обозначения выходных.")
+    try:
+        number = Decimal(text.replace(",", "."))
+    except (InvalidOperation, ValueError):
+        abort(400, description="Неверный формат часов.")
+    if not number.is_finite():
+        abort(400, description="Неверный формат часов.")
+    if number == 0:
+        return None
+    return parse_hours(text)
+
+
+def short_staff_name(full_name):
+    """Presentation only: never alter stored legal names, rates or closed snapshots."""
+    parts = str(full_name or "").split()
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0]
+    return parts[0] + " " + " ".join(part[0].upper() + "." for part in parts[1:])
+
+
+MONTH_NAMES = (
+    "", "январь", "февраль", "март", "апрель", "май", "июнь",
+    "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
+)
+
+
+def month_title(value):
+    year, month = map(int, value.split("-"))
+    return f"{MONTH_NAMES[month]} {year} года"
+
+
+def format_event(event):
+    """Human-readable audit summary. Original JSON remains immutable in DB."""
+    try:
+        before = json.loads(event["before_json"] or "{}")
+        after = json.loads(event["after_json"] or "{}")
+    except (TypeError, ValueError):
+        return "Историческое изменение"
+    action = event["action"]
+    if action == "hours":
+        day = str(after.get("date") or before.get("date") or "")[-2:]
+        previous = before.get("minutes")
+        current = after.get("minutes")
+        left = hours_text(previous) if previous is not None else "—"
+        right = hours_text(current) if current is not None else "—"
+        return f"{day} число: {left} → {right} ч"
+    if action == "staff_created":
+        return (f"Добавлен администратор: {after.get('name', '')}; "
+                f"ставка {money_text(after.get('rate', 0))} ₽/ч")
+    if action == "staff_updated":
+        parts = []
+        if before.get("name") != after.get("name"):
+            parts.append(f"ФИО: {before.get('name', '')} → {after.get('name', '')}")
+        if before.get("rate") != after.get("rate"):
+            parts.append(
+                f"Ставка: {money_text(before.get('rate', 0))} → "
+                f"{money_text(after.get('rate', 0))} ₽/ч"
+            )
+        if before.get("active") != after.get("active"):
+            parts.append("Статус: " + ("активен" if after.get("active") else "неактивен"))
+        if before.get("inactive_month") != after.get("inactive_month"):
+            parts.append("Снятие с работы с: " +
+                         (after.get("inactive_month") or "не запланировано"))
+        return "; ".join(parts) or "Настройки администратора"
+    if action == "premiums":
+        labels = dict(standards="Стандарты", conversion="Конверсия",
+                      category="Категория", plan="План", extras="Допначисления")
+        return "; ".join(
+            f"{labels[k]}: {money_text(before.get(k, 0))} → "
+            f"{money_text(after.get(k, 0))} ₽"
+            for k in BONUS_FIELDS if before.get(k, 0) != after.get(k, 0)
+        ) or "Премии"
+    if action == "month_closed":
+        return "Месяц закрыт, расчёт ФОТ зафиксирован"
+    if action == "month_reopened":
+        return "Месяц повторно открыт"
+    return "Изменение: " + str(action)
+
+
+def history_page(conn, number, per_page=100):
+    """Paginate existing AZ admin events, across months, read-only."""
+    count = conn.execute("SELECT COUNT(*) FROM az_admin_events").fetchone()[0]
+    rows = conn.execute(
+        "SELECT e.id,e.actor_id,e.month,e.staff_id,e.action,e.before_json,"
+        "e.after_json,e.created_at,u.full_name AS actor_name,"
+        "s.full_name AS staff_name "
+        "FROM az_admin_events e LEFT JOIN users u ON u.id=e.actor_id "
+        "LEFT JOIN az_admin_staff s ON s.id=e.staff_id "
+        "ORDER BY e.id DESC LIMIT ? OFFSET ?",
+        (per_page, (number - 1) * per_page),
+    ).fetchall()
+    result = []
+    for entry in rows:
+        stamp = entry["created_at"]
+        try:
+            stamp = datetime.fromisoformat(stamp).strftime("%d.%m.%Y %H:%M")
+        except (TypeError, ValueError):
+            pass
+        result.append(dict(
+            id=entry["id"], month=entry["month"],
+            actor=entry["actor_name"] or f"Пользователь №{entry['actor_id']}",
+            staff=short_staff_name(entry["staff_name"]) if entry["staff_name"]
+                  else "Месяц / все сотрудники",
+            when=stamp, summary=format_event(entry),
+        ))
+    return result, count
+
+
 def proportional(kopecks, minutes, standard_minutes=10800):
     return int((Decimal(kopecks) * Decimal(minutes) /
                 Decimal(standard_minutes)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
@@ -376,6 +492,14 @@ def register(app):
     def admin_money(value):
         return money_text(value)
 
+    @app.template_filter("az_admin_short")
+    def admin_short(value):
+        return short_staff_name(value)
+
+    @app.template_filter("az_admin_month_title")
+    def admin_month_title(value):
+        return month_title(value)
+
     @app.get("/administrators/")
     @core.login_required
     def administrators_index():
@@ -396,7 +520,16 @@ def register(app):
                  holiday=HOLIDAYS.get((int(month[-2:]), d)))
             for d in range(1, calendar.monthrange(*map(int, month.split('-')))[1] + 1)
         ]
-        options = [hours_text(i * 30) for i in range(1, 49)]
+        history = []
+        history_count = 0
+        page_number = 1
+        if available and tab == "settings":
+            raw_page = request.args.get("history_page", "1")
+            if not re.fullmatch(r"[1-9][0-9]{0,4}", raw_page):
+                abort(400, description="Некорректная страница журнала.")
+            page_number = int(raw_page)
+            history, history_count = history_page(conn, page_number)
+        saved_hours_month = session.pop("az_admin_hours_saved_month", None) if tab == "table" else None
         return render_template(
             "administrators.html", title="Администраторы — AZ BAZE", tab=tab,
             month=month, prev_month=month_shift(month, -1), next_month=month_shift(month, 1),
@@ -404,7 +537,9 @@ def register(app):
             can_hours=can(g.user, "admins_hours"), can_payroll=can(g.user, "admins_payroll"),
             can_settings=can(g.user, "admins_settings"),
             can_close=can(g.user, "admins_close"), can_reopen=can(g.user, "admins_reopen"),
-            hour_options=options, total_fot=sum(row["total"] for row in rows),
+            history=history, history_count=history_count, history_page=page_number,
+            saved_hours_month=month if saved_hours_month == month else None,
+            total_fot=sum(row["total"] for row in rows),
             csrf=core.csrf_token(), view_revision=view_revision,
         )
 
@@ -451,6 +586,78 @@ def register(app):
                   {"date": work_date, "minutes": minutes}, staff["id"])
             advance_month_version(conn, month)
         transaction(conn, save)
+        return redirect_tab(month, "table")
+
+    @app.post("/administrators/hours/batch")
+    @core.login_required
+    def administrators_hours_batch():
+        """One explicit save for the entire visible month; all-or-nothing.
+
+        Revalidate the original view fingerprint under BEGIN IMMEDIATE before
+        even reading the incoming hours. An incomplete or forged matrix cannot
+        silently clear unseen days or post to another employee.
+        """
+        require("admins_hours")
+        core.require_csrf()
+        month = month_value(request.form.get("month"))
+        version = form_version()
+        expected_view_revision = form_view_revision()
+        conn = core.db()
+        require_ready(conn)
+        day_count = calendar.monthrange(*map(int, month.split("-")))[1]
+
+        def save():
+            require_month_version(conn, month, version, expected_view_revision)
+            rows = read_rows(conn, month)
+            old = {
+                (entry["staff_id"], int(entry["work_date"][-2:])): entry["minutes"]
+                for entry in conn.execute(
+                    "SELECT staff_id,work_date,minutes FROM az_admin_days "
+                    "WHERE work_date BETWEEN ? AND ?",
+                    (month + "-01", f"{month}-{day_count:02d}"),
+                )
+            }
+            expected = {
+                f"hours_{row['id']}_{day:02d}": (row["id"], day)
+                for row in rows for day in range(1, day_count + 1)
+            }
+            submitted = {key for key in request.form if key.startswith("hours_")}
+            if submitted != set(expected):
+                abort(400, description="Неполный или посторонний табель. Обновите страницу.")
+            proposed = {}
+            for key, identity in expected.items():
+                values = request.form.getlist(key)
+                if len(values) != 1:
+                    abort(400, description="Повторяющиеся значения часов. Обновите страницу.")
+                proposed[identity] = parse_hours_entry(values[0])
+            changed = 0
+            for (sid, day), minutes in proposed.items():
+                previous = old.get((sid, day))
+                if minutes == previous:
+                    continue
+                work_date = f"{month}-{day:02d}"
+                if minutes is None:
+                    conn.execute(
+                        "DELETE FROM az_admin_days WHERE staff_id=? AND work_date=?",
+                        (sid, work_date),
+                    )
+                else:
+                    conn.execute(
+                        "INSERT INTO az_admin_days(staff_id,work_date,minutes) "
+                        "VALUES(?,?,?) ON CONFLICT(staff_id,work_date) "
+                        "DO UPDATE SET minutes=excluded.minutes",
+                        (sid, work_date, minutes),
+                    )
+                audit(conn, month, "hours",
+                      {"date": work_date, "minutes": previous},
+                      {"date": work_date, "minutes": minutes}, sid)
+                changed += 1
+            if changed:
+                advance_month_version(conn, month)
+            return changed
+        transaction(conn, save)
+        # Flash proof is created only after COMMIT, not by a GET query string.
+        session["az_admin_hours_saved_month"] = month
         return redirect_tab(month, "table")
 
     @app.post("/administrators/payroll")
