@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% block content %}
 <style>
-.az-admin{--az-name:196px;--az-total:86px}
-@media(min-width:1000px){body .shell{width:min(1320px,96vw)}}
+.az-admin{--az-name:clamp(115px,10vw,150px);--az-total:clamp(48px,4.6vw,64px)}
+@media(min-width:1000px){body .shell{width:min(1600px,98vw)}}
 .az-admin-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 .az-admin-sub{font-size:12px;line-height:1.5;color:#6c746d;margin:5px 0 0}
 .az-admin-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:19px 0 16px}
@@ -14,23 +14,46 @@
 .az-admin-state{margin-left:auto;white-space:nowrap;font-size:11px;border-radius:999px;padding:6px 10px;background:#e9f2e9;color:#3a6449}
 .az-admin-state.closed{background:#f5e8d5;color:#835b27}
 .az-admin-note{font-size:11px;line-height:1.6;color:#697269;margin:10px 0}
-.az-admin-grid{overflow:auto;max-width:100%;max-height:70vh;border:1px solid #e0d5c4;border-radius:12px;background:#fff}
-.az-admin-grid table{width:100%;border-collapse:separate;border-spacing:0;min-width:max-content}
-.az-admin-grid th,.az-admin-grid td{padding:6px 5px;text-align:center;vertical-align:middle;border-bottom:1px solid #ede6db;border-right:1px solid #f0e9de;font-size:11px;height:42px;min-width:53px}
-.az-admin-grid thead th{position:sticky;top:0;background:#eee7dc;z-index:2;font-weight:600}
-.az-admin-grid .az-name{width:var(--az-name);min-width:var(--az-name);max-width:var(--az-name);position:sticky;left:0;text-align:left;padding-left:12px;background:#fff;z-index:3;white-space:normal}
-.az-admin-grid thead .az-name{z-index:5;background:#eee7dc}
-.az-admin-grid .az-total{width:var(--az-total);min-width:var(--az-total);max-width:var(--az-total);position:sticky;left:var(--az-name);background:#f3efe7;z-index:3;font-weight:600}
-.az-admin-grid thead .az-total{z-index:5;background:#e5ded2}
+.az-admin-grid{overflow:visible;max-width:100%;border:1px solid #e0d5c4;border-radius:12px;background:#fff}
+.az-admin-grid table{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;min-width:0}
+.az-admin-grid th,.az-admin-grid td{padding:5px 1px;text-align:center;vertical-align:middle;border-bottom:1px solid #ede6db;border-right:1px solid #f0e9de;font-size:10px;height:37px;min-width:0}
+.az-admin-grid thead th{background:#eee7dc;font-weight:600}
+.az-admin-grid .az-name{width:var(--az-name);min-width:0;max-width:var(--az-name);text-align:left;padding:4px 5px 4px 8px;background:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.az-admin-grid thead .az-name{background:#eee7dc}
+.az-admin-grid .az-total{width:var(--az-total);min-width:0;max-width:var(--az-total);background:#f3efe7;font-weight:600}
+.az-admin-grid thead .az-total{background:#e5ded2}
 .az-admin-grid .az-weekend{background:#f2f0f7}
 .az-admin-grid .az-holiday{background:#fff0d9}
 .az-admin-grid thead .az-weekend{background:#e9e6ef}
 .az-admin-grid thead .az-holiday{background:#f1dfbf}
-.az-admin-grid select{width:56px;border:1px solid #e1d9cc;border-radius:6px;background:#fff;padding:5px 1px;font:500 10px Montserrat,Arial,sans-serif;text-align:center}
-.az-admin-grid select:focus{outline:2px solid #b59662}
-.az-admin-grid .az-off{color:#9b948b}
-.az-admin-grid form{margin:0}
-.az-admin-grid .az-staff-small{display:block;color:#9b948b;font-size:9px;margin-top:3px}
+.az-admin-grid .az-hour-input{display:block;width:100%;min-width:0;max-width:100%;height:27px;border:1px solid #ded5c9;border-radius:5px;background:#fff;padding:2px 0;font:500 10px Montserrat,Arial,sans-serif;text-align:center;color:#293b30}
+.az-admin-grid .az-hour-input:focus{outline:2px solid #b59662;outline-offset:-2px}
+.az-admin-grid .az-empty{color:#a49b8f}
+.az-admin-grid .az-staff-small{display:block;color:#8f8b82;font-size:9px;margin-top:3px}
+.az-admin-savebar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:flex-end;margin:14px 0 2px}
+.az-admin-savebar button{min-width:160px}
+.az-admin-savebar .az-unsaved{font-size:12px;font-weight:600;color:#84562f}
+.az-admin-history{margin-top:24px;padding:18px;border:1px solid #e0d5c4;border-radius:12px;background:#fffdf8}
+.az-admin-history h3{font-size:17px;font-weight:500;color:#44634f;margin:0 0 6px}
+.az-admin-history table{width:100%;border-collapse:collapse;font-size:11px}
+.az-admin-history th,.az-admin-history td{padding:9px 7px;border-bottom:1px solid #e8e0d5;vertical-align:top;text-align:left}
+.az-admin-history th{color:#647066;background:#f3efe7}
+.az-admin-history .az-history-month{white-space:nowrap}
+.az-admin-history .az-history-pager{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px}
+@media(max-width:850px){
+ .az-admin-grid table,.az-admin-grid tbody{display:block;width:100%}
+ .az-admin-grid thead{display:none}
+ .az-admin-grid tbody tr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;padding:8px 5px 12px;border-bottom:2px solid #e1d8cc}
+ .az-admin-grid tbody tr>.az-name{display:block;grid-column:span 5;width:auto;max-width:none;white-space:normal;font-size:13px;border:0;align-self:center}
+ .az-admin-grid tbody tr>.az-total{display:block;grid-column:span 2;width:auto;max-width:none;font-size:12px;align-self:center;border:0;padding:7px 3px}
+ .az-admin-grid tbody tr>td[data-day]{display:block;min-width:0;height:auto;min-height:54px;padding:2px;border:1px solid #ebe3d8}
+ .az-admin-grid tbody tr>td[data-day]::before{content:attr(data-day);display:block;font-size:9px;color:#697269;padding:2px 0}
+ .az-admin-grid .az-hour-input{height:28px;font-size:11px}
+ .az-admin-savebar{justify-content:stretch}.az-admin-savebar button{width:100%}
+ .az-admin-history .table-wrap{overflow-x:auto}
+ .az-admin-history table{min-width:600px}
+}
+
 .az-admin-pay{overflow-x:auto;border:1px solid #e0d5c4;border-radius:12px}
 .az-admin-pay table{min-width:1080px;width:100%;border-collapse:collapse;background:#fff}
 .az-admin-pay th,.az-admin-pay td{padding:9px 7px;text-align:left;border-bottom:1px solid #ebe3d7;font-size:11px;vertical-align:middle}
@@ -46,7 +69,7 @@
 .az-admin-status-actions{margin:16px 0 0;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .az-admin-summary{margin:16px 0 0;padding:13px 16px;border-radius:10px;border:1px solid #d9c8ad;background:#f5f0e7;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px}
 .az-admin-summary strong{font-size:18px;color:#44634f;white-space:nowrap}
-@media(max-width:700px){.az-admin{--az-name:145px;--az-total:72px}.az-admin-grid th,.az-admin-grid td{font-size:10px}.az-admin-tabs a{font-size:10px;padding:9px 9px}.az-admin-head h2{font-size:22px}.az-admin-summary strong{font-size:15px}.az-admin-month{padding:8px}}
+@media(max-width:700px){.az-admin-tabs a{font-size:10px;padding:9px 9px}.az-admin-head h2{font-size:22px}.az-admin-summary strong{font-size:15px}.az-admin-month{padding:8px}}
 </style>
 <div class="card az-admin" style="padding:clamp(10px,2.4vw,26px)">
   <header class="az-admin-head">
@@ -80,43 +103,37 @@
   {% if not ready %}
     <p class="error">Раздел ещё не подготовлен в базе данных. Просмотр и ввод будут доступны после отдельной установки.</p>
   {% elif tab == 'table' %}
-    <p class="az-admin-note">По умолчанию все дни — «вых». Для рабочего дня выберите часы. Субботы, воскресенья и праздники подсвечены независимо от графика. Итого часов находится рядом с ФИО. Остальные даты — прокруткой таблицы вправо.</p>
+    <p class="az-admin-note">Вводите часы вручную — пустая ячейка или 0 означает отсутствие работы. Выходные и праздники подсвечены только по календарю. Все дни месяца, фамилии с инициалами и итоги помещаются на экране без горизонтальной прокрутки на компьютере. Данные записываются после нажатия «Сохранить».</p>
     {% if not rows %}
       <p class="muted">Администраторы ещё не добавлены. Добавьте сотрудников во вкладке «Настройки».</p>
     {% else %}
-      <div class="az-admin-grid" role="region" aria-label="Табель рабочего времени с горизонтальной прокруткой" tabindex="0">
+      {% if can_hours and not state.closed %}
+      <form id="az-hours-batch" method="post" action="/administrators/hours/batch">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="month" value="{{ month }}">
+        <input type="hidden" name="version" value="{{ state.version }}">
+        <input type="hidden" name="view_revision" value="{{ view_revision }}">
+      {% endif %}
+      <div class="az-admin-grid" role="region" aria-label="Табель рабочего времени за полный месяц">
         <table>
           <thead><tr>
-            <th class="az-name">ФИО администратора</th><th class="az-total">Часов</th>
+            <th class="az-name">Администратор</th><th class="az-total">Итого, ч</th>
             {% for day in days %}
               <th class="{% if day.holiday %}az-holiday{% elif day.weekend %}az-weekend{% endif %}" title="{{ day.holiday or ('Выходной по календарю' if day.weekend else '') }}">{{ day.day }}</th>
             {% endfor %}
           </tr></thead>
           <tbody>
             {% for row in rows %}
-              <tr>
-                <th scope="row" class="az-name">{{ row.name }}{% if not row.active %}<span class="az-staff-small">Неактивен</span>{% endif %}</th>
-                <td class="az-total">{{ row.hours }}</td>
+              <tr data-staff-id="{{ row.id }}">
+                <th scope="row" class="az-name" title="{{ row.name }}">{{ row.name|az_admin_short }}{% if not row.active %}<span class="az-staff-small">Неактивен</span>{% endif %}</th>
+                <td class="az-total" data-total-for="{{ row.id }}">{{ row.hours }}</td>
                 {% for day in days %}
-                  {% set value = row.days.get(day.day, 'off') %}
-                  <td class="{% if day.holiday %}az-holiday{% elif day.weekend %}az-weekend{% endif %}">
+                  {% set value = row.days.get(day.day, '') %}
+                  <td data-day="{{ day.day }}" class="{% if day.holiday %}az-holiday{% elif day.weekend %}az-weekend{% endif %}" title="{{ day.holiday or ('Выходной по календарю' if day.weekend else '') }}">
                     {% if can_hours and not state.closed %}
-                      <form action="/administrators/hours" method="post">
-                        <input type="hidden" name="csrf" value="{{ csrf }}">
-                        <input type="hidden" name="month" value="{{ month }}">
-                        <input type="hidden" name="version" value="{{ state.version }}">
-                        <input type="hidden" name="view_revision" value="{{ view_revision }}">
-                        <input type="hidden" name="staff_id" value="{{ row.id }}">
-                        <input type="hidden" name="work_date" value="{{ month }}-{{ '%02d'|format(day.day) }}">
-                        <select name="value" aria-label="{{ row.name }} {{ day.day }} число, часы" onchange="this.form.requestSubmit()">
-                          <option value="off" {% if value == 'off' %}selected{% endif %}>вых</option>
-                          {% for option in hour_options %}
-                            <option value="{{ option }}" {% if value == option %}selected{% endif %}>{{ option }}</option>
-                          {% endfor %}
-                        </select>
-                      </form>
+                      <input class="az-hour-input" type="text" inputmode="decimal" name="hours_{{ row.id }}_{{ '%02d'|format(day.day) }}" maxlength="8" autocomplete="off" aria-label="{{ row.name }} — {{ day.day }} число, часов" value="{{ value }}">
                     {% else %}
-                      <span class="{{ 'az-off' if value == 'off' else '' }}">{{ 'вых' if value == 'off' else value }}</span>
+                      <span class="{{ 'az-empty' if not value else '' }}">{{ value or '—' }}</span>
                     {% endif %}
                   </td>
                 {% endfor %}
@@ -124,6 +141,19 @@
             {% endfor %}
           </tbody>
         </table>
+      </div>
+      {% if can_hours and not state.closed %}
+        <div class="az-admin-savebar">
+          <span id="az-hours-save-status" class="az-admin-note" role="status" aria-live="polite">Часы сохраняются только после нажатия кнопки.</span>
+          <button class="btn primary" type="submit">Сохранить</button>
+        </div>
+      </form>
+      {% endif %}
+    {% endif %}
+    {% if saved_hours_month %}
+      <div data-az-upload-feedback data-status="imported" hidden>
+        <span data-feedback-title>ТАБЕЛЬ СОХРАНЁН</span>
+        <span data-feedback-message>Часы администраторов за {{ saved_hours_month|az_admin_month_title }} сохранены.</span>
       </div>
     {% endif %}
   {% elif tab == 'payroll' %}
@@ -266,6 +296,80 @@
         <p class="muted">Чтобы изменить сотрудников или ставки этого месяца, его нужно повторно открыть.</p>
       {% endif %}
     </div>
+    <section class="az-admin-history" aria-labelledby="az-admin-history-heading">
+      <h3 id="az-admin-history-heading">Журнал изменений</h3>
+      <p class="az-admin-note">Все изменения табеля, премий, ставок и сотрудников, а также закрытия и повторные открытия месяцев. Время — Новосибирск. Показано {{ history|length }} из {{ history_count }} записей, новые сверху. История не удаляется.</p>
+      {% if history %}
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Когда</th><th>Месяц</th><th>Администратор</th><th>Кто изменил</th><th>Что изменилось</th></tr></thead>
+            <tbody>
+              {% for event in history %}
+                <tr>
+                  <td style="white-space:nowrap">{{ event.when }}</td>
+                  <td class="az-history-month">{{ event.month }}</td>
+                  <td>{{ event.staff }}</td>
+                  <td>{{ event.actor }}</td>
+                  <td>{{ event.summary }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if history_count > 100 %}
+          <div class="az-history-pager">
+            {% if history_page > 1 %}<a class="btn" href="?tab=settings&amp;month={{ month }}&amp;history_page={{ history_page-1 }}">← Новее</a>{% endif %}
+            <span>Страница {{ history_page }} из {{ ((history_count-1)//100)+1 }}</span>
+            {% if history_page*100 < history_count %}<a class="btn" href="?tab=settings&amp;month={{ month }}&amp;history_page={{ history_page+1 }}">Старше →</a>{% endif %}
+          </div>
+        {% endif %}
+      {% else %}
+        <p class="muted">Пока изменений не было.</p>
+      {% endif %}
+    </section>
   {% endif %}
 </div>
+{% if tab == 'table' and can_hours and not state.closed and rows %}
+<script>
+(() => {
+  const form = document.getElementById('az-hours-batch');
+  const status = document.getElementById('az-hours-save-status');
+  if (!form || !status) return;
+  const inputs = form.querySelectorAll('.az-hour-input');
+  function updateTotal(input) {
+    const row = input.closest('tr[data-staff-id]');
+    if (!row) return;
+    let total = 0;
+    let valid = true;
+    for (const day of row.querySelectorAll('.az-hour-input')) {
+      const value = day.value.trim().replace(',', '.');
+      if (!value) continue;
+      const number = Number(value);
+      if (!Number.isFinite(number) || number < 0 || number > 24 ||
+          Math.abs(number * 60 - Math.round(number * 60)) > 0.0000001) {
+        valid = false;
+        break;
+      }
+      total += Math.round(number * 60);
+    }
+    const result = row.querySelector('[data-total-for]');
+    if (result) {
+      result.textContent = valid
+        ? new Intl.NumberFormat('ru-RU', {maximumFractionDigits:2}).format(total/60)
+        : '—';
+    }
+  }
+  for (const input of inputs) {
+    input.addEventListener('input', () => {
+      status.textContent = 'Есть несохранённые изменения';
+      status.classList.add('az-unsaved');
+      updateTotal(input);
+    });
+  }
+  form.addEventListener('submit', () => {
+    status.textContent = 'Сохраняем табель…';
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}
