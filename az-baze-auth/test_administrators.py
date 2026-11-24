@@ -255,7 +255,7 @@ class AdministratorsTests(unittest.TestCase):
             with self.subTest(mutation=mutation):
                 supplied = dict(base)
                 if mutation == "missing":
-                    del supplied[f"hours_{sid}_31"]
+                    del supplied[f"hours_{sid}_30"]
                 if mutation == "extra":
                     supplied["hours_999_04"] = "8"
                 if mutation == "duplicate":
