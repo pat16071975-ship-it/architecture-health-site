@@ -8,6 +8,7 @@ from flask import Response, abort, g, jsonify, request
 from app import SITE_ROOT, admin_required, audit, csrf_token, db, iso_now
 import report_storage
 import cash_payments
+import mis_source_archive
 
 
 DENTISTS = {
@@ -48,7 +49,10 @@ COUNT_RE = re.compile(r"^(\d+)\s*\((\d+)\)$")
 
 
 def _decode_upload(file_storage):
-    raw = file_storage.read()
+    return _decode_raw(file_storage.read())
+
+
+def _decode_raw(raw):
     if not raw:
         abort(400)
     if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
@@ -491,7 +495,7 @@ def _pad_financial_months(month_index):
     return updated
 
 
-def _save_import(management, service_data, finance_blobs, source):
+def _save_import(management, service_data, finance_blobs, source, archive_sources=()):
     conn = db()
     now = iso_now()
     cash_payments.init_schema(conn)
@@ -527,6 +531,8 @@ def _save_import(management, service_data, finance_blobs, source):
                 """,
                 (key, payload, g.user["id"], now),
             )
+        for args, kwargs in archive_sources:
+            mis_source_archive.record(conn, *args, **kwargs)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -557,8 +563,10 @@ def register_ident_import(app):
         if not revenue_file or not completed_file:
             abort(400)
 
-        revenue_text = _decode_upload(revenue_file)
-        completed_text = _decode_upload(completed_file)
+        revenue_raw = revenue_file.read()
+        completed_raw = completed_file.read()
+        revenue_text = _decode_raw(revenue_raw)
+        completed_text = _decode_raw(completed_raw)
         items, lab_invoices, (year, month) = _parse_revenue(revenue_text)
         overall, doctors = _parse_completed(completed_text)
 
@@ -570,7 +578,19 @@ def register_ident_import(app):
         management = _build_management(items, lab_invoices, overall, doctors, source)
         service_data, month_index = _update_service_analytics(items, year, month)
         finance_blobs = _pad_financial_months(month_index)
-        _save_import(management, service_data, finance_blobs, source)
+        archive_sources = [
+            mis_source_archive.specs(
+                "services", revenue_raw, revenue_file.filename,
+                {row["date"] for row in items}, applied=management.keys(),
+                actor_id=g.user["id"], origin="ident_legacy_pair", outcome="applied",
+            ),
+            mis_source_archive.specs(
+                "completed", completed_raw, completed_file.filename,
+                completed_dates, applied=management.keys(),
+                actor_id=g.user["id"], origin="ident_legacy_pair", outcome="applied",
+            ),
+        ]
+        _save_import(management, service_data, finance_blobs, source, archive_sources)
 
         final_date = max(management)
         final = management[final_date]

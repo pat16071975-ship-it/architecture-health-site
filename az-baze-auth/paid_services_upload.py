@@ -8,6 +8,7 @@ import cash_payments
 import ident_import
 import paid_services
 import upload_reconcile
+import mis_source_archive
 from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
 
 
@@ -269,7 +270,14 @@ def _commit(decision=None):
         state = _existing_state(conn, report, source_sha)
         summary = _summary(report, conn)
         if state == "identical" or (state == "conflict" and decision == "keep_old"):
-            conn.rollback()
+            archive_source = mis_source_archive.specs(
+                "paid_services", _raw, filename, None,
+                explicit_bounds=(report["period_start"], report["period_end"]),
+                decision=decision, actor_id=g.user["id"], saved_at=now,
+                outcome="duplicate" if state == "identical" else "kept_old",
+            )
+            mis_source_archive.record(conn, *archive_source[0], **archive_source[1])
+            conn.commit()
             return {
                 "status": "duplicate",
                 "message": (
@@ -308,6 +316,13 @@ def _commit(decision=None):
             now,
             decision="use_new" if decision == "use_new" else "append",
         )
+        archive_source = mis_source_archive.specs(
+            "paid_services", _raw, filename, None,
+            explicit_bounds=(report["period_start"], report["period_end"]),
+            decision=decision, actor_id=g.user["id"], saved_at=now,
+            outcome="applied",
+        )
+        mis_source_archive.record(conn, *archive_source[0], **archive_source[1])
         conn.commit()
     except Exception:
         conn.rollback()

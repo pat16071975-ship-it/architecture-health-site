@@ -4,6 +4,7 @@ from flask import abort, g, jsonify, redirect, request, url_for
 import cash_payments
 import ident_import
 import upload_reconcile
+import mis_source_archive
 from app import audit, db, iso_now, permission_required, require_csrf, user_permissions
 
 
@@ -247,6 +248,13 @@ def _commit_cash(decision=None):
             updated += cash_payments.overlay_stored_month(
                 conn, month, g.user["id"], now
             )
+        archive_source = mis_source_archive.specs(
+            "cash", raw, filename, daily.keys(),
+            applied=apply_dates | evidence_dates,
+            removed=removed_dates if use_new else (),
+            decision=decision, actor_id=g.user["id"], saved_at=now,
+        )
+        mis_source_archive.record(conn, *archive_source[0], **archive_source[1])
         conn.commit()
     except Exception:
         conn.rollback()
