@@ -10,6 +10,7 @@ from flask import abort, g, redirect, render_template, request, send_file, url_f
 from openpyxl import Workbook
 import medical_supplies_import as stock_import
 import medical_supplies_daily as daily
+import medical_supplies_documents as inbox
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS med_supply_items (
@@ -47,6 +48,7 @@ def init_schema(conn):
     conn.executescript(SCHEMA)
     stock_import.init_schema(conn)
     daily.init_schema(conn)
+    inbox.init_schema(conn)
 
 
 def month(value):
@@ -322,6 +324,7 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
 
     stock_import.register(app, db, permission_required, require_csrf, csrf_token, rights)
     daily.register(app, db, permission_required, require_csrf, csrf_token, rights)
+    inbox.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
 
     @app.post('/accounting/medical-supplies/save/<action>')
     @permission_required('accounting')
