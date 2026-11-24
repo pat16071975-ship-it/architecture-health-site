@@ -88,7 +88,17 @@ const ds=$('#dentSummary');ds.innerHTML='';[['Первичный приём','de
 const db=$('#dentDoctors');db.innerHTML='';(typeof window.azManagementStaffNames==='function'?window.azManagementStaffNames('dentists'):dentists).forEach(name=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${name}</td><td><input data-doctor-type="dentists" data-doctor="${name}" inputmode="decimal"></td>`;db.appendChild(tr)});
 const cs=$('#clinicSummary');cs.innerHTML='';[['Первичный приём','clinicPrimary','count'],['Повторный приём','clinicRepeat','count'],['ПП в день','clinicPPDay','count',1],['Выручка клиники','clinicRev','money',1],['Оплатившие пациенты','paidClinicPatients','count',1],['Средний чек на оплатившего пациента','clinicAvg','money',1]].forEach(x=>inputMetric(cs,...x));
 const cb=$('#clinicDoctors');cb.innerHTML='';(typeof window.azManagementStaffNames==='function'?window.azManagementStaffNames('clinicDocs'):clinicDocs).forEach(name=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${name}</td><td><input data-doctor-type="clinicDocs" data-doctor="${name}" inputmode="decimal"></td>`;cb.appendChild(tr)});
-const lg=$('#labGrid');lg.innerHTML='';[['Количество заказов','labOrders','count'],['Выручка лаборатории','labRevenue','money'],['Лаборатория ср. чек','labAvg','money',1]].forEach(x=>inputMetric(lg,...x));
+const lg=$('#labGrid');lg.innerHTML='';
+if(typeof LAB_PAID_PERIODS!=='undefined'){
+  inputMetric(lg,'Количество заказов','managementLabOrders','count',true);
+  const upper=inputMetric(lg,'Выручка лаборатории','managementLabPaid','money',true),box=upper.closest('.metric');
+  box.classList.add('az-lab-dual');
+  const caption=(label)=>{const span=document.createElement('span');span.className='az-lab-single-caption';span.textContent=label;return span};
+  box.insertBefore(caption('Оплаты'),upper);upper.setAttribute('aria-label','Оплаты ЗТЛ');
+  const lower=document.createElement('input');lower.readOnly=true;lower.dataset.key='managementLabServices';lower.dataset.type='money';lower.setAttribute('aria-label','Услуги ЗТЛ');
+  box.append(caption('Услуги'),lower);
+  inputMetric(lg,'Лаборатория ср. чек','managementLabAvg','money',true);
+}else{[['Количество заказов','labOrders','count'],['Выручка лаборатории','labRevenue','money'],['Лаборатория ср. чек','labAvg','money',1]].forEach(x=>inputMetric(lg,...x));}
 const mg=$('#marketingGrid');mg.innerHTML='';[['Стоматология — целевые лиды','leadsDent','count'],['из них отказ / мониторинг','leadsDentLost','count'],['Конверсия стоматология','convDent','pct',1],['Клиника — целевые лиды','leadsClinic','count'],['Конверсия клиника','convClinic','pct',1],['Резерв','leadsReserve','count'],['Всего лидов','totalLeads','count',1],['Общая конверсия','totalConv','pct',1]].forEach(x=>inputMetric(mg,...x));
 }
 function getSelectedDate(){return $('#reportDate').value}
@@ -97,6 +107,13 @@ const d=derive(r),paidOnly=typeof window.azDoctorHasPaidForDate==='function'&&wi
 
 if(typeof window.azPaidEconomicsForDate==='function')Object.assign(d,window.azPaidEconomicsForDate(r.date,paidOnly?null:r));
 document.querySelectorAll('[data-key]').forEach(inp=>{const k=inp.dataset.key,t=inp.dataset.type,v=paidOnly&&inp.readOnly&&!['dentRev','clinicRev','paidPatients','paidDentPatients','paidClinicPatients','dentAvg','clinicAvg'].includes(k)?null:d[k];if(inp.readOnly){inp.value=t==='money'?money(v):t==='pct'?pct(v):count(v)}else{inp.value=v??''}});
+if(typeof LAB_PAID_PERIODS!=='undefined'){
+  const from=r.date.slice(0,7)+'-01',lab=window.azManagementLab?.view(from,r.date);
+  for(const [field,key,formatter] of [['Orders','orders',count],['Paid','paid',money],['Services','services',money],['Avg','avg',money]]){
+    const input=document.querySelector('#labGrid [data-key="managementLab'+field+'"]');
+    if(input){const value=lab?.[key];input.value=value==null?'—':formatter(value);input.title=lab?window.azManagementLab.title(key,lab,from,r.date):'Нет полных данных'}
+  }
+}
 document.querySelectorAll('[data-doctor]').forEach(inp=>{const original=(d[inp.dataset.doctorType]||{})[inp.dataset.doctor]??'';inp.value=typeof window.azDoctorPaidValue==='function'?window.azDoctorPaidValue(r.date,inp.dataset.doctorType,inp.dataset.doctor,original):original});
 }
 function collectRecord(){const date=getSelectedDate(),existing=loadStore()[date]||blankRecord(date);const r={...existing,date,dentists:{...(existing.dentists||{})},clinicDocs:{...(existing.clinicDocs||{})}};document.querySelectorAll('[data-key]:not([readonly])').forEach(inp=>r[inp.dataset.key]=inp.value.trim());document.querySelectorAll('[data-doctor]').forEach(inp=>{if(typeof window.azDoctorHasPaidForDate==='function'&&window.azDoctorHasPaidForDate(date))return;r[inp.dataset.doctorType][inp.dataset.doctor]=inp.value.trim()});return r}
@@ -119,7 +136,8 @@ init();
 <script src="./seed-data.js?v=20260827-2"></script>
 <script src="./management-staff-layout.js?v=20261110-1"></script>
 <script src="./doctor-balance.js?v=20261118-7"></script>
-<script src="./period-view.js?v=20261118-balance-filter-1"></script>
+<script src="./management-lab.js?v=20261124-1"></script>
+<script src="./period-view.js?v=20261124-lab-1"></script>
 <script src="./management-mobile-layout.js?v=20261029-paid-two-views-3"></script>
 <script src="./secure-import.js?v=20260831-1"></script>
 </body>

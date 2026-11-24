@@ -7,6 +7,8 @@ from io import BytesIO
 
 from openpyxl import load_workbook
 
+import management_lab
+
 
 STAFF_HEADER_RE = re.compile(
     r"^(?:[A-Za-zА-ЯЁа-яё-]+(?:\s+[A-Za-zА-ЯЁа-яё-]+)*)\s+[A-ZА-ЯЁ]\.\s*(?:[A-ZА-ЯЁ]\.)?$"
@@ -610,6 +612,10 @@ def compact_report(report):
             key=lambda row: (row["date"], row["staff"], row["invoice"]),
         ),
     }
+    # Preserve group-level payment evidence only from an actual new MIS parse.
+    # Existing compact records and the provider-based contracts are unchanged.
+    if report.get("source_type") == "paid_services_v1":
+        payload[management_lab.EVIDENCE_KEY] = management_lab.paid_evidence(report)
     if not is_monthly_report(report):
         period_start, period_end = report_period(report)
         payload["version"] = 3
