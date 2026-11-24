@@ -5,8 +5,8 @@
 .inbox-head h2{font-size:28px;font-weight:500;color:var(--green);margin:0}
 .inbox-nav{display:flex;flex-wrap:wrap;gap:7px;margin:15px 0}
 .inbox-nav .btn{font-size:12px;min-height:32px;padding:5px 10px}
-.inbox-grid{display:grid;grid-template-columns:minmax(270px,1fr) minmax(350px,2fr);gap:12px;align-items:start}
-.inbox-card{padding:18px}.inbox-card h3{margin:0 0 12px;color:var(--green);font-size:19px;font-weight:500}
+.inbox-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px;align-items:start;min-width:0}
+.inbox-card{padding:18px;min-width:0;max-width:100%}.inbox-grid>*{min-width:0}.inbox-card .table-wrap{min-width:0;max-width:100%;overflow-x:auto}.inbox-table td{overflow-wrap:anywhere}.inbox-card h3{margin:0 0 12px;color:var(--green);font-size:19px;font-weight:500}
 .inbox-info{font-size:12px;line-height:1.65;color:var(--muted)}
 .inbox-note{border-left:3px solid var(--gold);padding:9px 12px;margin:12px 0;background:#faf7ef;font-size:12px;line-height:1.55}
 .inbox-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 12px}
@@ -29,7 +29,7 @@
 .inbox-history summary{cursor:pointer}.inbox-history ul{padding-left:20px;line-height:1.8}
 .inbox-pagination{display:flex;gap:7px;align-items:center;justify-content:flex-end;margin:12px 0;font-size:11px}
 .inbox-disclaimer{font-size:12px;color:var(--muted);margin:15px 0;line-height:1.6}
-@media(max-width:1000px){.inbox-grid{grid-template-columns:1fr}.inbox-tools{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:1000px){.inbox-grid{grid-template-columns:minmax(0,1fr)}.inbox-tools{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.shell{width:94vw}.inbox-fields,.inbox-tools{grid-template-columns:1fr}.inbox-table{min-width:690px}.inbox-card{padding:13px}.inbox-head h2{font-size:23px}}
 </style>
 <div class="inbox-head">
