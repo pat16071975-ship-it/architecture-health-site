@@ -41,6 +41,7 @@ SECTIONS = [
     ("medical_supplies_in", "Медрасходка — приход"),
     ("medical_supplies_out", "Медрасходка — расход"),
     ("medical_supplies_purchase", "Медрасходка — параметры закупки"),
+    ("medical_supplies_documents_manage", "Медрасходка — входящие документы: загрузка и разбор"),
     ("financial_model_edit", "Финмодель — изменение параметров"),
     ("ztl_orders", "ЗТЛ — заказы"),
     ("ztl_catalog", "ЗТЛ — справочники"),
