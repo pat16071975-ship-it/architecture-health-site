@@ -112,9 +112,10 @@ class IncomingDocumentTests(unittest.TestCase):
         # A second app instance does not duplicate a role option.
         appcore.create_app()
         self.assertEqual(sum(s==key for s,_ in appcore.SECTIONS),1)
-        self.assertIn(key,appcore.user_permissions(
-            self.conn.execute("SELECT * FROM users WHERE id=5").fetchone()
-        ))
+        with self.app.app_context():
+            self.assertIn(key,appcore.user_permissions(
+                self.conn.execute("SELECT * FROM users WHERE id=5").fetchone()
+            ))
 
     def test_nav_from_all_three_med_supplies_views_and_empty_state(self):
         c = self.client(2)
