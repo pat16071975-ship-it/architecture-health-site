@@ -222,34 +222,20 @@ def parse_hours(value):
 
 
 def parse_hours_entry(value):
-    """Interpret whole minutes EXACTLY: H:MM or terminating decimal hours.
+    """Only whole hours 0..24. Old fractional DB records are preserved elsewhere.
 
-    No quantization or floating-point approximations. This guarantees
-    parse_hours_entry(hours_text(n)) == n for all n in 1..1440.
-    Blank, 0 and 0:00 remove the day; 'вых' remains prohibited.
+    No decimal, no H:MM, no rounding and no 'вых'. A blank/zero means
+    an empty day for a new or integral-hour cell.
     """
     text = str(value if value is not None else "").strip()
-    if not text:
-        return None
-    if text.casefold() in ("off", "вых"):
-        abort(400, description="Введите часы, а минуты укажите как ч:мм (например, 1:01).")
-    if ":" in text:
-        match = re.fullmatch(r"([0-9]{1,2}):([0-5][0-9])", text)
-        if match is None:
-            abort(400, description="Неверное время. Используйте ч:мм, например 0:07, 1:01 или 8:20.")
-        minutes = int(match.group(1)) * 60 + int(match.group(2))
-        if minutes > 1440:
-            abort(400, description="Длительность смены не может превышать 24 часа.")
-        return minutes or None
-    try:
-        number = Decimal(text.replace(",", "."))
-    except (InvalidOperation, ValueError):
-        abort(400, description="Неверный формат часов.")
-    if not number.is_finite():
-        abort(400, description="Неверный формат часов.")
-    if number == 0:
-        return None
-    return parse_hours(text)
+    if not re.fullmatch(r"[0-9]{1,2}", text):
+        if text == "":
+            return None
+        abort(400, description="Вводите только целые часы от 0 до 24.")
+    hours = int(text)
+    if hours > 24:
+        abort(400, description="Не более 24 целых часов за день.")
+    return hours * 60 if hours else None
 
 
 def short_staff_name(full_name):
@@ -417,6 +403,8 @@ def read_rows(conn, month):
         rows.append(dict(id=sid, name=staff["full_name"], active=not bool(inactive and inactive <= month),
                          rate=rate, bonus=bonus, minutes=minutes, hours=hours_text(minutes),
                          days={day: hours_text(amount) for day, amount in daily.items()},
+                         legacy_days={day: amount for day, amount in daily.items()
+                                      if amount % 60 != 0},
                          calculated=calculated, total=total))
     return rows
 
@@ -652,7 +640,17 @@ def register(app):
                 values = request.form.getlist(key)
                 if len(values) != 1:
                     abort(400, description="Повторяющиеся значения часов. Обновите страницу.")
-                proposed[identity] = parse_hours_entry(values[0])
+                previous = old.get(identity)
+                raw = values[0].strip()
+                if raw == "" and previous is not None and previous % 60 != 0:
+                    # A legacy fractional entry is shown as an empty input
+                    # labelled 'Ранее'. An untouched cell means preserve
+                    # its EXACT minutes; 0 explicitly removes it and a new
+                    # integer replaces it. Never silently round, erase or
+                    # rewrite old FOT evidence.
+                    proposed[identity] = previous
+                else:
+                    proposed[identity] = parse_hours_entry(values[0])
             changed = 0
             for (sid, day), minutes in proposed.items():
                 previous = old.get((sid, day))
