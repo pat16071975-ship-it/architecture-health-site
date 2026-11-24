@@ -90,13 +90,13 @@ const cs=$('#clinicSummary');cs.innerHTML='';[['Первичный приём','
 const cb=$('#clinicDoctors');cb.innerHTML='';(typeof window.azManagementStaffNames==='function'?window.azManagementStaffNames('clinicDocs'):clinicDocs).forEach(name=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${name}</td><td><input data-doctor-type="clinicDocs" data-doctor="${name}" inputmode="decimal"></td>`;cb.appendChild(tr)});
 const lg=$('#labGrid');lg.innerHTML='';
 if(typeof LAB_PAID_PERIODS!=='undefined'){
-  inputMetric(lg,'Количество заказов','managementLabOrders','count',true);
+  inputMetric(lg,'Количество заказов (по загруженным датам)','managementLabOrders','count',true);
   const upper=inputMetric(lg,'Выручка лаборатории','managementLabPaid','money',true),box=upper.closest('.metric');
   box.classList.add('az-lab-dual');
   const caption=(label)=>{const span=document.createElement('span');span.className='az-lab-single-caption';span.textContent=label;return span};
   box.insertBefore(caption('Оплаты'),upper);upper.setAttribute('aria-label','Оплаты ЗТЛ');
   const lower=document.createElement('input');lower.readOnly=true;lower.dataset.key='managementLabServices';lower.dataset.type='money';lower.setAttribute('aria-label','Услуги ЗТЛ');
-  box.append(caption('Услуги'),lower);
+  box.append(caption('Услуги по загруженным датам'),lower);
   inputMetric(lg,'Лаборатория ср. чек','managementLabAvg','money',true);
 }else{[['Количество заказов','labOrders','count'],['Выручка лаборатории','labRevenue','money'],['Лаборатория ср. чек','labAvg','money',1]].forEach(x=>inputMetric(lg,...x));}
 const mg=$('#marketingGrid');mg.innerHTML='';[['Стоматология — целевые лиды','leadsDent','count'],['из них отказ / мониторинг','leadsDentLost','count'],['Конверсия стоматология','convDent','pct',1],['Клиника — целевые лиды','leadsClinic','count'],['Конверсия клиника','convClinic','pct',1],['Резерв','leadsReserve','count'],['Всего лидов','totalLeads','count',1],['Общая конверсия','totalConv','pct',1]].forEach(x=>inputMetric(mg,...x));
@@ -136,8 +136,8 @@ init();
 <script src="./seed-data.js?v=20260827-2"></script>
 <script src="./management-staff-layout.js?v=20261110-1"></script>
 <script src="./doctor-balance.js?v=20261118-7"></script>
-<script src="./management-lab.js?v=20261124-1"></script>
-<script src="./period-view.js?v=20261124-lab-1"></script>
+<script src="./management-lab.js?v=20261124-2"></script>
+<script src="./period-view.js?v=20261124-lab-2"></script>
 <script src="./management-mobile-layout.js?v=20261029-paid-two-views-3"></script>
 <script src="./secure-import.js?v=20260831-1"></script>
 </body>

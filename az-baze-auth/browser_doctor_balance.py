@@ -79,11 +79,30 @@ with sync_playwright() as pw:
         assert lab.locator('td').nth(1).inner_text().split()==['—','13','₽']
         assert lab.locator('td').nth(2).inner_text().split()==['80','₽','16','₽']
         assert page.locator('#dateCompareBody tr[data-management-lab="orders"] td').nth(2).inner_text()=='16'
-        assert page.locator('#dateCompareBody tr[data-management-lab="avg"] td').nth(2).inner_text().split()==['5','₽']
+        # AZ-260-01: 01.02 is absent from the original service source.
+        # Keep actual loaded amounts/counts, never divide full-period payments by 16.
+        lab_avg=page.locator('#dateCompareBody tr[data-management-lab="avg"] td').nth(2)
+        assert lab_avg.inner_text()=='—'
+        assert 'Полнота количества счетов' in lab_avg.get_attribute('title')
+        assert 'По загруженным датам' in page.locator('#dateCompareBody tr[data-management-lab="orders"] td').first.inner_text()
+        assert 'по загруженным датам' in lab.locator('td').first.inner_text()
         page.select_option('#dateViewMode','single')
         assert page.locator('#labGrid [data-key="managementLabPaid"]').input_value().split()==['80','₽']
         assert page.locator('#labGrid [data-key="managementLabServices"]').input_value().split()==['16','₽']
+        assert page.locator('#labGrid [data-key="managementLabAvg"]').input_value()=='—'
+        # Independent synthetic positive control: explicit source evidence for
+        # 01.02 with no ZTL orders (not a guessed zero or a production write).
+        page.evaluate("""() => {
+            window.savedLabServiceDays=LAB_SERVICE_DAYS;
+            LAB_SERVICE_DAYS=[...LAB_SERVICE_DAYS,{date:'2026-02-01',services:0,orders:0}];
+        }""")
         page.select_option('#dateViewMode','compare')
+        assert lab_avg.inner_text().split()==['5','₽']
+        page.select_option('#dateViewMode','single')
+        assert page.locator('#labGrid [data-key="managementLabAvg"]').input_value().split()==['5','₽']
+        page.evaluate('LAB_SERVICE_DAYS=window.savedLabServiceDays')
+        page.select_option('#dateViewMode','compare')
+        assert lab_avg.inner_text()=='—'
         assert row.locator('td').last.inner_text().split() == ['+157', '₽']
         assert row.locator('td').first.inner_text().find('Услуги') >= 0
         # January has no exact 1–17 paid import: its original 150 must survive.

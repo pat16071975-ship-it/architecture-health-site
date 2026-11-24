@@ -6,7 +6,7 @@
   const nextDay=value=>{const d=new Date(value+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+1);return d.toISOString().slice(0,10)};
   const nextMonth=value=>{const d=new Date(value+'-01T12:00:00Z');d.setUTCMonth(d.getUTCMonth()+1);return d.toISOString().slice(0,7)};
   const cents=value=>typeof value==='number'&&Number.isFinite(value)&&Number.isSafeInteger(Math.round(value*100))?Math.round(value*100):null;
-  const empty=()=>({paid:null,services:null,orders:null,avg:null,loadedDays:0});
+  const empty=()=>({paid:null,services:null,orders:null,avg:null,loadedDays:0,expectedDays:0,ordersComplete:false});
   function calculate(paidPeriods,serviceDays,from,to){
     if(!validDate(from)||!validDate(to)||from>to)return empty();
     const ranges=new Map(),days=new Map();
@@ -50,9 +50,15 @@
       if(!Number.isSafeInteger(day.orders)||day.orders<0){orders=null;break}
       orders+=day.orders;if(!Number.isSafeInteger(orders)){orders=null;break}
     }
-    // Same requested bounds; orders reflect original loaded service dates.
-    const avg=paid!==null&&services!==null&&orders>0?paid/orders:null;
-    return {paid,services,orders,avg,loadedDays:loaded.length};
+    // Partial sums are useful evidence, but one day per month does not
+    // establish the denominator for a full-period average. The current
+    // service API has no independent interval/zero-day coverage declaration.
+    // Every calendar date must therefore have an actual valid source day to
+    // prove coverage with THIS evidence. Never synthesize a missing zero day.
+    const expectedDays=Math.round((Date.parse(to+'T12:00:00Z')-Date.parse(from+'T12:00:00Z'))/86400000)+1;
+    const ordersComplete=orders!==null&&services!==null&&loaded.length===expectedDays;
+    const avg=paid!==null&&ordersComplete&&orders>0?paid/orders:null;
+    return {paid,services,orders,avg,loadedDays:loaded.length,expectedDays,ordersComplete};
   }
   function available(){return typeof LAB_PAID_PERIODS!=='undefined'&&typeof LAB_SERVICE_DAYS!=='undefined'}
   function view(from,to){
@@ -60,10 +66,12 @@
   }
   function title(key,value,from,to){
     const range=from+' — '+to,missing='Нет полных данных; отсутствие не равно нулю. ';
+    const coverage='Загружено календарных дат: '+value.loadedDays+' из '+value.expectedDays+'. ';
     if(key==='paid')return (value.paid===null?missing:'')+'Оплаты: «Выручка по направлениям (новый оплаты)», только подтверждённая группа ЗТЛ. '+range;
-    if(key==='services')return (value.services===null?missing:'')+'Услуги: «Выручка по направлениям», по загруженным датам ('+value.loadedDays+'). '+range;
-    if(key==='orders')return (value.orders===null?missing:'')+'Уникальные счета с услугами группы ЗТЛ, по загруженным датам. '+range;
-    return (value.avg===null?missing:'')+'Оплаты / уникальные счета с услугами ЗТЛ за те же границы, по загруженным заказам. '+range;
+    if(key==='services')return (value.services===null?missing:'')+'Услуги: «Выручка по направлениям», по загруженным датам. '+coverage+range;
+    if(key==='orders')return (value.orders===null?missing:'')+(!value.ordersComplete?'Полнота количества счетов за весь период не подтверждена. ':'')+'Уникальные счета с услугами группы ЗТЛ, по загруженным датам. '+coverage+range;
+    const reason=!value.ordersComplete?'Полнота количества счетов за весь период не подтверждена. ':value.paid===null?'Нет подтверждённых оплат за весь период. ':value.orders===0?'Нет счетов для расчёта среднего чека. ':'';
+    return (value.avg===null?reason:'')+'Оплаты / уникальные счета с услугами ЗТЛ за весь подтверждённый период. '+coverage+range;
   }
   const api={calculate,available,view,title};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;

@@ -382,11 +382,12 @@
     }
     addGroup(tbody,'Лаборатория','group-lab',cols);
     addSub(tbody,'Объём','sub-lab-volume',cols);
-    metric('Количество заказов','row-lab-volume','orders',fmtCount);
+    const ordersRow=metric('Количество заказов','row-lab-volume','orders',fmtCount);
+    const orderCaption=document.createElement('span');orderCaption.className='az-lab-comparison-label';orderCaption.textContent='По загруженным датам';ordersRow.cells[0].appendChild(orderCaption);
     addSub(tbody,'Выручка и экономика','sub-lab-money',cols);
     const row=metric('Выручка лаборатории','row-lab-money','paid',fmtMoney,true);
     row.classList.add('az-lab-comparison-row');
-    const caption=document.createElement('span');caption.className='az-lab-comparison-label';caption.textContent='Оплаты / Услуги';row.cells[0].appendChild(caption);
+    const caption=document.createElement('span');caption.className='az-lab-comparison-label';caption.textContent='Оплаты / Услуги по загруженным датам';row.cells[0].appendChild(caption);
     values.forEach((pd,i)=>{
       const cell=row.cells[i+1],top=document.createElement('span'),bottom=document.createElement('span');
       top.className='az-lab-comparison-line az-lab-paid';top.innerHTML=cell.innerHTML;
