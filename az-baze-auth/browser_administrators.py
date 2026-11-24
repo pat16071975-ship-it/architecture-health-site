@@ -72,11 +72,17 @@ try:
                 "SELECT minutes FROM az_admin_days WHERE staff_id=? "
                 "AND work_date='2026-11-04'", (sid,)
             ).fetchone()
-            work.fill("11,5")
+            assert work.get_attribute("type") == "number"
+            assert work.get_attribute("step") == "1"
+            work.fill("11")
             assert "Есть несохранённые изменения" in page.locator(
                 "#az-hours-save-status"
             ).inner_text()
-            assert page.locator(".az-admin-grid td.az-total").first.inner_text() == "11,5"
+            assert page.locator(".az-admin-grid td.az-total").first.inner_text() == "11"
+            # A fractional entry is rejected by the browser and by Flask.
+            work.fill("7.5")
+            assert not work.evaluate("(e) => e.validity.valid")
+            work.fill("11")
             after_input = fixture.conn.execute(
                 "SELECT minutes FROM az_admin_days WHERE staff_id=? "
                 "AND work_date='2026-11-04'", (sid,)
