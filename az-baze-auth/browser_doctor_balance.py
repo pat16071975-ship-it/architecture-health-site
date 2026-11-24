@@ -14,6 +14,11 @@ fixture.setUp()
 try:
     fixture.store('2026-01-01', '2026-01-31')
     fixture.store('2026-02-01', '2026-02-17')
+    # Synthetic, separately reconciled group evidence; do not alter doctor totals.
+    for saved in fixture.conn.execute('SELECT as_of_date,payload_json FROM service_payment_snapshots').fetchall():
+        value=json.loads(saved['payload_json'])
+        value['management_lab_v1']={'version':1,'paid':60 if saved['as_of_date'].startswith('2026-01') else 80,'reason':'reconciled'}
+        fixture.conn.execute('UPDATE service_payment_snapshots SET payload_json=? WHERE as_of_date=?',(json.dumps(value),saved['as_of_date']))
     fixture.add_record('2026-01-17')
     fixture.add_record('2026-01-31')
     fixture.add_record('2026-02-17')
@@ -25,8 +30,9 @@ try:
             day += timedelta(days=1)
             continue
         value = {'data_date': key, 'items': [
-            {'date': key, 'staff': 'Dent A.', 'amount': 1, 'patient': 'DO NOT EXPOSE'},
-            {'date': key, 'staff': 'Clinic B.', 'amount': 2}], 'retail_items': []}
+            {'date': key, 'staff': 'Dent A.', 'amount': 1, 'patient': 'DO NOT EXPOSE',
+             'group':'Функциональная стоматология / Зуботехническая лаборатория (клиника)','invoice':'1'},
+            {'date': key, 'staff': 'Clinic B.', 'amount': 2,'group':'Другие услуги','invoice':'2'}], 'retail_items': []}
         fixture.conn.execute('INSERT INTO daily_uploads VALUES(?,?,?)', (key, json.dumps(value), 'source'))
         day += timedelta(days=1)
     fixture.conn.commit()
@@ -69,6 +75,34 @@ with sync_playwright() as pw:
         row = page.locator('#dateCompareBody tr[data-management-staff-name="Dent Doctor"]')
         assert row.count() == 1
         assert row.locator('td').nth(2).inner_text().split() == ['100', '₽', '16', '₽']
+        lab=page.locator('#dateCompareBody tr[data-management-lab="paid"]')
+        assert lab.locator('td').nth(1).inner_text().split()==['—','13','₽']
+        assert lab.locator('td').nth(2).inner_text().split()==['80','₽','16','₽']
+        assert page.locator('#dateCompareBody tr[data-management-lab="orders"] td').nth(2).inner_text()=='16'
+        # AZ-260-01: 01.02 is absent from the original service source.
+        # Keep actual loaded amounts/counts, never divide full-period payments by 16.
+        lab_avg=page.locator('#dateCompareBody tr[data-management-lab="avg"] td').nth(2)
+        assert lab_avg.inner_text()=='—'
+        assert 'Полнота количества счетов' in lab_avg.get_attribute('title')
+        assert 'По загруженным датам' in page.locator('#dateCompareBody tr[data-management-lab="orders"] td').first.inner_text()
+        assert 'по загруженным датам' in lab.locator('td').first.inner_text()
+        page.select_option('#dateViewMode','single')
+        assert page.locator('#labGrid [data-key="managementLabPaid"]').input_value().split()==['80','₽']
+        assert page.locator('#labGrid [data-key="managementLabServices"]').input_value().split()==['16','₽']
+        assert page.locator('#labGrid [data-key="managementLabAvg"]').input_value()=='—'
+        # Independent synthetic positive control: explicit source evidence for
+        # 01.02 with no ZTL orders (not a guessed zero or a production write).
+        page.evaluate("""() => {
+            window.savedLabServiceDays=LAB_SERVICE_DAYS;
+            LAB_SERVICE_DAYS=[...LAB_SERVICE_DAYS,{date:'2026-02-01',services:0,orders:0}];
+        }""")
+        page.select_option('#dateViewMode','compare')
+        assert lab_avg.inner_text().split()==['5','₽']
+        page.select_option('#dateViewMode','single')
+        assert page.locator('#labGrid [data-key="managementLabAvg"]').input_value().split()==['5','₽']
+        page.evaluate('LAB_SERVICE_DAYS=window.savedLabServiceDays')
+        page.select_option('#dateViewMode','compare')
+        assert lab_avg.inner_text()=='—'
         assert row.locator('td').last.inner_text().split() == ['+157', '₽']
         assert row.locator('td').first.inner_text().find('Услуги') >= 0
         # January has no exact 1–17 paid import: its original 150 must survive.

@@ -26,8 +26,22 @@ def git_blob(raw):
 
 class InstalledSourcePreservationTests(unittest.TestCase):
     def test_paid_sources_preserve_installed_behavior_under_advertising_hook(self):
+        # The owner-authorized ZTL evidence is the only allowed change in
+        # the paid importer. Strip those exact additions, then verify the
+        # previous installed blob rather than relaxing the protection.
+        paid_text = (ROOT / 'paid_services.py').read_bytes()
+        additions = (
+            b'\nimport management_lab\n',
+            b'    # Preserve group-level payment evidence only from an actual new MIS parse.\n'
+            b'    # Existing compact records and the provider-based contracts are unchanged.\n'
+            b'    if report.get("source_type") == "paid_services_v1":\n'
+            b'        payload[management_lab.EVIDENCE_KEY] = management_lab.paid_evidence(report)\n',
+        )
+        for addition in additions:
+            self.assertEqual(paid_text.count(addition), 1)
+            paid_text = paid_text.replace(addition, b'', 1)
         self.assertEqual(
-            git_blob((ROOT / 'paid_services.py').read_bytes()),
+            git_blob(paid_text),
             '7731d49098494276e40442d06443a0729fc7fcf3',
         )
 
