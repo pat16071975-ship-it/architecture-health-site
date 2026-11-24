@@ -43,10 +43,27 @@ jobs:
           node tests/verify-paid-upload-periods.cjs
       - name: Protect clinical imports and cash money semantics
         run: |
-          git diff --exit-code ${{ github.event.pull_request.base.sha }} -- az-baze-auth/paid_services.py az-baze-auth/paid_services_upload.py az-baze-auth/ident_import.py az-baze-auth/upload_integrity.py
+          git diff --exit-code ${{ github.event.pull_request.base.sha }} -- az-baze-auth/paid_services_upload.py az-baze-auth/ident_import.py az-baze-auth/upload_integrity.py
           python - <<'PY'
           from pathlib import Path
           import subprocess
+          # Permit only the exact owner-authorized group evidence hook; all
+          # existing payment parsing, provider totals and writes stay protected.
+          base_paid=subprocess.check_output(['git','show','${{ github.event.pull_request.base.sha }}:az-baze-auth/paid_services.py'])
+          current_paid=Path('az-baze-auth/paid_services.py').read_bytes()
+          if current_paid != base_paid:
+              additions=(
+                  b'\nimport management_lab\n',
+                  b'    # Preserve group-level payment evidence only from an actual new MIS parse.\n'
+                  b'    # Existing compact records and the provider-based contracts are unchanged.\n'
+                  b'    if report.get("source_type") == "paid_services_v1":\n'
+                  b'        payload[management_lab.EVIDENCE_KEY] = management_lab.paid_evidence(report)\n',
+              )
+              for addition in additions:
+                  assert addition not in base_paid and current_paid.count(addition)==1, 'Unexpected paid importer changes'
+                  current_paid=current_paid.replace(addition,b'',1)
+              assert current_paid==base_paid, 'Paid importer changed beyond exact ZTL hook'
+          print('PAID_IMPORTER_BOUNDARY=PASS')
           base_dashboard=subprocess.check_output(['git','show','${{ github.event.pull_request.base.sha }}:reports/dashboard.html']).decode()
           current_dashboard=Path('reports/dashboard.html').read_text(encoding='utf-8')
           # Permit only the compact read-view URL; all rendering/formulas stay protected.
