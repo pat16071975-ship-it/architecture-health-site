@@ -194,6 +194,16 @@ def money_text(kopecks):
 
 
 def hours_text(minutes):
+    """Lossless, human-editable hours for every integer minute.
+
+    Decimal hours terminate precisely only when minutes is divisible by 3.
+    Otherwise use H:MM instead of producing an infinite decimal such as
+    0.116666666666... for seven minutes. The display is always accepted
+    unchanged by parse_hours_entry(), including at 24 hours.
+    """
+    minutes = int(minutes)
+    if minutes % 3:
+        return f"{minutes // 60}:{minutes % 60:02d}"
     amount = Decimal(minutes) / 60
     return f"{amount:f}".rstrip("0").rstrip(".") if minutes % 60 else str(minutes // 60)
 
@@ -212,12 +222,25 @@ def parse_hours(value):
 
 
 def parse_hours_entry(value):
-    """Blank or numeric zero means no worked hours; never store 'вых' in the new form."""
+    """Interpret whole minutes EXACTLY: H:MM or terminating decimal hours.
+
+    No quantization or floating-point approximations. This guarantees
+    parse_hours_entry(hours_text(n)) == n for all n in 1..1440.
+    Blank, 0 and 0:00 remove the day; 'вых' remains prohibited.
+    """
     text = str(value if value is not None else "").strip()
     if not text:
         return None
-    if text.casefold() == "off" or text.casefold() == "вых":
-        abort(400, description="В табеле вводятся только часы, без обозначения выходных.")
+    if text.casefold() in ("off", "вых"):
+        abort(400, description="Введите часы, а минуты укажите как ч:мм (например, 1:01).")
+    if ":" in text:
+        match = re.fullmatch(r"([0-9]{1,2}):([0-5][0-9])", text)
+        if match is None:
+            abort(400, description="Неверное время. Используйте ч:мм, например 0:07, 1:01 или 8:20.")
+        minutes = int(match.group(1)) * 60 + int(match.group(2))
+        if minutes > 1440:
+            abort(400, description="Длительность смены не может превышать 24 часа.")
+        return minutes or None
     try:
         number = Decimal(text.replace(",", "."))
     except (InvalidOperation, ValueError):
