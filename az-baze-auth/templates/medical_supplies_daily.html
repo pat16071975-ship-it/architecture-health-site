@@ -8,6 +8,7 @@
 <div class="md-head"><h2>Медрасходка</h2></div>
 <nav class="md-nav" aria-label="Разделы медрасходки">
 {% for key,label in [('movement','Движение'),('order','К заказу'),('catalog','Справочник'),('history','История изменений')] %}<a class="btn {{ 'primary' if key=='movement' else '' }}" href="{{ url_for('medical_supplies',tab=key,month=month) }}">{{ label }}</a>{% endfor %}
+<a class="btn" href="{{ url_for('medical_supplies_inbox') }}">Входящие документы</a>
 </nav>
 {% if error %}<p role="alert" class="md-alert">{{ error }}</p>{% endif %}{% if saved %}<p role="status">Изменения сохранены.</p>{% endif %}
 {% if already %}<p role="status">Этот файл уже загружен. Повторных позиций не создано.</p>{% endif %}

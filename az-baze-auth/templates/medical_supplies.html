@@ -18,6 +18,7 @@
 {% for key,label in [('movement','Движение'),('order','К заказу'),('catalog','Справочник'),('history','История изменений')] %}
 <a class="btn {{ 'primary' if tab==key else '' }}" {% if tab==key %}aria-current="page"{% endif %} href="{{ url_for('medical_supplies', month=month, tab=key) }}">{{ label }}</a>
 {% endfor %}
+<a class="btn" href="{{ url_for('medical_supplies_inbox') }}">Входящие документы</a>
 </nav>
 <div class="med-upload">{% include 'medical_supplies_upload.html' %}</div>
 {% if error %}<p class="error" role="alert">{{ error }} Введённые значения не сохранены.</p>{% endif %}

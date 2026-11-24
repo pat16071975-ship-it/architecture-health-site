@@ -8,6 +8,7 @@
 {% for key,label in [('stock','Остатки из файла'),('movement','Движение'),('order','К заказу'),('catalog','Справочник'),('history','История изменений')] %}
 <a class="btn {{ 'primary' if key=='stock' else '' }}" {% if key=='stock' %}aria-current="page"{% endif %} href="{{ url_for('medical_supplies', tab=key, month=month) }}">{{ label }}</a>
 {% endfor %}
+<a class="btn" href="{{ url_for('medical_supplies_inbox') }}">Входящие документы</a>
 </nav>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 {% if saved=='1' %}<p class="stock-ok" role="status">Файл загружен. Остатки и вопросы сохранены.</p>{% elif saved=='already' %}<p class="stock-ok" role="status">Этот файл уже загружен. Повторных позиций не создано.</p>{% endif %}

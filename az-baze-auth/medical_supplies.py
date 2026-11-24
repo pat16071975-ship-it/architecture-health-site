@@ -10,6 +10,7 @@ from flask import abort, g, redirect, render_template, request, send_file, url_f
 from openpyxl import Workbook
 import medical_supplies_import as stock_import
 import medical_supplies_daily as daily
+import medical_supplies_documents as inbox
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS med_supply_items (
@@ -47,6 +48,7 @@ def init_schema(conn):
     conn.executescript(SCHEMA)
     stock_import.init_schema(conn)
     daily.init_schema(conn)
+    inbox.init_schema(conn)
 
 
 def month(value):
@@ -253,6 +255,16 @@ def workbook(rows, period):
 
 
 def register(app, db, permission_required, require_csrf, csrf_token, user_permissions):
+    # Module-owned granular capability, following the established extension
+    # registration model; do not change unrelated global app/admin code.
+    import app as app_core
+    capability = "medical_supplies_documents_manage"
+    if capability not in app_core.SECTION_KEYS:
+        app_core.SECTION_KEYS.add(capability)
+        app_core.SECTIONS.append((
+            capability, "Медрасходка — входящие документы: загрузка и разбор",
+        ))
+
     def rights():
         perms = user_permissions(g.user)
         return {k for k in ('catalog','in','out','purchase') if 'medical_supplies_edit' in perms or 'medical_supplies_'+k in perms}
@@ -322,6 +334,7 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
 
     stock_import.register(app, db, permission_required, require_csrf, csrf_token, rights)
     daily.register(app, db, permission_required, require_csrf, csrf_token, rights)
+    inbox.register(app, db, permission_required, require_csrf, csrf_token, user_permissions)
 
     @app.post('/accounting/medical-supplies/save/<action>')
     @permission_required('accounting')
