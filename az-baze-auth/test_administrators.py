@@ -198,7 +198,7 @@ class AdministratorsTests(unittest.TestCase):
         self.assertIn('value=""', self.client(4).get(
             "/administrators/?month=2026-11").text)
         self.assertEqual(before, self.snapshot())
-        self.assertNotIn("data-az-upload-feedback", self.client(4).get(
+        self.assertNotIn("ТАБЕЛЬ СОХРАНЁН", self.client(4).get(
             "/administrators/?month=2026-11&saved=1").text)
         result = self.save_batch(data=data)
         self.assertEqual(result.status_code, 303)
