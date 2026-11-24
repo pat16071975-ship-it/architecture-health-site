@@ -1,0 +1,36 @@
+name: AZ PR260 management laboratory controlled deployment package
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/deploy/controlled-pr260-management-lab.py'
+      - 'az-baze-auth/deploy/test_controlled_pr260_release.py'
+      - '.github/workflows/az-pr260-controlled-release.yml'
+permissions:
+  contents: read
+jobs:
+  release-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify scope and pinned release, no DB write, rollback
+        run: |
+          python3 -B -m py_compile az-baze-auth/deploy/controlled-pr260-management-lab.py az-baze-auth/deploy/test_controlled_pr260_release.py
+          python3 -B -m unittest discover -v -s az-baze-auth/deploy -p 'test_controlled_pr260_release.py'
+          node tests/verify-management-lab.cjs
+          python3 - <<'PY'
+          import subprocess
+          expected={'.github/workflows/az-pr260-controlled-release.yml','az-baze-auth/deploy/controlled-pr260-management-lab.py','az-baze-auth/deploy/test_controlled_pr260_release.py'}
+          actual=set(subprocess.check_output(['git','diff','--name-only','5f7fc09e25954034946a9a334f38d331ddc16284','HEAD'],text=True).splitlines())
+          assert actual==expected,(actual,expected)
+          print('DEPLOY_PACKAGE_SCOPE=PASS')
+          PY
