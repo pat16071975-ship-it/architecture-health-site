@@ -15,7 +15,7 @@ import mis_source_archive as archive
 MAX_BUNDLE = 100 * 1024 * 1024
 MAX_FILES = 1000
 TYPE_MAP = {
-    "services_and_discounts": "services",
+    "service_prices_discounts": "services",
     "paid_and_debt": "paid_services",
     "cash_operations": "cash",
     "completed_visits": "completed",
