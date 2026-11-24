@@ -243,6 +243,18 @@ class IncomingDocumentTests(unittest.TestCase):
         self.assertEqual(client.get(
             "/accounting/medical-supplies/incoming/9999/download").status_code, 404)
 
+    def test_multiline_review_comment_and_html_stay_plain_text(self):
+        self.upload()
+        note="Сверить счёт и УПД\nПроверить сумму <script>alert(1)</script>"
+        res=self.review(note=note)
+        self.assertEqual(res.status_code,303)
+        self.assertEqual(self.get_doc()["note"],note)
+        html=self.client(3).get(
+            "/accounting/medical-supplies/incoming/?id=1"
+        ).get_data(as_text=True)
+        self.assertIn("&lt;script&gt;",html)
+        self.assertNotIn("<script>alert(1)</script>",html)
+
     def test_edit_metadata_requires_version_and_keeps_binary_immutable(self):
         self.upload()
         original = self.get_doc()
