@@ -67,7 +67,7 @@ def service_rows(days,amount=100):
     rows=[["Header"],["Header two"],[STAFF]]
     for number,day in enumerate(days,1):
         rows.extend([
-            ["Пациент С."],
+            ["Синтетический пациент"],
             [f"Счет №{number} от {display(day)} 12:00:00"],
             ["Терапия",display(day),"Лечение",1,amount,0,amount],
         ])
@@ -81,7 +81,7 @@ def completed_rows(days):
             [display(day),None,"1 (1)"],
             ["Первичные",None,"1 (1)"],
             [STAFF,None,"1 (1)"],
-            [display(day),"Пациент С."],
+            [display(day),"Синтетический пациент"],
         ])
     return rows
 
