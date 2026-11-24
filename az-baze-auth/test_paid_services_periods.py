@@ -324,6 +324,8 @@ class PaidPeriodUploadTests(unittest.TestCase):
         self.assertEqual(list(self.conn.iterdump()), before)
 
     def test_keep_old_does_not_classify_unknown_names_from_rejected_file(self):
+        import hashlib
+        import mis_source_archive as source_archive
         self.import_first()
         raw = report_bytes(provider="Unknown U.")
         preview = self.post("preview", raw).get_json()
@@ -331,7 +333,69 @@ class PaidPeriodUploadTests(unittest.TestCase):
         result = self.post("commit", raw, decision="keep_old", expected_revision=preview["revision"])
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.get_json()["status"], "duplicate")
-        self.assertEqual(list(self.conn.iterdump()), before)
+
+        # The owner now requires preserving even a validated kept-old source.
+        # All previous SQL, including archive history and provider registry,
+        # must remain exact; allow precisely one new original and one receipt.
+        after = list(self.conn.iterdump())
+        extra = list(after)
+        for line in before:
+            extra.remove(line)
+        self.assertEqual(len(extra), 2)
+        self.assertEqual(sum(line.startswith('INSERT INTO "mis_source_objects"') for line in extra), 1)
+        self.assertEqual(sum(line.startswith('INSERT INTO "mis_source_events"') for line in extra), 1)
+        sha = hashlib.sha256(raw).hexdigest()
+        self.assertEqual(source_archive.read_original(self.conn, sha), raw)
+        receipt = self.conn.execute(
+            "SELECT outcome,decision,applied_dates_json,removed_dates_json FROM mis_source_events WHERE sha256=?",
+            (sha,),
+        ).fetchone()
+        self.assertEqual(tuple(receipt), ("kept_old", "keep_old", None, None))
+        self.assertEqual(self.conn.execute(
+            "SELECT count(*) FROM provider_registry WHERE source_name='Unknown U.'"
+        ).fetchone()[0], 0)
+        # An exact replay must not add even a duplicate archive receipt.
+        result = self.post("commit", raw, decision="keep_old", expected_revision=preview["revision"])
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(list(self.conn.iterdump()), after)
+
+    def test_real_commit_archives_exact_source_and_identical_replay(self):
+        import hashlib
+        import mis_source_archive as source_archive
+        raw = report_bytes()
+        sha = hashlib.sha256(raw).hexdigest()
+        response = self.post("commit", raw, decision="append", expected_revision="new")
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(source_archive.read_original(self.conn, sha), raw)
+        self.assertEqual(self.conn.execute(
+            "SELECT source_sha256 FROM service_payment_periods"
+        ).fetchone()[0], sha)
+        self.assertEqual(tuple(self.conn.execute(
+            "SELECT source_kind,source_from,source_to,outcome FROM mis_source_events WHERE sha256=?",
+            (sha,),
+        ).fetchone()), ("paid_services","2026-01-01","2026-06-30","applied"))
+        preview = self.post("preview",raw).get_json()
+        for _ in range(2):
+            response = self.post("commit",raw,decision="append",expected_revision=preview["revision"])
+            self.assertEqual(response.status_code,200,response.get_json())
+            self.assertEqual(response.get_json()["status"],"duplicate")
+        self.assertEqual(self.conn.execute("SELECT count(*) FROM mis_source_objects").fetchone()[0],1)
+        self.assertEqual(self.conn.execute("SELECT count(*) FROM mis_source_events").fetchone()[0],2)
+        self.assertEqual(self.conn.execute("SELECT count(*) FROM service_payment_periods").fetchone()[0],1)
+        self.assertEqual(self.protected_state(), self.protected)
+
+    def test_archive_failure_rolls_back_real_paid_commit_and_schema(self):
+        import mis_source_archive as source_archive
+        before = list(self.conn.iterdump())
+        original = source_archive.record
+        def fail_after_archive(*args, **kwargs):
+            original(*args, **kwargs)
+            raise sqlite3.IntegrityError("synthetic archive failure")
+        with patch.object(source_archive,"record",side_effect=fail_after_archive):
+            with self.assertRaisesRegex(sqlite3.IntegrityError,"synthetic archive failure"):
+                self.post("commit",report_bytes(),decision="append",expected_revision="new")
+        self.assertEqual(list(self.conn.iterdump()),before)
+        self.assertFalse(self.conn.in_transaction)
 
     def test_classification_and_snapshot_roll_back_together(self):
         raw = report_bytes(provider="Unknown U.")
