@@ -10,6 +10,7 @@ import json
 import re
 import sqlite3
 import zipfile
+import zlib
 from xml.parsers import expat
 from datetime import date, datetime, timezone
 from pathlib import PurePath
@@ -313,7 +314,7 @@ def _zip_kind(raw, ext):
                 _zip_member_xml(archive, names["meta-inf/manifest.xml"],
                                 "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}manifest")
     except (zipfile.BadZipFile, zipfile.LargeZipFile, RuntimeError, OSError,
-            EOFError, NotImplementedError, ValueError, expat.ExpatError) as exc:
+            EOFError, NotImplementedError, ValueError, zlib.error, expat.ExpatError) as exc:
         raise ValueError("Небезопасный или повреждённый ZIP/Office-документ: " + str(exc)) from exc
 
 
