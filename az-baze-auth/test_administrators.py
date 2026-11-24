@@ -331,6 +331,92 @@ class AdministratorsTests(unittest.TestCase):
         for r in self.conn.execute("SELECT minutes FROM az_admin_days"):
             self.assertEqual(r[0] % 60, 0)
 
+    def test_az_258_02_single_day_rejects_fractional_and_invalid_values_without_writes(self):
+        """Real legacy Flask POST must enforce the same new-hour invariant as batch."""
+        sid = self.staff(rate="360,00")
+        with self.conn:
+            self.conn.executemany(
+                "INSERT INTO az_admin_days(staff_id,work_date,minutes) VALUES(?,?,?)",
+                [(sid, "2026-11-01", 7), (sid, "2026-11-02", 61),
+                 (sid, "2026-11-03", 500), (sid, "2026-11-04", 30)]
+            )
+        before = self.snapshot()
+        original_model = adm.model(self.conn, "2026-11")
+        # Try to replace historical evidence AND create an entirely new row.
+        for day in (1, 5):
+            for invalid in ("7,5", "8,25", "0,5", "7.5", "8.25", "0.5",
+                            "8:20", "0:07", "8.0", "0.0", "7e0", "25", "-1",
+                            "NaN", "Infinity", "вых", "", " "):
+                with self.subTest(day=day, value=invalid):
+                    self.assertEqual(self.post(
+                        4, "hours", staff_id=str(sid),
+                        work_date=f"2026-11-{day:02d}", value=invalid
+                    ).status_code, 400)
+                    self.assertEqual(self.snapshot(), before)
+                    self.assertEqual(adm.model(self.conn, "2026-11"), original_model)
+        self.assertEqual(self.post(
+            4, "hours", staff_id=str(sid), work_date="2026-11-01"
+        ).status_code, 400)
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(original_model[1][0]["calculated"]["base"], 358800)
+
+    def test_az_258_02_single_day_integer_and_off_compatibility_preserve_history(self):
+        sid = self.staff(rate="360,00")
+        with self.conn:
+            self.conn.executemany(
+                "INSERT INTO az_admin_days(staff_id,work_date,minutes) VALUES(?,?,?)",
+                [(sid, "2026-11-01", 7), (sid, "2026-11-02", 61),
+                 (sid, "2026-11-03", 500), (sid, "2026-11-04", 30)]
+            )
+        def saved():
+            return [(row["work_date"], row["minutes"]) for row in self.conn.execute(
+                "SELECT work_date,minutes FROM az_admin_days WHERE staff_id=? ORDER BY work_date",
+                (sid,)
+            )]
+        def events():
+            return [tuple(row) for row in self.conn.execute(
+                "SELECT * FROM az_admin_events ORDER BY id"
+            )]
+        old_days = saved()
+        old_events = events()
+        old_version = adm.month_state(self.conn, "2026-11")["version"]
+        self.assertEqual(self.post(
+            4, "hours", staff_id=str(sid), work_date="2026-11-05", value="8"
+        ).status_code, 303)
+        self.assertEqual(saved(), old_days + [("2026-11-05", 480)])
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["calculated"]["base"],
+                         646800)
+        self.assertEqual(events()[:-1], old_events)
+        self.assertEqual(adm.month_state(self.conn, "2026-11")["version"], old_version + 1)
+        after = self.snapshot()
+        self.assertEqual(self.post(
+            4, "hours", staff_id=str(sid), work_date="2026-11-05", value="8"
+        ).status_code, 303)
+        self.assertEqual(self.snapshot(), after)
+        # Both explicit deletion forms remain safe; neither can affect other days.
+        self.assertEqual(self.post(
+            4, "hours", staff_id=str(sid), work_date="2026-11-05", value="off"
+        ).status_code, 303)
+        self.assertEqual(saved(), old_days)
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["calculated"]["base"],
+                         358800)
+        self.assertEqual(self.post(
+            4, "hours", staff_id=str(sid), work_date="2026-11-01", value="24"
+        ).status_code, 303)
+        self.assertEqual(saved(), [("2026-11-01", 1440)] + old_days[1:])
+        self.assertEqual(self.post(
+            4, "hours", staff_id=str(sid), work_date="2026-11-01", value="0"
+        ).status_code, 303)
+        self.assertEqual(saved(), old_days[1:])
+        self.assertEqual(events()[:-4], old_events)
+        self.assertEqual(adm.month_state(self.conn, "2026-11")["version"], old_version + 4)
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["calculated"]["base"],
+                         354600)
+        # No-op batch after legacy writes must not erase the historical remainder.
+        after = self.snapshot()
+        self.assertEqual(self.save_batch().status_code, 303)
+        self.assertEqual(self.snapshot(), after)
+
     def test_az_admin_batch_atomic_rejects_invalid_extra_missing_or_duplicate(self):
         sid = self.staff()
         for value in ("-1", "25", "8.333", "NaN", "off", "вых", "foo"):
@@ -478,7 +564,7 @@ class AdministratorsTests(unittest.TestCase):
         self.assertEqual(self.client(1).post("/administrators/hours", data=dict(
             csrf="wrong", month="2026-11", staff_id=sid, work_date="2026-11-04", value="8",
         )).status_code, 400)
-        for value in ("0", "-1", "25", "foo", "8.333"):
+        for value in ("", "-1", "25", "foo", "8.333"):
             self.assertEqual(self.post(4, "hours", staff_id=str(sid),
                                        work_date="2026-11-04", value=value).status_code, 400)
         self.assertEqual(self.post(4, "hours", staff_id=str(sid),

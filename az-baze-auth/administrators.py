@@ -198,8 +198,8 @@ def hours_text(minutes):
 
     Decimal hours terminate precisely only when minutes is divisible by 3.
     Otherwise use H:MM instead of producing an infinite decimal such as
-    0.116666666666... for seven minutes. The display is always accepted
-    unchanged by parse_hours_entry(), including at 24 hours.
+    0.116666666666... for seven minutes. Historical fractional values
+    are display-only; new writes are validated separately as whole hours.
     """
     minutes = int(minutes)
     if minutes % 3:
@@ -209,16 +209,17 @@ def hours_text(minutes):
 
 
 def parse_hours(value):
+    """Legacy single-day POST: the same integer rule, plus explicit 'off'.
+
+    Missing/blank input remains invalid on this route, so a malformed old
+    request cannot erase a saved day. Zero and 'off' explicitly remove it.
+    Existing historical minutes are not inputs to this parser.
+    """
     if value == "off":
         return None
-    try:
-        amount = Decimal(str(value).replace(",", "."))
-    except (InvalidOperation, ValueError):
-        abort(400, description="Укажите часы или «вых».")
-    minutes = amount * 60
-    if not amount.is_finite() or amount <= 0 or amount > 24 or minutes != minutes.to_integral_value():
-        abort(400, description="Часы должны быть больше нуля и не превышать 24 (шаг — одна минута).")
-    return int(minutes)
+    if value is None or not str(value).strip():
+        abort(400, description="Укажите целые часы от 0 до 24.")
+    return parse_hours_entry(value)
 
 
 def parse_hours_entry(value):
