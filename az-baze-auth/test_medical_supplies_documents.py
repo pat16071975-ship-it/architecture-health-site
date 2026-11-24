@@ -105,6 +105,17 @@ class IncomingDocumentTests(unittest.TestCase):
             data=data,
         )
 
+    def test_permission_is_registered_once_by_medical_supplies_extension(self):
+        key="medical_supplies_documents_manage"
+        self.assertIn(key,appcore.SECTION_KEYS)
+        self.assertEqual(sum(s==key for s,_ in appcore.SECTIONS),1)
+        # A second app instance does not duplicate a role option.
+        appcore.create_app()
+        self.assertEqual(sum(s==key for s,_ in appcore.SECTIONS),1)
+        self.assertIn(key,appcore.user_permissions(
+            self.conn.execute("SELECT * FROM users WHERE id=5").fetchone()
+        ))
+
     def test_nav_from_all_three_med_supplies_views_and_empty_state(self):
         c = self.client(2)
         self.assertTrue(inbox.ready(self.conn))
