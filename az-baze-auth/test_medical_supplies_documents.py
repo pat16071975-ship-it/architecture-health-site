@@ -148,6 +148,14 @@ class IncomingDocumentTests(unittest.TestCase):
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM med_supply_stock_imports")
                          .fetchone()[0], 0)
 
+    def test_upload_always_starts_pending_not_preapproved(self):
+        response=self.upload(status="reviewed")
+        self.assertEqual(response.status_code,303)
+        self.assertEqual(self.get_doc()["status"],"pending")
+        saved=json.loads(self.conn.execute(
+            "SELECT after_json FROM med_supply_document_events").fetchone()[0])
+        self.assertEqual(saved["status"],"pending")
+
     def test_duplicate_sha_returns_existing_without_second_history(self):
         self.assertEqual(self.upload().status_code, 303)
         again = self.upload(filename="копия документа.pdf",
