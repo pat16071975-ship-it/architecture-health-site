@@ -255,6 +255,16 @@ def workbook(rows, period):
 
 
 def register(app, db, permission_required, require_csrf, csrf_token, user_permissions):
+    # Module-owned granular capability, following the established extension
+    # registration model; do not change unrelated global app/admin code.
+    import app as app_core
+    capability = "medical_supplies_documents_manage"
+    if capability not in app_core.SECTION_KEYS:
+        app_core.SECTION_KEYS.add(capability)
+        app_core.SECTIONS.append((
+            capability, "Медрасходка — входящие документы: загрузка и разбор",
+        ))
+
     def rights():
         perms = user_permissions(g.user)
         return {k for k in ('catalog','in','out','purchase') if 'medical_supplies_edit' in perms or 'medical_supplies_'+k in perms}
