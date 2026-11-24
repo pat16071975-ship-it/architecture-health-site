@@ -143,7 +143,15 @@ class ManagementLabTests(unittest.TestCase):
             before = "\n".join(conn.iterdump())
             conn.execute("PRAGMA query_only=ON")
             full = fixture.client().get("/api/reports/data").get_json()
-            self.assertEqual(full["data"][original["date"]], original)
+            # Existing paid-patient projection adds these derived fields on GET.
+            # Neither the stored record nor the previous projection may change.
+            expected = {**original, "paidClinicPatients": 0,
+                        "paidClinicPatientsByDoctor": {}, "paidDentPatients": 0,
+                        "paidDentPatientsByDoctor": {}, "paidPatients": 0,
+                        "paidPatientEvidenceComplete": True,
+                        "paidPatientPeriodFrom": "2026-11-01",
+                        "paidPatientPeriodTo": "2026-11-17"}
+            self.assertEqual(full["data"][original["date"]], expected)
             self.assertEqual(full["doctorPaidSnapshots"]["2026-11"][0]["dentists"], {"Dent Doctor":600})
             self.assertIsNone(full["laboratoryPaidPeriods"][0]["paid"])
             self.assertEqual(full["laboratoryPaidPeriods"][1]["paid"],400)
