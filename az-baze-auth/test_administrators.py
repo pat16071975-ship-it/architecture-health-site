@@ -84,6 +84,24 @@ class AdministratorsTests(unittest.TestCase):
         self.assertEqual(response.status_code, 303)
         return self.conn.execute("SELECT id FROM az_admin_staff ORDER BY id DESC LIMIT 1").fetchone()["id"]
 
+    def batch_data(self, month="2026-11", changes=None):
+        """Full visible matrix with current optimistic tokens; override only chosen cells."""
+        state, rows, revision = adm.month_page_snapshot(self.conn, month)
+        count = __import__("calendar").monthrange(*map(int, month.split("-")))[1]
+        data = dict(csrf="admin-test-csrf", month=month,
+                    version=str(state["version"]), view_revision=revision)
+        for row in rows:
+            for day in range(1, count + 1):
+                data[f"hours_{row['id']}_{day:02d}"] = row["days"].get(day, "")
+        for (sid, day), value in (changes or {}).items():
+            data[f"hours_{sid}_{day:02d}"] = value
+        return data
+
+    def save_batch(self, uid=4, month="2026-11", changes=None, data=None):
+        return self.client(uid).post("/administrators/hours/batch",
+                                     data=data if data is not None
+                                     else self.batch_data(month, changes))
+
     def snapshot(self):
         return "\n".join(self.conn.iterdump())
 
@@ -131,8 +149,12 @@ class AdministratorsTests(unittest.TestCase):
         sid = self.staff()
         res = self.client(4).get("/administrators/?month=2026-11")
         self.assertIn('class="az-total"', res.text)
-        self.assertIn("Иванова Анна", res.text)
-        self.assertIn('<option value="off" selected>вых</option>', res.text)
+        self.assertIn("Иванова А.", res.text)
+        self.assertIn('name="hours_' + str(sid) + '_04"', res.text)
+        self.assertNotIn('<option value="off"', res.text)
+        self.assertNotIn('class="az-admin-grid select"', res.text)
+        self.assertIn('id="az-hours-batch"', res.text)
+        self.assertIn('action="/administrators/hours/batch"', res.text)
         self.assertIn("az-weekend", res.text)
         self.assertIn("az-holiday", res.text)
         self.assertEqual(self.post(4, "hours", staff_id=str(sid), work_date="2026-11-04", value="12").status_code, 303)
@@ -143,6 +165,178 @@ class AdministratorsTests(unittest.TestCase):
         self.assertEqual(self.post(4, "hours", staff_id=str(sid), work_date="2026-11-04", value="off").status_code, 303)
         self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["minutes"], 0)
         self.assertEqual(self.conn.execute("SELECT count(*) FROM az_admin_days").fetchone()[0], 0)
+
+    def test_az_admin_grid_all_31_days_and_short_display_preserve_full_name(self):
+        sid = self.staff(name="Иванова Анна Петровна")
+        page = self.client(4).get("/administrators/?month=2026-12")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("Иванова А. П.", page.text)
+        self.assertIn('title="Иванова Анна Петровна"', page.text)
+        self.assertEqual(len(re.findall(
+            r'class="az-hour-input"[^>]*name="hours_' + str(sid) + r'_\d\d"',
+            page.text
+        )), 31)
+        self.assertIn('name="hours_' + str(sid) + '_31"', page.text)
+        self.assertNotIn("<select name=\"value\"", page.text)
+        self.assertNotIn("min-width:max-content", page.text)
+        self.assertNotIn('горизонтальной прокруткой"', page.text)
+        self.assertEqual(adm.short_staff_name("Иванов"), "Иванов")
+        self.assertEqual(adm.short_staff_name("Петров-Сидоров Иван Александрович"),
+                         "Петров-Сидоров И. А.")
+        self.assertEqual(self.conn.execute(
+            "SELECT full_name FROM az_admin_staff WHERE id=?", (sid,)
+        ).fetchone()[0], "Иванова Анна Петровна")
+        settings = self.client(1).get("/administrators/?tab=settings&month=2026-12")
+        self.assertIn('value="Иванова Анна Петровна"', settings.text)
+
+    def test_az_admin_batch_saved_only_on_explicit_submit_and_success_proof(self):
+        first = self.staff(name="Иванова Анна Петровна")
+        second = self.staff(name="Петрова Мария")
+        data = self.batch_data(changes={(first, 4): "8", (first, 5): "7,5",
+                                        (second, 24): "9.25"})
+        before = self.snapshot()
+        self.assertIn('value=""', self.client(4).get(
+            "/administrators/?month=2026-11").text)
+        self.assertEqual(before, self.snapshot())
+        self.assertNotIn("data-az-upload-feedback", self.client(4).get(
+            "/administrators/?month=2026-11&saved=1").text)
+        result = self.save_batch(data=data)
+        self.assertEqual(result.status_code, 303)
+        self.assertEqual(self.snapshot().count("INSERT INTO \"az_admin_days\""), 3)
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["minutes"], 930)
+        self.assertEqual(sum(r["minutes"] for r in adm.read_rows(self.conn, "2026-11")),
+                         1485)
+        self.assertEqual(self.conn.execute(
+            "SELECT version FROM az_admin_months WHERE month='2026-11'"
+        ).fetchone()[0], 3)  # two staff settings + one batch save
+        self.assertEqual(self.conn.execute(
+            "SELECT COUNT(*) FROM az_admin_events WHERE action='hours'"
+        ).fetchone()[0], 3)
+        client = self.client(4)
+        # Proof is tied to the same session that saved, not another login.
+        response = client.post("/administrators/hours/batch",
+                               data=self.batch_data())
+        self.assertEqual(response.status_code, 303)
+        shown = client.get(response.location)
+        self.assertIn("ТАБЕЛЬ СОХРАНЁН", shown.text)
+        self.assertIn("ноябрь 2026 года", shown.text)
+        self.assertNotIn("ТАБЕЛЬ СОХРАНЁН", client.get(response.location).text)
+        self.assertEqual(self.conn.execute(
+            "SELECT COUNT(*) FROM az_admin_events WHERE action='hours'"
+        ).fetchone()[0], 3)  # no-op save leaves history unchanged
+
+    def test_az_admin_batch_blank_zero_and_fractional_hours(self):
+        sid = self.staff()
+        self.assertEqual(self.save_batch(changes={
+            (sid, 1): "8,5", (sid, 2): "7.25",
+            (sid, 3): "0", (sid, 4): ""
+        }).status_code, 303)
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["hours"], "15.75")
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM az_admin_days")
+                         .fetchone()[0], 2)
+        self.assertEqual(self.save_batch(changes={(sid, 1): "", (sid, 2): "0"})
+                         .status_code, 303)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM az_admin_days")
+                         .fetchone()[0], 0)
+        self.assertEqual(adm.read_rows(self.conn, "2026-11")[0]["hours"], "0")
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM az_admin_events "
+                         "WHERE action='hours'").fetchone()[0], 4)
+
+    def test_az_admin_batch_atomic_rejects_invalid_extra_missing_or_duplicate(self):
+        sid = self.staff()
+        for value in ("-1", "25", "8.333", "NaN", "off", "вых", "foo"):
+            with self.subTest(value=value):
+                saved = self.snapshot()
+                result = self.save_batch(changes={(sid, 5): value})
+                self.assertEqual(result.status_code, 400)
+                self.assertEqual(self.snapshot(), saved)
+        base = self.batch_data(changes={(sid, 2): "8", (sid, 3): "9"})
+        for mutation in ("missing", "extra", "duplicate", "csrf"):
+            with self.subTest(mutation=mutation):
+                supplied = dict(base)
+                if mutation == "missing":
+                    del supplied[f"hours_{sid}_31"]
+                if mutation == "extra":
+                    supplied["hours_999_04"] = "8"
+                if mutation == "duplicate":
+                    supplied[f"hours_{sid}_02"] = ["8", "11"]
+                if mutation == "csrf":
+                    supplied["csrf"] = "wrong-token"
+                saved = self.snapshot()
+                self.assertEqual(self.save_batch(data=supplied).status_code, 400)
+                self.assertEqual(self.snapshot(), saved)
+
+    def test_az_admin_batch_version_and_inherited_rate_guard(self):
+        sid = self.staff()
+        old = self.batch_data(changes={(sid, 2): "11"})
+        self.assertEqual(self.post(1, "settings", staff_id=str(sid),
+                                   full_name="Иванова Анна", rate="210,00",
+                                   active="1").status_code, 303)
+        before = self.snapshot()
+        self.assertEqual(self.save_batch(data=old).status_code, 409)
+        self.assertEqual(self.snapshot(), before)
+        current = self.batch_data(changes={(sid, 2): "11"})
+        self.assertEqual(self.save_batch(data=current).status_code, 303)
+        self.assertEqual(self.conn.execute(
+            "SELECT minutes FROM az_admin_days WHERE staff_id=? "
+            "AND work_date='2026-11-02'", (sid,)
+        ).fetchone()[0], 660)
+        self.assertEqual(self.save_batch(data=current).status_code, 409)
+        self.assertEqual(self.client(3).post(
+            "/administrators/hours/batch", data=self.batch_data()).status_code,403)
+
+    def test_az_admin_batch_closed_month_and_next_month_bounds(self):
+        sid = self.staff()
+        dec = self.batch_data(month="2026-12", changes={(sid, 31): "12"})
+        self.assertEqual(self.save_batch(month="2026-12", data=dec).status_code,303)
+        self.assertIn('name="hours_' + str(sid) + '_31"',
+                      self.client(4).get("/administrators/?month=2026-12").text)
+        self.assertEqual(self.post(5, "month", month="2026-12",
+                                   action="close").status_code, 303)
+        before = self.snapshot()
+        blocked = self.batch_data(month="2026-12")
+        blocked["version"] = str(adm.month_state(self.conn, "2026-12")["version"])
+        self.assertEqual(self.save_batch(month="2026-12", data=blocked).status_code, 409)
+        self.assertEqual(self.snapshot(), before)
+        closed = self.client(4).get("/administrators/?month=2026-12").text
+        self.assertNotIn('id="az-hours-batch"', closed)
+        self.assertNotIn('class="az-hour-input"', closed)
+        self.assertIn("12", closed)
+
+    def test_az_admin_settings_history_readonly_all_actions_and_pagination(self):
+        sid = self.staff()
+        self.save_batch(changes={(sid, 4): "8", (sid, 5): "9"})
+        self.post(5, "payroll", staff_id=str(sid),
+                  standards="1800", conversion="900", category="200",
+                  plan="300", extras="100")
+        self.post(1, "settings", staff_id=str(sid),
+                  full_name="Иванова Анна", rate="220", active="1")
+        self.post(5, "month", action="close")
+        self.post(1, "month", action="reopen")
+        before = self.snapshot()
+        view = self.client(3).get("/administrators/?tab=settings&month=2026-11")
+        self.assertEqual(view.status_code, 200)
+        for value in ("Журнал изменений", "11.2026", "Иванова А.",
+                      "Ставка:", "Стандарты:", "Месяц закрыт",
+                      "Месяц повторно открыт", "04 число:"):
+            self.assertIn(value, view.text)
+        self.assertEqual(self.snapshot(), before)
+        # Read-only paginated history, no hidden mutations.
+        with self.conn:
+            self.conn.executemany(
+                "INSERT INTO az_admin_events(actor_id,month,staff_id,action,"
+                "before_json,after_json,created_at) VALUES(1,?,?,'hours',?,?,?)",
+                [("2026-10", sid, '{"date":"2026-10-01","minutes":null}',
+                  '{"date":"2026-10-01","minutes":60}', "2026-11-24T10:00:00+07:00")]
+                * 104,
+            )
+        first = self.client(3).get("/administrators/?tab=settings&history_page=1")
+        nextpage = self.client(3).get("/administrators/?tab=settings&history_page=2")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(nextpage.status_code, 200)
+        self.assertIn("Страница 1 из 2", first.text)
+        self.assertIn("Страница 2 из 2", nextpage.text)
+        self.assertEqual(self.client(3).get("/administrators/?tab=settings&history_page=abc").status_code,400)
 
     def test_payroll_formula_and_individual_months(self):
         sid = self.staff()
