@@ -98,8 +98,15 @@ def record(conn, kind, raw, filename, *, source_from=None, source_to=None,
     if (start is None) != (end is None) or (start is not None and start > end):
         raise ValueError("Invalid archive interval")
     observed, applied, removed = _dates(observed), _dates(applied), _dates(removed)
-    if observed is not None and start is not None and any(not start <= d <= end for d in observed):
+    if observed and (start is None or any(not start <= d <= end for d in observed)):
         raise ValueError("Observation outside archive source interval")
+    if applied and (observed is None or not set(applied) <= set(observed)
+                    or start is None or any(not start <= d <= end for d in applied)):
+        raise ValueError("Applied date lacks observed source evidence")
+    if removed and (str(decision) != "use_new" or set(removed) & set(observed or [])
+                    or not isinstance(context, dict)
+                    or context.get("removal_reason") != "absent_from_replacement"):
+        raise ValueError("Invalid archive removal evidence")
     if outcome != "applied" and (applied or removed):
         raise ValueError("Archive-only receipt cannot apply business dates")
     if not isinstance(origin, str) or not origin or len(origin) > 80:
@@ -183,15 +190,74 @@ def read_original(conn, sha):
 
 def specs(kind, raw, filename, dates, *, applied=None, removed=None,
           decision=None, actor_id=None, saved_at=None, origin="ident_upload",
-          outcome=None, explicit_bounds=None):
+          outcome=None, explicit_bounds=None, context=None):
     """Build source metadata using observed dates, not filename month guesses."""
     days = _dates(dates)
     bounds = explicit_bounds or ((days[0], days[-1]) if days else (None, None))
+    metadata = dict(context or {})
+    metadata["interval_basis"] = "explicit_source" if explicit_bounds else "observed_dates"
+    if removed:
+        metadata["removal_reason"] = "absent_from_replacement"
     return ((kind, raw, filename), dict(
         source_from=bounds[0], source_to=bounds[1], observed=days,
         applied=applied, removed=removed, decision=decision or "append",
         actor_id=actor_id, saved_at=saved_at, origin=origin,
         outcome=outcome or ("applied" if applied or removed else
                             "kept_old" if decision == "keep_old" else "duplicate"),
-        context={"interval_basis": "explicit_source" if explicit_bounds else "observed_dates"},
+        context=metadata,
     ))
+
+
+def pair_specs(sources, *, written, removed=(), decision=None, actor_id=None,
+               saved_at=None, origin="ident_clinical_pair"):
+    """Describe one paired business operation without fabricating source dates.
+
+    Each of the two receipts contains ONLY its own observed/applied dates.
+    The shared operation describes combined written/removed dates separately.
+    Missing layers on written dates are not evidence of zero source activity.
+    Removed dates refer to previously stored combined rows, not to new input.
+    """
+    if origin not in ("ident_clinical_pair", "ident_legacy_pair"):
+        raise ValueError("Invalid paired archive origin")
+    sources = list(sources)
+    if len(sources) != 2 or {s[0] for s in sources} != {"services", "completed"}:
+        raise ValueError("Paired archive requires both distinct source kinds")
+    written, removed = set(_dates(written) or []), set(_dates(removed) or [])
+    observations = {kind: set(_dates(days) or []) for kind, _raw, _name, days in sources}
+    combined = set().union(*observations.values())
+    if not written <= combined or removed & combined or (removed and decision != "use_new"):
+        raise ValueError("Invalid combined archive operation dates")
+    now = saved_at or _timestamp()
+    operation = {
+        "origin": origin,
+        "decision": decision or "append",
+        "scope": "clinical_daily_rows" if origin == "ident_clinical_pair" else "legacy_management_rows",
+        "written_dates": sorted(written),
+        "removed_dates": sorted(removed),
+        "removal_reason": "absent_from_replacement" if removed else None,
+        "sources": sorted(
+            ({"kind": kind, "sha256": hashlib.sha256(raw).hexdigest(),
+              "observed_dates": sorted(observations[kind])}
+             for kind, raw, _name, _days in sources), key=lambda x: x["kind"]),
+    }
+    # Stable for no-op replays; an actual write has its own occurrence.
+    identity = dict(operation)
+    if written or removed:
+        identity.update(saved_at=now, actor_id=actor_id)
+    operation["id"] = hashlib.sha256(_json(identity).encode("utf-8")).hexdigest()
+    result = []
+    for kind, raw, filename, _days in sources:
+        observed = observations[kind]
+        applied = written & observed
+        outcome = ("applied" if applied else
+                   "archive_only" if written or removed else
+                   "kept_old" if decision == "keep_old" else "duplicate")
+        result.append(specs(
+            kind, raw, filename, observed, applied=applied, removed=(),
+            decision=decision, actor_id=actor_id, saved_at=now, origin=origin,
+            outcome=outcome, context={
+                "paired_operation": operation,
+                "unobserved_layer_dates": sorted(written - observed),
+            },
+        ))
+    return result

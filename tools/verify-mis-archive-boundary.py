@@ -40,7 +40,7 @@ EDITS = {
       "        revenue_text = _decode_upload(revenue_file)\n        completed_text = _decode_upload(completed_file)\n"
     ],
     [
-      "        archive_sources = [\n            mis_source_archive.specs(\n                \"services\", revenue_raw, revenue_file.filename,\n                {row[\"date\"] for row in items}, applied=management.keys(),\n                actor_id=g.user[\"id\"], origin=\"ident_legacy_pair\", outcome=\"applied\",\n            ),\n            mis_source_archive.specs(\n                \"completed\", completed_raw, completed_file.filename,\n                completed_dates, applied=management.keys(),\n                actor_id=g.user[\"id\"], origin=\"ident_legacy_pair\", outcome=\"applied\",\n            ),\n        ]\n        _save_import(management, service_data, finance_blobs, source, archive_sources)",
+      "        archive_sources = mis_source_archive.pair_specs(\n            [\n                (\"services\", revenue_raw, revenue_file.filename, {row[\"date\"] for row in items}),\n                (\"completed\", completed_raw, completed_file.filename, completed_dates),\n            ],\n            written=management.keys(), actor_id=g.user[\"id\"], origin=\"ident_legacy_pair\",\n        )\n        _save_import(management, service_data, finance_blobs, source, archive_sources)",
       "        _save_import(management, service_data, finance_blobs, source)"
     ]
   ]

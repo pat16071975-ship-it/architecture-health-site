@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_STORED
 
 import mis_source_archive as a
 import mis_archive_bundle as b
@@ -190,6 +190,115 @@ class SourceArchiveTests(unittest.TestCase):
             with self.assertRaises(sqlite3.IntegrityError):
                 b.archive_bundle(self.conn,pack)
         self.assertEqual(before,self.snapshot())
+
+
+    def test_disjoint_pair_receipts_preserve_source_and_operation_separately(self):
+        specs = a.pair_specs([
+            ("completed",self.raw,"completed.xlsx",["2026-11-01"]),
+            ("services",wb(200),"services.xlsx",["2026-11-03"]),
+        ], written=["2026-11-01","2026-11-03"], removed=["2026-11-02"],
+            decision="use_new",actor_id=7,saved_at="fixed")
+        self.conn.execute("BEGIN")
+        for args, kwargs in specs:
+            a.record(self.conn,*args,**kwargs)
+        self.conn.commit()
+        rows = self.conn.execute("""SELECT source_kind, observed_dates_json,
+            applied_dates_json,removed_dates_json,context_json
+            FROM mis_source_events ORDER BY source_kind""").fetchall()
+        self.assertEqual(len(rows),2)
+        contexts=[]
+        for row, day, missing in zip(rows,("2026-11-01","2026-11-03"),("2026-11-03","2026-11-01")):
+            self.assertEqual(json.loads(row[1]),[day])
+            self.assertEqual(json.loads(row[2]),[day])
+            self.assertEqual(json.loads(row[3]),[])
+            context=json.loads(row[4])
+            self.assertEqual(context["unobserved_layer_dates"],[missing])
+            contexts.append(context["paired_operation"])
+        self.assertEqual(contexts[0],contexts[1])
+        self.assertEqual(contexts[0]["written_dates"],["2026-11-01","2026-11-03"])
+        self.assertEqual(contexts[0]["removed_dates"],["2026-11-02"])
+        self.assertEqual(contexts[0]["removal_reason"],"absent_from_replacement")
+
+    def test_cannot_claim_unobserved_date_even_inside_source_interval(self):
+        before=self.snapshot()
+        for observed, applied in [
+            (["2026-01-05","2026-01-31"],["2026-01-06"]),
+            (["2026-01-05"],["2026-02-01"]),
+            (None,["2026-01-05"]),
+        ]:
+            self.conn.execute("BEGIN")
+            with self.assertRaisesRegex(ValueError,"Applied date lacks observed"):
+                self.save(observed=observed,applied=applied)
+            self.conn.rollback()
+        self.assertEqual(before,self.snapshot())
+
+    def test_removal_must_be_explicit_and_not_observed(self):
+        for removed, decision, context in [
+            (["2026-01-05"],"use_new",{"removal_reason":"absent_from_replacement"}),
+            (["2026-01-06"],"append",{"removal_reason":"absent_from_replacement"}),
+            (["2026-01-06"],"use_new",{}),
+        ]:
+            self.conn.execute("BEGIN")
+            with self.assertRaisesRegex(ValueError,"Invalid archive removal"):
+                self.save(observed=["2026-01-05"],removed=removed,decision=decision,context=context)
+            self.conn.rollback()
+
+    @staticmethod
+    def rewrite_workbook(raw, replacements=None, *, missing=(), extra=()):
+        stream=io.BytesIO()
+        with ZipFile(io.BytesIO(raw)) as original, ZipFile(stream,"w",compression=ZIP_STORED) as target:
+            for name in original.namelist():
+                if name not in missing:
+                    target.writestr(name,(replacements or {}).get(name,original.read(name)))
+            for name, data in extra:
+                target.writestr(name,data)
+        return stream.getvalue()
+
+    def test_inner_crc_corruption_with_correct_outer_hash(self):
+        import struct
+        raw=bytearray(self.rewrite_workbook(self.raw))
+        with ZipFile(io.BytesIO(raw)) as workbook:
+            info=workbook.getinfo("xl/workbook.xml")
+            name_len,extra_len=struct.unpack_from("<HH",raw,info.header_offset+26)
+            offset=info.header_offset+30+name_len+extra_len
+        raw[offset+10] ^= 1
+        path=self.root/"crc.zip"
+        sha=make_pack(path,bytes(raw))
+        with self.assertRaisesRegex(ValueError,"Invalid XLSX inner ZIP/XML"):
+            b.read_bundle(path,sha)
+        self.assertFalse(self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='mis_source_objects'").fetchone())
+
+    def test_fake_xml_missing_links_and_unsafe_members_rejected(self):
+        cases=[
+            {"replacements":{"xl/workbook.xml":b"<broken"}},
+            {"replacements":{"xl/workbook.xml":b"<fake/>"}},
+            {"replacements":{"[Content_Types].xml":b"<fake/>"}},
+            {"replacements":{"xl/worksheets/sheet1.xml":b"<fake/>"}},
+            {"replacements":{"xl/workbook.xml":b'<!DOCTYPE x [<!ENTITY y "bad">]><x>&y;</x>'}},
+            {"missing":("xl/worksheets/sheet1.xml",)},
+            {"extra":(("../escape.xml",b"<x/>"),)},
+        ]
+        path=self.root/"invalid.zip"
+        for case in cases:
+            with self.subTest(case=list(case)):
+                raw=self.rewrite_workbook(self.raw,**case)
+                sha=make_pack(path,raw)
+                with self.assertRaises(ValueError):
+                    b.read_bundle(path,sha)
+
+    def test_inner_workbook_expanded_limits(self):
+        raw=self.rewrite_workbook(self.raw,extra=(("large.bin",b"x"*10000),))
+        path=self.root/"large.zip"
+        sha=make_pack(path,raw)
+        with patch.object(b,"MAX_XLSX_MEMBER_BYTES",5000):
+            with self.assertRaisesRegex(ValueError,"member or size"):
+                b.read_bundle(path,sha)
+        with patch.object(b,"MAX_XLSX_BYTES",1000):
+            with self.assertRaisesRegex(ValueError,"expanded size"):
+                b.read_bundle(path,sha)
+        with patch.object(b,"MAX_BUNDLE_EXPANDED_XLSX_BYTES",1000):
+            with self.assertRaisesRegex(ValueError,"Bundle expanded"):
+                b.read_bundle(path,sha)
 
 
 if __name__ == "__main__":

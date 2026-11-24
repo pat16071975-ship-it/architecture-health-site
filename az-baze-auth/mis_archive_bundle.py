@@ -4,16 +4,30 @@ import argparse
 import hashlib
 import json
 import os
+import posixpath
 import sqlite3
 import stat
 import sys
 from pathlib import Path
+from io import BytesIO
+from xml.etree import ElementTree as ET
 from zipfile import ZipFile, BadZipFile
 
 import mis_source_archive as archive
 
 MAX_BUNDLE = 100 * 1024 * 1024
 MAX_FILES = 1000
+MAX_XLSX_MEMBERS = 2048
+MAX_XLSX_MEMBER_BYTES = 16 * 1024 * 1024
+MAX_XLSX_BYTES = 64 * 1024 * 1024
+MAX_BUNDLE_EXPANDED_XLSX_BYTES = 512 * 1024 * 1024
+XML_NODE_LIMIT = 500_000
+CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+PACKAGE_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+OFFICE_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+SHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+XLSX_CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+WORKSHEET_CT = "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"
 TYPE_MAP = {
     "service_prices_discounts": "services",
     "paid_and_debt": "paid_services",
@@ -24,6 +38,162 @@ TYPE_MAP = {
 
 def sha256(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+
+def _tag(namespace, local):
+    return "{" + namespace + "}" + local
+
+
+class _SafeXML(ET.TreeBuilder):
+    """Bound node count/depth and forbid DTDs, including UTF-16 XML."""
+    def __init__(self):
+        super().__init__()
+        self.nodes = 0
+        self.depth = 0
+
+    def start(self, tag, attrs):
+        self.nodes += 1
+        self.depth += 1
+        if self.nodes > XML_NODE_LIMIT or self.depth > 128:
+            raise ValueError("XLSX XML structure limit exceeded")
+        return super().start(tag, attrs)
+
+    def end(self, tag):
+        self.depth -= 1
+        return super().end(tag)
+
+    def doctype(self, name, pubid, system):
+        raise ValueError("XLSX XML DTD forbidden")
+
+
+def _relationships(root):
+    if root.tag != _tag(PACKAGE_REL_NS, "Relationships"):
+        raise ValueError("Invalid XLSX relationships XML")
+    links = {}
+    for row in root:
+        if row.tag != _tag(PACKAGE_REL_NS, "Relationship"):
+            raise ValueError("Invalid XLSX relationship")
+        key, target, kind = row.get("Id"), row.get("Target"), row.get("Type")
+        if not key or key in links or not target or not kind:
+            raise ValueError("Invalid XLSX relationship attributes")
+        links[key] = row
+    return links
+
+
+def _internal_target(link, directory):
+    target = link.get("Target", "")
+    if (link.get("TargetMode", "Internal") != "Internal" or not target
+            or "\\" in target or ":" in target or "?" in target or "#" in target
+            or "%" in target):
+        raise ValueError("Invalid XLSX internal relationship target")
+    path = posixpath.normpath(target.lstrip("/") if target.startswith("/")
+                              else posixpath.join(directory, target))
+    if path in (".", "..") or path.startswith("../"):
+        raise ValueError("Invalid XLSX internal relationship path")
+    return path
+
+
+def validate_xlsx(raw):
+    """Read every inner member to EOF (CRC), parse all XML, verify workbook
+    and worksheet structure. Bounded, no extraction or formula evaluation.
+    This is a structural check, NOT a clinical/financial content audit.
+    Return actual expanded byte count for aggregate pack limits.
+    """
+    if not raw.startswith(b"PK"):
+        raise ValueError("Expected an original XLSX container")
+    try:
+        with ZipFile(BytesIO(raw)) as workbook:
+            infos = workbook.infolist()
+            if not infos or len(infos) > MAX_XLSX_MEMBERS:
+                raise ValueError("XLSX member count limit exceeded")
+            names = set()
+            expanded = 0
+            core_names = {"[Content_Types].xml", "_rels/.rels", "xl/workbook.xml",
+                          "xl/_rels/workbook.xml.rels"}
+            roots, worksheet_roots = {}, {}
+            for info in infos:
+                name = info.filename
+                parts = name.rstrip("/").split("/")
+                key = name.casefold()
+                if (not name or key in names or name.startswith("/") or "\\" in name
+                        or ":" in name or any(part in ("", ".", "..") for part in parts)
+                        or stat.S_ISLNK(info.external_attr >> 16) or info.flag_bits & 1
+                        or info.file_size > MAX_XLSX_MEMBER_BYTES):
+                    raise ValueError("Invalid XLSX member or size")
+                names.add(key)
+                if info.is_dir():
+                    if info.file_size:
+                        raise ValueError("Invalid XLSX directory")
+                    continue
+                expanded += info.file_size
+                if expanded > MAX_XLSX_BYTES:
+                    raise ValueError("XLSX expanded size limit exceeded")
+                parser = (ET.XMLParser(target=_SafeXML())
+                          if name.lower().endswith((".xml", ".rels")) else None)
+                actual = 0
+                with workbook.open(info) as stream:
+                    while True:
+                        chunk = stream.read(64 * 1024)
+                        if not chunk:
+                            break
+                        actual += len(chunk)
+                        if actual > info.file_size or actual > MAX_XLSX_MEMBER_BYTES:
+                            raise ValueError("XLSX expanded member size mismatch")
+                        if parser is not None:
+                            parser.feed(chunk)
+                if actual != info.file_size:
+                    raise ValueError("XLSX expanded member size mismatch")
+                if parser is not None:
+                    root = parser.close()
+                    if name in core_names:
+                        roots[name] = root
+                    # Keep only the structural result for a potential sheet.
+                    worksheet_roots[name] = (root.tag == _tag(SHEET_NS, "worksheet")
+                                             and root.find(_tag(SHEET_NS, "sheetData")) is not None)
+            if set(roots) != core_names:
+                raise ValueError("Missing XLSX core parts")
+            types = roots["[Content_Types].xml"]
+            if types.tag != _tag(CT_NS, "Types"):
+                raise ValueError("Invalid XLSX content types")
+            overrides = {}
+            for row in types.findall(_tag(CT_NS, "Override")):
+                name, content_type = row.get("PartName", ""), row.get("ContentType")
+                if not name.startswith("/") or name in overrides or not content_type:
+                    raise ValueError("Invalid XLSX part type")
+                overrides[name] = content_type
+            if overrides.get("/xl/workbook.xml") != XLSX_CT:
+                raise ValueError("Invalid XLSX workbook content type")
+            package_links = _relationships(roots["_rels/.rels"])
+            office = [row for row in package_links.values()
+                      if row.get("Type") == OFFICE_REL_NS + "/officeDocument"]
+            if len(office) != 1 or _internal_target(office[0], "") != "xl/workbook.xml":
+                raise ValueError("Invalid XLSX package workbook relationship")
+            document = roots["xl/workbook.xml"]
+            if document.tag != _tag(SHEET_NS, "workbook"):
+                raise ValueError("Invalid XLSX workbook XML")
+            sheets = document.find(_tag(SHEET_NS, "sheets"))
+            links = _relationships(roots["xl/_rels/workbook.xml.rels"])
+            if sheets is None or not len(sheets):
+                raise ValueError("XLSX has no worksheets")
+            seen_ids, seen_targets = set(), set()
+            for sheet in sheets:
+                key = sheet.get(_tag(OFFICE_REL_NS, "id"))
+                if (sheet.tag != _tag(SHEET_NS, "sheet") or not sheet.get("name")
+                        or not key or key in seen_ids or key not in links):
+                    raise ValueError("Invalid XLSX sheet declaration")
+                seen_ids.add(key)
+                link = links[key]
+                target = _internal_target(link, "xl")
+                if (link.get("Type") != OFFICE_REL_NS + "/worksheet"
+                        or target in seen_targets
+                        or overrides.get("/" + target) != WORKSHEET_CT
+                        or not worksheet_roots.get(target)):
+                    raise ValueError("Invalid XLSX worksheet relationship or content")
+                seen_targets.add(target)
+            return expanded
+    except (BadZipFile, ET.ParseError, RuntimeError, NotImplementedError, OSError, EOFError) as exc:
+        raise ValueError("Invalid XLSX inner ZIP/XML") from exc
 
 
 def read_bundle(path, expected_sha):
@@ -38,7 +208,6 @@ def read_bundle(path, expected_sha):
     raw_bundle = path.read_bytes()
     if sha256(raw_bundle) != expected_sha:
         raise ValueError("Bundle SHA256 mismatch")
-    from io import BytesIO
     with ZipFile(BytesIO(raw_bundle)) as z:
         infos = z.infolist()
         names = [i.filename for i in infos]
@@ -58,6 +227,7 @@ def read_bundle(path, expected_sha):
             raise ValueError("Invalid catalog file count")
         sources, expected_names, alias_count, bytes_count = [], {"manifest.json"}, 0, 0
         seen_sha = set()
+        expanded_xlsx = 0
         for item in files:
             if not isinstance(item, dict):
                 raise ValueError("Invalid catalog entry")
@@ -77,11 +247,9 @@ def read_bundle(path, expected_sha):
             raw = z.read(member)
             if len(raw) != size or sha256(raw) != sha:
                 raise ValueError("Original SHA256 mismatch")
-            if not raw.startswith(b"PK"):
-                raise ValueError("Expected an original XLSX container")
-            with ZipFile(BytesIO(raw)) as workbook:
-                if "xl/workbook.xml" not in workbook.namelist() or "[Content_Types].xml" not in workbook.namelist():
-                    raise ValueError("Invalid workbook container")
+            expanded_xlsx += validate_xlsx(raw)
+            if expanded_xlsx > MAX_BUNDLE_EXPANDED_XLSX_BYTES:
+                raise ValueError("Bundle expanded XLSX size limit exceeded")
             kind = TYPE_MAP.get(item.get("type"))
             if kind is None:
                 raise ValueError("Unknown original source type")

@@ -578,18 +578,13 @@ def register_ident_import(app):
         management = _build_management(items, lab_invoices, overall, doctors, source)
         service_data, month_index = _update_service_analytics(items, year, month)
         finance_blobs = _pad_financial_months(month_index)
-        archive_sources = [
-            mis_source_archive.specs(
-                "services", revenue_raw, revenue_file.filename,
-                {row["date"] for row in items}, applied=management.keys(),
-                actor_id=g.user["id"], origin="ident_legacy_pair", outcome="applied",
-            ),
-            mis_source_archive.specs(
-                "completed", completed_raw, completed_file.filename,
-                completed_dates, applied=management.keys(),
-                actor_id=g.user["id"], origin="ident_legacy_pair", outcome="applied",
-            ),
-        ]
+        archive_sources = mis_source_archive.pair_specs(
+            [
+                ("services", revenue_raw, revenue_file.filename, {row["date"] for row in items}),
+                ("completed", completed_raw, completed_file.filename, completed_dates),
+            ],
+            written=management.keys(), actor_id=g.user["id"], origin="ident_legacy_pair",
+        )
         _save_import(management, service_data, finance_blobs, source, archive_sources)
 
         final_date = max(management)

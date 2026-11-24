@@ -904,21 +904,14 @@ def _process_period_upload(
     remove_dates = list(comparison.get("removed") or []) if apply_new else []
     completed_observed = set(dates) - set(prepared["source_gaps"]["revenue_only"])
     services_observed = set(dates) - set(prepared["source_gaps"]["completed_only"])
-    archive_applied = {row["data_date"] for row, _action in changed_rows}
-    archive_sources = [
-        mis_source_archive.specs(
-            "completed", completed_raw, completed_name, completed_observed,
-            applied=archive_applied, removed=remove_dates,
-            decision=decision, actor_id=g.user["id"], origin="ident_clinical_pair",
-        ),
-        mis_source_archive.specs(
-            "services", services_raw, services_name, services_observed,
-            applied=archive_applied, removed=remove_dates,
-            decision=decision, actor_id=g.user["id"], origin="ident_clinical_pair",
-        ),
+    archive_inputs = [
+        ("completed", completed_raw, completed_name, completed_observed),
+        ("services", services_raw, services_name, services_observed),
     ]
     if not changed_rows and not remove_dates:
-        mis_source_archive.record_noop(conn, archive_sources)
+        mis_source_archive.record_noop(conn, mis_source_archive.pair_specs(
+            archive_inputs, written=(), decision=decision, actor_id=g.user["id"],
+        ))
         return {
             "status": "duplicate",
             "message": (
@@ -1210,7 +1203,18 @@ def _process_period_upload(
                 completed_name,
                 services_name,
             )
-        for args, kwargs in archive_sources:
+        # Historical replacement writes every incoming combined row, even
+        # rows that matched in preview. Removed rows are an operation-level
+        # event, not an observation from either of the two new files.
+        archive_written = set(dates) if historical_replace else {
+            row["data_date"] for row, _action in changed_rows
+        }
+        archive_removed = (set(old_by_date) - set(dates) if historical_replace
+                           else set(remove_dates))
+        for args, kwargs in mis_source_archive.pair_specs(
+            archive_inputs, written=archive_written, removed=archive_removed,
+            decision=decision, actor_id=g.user["id"], saved_at=now,
+        ):
             mis_source_archive.record(conn, *args, **kwargs)
         conn.commit()
     except Exception:
