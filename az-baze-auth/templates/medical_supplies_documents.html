@@ -124,6 +124,9 @@
     <a class="btn" href="{{ url_for('medical_supplies_inbox_view',doc_id=selected.id) }}" target="_blank" rel="noopener noreferrer">Открыть оригинал</a>
     {% endif %}
   </div>
+  {% if selected.content_type == 'application/pdf' %}
+  <div class="inbox-actions"><a class="btn primary" href="{{ url_for('medical_supplies_ocr_page',doc_id=selected.id) }}">Разобрать документ</a></div>
+  {% endif %}
   {% if can_manage %}
   <div class="inbox-note">Меняются только реквизиты и статус разбора. Сам файл не редактируется и не превращается автоматически в приход на склад.</div>
   <form method="post" action="{{ url_for('medical_supplies_inbox_review',doc_id=selected.id) }}">
@@ -143,7 +146,7 @@
   <div class="inbox-note">Тип: {{ selected.document_type }} · Статус: {{ selected.status }} · {{ selected.note or 'Комментарий не заполнен' }}</div>
   {% endif %}
   <details class="inbox-history"><summary>История документа · {{ events|length }} последних событий</summary>
-    <ul>{% for e in events %}<li>{{ e.created_at }} · пользователь № {{ e.actor_id }} · {{ 'Загружен оригинал' if e.action=='upload' else 'Карточка обновлена' }}</li>{% endfor %}</ul>
+    <ul>{% for e in events %}<li>{{ e.created_at }} · пользователь № {{ e.actor_id }} · {{ {'upload':'Загружен оригинал','ocr_page':'Распознана страница','ocr_review':'Сохранён разбор'}.get(e.action,'Карточка обновлена') }}</li>{% endfor %}</ul>
   </details>
 </section>
 {% endif %}
