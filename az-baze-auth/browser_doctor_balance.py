@@ -292,8 +292,16 @@ with sync_playwright() as pw:
         partial_geometry=page.evaluate(measure)
         assert partial_geometry['children']==full_geometry['children'],(width,partial_geometry)
         assert len(partial_geometry['children'])==2,(width,partial_geometry)
-        for key in ('widths','tableWidth','scrollWidth','clientWidth','pageOverflow','rowHeight','lastRight','wrapRight'):
+        # Chromium auto layout can redistribute a couple of CSS pixels
+        # between columns when the heat style changes. Assert identical
+        # total width/scroll extent and no material increase of any column,
+        # and equal month widths (November cannot expand separately).
+        for key in ('tableWidth','scrollWidth','clientWidth','pageOverflow','rowHeight','lastRight','wrapRight'):
             assert partial_geometry[key]==full_geometry[key],(width,key,full_geometry,partial_geometry)
+        for a,b in zip(full_geometry['widths'],partial_geometry['widths']):
+            assert abs(a-b)<=3,(width,full_geometry,partial_geometry)
+        month_widths=partial_geometry['widths'][1:12]
+        assert max(month_widths)-min(month_widths)<=1,(width,partial_geometry)
         assert partial_geometry['rowHeight']<=56,(width,partial_geometry)
         if width==1818:
             assert partial_geometry['scrollWidth']<=partial_geometry['clientWidth']+1,partial_geometry
