@@ -45,7 +45,16 @@
     // A separately labeled witnessed component can be displayed instead.
     let knownPaid=null,knownRanges=[];
     if(paid===null&&parts){
-      const witnessed=parts.map(p=>({amount:p.paid??p.knownPaid}));
+      const witnessed=parts.map(p=>{
+        if(cents(p.paid)!==null)return {amount:p.paid};
+        // Recovery is an explicitly selected and server-validated witness.
+        // Do not let an older partial value shadow a corrected exact range.
+        // A full active total retains priority; a different/ambiguous range
+        // cannot substitute or be added to this part.
+        const same=recovered.filter(r=>r.from===p.from&&r.to===p.to);
+        if(same.length===1&&cents(same[0].knownPaid)!==null)return {amount:same[0].knownPaid};
+        return {amount:p.knownPaid};
+      });
       knownPaid=sumMoney(witnessed,'amount');
       if(knownPaid!==null)knownRanges=parts.map(p=>p.from+' — '+p.to);
     }
