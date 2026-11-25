@@ -94,7 +94,8 @@ if(typeof LAB_PAID_PERIODS!=='undefined'){
   const upper=inputMetric(lg,'Выручка лаборатории','managementLabPaid','money',true),box=upper.closest('.metric');
   box.classList.add('az-lab-dual');
   const caption=(label)=>{const span=document.createElement('span');span.className='az-lab-single-caption';span.textContent=label;return span};
-  box.insertBefore(caption('Оплаты'),upper);upper.setAttribute('aria-label','Оплаты ЗТЛ');
+  const paidCaption=caption('Оплаты');paidCaption.id='managementLabPaidCaption';
+  box.insertBefore(paidCaption,upper);upper.setAttribute('aria-label','Оплаты ЗТЛ');
   const lower=document.createElement('input');lower.readOnly=true;lower.dataset.key='managementLabServices';lower.dataset.type='money';lower.setAttribute('aria-label','Услуги ЗТЛ');
   box.append(caption('Услуги по загруженным датам'),lower);
   inputMetric(lg,'Лаборатория ср. чек','managementLabAvg','money',true);
@@ -111,7 +112,9 @@ if(typeof LAB_PAID_PERIODS!=='undefined'){
   const from=r.date.slice(0,7)+'-01',lab=window.azManagementLab?.view(from,r.date);
   for(const [field,key,formatter] of [['Orders','orders',count],['Paid','paid',money],['Services','services',money],['Avg','avg',money]]){
     const input=document.querySelector('#labGrid [data-key="managementLab'+field+'"]');
-    if(input){const value=lab?.[key];input.value=value==null?'—':formatter(value);input.title=lab?window.azManagementLab.title(key,lab,from,r.date):'Нет полных данных'}
+    if(input){const value=key==='paid'?window.azManagementLab?.paidDisplay(lab):lab?.[key];input.value=value==null?'—':formatter(value);input.title=lab?window.azManagementLab.title(key,lab,from,r.date):'Нет полных данных';
+      if(key==='paid'){const partial=window.azManagementLab?.partialPaid(lab);const caption=document.getElementById('managementLabPaidCaption');if(caption)caption.textContent=partial?'Оплаты по строкам услуг (не полная сумма)':'Оплаты';input.setAttribute('aria-label',partial?'Подтверждённые оплаты по строкам услуг ЗТЛ':'Оплаты ЗТЛ')}
+    }
   }
 }
 document.querySelectorAll('[data-doctor]').forEach(inp=>{const original=(d[inp.dataset.doctorType]||{})[inp.dataset.doctor]??'';inp.value=typeof window.azDoctorPaidValue==='function'?window.azDoctorPaidValue(r.date,inp.dataset.doctorType,inp.dataset.doctor,original):original});
@@ -136,8 +139,8 @@ init();
 <script src="./seed-data.js?v=20260827-2"></script>
 <script src="./management-staff-layout.js?v=20261110-1"></script>
 <script src="./doctor-balance.js?v=20261118-7"></script>
-<script src="./management-lab.js?v=20261124-2"></script>
-<script src="./period-view.js?v=20261124-lab-2"></script>
+<script src="./management-lab.js?v=20261125-recovery-1"></script>
+<script src="./period-view.js?v=20261125-recovery-1"></script>
 <script src="./management-mobile-layout.js?v=20261029-paid-two-views-3"></script>
 <script src="./secure-import.js?v=20260831-1"></script>
 </body>

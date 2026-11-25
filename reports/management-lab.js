@@ -9,8 +9,13 @@
   const empty=()=>({paid:null,services:null,orders:null,avg:null,loadedDays:0,expectedDays:0,ordersComplete:false});
   function calculate(paidPeriods,serviceDays,from,to){
     if(!validDate(from)||!validDate(to)||from>to)return empty();
-    const ranges=new Map(),days=new Map();
+    const ranges=new Map(),days=new Map(),recovered=[];
     for(const part of paidPeriods||[]){
+      if(part?.recovered===true){
+        if(validDate(part.from)&&validDate(part.to)&&part.from>=from&&part.to<=to&&part.from<=part.to&&part.from.slice(0,7)===part.to.slice(0,7))
+          recovered.push(part);
+        continue;
+      }
       if(part&&validDate(part.from)&&validDate(part.to)&&part.from>=from&&part.to<=to&&part.from<=part.to)
         ranges.set(part.from+'/'+part.to,part);
     }
@@ -36,6 +41,34 @@
       return total/100;
     }
     const paid=sumMoney(parts,'paid');
+    // Do not change the meaning of paid or the established full-period avg.
+    // A separately labeled witnessed component can be displayed instead.
+    let knownPaid=null,knownRanges=[];
+    if(paid===null&&parts){
+      const witnessed=parts.map(p=>({amount:p.paid??p.knownPaid}));
+      knownPaid=sumMoney(witnessed,'amount');
+      if(knownPaid!==null)knownRanges=parts.map(p=>p.from+' — '+p.to);
+    }
+    if(paid===null&&knownPaid===null){
+      // Use a whole recovered pair only, never prorate or sum it with an
+      // overlapping active snapshot. Require one witness for every month.
+      const byMonth=new Map();
+      let ambiguous=false;
+      for(const p of recovered){
+        const m=p.from.slice(0,7);
+        if(byMonth.has(m)){ambiguous=true;break}
+        byMonth.set(m,p);
+      }
+      if(!ambiguous){
+        const selected=[];
+        for(let m=from.slice(0,7);m<=to.slice(0,7);m=nextMonth(m)){
+          if(!byMonth.has(m)){selected.length=0;break}
+          selected.push(byMonth.get(m));
+        }
+        knownPaid=sumMoney(selected,'knownPaid');
+        if(knownPaid!==null)knownRanges=selected.map(p=>p.from+' — '+p.to);
+      }
+    }
     for(const day of serviceDays||[]){
       if(day&&validDate(day.date)&&day.date>=from&&day.date<=to)days.set(day.date,day);
     }
@@ -58,7 +91,9 @@
     const expectedDays=Math.round((Date.parse(to+'T12:00:00Z')-Date.parse(from+'T12:00:00Z'))/86400000)+1;
     const ordersComplete=orders!==null&&services!==null&&loaded.length===expectedDays;
     const avg=paid!==null&&ordersComplete&&orders>0?paid/orders:null;
-    return {paid,services,orders,avg,loadedDays:loaded.length,expectedDays,ordersComplete};
+    const result={paid,services,orders,avg,loadedDays:loaded.length,expectedDays,ordersComplete};
+    if(knownPaid!==null){result.knownPaid=knownPaid;result.knownRanges=knownRanges}
+    return result;
   }
   function available(){return typeof LAB_PAID_PERIODS!=='undefined'&&typeof LAB_SERVICE_DAYS!=='undefined'}
   function view(from,to){
@@ -67,13 +102,18 @@
   function title(key,value,from,to){
     const range=from+' — '+to,missing='Нет полных данных; отсутствие не равно нулю. ';
     const coverage='Загружено календарных дат: '+value.loadedDays+' из '+value.expectedDays+'. ';
-    if(key==='paid')return (value.paid===null?missing:'')+'Оплаты: «Выручка по направлениям (новый оплаты)», только подтверждённая группа ЗТЛ. '+range;
+    if(key==='paid'){
+      if(value.paid===null&&value.knownPaid!=null)return 'Оплаты, подтверждённые по строкам услуг; полная сумма с нераспределённой задолженностью неизвестна. Источники: '+value.knownRanges.join('; ')+'. Запрошено: '+range;
+      return (value.paid===null?missing:'')+'Оплаты: «Выручка по направлениям (новый оплаты)», только подтверждённая группа ЗТЛ. '+range;
+    }
     if(key==='services')return (value.services===null?missing:'')+'Услуги: «Выручка по направлениям», по загруженным датам. '+coverage+range;
     if(key==='orders')return (value.orders===null?missing:'')+(!value.ordersComplete?'Полнота количества счетов за весь период не подтверждена. ':'')+'Уникальные счета с услугами группы ЗТЛ, по загруженным датам. '+coverage+range;
     const reason=!value.ordersComplete?'Полнота количества счетов за весь период не подтверждена. ':value.paid===null?'Нет подтверждённых оплат за весь период. ':value.orders===0?'Нет счетов для расчёта среднего чека. ':'';
     return (value.avg===null?reason:'')+'Оплаты / уникальные счета с услугами ЗТЛ за весь подтверждённый период. '+coverage+range;
   }
-  const api={calculate,available,view,title};
+  const paidDisplay=value=>value?.paid??value?.knownPaid??null;
+  const partialPaid=value=>value?.paid==null&&value?.knownPaid!=null;
+  const api={calculate,available,view,title,paidDisplay,partialPaid};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   if(typeof window!=='undefined'){
     window.azManagementLab=api;

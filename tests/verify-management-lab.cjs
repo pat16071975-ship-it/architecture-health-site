@@ -83,3 +83,27 @@ assert.equal(calculate([p(from,to,1700)],[...full,day('2026-11-18',999,999)],fro
 assert.equal(calculate([p('2026-02-28','2026-03-01',200)],[day('2026-02-28',100,1),day('2026-03-01',100,1)],'2026-02-28','2026-03-01').avg,100);
 assert.equal(calculate([p('2024-02-28','2024-03-01',300)],[day('2024-02-28',100,1),day('2024-03-01',100,1)],'2024-02-28','2024-03-01').avg,null);
 console.log('MANAGEMENT_LAB_PERIODS=PASS; AZ-260-01=PASS');
+
+const {paidDisplay,partialPaid}=require('../reports/management-lab.js');
+const partial={from,to,paid:null,knownPaid:123};
+result=calculate([partial],full,from,to);
+assert.equal(result.paid,null);
+assert.equal(result.knownPaid,123);
+assert.equal(result.avg,null);
+assert.equal(paidDisplay(result),123);
+assert.equal(partialPaid(result),true);
+assert.match(title('paid',result,from,to),/полная сумма.*неизвестна/);
+assert.equal(calculate([{...partial,knownPaid:0}],full,from,to).knownPaid,0);
+assert.equal(calculate([{...partial,knownPaid:-20}],full,from,to).knownPaid,-20);
+const recovered={from:'2026-01-05',to:'2026-01-31',paid:null,knownPaid:500,recovered:true};
+result=calculate([recovered],completeDays('2026-01-05','2026-01-31'),'2026-01-01','2026-01-31');
+assert.equal(result.knownPaid,500);
+assert.equal(result.paid,null);
+assert.equal(result.avg,null);
+assert.deepEqual(result.knownRanges,['2026-01-05 — 2026-01-31']);
+assert.equal(calculate([recovered],[],'2026-01-01','2026-01-24').knownPaid,undefined);
+assert.equal(calculate([recovered],[],'2026-01-01','2026-02-28').knownPaid,undefined);
+assert.equal(calculate([recovered,recovered],[],'2026-01-01','2026-01-31').knownPaid,undefined);
+assert.equal(calculate([recovered,{from:'2026-01-01',to:'2026-01-31',paid:700}],[],'2026-01-01','2026-01-31').paid,700);
+assert.equal(calculate([recovered,{from:'2026-01-01',to:'2026-01-31',paid:null,knownPaid:600}],[],'2026-01-01','2026-01-31').knownPaid,600);
+console.log('MANAGEMENT_LAB_PARTIAL_AND_RECOVERY=PASS');

@@ -5,6 +5,7 @@ Never read/alter cash allocation, provider totals or advertising data here.
 """
 import json
 import re
+import sqlite3
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -82,7 +83,41 @@ def paid_evidence(report):
     return {"version": 1, "paid": lab / 100, "reason": "reconciled"}
 
 
-def paid_periods(sources):
+def _stored_detail(conn, source):
+    """Read the already retained *primary paid lines*, not ad metrics.
+
+    A legacy compact source may have lost group-paid evidence. Reuse detail
+    only when its exact source interval, SHA, receipt and totals agree.
+    No query selects patient names/tokens and no advertising write occurs.
+    """
+    if conn is None or not re.fullmatch(r"[0-9a-f]{64}",str(source.get("sourceSha256",""))):
+        return None
+    try:
+        start,end=source["sourceFrom"],source["sourceTo"]
+        sha=source["sourceSha256"]
+        receipt=conn.execute("""SELECT source_sha256,imported_at,paid_total,detailed_paid_total,line_count
+            FROM advertising_mis_paid_ingests WHERE period_start=? AND period_end=?""",(start,end)).fetchone()
+        if not receipt or receipt[0]!=sha or receipt[1]!=source["importedAt"]:
+            return None
+        payload=source["payload"]
+        if _cents(receipt[2])!=_cents(payload["totals"]["paid"]):
+            return None
+        rows=conn.execute("""SELECT staff,group_name,service_date,billed_amount,paid_amount,source_sha256,imported_at
+            FROM advertising_mis_paid_lines WHERE period_start=? AND period_end=?""",(start,end)).fetchall()
+        if not rows or len(rows)!=receipt[4] or any(
+            row[5]!=sha or row[6]!=receipt[1] or not _valid_date(row[2]) or not start<=row[2]<=end
+            or not isinstance(row[1],str) or not row[1].strip() for row in rows):
+            return None
+        if sum(_cents(row[3]) for row in rows)!=_cents(payload["totals"]["billed"]) or sum(_cents(row[4]) for row in rows)!=_cents(receipt[3]):
+            return None
+        return paid_evidence({"items":[{"staff":r[0],"group":r[1],"paid_amount":r[4]} for r in rows],
+                              "providers":payload["providers"],"totals":payload["totals"],
+                              "provider_residual":payload["provider_residual"]})
+    except (sqlite3.Error,ValueError,TypeError,KeyError,OverflowError):
+        return None
+
+
+def paid_periods(sources, conn=None):
     """Same validated source intervals as the doctor report; no reimport."""
     by_range = {}
     # read_sources orders snapshots first and explicit periods second.
@@ -93,7 +128,9 @@ def paid_periods(sources):
         if not _valid_date(start) or not _valid_date(end) or start > end:
             continue
         evidence = source["payload"].get(EVIDENCE_KEY)
-        paid, reason = None, "legacy_without_group_payments"
+        paid, known, reason = None, None, "legacy_without_group_payments"
+        if not isinstance(evidence,dict) or evidence.get("version")!=1:
+            evidence=_stored_detail(conn,source)
         if isinstance(evidence, dict) and evidence.get("version") == 1:
             reason = "unreconciled_detail"
             if evidence.get("reason") == "reconciled":
@@ -102,8 +139,16 @@ def paid_periods(sources):
                     reason = "reconciled"
                 except ValueError:
                     pass
-        by_range[(start, end)] = {"from": start, "to": end, "paid": paid,
-                                  "reason": reason}
+            elif evidence.get("reason")=="unallocated_payment":
+                try:
+                    known=_cents(evidence.get("knownPaid"))/100
+                    reason="unallocated_payment"
+                except ValueError:
+                    pass
+        row={"from":start,"to":end,"paid":paid,"reason":reason}
+        if known is not None:
+            row["knownPaid"]=known
+        by_range[(start,end)]=row
     return [by_range[key] for key in sorted(by_range)]
 
 
