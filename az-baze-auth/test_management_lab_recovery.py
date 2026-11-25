@@ -143,6 +143,39 @@ class RecoveryTests(unittest.TestCase):
         self.conn.commit()
         self.assertEqual(recovery.project(self.conn,[])[0],[])
 
+    def test_existing_primary_paid_lines_require_exact_active_identity(self):
+        self.conn.executescript("""
+            CREATE TABLE advertising_mis_paid_ingests(period_start TEXT,period_end TEXT,
+                source_sha256 TEXT,imported_at TEXT,paid_total REAL,detailed_paid_total REAL,line_count INTEGER);
+            CREATE TABLE advertising_mis_paid_lines(period_start TEXT,period_end TEXT,staff TEXT,
+                group_name TEXT,service_date TEXT,billed_amount REAL,paid_amount REAL,
+                source_sha256 TEXT,imported_at TEXT);
+        """)
+        start,end="2026-01-01","2026-01-31"
+        sha="a"*64
+        source={"from":start,"to":end,"sourceFrom":start,"sourceTo":end,
+                "sourceSha256":sha,"importedAt":"stamp","payload":{
+                    "providers":{"A":{"paid":650}},"totals":{"paid":650,"billed":800},
+                    "provider_residual":{"paid":0}}}
+        self.conn.execute("INSERT INTO advertising_mis_paid_ingests VALUES(?,?,?,?,?,?,?)",
+                          (start,end,sha,"stamp",650,600,2))
+        self.conn.executemany("INSERT INTO advertising_mis_paid_lines VALUES(?,?,?,?,?,?,?,?,?)",[
+            (start,end,"A",LAB,"2026-01-05",600,400,sha,"stamp"),
+            (start,end,"A",OTHER,"2026-01-05",200,200,sha,"stamp"),
+        ])
+        self.conn.commit()
+        before=list(self.conn.iterdump())
+        self.conn.execute("PRAGMA query_only=ON")
+        self.assertEqual(lab.paid_periods([source],conn=self.conn)[0]["knownPaid"],400)
+        self.assertIsNone(lab.paid_periods([source],conn=self.conn)[0]["paid"])
+        for change in ({"sourceSha256":"b"*64},{"importedAt":"other"},{"sourceFrom":"2026-01-02"}):
+            self.assertNotIn("knownPaid",lab.paid_periods([{**source,**change}],conn=self.conn)[0])
+        self.assertEqual(list(self.conn.iterdump()),before)
+        self.conn.execute("PRAGMA query_only=OFF")
+        self.conn.execute("UPDATE advertising_mis_paid_lines SET source_sha256=?",("b"*64,))
+        self.conn.commit()
+        self.assertNotIn("knownPaid",lab.paid_periods([source],conn=self.conn)[0])
+
     def test_compact_known_component_retained_and_full_not_changed(self):
         key=lab.EVIDENCE_KEY
         source={"from":"2026-01-01","to":"2026-01-31","payload":{
