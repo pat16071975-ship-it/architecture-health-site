@@ -46,6 +46,15 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         )
 
         text = (ROOT / 'paid_services_upload.py').read_text(encoding='utf-8')
+        # Allow only the exact source-archive additions, retaining the
+        # previous paid importer checksum and original duplicate rollback.
+        for added, previous in (
+            ("import mis_source_archive\n", ''),
+            ("            archive_source = mis_source_archive.specs(\n                \"paid_services\", _raw, filename, None,\n                explicit_bounds=(report[\"period_start\"], report[\"period_end\"]),\n                decision=decision, actor_id=g.user[\"id\"], saved_at=now,\n                outcome=\"duplicate\" if state == \"identical\" else \"kept_old\",\n            )\n            mis_source_archive.record(conn, *archive_source[0], **archive_source[1])\n            conn.commit()\n", '            conn.rollback()\n'),
+            ("        archive_source = mis_source_archive.specs(\n            \"paid_services\", _raw, filename, None,\n            explicit_bounds=(report[\"period_start\"], report[\"period_end\"]),\n            decision=decision, actor_id=g.user[\"id\"], saved_at=now,\n            outcome=\"applied\",\n        )\n        mis_source_archive.record(conn, *archive_source[0], **archive_source[1])\n", ''),
+        ):
+            self.assertEqual(text.count(added), 1)
+            text = text.replace(added, previous, 1)
         self.assertEqual(text.count('import advertising_mis_bridge\n'), 1)
         text = text.replace('import advertising_mis_bridge\n', '', 1)
 

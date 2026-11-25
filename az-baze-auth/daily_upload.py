@@ -11,6 +11,7 @@ import advertising_mis_bridge
 import cash_payments
 import paid_services
 import upload_reconcile
+import mis_source_archive
 from app import csrf_token, permission_required, require_csrf
 
 # server.py replaces this module variable with the upload-aware permission wrapper
@@ -901,7 +902,16 @@ def _process_period_upload(
             changed_rows.append((row, "historical_replaced"))
 
     remove_dates = list(comparison.get("removed") or []) if apply_new else []
+    completed_observed = set(dates) - set(prepared["source_gaps"]["revenue_only"])
+    services_observed = set(dates) - set(prepared["source_gaps"]["completed_only"])
+    archive_inputs = [
+        ("completed", completed_raw, completed_name, completed_observed),
+        ("services", services_raw, services_name, services_observed),
+    ]
     if not changed_rows and not remove_dates:
+        mis_source_archive.record_noop(conn, mis_source_archive.pair_specs(
+            archive_inputs, written=(), decision=decision, actor_id=g.user["id"],
+        ))
         return {
             "status": "duplicate",
             "message": (
@@ -1193,6 +1203,19 @@ def _process_period_upload(
                 completed_name,
                 services_name,
             )
+        # Historical replacement writes every incoming combined row, even
+        # rows that matched in preview. Removed rows are an operation-level
+        # event, not an observation from either of the two new files.
+        archive_written = set(dates) if historical_replace else {
+            row["data_date"] for row, _action in changed_rows
+        }
+        archive_removed = (set(old_by_date) - set(dates) if historical_replace
+                           else set(remove_dates))
+        for args, kwargs in mis_source_archive.pair_specs(
+            archive_inputs, written=archive_written, removed=archive_removed,
+            decision=decision, actor_id=g.user["id"], saved_at=now,
+        ):
+            mis_source_archive.record(conn, *args, **kwargs)
         conn.commit()
     except Exception:
         conn.rollback()

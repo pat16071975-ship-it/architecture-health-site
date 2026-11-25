@@ -8,6 +8,7 @@ import cash_payments
 import daily_upload
 import daily_upload_core as core
 import upload_reconcile
+import mis_source_archive
 from app import audit, db, iso_now, permission_required, require_csrf
 
 user_permissions = core.user_permissions
@@ -454,7 +455,12 @@ def _commit(
             set(comparison["removed"]) if decision == "use_new" else set()
         )
 
+    archive_source = mis_source_archive.specs(
+        "services", raw, filename, prepared["dates"], applied=apply_dates,
+        removed=removed_dates, decision=decision, actor_id=g.user["id"],
+    )
     if not apply_dates and not removed_dates:
+        mis_source_archive.record_noop(conn, [archive_source])
         return {
             "status": "duplicate",
             "message": "«Выручка по направлениям» совпадает; ничего не изменено.",
@@ -658,6 +664,7 @@ def _commit(
         )
         for key, value in finance_blobs.items():
             core._save_blob(conn, key, value, now)
+        mis_source_archive.record(conn, *archive_source[0], **archive_source[1])
         conn.commit()
     except Exception:
         conn.rollback()

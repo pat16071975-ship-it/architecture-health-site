@@ -80,7 +80,15 @@ def now_iso():
 
 
 def init_schema(conn):
-    conn.executescript(SCHEMA)
+    # Existing version-archive helpers call this during clinical/cash writes.
+    # executescript would implicitly commit before preserving the new source.
+    # All statements in this fixed DDL are independent CREATE statements.
+    if conn.in_transaction:
+        for statement in SCHEMA.split(";"):
+            if statement.strip():
+                conn.execute(statement)
+    else:
+        conn.executescript(SCHEMA)
 
 
 def _seed_mapping(conn, mapping, direction):
