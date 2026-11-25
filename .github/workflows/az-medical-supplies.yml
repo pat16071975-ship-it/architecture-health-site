@@ -23,9 +23,13 @@ jobs:
         with:
           python-version: '3.13'
       - run: python -m pip install -r az-baze-auth/requirements.txt
+      - name: Install local OCR tools for synthetic PDF test
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng poppler-utils
       - working-directory: az-baze-auth
+        env:
+          AZ_TEST_REAL_OCR: '1'
         run: |
-          python -B -m unittest -v test_medical_supplies_documents
+          python -B -m unittest -v test_medical_supplies_documents test_medical_supplies_ocr
           python -B -m unittest test_medical_supplies test_medical_supplies_import test_medical_supplies_daily test_accounting_section test_section_navigation
           python -B -m unittest test_nn_foundation
       - run: python -m pip install playwright
@@ -36,6 +40,7 @@ jobs:
           python -B browser_medical_supplies_import.py
           python -B browser_medical_supplies_daily.py
           python -B browser_medical_supplies_documents.py
+          python -B browser_medical_supplies_ocr.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

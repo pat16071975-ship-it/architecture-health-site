@@ -674,3 +674,9 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
         return response
+
+    # The review extension owns only OCR drafts in the existing document.
+    # It never registers inventory or finance writes.
+    import medical_supplies_ocr
+    medical_supplies_ocr.register(app, db, permission_required, require_csrf,
+                                  csrf_token, can_manage)
