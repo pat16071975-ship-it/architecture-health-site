@@ -1,0 +1,33 @@
+name: AZ PR264 guarded medical OCR deployment package
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/deploy/controlled-pr264-medical-ocr.py'
+      - 'az-baze-auth/deploy/test_controlled_pr264_release.py'
+      - '.github/workflows/az-pr264-controlled-release.yml'
+permissions:
+  contents: read
+jobs:
+  release-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install Jinja2
+      - name: Verify exact runtime, unchanged data and guarded rollback
+        run: |
+          python -B -m py_compile az-baze-auth/deploy/controlled-pr264-medical-ocr.py az-baze-auth/deploy/test_controlled_pr264_release.py
+          python -B -m unittest discover -v -s az-baze-auth/deploy -p 'test_controlled_pr264_release.py'
+          python - <<'PY'
+          import subprocess
+          expected={'.github/workflows/az-pr264-controlled-release.yml','az-baze-auth/deploy/controlled-pr264-medical-ocr.py','az-baze-auth/deploy/test_controlled_pr264_release.py'}
+          actual=set(subprocess.check_output(['git','diff','--name-only','93a8ee21866dd6abc3c70c323f76adc75e077508','HEAD'],text=True).splitlines())
+          assert actual==expected,(actual,expected)
+          print('DEPLOY_PACKAGE_SCOPE=PASS; SYNTHETIC_ONLY')
+          PY
