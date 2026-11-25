@@ -113,7 +113,7 @@ if(typeof LAB_PAID_PERIODS!=='undefined'){
   for(const [field,key,formatter] of [['Orders','orders',count],['Paid','paid',money],['Services','services',money],['Avg','avg',money]]){
     const input=document.querySelector('#labGrid [data-key="managementLab'+field+'"]');
     if(input){const value=key==='paid'?window.azManagementLab?.paidDisplay(lab):lab?.[key];input.value=value==null?'—':formatter(value);input.title=lab?window.azManagementLab.title(key,lab,from,r.date):'Нет полных данных';
-      if(key==='paid'){const partial=window.azManagementLab?.partialPaid(lab);const caption=document.getElementById('managementLabPaidCaption');if(caption)caption.textContent=partial?'Оплаты по строкам услуг (не полная сумма)':'Оплаты';input.setAttribute('aria-label',partial?'Подтверждённые оплаты по строкам услуг ЗТЛ':'Оплаты ЗТЛ')}
+      if(key==='paid'){const partial=window.azManagementLab?.partialPaid(lab);input.setAttribute('aria-label',partial?'Подтверждённые оплаты по строкам услуг ЗТЛ':'Оплаты ЗТЛ')}
     }
   }
 }
@@ -139,8 +139,8 @@ init();
 <script src="./seed-data.js?v=20260827-2"></script>
 <script src="./management-staff-layout.js?v=20261110-1"></script>
 <script src="./doctor-balance.js?v=20261118-7"></script>
-<script src="./management-lab.js?v=20261125-recovery-1"></script>
-<script src="./period-view.js?v=20261125-recovery-1"></script>
+<script src="./management-lab.js?v=20261125-lab-fix-1"></script>
+<script src="./period-view.js?v=20261125-lab-fix-1"></script>
 <script src="./management-mobile-layout.js?v=20261029-paid-two-views-3"></script>
 <script src="./secure-import.js?v=20260831-1"></script>
 </body>

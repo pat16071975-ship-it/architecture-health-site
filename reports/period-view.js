@@ -394,10 +394,8 @@
       top.title=model.title('paid',pd.a,pd.bounds.from,pd.bounds.to);
       if(model.partialPaid(pd.a)){
         top.textContent=fmtMoney(model.paidDisplay(pd.a));
-        const mark=document.createElement('span');
-        mark.className='az-lab-comparison-label';
-        mark.textContent='По строкам услуг (неполные)';
-        top.appendChild(mark);
+        // The numeric cell has exactly two lines, just like a full payment.
+        // Keep evidence limitations in the existing tooltip, not its width.
       }
       bottom.className='az-lab-comparison-line az-lab-services';
       bottom.textContent=fmtMoney(pd.a.services);bottom.title=model.title('services',pd.a,pd.bounds.from,pd.bounds.to);

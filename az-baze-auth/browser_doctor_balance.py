@@ -51,7 +51,7 @@ finally:
 
 with sync_playwright() as pw:
     browser = pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH', '/usr/bin/chromium'), headless=True, args=['--no-sandbox'])
-    for width in (1365, 390):
+    for width in (1818, 1365, 390):
         page = browser.new_page(viewport={'width': width, 'height': 900})
         errors, writes = [], []
         page.on('pageerror', lambda error: errors.append(str(error)))
@@ -247,6 +247,89 @@ with sync_playwright() as pw:
         else:
             page.locator('.date-compare-table').evaluate('(e)=>e.scrollLeft=e.scrollWidth')
             assert page.locator('#dateCompareHead .doctor-balance-heading').is_visible()
+        # Owner's actual complaint: 11 visible months (24 Nov) and the
+        # extra label in the November payment cell widened the entire table.
+        # Populate synthetic values with comparable monetary lengths, not
+        # the owner's private figures. Compare full and partial geometry on
+        # the exact same report and data, including the last balance column.
+        page.evaluate("""() => {
+          const months=Array.from({length:11},(_,i)=>'2026-'+String(i+1).padStart(2,'0'));
+          LAB_PAID_PERIODS=months.map(m=>({from:m+'-01',to:m+'-24',paid:400000}));
+          LAB_SERVICE_DAYS=months.map(m=>({date:m+'-24',services:1000000,orders:25}));
+          for(const m of months){
+            SERVER_STORE[m+'-24']={...SERVER_STORE['2026-02-17'],date:m+'-24'};
+          }
+        }""")
+        page.select_option('#mode','date')
+        page.select_option('#dateViewMode','compare')
+        page.select_option('#compareRange','ytd')
+        page.locator('#reportDate').fill('2026-11-24')
+        page.locator('#reportDate').dispatch_event('change')
+        page.locator('.date-compare-table').evaluate('(e)=>e.scrollLeft=0')
+        page.evaluate("window.scrollTo(0,0)")
+        assert page.locator('#dateCompareHead th').count()==13
+        measure="""() => {
+          const wrap=document.querySelector('.date-compare-table');
+          const table=wrap.querySelector('table');
+          const row=table.querySelector('tr[data-management-lab="paid"]');
+          const cell=row.cells[11];
+          return {
+            widths:[...table.querySelectorAll('thead th')].map(e=>e.getBoundingClientRect().width),
+            tableWidth:table.getBoundingClientRect().width,
+            scrollWidth:wrap.scrollWidth,clientWidth:wrap.clientWidth,
+            pageOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+            rowHeight:row.getBoundingClientRect().height,
+            children:[...cell.children].map(e=>e.textContent),
+            lastRight:table.querySelector('thead th:last-child').getBoundingClientRect().right,
+            wrapRight:wrap.getBoundingClientRect().right
+          };
+        }"""
+        page.evaluate("document.fonts.ready.then(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))")
+        full_geometry=page.evaluate(measure)
+        page.evaluate("""() => {
+          LAB_PAID_PERIODS=LAB_PAID_PERIODS.map(p=>p.to==='2026-11-24'?{...p,paid:null,knownPaid:400000}:p);
+          document.querySelector('#reportDate').dispatchEvent(new Event('change'));
+        }""")
+        page.evaluate("document.fonts.ready.then(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))")
+        partial_geometry=page.evaluate(measure)
+        assert partial_geometry['children']==full_geometry['children'],(width,partial_geometry)
+        assert len(partial_geometry['children'])==2,(width,partial_geometry)
+        # Compare the overflow regression, not unrelated reflow of the
+        # label column on narrow screens. Existing mobile/narrow layouts
+        # may need their normal scroll; partial payment must not increase it.
+        assert partial_geometry['clientWidth']==full_geometry['clientWidth'],(width,partial_geometry)
+        assert partial_geometry['rowHeight']==full_geometry['rowHeight'],(width,partial_geometry)
+        for key in ('tableWidth','scrollWidth','pageOverflow','lastRight'):
+            assert partial_geometry[key]<=full_geometry[key]+1,(width,key,full_geometry,partial_geometry)
+        for a,b in zip(full_geometry['widths'][1:12],partial_geometry['widths'][1:12]):
+            assert b<=a+3,(width,full_geometry,partial_geometry)
+        month_widths=partial_geometry['widths'][1:12]
+        assert max(month_widths)-min(month_widths)<=1,(width,partial_geometry)
+        # Desktop compactness; narrow/mobile label wrapping is unchanged
+        # from the full-payment baseline (checked by rowHeight equality).
+        if width>900:
+            assert partial_geometry['rowHeight']<=56,(width,partial_geometry)
+        if width==1818:
+            assert partial_geometry['scrollWidth']<=partial_geometry['clientWidth']+1,partial_geometry
+            assert partial_geometry['lastRight']<=partial_geometry['wrapRight']+1,partial_geometry
+        cell=page.locator('#dateCompareBody tr[data-management-lab="paid"] td').nth(11)
+        assert cell.locator('.az-lab-comparison-label').count()==0
+        assert 'полная сумма' in cell.locator('.az-lab-paid').get_attribute('title')
+        # Explicit selected correction is used without adding a visible label.
+        page.evaluate("""() => {
+          LAB_PAID_PERIODS=[...LAB_PAID_PERIODS,{from:'2026-11-01',to:'2026-11-24',
+             paid:null,knownPaid:570000,recovered:true}];
+          document.querySelector('#reportDate').dispatchEvent(new Event('change'));
+        }""")
+        assert cell.locator('.az-lab-paid').inner_text().split()==['570','000','₽']
+        assert cell.locator('.az-lab-services').inner_text().split()==['1','000','000','₽']
+        assert cell.locator('.az-lab-comparison-label').count()==0
+        assert page.locator('#dateCompareBody tr[data-management-lab="avg"] td').nth(11).inner_text()=='—'
+        page.select_option('#dateViewMode','single')
+        assert page.locator('#managementLabPaidCaption').inner_text()=='Оплаты'
+        assert page.locator('#labGrid [data-key="managementLabPaid"]').input_value().split()==['570','000','₽']
+        assert 'полная сумма' in page.locator('#labGrid [data-key="managementLabPaid"]').get_attribute('title')
+        print(f'LAB_NO_LABEL_NO_WIDTH_GROWTH_{width}=PASS; EXACT_CORRECTION=PASS')
         assert not errors, errors
         assert not writes, writes
         page.close()

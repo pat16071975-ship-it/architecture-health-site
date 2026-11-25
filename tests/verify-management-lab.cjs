@@ -107,3 +107,27 @@ assert.equal(calculate([recovered,recovered],[],'2026-01-01','2026-01-31').known
 assert.equal(calculate([recovered,{from:'2026-01-01',to:'2026-01-31',paid:700}],[],'2026-01-01','2026-01-31').paid,700);
 assert.equal(calculate([recovered,{from:'2026-01-01',to:'2026-01-31',paid:null,knownPaid:600}],[],'2026-01-01','2026-01-31').knownPaid,600);
 console.log('MANAGEMENT_LAB_PARTIAL_AND_RECOVERY=PASS');
+
+// Explicit archive correction for the SAME exact period can supersede only
+// partial group evidence. Full paid and full average are never synthesized.
+{
+  const a={from,to,paid:null,knownPaid:300};
+  const b={from,to,paid:null,knownPaid:570,recovered:true};
+  const result=calculate([a,b],full,from,to);
+  assert.equal(result.paid,null);
+  assert.equal(result.knownPaid,570);
+  assert.equal(result.avg,null);
+  assert.equal(paidDisplay(result),570);
+  assert.equal(calculate([a,{...b,knownPaid:0}],full,from,to).knownPaid,0);
+  assert.equal(calculate([a,{...b,knownPaid:-20}],full,from,to).knownPaid,-20);
+  assert.equal(calculate([a,{...b,knownPaid:null}],full,from,to).knownPaid,300);
+  assert.equal(calculate([a,b,{...b,knownPaid:600}],full,from,to).knownPaid,300);
+  assert.equal(calculate([a,{...b,to:'2026-11-16'}],full,from,to).knownPaid,300);
+  assert.equal(calculate([a,{...b,to:'2026-11-18'}],full,from,to).knownPaid,300);
+  assert.equal(calculate([{...a,paid:400},b],full,from,to).paid,400);
+  assert.equal(calculate([{...a,paid:0},b],full,from,to).paid,0);
+  const next={from:'2026-11-18',to:'2026-11-20',paid:50};
+  assert.equal(calculate([a,b,next],full,from,next.to).knownPaid,620);
+  assert.equal(calculate([a,b,{...next,from:'2026-11-19'}],full,from,next.to).knownPaid,570);
+}
+console.log('LAB_EXACT_SELECTED_CORRECTION=PASS');
