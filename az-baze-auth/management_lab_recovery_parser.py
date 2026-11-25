@@ -53,6 +53,179 @@ def day(value):
     return datetime.strptime(s.split(' ')[0], '%d.%m.%Y').date().isoformat()
 
 
+# Supported IDENT paid layout: styled provider/patient headings in the
+# standard export, or an unstyled flat provider -> invoice hierarchy.
+# Never infer an unknown heading from names or from a convenient subtotal.
+_DEBT_LABELS = {"Неоплаченные услуги на начало периода", "Незакрытые долги без счетов"}
+
+
+def _money_vector(values, role):
+    allowed_dash = {
+        "invoice": {0}, "detail": {0}, "old_debt": {1}, "advances": {1},
+    }.get(role, set())
+    amounts = tuple(
+        0 if i in allowed_dash and text(v) in ("-", "—") else cents(v)
+        for i, v in enumerate(values)
+    )
+    opening, billed, paid, closing = amounts
+    if opening + billed - paid != closing:
+        raise ValueError("IDENT monetary balance mismatch: " + role)
+    if role in ("invoice", "detail") and opening != 0:
+        raise ValueError("Current service row includes opening debt")
+    if role in ("old_debt", "advances") and billed != 0:
+        raise ValueError("Non-service row includes billed services")
+    return amounts
+
+
+def _sum_money(rows):
+    return tuple(sum(row[i] for row in rows) for i in range(4))
+
+
+def _check_subtotal(role, subtotal, children):
+    if not children or subtotal != _sum_money(children):
+        raise ValueError("IDENT monetary subtotal mismatch: " + role)
+
+
+def _check_paid_hierarchy(ws, expected_detail_count, expected_total):
+    """Reconcile all four monetary columns at every service hierarchy level.
+
+    A signed adjustment is allowed only as an actual balanced source row.
+    Opening debt is separate from current service items. Repeated opening-debt
+    headings are one parent with reconciled children, never extra payments.
+    No unexplained residual (positive or negative) is accepted.
+    """
+    rows = iter(ws.iter_rows())
+    header = next(rows)
+    signature = tuple(getattr(c, "_style_id", 0) for c in header)
+    flat = signature == (0,) * 8
+    if not flat and signature != (15, 14, 13, 13, 15, 15, 15, 15):
+        raise ValueError("Unsupported IDENT paid hierarchy layout")
+    total = grand = advances = None
+    provider = patient = invoice = debt = None
+    provider_totals = []
+    detail_totals = []
+    old_totals = []
+    started = False
+    ended = False
+
+    def finish_invoice():
+        nonlocal invoice
+        if invoice is not None:
+            _check_subtotal("invoice", *invoice)
+            target = provider if flat else patient
+            target[1].append(invoice[0])
+            invoice = None
+
+    def finish_debt():
+        nonlocal debt
+        if debt is not None:
+            if debt[1]:
+                _check_subtotal("opening debt", *debt)
+            target = provider if flat else patient
+            target[1].append(debt[0])
+            old_totals.append(debt[0])
+            debt = None
+
+    def finish_patient():
+        nonlocal patient
+        finish_invoice()
+        finish_debt()
+        if patient is not None:
+            _check_subtotal("patient", *patient)
+            provider[1].append(patient[0])
+            patient = None
+
+    def finish_provider():
+        nonlocal provider
+        finish_patient()
+        if provider is not None:
+            _check_subtotal("provider", *provider)
+            provider_totals.append(provider[0])
+            provider = None
+
+    for cells in rows:
+        row = tuple(c.value for c in cells)
+        a, b, c, d = map(text, row[:4])
+        if not any(text(v) for v in row):
+            continue
+        heading = bool(a and not b and not c and not d)
+        if heading and a == "Итого":
+            if started or grand is not None:
+                raise ValueError("Unexpected IDENT grand total")
+            grand = _money_vector(row[4:8], "grand")
+            continue
+        if heading and a == "Авансы":
+            if advances is not None:
+                raise ValueError("Duplicate IDENT advances summary")
+            advances = _money_vector(row[4:8], "advances")
+            if started:
+                finish_provider()
+                ended = True
+            continue
+        if heading and a == "Услуги":
+            summary = _money_vector(row[4:8], "services")
+            if ended or provider is not None or provider_totals or detail_totals or (total is not None and total != summary):
+                raise ValueError("Conflicting IDENT services summary")
+            total = summary
+            started = True
+            continue
+        if not started or ended:
+            # The advances section is not evidence of services or ZTL.
+            # Do not allow an unexpected detail row to escape reconciliation.
+            if advances is None or c or d:
+                raise ValueError("Unexpected row outside IDENT services hierarchy")
+            continue
+        if c and d:
+            if invoice is None or debt is not None:
+                raise ValueError("IDENT payment detail without current invoice")
+            value = _money_vector(row[4:8], "detail")
+            invoice[1].append(value)
+            detail_totals.append(value)
+            continue
+        if not heading:
+            raise ValueError("Unexpected IDENT paid hierarchy row")
+        if a in _DEBT_LABELS:
+            if provider is None or (not flat and patient is None):
+                raise ValueError("Opening debt outside provider/patient")
+            finish_invoice()
+            value = _money_vector(row[4:8], "old_debt")
+            if debt is None:
+                debt = [value, []]
+            else:
+                debt[1].append(value)
+            continue
+        if INVOICE.fullmatch(a):
+            if provider is None or (not flat and patient is None):
+                raise ValueError("IDENT invoice outside provider/patient")
+            finish_invoice()
+            finish_debt()
+            invoice = [_money_vector(row[4:8], "invoice"), []]
+            continue
+        style = getattr(cells[0], "_style_id", 0)
+        if (flat and style == 0) or (not flat and style == 6):
+            finish_provider()
+            provider = [_money_vector(row[4:8], "provider"), []]
+        elif not flat and style == 3 and provider is not None:
+            finish_patient()
+            patient = [_money_vector(row[4:8], "patient"), []]
+        else:
+            raise ValueError("Unrecognized IDENT paid subtotal level")
+
+    finish_provider()
+    if total is None:
+        raise ValueError("Missing IDENT services summary")
+    _check_subtotal("services", total, provider_totals)
+    if len(detail_totals) != expected_detail_count or (total[1], total[2]) != expected_total:
+        raise ValueError("IDENT payment hierarchy differs from parsed details")
+    if total != _sum_money(detail_totals + old_totals):
+        raise ValueError("Unexplained IDENT payment residual")
+    if grand is not None or advances is not None:
+        if grand is None or advances is None or grand != _sum_money([total, advances]):
+            raise ValueError("IDENT grand total/advances mismatch")
+    # Negative unallocated payments are legitimate ONLY when the signed
+    # amount was explicitly present and reconciled in named old-debt rows.
+
+
 def parse(raw, paid):
     width=8 if paid else 7
     wb=load_workbook(BytesIO(raw),read_only=True,data_only=True)
@@ -115,6 +288,8 @@ def parse(raw, paid):
             details.append((key,cents(row[6]) if paid else None))
         if total is None or not details or sum(k[-1] for k,_ in details)!=total[0]:
             raise ValueError('Service detail does not reconcile to workbook total')
+        if paid:
+            _check_paid_hierarchy(ws, len(details), total)
         return details,total
     finally:
         wb.close()

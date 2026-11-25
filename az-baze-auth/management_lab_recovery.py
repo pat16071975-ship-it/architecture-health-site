@@ -104,6 +104,65 @@ def objects_present(conn,run,entry):
     return True
 
 
+def _candidate(entry):
+    start,end,month=entry["from"],entry["to"],entry["month"]
+    first,last=periods.month_bounds(month)
+    if not lab._valid_date(start) or not lab._valid_date(end) or not first<=start<=end<=last:
+        raise ValueError("Invalid recovered month/interval")
+    lab._cents(entry["knownPaid"])
+    result={}
+    for value in entry["days"]:
+        d=value["date"]
+        if not lab._valid_date(d) or not start<=d<=end or d in result or type(value["orders"]) is not int or value["orders"]<0:
+            raise ValueError("Invalid recovered day")
+        result[d]={"date":d,"services":lab._cents(value["services"])/100,"orders":value["orders"]}
+    if not result or min(result)!=start or max(result)!=end:
+        raise ValueError("Invalid recovered observation bounds")
+    return result
+
+
+def _check_live(conn,entry,candidate,live_days):
+    # A cleared or contradictory live service layer is never resurrected.
+    existing_db_dates=set()
+    if exists(conn,"daily_uploads"):
+        existing_db_dates={d for (d,) in conn.execute(
+            "SELECT data_date FROM daily_uploads WHERE data_date BETWEEN ? AND ?",
+            (entry["from"],entry["to"]))}
+    if any(live_days.get(d)!=candidate.get(d) for d in existing_db_dates) or any(
+        d in live_days and live_days[d]!=value for d,value in candidate.items()
+    ):
+        raise ValueError("Recovered month conflicts with live services")
+
+
+def _selected_months(conn):
+    """Newest explicit accepted selection per month, not newest global run.
+
+    Validate the run envelope and month keys before choosing. Never fall
+    back to a superseded same-month run just because the newest is stale.
+    An unreadable run cannot safely declare which months it superseded.
+    """
+    chosen={}
+    if not exists(conn,TABLE):
+        return chosen
+    for catalog_sha,bundle_sha,raw in conn.execute(
+            "SELECT catalog_sha256,bundle_sha256,payload_json FROM "+TABLE+" ORDER BY id DESC"):
+        run=json.loads(raw)
+        if not isinstance(run,dict) or run.get("version")!=1 or run.get("catalogSha256")!=catalog_sha or run.get("bundleSha256")!=bundle_sha:
+            raise ValueError("Invalid historical selection envelope")
+        entries=run.get("periods")
+        if not isinstance(entries,list) or not 1<=len(entries)<=MAX_MONTHS:
+            raise ValueError("Invalid historical selection periods")
+        seen=set()
+        for entry in entries:
+            month=entry["month"]
+            periods.month_bounds(month)
+            if month in seen:
+                raise ValueError("Duplicate historical selection month")
+            seen.add(month)
+            chosen.setdefault(month,(run,entry))
+    return chosen
+
+
 def activate(conn,verified,db_path):
     """Archive first, then a separate explicit, immutable ZTL selection.
 
@@ -138,7 +197,18 @@ def activate(conn,verified,db_path):
             conn.rollback()
             return old[0],False
         sources=periods.read_sources(conn,periods.load_config(db_path))
+        live_days={d["date"]:d for d in lab.service_days(conn)}
+        selected=_selected_months(conn)
+        # Check the ENTIRE incoming selection before publishing a run. A
+        # failure may leave archived originals, never a replacement run.
         for entry in run["periods"]:
+            candidate=_candidate(entry)
+            _check_live(conn,entry,candidate,live_days)
+            prior=selected.get(entry["month"])
+            if prior:
+                previous=_candidate(prior[1])
+                if not set(previous)<=set(candidate):
+                    raise ValueError("Historical correction would remove observed days")
             entry["baseline"]=source_baseline(conn,sources,entry["from"],entry["to"])
             if not objects_present(conn,run,entry):
                 raise ValueError("Missing archived source receipt")
@@ -156,51 +226,19 @@ def project(conn,sources):
     """Do not parse workbooks or write DB on GET. No patient rows in output."""
     paid=lab.paid_periods(sources,conn=conn)
     days={d["date"]:d for d in lab.service_days(conn)}
-    if not exists(conn,TABLE):
-        return paid,list(days.values())
-    row=conn.execute("SELECT catalog_sha256,bundle_sha256,payload_json FROM "+TABLE+" ORDER BY id DESC LIMIT 1").fetchone()
-    if not row:
-        return paid,list(days.values())
     try:
-        run=json.loads(row[2])
-        entries=run["periods"]
-        if run["version"]!=1 or run["catalogSha256"]!=row[0] or run["bundleSha256"]!=row[1] or not isinstance(entries,list) or len(entries)>MAX_MONTHS:
-            return paid,list(days.values())
-    except (ValueError,TypeError,KeyError):
-        return paid,list(days.values())
-    seen=set()
+        selected=_selected_months(conn)
+    except (ValueError,TypeError,KeyError,sqlite3.Error):
+        return paid,[days[d] for d in sorted(days)]
     recovered=[]
-    for entry in entries:
+    for month,(run,entry) in sorted(selected.items()):
         try:
             start,end=entry["from"],entry["to"]
-            month=entry["month"]
-            first,last=periods.month_bounds(month)
-            if month in seen or not first<=start<=end<=last or not lab._valid_date(start) or not lab._valid_date(end):
-                continue
-            seen.add(month)
+            candidate=_candidate(entry)
             if entry["baseline"]!=source_baseline(conn,sources,start,end) or not objects_present(conn,run,entry):
                 continue
+            _check_live(conn,entry,candidate,days)
             known=lab._cents(entry["knownPaid"])/100
-            candidate={}
-            for value in entry["days"]:
-                d=value["date"]
-                if not lab._valid_date(d) or not start<=d<=end or d in candidate or type(value["orders"]) is not int or value["orders"]<0:
-                    raise ValueError("Invalid recovered day")
-                candidate[d]={"date":d,"services":lab._cents(value["services"])/100,"orders":value["orders"]}
-            if not candidate or min(candidate)!=start or max(candidate)!=end:
-                continue
-            # Never override a different live source. Only add missing
-            # observed days. A live row whose services layer was explicitly
-            # removed must not be resurrected from the historical archive.
-            existing_db_dates=set()
-            if exists(conn,"daily_uploads"):
-                existing_db_dates={d for (d,) in conn.execute("SELECT data_date FROM daily_uploads WHERE data_date BETWEEN ? AND ?",(start,end))}
-            if any(days.get(d)!=candidate.get(d) for d in existing_db_dates):
-                # Includes missing/cleared/invalid live service layer or a
-                # differing live aggregate, but allows identical observations.
-                continue
-            if any(d in days and days[d]!=value for d,value in candidate.items()):
-                continue
             recovered.append({"from":start,"to":end,"paid":None,"knownPaid":known,
                               "recovered":True,"reason":"archived_matched_detail"})
             for d,value in candidate.items():
