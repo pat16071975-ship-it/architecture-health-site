@@ -511,13 +511,13 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             folders=[dict(x) for x in conn.execute("SELECT id FROM med_supply_folders")]
             review=parse_review(request.form,data,catalog(conn),folders)
             def mutate(current):
-                # Grouping pages into one logical document is an operator
-                # decision. Checked pages of that group cannot contradict
-                # each other's document identity.
-                if review["checked"] and review["rows"]:
+                # AZ-264-01: identity belongs to the logical document, not
+                # to its goods rows. Checked pages without goods must agree
+                # as well, including when an already checked page is edited.
+                if review["checked"]:
                     header=review["header"]
                     for key,other in current["pages"].items():
-                        if key==str(page) or not other.get("checked") or not other.get("rows"):
+                        if key==str(page) or not other.get("checked"):
                             continue
                         previous=other.get("header",{})
                         if previous.get("part")==header["part"] and any(

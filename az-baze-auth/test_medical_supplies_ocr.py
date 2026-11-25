@@ -196,6 +196,96 @@ class OCRRouteTests(unittest.TestCase):
         self.assertEqual(self.get_doc()["version"],4)
         self.assertEqual(self.draft(4,2,number="OTHER",part="2").status_code,303)
 
+    def empty_page(self,version,page,**overrides):
+        # A genuine rowless page: no synthetic goods form fields.
+        values={"csrf":"token","version":str(version),"page":str(page),"part":"1",
+                "document_type":"bill","counterparty":"Синтетический поставщик",
+                "number":"A-1","document_date":"2026-11-20","page_note":"",
+                "checked":"1","no_items":"1"}
+        values.update(overrides)
+        return self.client(2).post(PREFIX+"/save",data=values)
+
+    def review_snapshot(self):
+        return (tuple(self.get_doc()),
+                [tuple(r) for r in self.conn.execute(
+                    "SELECT * FROM med_supply_document_events ORDER BY id")],
+                self.snapshot_stock())
+
+    def assert_identity_rejected(self,submit,version,page,**changes):
+        before=self.review_snapshot()
+        response=submit(version,page,**changes)
+        self.assertEqual(response.status_code,400)
+        self.assertIn("У проверенных страниц одной части разные реквизиты",
+                      response.get_data(as_text=True))
+        # Includes original bytes, OCR evidence, editable draft, version,
+        # status, timestamps, complete document history and stock tables.
+        self.assertEqual(self.review_snapshot(),before)
+
+    def test_checked_goods_then_rowless_page_conflict_is_atomic(self):
+        self.initial()
+        with patch.object(ocr,"recognize_pdf_page",return_value=(2,data_fixture())):
+            self.assertEqual(self.recognize().status_code,200)
+            self.assertEqual(self.recognize(2,2).status_code,200)
+        self.assertEqual(self.draft(3,1).status_code,303)
+        self.assertEqual(self.get_doc()["status"],"review")
+        for changes in (
+            {"counterparty":"Другой поставщик","number":"B-99","document_date":"2026-11-21"},
+            {"counterparty":"Другой поставщик"},
+            {"number":"B-99"},
+            {"document_date":"2026-11-21"},
+            {"document_type":"upd"},
+            {"counterparty":"","number":"","document_date":"","document_type":"unknown"},
+        ):
+            with self.subTest(changes=changes):
+                self.assert_identity_rejected(self.empty_page,4,2,**changes)
+        # Same identity in the same part is valid without any goods rows.
+        self.assertEqual(self.empty_page(4,2).status_code,303)
+        self.assertEqual(self.get_doc()["status"],"reviewed")
+        self.assertEqual(self.state()["pages"]["2"]["rows"],[])
+        self.assertTrue(self.state()["pages"]["2"]["no_items"])
+        # An already checked rowless page cannot introduce a contradiction.
+        self.assert_identity_rejected(self.empty_page,5,2,number="CHANGED")
+        self.assertEqual(self.get_doc()["status"],"reviewed")
+        self.assertEqual(self.empty_page(5,2,part="2",number="B-99").status_code,303)
+        self.assertEqual(self.get_doc()["status"],"reviewed")
+
+    def test_checked_rowless_then_goods_page_conflict_is_atomic(self):
+        self.initial()
+        with patch.object(ocr,"recognize_pdf_page",return_value=(2,data_fixture())):
+            self.assertEqual(self.recognize().status_code,200)
+            self.assertEqual(self.recognize(2,2).status_code,200)
+        self.assertEqual(self.empty_page(3,1).status_code,303)
+        self.assertEqual(self.get_doc()["status"],"review")
+        for changes in (
+            {"counterparty":"Другой поставщик","number":"B-99","document_date":"2026-11-21"},
+            {"counterparty":"Другой поставщик"},
+            {"number":"B-99"},
+            {"document_date":"2026-11-21"},
+            {"document_type":"upd"},
+        ):
+            with self.subTest(changes=changes):
+                self.assert_identity_rejected(self.draft,4,2,**changes)
+        # A different logical part may carry independent document identity.
+        self.assertEqual(self.draft(4,2,part="2",number="B-99",
+                                    counterparty="Другой поставщик",
+                                    document_date="2026-11-21").status_code,303)
+        self.assertEqual(self.get_doc()["status"],"reviewed")
+        # Reassigning that checked page to the conflicting first part is blocked.
+        self.assert_identity_rejected(self.draft,5,2,part="1",number="B-99",
+                                      counterparty="Другой поставщик",
+                                      document_date="2026-11-21")
+        self.assertEqual(self.get_doc()["status"],"reviewed")
+
+    def test_two_checked_rowless_pages_also_require_same_identity(self):
+        self.initial()
+        with patch.object(ocr,"recognize_pdf_page",return_value=(2,data_fixture())):
+            self.assertEqual(self.recognize().status_code,200)
+            self.assertEqual(self.recognize(2,2).status_code,200)
+        self.assertEqual(self.empty_page(3,1).status_code,303)
+        self.assert_identity_rejected(self.empty_page,4,2,number="B-99")
+        self.assertEqual(self.empty_page(4,2).status_code,303)
+        self.assertEqual(self.get_doc()["status"],"reviewed")
+
     def test_history_failure_rolls_back_ocr_fields_and_status(self):
         before=self.initial()
         with patch.object(ocr,"recognize_pdf_page",return_value=(1,data_fixture())), \
