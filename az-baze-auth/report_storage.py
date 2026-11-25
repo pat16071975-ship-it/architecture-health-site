@@ -16,6 +16,7 @@ import completed_visit_totals
 import doctor_service_totals
 import paid_period_confirmation
 import management_lab
+import management_lab_recovery
 
 MANAGEMENT_KEY = "az-management-report-v1"
 MANAGEMENT_STAFF_LAYOUT_KEY = "az-management-staff-layout-v1"
@@ -1288,13 +1289,14 @@ def register_report_storage(app):
             response = jsonify(data=dashboard_projection(data))
             response.headers["Cache-Control"] = "no-store"
             return response
+        lab_paid, lab_days = management_lab_recovery.project(db(), _paid_report_sources(db()))
         return jsonify(
             data=data,
             doctorPaidSnapshots=_management_doctor_paid_snapshots(db()),
             doctorPaidPeriods=_management_doctor_paid_periods(db()),
             doctorServiceDays=doctor_service_totals.service_days(db(), *_management_doctor_provider_mappings(db())),
-            laboratoryPaidPeriods=management_lab.paid_periods(_paid_report_sources(db())),
-            laboratoryServiceDays=management_lab.service_days(db()),
+            laboratoryPaidPeriods=lab_paid,
+            laboratoryServiceDays=lab_days,
             paidPatientsMonthly=_management_paid_patients_monthly(db(), payer_intervals),
             paidPatientsByDate=payer_by_date,
             managementStaffLayout=_load_management_staff_layout(db())[0],

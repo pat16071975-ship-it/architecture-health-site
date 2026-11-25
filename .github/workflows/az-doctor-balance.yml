@@ -39,7 +39,7 @@ jobs:
           node tests/verify-paid-periods.cjs
       - working-directory: az-baze-auth
         run: |
-          python -m unittest test_management_lab test_doctor_service_totals test_paid_period_report test_paid_history_reporting test_management_staff_layout test_manual_entry_consistency test_report_consistency_preservation test_cash_payments
+          python -m unittest test_management_lab test_management_lab_recovery test_doctor_service_totals test_paid_period_report test_paid_history_reporting test_management_staff_layout test_manual_entry_consistency test_report_consistency_preservation test_cash_payments
           export CHROMIUM_PATH="$(command -v google-chrome || command -v chromium)"
           test -x "$CHROMIUM_PATH"
           python browser_doctor_balance.py
