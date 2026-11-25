@@ -1,0 +1,35 @@
+name: AZ PR267 guarded ZTL runtime release
+on:
+  pull_request:
+    paths:
+      - 'az-baze-auth/deploy/controlled-pr267-lab-recovery.py'
+      - 'az-baze-auth/deploy/test_controlled_pr267_release.py'
+      - '.github/workflows/az-pr267-controlled-release.yml'
+permissions:
+  contents: read
+jobs:
+  release-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact runtime scope, both baselines, rollback and unchanged DB
+        run: |
+          python -B -m py_compile az-baze-auth/deploy/controlled-pr267-lab-recovery.py az-baze-auth/deploy/test_controlled_pr267_release.py
+          python -B -m unittest discover -v -s az-baze-auth/deploy -p 'test_controlled_pr267_release.py'
+          python - <<'PY'
+          import subprocess
+          expected={'.github/workflows/az-pr267-controlled-release.yml','az-baze-auth/deploy/controlled-pr267-lab-recovery.py','az-baze-auth/deploy/test_controlled_pr267_release.py'}
+          actual=set(subprocess.check_output(['git','diff','--name-only','f76986d9a8e13dd54f44139b64d3c2c7eafe936b','HEAD'],text=True).splitlines())
+          assert actual==expected,(actual,expected)
+          print('DEPLOY_PACKAGE_SCOPE=PASS; SYNTHETIC_ONLY; HISTORY_APPLY=NONE')
+          PY
