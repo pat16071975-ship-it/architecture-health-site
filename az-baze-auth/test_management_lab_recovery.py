@@ -188,8 +188,8 @@ class RecoveryTests(unittest.TestCase):
 
     def test_explicit_old_debt_adjustment_and_repeated_subtotal(self):
         def repeated(ws):
-            ws.append(["Неоплаченные услуги на начало периода",None,None,None,40,"-",20,20])
-            ws.append(["Неоплаченные услуги на начало периода",None,None,None,60,"-",30,30])
+            ws.append(["Неоплаченные услуги на начало периода","Synthetic description 1",None,None,40,"-",20,20])
+            ws.append(["Неоплаченные услуги на начало периода","Synthetic description 2",None,None,60,"-",30,30])
         data=parser.pair(workbook(),workbook(True,edit=repeated),lab.is_lab_group)
         self.assertEqual(data["knownPaid"],400)
         self.assertEqual(data["clinicUnallocatedPaid"],50)
@@ -200,6 +200,10 @@ class RecoveryTests(unittest.TestCase):
             ws.cell(8,8,15)
         with self.assertRaisesRegex(ValueError,"opening debt"):
             parser.pair(workbook(),workbook(True,edit=wrong_child),lab.is_lab_group)
+        def missing_parent(ws):
+            ws.cell(7,2,"Synthetic description without subtotal")
+        with self.assertRaisesRegex(ValueError,"child without subtotal"):
+            parser.pair(workbook(),workbook(True,edit=missing_parent),lab.is_lab_group)
         data=parser.pair(workbook(),workbook(True,old_paid=-50),lab.is_lab_group)
         self.assertEqual(data["knownPaid"],400)
         self.assertEqual(data["clinicUnallocatedPaid"],-50)

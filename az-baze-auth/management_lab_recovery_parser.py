@@ -182,11 +182,15 @@ def _check_paid_hierarchy(ws, expected_detail_count, expected_total):
             invoice[1].append(value)
             detail_totals.append(value)
             continue
-        if not heading:
+        # IDENT repeats the opening-debt subtotal as descriptive child rows.
+        # Column B can hold a description there, but not service/quantity.
+        if not heading and not (a in _DEBT_LABELS and b and not c and not d):
             raise ValueError("Unexpected IDENT paid hierarchy row")
         if a in _DEBT_LABELS:
             if provider is None or (not flat and patient is None):
                 raise ValueError("Opening debt outside provider/patient")
+            if b and debt is None:
+                raise ValueError("Opening debt child without subtotal")
             finish_invoice()
             value = _money_vector(row[4:8], "old_debt")
             if debt is None:
