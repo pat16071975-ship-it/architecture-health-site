@@ -1,5 +1,5 @@
 # IDENT-004 candidate: one manual collection, no installer or scheduled task.
-# Windows PowerShell 5.1 / System.Data.SqlClient. Requires trusted SQL TLS.
+# Windows PowerShell 5.1; standard SQL TLS or explicit pinned worker.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$ServerName,
@@ -13,6 +13,10 @@ param(
     [Parameter(Mandatory=$true)][string]$DateFrom,
     [Parameter(Mandatory=$true)][string]$DateToExclusive,
     [Parameter(Mandatory=$true)][ValidateNotNullOrEmpty()][string]$PrivateOutbox,
+    [ValidateSet('Standard','PinnedCertificate')][string]$TlsMode = 'Standard',
+    [string]$PinnedCertificateSha256,
+    [string]$PinnedWorkerSha256,
+    [switch]$ConnectionCheckOnly,
     # This prototype reads totals for the whole source database, not a unit.
     [Parameter(Mandatory=$true)][switch]$ConfirmWholeDatabaseScope
 )
@@ -27,6 +31,7 @@ $cmd = $null
 $tmp = $null
 $hash = $null
 . (Join-Path $PSScriptRoot 'outbox_guard.ps1')
+. (Join-Path $PSScriptRoot 'pinned_sql.ps1')
 try {
     if (-not $ConfirmWholeDatabaseScope) { throw 'WHOLE_DATABASE_SCOPE_NOT_APPROVED' }
     if ($SourceId -eq [guid]::Empty -or $StreamId -eq [guid]::Empty) { throw 'INVALID_SOURCE_ID' }
@@ -43,6 +48,32 @@ try {
     $schemaSql = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'sql/payments_daily_v1_schema.sql'),$utf8)
     $hash = [System.Security.Cryptography.SHA256]::Create()
     $querySha = [System.BitConverter]::ToString($hash.ComputeHash($utf8.GetBytes($sql))).Replace('-','').ToLowerInvariant()
+    if ($TlsMode -eq 'PinnedCertificate') {
+        $result = Invoke-PinnedSqlReader $outbox $outboxSid $PinnedWorkerSha256 $PinnedCertificateSha256 $ServerName $Port $Database $SqlUser $DateFrom $DateToExclusive $querySha ([bool]$ConnectionCheckOnly)
+        $precision = [int]$result.payment_precision; $scale = [int]$result.payment_scale
+        if ($precision -lt 1 -or $precision -gt 38 -or $scale -lt 0 -or $scale -gt $precision) { throw 'INCOMPATIBLE_SOURCE_SCHEMA' }
+        if ($ConnectionCheckOnly) {
+            Write-Output 'SQL_TLS_CHECK=PASS; MODE=PinnedCertificate; SQL_READONLY=PASS; SCHEMA=PASS; FINANCIAL_READ=NO'
+            return
+        }
+        $started = [datetime]::ParseExact($result.query_started_at,"yyyy-MM-ddTHH:mm:ss.ffffff'Z'",$invariant,[System.Globalization.DateTimeStyles]::AssumeUniversal -bor [System.Globalization.DateTimeStyles]::AdjustToUniversal)
+        $finished = [datetime]::ParseExact($result.observed_at,"yyyy-MM-ddTHH:mm:ss.ffffff'Z'",$invariant,[System.Globalization.DateTimeStyles]::AssumeUniversal -bor [System.Globalization.DateTimeStyles]::AdjustToUniversal)
+        if ($finished -lt $started -or $null -eq $result.rows -or @($result.rows).Count -gt $days) { throw 'INVALID_SQL_RESULT' }
+        $recordsByDate = @{}
+        foreach ($row in @($result.rows)) {
+            $date = [string]$row.date
+            $day = [datetime]::ParseExact($date,'yyyy-MM-dd',$invariant)
+            if ($day -lt $start -or $day -ge $end -or $recordsByDate.ContainsKey($date)) { throw 'INVALID_SQL_RESULT' }
+            foreach ($key in @('positive_amount','negative_amount','net_amount')) {
+                if ($row.$key -isnot [string]) { throw 'INVALID_SQL_RESULT' }
+            }
+            $recordsByDate[$date] = [ordered]@{
+                date=$date; records_count=[long]$row.records_count; paying_patients=[long]$row.paying_patients
+                positive_amount=$row.positive_amount; negative_amount=$row.negative_amount; net_amount=$row.net_amount
+            }
+        }
+    } else {
+    if ($PSBoundParameters.ContainsKey('PinnedCertificateSha256') -or $PSBoundParameters.ContainsKey('PinnedWorkerSha256')) { throw 'TLS_PIN_MODE_REQUIRED' }
     $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
     $builder.DataSource = "tcp:$ServerName,$Port"
     $builder.InitialCatalog = $Database
@@ -90,6 +121,10 @@ try {
     }
     if ($seen.Count -ne $expected.Count -or $precision -lt 1 -or $precision -gt 38 -or $scale -gt $precision) { throw 'INCOMPATIBLE_SOURCE_SCHEMA' }
     $reader.Dispose(); $reader = $null
+    if ($ConnectionCheckOnly) {
+        Write-Output 'SQL_TLS_CHECK=PASS; MODE=Standard; SQL_READONLY=PASS; SCHEMA=PASS; FINANCIAL_READ=NO'
+        return
+    }
     $cmd.CommandText = $sql
     [void]$cmd.Parameters.Add('@start_date',[System.Data.SqlDbType]::Date)
     [void]$cmd.Parameters.Add('@end_date_exclusive',[System.Data.SqlDbType]::Date)
@@ -111,6 +146,7 @@ try {
     if ($reader.NextResult()) { throw 'UNEXPECTED_EXTRA_RESULT_SET' }
     $reader.Dispose(); $reader = $null
     $finished = [datetime]::UtcNow
+    }
     $rows = @(
         for ($day = $start; $day -lt $end; $day = $day.AddDays(1)) {
             $date = $day.ToString('yyyy-MM-dd',$invariant)
@@ -146,7 +182,7 @@ try {
 } catch {
     # Avoid logging connection strings, credentials, and raw SQL driver messages.
     $reason = $_.Exception.Message
-    if ($reason -cnotmatch '^(OUTBOX|SQL_READONLY)_[A-Z_]+$') { $reason = 'REDACTED' }
+    if ($reason -cnotmatch '^(OUTBOX|SQL_READONLY|TLS_PIN)_[A-Z_]+$') { $reason = 'REDACTED' }
     Write-Error ('COLLECTION=STOP; REASON=' + $reason + '; TYPE=' + $_.Exception.GetType().Name + '; HResult=' + $_.Exception.HResult) -ErrorAction Continue
     exit 1
 } finally {
