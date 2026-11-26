@@ -329,7 +329,7 @@ class SavedGoodsTableTests(unittest.TestCase):
             self.assertEqual(response.json["version"], 3)
             self.assertFalse(response.json["cached"])
             page = self.state()["pages"]["1"]
-            self.assertEqual(page["extractor_version"], 2)
+            self.assertEqual(page["extractor_version"], ocr.EXTRACTOR_VERSION)
             self.assertEqual(page["candidates"][0]["value"], "289.20")
             self.assertNotIn("rows", page)
             after = self.review_snapshot()

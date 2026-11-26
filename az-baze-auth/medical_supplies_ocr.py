@@ -24,7 +24,7 @@ from flask import abort, g, jsonify, make_response, redirect, render_template, r
 import medical_supplies_documents as inbox
 
 KEY = "ocr_review_v1"
-EXTRACTOR_VERSION = 2
+EXTRACTOR_VERSION = 3
 MAX_PAGES = 20
 MAX_WORDS = 8000
 MAX_LINES = 1000
@@ -167,7 +167,8 @@ def _column_label(token):
     if (text.startswith("количеств") or text in ("колво", "quantity", "qty")
             or text in ("кол", "коли", "колич") and str(token).rstrip().endswith("-")):
         return "quantity"
-    if text in ("ед", "unit") or text.startswith(("едизм", "единиц")):
+    if text in ("ед", "unit") or text.startswith("едизм") or (
+            text.startswith("единиц") and text != "единицу"):
         return "unit"
     if text == "price" or text.startswith(("цена", "тариф")):
         return "price"
@@ -186,21 +187,34 @@ def _cells(tokens, columns):
         if word[5].strip() in ("|", "||", "¦", "│", "┃"):
             continue
         center = word[0] + word[2] / 2
-        if center < columns["name_start"]:
-            continue
         ordinal = anchors.get("ordinal")
         if (ordinal is not None and center < anchors["name"][0]
                 and re.fullmatch(r"\d+[.)]?", word[5])
                 and abs(center-ordinal[0]-ordinal[2]/2) <= max(60, ordinal[2]*2)):
             cells["ordinal"].append(word[5])
             continue
+        if center < columns["name_start"]:
+            left = [key for key, anchor in anchors.items()
+                    if key != "name" and anchor[0] < anchors["name"][0]]
+            if left:
+                key = min(left, key=lambda k:abs(anchors[k][0]+anchors[k][2]/2-center))
+                cells[key].append(word[5])
+            continue
         # A broad name column must not be cut at the midpoint of its short
         # heading and the next column: that drops long printed product names.
         if center < name_end:
             key = "name"
         else:
-            key = min((k for k in anchors if k != "name"),
-                      key=lambda k:abs(anchors[k][0] + anchors[k][2] / 2 - center))
+            # Numeric cells are commonly right-aligned. Nearest title centres
+            # shift the right half of a broad money column into a narrow code
+            # column. Use the next printed heading as its right boundary.
+            right = sorted((k for k in anchors if k != "name"
+                            and anchors[k][0] >= name_end), key=lambda k:anchors[k][0])
+            key = right[0]
+            for candidate in right[1:]:
+                if center < anchors[candidate][0] - 8:
+                    break
+                key = candidate
         cells[key].append(word[5])
     return {key:" ".join(values).strip() for key, values in cells.items()}
 
@@ -210,8 +224,16 @@ def _table_header(lines, start):
     band = []
     top = min(w[1] for w in lines[start]["tokens"])
     height = median(w[3] for w in lines[start]["tokens"])
-    for line in lines[start:start+10]:
-        if min(w[1] for w in line["tokens"]) - top > max(160, height * 9):
+    # These are continuations of printed column titles, not product names.
+    # In particular, do not consume the first product's first name line while
+    # waiting for its vertically centred quantity on a later physical line.
+    qualifiers = set(("вание во чество измерения измерение условное обозначение "
+        "национальное код вида товара товаров работы работ услуг услуги описание "
+        "выполненных оказанных переданных имущественного права единицу за "
+        "без с включая ндс налог налога налогом сумма стоимость объем обьем "
+        "акциз акциза налоговая ставка руб коп валюте расчета всего").split())
+    for line in lines[start:start+24]:
+        if min(w[1] for w in line["tokens"]) - top > max(480, height * 24):
             break
         quantities = found.get("quantity", [])
         # Stop before a real goods row; header qualifiers below the title
@@ -224,25 +246,61 @@ def _table_header(lines, start):
                           for w in line["tokens"])
             letters = any(w[0] < qty[0] and re.search(r"[A-Za-zА-Яа-яЁё]{2}", w[5])
                           and _column_label(w[5]) is None for w in line["tokens"])
-            if numeric and letters:
+            ordinal = found.get("ordinal", [])
+            numbered = bool(ordinal and any(
+                re.fullmatch(r"[1-9]\d*[.)]?", w[5])
+                and abs(w[0]+w[2]/2-ordinal[0][0]-ordinal[0][2]/2)
+                    <= max(60, ordinal[0][2]*2) for w in line["tokens"]))
+            name = found["name"][0]
+            right = [w[0] for key, words in found.items() for w in words
+                     if key != "name" and w[0] > name[0]]
+            name_end = min(right) - 8 if right else qty[0]
+            product_text = any(w[0]+w[2]/2 < name_end
+                and re.search(r"[A-Za-zА-Яа-яЁё]{2}", w[5])
+                and _column_label(w[5]) is None
+                and not set(norm(w[5]).split()) <= qualifiers for w in line["tokens"])
+            # UPD prints a row of column indexes (1, 1a, 1b, 2, 2a, ...).
+            # OCR may read 1a as "la"; that is still the header, not a good.
+            words = [w[5] for w in line["tokens"] if w[5] not in ("|", "¦", "│")]
+            indexes = len(words) >= 4 and all(re.fullmatch(
+                r"(?:\d{1,2}[A-Za-zА-Яа-я]?|[A-Za-zА-Яа-я]{1,2})", token) for token in words)
+            if not indexes and ((numeric or numbered) and letters
+                                or product_text and not ordinal):
                 break
         band.append(line)
         for word in line["tokens"]:
             label = _column_label(word[5])
             if label:
+                # A later mention of "товары" in a registration-code column
+                # is not a second name column. The title selected at the
+                # start of this header establishes that column's position.
+                if label == "name" and found.get("name"):
+                    continue
+                # "Цена (тариф)" is one printed column, not two amounts.
+                if label == "price" and found.get(label):
+                    previous = found[label][-1]
+                    if (abs(word[1]-previous[1]) <= max(word[3], previous[3]) / 2
+                            and 0 <= word[0]-previous[0]-previous[2] <= max(25, word[3])):
+                        found[label][-1] = [previous[0], min(previous[1], word[1]),
+                            word[0]+word[2]-previous[0], max(previous[3], word[3]),
+                            min(previous[4], word[4]), previous[5]+" "+word[5]]
+                        continue
                 found.setdefault(label, []).append(word)
     if len(found.get("name", [])) != 1 or len(found.get("quantity", [])) != 1:
         return None
     name, quantity = found["name"][0], found["quantity"][0]
-    if name[0] >= quantity[0]:
+    if name[0] >= quantity[0] or abs(name[1]-quantity[1]) > max(80, height * 3):
         return None
     anchors = {}
     for label, words in found.items():
         for i, word in enumerate(words):
             anchors[label if len(words) == 1 else f"{label}_{i}"] = word
     right = [w[0] for key, w in anchors.items() if key != "name" and w[0] > name[0]]
+    # A centred title is not the left edge of its data column. Only a printed
+    # neighbouring column can bound it; otherwise retain the full left area.
+    left = [w[0]+w[2] for key, w in anchors.items() if key != "name" and w[0] < name[0]]
     columns = {"anchors":anchors,
-               "name_start":max(0, name[0]-max(120, name[2])),
+               "name_start":max(left, default=0),
                "name_end":min(right)-8,
                "header_end":max(w[1]+w[3] for line in band for w in line["tokens"]),
                "value_key":None, "value_basis":None}
@@ -251,9 +309,11 @@ def _table_header(lines, start):
     gross = []
     excluded = set()
     for key in money:
-        text = norm(heading[key])
+        # Retain the printed qualifier across line wraps: "с на-" / "логом".
+        text = norm(re.sub(r"([A-Za-zА-Яа-яЁё])-\s+([A-Za-zА-Яа-яЁё])",
+                           r"\1\2", heading[key]))
         net = bool(re.search(r"\bбез\s*(?:ндс|налога)\b", text))
-        tax = bool(re.search(r"\bсумма\s*(?:налога|ндс)\b", text))
+        tax = bool(re.search(r"\bсумма\s*(?:налога|ндс|акциза)\b", text))
         if net or tax:
             excluded.add(key)
         elif re.search(r"\b(?:с|включая)\s*(?:ндс|налогом)\b", text):
@@ -272,39 +332,60 @@ def table_candidates(lines):
     columns = None
 
     def finish():
-        anchors = [part for part in segment if part["quantity"] is not None]
-        names = {part["line"]["id"]:[part] for part in anchors}
-        pending = [part for part in segment if part["quantity"] is None and part["name_only"]]
-        # Join adjacent printed name fragments to a uniquely closest goods
-        # row, including three-line names. Never cross a total/header boundary.
-        while pending and anchors:
-            remaining = []
-            for part in pending:
-                distances = sorted((abs(part["y"]-row["y"]), row["line"]["id"], row)
-                                   for row in anchors)
-                distance, ident, row = distances[0]
-                nearest_piece = min(abs(part["y"]-piece["y"]) for piece in names[ident])
-                if (nearest_piece <= max(part["height"], row["height"])*1.8
-                        and (len(distances) == 1 or distance < distances[1][0])):
-                    names[ident].append(part)
-                else:
-                    remaining.append(part)
-            if len(remaining) == len(pending):
-                break
-            pending = remaining
-        for part in anchors:
-            pieces = sorted(names[part["line"]["id"]], key=lambda item:item["y"])
-            name = " ".join(item["cells"].get("name", "") for item in pieces).strip()
+        groups, pending = [], []
+        numeric_keys = [key for key in columns["anchors"]
+                        if key in ("quantity", "price", "value") or key.startswith("value_")]
+
+        def close(a, b):
+            return abs(a["y"]-b["y"]) <= max(a["height"], b["height"])*2.5
+
+        def amounts(part):
+            return any(part["cells"].get(key) for key in numeric_keys)
+
+        for part in segment:
+            cells = part["cells"]
+            named = bool(re.search(r"[A-Za-zА-Яа-яЁё]{2}", cells.get("name", "")))
+            numbered = bool(re.fullmatch(r"[1-9]\d*[.)]?", cells.get("ordinal", "")))
+            # A printed numbered good remains a good when one numerical field
+            # is unreadable. An unnumbered row needs additional cell evidence.
+            row = part["quantity"] is not None or (named and cells.get("unit") and amounts(part))
+            previous = groups[-1] if groups else None
+            has_amounts = bool(previous and any(amounts(piece) for piece in previous))
+            if numbered or row and (not previous or has_amounts or not close(previous[-1], part)):
+                pieces = [part]
+                if not numbered and pending and close(pending[-1], part):
+                    pieces = pending + pieces
+                groups.append(pieces)
+                pending = []
+            elif previous and close(previous[-1], part) and (
+                    part["name_fragment"] or row or not has_amounts and amounts(part)):
+                # Direction follows the printed row boundary. In particular a
+                # third name line never jumps to a nearer quantity below it.
+                previous.append(part)
+            elif part["name_fragment"]:
+                if pending and not close(pending[-1], part):
+                    pending = []
+                pending.append(part)
+            else:
+                pending = []
+
+        for pieces in groups:
+            cells = {key:" ".join(piece["cells"].get(key, "") for piece in pieces
+                                   if piece["cells"].get(key)).strip()
+                     for key in columns["anchors"]}
+            name = cells.get("name", "")
             if not re.search(r"[A-Za-zА-Яа-яЁё]{2}", name) or len(name) > 500:
                 continue
-            cells = part["cells"]
-            unit = cells.get("unit", "")
+            source = next((part for part in pieces if part["quantity"] is not None), pieces[0])
+            quantity = maybe_number(cells.get("quantity", ""), 1000)
+            quantity = quantity if quantity is not None and Decimal(quantity) > 0 else None
+            unit = cells.get("unit", "").strip("|¦│┃ ")
             if len(unit) > 30 or re.search(r"\d", unit):
                 unit = ""
             value = maybe_number(cells.get(columns["value_key"], ""), 100)
-            result.append({"source_line":part["line"]["id"],
+            result.append({"source_line":source["line"]["id"],
                            "source_lines":[item["line"]["id"] for item in pieces],
-                           "name":name, "unit":unit, "quantity":part["quantity"],
+                           "name":name, "unit":unit, "quantity":quantity,
                            "price":maybe_number(cells.get("price", ""), 10000),
                            "value":value, "value_basis":columns["value_basis"] if value is not None else None,
                            "action":"unresolved", "item_id":None, "folder_id":None,
@@ -330,8 +411,9 @@ def table_candidates(lines):
         cells = _cells(tokens, columns)
         quantity = maybe_number(cells.get("quantity", ""), 1000)
         quantity = quantity if quantity is not None and Decimal(quantity) > 0 else None
-        name_only = bool(cells.get("name") and all(not value for key, value in cells.items() if key != "name"))
-        segment.append({"line":line, "cells":cells, "quantity":quantity, "name_only":name_only,
+        name_fragment = bool(cells.get("name") and all(not value for key, value in cells.items()
+                            if key != "name" and not key.startswith("ignore")))
+        segment.append({"line":line, "cells":cells, "quantity":quantity, "name_fragment":name_fragment,
                         "y":median(w[1]+w[3]/2 for w in tokens), "height":median(w[3] for w in tokens)})
     if columns:
         finish()

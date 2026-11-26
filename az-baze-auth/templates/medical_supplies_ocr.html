@@ -125,6 +125,18 @@
   const add=document.getElementById('ocr-add'),template=document.getElementById('ocr-new');
   const catalog=document.getElementById('ocr-catalog-options');
   let dirty=false,newRow=0;
+  function fitName(field){
+    field.style.height='auto';
+    const style=getComputedStyle(field),border=parseFloat(style.borderTopWidth)+parseFloat(style.borderBottomWidth);
+    field.style.height=Math.ceil(field.scrollHeight+border)+'px';
+  }
+  function fitNames(){if(rows)rows.querySelectorAll('textarea[name="name"]').forEach(fitName);}
+  if(rows){
+    rows.addEventListener('input',function(event){if(event.target.matches('textarea[name="name"]'))fitName(event.target);});
+    window.addEventListener('resize',fitNames);
+    fitNames();
+    if(document.fonts)document.fonts.ready.then(fitNames);
+  }
   if(form){form.addEventListener('input',()=>{dirty=true;});form.addEventListener('change',()=>{dirty=true;});}
   function emptyState(){const empty=document.getElementById('ocr-empty');if(empty)empty.hidden=rows.querySelectorAll('.ocr-row').length>0;}
   function rowState(row){const action=row.querySelector('[name="action"]').value;row.querySelector('.ocr-row-state').textContent=({new:'Новая позиция',existing:'Из справочника',skip:'Пропустить строку'})[action]||'';}
@@ -141,7 +153,7 @@
       if(rows.querySelectorAll('.ocr-row').length>=200)return;
       const fragment=template.content.cloneNode(true),row=fragment.querySelector('.ocr-row');
       const id='ocr-detail-added-'+(++newRow);row.querySelector('.ocr-row-detail').id=id;row.querySelector('.ocr-more').setAttribute('aria-controls',id);
-      rows.appendChild(fragment);form.querySelector('[name="no_items"]').checked=false;dirty=true;emptyState();row.querySelector('[name="name"]').focus();
+      rows.appendChild(fragment);form.querySelector('[name="no_items"]').checked=false;dirty=true;emptyState();fitName(row.querySelector('[name="name"]'));row.querySelector('[name="name"]').focus();
     });
     rows.addEventListener('click',function(event){
       const more=event.target.closest('.ocr-more'),remove=event.target.closest('.ocr-remove');
