@@ -46,8 +46,11 @@ function Lab-CreateGrants($Acl){
 try {
     $unsafeParents=@($labParents|Where-Object {@(Lab-CreateGrants (Get-Acl -LiteralPath $_)).Count -gt 0})
     if($unsafeParents.Count -gt 0){
-        $negative=@(& powershell.exe @common -Mode Plan -PackageDirectory $package)
-        if($LASTEXITCODE -ne 1 -or 'STOP=ANCESTOR_ACL' -cnotin $negative){throw 'LIVE_PLAN_MISSED_PARENT_CREATE_RIGHT'}
+        $negativeArgs=@('-Mode','Plan','-PackageDirectory',$package)
+        $negative=@(& powershell.exe @common @negativeArgs)
+        $negativeExit=$LASTEXITCODE
+        Write-Output ('LAB_NEGATIVE_PLAN_EXIT='+$negativeExit+'; OUTPUT='+($negative -join '|'))
+        if($negativeExit -ne 1 -or 'STOP=ANCESTOR_ACL' -cnotin $negative){throw 'LIVE_PLAN_MISSED_PARENT_CREATE_RIGHT'}
         if((Test-Path -LiteralPath $root) -or (Get-Service -Name AzIdent006C -ErrorAction SilentlyContinue)){throw 'NEGATIVE_PLAN_MUTATED'}
         Write-Output 'LAB_DEFAULT_UNSAFE_PARENT_PLAN=REJECTED_WITHOUT_MUTATION'
     }
