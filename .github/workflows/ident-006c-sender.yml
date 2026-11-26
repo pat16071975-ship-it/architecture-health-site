@@ -8,7 +8,7 @@ permissions:
 jobs:
   sender:
     runs-on: windows-2025
-    timeout-minutes: 12
+    timeout-minutes: 29
     defaults:
       run:
         shell: pwsh
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          fetch-depth: 12
+          fetch-depth: 40
           persist-credentials: false
       - name: Verify exact source and copy raw Git blobs
         run: |
@@ -30,7 +30,7 @@ jobs:
           $sender='92e802de546e17b0d3be25f12de54f95f9140f1d'
           git merge-base --is-ancestor $source HEAD
           if($LASTEXITCODE -ne 0 -or (git rev-parse "$source^{tree}") -cne $tree -or (git rev-parse HEAD:integrations/ident-006-sender) -cne $sender -or (git rev-parse "$($source):integrations/ident-006-sender") -cne $sender){throw 'EXACT_SOURCE'}
-          if(@(git ls-tree -r --name-only HEAD).Count -ne 26){throw 'CI_SCOPE'}
+          if(@(git ls-tree -r --name-only HEAD).Count -ne 33){throw 'CI_SCOPE'}
           $work=Join-Path $env:RUNNER_TEMP 'ident006c-source'
           $env:IDENT_WORK=$work
           $env:IDENT_EXACT=$source
@@ -139,16 +139,92 @@ jobs:
         run: |
           & $env:IDENT_SENDER_TEST_EXE
           if($LASTEXITCODE -ne 0){throw 'UNIT_TEST_FAILED'}
-      - name: Disposable Windows SCM and HTTPS exact retry lab
+      - name: Build isolated SQL test assembly against exact audited sources
+        run: |
+          $ErrorActionPreference='Stop'
+          $labProject=Join-Path $env:IDENT_WORK 'sql-lab'
+          New-Item -ItemType Directory -Path $labProject | Out-Null
+          $original=Get-Content -LiteralPath (Join-Path $env:IDENT_WORK 'tests/AzIdentSender.Tests.csproj') -Raw
+          $project=$original.Replace('<StartupObject>Tests</StartupObject>','<StartupObject>SqlLab</StartupObject>').Replace('<AssemblyName>AzIdentSender.Tests</AssemblyName>','<AssemblyName>AzIdentSender.SqlLab</AssemblyName>')
+          if($project -ceq $original){throw 'LAB_PROJECT_GENERATION'}
+          $projectPath=Join-Path $labProject 'SqlLab.csproj'
+          [IO.File]::WriteAllText($projectPath,$project,[Text.UTF8Encoding]::new($false))
+          Copy-Item -LiteralPath 'ci-fixtures/ident-006c/SqlLab.cs' -Destination (Join-Path $labProject 'SqlLab.cs')
+          Copy-Item -LiteralPath (Join-Path $env:IDENT_WORK 'tests/packages.lock.json') -Destination (Join-Path $labProject 'packages.lock.json')
+          Set-Location $env:IDENT_WORK
+          $lock=Join-Path $labProject 'packages.lock.json'
+          $sha=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash
+          if($sha -cne '1E342A205BF256D818402F423D751A2ED6C6D863FBB38FD817C9ADF57F01D5ED'){throw 'LAB_LOCK_HASH'}
+          dotnet restore $projectPath --runtime win-x64 --configfile (Join-Path $env:IDENT_WORK 'NuGet.Config') --no-http-cache --locked-mode -p:Configuration=Release -p:NuGetAudit=true -p:NuGetAuditMode=all
+          if($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash -cne $sha){throw 'LAB_LOCKED_RESTORE'}
+          $out=Join-Path $env:RUNNER_TEMP 'ident006c-sql-probe'
+          dotnet publish $projectPath -c Release -r win-x64 --self-contained true --no-restore -o $out
+          if($LASTEXITCODE -ne 0){throw 'LAB_PROBE_BUILD'}
+          "IDENT_SQL_LAB_EXE=$(Join-Path $out 'AzIdentSender.SqlLab.exe')" >> $env:GITHUB_ENV
+          Write-Host 'SQL_PROBE_BUILD=PASS; PRODUCT_SOURCES_UNCHANGED=YES'
+      - name: Install loopback-only SQL Server Express on disposable runner
+        timeout-minutes: 12
+        run: |
+          & (Join-Path $env:GITHUB_WORKSPACE 'ci-fixtures/ident-006c/sql_install.ps1')
+      - name: SQL TLS and permission probes
+        timeout-minutes: 4
+        run: |
+          Copy-Item -LiteralPath 'ci-fixtures/ident-006c/sql_capture.py' -Destination (Join-Path $env:IDENT_WORK 'tests/sql_capture.py')
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $env:GITHUB_WORKSPACE 'ci-fixtures/ident-006c/sql_prepare.ps1')
+          if($LASTEXITCODE -ne 0){throw 'SQL_PROBE_SUITE_FAILED'}
+      - name: Actual SCM automatic SQL collection, delivery and recovery
         timeout-minutes: 7
         run: |
           python -m pip install --disable-pip-version-check --no-deps tzdata==2025.2
           if($LASTEXITCODE -ne 0){throw 'LAB_TIMEZONE_DATA'}
-          # Only the CI harness is replaced; the audited source subtree is intact.
-          Copy-Item -LiteralPath 'ci-fixtures/ident-006c/lab_install_ci.ps1' -Destination (Join-Path $env:IDENT_WORK 'tests/lab_install_ci.ps1')
-          Copy-Item -LiteralPath 'ci-fixtures/ident-006c/ci_root_dacl.py' -Destination (Join-Path $env:IDENT_WORK 'tests/ci_root_dacl.py')
-          & (Join-Path $env:IDENT_WORK 'tests/lab_install_ci.ps1')
-          if($LASTEXITCODE -ne 0){throw 'CI_LAB_EXIT'}
+          # Copy only synthetic CI helpers outside the audited source project.
+          foreach($name in @('lab_sql_ci.ps1','ci_root_dacl.py','sql_service.ps1','sql_receiver.py')){
+            Copy-Item -LiteralPath (Join-Path 'ci-fixtures/ident-006c' $name) -Destination (Join-Path (Join-Path $env:IDENT_WORK 'tests') $name)
+          }
+          & (Join-Path $env:IDENT_WORK 'tests/lab_sql_ci.ps1')
+          if($LASTEXITCODE -ne 0){throw 'CI_SQL_LAB_EXIT'}
+      - name: Verify installed runtime and package audited build evidence
+        run: |
+          $ErrorActionPreference='Stop'
+          $publish=$env:IDENT_SENDER_PUBLISH
+          $root=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)) 'AZ-IDENT006C'
+          $manifestFile=Join-Path $publish 'package-manifest.json'
+          $manifest=Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json -AsHashtable
+          foreach($p in $manifest.Keys){
+            $rel=$p.Replace('/','\')
+            foreach($base in @($publish,(Join-Path $root 'app'))){
+              $sha=(Get-FileHash -LiteralPath (Join-Path $base $rel) -Algorithm SHA256).Hash.ToLowerInvariant()
+              if($sha -cne $manifest[$p]){throw 'TESTED_RUNTIME_HASH_CHANGED'}
+            }
+          }
+          $delivery=Join-Path $env:RUNNER_TEMP 'ident006c-delivery'
+          New-Item -ItemType Directory -Path $delivery|Out-Null
+          Copy-Item -LiteralPath $publish -Destination (Join-Path $delivery 'package') -Recurse
+          Copy-Item -LiteralPath (Join-Path $env:IDENT_WORK 'deploy/install.ps1') -Destination $delivery
+          Copy-Item -LiteralPath (Join-Path $env:IDENT_WORK 'src/packages.lock.json') -Destination $delivery
+          Copy-Item -LiteralPath (Join-Path $env:IDENT_WORK 'template.example.json') -Destination $delivery
+          $mh=(Get-FileHash -LiteralPath $manifestFile -Algorithm SHA256).Hash.ToLowerInvariant()
+          $ih=(Get-FileHash -LiteralPath (Join-Path $delivery 'install.ps1') -Algorithm SHA256).Hash.ToLowerInvariant()
+          $eh=$manifest['AzIdentSender.exe']
+          $record=[ordered]@{
+            source_head='6b0108b4a8115aa9e1aee4655f5feea415bdf153';source_tree='9658340f88fac39034ce2555bbcfbd6df6bc2201'
+            ci_head=$env:GITHUB_SHA;run_id=$env:GITHUB_RUN_ID;run_attempt=$env:GITHUB_RUN_ATTEMPT
+            sdk='10.0.404';sqlclient='7.1.2';runtime='win-x64';self_contained=$true
+            package_manifest_sha256=$mh;installer_sha256=$ih;exe_sha256=$eh;runtime_files=$manifest.Count
+            locked_dependency_sha256='1e342a205bf256d818402f423d751a2ed6c6d863fbb38fd817c9adf57f01d5ed'
+            tested_installed_runtime='PASS';sql_tls='PASS';read_only='PASS';automatic_sql_recovery='PASS';exact_retry='PASS'
+            synthetic_only=$true;clinic_installed=$false;production_changed=$false
+          }
+          $record|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $delivery 'build-manifest.json') -Encoding utf8NoBOM
+          "IDENT_DELIVERY=$delivery" >> $env:GITHUB_ENV
+          Write-Host "IDENT_006C_TESTED_BUILD=PASS; PACKAGE_MANIFEST_SHA256=$mh; INSTALLER_SHA256=$ih; EXE_SHA256=$eh; RUNTIME_FILES=$($manifest.Count)"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: IDENT-006C-win-x64-tested-6b0108b4
+          path: ${{ env.IDENT_DELIVERY }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
       - name: Safe diagnostics on failure
         if: failure()
         run: |
@@ -158,3 +234,8 @@ jobs:
           if(Test-Path -LiteralPath $status){Get-Content -LiteralPath $status -Raw}
           Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Service Control Manager';StartTime=(Get-Date).AddMinutes(-10)} -ErrorAction SilentlyContinue | Where-Object Message -Match 'AzIdent006C|IDENT Bridge sender' | Select-Object -First 10 TimeCreated,Id,Message
           if(Get-Service -Name AzIdent006C -ErrorAction SilentlyContinue){sc.exe config AzIdent006C start= disabled | Out-Null; Stop-Service AzIdent006C -ErrorAction SilentlyContinue}
+      - name: Stop only disposable SQL Server
+        if: always()
+        run: |
+          $s=Get-Service -Name 'MSSQL$IDENTLAB' -ErrorAction SilentlyContinue
+          if($s){Stop-Service -Name 'MSSQL$IDENTLAB' -Force}
