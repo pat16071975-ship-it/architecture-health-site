@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import tempfile
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -201,30 +202,53 @@ def verify_store(conn: sqlite3.Connection) -> None:
 
 def init_store(path: Path, expected: Identity) -> str:
     wanted = (expected.source_id, expected.stream_id, expected.source_timezone)
-    # Exclusive creation; never install DDL into a pre-existing AZ/MD database.
-    try:
-        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError:
+
+    def verify_existing() -> str:
         with closing(connect(path, readonly=True)) as conn:
             verify_store(conn)
             current = conn.execute("SELECT source_id,stream_id,source_timezone FROM source_identity WHERE singleton=1").fetchone()
             require(current == wanted, "STORE_ALREADY_BOUND")
         return "STORE_READY"
-    else:
-        os.close(fd)
-    with closing(connect(path)) as conn:
-        conn.execute("BEGIN IMMEDIATE")
+
+    # Never initialize at the final path. An interrupted candidate is not a store.
+    if path.exists() or path.is_symlink():
+        return verify_existing()
+    fd, name = tempfile.mkstemp(prefix=".ident004-init-", suffix=".sqlite3", dir=path.parent)
+    os.close(fd)
+    candidate = Path(name)
+    try:
+        with closing(connect(candidate)) as conn:
+            require(conn.execute("PRAGMA journal_mode=DELETE").fetchone()[0] == "delete", "INIT_JOURNAL_MODE")
+            conn.execute("PRAGMA synchronous=FULL")
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                conn.execute(f"PRAGMA application_id={APP_ID}")
+                conn.execute(f"PRAGMA user_version={STORE_VERSION}")
+                for ddl in DDL:
+                    conn.execute(ddl)
+                conn.execute("INSERT INTO source_identity VALUES (1,?,?,?)", wanted)
+                conn.commit()
+            except BaseException:
+                conn.rollback()
+                raise
+            verify_store(conn)
+        with candidate.open("r+b") as handle:
+            os.fsync(handle.fileno())
+        # Atomic no-clobber publication on the same filesystem. Never replace an
+        # existing store, even if another initializer won or it is unrelated.
         try:
-            conn.execute(f"PRAGMA application_id={APP_ID}")
-            conn.execute(f"PRAGMA user_version={STORE_VERSION}")
-            for ddl in DDL:
-                conn.execute(ddl)
-            conn.execute("INSERT INTO source_identity VALUES (1,?,?,?)", wanted)
-            conn.commit()
-        except BaseException:
-            conn.rollback()
-            raise
-    return "STORE_READY"
+            os.link(candidate, path)
+        except FileExistsError:
+            return verify_existing()
+        if os.name == "posix":
+            dirfd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(dirfd)
+            finally:
+                os.close(dirfd)
+        return verify_existing()
+    finally:
+        candidate.unlink(missing_ok=True)
 
 
 def ingest(path: Path, raw: bytes) -> str:

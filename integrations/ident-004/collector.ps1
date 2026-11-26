@@ -26,6 +26,7 @@ $reader = $null
 $cmd = $null
 $tmp = $null
 $hash = $null
+. (Join-Path $PSScriptRoot 'outbox_guard.ps1')
 try {
     if (-not $ConfirmWholeDatabaseScope) { throw 'WHOLE_DATABASE_SCOPE_NOT_APPROVED' }
     if ($SourceId -eq [guid]::Empty -or $StreamId -eq [guid]::Empty) { throw 'INVALID_SOURCE_ID' }
@@ -34,10 +35,11 @@ try {
     $end = [datetime]::ParseExact($DateToExclusive,'yyyy-MM-dd',$invariant)
     $days = ($end - $start).Days
     if ($days -lt 1 -or $days -gt 31) { throw 'INVALID_DATE_WINDOW' }
-    if (-not [System.IO.Directory]::Exists($PrivateOutbox)) { throw 'PRIVATE_OUTBOX_MUST_ALREADY_EXIST' }
-    $outbox = [System.IO.Path]::GetFullPath($PrivateOutbox)
+    $outboxSid = Get-PrivateOutboxIdentity
+    $outbox = Assert-PrivateOutbox $PrivateOutbox $outboxSid
     $sqlPath = Join-Path $PSScriptRoot 'sql/payments_daily_v1.sql'
     $sql = [System.IO.File]::ReadAllText($sqlPath,$utf8).Replace("`r`n","`n").Replace("`r","`n")
+    $guardSql = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'sql/guard_readonly.sql'),$utf8)
     $schemaSql = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'sql/payments_daily_v1_schema.sql'),$utf8)
     $hash = [System.Security.Cryptography.SHA256]::Create()
     $querySha = [System.BitConverter]::ToString($hash.ComputeHash($utf8.GetBytes($sql))).Replace('-','').ToLowerInvariant()
@@ -59,6 +61,20 @@ try {
     $cmd.CommandText = "SELECT DB_NAME(), HAS_PERMS_BY_NAME(N'dbo.PaymentsIn',N'OBJECT',N'SELECT')"
     $reader = $cmd.ExecuteReader()
     if (-not $reader.Read() -or $reader.GetString(0) -cne $Database -or $reader.IsDBNull(1) -or $reader.GetInt32(1) -ne 1) { throw 'SOURCE_PREFLIGHT_FAILED' }
+    $reader.Dispose(); $reader = $null
+    # Mandatory permission policy on the same connection, before financial reads.
+    $cmd.CommandText = $guardSql
+    $reader = $cmd.ExecuteReader()
+    $checks = @('identity','roles','server_effective','database_effective','server_grants','database_grants','ownership','payments_effective')
+    $seenChecks = @{}
+    while ($reader.Read()) {
+        if ($reader.FieldCount -ne 2 -or $reader.IsDBNull(0) -or $reader.IsDBNull(1)) { throw 'SQL_READONLY_INVALID_RESULT' }
+        $check = $reader.GetString(0)
+        if ($check -cnotin $checks -or $seenChecks.ContainsKey($check)) { throw 'SQL_READONLY_INVALID_RESULT' }
+        if ($reader.GetInt32(1) -ne 1) { throw ('SQL_READONLY_' + $check.ToUpperInvariant()) }
+        $seenChecks[$check] = $true
+    }
+    if ($seenChecks.Count -ne $checks.Count -or $reader.NextResult()) { throw 'SQL_READONLY_INCOMPLETE_RESULT' }
     $reader.Dispose(); $reader = $null
     $cmd.CommandText = $schemaSql
     $reader = $cmd.ExecuteReader()
@@ -114,16 +130,24 @@ try {
     }
     $json = ConvertTo-Json -InputObject $payload -Depth 8 -Compress
     $bytes = $utf8.GetBytes($json)
-    $tmp = Join-Path $outbox ('.' + $batchId + '.tmp')
+    $outbox = Assert-PrivateOutbox $PrivateOutbox $outboxSid
+    $candidate = Join-Path $outbox ('.' + $batchId + '.tmp')
     $target = Join-Path $outbox ($batchId + '.json')
-    $file = [System.IO.File]::Open($tmp,[System.IO.FileMode]::CreateNew,[System.IO.FileAccess]::Write,[System.IO.FileShare]::None)
-    try { $file.Write($bytes,0,$bytes.Length); $file.Flush($true) } finally { $file.Dispose() }
+    $security = New-PrivateFileSecurity $outboxSid
+    $file = [System.IO.FileStream]::new($candidate,[System.IO.FileMode]::CreateNew,[System.Security.AccessControl.FileSystemRights]::FullControl,[System.IO.FileShare]::None,4096,[System.IO.FileOptions]::WriteThrough,$security)
+    $tmp = $candidate
+    try {
+        Assert-PrivateAcl ($file.GetAccessControl()) $outboxSid $false
+        $file.Write($bytes,0,$bytes.Length); $file.Flush($true)
+    } finally { $file.Dispose() }
     [System.IO.File]::Move($tmp,$target)
     $tmp = $null
     Write-Output ('COLLECTION=PASS; DATASET=payments_daily_v1; DAYS=' + $days + '; BATCH=' + $batchId)
 } catch {
     # Avoid logging connection strings, credentials, and raw SQL driver messages.
-    Write-Error ('COLLECTION=STOP; TYPE=' + $_.Exception.GetType().Name + '; HResult=' + $_.Exception.HResult) -ErrorAction Continue
+    $reason = $_.Exception.Message
+    if ($reason -cnotmatch '^(OUTBOX|SQL_READONLY)_[A-Z_]+$') { $reason = 'REDACTED' }
+    Write-Error ('COLLECTION=STOP; REASON=' + $reason + '; TYPE=' + $_.Exception.GetType().Name + '; HResult=' + $_.Exception.HResult) -ErrorAction Continue
     exit 1
 } finally {
     if ($null -ne $reader) { $reader.Dispose() }
