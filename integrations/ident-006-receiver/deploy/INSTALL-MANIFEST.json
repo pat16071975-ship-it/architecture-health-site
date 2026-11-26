@@ -5,7 +5,7 @@
   "deploy/az-ident006b.service": "cd551aab898f79fbac21c7378192938cd42b66b37e5f785508891e00dc7a10b5",
   "deploy/az-ident006b.socket": "ca28177f2b2de127b249bae48f48aac7f2827b2283524978f935b621349ffe3f",
   "deploy/gunicorn_conf.py": "95d71d6588f989de2237ee18d59cec2d0862b8b7ef788edac77630e45289731d",
-  "deploy/installer.py": "3e7352a3fc8d5c3a49e4820d2c3175a17be5cd99ae5a0fd38e42642436488843",
+  "deploy/installer.py": "4b1373e9a9374742df25b531d74a7cf875502f22ab3049e4a57842d1ccbeb4a8",
   "deploy/launch.py": "8de84dc3f06808ca8a710e772b2a6c2348fc61e2bdd295abc93fd8a09735e762",
   "deploy/nginx_edit.py": "e4aed06eabce6c41a51ed0ec977f126036aebd1a6b694df07100031fa3c3a3b2",
   "deploy/nginx-http.conf": "8239e0b4bb7afcf53533c41a689f4f7d2204db50cca90a9b20b30a21aeb3dee4",

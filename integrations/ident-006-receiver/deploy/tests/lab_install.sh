@@ -15,6 +15,13 @@ test ! -e /etc/nginx/sites-available/ident006b-fixture.conf
 # Install prerequisite packages only on this ephemeral runner.
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nginx python3-venv
+# Hosted runner images can give /opt to the runner user. The real installer
+# must refuse such a parent. Normalize only the disposable CI parent directory,
+# never the production host and never a recursive chmod/chown.
+sudo stat -c 'LAB_PARENT=%n OWNER=%U:%G MODE=%a' / /opt /etc /var /var/lib /run /etc/systemd/system /etc/nginx /etc/nginx/conf.d
+sudo chown root:root /opt
+sudo chmod go-w /opt
+sudo stat -c 'LAB_NORMALIZED=%n OWNER=%U:%G MODE=%a' /opt
 sudo install -d -m 0700 "$lab"
 sudo install -d -m 0755 "$lab/source" "$lab/wheels"
 sudo cp -a "$here/." "$lab/source/"
