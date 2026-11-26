@@ -37,7 +37,8 @@ jobs:
           # git archive filters or PowerShell text redirection for source bytes.
           $entries = @(git ls-tree -r --full-tree $source -- integrations/ident-004/)
           if ($LASTEXITCODE -ne 0 -or $entries.Count -ne 18) { throw 'AUDITED_BLOB_COUNT' }
-          $gitPath = (Get-Command git.exe -CommandType Application).Source
+          $gitPath = (Get-Command git.exe -CommandType Application | Select-Object -First 1).Source
+          if (-not $gitPath -or -not (Test-Path -LiteralPath $gitPath -PathType Leaf)) { throw 'GIT_EXECUTABLE' }
           foreach ($entry in $entries) {
             if ($entry -cnotmatch '^100644 blob ([0-9a-f]{40})\tintegrations/ident-004/([A-Za-z0-9_./-]+)$') { throw 'AUDITED_BLOB_ENTRY' }
             $blobSha = $Matches[1]; $relative = $Matches[2]
