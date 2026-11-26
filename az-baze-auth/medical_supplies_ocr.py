@@ -16,16 +16,20 @@ import sqlite3
 import stat
 import subprocess
 import tempfile
+import time
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from statistics import median
 
 from flask import abort, g, jsonify, make_response, redirect, render_template, request, url_for
 import medical_supplies_documents as inbox
+from medical_supplies_ocr_enrichment import enrich_rows, header_proposal
+from medical_supplies_ocr_quality import summarize_page
 
 KEY = "ocr_review_v1"
-EXTRACTOR_VERSION = 5
+EXTRACTOR_VERSION = 6
+RECOGNITION_VERSION = 2
 MAX_PAGES = 20
 MAX_WORDS = 8000
 MAX_LINES = 1000
@@ -72,6 +76,33 @@ def number(value, scale):
         return format(n,"f")
     except InvalidOperation as exc:
         raise ValueError("Проверьте числовое поле.") from exc
+
+
+def unit_cost(value, quantity, unit, *, value_basis=None):
+    """Read-only gross cost per document unit, never a replacement amount.
+
+    Keep the original line amount and printed price independent: dividing a
+    rounded result back into the quantity can change the document's money.
+    None also means an explicitly non-gross or unresolved monetary column.
+    """
+    if (not isinstance(unit,str) or not unit.strip() or len(unit)>30
+            or "\x00" in unit or unit.strip() in ("—","–","-","?")
+            or value_basis not in (None,"printed_gross","printed_single_total")):
+        return None
+    if any(isinstance(n,bool) or not isinstance(n,(str,int,Decimal))
+           for n in (value,quantity)):
+        return None
+    try:
+        amount=number(str(value),100)
+        count=number(str(quantity),1000)
+        if amount is None or count is None or Decimal(count)<=0:
+            return None
+        calculated=(Decimal(amount)/Decimal(count)).quantize(
+            Decimal("0.0001"),rounding=ROUND_HALF_UP)
+    except (ValueError,InvalidOperation):
+        return None
+    whole,fraction=format(calculated,".4f").split(".")
+    return whole+"."+fraction.rstrip("0").ljust(2,"0")
 
 
 def maybe_number(value, scale):
@@ -815,6 +846,12 @@ def recognize_pdf_page(raw,page,lock_directory):
     """One page, no database writes or long SQLite transaction."""
     if not raw.startswith(b"%PDF-") or not 0<len(raw)<=inbox.MAX_BYTES:
         raise OCRUnavailable("Поддерживается PDF-оригинал до 20 МБ.")
+    deadline=time.monotonic()+25
+    def bounded_command(argv,directory,output,seconds,max_size):
+        remaining=int(deadline-time.monotonic())
+        if remaining<1:
+            raise OCRUnavailable("Распознавание страницы не завершилось вовремя. Сохранённые данные доступны.")
+        return _command(argv,directory,output,min(seconds,remaining),max_size)
     lock=Path(lock_directory)/".med-supply-ocr.lock"
     try:
         fd=os.open(lock,os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
@@ -833,7 +870,7 @@ def recognize_pdf_page(raw,page,lock_directory):
             pdf=root/"source.pdf"
             pdf.write_bytes(raw)
             report=root/"info.txt"
-            _command(["pdfinfo",str(pdf)],root,report,3,65536)
+            bounded_command(["pdfinfo",str(pdf)],root,report,3,65536)
             match=re.search(r"^Pages:\s+(\d+)\s*$",report.read_text(encoding="utf-8",errors="replace"),re.M)
             if not match or not 1<=int(match.group(1))<=MAX_PAGES:
                 raise OCRUnavailable("PDF должен содержать от 1 до 20 страниц.")
@@ -843,15 +880,21 @@ def recognize_pdf_page(raw,page,lock_directory):
             prefix=root/"page"
             # Poppler limits raster dimensions. Its image file is covered by
             # the same per-process fsize limit (64 MiB).
-            _command(["pdftoppm","-f",str(page),"-l",str(page),"-scale-to","3508",
+            bounded_command(["pdftoppm","-f",str(page),"-l",str(page),"-scale-to","3508",
                       "-png","-singlefile",str(pdf),str(prefix)],root,root/"render.log",6,64*1024*1024)
             image=prefix.with_suffix(".png")
             if not image.is_file():
                 raise OCRUnavailable("Не удалось получить изображение страницы.")
             tsv=root/"page.tsv"
-            _command(["tesseract",str(image),"stdout","-l","rus+eng","--psm","3","tsv"],
-                     root,tsv,17,MAX_TSV)
+            bounded_command(["tesseract",str(image),"stdout","-l","rus+eng","--psm","3","tsv"],
+                     root,tsv,8,MAX_TSV)
             parsed=parse_tsv(tsv.read_text(encoding="utf-8"))
+            from medical_supplies_ocr_image import enhance_page
+            parsed=enhance_page(image,root,bounded_command,parsed)
+            # A fallback with only one OCR view cannot confirm dates or
+            # printed pagination through agreement of two readings.
+            parsed.setdefault("metadata_first_pass",[])
+            parsed["recognition_version"]=RECOGNITION_VERSION
             return count,parsed
     finally:
         os.close(fd)
@@ -933,18 +976,88 @@ def suggestions(name,unit,items):
     return [r[3] for r in ranked[:3]]
 
 
+def classification_history(conn,exclude_doc_id):
+    """Read only confirmed choices, with a bounded metadata budget; no blobs."""
+    pages=[]
+    remaining=8*1024*1024
+    for row in conn.execute("""SELECT fields_json FROM med_supply_documents
+        WHERE id!=? AND length(fields_json)<=2097152
+        ORDER BY id DESC LIMIT 50""",(exclude_doc_id,)):
+        raw=row["fields_json"]
+        remaining-=len(raw.encode("utf-8"))
+        if remaining<0:
+            break
+        try:
+            fields=json.loads(raw)
+            old_pages=fields.get(KEY,{}).get("pages",{})
+            if not isinstance(old_pages,dict):
+                continue
+            for previous in list(old_pages.values())[:MAX_PAGES]:
+                if isinstance(previous,dict) and previous.get("checked") is True and isinstance(previous.get("rows"),list):
+                    pages.append(previous)
+        except (ValueError,TypeError,AttributeError):
+            # A damaged unrelated draft cannot break another document's OCR.
+            continue
+    return pages
+
+
+def proposed_header(data,page,state):
+    """Propose identity and part without replacing any saved operator field."""
+    if "header" in data:
+        return data["header"]
+    header=dict(data.get("header_candidate") or header_proposal(data,page=page))
+    identity=(header.get("document_type"),norm(header.get("counterparty")),
+              header.get("number"),header.get("date"))
+    used=set()
+    for key,other in state.get("pages",{}).items():
+        if str(key)==str(page) or not isinstance(other,dict):
+            continue
+        other_header=other.get("header",other.get("header_candidate",{}))
+        part=other_header.get("part")
+        if isinstance(part,int) and 1<=part<=MAX_PAGES:
+            used.add(part)
+        other_identity=(other_header.get("document_type"),norm(other_header.get("counterparty")),
+                        other_header.get("number"),other_header.get("date"))
+        if all(identity) and identity[0]!="unknown" and other_identity==identity and part in used:
+            header["part"]=part
+            return header
+    preferred=header.get("part",page)
+    header["part"]=preferred if preferred not in used else next((p for p in range(1,MAX_PAGES+1) if p not in used),page)
+    return header
+
+
+def automatic_proposals(parsed,page,state,items,folders,history):
+    """Only fresh automatic fields; never copy amounts from catalog/history."""
+    parsed=dict(parsed)
+    parsed["candidates"]=enrich_rows(parsed["candidates"],items,folders,history=history)
+    parsed["header_candidate"]=proposed_header(parsed,page,state)
+    return parsed
+
+
 def parse_review(form,page_data,items,folders):
+    scope=form.get("review_scope") or "document"
+    if scope not in ("goods","document"):
+        raise ValueError("Неизвестный вид проверки.")
     rows=[]
     keys=("source_line","name","unit","quantity","price","value","action","item_id","folder_id","note")
     lists={k:form.getlist(k) for k in keys}
     sizes={len(v) for v in lists.values()}
     if len(sizes)!=1 or next(iter(sizes))>MAX_ROWS:
         raise ValueError("Некорректное количество строк.")
+    indexes=form.getlist("row_index")
+    edits=form.getlist("value_edited")
+    count=len(lists["name"])
+    if ((indexes and len(indexes)!=count) or (edits and len(edits)!=count)
+            or any(value not in ("0","1") for value in edits)):
+        raise ValueError("Некорректные данные товарных строк.")
+    previous_rows=page_data.get("rows",page_data.get("candidates",[]))
+    manual_previous=[row for row in previous_rows if row.get("source_line") is None]
     known_lines={l["id"] for l in page_data["lines"]}
     known_items={i["id"]:i for i in items}
     folder_ids={f["id"] for f in folders}
     used=set()
-    for vals in zip(*(lists[k] for k in keys)):
+    used_indexes=set()
+    for position,vals in enumerate(zip(*(lists[k] for k in keys))):
         r=dict(zip(keys,vals))
         name=clean(r["name"],500)
         if not name and not any(r[k].strip() for k in ("quantity","price","value","item_id","folder_id","note")):
@@ -954,6 +1067,27 @@ def parse_review(form,page_data,items,folders):
             raise ValueError("Повторная или неизвестная строка OCR.")
         if line is not None:
             used.add(line)
+        previous=None
+        if indexes:
+            if indexes[position]!="":
+                source_index=integer(indexes[position],0,MAX_ROWS-1)
+                if source_index>=len(previous_rows) or source_index in used_indexes:
+                    raise ValueError("Повторная или неизвестная товарная строка.")
+                used_indexes.add(source_index)
+                previous=previous_rows[source_index]
+                if previous.get("source_line")!=line:
+                    raise ValueError("Товарная строка не совпадает с сохранённым источником.")
+            elif line is not None:
+                raise ValueError("Не указан источник товарной строки.")
+        elif line is not None:
+            previous=next((row for row in previous_rows if row.get("source_line")==line),None)
+        elif len(manual_previous)==1:
+            previous=manual_previous[0]
+        elif any(row.get("value_basis") not in (None,"printed_gross","printed_single_total")
+                 for row in manual_previous):
+            # An old form has no stable indexes for reordered manual rows.
+            # Unknown association must not silently turn net/tax into gross.
+            previous={"value_basis":"unknown"}
         action=r["action"]
         if action not in ACTIONS:
             raise ValueError("Неизвестное решение по строке.")
@@ -967,13 +1101,23 @@ def parse_review(form,page_data,items,folders):
                          quantity=number(r["quantity"],1000),price=number(r["price"],10000),
                          value=number(r["value"],100),action=action,item_id=item_id,
                          folder_id=folder_id,note=clean(r["note"],500),manual=line is None))
-    kind=str(form.get("document_type") or "unknown")
-    if kind not in inbox.TYPE_KEYS:
-        raise ValueError("Неизвестный тип документа.")
-    header={"document_type":kind,"counterparty":clean(form.get("counterparty"),200),
-            "number":clean(form.get("number"),100),"date":inbox._iso_date(form.get("document_date")),
-            "part":integer(form.get("part") or "1",1,MAX_PAGES),
-            "note":clean(form.get("page_note"),1000)}
+        # No submitted unit_cost is trusted, even if a client adds the field.
+        saved=rows[-1]
+        if edits and edits[position]=="1":
+            saved["value_basis"]=None  # Explicit entry of a manual gross amount.
+        elif previous is not None and "value_basis" in previous:
+            saved["value_basis"]=previous["value_basis"]
+        saved["unit_cost"]=unit_cost(saved["value"],saved["quantity"],saved["unit"],
+                                     value_basis=saved.get("value_basis"))
+    header=None
+    if scope=="document":
+        kind=str(form.get("document_type") or "unknown")
+        if kind not in inbox.TYPE_KEYS:
+            raise ValueError("Неизвестный тип документа.")
+        header={"document_type":kind,"counterparty":clean(form.get("counterparty"),200),
+                "number":clean(form.get("number"),100),"date":inbox._iso_date(form.get("document_date")),
+                "part":integer(form.get("part") or "1",1,MAX_PAGES),
+                "note":clean(form.get("page_note"),1000)}
     checked=form.get("checked")=="1"
     empty=form.get("no_items")=="1"
     if empty and rows:
@@ -981,7 +1125,8 @@ def parse_review(form,page_data,items,folders):
     if checked:
         if not rows and not empty:
             raise ValueError("Укажите позиции или подтвердите, что их нет.")
-        if rows and (kind=="unknown" or not header["counterparty"] or not header["number"] or not header["date"]):
+        if rows and header is not None and (header["document_type"]=="unknown"
+                or not header["counterparty"] or not header["number"] or not header["date"]):
             raise ValueError("Для проверки страницы укажите реквизиты документа.")
         for r in rows:
             if not r["name"] or r["action"]=="unresolved":
@@ -990,14 +1135,19 @@ def parse_review(form,page_data,items,folders):
                 if not r["note"]:
                     raise ValueError("Укажите причину исключения строки.")
                 continue
-            if not r["unit"] or r["quantity"] is None or Decimal(r["quantity"])<=0 or r["value"] is None:
+            if r["unit_cost"] is None:
                 raise ValueError("Проверьте единицу, количество и итоговую стоимость с налогом.")
             if r["action"]=="existing" and (r["item_id"] is None
                     or norm(r["unit"])!=norm(known_items[r["item_id"]]["unit"])):
                 raise ValueError("Выберите материал с совпадающей единицей учёта.")
             if r["action"]=="new" and (r["folder_id"] is None or r["item_id"] is not None or len(r["name"])>200):
                 raise ValueError("Для нового материала выберите папку, название до 200 символов и не выбирайте существующий материал.")
-    return {"header":header,"rows":rows,"checked":checked,"no_items":empty}
+    review={"rows":rows,"checked":checked,"no_items":empty,"review_scope":scope}
+    if header is not None:
+        review["header"]=header
+    # A goods-only save leaves both a deliberately empty header and an absent
+    # header exactly as they were. It neither edits nor reassigns document parts.
+    return review
 
 
 def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
@@ -1031,11 +1181,22 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             if data:
                 data=derive_page(data)
                 rows=[dict(r) for r in data.get("rows",data["candidates"])]
+                if "rows" not in data:
+                    rows=enrich_rows(rows,items,folders,history=classification_history(db(),doc_id))
                 for r in rows:
                     r["matches"]=suggestions(r["name"],r["unit"],items)
-                header=data.get("header",{})
+                    r["unit_cost"]=unit_cost(r.get("value"),r.get("quantity"),r.get("unit"),
+                                             value_basis=r.get("value_basis"))
+                header=(data["header"] if "header" in data
+                        else data.get("header_candidate") or header_proposal(data,page=page))
+            supplier=header.get("counterparty","") if isinstance(header,dict) else ""
+            if not isinstance(supplier,str):
+                supplier=""
+            quality=summarize_page(data or {},rows,include_identity=False) if data else None
+            page_issues=list(quality["issues"]) if quality else []
             response=make_response(render_template("medical_supplies_ocr.html",title="Разбор документа — Медрасходка",
                 doc=row,state=state,page=page,data=data,rows=rows,header=header,
+                supplier=supplier,view_scope="goods",quality=quality,page_issues=page_issues,
                 items=items,folders=folders,types=inbox.TYPES,csrf=csrf_token(),can_manage=can_manage(),
                 saved=request.args.get("saved")=="1"))
             response.headers["Cache-Control"]="private, no-store"
@@ -1063,6 +1224,34 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 raise ValueError("Такой страницы нет.")
             if str(page) in state["pages"]:
                 previous=state["pages"][str(page)]
+                recognized=previous.get("automatic",previous)
+                recognition=recognized.get("recognition_version",0)
+                if request.form.get("reread")=="1" and (recognition<RECOGNITION_VERSION
+                        or recognized.get("recognition_retryable")):
+                    import app as app_core
+                    new_count,parsed=recognize_pdf_page(row["original_bytes"],page,app_core.DB_PATH.parent)
+                    if new_count!=count:
+                        raise inbox.Conflict("Количество страниц изменилось.")
+                    folders=[dict(x) for x in conn.execute("""SELECT f.id,f.name,p.name AS parent
+                        FROM med_supply_folders f LEFT JOIN med_supply_folders p ON p.id=f.parent_id""")]
+                    parsed=automatic_proposals(parsed,page,state,catalog(conn),folders,classification_history(conn,doc_id))
+                    parsed["recognition_version"]=RECOGNITION_VERSION
+                    def reread(current):
+                        target=current["pages"][str(page)]
+                        if "rows" in target or "header" in target:
+                            # Human edits, including a deliberately empty draft,
+                            # retain their original line map and exact values.
+                            target["automatic"]=parsed
+                        else:
+                            # Keep the first OCR evidence without recursive copies.
+                            parsed["previous_ocr"]=target.get("previous_ocr",target)
+                            current["pages"][str(page)]=parsed
+                    new_version=store(conn,doc_id,version,row["sha256"],reread,g.user["id"],"ocr_page",
+                        {"page":page,"words":len(parsed["words"]),"candidates":len(parsed["candidates"]),
+                         "image_reread":True,"human_preserved":"rows" in previous or "header" in previous})
+                    return jsonify(version=new_version,page_count=count,stored=len(state["pages"]),cached=False)
+                if request.form.get("reread")=="1" and recognition>=RECOGNITION_VERSION:
+                    return jsonify(version=version,page_count=count,stored=len(state["pages"]),cached=True)
                 derived=derive_page(previous)
                 if derived is previous:
                     return jsonify(version=version,page_count=count,stored=len(state["pages"]),cached=True)
@@ -1078,6 +1267,9 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 return jsonify(version=new_version,page_count=count,stored=len(state["pages"]),cached=False)
             import app as app_core
             count,parsed=recognize_pdf_page(row["original_bytes"],page,app_core.DB_PATH.parent)
+            folders=[dict(x) for x in conn.execute("""SELECT f.id,f.name,p.name AS parent
+                FROM med_supply_folders f LEFT JOIN med_supply_folders p ON p.id=f.parent_id""")]
+            parsed=automatic_proposals(parsed,page,state,catalog(conn),folders,classification_history(conn,doc_id))
             def mutate(current):
                 if current.get("page_count") not in (None,count):
                     raise inbox.Conflict("Количество страниц изменилось.")
@@ -1120,10 +1312,11 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 # AZ-264-01: identity belongs to the logical document, not
                 # to its goods rows. Checked pages without goods must agree
                 # as well, including when an already checked page is edited.
-                if review["checked"]:
+                if review["checked"] and review["review_scope"]!="goods":
                     header=review["header"]
                     for key,other in current["pages"].items():
-                        if key==str(page) or not other.get("checked"):
+                        if (key==str(page) or not other.get("checked")
+                                or other.get("review_scope")=="goods"):
                             continue
                         previous=other.get("header",{})
                         if previous.get("part")==header["part"] and any(
@@ -1135,7 +1328,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 target["extractor_version"]=EXTRACTOR_VERSION
                 target.update(review)
             store(conn,doc_id,version,row["sha256"],mutate,g.user["id"],"ocr_review",
-                  {"page":page,"rows":len(review["rows"]),"checked":review["checked"]})
+                  {"page":page,"rows":len(review["rows"]),"checked":review["checked"],
+                   "review_scope":review["review_scope"]})
             return redirect(url_for("medical_supplies_ocr_page",doc_id=doc_id,p=page,saved=1),code=303)
         except LookupError:
             abort(404)

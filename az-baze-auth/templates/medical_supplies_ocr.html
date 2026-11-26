@@ -19,12 +19,13 @@
 .ocr-row-detail td{background:#faf8f2;padding:12px}.ocr-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .ocr-grid label{display:grid;gap:5px;font-size:12px;color:#59655c}.ocr-grid .ocr-wide{grid-column:1/-1}
 .ocr-row-state{display:block;font-size:11px;color:#667068;margin-top:5px}.ocr-matches{font-size:12px;color:#526056;line-height:1.6;margin:9px 0 0}
+.ocr-supplier{display:block;margin-top:7px;font-size:11px;line-height:1.4;color:#667068;overflow-wrap:anywhere}.ocr-table .ocr-unit-cost{background:#f5f7f2;color:var(--ink)}
 .ocr-empty{padding:14px 8px;background:#faf8f2}.ocr-details{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
 .ocr-details summary{font-size:13px;font-weight:600;cursor:pointer;padding:3px 0}.ocr-details[open] summary{margin-bottom:12px}
 .ocr-source-text{max-height:45vh;overflow:auto;overflow-wrap:anywhere;font-size:12px;line-height:1.7}.ocr-source-text p{margin:6px 0}
 .ocr-check{display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.6;margin:12px 0}.ocr-check input{margin-top:3px;flex-shrink:0}
 .ocr-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.ocr-readonly td{line-height:1.6}.ocr-readonly col:nth-child(1){width:34%}.ocr-readonly col:nth-child(5){width:35%}
+.ocr-readonly td{line-height:1.6}
 @media(max-width:850px){
   .ocr-table,.ocr-table>tbody,.ocr-table tr,.ocr-table td{display:block;width:100%}.ocr-table colgroup,.ocr-table thead{display:none}
   .ocr-table .ocr-row{display:block;border:1px solid var(--line);border-radius:9px;margin:12px 0;overflow:hidden}
@@ -51,32 +52,38 @@
 {% if data %}
 <section class="card ocr-card" aria-labelledby="ocr-goods-heading">
 <h3 id="ocr-goods-heading">Товары · страница {{ page }}</h3>
-<p class="ocr-note">Проверьте распознанные строки по оригиналу и выберите раздел для каждой позиции.</p>
+<p class="ocr-note">Проверьте результат автоматического разбора. Неразборчивые поля и расхождения указаны ниже.</p>
+{% if quality and quality.total_matches %}<p class="ocr-note" role="status">Сумма строк совпадает с итогом документа: {{ quality.total_actual }} ₽.</p>{% endif %}
+{% if page_issues %}<details class="ocr-note" id="ocr-checks"><summary>Требует проверки: {{ page_issues|length }}</summary>{% for issue in page_issues %}<p>{{ issue }}</p>{% endfor %}</details>{% endif %}
 {% if can_manage %}
 <form method="post" id="ocr-review" action="{{ url_for('medical_supplies_ocr_save',doc_id=doc.id) }}">
 <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}"><input type="hidden" name="page" value="{{ page }}">
+<input type="hidden" name="review_scope" value="goods">
 <template id="ocr-catalog-options"><option value="">Выберите по названию</option>{% for i in items %}<option value="{{ i.id }}" data-folder="{{ i.folder_id or '' }}">{{ i.name }} · {{ i.unit }}{% if i.folder %} · {{ i.folder }}{% endif %}</option>{% endfor %}</template>
-{% macro editor(r, row_id) %}
+{% macro editor(r, row_id, original_index) %}
 <tbody class="ocr-row">
 <tr class="ocr-main-row">
   <td class="ocr-name-cell" data-label="Название">
     <input type="hidden" name="source_line" value="{{ r.source_line or '' }}">
+    <input type="hidden" name="row_index" value="{{ original_index }}">
+    <input type="hidden" name="value_edited" value="0">
+    <input type="hidden" name="price" value="{{ r.price if r.price is not none else '' }}">
     <label><span class="ocr-sr">Название</span><textarea name="name" rows="2" maxlength="500">{{ r.name or '' }}</textarea></label>
     <span class="ocr-row-state">{{ {'new':'Новая позиция','existing':'Из справочника','skip':'Пропустить строку'}.get(r.action,'') }}</span>
   </td>
   <td data-label="Количество"><label><span class="ocr-sr">Количество</span><input name="quantity" inputmode="decimal" value="{{ r.quantity if r.quantity is not none else '' }}" placeholder="—"></label></td>
   <td data-label="Единица"><label><span class="ocr-sr">Единица</span><input name="unit" maxlength="30" value="{{ r.unit or '' }}" placeholder="—"></label></td>
-  <td data-label="Стоимость, ₽"><label><span class="ocr-sr">Стоимость, ₽</span><input name="value" inputmode="decimal" value="{{ r.value if r.value is not none else '' }}" placeholder="—"></label></td>
+  <td data-label="Стоимость за единицу, ₽"><label><span class="ocr-sr">Стоимость за единицу, ₽</span><input class="ocr-unit-cost" data-gross-value="{{ '1' if r.value_basis is not defined or r.value_basis is none or r.value_basis in ['printed_gross','printed_single_total'] else '0' }}" value="{{ r.unit_cost or '' }}" readonly placeholder="—" title="Стоимость строки, разделённая на количество"></label></td>
   <td class="ocr-section-cell" data-label="В какой раздел">
     <label><span class="ocr-sr">В какой раздел</span><select name="folder_id"><option value="">Выберите раздел</option>{% for f in folders %}<option value="{{ f.id }}" {{ 'selected' if r.folder_id==f.id else '' }}>{{ (f.parent ~ ' / ') if f.parent else '' }}{{ f.name }}</option>{% endfor %}{% if r.folder_id and not folders|selectattr('id','equalto',r.folder_id)|list %}<option value="{{ r.folder_id }}" selected>Раздел недоступен — выберите другой</option>{% endif %}</select></label>
   </td>
-  <td class="ocr-control-cell"><div class="ocr-controls"><button type="button" class="btn ocr-more" aria-expanded="false" aria-controls="ocr-detail-{{ row_id }}" title="Сопоставление и примечание">Ещё</button><button type="button" class="btn ocr-remove" aria-label="Убрать строку" title="Убрать строку">×</button></div></td>
+  <td class="ocr-control-cell"><div class="ocr-controls"><button type="button" class="btn ocr-more" aria-expanded="false" aria-controls="ocr-detail-{{ row_id }}" title="Стоимость строки, сопоставление и примечание">Ещё</button><button type="button" class="btn ocr-remove" aria-label="Убрать строку" title="Убрать строку">×</button></div>{% if supplier %}<small class="ocr-supplier">{{ supplier }}</small>{% endif %}</td>
 </tr>
 <tr class="ocr-row-detail" id="ocr-detail-{{ row_id }}" hidden><td colspan="6">
   <div class="ocr-grid">
     <label>Позиция в справочнике<select name="action">{% for key,label in [('unresolved','Выберите раздел или материал'),('existing','Связать с существующим материалом'),('new','Новая позиция'),('skip','Пропустить строку')] %}<option value="{{ key }}" {{ 'selected' if r.action==key else '' }}>{{ label }}</option>{% endfor %}</select></label>
     <label>Существующий материал<select name="item_id"><option value="">Выберите по названию</option>{% for i in items if i.id==r.item_id %}<option value="{{ i.id }}" data-folder="{{ i.folder_id or '' }}" selected>{{ i.name }} · {{ i.unit }}{% if i.folder %} · {{ i.folder }}{% endif %}</option>{% else %}{% if r.item_id %}<option value="{{ r.item_id }}" selected>Материал недоступен — выберите другой</option>{% endif %}{% endfor %}</select></label>
-    <label>Цена за единицу, ₽<input name="price" inputmode="decimal" value="{{ r.price if r.price is not none else '' }}" placeholder="Не указана"></label>
+    <label>Стоимость строки, ₽<input name="value" inputmode="decimal" value="{{ r.value if r.value is not none else '' }}" placeholder="Не указана"><span class="ocr-note">Сумма за всё количество, с налогом.</span></label>
     <label class="ocr-wide">Примечание<input name="note" maxlength="500" value="{{ r.note or '' }}" placeholder="Для пропуска строки укажите причину"></label>
   </div>
   {% if r.matches %}<p class="ocr-matches">Похожие материалы: {% for i in r.matches %}{{ i.name }} ({{ i.unit }}){% if not loop.last %}; {% endif %}{% endfor %}. Выберите нужный в поле «Существующий материал».</p>{% endif %}
@@ -85,33 +92,22 @@
 {% endmacro %}
 <table class="ocr-table" id="ocr-rows" aria-label="Товары из документа">
 <colgroup><col><col><col><col><col><col></colgroup>
-<thead><tr><th scope="col">Название</th><th scope="col">Количество</th><th scope="col">Единица</th><th scope="col">Стоимость, ₽</th><th scope="col">В какой раздел</th><th scope="col"><span class="ocr-sr">Действия</span></th></tr></thead>
-{% for r in rows %}{{ editor(r, loop.index) }}{% endfor %}
+<thead><tr><th scope="col">Название</th><th scope="col">Количество</th><th scope="col">Единица</th><th scope="col">Стоимость за единицу, ₽</th><th scope="col">В какой раздел</th><th scope="col"><span class="ocr-sr">Действия</span></th></tr></thead>
+{% for r in rows %}{{ editor(r, loop.index, loop.index0) }}{% endfor %}
 </table>
 <p class="ocr-note ocr-empty" id="ocr-empty" {{ 'hidden' if rows else '' }}>{{ 'На странице нет товарных позиций.' if data.no_items else 'Товарные строки на этой странице не распознаны. Проверьте оригинал; при необходимости добавьте строку.' }}</p>
-<template id="ocr-new">{{ editor({'source_line':none,'name':'','unit':'','quantity':none,'price':none,'value':none,'action':'unresolved','item_id':none,'folder_id':none,'note':''}, 'new') }}</template>
+<template id="ocr-new">{{ editor({'source_line':none,'name':'','unit':'','quantity':none,'price':none,'value':none,'unit_cost':none,'action':'unresolved','item_id':none,'folder_id':none,'note':''}, 'new', '') }}</template>
 <div class="ocr-actions"><button type="button" class="btn" id="ocr-add">+ Добавить строку</button></div>
-<details class="ocr-details" id="ocr-header"><summary>Реквизиты документа</summary>
-  <div class="ocr-grid">
-    <label>Тип документа<select name="document_type">{% for key,label in types %}<option value="{{ key }}" {{ 'selected' if header.document_type==key else '' }}>{{ label }}</option>{% endfor %}</select></label>
-    <label>Поставщик<input name="counterparty" maxlength="200" value="{{ header.counterparty or '' }}"></label>
-    <label>Номер документа<input name="number" maxlength="100" value="{{ header.number or '' }}"></label>
-    <label>Дата<input type="date" name="document_date" value="{{ header.date or '' }}"></label>
-    <label>Документ внутри файла<input name="part" type="number" min="1" max="20" value="{{ header.part or page }}"></label>
-    <label>Комментарий к странице<input name="page_note" maxlength="1000" value="{{ header.note or '' }}"></label>
-  </div>
-  <p class="ocr-note">Если один документ занимает несколько страниц, укажите для них одинаковые номер внутри файла и реквизиты.</p>
-</details>
 <label class="ocr-check"><input type="checkbox" name="no_items" value="1" {{ 'checked' if data.no_items else '' }}> На странице нет товарных позиций</label>
-<label class="ocr-check"><input type="checkbox" name="checked" value="1" {{ 'checked' if data.checked else '' }}> Проверено: реквизиты, позиции, количество и стоимость с налогом сверены с оригиналом</label>
+<label class="ocr-check"><input type="checkbox" name="checked" value="1" {{ 'checked' if data.checked else '' }}> Проверено: товары, количество, единицы и стоимость сверены с оригиналом</label>
 <div class="ocr-actions"><button class="btn primary" type="submit">Сохранить разбор</button><span class="ocr-note">Сохраняется разбор документа. Приход на склад оформляется отдельно.</span></div>
 </form>
 {% else %}
 <p class="ocr-note">{{ 'Страница проверена' if data.checked else 'Ещё не проверено' }} · Только просмотр</p>
 <table class="ocr-table ocr-readonly" aria-label="Товары из документа">
-<colgroup><col><col><col><col><col></colgroup>
-<thead><tr><th scope="col">Название</th><th scope="col">Количество</th><th scope="col">Единица</th><th scope="col">Стоимость, ₽</th><th scope="col">В какой раздел</th></tr></thead>
-{% for r in rows %}<tbody class="ocr-row"><tr class="ocr-main-row"><td class="ocr-name-cell" data-label="Название">{{ r.name }}</td><td data-label="Количество">{{ r.quantity or '—' }}</td><td data-label="Единица">{{ r.unit or '—' }}</td><td data-label="Стоимость, ₽">{{ r.value if r.value is not none else '—' }}</td><td class="ocr-section-cell" data-label="В какой раздел">{% for f in folders if f.id==r.folder_id %}{{ (f.parent ~ ' / ') if f.parent else '' }}{{ f.name }}{% else %}{{ 'Раздел недоступен' if r.folder_id else 'Не выбран' }}{% endfor %}</td></tr></tbody>{% endfor %}
+<colgroup><col><col><col><col><col><col></colgroup>
+<thead><tr><th scope="col">Название</th><th scope="col">Количество</th><th scope="col">Единица</th><th scope="col">Стоимость за единицу, ₽</th><th scope="col">В какой раздел</th><th scope="col"><span class="ocr-sr">Поставщик</span></th></tr></thead>
+{% for r in rows %}<tbody class="ocr-row"><tr class="ocr-main-row"><td class="ocr-name-cell" data-label="Название">{{ r.name }}</td><td data-label="Количество">{{ r.quantity or '—' }}</td><td data-label="Единица">{{ r.unit or '—' }}</td><td data-label="Стоимость за единицу, ₽">{{ r.unit_cost or '—' }}</td><td class="ocr-section-cell" data-label="В какой раздел">{% for f in folders if f.id==r.folder_id %}{{ (f.parent ~ ' / ') if f.parent else '' }}{{ f.name }}{% else %}{{ 'Раздел недоступен' if r.folder_id else 'Не выбран' }}{% endfor %}</td><td class="ocr-control-cell">{% if supplier %}<small class="ocr-supplier">{{ supplier }}</small>{% endif %}</td></tr></tbody>{% endfor %}
 </table>
 {% if not rows %}<p class="ocr-note">Товарных строк на этой странице нет.</p>{% endif %}
 {% endif %}
@@ -124,7 +120,36 @@
   const form=document.getElementById('ocr-review'),rows=document.getElementById('ocr-rows');
   const add=document.getElementById('ocr-add'),template=document.getElementById('ocr-new');
   const catalog=document.getElementById('ocr-catalog-options');
-  let dirty=false,newRow=0;
+  let dirty=false,newRow=0,staleForm=false;
+  function decimalParts(value,scale){
+    let text=String(value||'').trim().replace(/[\u00a0\u202f]/g,' ').replace(',','.');
+    if(text.includes(' ')){
+      if(!/^\d{1,3}(?: \d{3})+(?:\.\d{1,8})?$/.test(text))return null;
+      text=text.replace(/ /g,'');
+    }
+    if(!/^\d{1,12}(?:\.\d{1,8})?$/.test(text))return null;
+    const [whole,fraction='']=text.split('.');
+    const numerator=BigInt(whole+fraction),denominator=10n**BigInt(fraction.length);
+    if(numerator>1000000000n*denominator||numerator*scale%denominator!==0n)return null;
+    return {numerator,denominator};
+  }
+  function calculatedUnitCost(total,quantity){
+    const amount=decimalParts(total,100n),count=decimalParts(quantity,1000n);
+    if(!amount||!count||count.numerator===0n)return '';
+    const numerator=amount.numerator*count.denominator*10000n;
+    const denominator=amount.denominator*count.numerator;
+    let rounded=numerator/denominator;
+    if((numerator%denominator)*2n>=denominator)rounded+=1n;
+    let fraction=(rounded%10000n).toString().padStart(4,'0');
+    while(fraction.length>2&&fraction.endsWith('0'))fraction=fraction.slice(0,-1);
+    return (rounded/10000n).toString()+'.'+fraction;
+  }
+  function updateUnitCost(row){
+    const output=row.querySelector('.ocr-unit-cost');
+    const unit=row.querySelector('[name="unit"]').value.trim();
+    const knownBasis=output&&output.dataset.grossValue==='1';
+    if(output)output.value=knownBasis&&unit&&!['—','–','-','?'].includes(unit)?calculatedUnitCost(row.querySelector('[name="value"]').value,row.querySelector('[name="quantity"]').value):'';
+  }
   function fitName(field){
     field.style.height='auto';
     const style=getComputedStyle(field),border=parseFloat(style.borderTopWidth)+parseFloat(style.borderBottomWidth);
@@ -132,7 +157,16 @@
   }
   function fitNames(){if(rows)rows.querySelectorAll('textarea[name="name"]').forEach(fitName);}
   if(rows){
-    rows.addEventListener('input',function(event){if(event.target.matches('textarea[name="name"]'))fitName(event.target);});
+    rows.addEventListener('input',function(event){
+      if(event.target.matches('textarea[name="name"]'))fitName(event.target);
+      if(event.target.matches('[name="value"]')){
+        const row=event.target.closest('.ocr-row');
+        row.querySelector('.ocr-unit-cost').dataset.grossValue='1';
+        row.querySelector('[name="value_edited"]').value='1';
+      }
+      if(event.target.matches('[name="quantity"],[name="value"],[name="unit"]'))updateUnitCost(event.target.closest('.ocr-row'));
+    });
+    rows.querySelectorAll('.ocr-row').forEach(updateUnitCost);
     window.addEventListener('resize',fitNames);
     fitNames();
     if(document.fonts)document.fonts.ready.then(fitNames);
@@ -171,12 +205,6 @@
       if(event.target===action&&action.value==='new')item.value='';
       rowState(row);
     });
-    form.querySelector('[name="checked"]').addEventListener('change',function(){
-      if(this.checked&&!form.querySelector('[name="no_items"]').checked){
-        const names=['counterparty','number','document_date'];
-        if(names.some(name=>!form.elements.namedItem(name).value)||form.elements.namedItem('document_type').value==='unknown')document.getElementById('ocr-header').open=true;
-      }
-    });
   }
   async function recognize(){
     if(dirty){msg.textContent='Сначала сохраните изменения в таблице.';return;}
@@ -187,16 +215,21 @@
     try{
       for(let p=1;p<=count;p++){
         msg.textContent='Распознаётся страница '+p+' из '+(start.dataset.count==='0'?'?':count)+'…';
-        const body=new URLSearchParams({csrf:start.dataset.csrf,version:version,page:String(p)});
+        const body=new URLSearchParams({csrf:start.dataset.csrf,version:version,page:String(p),reread:'1'});
         const response=await fetch(start.dataset.url,{method:'POST',body:body,credentials:'same-origin'});
         const result=await response.json();if(!response.ok)throw new Error(result.error||'Не удалось распознать страницу.');
-        count=result.page_count;version=String(result.version);start.dataset.count=String(count);start.dataset.version=version;
-        if(form)form.elements.namedItem('version').value=version;
+        count=result.page_count;
+        if(String(result.version)!==version)staleForm=true;
+        version=String(result.version);start.dataset.count=String(count);start.dataset.version=version;
       }
       location.reload();
     }catch(error){
       msg.textContent=String(error.message)+' Сохранённые строки доступны для просмотра.';
-      start.disabled=false;controls.forEach(control=>{control.disabled=false;});document.getElementById('ocr-show-saved').hidden=false;
+      start.disabled=false;
+      // A successful earlier page may have replaced the displayed proposals.
+      // Keep its old form/version disabled until a fresh server view is loaded.
+      if(!staleForm)controls.forEach(control=>{control.disabled=false;});
+      document.getElementById('ocr-show-saved').hidden=false;
     }
   }
   if(start){
