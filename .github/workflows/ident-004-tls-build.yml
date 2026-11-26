@@ -20,23 +20,46 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          fetch-depth: 3
+          fetch-depth: 6
           persist-credentials: false
       - name: Verify audited source and isolate build inputs
         run: |
           $ErrorActionPreference = 'Stop'
           $source = '7ffc65174a408a75afc237247045008e7bab51dd'
           $tree = 'dcefe1bcedf36ce59192581eff48e46e997e2399'
-          if ((git rev-parse HEAD~2) -cne $source -or $LASTEXITCODE -ne 0) { throw 'SOURCE_ANCESTRY' }
+          git merge-base --is-ancestor $source HEAD
+          if ($LASTEXITCODE -ne 0) { throw 'SOURCE_ANCESTRY' }
           if ((git rev-parse "$source^{tree}") -cne $tree -or $LASTEXITCODE -ne 0) { throw 'AUDITED_TREE' }
           if ((git rev-parse HEAD:integrations) -cne (git rev-parse "$($source):integrations")) { throw 'SOURCE_TREE_CHANGED' }
           $work = Join-Path $env:RUNNER_TEMP 'ident-audited-source'
           New-Item -ItemType Directory -Path $work -ErrorAction Stop | Out-Null
-          $tar = Join-Path $env:RUNNER_TEMP 'ident-audited-source.tar'
-          git archive --format=tar "--output=$tar" $source integrations/ident-004
-          if ($LASTEXITCODE -ne 0) { throw 'SOURCE_ARCHIVE' }
-          tar.exe -xf $tar -C $work
-          if ($LASTEXITCODE -ne 0) { throw 'SOURCE_EXTRACT' }
+          # Read each audited Git blob as binary; do not use working-tree checkout,
+          # git archive filters or PowerShell text redirection for source bytes.
+          $entries = @(git ls-tree -r --full-tree $source -- integrations/ident-004/)
+          if ($LASTEXITCODE -ne 0 -or $entries.Count -ne 18) { throw 'AUDITED_BLOB_COUNT' }
+          $gitPath = (Get-Command git.exe -CommandType Application).Source
+          foreach ($entry in $entries) {
+            if ($entry -cnotmatch '^100644 blob ([0-9a-f]{40})\tintegrations/ident-004/([A-Za-z0-9_./-]+)$') { throw 'AUDITED_BLOB_ENTRY' }
+            $blobSha = $Matches[1]; $relative = $Matches[2]
+            if ($relative.StartsWith('/') -or ($relative.Split('/') -contains '..')) { throw 'AUDITED_BLOB_PATH' }
+            $dest = Join-Path (Join-Path $work 'integrations/ident-004') $relative
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+            $psi = [Diagnostics.ProcessStartInfo]::new()
+            $psi.FileName = $gitPath
+            $psi.WorkingDirectory = (Get-Location).Path
+            $psi.UseShellExecute = $false
+            $psi.RedirectStandardOutput = $true
+            $psi.ArgumentList.Add('cat-file'); $psi.ArgumentList.Add('blob'); $psi.ArgumentList.Add($blobSha)
+            $proc = [Diagnostics.Process]::Start($psi)
+            try {
+              $output = [IO.File]::Open($dest,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+              try { $proc.StandardOutput.BaseStream.CopyTo($output) } finally { $output.Dispose() }
+              if (-not $proc.WaitForExit(30000)) { $proc.Kill(); throw 'BLOB_READ_TIMEOUT' }
+              if ($proc.ExitCode -ne 0) { throw 'BLOB_READ_FAILED' }
+            } finally { $proc.Dispose() }
+            $actualBlob = git hash-object --no-filters -- $dest
+            if ($LASTEXITCODE -ne 0 -or $actualBlob -cne $blobSha) { throw "GIT_BLOB_MISMATCH: $relative" }
+          }
           $root = Join-Path $work 'integrations/ident-004'
           $expected = @{}
           foreach ($line in Get-Content -LiteralPath (Join-Path $root 'SHA256SUMS')) {
@@ -44,7 +67,8 @@ jobs:
             $hash = $Matches[1]; $name = $Matches[2]
             if ($name.StartsWith('/') -or ($name.Split('/') -contains '..') -or $expected.ContainsKey($name)) { throw 'MANIFEST_PATH' }
             $file = Join-Path $root $name
-            if ((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $hash) { throw 'SOURCE_SHA256' }
+            $observed = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($observed -cne $hash) { throw "SOURCE_SHA256: $name expected=$hash observed=$observed" }
             $expected[$name] = $true
           }
           $actual = @(Get-ChildItem -LiteralPath $root -Recurse -File | ForEach-Object { [IO.Path]::GetRelativePath($root,$_.FullName).Replace('\','/') })
