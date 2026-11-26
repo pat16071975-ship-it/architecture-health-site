@@ -14,6 +14,9 @@ import medical_supplies_ocr as ocr
 ARTIFACTS = Path(os.environ.get("MED_BROWSER_ARTIFACTS", "med-browser-artifacts"))
 ARTIFACTS.mkdir(exist_ok=True)
 PATH = "/accounting/medical-supplies/incoming/1/ocr"
+LONG_NAME = ("Перчатки медицинские диагностические смотровые нитриловые нестерильные "
+             "неопудренные повышенной прочности с текстурированной поверхностью размер XL "
+             "синие упаковка 100 штук")
 
 
 def state(fixture):
@@ -27,6 +30,57 @@ def new_page(browser, fixture, origin, width, uid=2):
     page.route("https://fonts.googleapis.com/**", lambda route: route.abort())
     page.route("https://fonts.gstatic.com/**", lambda route: route.abort())
     return page
+
+
+def check_full_names(browser):
+    fixture = IncomingDocumentTests()
+    fixture.setUp()
+    fixture.app.config["SESSION_COOKIE_SECURE"] = False
+    fixture.upload(filename="Учебный документ с длинным названием.pdf")
+    parsed = ocr.parse_tsv(simple_table())
+    row = copy.deepcopy(parsed["candidates"][0])
+    row["name"] = LONG_NAME
+    parsed["rows"] = [row]
+    fixture.conn.execute("UPDATE med_supply_documents SET fields_json=?,version=2 WHERE id=1",
+                        (json.dumps({ocr.KEY: {"page_count": 1, "pages": {"1": parsed}}}),))
+    fixture.conn.commit()
+    before = fixture.get_doc()["fields_json"]
+    server = make_server("127.0.0.1", 0, fixture.app, threaded=True)
+    Thread(target=server.serve_forever, daemon=True).start()
+    origin = f"http://127.0.0.1:{server.server_port}"
+
+    def visible_name(field, expected):
+        assert field.input_value() == expected
+        assert field.evaluate("el => el.scrollHeight <= el.clientHeight + 1"), field.evaluate(
+            "el => ({height:el.clientHeight,content:el.scrollHeight,length:el.value.length})")
+
+    try:
+        for width in (1365, 390):
+            page = new_page(browser, fixture, origin, width)
+            page.goto(origin + PATH)
+            first = page.locator('textarea[name="name"]').first
+            visible_name(first, LONG_NAME)
+            first.fill(LONG_NAME + " " + LONG_NAME)
+            visible_name(first, LONG_NAME + " " + LONG_NAME)
+            page.get_by_role("button", name="+ Добавить строку", exact=True).click()
+            added = page.locator('textarea[name="name"]').last
+            visible_name(added, "")
+            added.fill(LONG_NAME)
+            visible_name(added, LONG_NAME)
+            for resized in (390 if width == 1365 else 1365, width):
+                page.set_viewport_size({"width": resized, "height": 1000})
+                page.wait_for_function("Array.from(document.querySelectorAll('textarea[name=name]')).every(el => el.scrollHeight <= el.clientHeight + 1)")
+                visible_name(first, LONG_NAME + " " + LONG_NAME)
+                visible_name(added, LONG_NAME)
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), resized
+            page.screenshot(path=str(ARTIFACTS / f"ocr-full-names-{width}.png"), full_page=True)
+            page.close()
+            print("MED_OCR_FULL_NAMES", width, "INIT_INPUT_ADD_RESIZE_PASS", flush=True)
+        assert fixture.get_doc()["fields_json"] == before
+        assert fixture.get_doc()["version"] == 2
+    finally:
+        server.shutdown()
+        fixture.doCleanups()
 
 
 with sync_playwright() as p:
@@ -147,4 +201,5 @@ with sync_playwright() as p:
     finally:
         server.shutdown()
         fixture.doCleanups()
+    check_full_names(browser)
     browser.close()
