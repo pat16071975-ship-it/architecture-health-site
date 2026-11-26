@@ -8,6 +8,7 @@ import fcntl
 import hashlib
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -24,7 +25,7 @@ from flask import abort, g, jsonify, make_response, redirect, render_template, r
 import medical_supplies_documents as inbox
 
 KEY = "ocr_review_v1"
-EXTRACTOR_VERSION = 3
+EXTRACTOR_VERSION = 4
 MAX_PAGES = 20
 MAX_WORDS = 8000
 MAX_LINES = 1000
@@ -326,8 +327,348 @@ def _table_header(lines, start):
     return columns
 
 
+def _combined_heading(entries):
+    """Recognise one printed cell, not separate article/name columns."""
+    result = []
+    articles = [entry for entry in entries if norm(entry["w"][5]) == "артикул"]
+    if len(articles) > 32:
+        raise OCRUnavailable("Слишком много заголовков таблиц на странице.")
+    for article in articles:
+        word = article["w"]
+        nearby = sorted((entry for entry in entries
+            if word[0] + word[2] <= entry["w"][0] <= word[0] + word[2] + word[3] * 18
+            and abs(entry["w"][1] - word[1]) <= max(word[3], entry["w"][3]) * 1.5),
+            key=lambda entry: entry["w"][0])
+        # The conjunction is evidence that this is a combined printed heading.
+        # An independent Артикул column must keep using the general extractor.
+        conjunction = next((entry for entry in nearby if norm(entry["w"][5]) == "и"
+            and entry["w"][0] - word[0] - word[2] <= word[3] * 2), None)
+        if conjunction is None:
+            continue
+        following = [entry for entry in nearby if entry["w"][0] > conjunction["w"][0]]
+        for index, entry in enumerate(following[:4]):
+            text = norm(entry["w"][5]).replace(" ", "")
+            following_text = (text + norm(following[index+1]["w"][5]).replace(" ", "")
+                              if index+1 < len(following) else text)
+            if text.startswith("наимен") or following_text.startswith("наимен"):
+                result.append((article, conjunction, entry))
+                break
+    return result
+
+
+def _page_skew(entries, headings):
+    """Bounded baseline projection; coordinates and saved line IDs stay intact."""
+    height = median(entry["w"][3] for entry in entries)
+    sample = sorted((entry["w"] for entry in entries
+        if height * .65 <= entry["w"][3] <= height * 1.4
+        and entry["w"][2] >= height and entry["w"][4] >= 65
+        and len(entry["w"][5]) >= 2), key=lambda word: (word[1], word[0]))
+    if len(sample) > 384:
+        sample = [sample[index * (len(sample)-1) // 383] for index in range(384)]
+    pairs = []
+    for index, first in enumerate(sample):
+        for second in sample[index+1:]:
+            dx = second[0] + second[2]/2 - first[0] - first[2]/2
+            dy = second[1] + second[3] - first[1] - first[3]
+            if 250 <= abs(dx) <= 1400 and abs(dy) <= .08 * abs(dx) + 6:
+                pairs.append((dx, dy))
+    if len(pairs) < 6:
+        return 0.0
+    if len(pairs) > 6000:
+        pairs = [pairs[index * (len(pairs)-1) // 5999] for index in range(6000)]
+    sigma = max(3, height * .12)
+
+    def score(slope):
+        total = 0.0
+        for dx, dy in pairs:
+            error = (dy - slope*dx) / sigma
+            if abs(error) <= 3:
+                total += math.exp(-.5 * error * error)
+        return total
+
+    # A repeated dense grid has projection aliases at one-row offsets. The
+    # printed combined heading supplies an independent, broad angle prior.
+    priors = []
+    for heading in headings:
+        first = heading[0]["w"]
+        end = next((entry["w"] for entry in entries
+            if norm(entry["w"][5]) == "товара"
+            and heading[2]["w"][0] < entry["w"][0] < max(
+                heading[2]["w"][0]+first[3]*20,
+                heading[2]["w"][0]+heading[2]["w"][2]+first[3]*6)
+            and abs(entry["w"][1]-first[1]) <= first[3]*3), None)
+        if end:
+            dx = end[0]+end[2]/2-first[0]-first[2]/2
+            if dx > first[3]*3:
+                prior = (end[1]+end[3]-first[1]-first[3])/dx
+                if abs(prior) <= .08:
+                    priors.append(prior)
+    prior = median(priors) if priors else None
+    angles = [index for index in range(-80, 81)
+              if prior is None or abs(index*.001-prior) <= .03]
+    best = max(angles, key=lambda index: score(index * .001)) * .001
+    best = max((best + index*.00025 for index in range(-3, 4)), key=score)
+    return best if score(best) >= 6 else 0.0
+
+
+def _geometry_bands(entries, height, tolerance=.43):
+    groups = []
+    for entry in sorted(entries, key=lambda entry: (entry["b"], entry["w"][0])):
+        if not groups or entry["b"] - median(item["b"] for item in groups[-1]) > height*tolerance:
+            groups.append([entry])
+        else:
+            groups[-1].append(entry)
+    return [dict(entries=sorted(group, key=lambda entry: entry["w"][0]),
+                 y=median(entry["b"] for entry in group)) for group in groups]
+
+
+def _printed_numeric(entries, scale, money=False):
+    """Read printed digits; do not repair missing cents, OCR letters or totals."""
+    if not entries:
+        return None
+    kept = []
+    ordered = sorted(entries, key=lambda entry: entry["w"][0])
+    for index, entry in enumerate(ordered):
+        word = entry["w"]
+        if word[5] in ("|", "¦", "│", "┃"):
+            continue
+        if not money and word[2] <= 6 and word[3] <= 12 and not re.search(r"\d", word[5]):
+            digits = [other["w"] for other in entries if re.search(r"\d", other["w"][5])]
+            if digits and (word[0]+word[2] < min(other[0] for other in digits)
+                           or word[0] > max(other[0]+other[2] for other in digits)):
+                continue
+        # A tiny duplicated mark inside an already complete OCR number is not
+        # an extra digit. Keep its original evidence; ignore it only here.
+        if word[2] <= 6 and word[3] <= 12 and any(
+                other is not entry and re.fullmatch(r"\d+[.,]\d{2}", other["w"][5])
+                and other["w"][0] <= word[0] <= other["w"][0]+other["w"][2]
+                and other["w"][1] <= word[1] <= other["w"][1]+other["w"][3]
+                for other in entries):
+            continue
+        if word[4] < 50:
+            return None
+        text = word[5]
+        if (money and text in ("'", "’", ";") and word[2] <= 6 and word[3] <= 12
+                and 0 < index < len(ordered)-1):
+            before, after = ordered[index-1]["w"], ordered[index+1]["w"]
+            # A small lowered separator physically between the integer and
+            # two cents is a printed decimal mark, even if OCR calls it an
+            # apostrophe. Never infer a missing mark or repair a low-confidence
+            # one, and never change the original token or its bounding box.
+            if (re.fullmatch(r"\d+", before[5]) and re.fullmatch(r"\d{2}", after[5])
+                    and before[0]+before[2] <= word[0] < word[0]+word[2] <= after[0]
+                    and word[1] >= max(before[1]+before[3]*.65, after[1]+after[3]*.65)
+                    and word[1]+word[3] <= max(before[1]+before[3], after[1]+after[3])
+                        + max(before[3], after[3])*.5):
+                text = ","
+        kept.append(text)
+    text = " ".join(kept).strip()
+    text = re.sub(r"\s*([.,])\s*", r"\1", text)
+    if money and not re.fullmatch(r"\d{1,12}(?: \d{3})*[.,]\d{2}", text):
+        return None
+    return maybe_number(text, scale)
+
+
+def _combined_table_candidates(lines):
+    """Recover broad article/name tables from word geometry, not raw rows.
+
+    Raw physical lines remain the immutable OCR evidence. Only internal
+    baselines are deskewed. SKU starts and independent right-cell rows delimit
+    product blocks, including incomplete names and unreadable numeric cells.
+    """
+    entries = [dict(w=word, line=line["id"]) for line in lines for word in line["tokens"]]
+    if not entries:
+        return None
+    headings = _combined_heading(entries)
+    if not headings:
+        return None
+    height = median(entry["w"][3] for entry in entries)
+    slope = _page_skew(entries, headings)
+    for entry in entries:
+        word = entry["w"]
+        entry["b"] = word[1] + word[3] - slope*(word[0]+word[2]/2)
+    result = []
+    used_sources = set()
+    unit_words = {"шт", "штука", "штук", "упак", "упаковка", "уп", "пак",
+                  "рул", "рулон", "компл", "набор", "пара", "пар", "кг", "г", "л", "мл", "м"}
+    for heading_index, heading in enumerate(headings):
+        article = heading[0]
+        header_y = median(entry["b"] for entry in heading)
+        next_y = (median(entry["b"] for entry in headings[heading_index+1]) - height
+                  if heading_index+1 < len(headings) else float("inf"))
+        band = [entry for entry in entries if abs(entry["b"]-header_y) <= height*2
+                and entry["w"][0] > heading[2]["w"][0]]
+        titles = {}
+        title_counts = {}
+        for entry in band:
+            label = _column_label(entry["w"][5])
+            if norm(entry["w"][5]).replace(" ", "") in ("konbo", "колво"):
+                label = "quantity"
+            if label in ("unit", "quantity", "value", "price"):
+                titles.setdefault(label, entry)
+                title_counts[label] = title_counts.get(label, 0) + 1
+        # This path handles a name/unit/quantity/amount table. More complex
+        # price/net/VAT layouts continue through the general parser.
+        if ("price" in titles or "quantity" not in titles
+                or title_counts.get("value", 0) > 1 or title_counts.get("quantity", 0) > 1):
+            return None
+        quantity_x = titles["quantity"]["w"][0] + titles["quantity"]["w"][2]/2
+        body_top = max(header_y + height*1.35,
+            max((entry["b"]+height*.35 for entry in band
+                 if norm(entry["w"][5]) in ("ндс", "налогом")), default=header_y))
+        footer = [entry for entry in entries if body_top < entry["b"] < next_y
+                  and entry["w"][0] < article["w"][0]
+                  and re.match(r"^(?:итого|всего|фактическая|подпись|поставщик|покупатель)\b", norm(entry["w"][5]))]
+        # A damaged total caption is only a terminator when its isolated
+        # amount and the following contractual footer confirm the structure.
+        for entry in entries:
+            word = entry["w"]
+            if not (body_top < entry["b"] < next_y and word[0] < article["w"][0]
+                    and word[5].endswith(":") and len(norm(word[5])) <= 12):
+                continue
+            name_neighbours = [other for other in entries
+                if other is not entry and other["w"][0] < quantity_x-height*4
+                and abs(other["b"]-entry["b"]) < height*.8
+                and re.search(r"[A-Za-zА-Яа-яЁё0-9]", other["w"][5])]
+            if (not name_neighbours
+                    and any(0 < following["b"]-entry["b"] < height*5 for following in footer)
+                    and any(other["w"][0] > quantity_x+height*3
+                            and abs(other["b"]-entry["b"]) < height
+                            and re.fullmatch(r"\d+[.,]\d{2}", other["w"][5]) for other in entries)
+                    and not any(quantity_x-height*2 < other["w"][0] < quantity_x+height*3
+                                and abs(other["b"]-entry["b"]) < height
+                                and re.search(r"\d", other["w"][5]) for other in entries)):
+                footer.append(entry)
+        body_end = min((entry["b"]-height*.7 for entry in footer), default=next_y)
+        body = [entry for entry in entries if body_top < entry["b"] < body_end
+                and entry["w"][5] not in ("|", "||", "¦", "│", "┃")]
+        if not body:
+            continue
+        unit_title = titles.get("unit")
+        unit_evidence = [entry for entry in body if norm(entry["w"][5]) in unit_words
+                         and quantity_x-height*12 < entry["w"][0] < quantity_x]
+        if unit_title:
+            unit_x = unit_title["w"][0] + unit_title["w"][2]/2
+        elif unit_evidence:
+            centres = [entry["w"][0]+entry["w"][2]/2 for entry in unit_evidence]
+            unit_x = max(centres, key=lambda centre: (sum(abs(other-centre) <= height*2 for other in centres), centre))
+            unit_x = median(centre for centre in centres if abs(centre-unit_x) <= height*2)
+        else:
+            # A short printed token before the quantity can locate a damaged
+            # unit heading without interpreting that token as a valid unit.
+            short = [entry for entry in body if quantity_x-height*9 < entry["w"][0] < quantity_x-height*3
+                     and entry["w"][2] <= height*3 and re.search(r"[A-Za-zА-Яа-я]", entry["w"][5])]
+            if not short:
+                return None
+            unit_x = median(entry["w"][0]+entry["w"][2]/2 for entry in short)
+        value_title = titles.get("value")
+        value_evidence = [entry for entry in body if entry["w"][0] > quantity_x+height*2
+                          and re.fullmatch(r"\d+[.,]\d{2}", entry["w"][5])]
+        if value_title:
+            value_x = value_title["w"][0]+value_title["w"][2]/2
+        elif value_evidence:
+            value_x = median(entry["w"][0]+entry["w"][2]/2 for entry in value_evidence)
+        else:
+            return None
+        if not unit_x < quantity_x < value_x:
+            return None
+        unit_evidence = [entry for entry in unit_evidence
+                         if abs(entry["w"][0]+entry["w"][2]/2-unit_x) <= height*2]
+        name_end = min((entry["w"][0] for entry in unit_evidence), default=unit_x-height*1.5) - height*.2
+        unit_end = (unit_x+quantity_x)/2
+        quantity_end = (quantity_x+value_x)/2
+        for entry in body:
+            x = entry["w"][0]+entry["w"][2]/2
+            entry["cell"] = ("name" if x < name_end else "unit" if x < unit_end
+                             else "quantity" if x < quantity_end else "value")
+        name_entries = [entry for entry in body if entry["cell"] == "name"]
+        if not name_entries:
+            continue
+        # Tall OCR boxes often extend upward while retaining the correct
+        # printed baseline. Never replace that baseline with their top edge.
+        names = _geometry_bands(name_entries, height, .75)
+        names = [row for row in names if any(re.search(r"[A-Za-zА-Яа-яЁё0-9]", entry["w"][5])
+                                            for entry in row["entries"])]
+        if not names:
+            continue
+        right = _geometry_bands([entry for entry in body if entry["cell"] != "name"], height, .8)
+        # Isolated low OCR specks do not define a product row. Unreadable cells
+        # in two separate columns still do, so the corresponding name is kept.
+        right = [row for row in right if len({entry["cell"] for entry in row["entries"]}) >= 2
+                 or any(norm(entry["w"][5]) in unit_words
+                        or re.search(r"\d", entry["w"][5]) for entry in row["entries"])]
+        starts = [0]
+        sku_at = {}
+        for index, row in enumerate(names):
+            first = row["entries"][0]
+            if (re.fullmatch(r"\d{5,12}", first["w"][5])
+                    and first["w"][0] < article["w"][0]
+                    and any(re.search(r"[A-Za-zА-Яа-яЁё]{2}", entry["w"][5]) for entry in row["entries"][1:])):
+                if index not in starts:
+                    starts.append(index)
+                sku_at[index] = first
+        initial = sorted(starts)
+        for slot, start in enumerate(initial):
+            stop = initial[slot+1] if slot+1 < len(initial) else len(names)
+            low = names[start]["y"]-height*.65
+            high = names[stop]["y"]-height*.65 if stop < len(names) else body_end
+            numeric_rows = [row for row in right if low <= row["y"] < high]
+            for previous, current in zip(numeric_rows, numeric_rows[1:]):
+                boundary = (previous["y"]+current["y"])/2
+                split = next((index for index in range(start+1, stop)
+                              if names[index]["y"] > boundary), None)
+                if split is not None and names[split]["y"] <= current["y"]+height*.6:
+                    starts.append(split)
+        starts = sorted(set(starts))
+        heading_text = " ".join(entry["w"][5] for entry in band
+                                if entry["w"][0] > quantity_end)
+        gross = bool(re.search(r"\b(?:с|c|включая)\s+(?:ндс|налогом)\b", norm(heading_text)))
+        for slot, start in enumerate(starts):
+            stop = starts[slot+1] if slot+1 < len(starts) else len(names)
+            text_entries = [entry for row in names[start:stop] for entry in row["entries"]]
+            low = names[start]["y"]-height*.65
+            high = names[stop]["y"]-height*.65 if stop < len(names) else body_end
+            numeric_entries = [entry for row in right if low <= row["y"] < high for entry in row["entries"]]
+            sku = sku_at.get(start)
+            name = " ".join(entry["w"][5] for entry in text_entries if entry is not sku).strip()
+            if not re.search(r"[A-Za-zА-Яа-яЁё]{2}", name):
+                continue
+            if len(name) > 500:
+                raise OCRUnavailable("Название позиции превышает допустимую длину. Проверьте исходный текст.")
+            cells = {key:[entry for entry in numeric_entries if entry["cell"] == key]
+                     for key in ("unit", "quantity", "value")}
+            quantity = _printed_numeric(cells["quantity"], 1000)
+            quantity = quantity if quantity is not None and Decimal(quantity) > 0 else None
+            value = _printed_numeric(cells["value"], 100, money=True)
+            raw_unit = " ".join(entry["w"][5] for entry in sorted(cells["unit"], key=lambda entry:entry["w"][0]))
+            compact_unit = raw_unit.replace(" ", "")
+            unit = (raw_unit if norm(raw_unit) in unit_words else compact_unit
+                    if norm(compact_unit) in unit_words else "")
+            if not all(entry["w"][4] >= 50 for entry in cells["unit"]):
+                unit = ""
+            source_lines = sorted({entry["line"] for entry in text_entries+numeric_entries})
+            preferred = (sku or text_entries[0])["line"]
+            source = next((line for line in [preferred]+source_lines if line not in used_sources), None)
+            if source is None:
+                raise OCRUnavailable("Не удалось однозначно связать позиции со строками исходного текста.")
+            used_sources.add(source)
+            missing = [label for label, present in (("количество", quantity), ("единицу", unit), ("стоимость", value))
+                       if present is None or present == ""]
+            note = ("Проверьте по исходнику: " + ", ".join(missing) + ".") if missing else ""
+            result.append({"source_line":source, "source_lines":source_lines,
+                "name":name, "unit":unit, "quantity":quantity, "price":None,
+                "value":value, "value_basis":("printed_gross" if gross else "printed_single_total") if value is not None else None,
+                "action":"unresolved", "item_id":None, "folder_id":None, "note":note, "manual":False})
+    if len(result) > MAX_ROWS:
+        raise OCRUnavailable("Превышен лимит товарных позиций страницы.")
+    return result
+
+
 def table_candidates(lines):
     """Printed goods proposals with evidence; never infer money or quantities."""
+    recovered = _combined_table_candidates(lines)
+    if recovered is not None:
+        return recovered
     result, segment = [], []
     columns = None
 
