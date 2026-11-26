@@ -1,0 +1,59 @@
+name: IDENT-006B isolated installation and HTTPS
+on:
+  push:
+    branches: ['test/ident-006b-install-20261126']
+    paths: ['.github/workflows/ident-006b-install.yml','integrations/ident-006-receiver/**']
+permissions:
+  contents: read
+jobs:
+  lab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 12
+      - name: Verify exact source and isolated scope
+        run: |
+          set -euo pipefail
+          source='6a0c079f741856989cd233b3779abdae6b3421a2'
+          tree='971efe861e9f99c4ca811c12e2223a534fb63fcc'
+          expected='b3f96da972eda080a881ef1cc397e48f306e7b7a'
+          git merge-base --is-ancestor "$source" HEAD
+          test "$(git rev-parse "$source^{tree}")" = "$tree"
+          test "$(git rev-parse "$source:integrations/ident-006-receiver")" = "$expected"
+          test "$(git rev-parse HEAD:integrations/ident-006-receiver)" = "$expected"
+          test "$(git ls-tree -r --name-only HEAD | wc -l)" -eq 23
+          cd integrations/ident-006-receiver
+          echo '8f32c86c083ec8e0376b27bd41483299c1edbc43f92d16509e72095543e97c36  deploy/INSTALL-MANIFEST.json' | sha256sum -c -
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          manifest=json.loads(pathlib.Path('deploy/INSTALL-MANIFEST.json').read_text())
+          assert len(manifest)==13
+          for name,digest in manifest.items():
+              assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==digest,name
+          print("MANIFEST=13/13 PASS")
+          PY
+          echo "EXACT_SOURCE=PASS; SOURCE_HEAD=$source; SOURCE_TREE=$tree"
+      - name: Receiver regression and deployment unit tests
+        working-directory: integrations/ident-006-receiver
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -ne 0
+          python3 -m unittest discover -s tests -v
+          python3 -m unittest discover -s deploy/tests -p test_deploy.py -v
+          bash -n deploy/tests/lab_install.sh
+      - name: Real disposable systemd, Unix socket, Nginx HTTPS and rollback
+        working-directory: integrations/ident-006-receiver
+        run: bash deploy/tests/lab_install.sh
+      - name: Safe local diagnostic on failure
+        if: failure()
+        run: |
+          sudo systemctl status az-ident006b.service az-ident006b.socket --no-pager --lines=15 || true
+          sudo journalctl -u az-ident006b.service -n 30 --no-pager || true
+          sudo nginx -t || true
+          sudo systemctl stop az-ident006b.service az-ident006b.socket || true
