@@ -16,6 +16,7 @@ import sqlite3
 import stat
 import subprocess
 import tempfile
+import time
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -23,9 +24,12 @@ from statistics import median
 
 from flask import abort, g, jsonify, make_response, redirect, render_template, request, url_for
 import medical_supplies_documents as inbox
+from medical_supplies_ocr_enrichment import enrich_rows, header_proposal
+from medical_supplies_ocr_quality import summarize_page, document_issues
 
 KEY = "ocr_review_v1"
-EXTRACTOR_VERSION = 5
+EXTRACTOR_VERSION = 6
+RECOGNITION_VERSION = 2
 MAX_PAGES = 20
 MAX_WORDS = 8000
 MAX_LINES = 1000
@@ -815,6 +819,12 @@ def recognize_pdf_page(raw,page,lock_directory):
     """One page, no database writes or long SQLite transaction."""
     if not raw.startswith(b"%PDF-") or not 0<len(raw)<=inbox.MAX_BYTES:
         raise OCRUnavailable("Поддерживается PDF-оригинал до 20 МБ.")
+    deadline=time.monotonic()+25
+    def bounded_command(argv,directory,output,seconds,max_size):
+        remaining=int(deadline-time.monotonic())
+        if remaining<1:
+            raise OCRUnavailable("Распознавание страницы не завершилось вовремя. Сохранённые данные доступны.")
+        return _command(argv,directory,output,min(seconds,remaining),max_size)
     lock=Path(lock_directory)/".med-supply-ocr.lock"
     try:
         fd=os.open(lock,os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
@@ -833,7 +843,7 @@ def recognize_pdf_page(raw,page,lock_directory):
             pdf=root/"source.pdf"
             pdf.write_bytes(raw)
             report=root/"info.txt"
-            _command(["pdfinfo",str(pdf)],root,report,3,65536)
+            bounded_command(["pdfinfo",str(pdf)],root,report,3,65536)
             match=re.search(r"^Pages:\s+(\d+)\s*$",report.read_text(encoding="utf-8",errors="replace"),re.M)
             if not match or not 1<=int(match.group(1))<=MAX_PAGES:
                 raise OCRUnavailable("PDF должен содержать от 1 до 20 страниц.")
@@ -843,15 +853,21 @@ def recognize_pdf_page(raw,page,lock_directory):
             prefix=root/"page"
             # Poppler limits raster dimensions. Its image file is covered by
             # the same per-process fsize limit (64 MiB).
-            _command(["pdftoppm","-f",str(page),"-l",str(page),"-scale-to","3508",
+            bounded_command(["pdftoppm","-f",str(page),"-l",str(page),"-scale-to","3508",
                       "-png","-singlefile",str(pdf),str(prefix)],root,root/"render.log",6,64*1024*1024)
             image=prefix.with_suffix(".png")
             if not image.is_file():
                 raise OCRUnavailable("Не удалось получить изображение страницы.")
             tsv=root/"page.tsv"
-            _command(["tesseract",str(image),"stdout","-l","rus+eng","--psm","3","tsv"],
-                     root,tsv,17,MAX_TSV)
+            bounded_command(["tesseract",str(image),"stdout","-l","rus+eng","--psm","3","tsv"],
+                     root,tsv,8,MAX_TSV)
             parsed=parse_tsv(tsv.read_text(encoding="utf-8"))
+            from medical_supplies_ocr_image import enhance_page
+            parsed=enhance_page(image,root,bounded_command,parsed)
+            # A fallback with only one OCR view cannot confirm dates or
+            # printed pagination through agreement of two readings.
+            parsed.setdefault("metadata_first_pass",[])
+            parsed["recognition_version"]=RECOGNITION_VERSION
             return count,parsed
     finally:
         os.close(fd)
@@ -931,6 +947,64 @@ def suggestions(name,unit,items):
         ranked.append((score,norm(unit)==norm(item["unit"]),item["id"],item))
     ranked.sort(key=lambda x:(-x[0],-int(x[1]),x[2]))
     return [r[3] for r in ranked[:3]]
+
+
+def classification_history(conn,exclude_doc_id):
+    """Read only confirmed choices, with a bounded metadata budget; no blobs."""
+    pages=[]
+    remaining=8*1024*1024
+    for row in conn.execute("""SELECT fields_json FROM med_supply_documents
+        WHERE id!=? AND length(fields_json)<=2097152
+        ORDER BY id DESC LIMIT 50""",(exclude_doc_id,)):
+        raw=row["fields_json"]
+        remaining-=len(raw.encode("utf-8"))
+        if remaining<0:
+            break
+        try:
+            fields=json.loads(raw)
+            old_pages=fields.get(KEY,{}).get("pages",{})
+            if not isinstance(old_pages,dict):
+                continue
+            for previous in list(old_pages.values())[:MAX_PAGES]:
+                if isinstance(previous,dict) and previous.get("checked") is True and isinstance(previous.get("rows"),list):
+                    pages.append(previous)
+        except (ValueError,TypeError,AttributeError):
+            # A damaged unrelated draft cannot break another document's OCR.
+            continue
+    return pages
+
+
+def proposed_header(data,page,state):
+    """Propose identity and part without replacing any saved operator field."""
+    if "header" in data:
+        return data["header"]
+    header=dict(data.get("header_candidate") or header_proposal(data,page=page))
+    identity=(header.get("document_type"),norm(header.get("counterparty")),
+              header.get("number"),header.get("date"))
+    used=set()
+    for key,other in state.get("pages",{}).items():
+        if str(key)==str(page) or not isinstance(other,dict):
+            continue
+        other_header=other.get("header",other.get("header_candidate",{}))
+        part=other_header.get("part")
+        if isinstance(part,int) and 1<=part<=MAX_PAGES:
+            used.add(part)
+        other_identity=(other_header.get("document_type"),norm(other_header.get("counterparty")),
+                        other_header.get("number"),other_header.get("date"))
+        if all(identity) and identity[0]!="unknown" and other_identity==identity and part in used:
+            header["part"]=part
+            return header
+    preferred=header.get("part",page)
+    header["part"]=preferred if preferred not in used else next((p for p in range(1,MAX_PAGES+1) if p not in used),page)
+    return header
+
+
+def automatic_proposals(parsed,page,state,items,folders,history):
+    """Only fresh automatic fields; never copy amounts from catalog/history."""
+    parsed=dict(parsed)
+    parsed["candidates"]=enrich_rows(parsed["candidates"],items,folders,history=history)
+    parsed["header_candidate"]=proposed_header(parsed,page,state)
+    return parsed
 
 
 def parse_review(form,page_data,items,folders):
@@ -1031,11 +1105,20 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             if data:
                 data=derive_page(data)
                 rows=[dict(r) for r in data.get("rows",data["candidates"])]
+                if "rows" not in data:
+                    rows=enrich_rows(rows,items,folders,history=classification_history(db(),doc_id))
                 for r in rows:
                     r["matches"]=suggestions(r["name"],r["unit"],items)
-                header=data.get("header",{})
+                header=proposed_header(data,page,state)
+            quality=summarize_page(data or {},rows) if data else None
+            page_issues=[]
+            if data:
+                current=data if "header" in data else {**data,"header_candidate":header}
+                proposal_pages={**state["pages"],str(page):current}
+                page_issues=list(dict.fromkeys([*quality["issues"],*document_issues(proposal_pages)]))
             response=make_response(render_template("medical_supplies_ocr.html",title="Разбор документа — Медрасходка",
                 doc=row,state=state,page=page,data=data,rows=rows,header=header,
+                quality=quality,page_issues=page_issues,
                 items=items,folders=folders,types=inbox.TYPES,csrf=csrf_token(),can_manage=can_manage(),
                 saved=request.args.get("saved")=="1"))
             response.headers["Cache-Control"]="private, no-store"
@@ -1063,6 +1146,34 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 raise ValueError("Такой страницы нет.")
             if str(page) in state["pages"]:
                 previous=state["pages"][str(page)]
+                recognized=previous.get("automatic",previous)
+                recognition=recognized.get("recognition_version",0)
+                if request.form.get("reread")=="1" and (recognition<RECOGNITION_VERSION
+                        or recognized.get("recognition_retryable")):
+                    import app as app_core
+                    new_count,parsed=recognize_pdf_page(row["original_bytes"],page,app_core.DB_PATH.parent)
+                    if new_count!=count:
+                        raise inbox.Conflict("Количество страниц изменилось.")
+                    folders=[dict(x) for x in conn.execute("""SELECT f.id,f.name,p.name AS parent
+                        FROM med_supply_folders f LEFT JOIN med_supply_folders p ON p.id=f.parent_id""")]
+                    parsed=automatic_proposals(parsed,page,state,catalog(conn),folders,classification_history(conn,doc_id))
+                    parsed["recognition_version"]=RECOGNITION_VERSION
+                    def reread(current):
+                        target=current["pages"][str(page)]
+                        if "rows" in target or "header" in target:
+                            # Human edits, including a deliberately empty draft,
+                            # retain their original line map and exact values.
+                            target["automatic"]=parsed
+                        else:
+                            # Keep the first OCR evidence without recursive copies.
+                            parsed["previous_ocr"]=target.get("previous_ocr",target)
+                            current["pages"][str(page)]=parsed
+                    new_version=store(conn,doc_id,version,row["sha256"],reread,g.user["id"],"ocr_page",
+                        {"page":page,"words":len(parsed["words"]),"candidates":len(parsed["candidates"]),
+                         "image_reread":True,"human_preserved":"rows" in previous or "header" in previous})
+                    return jsonify(version=new_version,page_count=count,stored=len(state["pages"]),cached=False)
+                if request.form.get("reread")=="1" and recognition>=RECOGNITION_VERSION:
+                    return jsonify(version=version,page_count=count,stored=len(state["pages"]),cached=True)
                 derived=derive_page(previous)
                 if derived is previous:
                     return jsonify(version=version,page_count=count,stored=len(state["pages"]),cached=True)
@@ -1078,6 +1189,9 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 return jsonify(version=new_version,page_count=count,stored=len(state["pages"]),cached=False)
             import app as app_core
             count,parsed=recognize_pdf_page(row["original_bytes"],page,app_core.DB_PATH.parent)
+            folders=[dict(x) for x in conn.execute("""SELECT f.id,f.name,p.name AS parent
+                FROM med_supply_folders f LEFT JOIN med_supply_folders p ON p.id=f.parent_id""")]
+            parsed=automatic_proposals(parsed,page,state,catalog(conn),folders,classification_history(conn,doc_id))
             def mutate(current):
                 if current.get("page_count") not in (None,count):
                     raise inbox.Conflict("Количество страниц изменилось.")

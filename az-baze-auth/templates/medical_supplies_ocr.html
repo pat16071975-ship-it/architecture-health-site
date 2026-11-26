@@ -51,7 +51,9 @@
 {% if data %}
 <section class="card ocr-card" aria-labelledby="ocr-goods-heading">
 <h3 id="ocr-goods-heading">Товары · страница {{ page }}</h3>
-<p class="ocr-note">Проверьте распознанные строки по оригиналу и выберите раздел для каждой позиции.</p>
+<p class="ocr-note">Проверьте результат автоматического разбора. Неразборчивые поля и расхождения указаны ниже.</p>
+{% if quality and quality.total_matches %}<p class="ocr-note" role="status">Сумма строк совпадает с итогом документа: {{ quality.total_actual }} ₽.</p>{% endif %}
+{% if page_issues %}<details class="ocr-note" id="ocr-checks"><summary>Требует проверки: {{ page_issues|length }}</summary>{% for issue in page_issues %}<p>{{ issue }}</p>{% endfor %}</details>{% endif %}
 {% if can_manage %}
 <form method="post" id="ocr-review" action="{{ url_for('medical_supplies_ocr_save',doc_id=doc.id) }}">
 <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}"><input type="hidden" name="page" value="{{ page }}">
@@ -124,7 +126,7 @@
   const form=document.getElementById('ocr-review'),rows=document.getElementById('ocr-rows');
   const add=document.getElementById('ocr-add'),template=document.getElementById('ocr-new');
   const catalog=document.getElementById('ocr-catalog-options');
-  let dirty=false,newRow=0;
+  let dirty=false,newRow=0,staleForm=false;
   function fitName(field){
     field.style.height='auto';
     const style=getComputedStyle(field),border=parseFloat(style.borderTopWidth)+parseFloat(style.borderBottomWidth);
@@ -187,16 +189,21 @@
     try{
       for(let p=1;p<=count;p++){
         msg.textContent='Распознаётся страница '+p+' из '+(start.dataset.count==='0'?'?':count)+'…';
-        const body=new URLSearchParams({csrf:start.dataset.csrf,version:version,page:String(p)});
+        const body=new URLSearchParams({csrf:start.dataset.csrf,version:version,page:String(p),reread:'1'});
         const response=await fetch(start.dataset.url,{method:'POST',body:body,credentials:'same-origin'});
         const result=await response.json();if(!response.ok)throw new Error(result.error||'Не удалось распознать страницу.');
-        count=result.page_count;version=String(result.version);start.dataset.count=String(count);start.dataset.version=version;
-        if(form)form.elements.namedItem('version').value=version;
+        count=result.page_count;
+        if(String(result.version)!==version)staleForm=true;
+        version=String(result.version);start.dataset.count=String(count);start.dataset.version=version;
       }
       location.reload();
     }catch(error){
       msg.textContent=String(error.message)+' Сохранённые строки доступны для просмотра.';
-      start.disabled=false;controls.forEach(control=>{control.disabled=false;});document.getElementById('ocr-show-saved').hidden=false;
+      start.disabled=false;
+      // A successful earlier page may have replaced the displayed proposals.
+      // Keep its old form/version disabled until a fresh server view is loaded.
+      if(!staleForm)controls.forEach(control=>{control.disabled=false;});
+      document.getElementById('ocr-show-saved').hidden=false;
     }
   }
   if(start){

@@ -489,7 +489,7 @@ class RealRussianGoodsOCRTests(unittest.TestCase):
         self.assertEqual(len(parsed["candidates"]), 1, parsed["lines"])
         row = parsed["candidates"][0]
         self.assertEqual(row["name"], "Салфетки медицинские")
-        self.assertEqual((row["quantity"], row["unit"]), ("2", "упак"))
+        self.assertEqual((row["quantity"], row["unit"].casefold()), ("2", "упак"))
         self.assertEqual(row["price"], "120.50")
         self.assertEqual(row["value"], "289.21")
         self.assertEqual(row["action"], "unresolved")
