@@ -25,9 +25,9 @@ jobs:
       - name: Verify exact source and copy raw Git blobs
         run: |
           $ErrorActionPreference='Stop'
-          $source='7ec699217df41a7f62c1425975c8e0724168b1f6'
-          $tree='5159b02a8998b14ecfbeb697abbcd1d9f38ff6f0'
-          $sender='40c6a60dea8e6a794f6155fdafb8161d7036d349'
+          $source='6b0108b4a8115aa9e1aee4655f5feea415bdf153'
+          $tree='9658340f88fac39034ce2555bbcfbd6df6bc2201'
+          $sender='92e802de546e17b0d3be25f12de54f95f9140f1d'
           git merge-base --is-ancestor $source HEAD
           if($LASTEXITCODE -ne 0 -or (git rev-parse "$source^{tree}") -cne $tree -or (git rev-parse HEAD:integrations/ident-006-sender) -cne $sender -or (git rev-parse "$($source):integrations/ident-006-sender") -cne $sender){throw 'EXACT_SOURCE'}
           if(@(git ls-tree -r --name-only HEAD).Count -ne 24){throw 'CI_SCOPE'}

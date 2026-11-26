@@ -62,12 +62,12 @@ function Assert-Ancestors([string]$Path) {
         $acl=$dir.GetAccessControl()
         Require ($acl.AreAccessRulesCanonical -and $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -in $allowed) 'ANCESTOR_OWNER'
         $descriptor=[Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)
-        Require ($null -ne $descriptor.DiscretionaryAcl -and ($descriptor.ControlFlags -band [Security.AccessControl.ControlFlags]::DiscretionaryAclPresent) -ne 0) 'ANCESTOR_ACL'
+        Require ($null -ne $descriptor.DiscretionaryAcl -and ([int]$descriptor.ControlFlags -band [int][Security.AccessControl.ControlFlags]::DiscretionaryAclPresent) -ne 0) 'ANCESTOR_ACL'
         # Inspect raw ACEs so generic write/all and unsupported callback ACEs
         # cannot evade a projected FileSystemAccessRule check.
         foreach($rule in $descriptor.DiscretionaryAcl) {
             Require ($rule -is [Security.AccessControl.CommonAce] -and -not $rule.IsCallback -and $rule.AceQualifier -in @('AccessAllowed','AccessDenied')) 'ANCESTOR_ACL'
-            if($rule.AceQualifier -eq 'AccessAllowed' -and $rule.SecurityIdentifier.Value -notin $allowed -and ($rule.AceFlags -band [Security.AccessControl.AceFlags]::InheritOnly) -eq 0) {
+            if($rule.AceQualifier -eq 'AccessAllowed' -and $rule.SecurityIdentifier.Value -notin $allowed -and ([int]$rule.AceFlags -band [int][Security.AccessControl.AceFlags]::InheritOnly) -eq 0) {
                 Require (($rule.AccessMask -band $danger) -eq 0) 'ANCESTOR_ACL'
             }
         }
@@ -131,12 +131,12 @@ function Assert-CreatedDirectory([string]$Path,[bool]$Writable) {
         $want[$r.IdentityReference.Value]=[int]$r.FileSystemRights
     }
     $descriptor=[Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)
-    Require ($null -ne $descriptor.DiscretionaryAcl -and ($descriptor.ControlFlags -band [Security.AccessControl.ControlFlags]::DiscretionaryAclPresent) -ne 0 -and
+    Require ($null -ne $descriptor.DiscretionaryAcl -and ([int]$descriptor.ControlFlags -band [int][Security.AccessControl.ControlFlags]::DiscretionaryAclPresent) -ne 0 -and
         $descriptor.DiscretionaryAcl.Count -eq $want.Count) 'PRIVATE_DIRECTORY_ACE_COUNT'
     foreach($r in $descriptor.DiscretionaryAcl){
         Require ($r -is [Security.AccessControl.CommonAce] -and -not $r.IsCallback -and $r.AceQualifier -eq 'AccessAllowed') 'PRIVATE_DIRECTORY_ACE'
         $sid=$r.SecurityIdentifier.Value
-        Require ($want.ContainsKey($sid) -and $r.AceFlags -eq ([Security.AccessControl.AceFlags]::ContainerInherit -bor [Security.AccessControl.AceFlags]::ObjectInherit) -and
+        Require ($want.ContainsKey($sid) -and [int]$r.AceFlags -eq ([int][Security.AccessControl.AceFlags]::ContainerInherit -bor [int][Security.AccessControl.AceFlags]::ObjectInherit) -and
             $r.AccessMask -eq $want[$sid]) 'PRIVATE_DIRECTORY_ACE'
         $want.Remove($sid)
     }

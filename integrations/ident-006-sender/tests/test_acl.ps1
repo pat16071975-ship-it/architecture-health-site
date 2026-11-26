@@ -45,7 +45,7 @@ function Set-FixtureAcl([string]$Path,[Security.AccessControl.DirectorySecurity]
 }
 function Expect-Blocked([scriptblock]$Action,[string]$Code){
     $actual=''
-    try{& $Action}catch{$actual=$_.Exception.Message}
+    try{& $Action}catch{$actual=$_.Exception.Message; if($actual -cne $Code){Write-Output $_.ScriptStackTrace}}
     Require ($actual -ceq $Code) ('EXPECTED_'+$Code+'_ACTUAL_'+$actual)
 }
 function Check-Both([string]$Path,[bool]$Rejected,[string]$Label){
@@ -131,11 +131,11 @@ try{
     New-PrivateDirectory $sub $false
     Assert-CreatedDirectory $sub $false
     Pass 'NESTED_PROTECTED_DIRECTORY'
-    $before=([IO.DirectoryInfo]::new($sub)).GetAccessControl().GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::All -band (-bnot [Security.AccessControl.AccessControlSections]::Audit))
+    $before=([IO.DirectoryInfo]::new($sub)).GetAccessControl().GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::Access -bor [Security.AccessControl.AccessControlSections]::Owner -bor [Security.AccessControl.AccessControlSections]::Group)
     $marker=Join-Path $sub 'keep.txt'
     [IO.File]::WriteAllText($marker,'do-not-adopt')
     Expect-Blocked {New-PrivateDirectory $sub $false} 'DIRECTORY_EXISTS'
-    $after=([IO.DirectoryInfo]::new($sub)).GetAccessControl().GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::All -band (-bnot [Security.AccessControl.AccessControlSections]::Audit))
+    $after=([IO.DirectoryInfo]::new($sub)).GetAccessControl().GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::Access -bor [Security.AccessControl.AccessControlSections]::Owner -bor [Security.AccessControl.AccessControlSections]::Group)
     Require ($before -ceq $after -and [IO.File]::ReadAllText($marker) -ceq 'do-not-adopt') 'EXISTING_DIRECTORY_CHANGED'
     Pass 'EXISTING_DIRECTORY_NO_ADOPTION'
     $file=Join-Path $app 'occupied'
