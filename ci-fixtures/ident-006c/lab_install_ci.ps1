@@ -50,6 +50,26 @@ function Descriptor-Bytes($Descriptor){
 function Descriptor-Sddl($Descriptor){
     return $Descriptor.GetSddlForm([Security.AccessControl.AccessControlSections]::Access -bor [Security.AccessControl.AccessControlSections]::Owner -bor [Security.AccessControl.AccessControlSections]::Group)
 }
+function Assert-RootDescriptor($Expected,$Observed,[string]$Failure){
+    # SetFileSecurityW clears SE_DACL_AUTO_INHERITED on this disposable
+    # volume. Only that bookkeeping flag may differ. The full ordered
+    # DACL binary (including all ACEs and flags), owner, group, and
+    # every other descriptor control bit must still match.
+    $ai=[int][Security.AccessControl.ControlFlags]::DiscretionaryAclAutoInherited
+    $want=[int]$Expected.ControlFlags
+    $got=[int]$Observed.ControlFlags
+    if(($want -band (-bnot $ai)) -ne ($got -band (-bnot $ai)) -or
+        $Expected.Owner.Value -cne $Observed.Owner.Value -or
+        $Expected.Group.Value -cne $Observed.Group.Value -or
+        $null -eq $Expected.DiscretionaryAcl -or $null -eq $Observed.DiscretionaryAcl){throw $Failure}
+    $wb=[byte[]]::new($Expected.DiscretionaryAcl.BinaryLength)
+    $gb=[byte[]]::new($Observed.DiscretionaryAcl.BinaryLength)
+    $Expected.DiscretionaryAcl.GetBinaryForm($wb,0)
+    $Observed.DiscretionaryAcl.GetBinaryForm($gb,0)
+    if([Convert]::ToBase64String($wb) -cne [Convert]::ToBase64String($gb)){throw $Failure}
+    if($want -ne $got){Write-Output 'LAB_ROOT_CONTROL_DIFFERENCE=SE_DACL_AUTO_INHERITED_ONLY'}
+    Write-Output 'LAB_ROOT_OWNER_GROUP_ORDERED_ACE_BYTES=EXACT'
+}
 function Invoke-RootDacl([string]$Path){
     Write-Output ('LAB_NATIVE_DACL_BEGIN='+[IO.Path]::GetFileName($Path))
     $proc=Start-Process -FilePath $python -ArgumentList @('-B',('"'+$nativeScript+'"'),('"'+$Path+'"')) -NoNewWindow -PassThru
@@ -100,7 +120,7 @@ try{
         $observed=Read-Descriptor $driveRoot
         Write-Output ('LAB_CANDIDATE_EXPECTED='+ (Descriptor-Sddl $candidate))
         Write-Output ('LAB_CANDIDATE_OBSERVED='+ (Descriptor-Sddl $observed))
-        if((Descriptor-Sddl $observed) -cne (Descriptor-Sddl $candidate)){throw 'LAB_ROOT_DACL_MISMATCH'}
+        Assert-RootDescriptor $candidate $observed 'LAB_ROOT_DACL_MISMATCH'
         Assert-ChildrenUnchanged
         Write-Output 'LAB_NONPROPAGATING_ROOT_DACL=PASS; CHILD_DACLS_UNCHANGED=YES'
     }else{Write-Output 'LAB_ROOT_ALREADY_SAFE=YES'}
@@ -177,8 +197,8 @@ try {
         $observed=Read-Descriptor $driveRoot
         Write-Output ('LAB_RESTORE_EXPECTED='+ (Descriptor-Sddl $rootBefore))
         Write-Output ('LAB_RESTORE_OBSERVED='+ (Descriptor-Sddl $observed))
-        if((Descriptor-Sddl $observed) -cne (Descriptor-Sddl $rootBefore)){throw 'LAB_ROOT_DACL_RESTORE_FAILED'}
+        Assert-RootDescriptor $rootBefore $observed 'LAB_ROOT_DACL_RESTORE_FAILED'
         Assert-ChildrenUnchanged
-        Write-Output 'LAB_ORIGINAL_ROOT_DACL_RESTORED=PASS; CHILD_DACLS_UNCHANGED=YES'
+        Write-Output 'LAB_ORIGINAL_ROOT_ACE_BYTES_RESTORED=PASS; CHILD_DACLS_UNCHANGED=YES; AI_BOOKKEEPING_MAY_DIFFER'
     }
 }
