@@ -25,12 +25,12 @@ jobs:
       - name: Verify exact source and copy raw Git blobs
         run: |
           $ErrorActionPreference='Stop'
-          $source='ba94c61b961460e24c48ba4c6d253aea2a71fa13'
-          $tree='bcdf3a870ece5f5bc3b0087b791f909546c5c369'
-          $sender='f9da1b4bb84885b60a191078b3666e2d29df7977'
+          $source='7ec699217df41a7f62c1425975c8e0724168b1f6'
+          $tree='5159b02a8998b14ecfbeb697abbcd1d9f38ff6f0'
+          $sender='40c6a60dea8e6a794f6155fdafb8161d7036d349'
           git merge-base --is-ancestor $source HEAD
           if($LASTEXITCODE -ne 0 -or (git rev-parse "$source^{tree}") -cne $tree -or (git rev-parse HEAD:integrations/ident-006-sender) -cne $sender -or (git rev-parse "$($source):integrations/ident-006-sender") -cne $sender){throw 'EXACT_SOURCE'}
-          if(@(git ls-tree -r --name-only HEAD).Count -ne 23){throw 'CI_SCOPE'}
+          if(@(git ls-tree -r --name-only HEAD).Count -ne 24){throw 'CI_SCOPE'}
           $work=Join-Path $env:RUNNER_TEMP 'ident006c-source'
           $env:IDENT_WORK=$work
           $env:IDENT_EXACT=$source
@@ -54,13 +54,13 @@ jobs:
               dest=work/rel
               dest.parent.mkdir(parents=True,exist_ok=True)
               dest.write_bytes(raw); n+=1
-          assert n==22
+          assert n==23
           expected={"guard_readonly.sql":"1039aba313b635ada0d75247a04e053d01e3fbbeefd9445a8a5e42529d10ae6b",
                     "payments_daily_v1.sql":"277cc67cb4c0369f7f3461ae5d8c50ac0443c3342cb44a81625cf701c52e443f",
                     "payments_daily_v1_schema.sql":"e455b34a6f2e364ce979711e4afb2ba905c1ddc9c54c88bff1df04b78cfccffc"}
           for name,digest in expected.items(): assert hashlib.sha256((work/"sql"/name).read_bytes()).hexdigest()==digest
           assert (work/"tests/reference/sql/payments_daily_v1.sql").read_bytes()==(work/"sql/payments_daily_v1.sql").read_bytes()
-          print("SQL_RESOURCE_HASHES=3/3 PASS; EXACT_GIT_BLOBS=22/22 PASS")
+          print("SQL_RESOURCE_HASHES=3/3 PASS; EXACT_GIT_BLOBS=23/23 PASS")
           '@ | python -
           if($LASTEXITCODE -ne 0){throw 'SOURCE_BLOBS'}
           "IDENT_WORK=$work" >> $env:GITHUB_ENV

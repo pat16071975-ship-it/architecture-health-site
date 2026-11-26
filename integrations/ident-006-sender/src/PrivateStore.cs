@@ -34,7 +34,8 @@ internal static class PrivateStore
         Guard.Require(identity.User==ServiceSid && !new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator),"SERVICE_IDENTITY_REQUIRED");
     }
     private static bool Trusted(string sid) => sid==Admin.Value || sid==SystemSid.Value || sid==ServiceSid.Value;
-    private static bool OwnerTrusted(string sid) => Trusted(sid) || sid==TrustedInstaller;
+    // The service is not a trusted writer of installation ancestors.
+    private static bool OwnerTrusted(string sid) => sid==Admin.Value || sid==SystemSid.Value || sid==TrustedInstaller;
 
     internal static void AssertAncestors(string path)
     {
@@ -45,11 +46,27 @@ internal static class PrivateStore
         {
             Guard.Require(dir.Exists && (dir.Attributes & FileAttributes.ReparsePoint)==0,"DIRECTORY_REPARSE_OR_MISSING");
             var acl=dir.GetAccessControl(AccessControlSections.Access|AccessControlSections.Owner);
-            Guard.Require(acl.AreAccessRulesCanonical && OwnerTrusted(acl.GetOwner(typeof(SecurityIdentifier)).Value),"UNSAFE_ANCESTOR_OWNER");
-            const FileSystemRights danger=FileSystemRights.DeleteSubdirectoriesAndFiles|FileSystemRights.Delete|FileSystemRights.ChangePermissions|FileSystemRights.TakeOwnership|FileSystemRights.WriteAttributes|FileSystemRights.WriteExtendedAttributes;
-            foreach(FileSystemAccessRule rule in acl.GetAccessRules(true,true,typeof(SecurityIdentifier)))
-                if(rule.AccessControlType==AccessControlType.Allow && !OwnerTrusted(rule.IdentityReference.Value) && (rule.PropagationFlags&PropagationFlags.InheritOnly)==0)
-                    Guard.Require((rule.FileSystemRights&danger)==0 && ((int)rule.FileSystemRights&0x50000000)==0,"UNSAFE_ANCESTOR_ACL");
+            Guard.Require(acl.AreAccessRulesCanonical && acl.GetOwner(typeof(SecurityIdentifier)) is SecurityIdentifier owner && OwnerTrusted(owner.Value),"UNSAFE_ANCESTOR_OWNER");
+            // NTFS aliases: CreateFiles == WriteData, CreateDirectories == AppendData.
+            // Both bits apply to directory ACEs, not just regular file ACEs.
+            const FileSystemRights danger=FileSystemRights.CreateFiles|FileSystemRights.CreateDirectories|
+                FileSystemRights.DeleteSubdirectoriesAndFiles|FileSystemRights.Delete|FileSystemRights.ChangePermissions|
+                FileSystemRights.TakeOwnership|FileSystemRights.WriteAttributes|FileSystemRights.WriteExtendedAttributes;
+            var descriptor=new RawSecurityDescriptor(acl.GetSecurityDescriptorBinaryForm(),0);
+            Guard.Require(descriptor.DiscretionaryAcl is not null &&
+                (descriptor.ControlFlags&ControlFlags.DiscretionaryAclPresent)!=0,"UNSAFE_ANCESTOR_ACL");
+            // Inspect raw masks too: generic rights must not disappear through
+            // an ACL projection. Unrecognized/callback ACEs fail closed.
+            foreach(GenericAce ace in descriptor.DiscretionaryAcl!)
+            {
+                Guard.Require(ace is CommonAce,"UNSAFE_ANCESTOR_ACL");
+                var rule=(CommonAce)ace;
+                Guard.Require(!rule.IsCallback && (rule.AceQualifier==AceQualifier.AccessAllowed ||
+                    rule.AceQualifier==AceQualifier.AccessDenied),"UNSAFE_ANCESTOR_ACL");
+                if(rule.AceQualifier==AceQualifier.AccessAllowed && !OwnerTrusted(rule.SecurityIdentifier.Value) &&
+                    (rule.AceFlags&AceFlags.InheritOnly)==0)
+                    Guard.Require((rule.AccessMask&((int)danger|0x50000000))==0,"UNSAFE_ANCESTOR_ACL");
+            }
         }
     }
 
@@ -58,7 +75,7 @@ internal static class PrivateStore
         Guard.Require(info.Exists && (info.Attributes&FileAttributes.ReparsePoint)==0,"PRIVATE_PATH_INVALID");
         var acl=info is DirectoryInfo d ? (FileSystemSecurity)d.GetAccessControl(AccessControlSections.Access|AccessControlSections.Owner)
                                          : ((FileInfo)info).GetAccessControl(AccessControlSections.Access|AccessControlSections.Owner);
-        string owner=acl.GetOwner(typeof(SecurityIdentifier)).Value;
+        string owner=(acl.GetOwner(typeof(SecurityIdentifier)) as SecurityIdentifier)?.Value??"";
         Guard.Require(acl.AreAccessRulesCanonical && Trusted(owner) && (writable || owner!=ServiceSid.Value),"PRIVATE_OWNER");
         const FileSystemRights write=FileSystemRights.WriteData|FileSystemRights.AppendData|FileSystemRights.Delete|FileSystemRights.DeleteSubdirectoriesAndFiles|FileSystemRights.WriteAttributes|FileSystemRights.WriteExtendedAttributes|FileSystemRights.ChangePermissions|FileSystemRights.TakeOwnership;
         bool hasService=false;
@@ -74,12 +91,42 @@ internal static class PrivateStore
         Guard.Require(hasService,"SERVICE_ACL_REQUIRED");
     }
 
-    internal static void VerifyLayout()
+    internal static void VerifyDirectoryLayout()
     {
         AssertAncestors(Root);
-        foreach(string p in new[]{Root,App}) AssertAcl(new DirectoryInfo(p),false);
-        foreach(string p in new[]{Root,App,State}) Guard.Require(new DirectoryInfo(p).GetAccessControl(AccessControlSections.Access).AreAccessRulesProtected,"PRIVATE_DIRECTORY_INHERITANCE");
-        foreach(string p in new[]{State,JournalDir}) AssertAcl(new DirectoryInfo(p),true);
+        foreach(string p in new[]{Root,App,State,JournalDir})
+        {
+            var dir=new DirectoryInfo(p);
+            AssertAcl(dir,p==State || p==JournalDir);
+            var acl=dir.GetAccessControl(AccessControlSections.Access|AccessControlSections.Owner);
+            Guard.Require(acl.AreAccessRulesProtected &&
+                acl.GetOwner(typeof(SecurityIdentifier)) is SecurityIdentifier owner && owner==Admin,
+                "PRIVATE_DIRECTORY_INHERITANCE_OR_OWNER");
+            var descriptor=new RawSecurityDescriptor(acl.GetSecurityDescriptorBinaryForm(),0);
+            var expected=new Dictionary<string,int>(StringComparer.Ordinal) {
+                [Admin.Value]=(int)FileSystemRights.FullControl,
+                [SystemSid.Value]=(int)FileSystemRights.FullControl,
+                [ServiceSid.Value]=(int)((p==State || p==JournalDir?FileSystemRights.Modify:FileSystemRights.ReadAndExecute)|FileSystemRights.Synchronize)
+            };
+            Guard.Require(descriptor.DiscretionaryAcl is not null &&
+                (descriptor.ControlFlags&ControlFlags.DiscretionaryAclPresent)!=0 &&
+                descriptor.DiscretionaryAcl.Count==expected.Count,"PRIVATE_DIRECTORY_ACE_COUNT");
+            foreach(GenericAce ace in descriptor.DiscretionaryAcl!)
+            {
+                Guard.Require(ace is CommonAce,"PRIVATE_DIRECTORY_ACE");
+                var rule=(CommonAce)ace;
+                Guard.Require(!rule.IsCallback && rule.AceQualifier==AceQualifier.AccessAllowed &&
+                    rule.AceFlags==(AceFlags.ContainerInherit|AceFlags.ObjectInherit) &&
+                    expected.Remove(rule.SecurityIdentifier.Value,out int rights) && rule.AccessMask==rights,
+                    "PRIVATE_DIRECTORY_ACE");
+            }
+            Guard.Require(expected.Count==0,"PRIVATE_DIRECTORY_ACE_MISSING");
+        }
+    }
+
+    internal static void VerifyLayout()
+    {
+        VerifyDirectoryLayout();
         foreach(string p in new[]{ConfigPath,Pin,SqlSecret,TokenSecret}) AssertAcl(new FileInfo(p),false);
         AssertNoOrdinaryShares();
     }
