@@ -2,7 +2,7 @@ name: IDENT-006C isolated Windows service
 on:
   push:
     branches: ['test/ident-006c-sender-20261126']
-    paths: ['.github/workflows/ident-006c-sender.yml','integrations/ident-006-sender/**']
+    paths: ['.github/workflows/ident-006c-sender.yml','integrations/ident-006-sender/**','ci-fixtures/ident-006c/**']
 permissions:
   contents: read
 jobs:
