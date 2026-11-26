@@ -20,16 +20,16 @@ jobs:
       - name: Verify exact source and isolated scope
         run: |
           set -euo pipefail
-          source='6a0c079f741856989cd233b3779abdae6b3421a2'
-          tree='971efe861e9f99c4ca811c12e2223a534fb63fcc'
-          expected='b3f96da972eda080a881ef1cc397e48f306e7b7a'
+          source='4cf0f579d319446828ab26169525bca22781ca66'
+          tree='3bc26f84647a2ccb1467e09d119caca769a4c027'
+          expected='dffec7d352251d5caa44a2cf373b1793348719e0'
           git merge-base --is-ancestor "$source" HEAD
           test "$(git rev-parse "$source^{tree}")" = "$tree"
           test "$(git rev-parse "$source:integrations/ident-006-receiver")" = "$expected"
           test "$(git rev-parse HEAD:integrations/ident-006-receiver)" = "$expected"
           test "$(git ls-tree -r --name-only HEAD | wc -l)" -eq 23
           cd integrations/ident-006-receiver
-          echo '8f32c86c083ec8e0376b27bd41483299c1edbc43f92d16509e72095543e97c36  deploy/INSTALL-MANIFEST.json' | sha256sum -c -
+          echo '1a651a604db3b7c090152a4cd1766b15e6cbc67282c7fecc5e19917bc81da3b7  deploy/INSTALL-MANIFEST.json' | sha256sum -c -
           python3 - <<'PY'
           import json,hashlib,pathlib
           manifest=json.loads(pathlib.Path('deploy/INSTALL-MANIFEST.json').read_text())

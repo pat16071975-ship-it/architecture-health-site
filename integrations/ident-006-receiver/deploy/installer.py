@@ -284,6 +284,14 @@ def stage_checks(bundle, config, wheelhouse):
     require(Path("/usr/bin/python3").is_file(),"SYSTEM_PYTHON_REQUIRED")
     run([PYTHON,"-c","import venv,sqlite3,zoneinfo; assert sqlite3.sqlite_version_info >= (3,31,0)"],"PYTHON_PREREQUISITES")
     grp.getgrnam(PROXY)
+    # Fail before useradd or any mkdir if a deployment parent is unsafe.
+    for label,parent in (("OPT",APP.parent),("ETC",ETC.parent),("VAR_LIB",DATA.parent),
+                         ("RUN",RUN.parent),("SYSTEMD",UNIT_DIR),("NGINX",ROUTES_SNIPPET.parent),
+                         ("NGINX_HTTP",HTTP_SNIPPET.parent)):
+        try:
+            root_parent(parent)
+        except (Stop,OSError) as exc:
+            raise Stop("UNSAFE_INSTALL_PARENT_"+label) from exc
     for p in (APP,ETC,DATA,RUN,UNIT_DIR/(NAME+".service"),UNIT_DIR/(NAME+".socket"),
               HTTP_SNIPPET,ROUTES_SNIPPET):
         require(absent(p),"INSTALL_TARGET_ALREADY_EXISTS")
