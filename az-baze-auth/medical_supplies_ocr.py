@@ -24,6 +24,7 @@ from flask import abort, g, jsonify, make_response, redirect, render_template, r
 import medical_supplies_documents as inbox
 
 KEY = "ocr_review_v1"
+EXTRACTOR_VERSION = 2
 MAX_PAGES = 20
 MAX_WORDS = 8000
 MAX_LINES = 1000
@@ -103,8 +104,18 @@ def parse_tsv(data):
                 and x+w<=4000 and y+h<=4000):
             raise OCRUnavailable("Некорректные координаты распознавания.")
         words.append([x,y,w,h,round(conf,1),token])
+    lines = physical_lines(words)
+    return {"words":words,
+            "lines":[{"id":line["id"],"text":line["text"]} for line in lines],
+            "candidates":table_candidates(lines),
+            "confidence":round(sum(w[4] for w in words)/len(words),1) if words else None,
+            "extractor_version":EXTRACTOR_VERSION}
+
+
+def physical_lines(words):
+    """Use the original grouping so saved OCR line references stay stable."""
     if not words:
-        return {"words":[],"lines":[],"candidates":[],"confidence":None}
+        return []
     tolerance=max(4,min(18,median(w[3] for w in words)*0.55))
     groups=[]
     for word in sorted(words,key=lambda w:(w[1]+w[3]/2,w[0])):
@@ -119,94 +130,212 @@ def parse_tsv(data):
     for i,(_,line) in enumerate(groups,1):
         line.sort(key=lambda w:w[0])
         lines.append({"id":i,"text":" ".join(w[5] for w in line),"tokens":line})
-    candidates=table_candidates(lines)
-    return {"words":words,
-            "lines":[{"id":l["id"],"text":l["text"]} for l in lines],
-            "candidates":candidates,
-            "confidence":round(sum(w[4] for w in words)/len(words),1)}
+    return lines
+
+
+def derive_page(page_data):
+    """Read-only refresh of proposals; preserve raw evidence and human edits."""
+    if page_data.get("extractor_version") == EXTRACTOR_VERSION:
+        return page_data
+    words = page_data.get("words")
+    if not isinstance(words, list) or len(words) > MAX_WORDS:
+        raise ValueError("Не удалось прочитать сохранённый текст страницы.")
+    for word in words:
+        if (not isinstance(word, list) or len(word) != 6
+                or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in word[:5])
+                or not isinstance(word[5], str) or len(word[5]) > 240
+                or not (0 <= word[0] <= 4000 and 0 <= word[1] <= 4000
+                        and 0 < word[2] <= 4000 and 0 < word[3] <= 4000
+                        and word[0] + word[2] <= 4000 and word[1] + word[3] <= 4000
+                        and 0 <= word[4] <= 100)):
+            raise ValueError("Повреждён сохранённый текст страницы.")
+    lines = physical_lines(words)
+    evidence = [{"id":line["id"], "text":line["text"]} for line in lines]
+    # Do not reinterpret a saved reference against a different OCR line map.
+    if evidence != page_data.get("lines"):
+        raise ValueError("Сохранённые строки не совпадают с текстом страницы.")
+    return {**page_data, "candidates":table_candidates(lines),
+            "extractor_version":EXTRACTOR_VERSION}
+
+
+def _column_label(token):
+    if str(token).strip().startswith("№") or str(token).strip() == "#":
+        return "ordinal"
+    text = norm(token).replace(" ", "")
+    if text.startswith("наимен") or text in ("name", "товары", "товар"):
+        return "name"
+    if (text.startswith("количеств") or text in ("колво", "quantity", "qty")
+            or text in ("кол", "коли", "колич") and str(token).rstrip().endswith("-")):
+        return "quantity"
+    if text in ("ед", "unit") or text.startswith(("едизм", "единиц")):
+        return "unit"
+    if text == "price" or text.startswith(("цена", "тариф")):
+        return "price"
+    if text == "total" or text.startswith(("сумма", "стоимость")):
+        return "value"
+    if text in ("артикул", "код", "ставка"):
+        return "ignore"
+    return None
+
+
+def _cells(tokens, columns):
+    anchors = columns["anchors"]
+    cells = {key:[] for key in anchors}
+    name_end = columns["name_end"]
+    for word in tokens:
+        if word[5].strip() in ("|", "||", "¦", "│", "┃"):
+            continue
+        center = word[0] + word[2] / 2
+        if center < columns["name_start"]:
+            continue
+        ordinal = anchors.get("ordinal")
+        if (ordinal is not None and center < anchors["name"][0]
+                and re.fullmatch(r"\d+[.)]?", word[5])
+                and abs(center-ordinal[0]-ordinal[2]/2) <= max(60, ordinal[2]*2)):
+            cells["ordinal"].append(word[5])
+            continue
+        # A broad name column must not be cut at the midpoint of its short
+        # heading and the next column: that drops long printed product names.
+        if center < name_end:
+            key = "name"
+        else:
+            key = min((k for k in anchors if k != "name"),
+                      key=lambda k:abs(anchors[k][0] + anchors[k][2] / 2 - center))
+        cells[key].append(word[5])
+    return {key:" ".join(values).strip() for key, values in cells.items()}
+
+
+def _table_header(lines, start):
+    found = {}
+    band = []
+    top = min(w[1] for w in lines[start]["tokens"])
+    height = median(w[3] for w in lines[start]["tokens"])
+    for line in lines[start:start+10]:
+        if min(w[1] for w in line["tokens"]) - top > max(160, height * 9):
+            break
+        quantities = found.get("quantity", [])
+        # Stop before a real goods row; header qualifiers below the title
+        # remain in the band, including a split VAT-inclusive heading.
+        if quantities and found.get("name"):
+            qty = quantities[0]
+            center = qty[0] + qty[2] / 2
+            numeric = any(maybe_number(w[5], 1000) is not None
+                          and abs(w[0] + w[2] / 2 - center) <= max(qty[2], 60)
+                          for w in line["tokens"])
+            letters = any(w[0] < qty[0] and re.search(r"[A-Za-zА-Яа-яЁё]{2}", w[5])
+                          and _column_label(w[5]) is None for w in line["tokens"])
+            if numeric and letters:
+                break
+        band.append(line)
+        for word in line["tokens"]:
+            label = _column_label(word[5])
+            if label:
+                found.setdefault(label, []).append(word)
+    if len(found.get("name", [])) != 1 or len(found.get("quantity", [])) != 1:
+        return None
+    name, quantity = found["name"][0], found["quantity"][0]
+    if name[0] >= quantity[0]:
+        return None
+    anchors = {}
+    for label, words in found.items():
+        for i, word in enumerate(words):
+            anchors[label if len(words) == 1 else f"{label}_{i}"] = word
+    right = [w[0] for key, w in anchors.items() if key != "name" and w[0] > name[0]]
+    columns = {"anchors":anchors,
+               "name_start":max(0, name[0]-max(120, name[2])),
+               "name_end":min(right)-8,
+               "header_end":max(w[1]+w[3] for line in band for w in line["tokens"]),
+               "value_key":None, "value_basis":None}
+    heading = _cells([w for line in band for w in line["tokens"]], columns)
+    money = [key for key in anchors if key == "value" or key.startswith("value_")]
+    gross = []
+    excluded = set()
+    for key in money:
+        text = norm(heading[key])
+        net = bool(re.search(r"\bбез\s*(?:ндс|налога)\b", text))
+        tax = bool(re.search(r"\bсумма\s*(?:налога|ндс)\b", text))
+        if net or tax:
+            excluded.add(key)
+        elif re.search(r"\b(?:с|включая)\s*(?:ндс|налогом)\b", text):
+            gross.append(key)
+    if len(gross) == 1:
+        columns.update(value_key=gross[0], value_basis="printed_gross")
+    elif len(money) == 1 and money[0] not in excluded:
+        # This is the printed amount, not a claim about VAT or a calculation.
+        columns.update(value_key=money[0], value_basis="printed_single_total")
+    return columns
 
 
 def table_candidates(lines):
-    """Conservative geometry-based suggestions, never financial assertions.
+    """Printed goods proposals with evidence; never infer money or quantities."""
+    result, segment = [], []
+    columns = None
 
-    Require an identifiable header, a name column and a quantity column.
-    Do not choose between multiple monetary columns (e.g. VAT variants).
-    Unrecognized lines remain available as source evidence for manual entry.
-    """
-    result=[]
-    columns=None
-    def label(token):
-        n=norm(token).replace(" ","")
-        if n.startswith("наименован") or n=="name":
-            return "name"
-        if n.startswith("количеств") or n in ("колво","quantity","qty"):
-            return "quantity"
-        if n in ("ед","едизм","unit"):
-            return "unit"
-        if n in ("цена","price","тариф"):
-            return "price"
-        # Monetary headings are intentionally not interpreted as gross/net
-        # if the document contains several possible total columns.
-        if n in ("сумма","стоимость","total"):
-            return "value"
-        return None
-    for i,line in enumerate(lines):
-        tokens=line["tokens"]
-        # Search a short multi-line header band; repeated headers reset mapping.
-        if any(label(w[5])=="name" for w in tokens):
-            band=[w for l in lines[i:i+4] for w in l["tokens"]]
-            found={}
-            for w in band:
-                k=label(w[5])
-                if k:
-                    found.setdefault(k,[]).append(w)
-            if len(found.get("name",[]))==1 and len(found.get("quantity",[]))==1:
-                name,qty=found["name"][0],found["quantity"][0]
-                if name[0]<qty[0]:
-                    columns={}
-                    for k,arr in found.items():
-                        for index,w in enumerate(arr):
-                            # Ambiguous repeated headings still delimit cells.
-                            # Do not accidentally absorb them into a price column.
-                            key=k if len(arr)==1 else f"ignore_{k}_{index}"
-                            columns[key]=w[0]+w[2]/2
-                    columns["name_start"]=max(0,name[0]-max(120,name[2]))
-                    columns["header_end"]=max(w[1]+w[3] for k in found for w in found[k])
-            continue
-        if not columns or not tokens or min(w[1] for w in tokens)<=columns["header_end"]:
-            continue
-        line_norm=norm(line["text"])
-        if re.match(r"^(итого|всего|total|к оплате|сумма к оплате|руководитель|главный бухгалтер)\b",line_norm):
-            columns=None
-            continue
-        centers=sorted((v,k) for k,v in columns.items() if k not in ("name_start","header_end"))
-        cells={k:[] for _,k in centers}
-        for w in tokens:
-            if w[0]+w[2]/2 < columns["name_start"]:
+    def finish():
+        anchors = [part for part in segment if part["quantity"] is not None]
+        names = {part["line"]["id"]:[part] for part in anchors}
+        pending = [part for part in segment if part["quantity"] is None and part["name_only"]]
+        # Join adjacent printed name fragments to a uniquely closest goods
+        # row, including three-line names. Never cross a total/header boundary.
+        while pending and anchors:
+            remaining = []
+            for part in pending:
+                distances = sorted((abs(part["y"]-row["y"]), row["line"]["id"], row)
+                                   for row in anchors)
+                distance, ident, row = distances[0]
+                nearest_piece = min(abs(part["y"]-piece["y"]) for piece in names[ident])
+                if (nearest_piece <= max(part["height"], row["height"])*1.8
+                        and (len(distances) == 1 or distance < distances[1][0])):
+                    names[ident].append(part)
+                else:
+                    remaining.append(part)
+            if len(remaining) == len(pending):
+                break
+            pending = remaining
+        for part in anchors:
+            pieces = sorted(names[part["line"]["id"]], key=lambda item:item["y"])
+            name = " ".join(item["cells"].get("name", "") for item in pieces).strip()
+            if not re.search(r"[A-Za-zА-Яа-яЁё]{2}", name) or len(name) > 500:
                 continue
-            _,key=min(centers,key=lambda c:abs(c[0]-(w[0]+w[2]/2)))
-            cells[key].append(w[5])
-        name=" ".join(cells.get("name",[])).strip()
-        qty=maybe_number(" ".join(cells.get("quantity",[])),1000)
-        # Name and quantity must be recognizable, and the line must not be
-        # a total/footer. Wrapped and ambiguous lines require manual review.
-        if not name or not re.search(r"[A-Za-zА-Яа-яЁё]",name) or not qty or Decimal(qty)<=0:
+            cells = part["cells"]
+            unit = cells.get("unit", "")
+            if len(unit) > 30 or re.search(r"\d", unit):
+                unit = ""
+            value = maybe_number(cells.get(columns["value_key"], ""), 100)
+            result.append({"source_line":part["line"]["id"],
+                           "source_lines":[item["line"]["id"] for item in pieces],
+                           "name":name, "unit":unit, "quantity":part["quantity"],
+                           "price":maybe_number(cells.get("price", ""), 10000),
+                           "value":value, "value_basis":columns["value_basis"] if value is not None else None,
+                           "action":"unresolved", "item_id":None, "folder_id":None,
+                           "note":"", "manual":False})
+        segment.clear()
+
+    for index, line in enumerate(lines):
+        tokens = line["tokens"]
+        if any(_column_label(word[5]) == "name" for word in tokens):
+            header = _table_header(lines, index)
+            if header:
+                if columns:
+                    finish()
+                columns = header
+                continue
+        if not columns or min(w[1] for w in tokens) <= columns["header_end"]:
             continue
-        unit=" ".join(cells.get("unit",[]))
-        if len(unit)>30 or re.search(r"\d",unit):
-            unit=""
-        price=maybe_number(" ".join(cells.get("price",[])),10000)
-        # No automatic gross line sum: the printed VAT-inclusive/exclusive
-        # column is not known from the single word "сумма".
-        if len(name)>500:
+        if re.match(r"^(итого|всего|total|к оплате|сумма к оплате|руководитель|главный бухгалтер|"
+                    r"отпустил|получил|отпуск разрешил|ответственный|подпись|примечание|основание)\b", norm(line["text"])):
+            finish()
+            columns = None
             continue
-        result.append({"source_line":line["id"],"name":name,"unit":unit,
-                       "quantity":qty,"price":price,"value":None,
-                       "action":"unresolved","item_id":None,"folder_id":None,
-                       "note":"","manual":False})
-        if len(result)>=MAX_ROWS:
-            break
-    return result
+        cells = _cells(tokens, columns)
+        quantity = maybe_number(cells.get("quantity", ""), 1000)
+        quantity = quantity if quantity is not None and Decimal(quantity) > 0 else None
+        name_only = bool(cells.get("name") and all(not value for key, value in cells.items() if key != "name"))
+        segment.append({"line":line, "cells":cells, "quantity":quantity, "name_only":name_only,
+                        "y":median(w[1]+w[3]/2 for w in tokens), "height":median(w[3] for w in tokens)})
+    if columns:
+        finish()
+    return result[:MAX_ROWS]
 
 
 def _command(argv, directory, output, seconds, max_size):
@@ -428,6 +557,17 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
         try:
             row,_,state=document(db(),doc_id)
             page=integer(request.args.get("p") or "1",1,MAX_PAGES)
+            if "p" not in request.args:
+                # A covering agreement may precede the goods. Open the first
+                # usable page without changing the owner's explicit selection.
+                for number in range(1, (state.get("page_count") or 0)+1):
+                    saved_page=state["pages"].get(str(number))
+                    if saved_page is None:
+                        continue
+                    proposal=derive_page(saved_page)
+                    if proposal.get("rows",proposal["candidates"]):
+                        page=number
+                        break
             if state["page_count"] and page>state["page_count"]:
                 abort(404)
             data=state["pages"].get(str(page))
@@ -438,6 +578,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             rows=[]
             header={}
             if data:
+                data=derive_page(data)
                 rows=[dict(r) for r in data.get("rows",data["candidates"])]
                 for r in rows:
                     r["matches"]=suggestions(r["name"],r["unit"],items)
@@ -470,7 +611,20 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             if count and page>count:
                 raise ValueError("Такой страницы нет.")
             if str(page) in state["pages"]:
-                return jsonify(version=version,page_count=count,stored=len(state["pages"]),cached=True)
+                previous=state["pages"][str(page)]
+                derived=derive_page(previous)
+                if derived is previous:
+                    return jsonify(version=version,page_count=count,stored=len(state["pages"]),cached=True)
+                def refresh(current):
+                    # Only automatic proposals change. Reviewed/manual rows,
+                    # identity, flags and original OCR evidence stay exact.
+                    target=current["pages"][str(page)]
+                    target["candidates"]=derived["candidates"]
+                    target["extractor_version"]=EXTRACTOR_VERSION
+                new_version=store(conn,doc_id,version,row["sha256"],refresh,g.user["id"],"ocr_page",
+                    {"page":page,"words":len(derived["words"]),
+                     "candidates":len(derived["candidates"]),"extraction_refreshed":True})
+                return jsonify(version=new_version,page_count=count,stored=len(state["pages"]),cached=False)
             import app as app_core
             count,parsed=recognize_pdf_page(row["original_bytes"],page,app_core.DB_PATH.parent)
             def mutate(current):
@@ -508,6 +662,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             data=state["pages"].get(str(page))
             if data is None:
                 raise ValueError("Сначала распознайте страницу.")
+            data=derive_page(data)
             folders=[dict(x) for x in conn.execute("SELECT id FROM med_supply_folders")]
             review=parse_review(request.form,data,catalog(conn),folders)
             def mutate(current):
@@ -524,7 +679,10 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                             previous.get(k)!=header.get(k) for k in ("document_type","counterparty","number","date")
                         ):
                             raise ValueError("У проверенных страниц одной части разные реквизиты. Уточните номер части.")
-                current["pages"][str(page)].update(review)
+                target=current["pages"][str(page)]
+                target["candidates"]=data["candidates"]
+                target["extractor_version"]=EXTRACTOR_VERSION
+                target.update(review)
             store(conn,doc_id,version,row["sha256"],mutate,g.user["id"],"ocr_review",
                   {"page":page,"rows":len(review["rows"]),"checked":review["checked"]})
             return redirect(url_for("medical_supplies_ocr_page",doc_id=doc_id,p=page,saved=1),code=303)

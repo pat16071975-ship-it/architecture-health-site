@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from flask import template_rendered
 
 import test_medical_supplies_documents as fixtures
 import medical_supplies_ocr as ocr
@@ -154,6 +155,43 @@ class OCRRouteTests(unittest.TestCase):
         self.assertEqual(view.headers["Cache-Control"],"private, no-store")
         self.assertIn("Только просмотр",view.get_data(as_text=True))
         self.assertNotIn('id="ocr-start"',view.get_data(as_text=True))
+
+    def test_default_page_opens_saved_goods_after_cover_but_respects_explicit_selection(self):
+        self.initial()
+        tsv_header=tsv_fixture().splitlines()[0]
+        contract=ocr.parse_tsv(tsv_header+"\n"+
+            "5\t1\t1\t1\t1\t1\t100\t100\t120\t22\t94\tДоговор\n")
+        goods=data_fixture()
+        for page in (contract,goods):
+            page.pop("extractor_version",None)
+        state={"page_count":2,"pages":{"1":contract,"2":goods}}
+        self.conn.execute("UPDATE med_supply_documents SET fields_json=?,version=2 WHERE id=1",
+                          (json.dumps({ocr.KEY:state},ensure_ascii=False),))
+        self.conn.commit()
+        before=list(self.conn.iterdump())
+        shown=[]
+        def capture(sender,template,context,**extra):
+            if template.name=="medical_supplies_ocr.html":
+                shown.append(context["page"])
+        with template_rendered.connected_to(capture,self.app), \
+                patch.object(ocr,"recognize_pdf_page",side_effect=AssertionError("GET must not OCR")):
+            self.assertEqual(self.client(2).get(PREFIX).status_code,200)
+            self.assertEqual(self.client(2).get(PREFIX+"?p=1").status_code,200)
+        self.assertEqual(shown,[2,1])
+        self.assertEqual(list(self.conn.iterdump()),before)
+
+        # An intentionally cleared goods draft must not reappear or cause an
+        # automatic jump merely because the original OCR has candidates.
+        state["pages"]["2"].update(rows=[],no_items=True,checked=True)
+        self.conn.execute("UPDATE med_supply_documents SET fields_json=? WHERE id=1",
+                          (json.dumps({ocr.KEY:state},ensure_ascii=False),))
+        self.conn.commit()
+        shown.clear()
+        before=list(self.conn.iterdump())
+        with template_rendered.connected_to(capture,self.app):
+            self.assertEqual(self.client(2).get(PREFIX).status_code,200)
+        self.assertEqual(shown,[1])
+        self.assertEqual(list(self.conn.iterdump()),before)
 
     def test_permission_csrf_and_failed_engine_do_not_write(self):
         before=self.initial()
