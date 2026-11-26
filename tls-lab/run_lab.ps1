@@ -34,17 +34,40 @@ function LoginCount {
 function Start-Case([string]$name,[string]$certificate,[string]$hash,[bool]$checkOnly) {
     $out = Join-Path $results ($name + '.json')
     $args = @('"' + $harness + '"','worker','"' + $exe + '"','"' + $certificate + '"',$hash,'"' + $out + '"',("$checkOnly".ToLowerInvariant()))
-    $p = Start-Process -FilePath $py -ArgumentList ($args -join ' ') -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $results ($name+'.harness-out.txt')) -RedirectStandardError (Join-Path $results ($name+'.harness-err.txt'))
-    return @{Process=$p; Path=$out; Name=$name}
+    # Keep the original Process instance/handle so ExitCode is reliable even
+    # when the child has already exited before Finish-Case is called.
+    $psi = [Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = $py
+    $psi.Arguments = $args -join ' '
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $p = [Diagnostics.Process]::new()
+    $p.StartInfo = $psi
+    if (-not $p.Start()) { $p.Dispose(); throw 'LAB_HARNESS_START' }
+    $null = $p.Handle
+    $outTask = $p.StandardOutput.ReadToEndAsync()
+    $errTask = $p.StandardError.ReadToEndAsync()
+    return @{Process=$p; Path=$out; Name=$name; OutTask=$outTask; ErrTask=$errTask}
 }
 function Finish-Case($case) {
     $p = $case.Process
     try {
-        if (-not $p.WaitForExit(125000)) { $p.Kill(); throw ('LAB_CASE_TIMEOUT: '+$case.Name) }
+        if (-not $p.WaitForExit(125000)) { $p.Kill(); $p.WaitForExit(); throw ('LAB_CASE_TIMEOUT: '+$case.Name) }
+        $p.WaitForExit()
+        $harnessExit = $p.ExitCode
+        $harnessOut = $case.OutTask.GetAwaiter().GetResult()
+        $harnessErr = $case.ErrTask.GetAwaiter().GetResult()
+        Write-Host ('HARNESS_CASE='+$case.Name+'; HARNESS_EXIT='+$harnessExit)
+        if ($harnessOut) { Write-Host ('HARNESS_STDOUT='+$harnessOut.Replace($password,'[MASKED]')) }
+        if ($harnessErr) { Write-Host ('HARNESS_STDERR='+$harnessErr.Replace($password,'[MASKED]')) }
         if (-not (Test-Path -LiteralPath $case.Path)) { throw ('LAB_CASE_NO_RESULT: '+$case.Name) }
         $r = Get-Content -LiteralPath $case.Path -Raw | ConvertFrom-Json
-        if ($p.ExitCode -ne 0 -or $null -ne $r.harness_error) { throw ('LAB_HARNESS_FAILED: '+$case.Name+' '+$r.harness_error) }
-        Write-Host ('CASE '+$case.Name+' exit='+$r.exit_code+' prompt='+$r.prompt_seen+' stderr='+($r.stderr -replace '[\r\n]+',' '))
+        Write-Host ('CASE '+$case.Name+' exit='+$r.exit_code+' prompt='+$r.prompt_seen+' stderr='+(([string]$r.stderr).Replace($password,'[MASKED]') -replace '[\r\n]+',' '))
+        if ($harnessExit -ne 0 -or $null -ne $r.harness_error) {
+            throw ('LAB_HARNESS_FAILED: '+$case.Name+' exit='+$harnessExit+' error='+([string]$r.harness_error).Replace($password,'[MASKED]'))
+        }
         return $r
     } finally { $p.Dispose() }
 }
