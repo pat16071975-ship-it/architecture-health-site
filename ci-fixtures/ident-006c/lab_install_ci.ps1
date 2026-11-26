@@ -97,7 +97,10 @@ try{
         [IO.File]::WriteAllBytes($next,(Descriptor-Bytes $candidate))
         $needsRestore=$true
         Invoke-RootDacl $next
-        if((Descriptor-Sddl (Read-Descriptor $driveRoot)) -cne (Descriptor-Sddl $candidate)){throw 'LAB_ROOT_DACL_MISMATCH'}
+        $observed=Read-Descriptor $driveRoot
+        Write-Output ('LAB_CANDIDATE_EXPECTED='+ (Descriptor-Sddl $candidate))
+        Write-Output ('LAB_CANDIDATE_OBSERVED='+ (Descriptor-Sddl $observed))
+        if((Descriptor-Sddl $observed) -cne (Descriptor-Sddl $candidate)){throw 'LAB_ROOT_DACL_MISMATCH'}
         Assert-ChildrenUnchanged
         Write-Output 'LAB_NONPROPAGATING_ROOT_DACL=PASS; CHILD_DACLS_UNCHANGED=YES'
     }else{Write-Output 'LAB_ROOT_ALREADY_SAFE=YES'}
@@ -171,7 +174,10 @@ try {
 }finally{
     if($needsRestore){
         Invoke-RootDacl $backup
-        if((Descriptor-Sddl (Read-Descriptor $driveRoot)) -cne (Descriptor-Sddl $rootBefore)){throw 'LAB_ROOT_DACL_RESTORE_FAILED'}
+        $observed=Read-Descriptor $driveRoot
+        Write-Output ('LAB_RESTORE_EXPECTED='+ (Descriptor-Sddl $rootBefore))
+        Write-Output ('LAB_RESTORE_OBSERVED='+ (Descriptor-Sddl $observed))
+        if((Descriptor-Sddl $observed) -cne (Descriptor-Sddl $rootBefore)){throw 'LAB_ROOT_DACL_RESTORE_FAILED'}
         Assert-ChildrenUnchanged
         Write-Output 'LAB_ORIGINAL_ROOT_DACL_RESTORED=PASS; CHILD_DACLS_UNCHANGED=YES'
     }
