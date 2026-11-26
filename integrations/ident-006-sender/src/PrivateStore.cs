@@ -10,7 +10,7 @@ using Microsoft.Win32.SafeHandles;
 internal static class PrivateStore
 {
     internal const string ServiceName="AzIdent006C";
-    internal static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"AZ-IDENT006C");
+    internal static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"AZ-IDENT006C");
     internal static string App => Path.Combine(Root,"app");
     internal static string State => Path.Combine(Root,"state");
     internal static string JournalDir => Path.Combine(State,"journal");

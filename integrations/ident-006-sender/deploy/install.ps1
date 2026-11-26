@@ -17,12 +17,12 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $name='AzIdent006C'
 $serviceAccount='NT SERVICE\'+$name
-$root=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)) 'AZ-IDENT006C'
+$root=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)) 'AZ-IDENT006C'
 $app=Join-Path $root 'app'
 $state=Join-Path $root 'state'
 $journal=Join-Path $state 'journal'
 $exe=Join-Path $app 'AzIdentSender.exe'
-$binPath=$exe+' --service'
+$binPath='"'+$exe+'" --service'
 $adminSid=[Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
 $systemSid=[Security.Principal.SecurityIdentifier]::new('S-1-5-18')
 $trustedInstaller='S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
@@ -82,8 +82,20 @@ function Assert-Shares {
 function Get-BridgeService { return Get-CimInstance -ClassName Win32_Service -Filter "Name='$name'" -ErrorAction Stop }
 function Invoke-Sc([string[]]$ScArgs) {
     $sc=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::System)) 'sc.exe'
-    & $sc @ScArgs | Out-Null
-    Require ($LASTEXITCODE -eq 0) 'SCM_OPERATION_FAILED'
+    $quoted=@(foreach($arg in $ScArgs) {
+        Require ($arg -notmatch '[\x00\r\n]' -and -not $arg.EndsWith('\')) 'SCM_ARG'
+        '"' + $arg.Replace('"','\"') + '"'
+    })
+    $psi=[Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName=$sc;$psi.Arguments=$quoted -join ' '
+    $psi.UseShellExecute=$false;$psi.RedirectStandardOutput=$true;$psi.RedirectStandardError=$true
+    $proc=[Diagnostics.Process]::Start($psi)
+    try {
+        $out=$proc.StandardOutput.ReadToEndAsync();$err=$proc.StandardError.ReadToEndAsync()
+        if(-not $proc.WaitForExit(30000)){$proc.Kill();throw 'SCM_TIMEOUT'}
+        $null=$out.GetAwaiter().GetResult();$null=$err.GetAwaiter().GetResult()
+        Require ($proc.ExitCode -eq 0) 'SCM_OPERATION_FAILED'
+    } finally {$proc.Dispose()}
 }
 function Assert-ServiceBinding {
     $svc=Get-BridgeService
@@ -182,9 +194,11 @@ try {
     Require ($env:COMPUTERNAME -ieq $ExpectedComputerName -and $ExpectedMachineGuidSha256 -cmatch '^[0-9a-f]{64}$') 'WRONG_HOST'
     $guid=[string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Cryptography' -Name MachineGuid).MachineGuid
     Require ((Hash-Bytes ([Text.Encoding]::UTF8.GetBytes($guid))) -ceq $ExpectedMachineGuidSha256) 'WRONG_MACHINE'
-    Require ($ManifestSha256 -cmatch '^[0-9a-f]{64}$' -and $root -notmatch '[\s"]') 'MANIFEST_OR_SERVICE_PATH'
-    Assert-Ancestors (Split-Path -Parent $root)
-    Assert-Shares
+    Require ($ManifestSha256 -cmatch '^[0-9a-f]{64}$' -and $root -notmatch '[\x00\r\n"]') 'MANIFEST_OR_SERVICE_PATH'
+    if($Mode -ne 'Disable') {
+        Assert-Ancestors (Split-Path -Parent $root)
+        Assert-Shares
+    }
     # Process-local only; reject inherited code-injection/profiling settings.
     foreach($v in @('DOTNET_STARTUP_HOOKS','DOTNET_ADDITIONAL_DEPS','DOTNET_SHARED_STORE','CORECLR_ENABLE_PROFILING','CORECLR_PROFILER','CORECLR_PROFILER_PATH','COR_ENABLE_PROFILING','COR_PROFILER','COR_PROFILER_PATH')) {
         [Environment]::SetEnvironmentVariable($v,$null,[EnvironmentVariableTarget]::Process)

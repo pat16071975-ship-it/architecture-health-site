@@ -7,6 +7,7 @@ import http.server
 import json
 from pathlib import Path
 import socket
+import time
 import ssl
 import sys
 from datetime import datetime,timezone
@@ -73,6 +74,8 @@ def main(lab):
                 self.send_json(422,{"error":"SYNTHETIC_VALIDATION"});return
             if result=="ACCEPTED":
                 (lab/"first-accepted").write_text("1")
+                # Give the lab time to kill the actual sender with no ACK.
+                time.sleep(15)
                 self.close_connection=True
                 try:self.connection.shutdown(socket.SHUT_RDWR)
                 except OSError:pass
@@ -82,7 +85,7 @@ def main(lab):
                 "stream_id":p["stream_id"],"batch_id":p["batch_id"],"sequence":p["sequence"],
                 "payload_sha256":hashlib.sha256(raw).hexdigest(),"accepted_at":utc(accepted),
                 "status":"already_accepted"})
-    httpd=http.server.HTTPServer(("127.0.0.1",443),Handler)
+    httpd=http.server.ThreadingHTTPServer(("127.0.0.1",443),Handler)
     ctx=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.minimum_version=ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(lab/"leaf.pem",lab/"leaf.key")
