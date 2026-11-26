@@ -17,17 +17,26 @@ function Scalar-LabSql([string]$sql){
     try{$cmd.CommandText=$sql;$cmd.CommandTimeout=15;return $cmd.ExecuteScalar()}finally{$cmd.Dispose()}
 }
 function Read-LabEvents{
-    $xml=Scalar-LabSql "SELECT CONVERT(nvarchar(max), t.target_data) FROM sys.dm_xe_session_targets t JOIN sys.dm_xe_sessions s ON s.address=t.event_session_address WHERE s.name=N'Ident006CLab' AND t.target_name=N'ring_buffer'"
+    $xml=Scalar-LabSql "SELECT CONVERT(nvarchar(max),t.target_data) FROM sys.dm_xe_session_targets t JOIN sys.dm_xe_sessions s ON s.address=t.event_session_address WHERE s.name=N'Ident006CLab' AND t.target_name=N'ring_buffer'"
     if(-not $xml){throw 'LAB_XE_MISSING'}
     $doc=[xml]$xml
-    $events=@($doc.SelectNodes('//event')|Where-Object {$_.SelectSingleNode("action[@name='client_app_name']/value").InnerText -eq 'IDENT-006C read-only pinned service'})
-    $logins=@($events|Where-Object {$_.name -eq 'login'}).Count
+    if($doc.DocumentElement.GetAttribute('truncated') -eq '1'){throw 'LAB_XE_TRUNCATED'}
+    $events=@($doc.SelectNodes('//event')|Where-Object {
+        $app=$_.SelectSingleNode("action[@name='client_app_name']/value")
+        $app -and $app.InnerText -ceq 'IDENT-006C read-only pinned service'
+    })
+    $logins=@($events|Where-Object {$_.GetAttribute('name') -ceq 'login'}).Count
     $queries=0
     foreach($e in $events){
-        if($e.name -ne 'sql_statement_starting'){continue}
-        $stmt=$e.SelectSingleNode("data[@name='statement']/value")
-        if($stmt -and $stmt.InnerText -match 'COUNT_BIG\s*\(\s*DISTINCT\s+CASE\s+WHEN\s+Payment\s*>\s*0' -and $stmt.InnerText -match 'FROM\s+dbo\.PaymentsIn'){$queries++}
+        if($e.GetAttribute('name') -notin @('sql_statement_starting','sp_statement_starting','rpc_starting','sql_batch_starting')){continue}
+        # SqlCommand's parameterized batch can arrive as RPC / sp_executesql.
+        # Count events (not executions) that carry the distinctive exact
+        # aggregate in a statement, batch or sql_text action.
+        $pieces=@($e.SelectNodes("data[@name='statement' or @name='batch_text']/value | action[@name='sql_text']/value")|ForEach-Object {$_.InnerText})
+        $stmt=$pieces -join ' '
+        if($stmt -match 'COUNT_BIG\s*\(\s*DISTINCT\s+CASE\s+WHEN\s+Payment\s*>\s*0' -and $stmt -match 'FROM\s+dbo\.PaymentsIn'){$queries++}
     }
+    Write-Host ('XE_EVIDENCE; LOGINS='+$logins+'; AGGREGATE_EVENTS='+$queries+'; EVENT_TYPES='+(@($events|Group-Object {$_.GetAttribute('name')}|ForEach-Object {$_.Name+':'+$_.Count}) -join ','))
     return @{Logins=$logins;Queries=$queries}
 }
 function Invoke-Probe([string]$mode){
@@ -59,7 +68,13 @@ CREATE USER ident_lab_reader FOR LOGIN ident_lab_reader;
 GRANT SELECT ON dbo.PaymentsIn TO ident_lab_reader;
 "@
     Exec-LabSql @'
-CREATE EVENT SESSION Ident006CLab ON SERVER ADD EVENT sqlserver.login(ACTION(sqlserver.client_app_name,sqlserver.server_principal_name,sqlserver.session_id)), ADD EVENT sqlserver.sql_statement_starting(ACTION(sqlserver.client_app_name,sqlserver.server_principal_name,sqlserver.session_id)) ADD TARGET package0.ring_buffer(SET max_memory=4096) WITH (MAX_DISPATCH_LATENCY=1 SECONDS);
+CREATE EVENT SESSION Ident006CLab ON SERVER
+ADD EVENT sqlserver.login(ACTION(sqlserver.client_app_name,sqlserver.server_principal_name,sqlserver.session_id) WHERE ([sqlserver].[client_app_name]=N'IDENT-006C read-only pinned service')),
+ADD EVENT sqlserver.sql_statement_starting(ACTION(sqlserver.client_app_name,sqlserver.sql_text) WHERE ([sqlserver].[client_app_name]=N'IDENT-006C read-only pinned service')),
+ADD EVENT sqlserver.sp_statement_starting(ACTION(sqlserver.client_app_name,sqlserver.sql_text) WHERE ([sqlserver].[client_app_name]=N'IDENT-006C read-only pinned service')),
+ADD EVENT sqlserver.rpc_starting(ACTION(sqlserver.client_app_name,sqlserver.sql_text) WHERE ([sqlserver].[client_app_name]=N'IDENT-006C read-only pinned service')),
+ADD EVENT sqlserver.sql_batch_starting(ACTION(sqlserver.client_app_name,sqlserver.sql_text) WHERE ([sqlserver].[client_app_name]=N'IDENT-006C read-only pinned service'))
+ADD TARGET package0.ring_buffer(SET max_memory=4096) WITH (MAX_DISPATCH_LATENCY=1 SECONDS);
 ALTER EVENT SESSION Ident006CLab ON SERVER STATE=START;
 '@
     [IO.File]::WriteAllText((Join-Path $lab 'first-day.txt'),$d0,[Text.Encoding]::ASCII)
