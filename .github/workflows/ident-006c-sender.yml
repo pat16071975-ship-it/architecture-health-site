@@ -8,7 +8,7 @@ permissions:
 jobs:
   sender:
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 12
     defaults:
       run:
         shell: pwsh
@@ -30,7 +30,7 @@ jobs:
           $sender='92e802de546e17b0d3be25f12de54f95f9140f1d'
           git merge-base --is-ancestor $source HEAD
           if($LASTEXITCODE -ne 0 -or (git rev-parse "$source^{tree}") -cne $tree -or (git rev-parse HEAD:integrations/ident-006-sender) -cne $sender -or (git rev-parse "$($source):integrations/ident-006-sender") -cne $sender){throw 'EXACT_SOURCE'}
-          if(@(git ls-tree -r --name-only HEAD).Count -ne 24){throw 'CI_SCOPE'}
+          if(@(git ls-tree -r --name-only HEAD).Count -ne 26){throw 'CI_SCOPE'}
           $work=Join-Path $env:RUNNER_TEMP 'ident006c-source'
           $env:IDENT_WORK=$work
           $env:IDENT_EXACT=$source
@@ -140,10 +140,15 @@ jobs:
           & $env:IDENT_SENDER_TEST_EXE
           if($LASTEXITCODE -ne 0){throw 'UNIT_TEST_FAILED'}
       - name: Disposable Windows SCM and HTTPS exact retry lab
+        timeout-minutes: 7
         run: |
           python -m pip install --disable-pip-version-check --no-deps tzdata==2025.2
           if($LASTEXITCODE -ne 0){throw 'LAB_TIMEZONE_DATA'}
-          & (Join-Path $env:IDENT_WORK 'tests/lab_install.ps1')
+          # Only the CI harness is replaced; the audited source subtree is intact.
+          Copy-Item -LiteralPath 'ci-fixtures/ident-006c/lab_install_ci.ps1' -Destination (Join-Path $env:IDENT_WORK 'tests/lab_install_ci.ps1')
+          Copy-Item -LiteralPath 'ci-fixtures/ident-006c/ci_root_dacl.py' -Destination (Join-Path $env:IDENT_WORK 'tests/ci_root_dacl.py')
+          & (Join-Path $env:IDENT_WORK 'tests/lab_install_ci.ps1')
+          if($LASTEXITCODE -ne 0){throw 'CI_LAB_EXIT'}
       - name: Safe diagnostics on failure
         if: failure()
         run: |
