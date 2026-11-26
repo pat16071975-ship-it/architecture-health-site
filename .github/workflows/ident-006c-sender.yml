@@ -1,0 +1,126 @@
+name: IDENT-006C isolated Windows service
+on:
+  push:
+    branches: ['test/ident-006c-sender-20261126']
+    paths: ['.github/workflows/ident-006c-sender.yml','integrations/ident-006-sender/**']
+permissions:
+  contents: read
+jobs:
+  sender:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+      DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 'true'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 12
+          persist-credentials: false
+      - name: Verify exact source and copy raw Git blobs
+        run: |
+          $ErrorActionPreference='Stop'
+          $source='4f0b65237f3c3134af44cb425e604ee424ae0bec'
+          $tree='aebb0341a5dbe3aae27d0d477ca17c237c63b7f9'
+          $sender='e0682d0ae5108440558b2df91fb1f2e517d608a4'
+          git merge-base --is-ancestor $source HEAD
+          if($LASTEXITCODE -ne 0 -or (git rev-parse "$source^{tree}") -cne $tree -or (git rev-parse HEAD:integrations/ident-006-sender) -cne $sender -or (git rev-parse "$($source):integrations/ident-006-sender") -cne $sender){throw 'EXACT_SOURCE'}
+          if(@(git ls-tree -r --name-only HEAD).Count -ne 21){throw 'CI_SCOPE'}
+          $work=Join-Path $env:RUNNER_TEMP 'ident006c-source'
+          $env:IDENT_WORK=$work
+          $env:IDENT_EXACT=$source
+          @'
+          import os,subprocess,pathlib,hashlib
+          work=pathlib.Path(os.environ["IDENT_WORK"])
+          work.mkdir()
+          prefix="integrations/ident-006-sender/"
+          records=subprocess.check_output(["git","ls-tree","-rz",os.environ["IDENT_EXACT"],"--",prefix]).split(b"\0")
+          n=0
+          for entry in records:
+              if not entry: continue
+              meta,path=entry.split(b"\t")
+              mode,kind,sha=meta.decode().split()
+              name=path.decode()
+              assert mode=="100644" and kind=="blob" and name.startswith(prefix)
+              rel=name[len(prefix):]
+              assert not pathlib.PurePosixPath(rel).is_absolute() and ".." not in pathlib.PurePosixPath(rel).parts
+              raw=subprocess.check_output(["git","cat-file","blob",sha])
+              assert hashlib.sha1(b"blob "+str(len(raw)).encode()+b"\0"+raw).hexdigest()==sha
+              dest=work/rel
+              dest.parent.mkdir(parents=True,exist_ok=True)
+              dest.write_bytes(raw); n+=1
+          assert n==20
+          expected={"guard_readonly.sql":"1039aba313b635ada0d75247a04e053d01e3fbbeefd9445a8a5e42529d10ae6b",
+                    "payments_daily_v1.sql":"277cc67cb4c0369f7f3461ae5d8c50ac0443c3342cb44a81625cf701c52e443f",
+                    "payments_daily_v1_schema.sql":"e455b34a6f2e364ce979711e4afb2ba905c1ddc9c54c88bff1df04b78cfccffc"}
+          for name,digest in expected.items(): assert hashlib.sha256((work/"sql"/name).read_bytes()).hexdigest()==digest
+          assert (work/"tests/reference/sql/payments_daily_v1.sql").read_bytes()==(work/"sql/payments_daily_v1.sql").read_bytes()
+          print("SQL_RESOURCE_HASHES=3/3 PASS; EXACT_GIT_BLOBS=20/20 PASS")
+          '@ | python -
+          if($LASTEXITCODE -ne 0){throw 'SOURCE_BLOBS'}
+          "IDENT_WORK=$work" >> $env:GITHUB_ENV
+          "NUGET_PACKAGES=$(Join-Path $env:RUNNER_TEMP 'ident006c-nuget')" >> $env:GITHUB_ENV
+          "DOTNET_CLI_HOME=$(Join-Path $env:RUNNER_TEMP 'ident006c-home')" >> $env:GITHUB_ENV
+          Write-Host "SOURCE_HEAD=$source; SOURCE_TREE=$tree; SOURCE_SCOPE=PASS"
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          dotnet-version: '10.0.404'
+      - name: Restore audited exact dependencies and publish standalone
+        run: |
+          $ErrorActionPreference='Stop'
+          Set-Location $env:IDENT_WORK
+          @{sdk=@{version='10.0.404';rollForward='disable';allowPrerelease=$false}}|ConvertTo-Json -Depth 4|Set-Content global.json -Encoding utf8NoBOM
+          if((dotnet --version).Trim() -cne '10.0.404'){throw 'SDK'}
+          $projects=@('src/AzIdentSender.csproj','tests/AzIdentSender.Tests.csproj')
+          foreach($project in $projects){
+            $common=@($project,'--runtime','win-x64','--configfile',(Join-Path $env:IDENT_WORK 'NuGet.Config'),'--no-http-cache','-p:Configuration=Release','-p:NuGetAudit=true','-p:NuGetAuditMode=all')
+            dotnet restore @common --use-lock-file
+            if($LASTEXITCODE -ne 0){throw 'RESTORE_OR_AUDIT'}
+            $lock=Join-Path (Split-Path -Parent $project) 'packages.lock.json'
+            $sha=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash
+            dotnet restore @common --locked-mode --force
+            if($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash -cne $sha){throw 'LOCKED_RESTORE'}
+            Write-Host "LOCKED_RESTORE=PASS; PROJECT=$project; SHA256=$sha"
+            Write-Host ("LOCK_B64_"+(Split-Path -Parent $project).ToUpperInvariant()+"="+[Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $lock))))
+          }
+          $publish=Join-Path $env:RUNNER_TEMP 'ident006c-publish'
+          $testPublish=Join-Path $env:RUNNER_TEMP 'ident006c-tests'
+          dotnet publish $projects[0] -c Release -r win-x64 --self-contained true --no-restore -o $publish
+          if($LASTEXITCODE -ne 0){throw 'SENDER_BUILD_FAILED'}
+          dotnet publish $projects[1] -c Release -r win-x64 --self-contained true --no-restore -o $testPublish
+          if($LASTEXITCODE -ne 0){throw 'TEST_BUILD_FAILED'}
+          $files=@(Get-ChildItem -LiteralPath $publish -Recurse -File)
+          if($files.Count -lt 10 -or $files.Count -gt 2048 -or -not(Test-Path (Join-Path $publish 'AzIdentSender.exe'))){throw 'PUBLISH_SCOPE'}
+          $manifest=[ordered]@{}
+          foreach($file in ($files|Sort-Object FullName)){
+            $rel=[IO.Path]::GetRelativePath($publish,$file.FullName).Replace('\','/')
+            $manifest[$rel]=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          }
+          $manifest|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $publish 'package-manifest.json') -Encoding utf8NoBOM
+          $manifestSha=(Get-FileHash -LiteralPath (Join-Path $publish 'package-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()
+          "IDENT_SENDER_PUBLISH=$publish" >> $env:GITHUB_ENV
+          "IDENT_SENDER_TEST_EXE=$(Join-Path $testPublish 'AzIdentSender.Tests.exe')" >> $env:GITHUB_ENV
+          Write-Host "WINDOWS_BUILD=PASS; SDK=10.0.404; SQLCLIENT=7.1.2; FILES=$($files.Count); PACKAGE_MANIFEST_SHA256=$manifestSha"
+      - name: Synthetic contract and DPAPI tests
+        run: |
+          & $env:IDENT_SENDER_TEST_EXE
+          if($LASTEXITCODE -ne 0){throw 'UNIT_TEST_FAILED'}
+      - name: Disposable Windows SCM and HTTPS exact retry lab
+        run: |
+          python -m pip install --disable-pip-version-check --no-deps tzdata==2025.2
+          if($LASTEXITCODE -ne 0){throw 'LAB_TIMEZONE_DATA'}
+          & (Join-Path $env:IDENT_WORK 'tests/lab_install.ps1')
+      - name: Safe diagnostics on failure
+        if: failure()
+        run: |
+          Get-Service -Name AzIdent006C -ErrorAction SilentlyContinue
+          $root=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)) 'AZ-IDENT006C'
+          $status=Join-Path $root 'state/status.json'
+          if(Test-Path -LiteralPath $status){Get-Content -LiteralPath $status -Raw}
+          Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Service Control Manager';StartTime=(Get-Date).AddMinutes(-10)} -ErrorAction SilentlyContinue | Where-Object Message -Match 'AzIdent006C|IDENT Bridge sender' | Select-Object -First 10 TimeCreated,Id,Message
+          if(Get-Service -Name AzIdent006C -ErrorAction SilentlyContinue){sc.exe config AzIdent006C start= disabled | Out-Null; Stop-Service AzIdent006C -ErrorAction SilentlyContinue}
