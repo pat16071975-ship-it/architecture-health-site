@@ -285,6 +285,7 @@ class SavedGoodsTableTests(unittest.TestCase):
             _, context = self.view_context()
             shown = dict(context["rows"][0])
             shown.pop("matches", None)
+            self.assertEqual(shown.pop("unit_cost"), "87.9986")
             self.assertEqual(shown, manual)
             self.assertEqual(self.review_snapshot(), before)
             result = self.recognize(version=2)

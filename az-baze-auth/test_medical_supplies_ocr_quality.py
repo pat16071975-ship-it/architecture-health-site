@@ -117,6 +117,21 @@ class PageQualityTests(unittest.TestCase):
         self.assertIsNone(report["total_actual"])
         self.assertTrue(report["issues"])
 
+    def test_goods_view_omits_identity_warnings_but_keeps_money_and_source_checks(self):
+        data = {"printed_total":"30.00","total_basis":"printed_gross",
+                "recognition_issues":["Часть числовых ячеек не распознана."],
+                "header_candidate":{"issues":["Дата не подтверждена.","Номер не распознан."]}}
+        rows = [row(value="29.99")]
+        before = copy.deepcopy((data,rows))
+        report = quality.summarize_page(data,rows,include_identity=False)
+        self.assertNotIn("Дата не подтверждена.",report["issues"])
+        self.assertNotIn("Номер не распознан.",report["issues"])
+        self.assertIn("Часть числовых ячеек не распознана.",report["issues"])
+        self.assertFalse(report["total_matches"])
+        self.assertIn("не совпадает"," ".join(report["issues"]))
+        self.assertEqual((data,rows),before)
+        self.assertIn("Дата не подтверждена.",quality.summarize_page(data,rows)["issues"])
+
     def test_saved_header_and_new_total_do_not_keep_old_proposal_warnings(self):
         data = {"printed_total": "25.10", "total_basis": "printed_gross", "header": {},
                 "header_candidate": {"issues": ["Старое предупреждение о реквизитах."]},

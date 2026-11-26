@@ -51,14 +51,14 @@ def _unique(messages):
     return list(dict.fromkeys(messages))
 
 
-def _source_issues(data):
+def _source_issues(data,include_identity=True):
     """Retain bounded, already-generated diagnostic messages, not raw text."""
     messages = []
     groups = [data.get("recognition_issues", [])]
     # A saved human header supersedes its old proposal, including deliberate
     # blank fields. Never recycle a previous summarize_page() result here:
     # otherwise a corrected total would keep its old mismatch warning.
-    if "header" not in data:
+    if include_identity and "header" not in data:
         value = data.get("header_candidate")
         if isinstance(value, dict):
             groups.append(value.get("issues", []))
@@ -69,7 +69,7 @@ def _source_issues(data):
     return _unique(messages)
 
 
-def summarize_page(data, rows):
+def summarize_page(data, rows, *, include_identity=True):
     """Return draft completeness and a strict comparison with a printed total.
 
     ``complete_rows`` is the number of rows having a name, unit, positive
@@ -78,7 +78,7 @@ def summarize_page(data, rows):
     ``total_matches`` stays ``None`` whenever either side is unconfirmed.
     """
     data = data if isinstance(data, dict) else {}
-    issues = _source_issues(data)
+    issues = _source_issues(data,include_identity=include_identity)
     result = {"issues": issues, "total_expected": None, "total_actual": None,
               "total_matches": None, "complete_rows": 0, "count": 0}
     if not isinstance(rows, (list, tuple)):

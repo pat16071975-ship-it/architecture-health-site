@@ -71,6 +71,8 @@ def check_partial_reread(browser, width):
             raise ocr.OCRUnavailable(FAILURE)
         parsed = parsed_page(1, "289,20")
         parsed["recognition_issues"] = ["Нечётко распознан артикул первой позиции."]
+        parsed["header_candidate"].update(document_type="unknown", number="", date=None,
+            issues=["Дата не подтверждена двумя чтениями оригинала."])
         return 2, parsed
 
     def failed_with_stale_form():
@@ -78,6 +80,7 @@ def check_partial_reread(browser, width):
             "message => document.getElementById('ocr-progress').textContent.includes(message) "
             "&& !document.getElementById('ocr-start').disabled", arg=FAILURE)
         assert page.locator('#ocr-review [name="value"]').input_value() == "120.00"
+        assert page.locator('#ocr-review .ocr-unit-cost').input_value() == "60.00"
         assert page.locator('#ocr-review [name="version"]').input_value() == "2"
         assert page.locator("#ocr-start").get_attribute("data-version") == "3"
         assert page.get_by_role("button", name="Сохранить разбор", exact=True).is_disabled()
@@ -111,15 +114,18 @@ def check_partial_reread(browser, width):
         assert row.locator('[name="quantity"]').input_value() == "2"
         assert row.locator('[name="unit"]').input_value() == "упак"
         assert row.locator('[name="value"]').input_value() == "289.20"
+        assert row.locator('[name="value"]').is_hidden()
+        assert row.locator('.ocr-unit-cost').input_value() == "144.60"
+        assert row.locator('.ocr-unit-cost').evaluate("input => input.readOnly && !input.name")
         assert row.locator('[name="folder_id"]').input_value() == str(folder_id)
         assert row.locator('[name="action"]').input_value() == "new"
         assert page.locator('#ocr-review [name="version"]').input_value() == "3"
         assert page.get_by_role("button", name="Сохранить разбор", exact=True).is_enabled()
         assert page.get_by_text("Сумма строк совпадает с итогом документа: 289.20 ₽.", exact=True).is_visible()
-        assert page.locator('[name="document_type"]').input_value() == "act"
-        assert page.locator('[name="counterparty"]').input_value() == "Учебный поставщик"
-        assert page.locator('[name="number"]').input_value() == "TRAINING-61"
-        assert page.locator('[name="document_date"]').input_value() == "2026-10-11"
+        assert page.locator('#ocr-header, [name="document_type"], [name="counterparty"], [name="number"], [name="document_date"], [name="part"], [name="page_note"]').count() == 0
+        assert page.locator('[name="review_scope"]').input_value() == "goods"
+        assert row.locator('.ocr-control-cell .ocr-supplier').inner_text() == "Учебный поставщик"
+        assert row.locator('.ocr-supplier').evaluate("el => parseFloat(getComputedStyle(el).fontSize)") <= 11
         assert not page.locator('[name="checked"]').is_checked()
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), width
         checks = page.locator("#ocr-checks")
@@ -127,25 +133,140 @@ def check_partial_reread(browser, width):
         assert checks.get_attribute("open") is None
         checks.locator("summary").click()
         assert checks.locator("p").first.is_visible()
+        assert "Дата не подтверждена" not in checks.inner_text()
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, "checks")
         checks.locator("summary").click()
-        page.locator("#ocr-header summary").click()
-        assert page.locator('[name="counterparty"]').is_visible()
-        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, "header")
+        # The displayed amount is value / quantity, not the supplier's printed
+        # tax-exclusive price. Editing either source recomputes with decimal
+        # HALF_UP at four places without rounding the stored line amount.
+        row.locator('[name="quantity"]').fill("3")
+        assert row.locator('.ocr-unit-cost').input_value() == "96.40"
+        assert row.locator('[name="value"]').input_value() == "289.20"
+        row.get_by_role("button", name="Ещё", exact=True).click()
+        assert row.locator('[name="value"]').is_visible()
+        assert row.locator('[name="price"]').is_hidden()
+        for quantity, amount, expected in (("6", "1.00", "0.1667"),
+                                           ("200", "0.01", "0.0001"),
+                                           ("0,5", "1 234,50", "2469.00"),
+                                           ("2", "0", "0.00"),
+                                           ("0", "5.00", ""),
+                                           ("", "5.00", ""),
+                                           ("1 2", "5.00", ""),
+                                           ("2", "0.001", "")):
+            row.locator('[name="quantity"]').fill(quantity)
+            row.locator('[name="value"]').fill(amount)
+            assert row.locator('.ocr-unit-cost').input_value() == expected, (quantity, amount, expected)
+            assert row.locator('[name="value"]').input_value() == amount
+        row.locator('[name="quantity"]').fill("2")
+        row.locator('[name="value"]').fill("289.20")
+        for unit in ("", "—", "–", "-", "?"):
+            row.locator('[name="unit"]').fill(unit)
+            assert row.locator('.ocr-unit-cost').input_value() == ""
+        row.locator('[name="unit"]').fill("упак")
+        assert row.locator('.ocr-unit-cost').input_value() == "144.60"
+        assert row.locator('[name="price"]').input_value() == "120.50"
+        row.get_by_role("button", name="Ещё", exact=True).click()
+        page.locator('[name="checked"]').check()
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, "goods checked")
         page.screenshot(path=str(ARTIFACTS / f"ocr-automatic-{width}.png"), full_page=True)
         with page.expect_navigation():
             page.get_by_role("button", name="Сохранить разбор", exact=True).click()
         saved = state(fixture)["pages"]["1"]
         assert saved["rows"][0]["value"] == "289.20"
         assert saved["rows"][0]["folder_id"] == folder_id
-        assert saved["header"]["number"] == "TRAINING-61"
-        assert not saved["checked"]
+        assert saved.get("header", {}).get("number", "") == ""
+        assert saved["checked"]
+        assert page.locator('.ocr-unit-cost').input_value() == "144.60"
+        assert "Дата не подтверждена" not in page.locator('body').inner_text()
         assert fixture.get_doc()["version"] == 4
         assert state(fixture)["pages"]["2"] == old["pages"]["2"]
         assert bytes(fixture.get_doc()["original_bytes"]) == original
         assert OCRRouteTests.snapshot_stock(fixture) == stock
         assert not errors, errors
-        print("MED_OCR_AUTOMATIC_BROWSER", width, "STALE_FORM_RETRY_AUTOFILL_SAVE_PASS", flush=True)
+        print("MED_OCR_AUTOMATIC_BROWSER", width, "STALE_FORM_RETRY_UNIT_COST_GOODS_ONLY_SAVE_PASS", flush=True)
+    finally:
+        context.close()
+        server.shutdown()
+        fixture.doCleanups()
+
+
+def check_unknown_amount_roundtrip(browser):
+    """Only an explicit gross-value edit can resolve an unknown amount basis.
+
+    Removing an earlier manual row exercises stable row association when both
+    rows lack source_line; changing name/quantity must not promote the amount.
+    """
+    fixture = IncomingDocumentTests()
+    fixture.setUp()
+    fixture.app.config["SESSION_COOKIE_SECURE"] = False
+    fixture.upload(filename="Учебная стоимость.pdf")
+    folder_id = fixture.conn.execute("SELECT id FROM med_supply_folders WHERE name='СИЗ'").fetchone()[0]
+    data = parsed_page(1, "289,20")
+    base = dict(data["candidates"][0], source_line=None, action="new",
+                folder_id=folder_id, item_id=None, note="", manual=True)
+    data["rows"] = [dict(base, name="Учебный комплект А", value_basis="printed_gross"),
+                    dict(base, name="Учебный комплект Б", value_basis="")]
+    data["checked"] = False
+    fixture.conn.execute("UPDATE med_supply_documents SET fields_json=?,version=2 WHERE id=1",
+                         (json.dumps({ocr.KEY: {"page_count": 1, "pages": {"1": data}}}, ensure_ascii=False),))
+    fixture.conn.commit()
+    original = bytes(fixture.get_doc()["original_bytes"])
+    stock = OCRRouteTests.snapshot_stock(fixture)
+    server = make_server("127.0.0.1", 0, fixture.app, threaded=True)
+    Thread(target=server.serve_forever, daemon=True).start()
+    origin = f"http://127.0.0.1:{server.server_port}"
+    context = browser.new_context(viewport={"width": 1365, "height": 1000})
+    client = fixture.client(2)
+    context.add_cookies([{"name": "session", "value": client.get_cookie("session").value, "url": origin}])
+    page = context.new_page()
+    page.route("https://fonts.googleapis.com/**", lambda route: route.abort())
+    page.route("https://fonts.gstatic.com/**", lambda route: route.abort())
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    try:
+        page.goto(origin + PATH)
+        rows = page.locator("#ocr-rows .ocr-row")
+        assert rows.nth(0).locator('.ocr-unit-cost').input_value() == "144.60"
+        assert rows.nth(1).locator('.ocr-unit-cost').input_value() == ""
+        rows.nth(0).get_by_role("button", name="Убрать строку", exact=True).click()
+        row = rows.first
+        assert row.locator('[name="row_index"]').input_value() == "1"
+        assert row.locator('[name="source_line"]').input_value() == ""
+        row.locator('[name="name"]').fill("Учебный комплект Б — уточнённое название")
+        row.locator('[name="quantity"]').fill("3")
+        row.locator('[name="unit"]').fill("упаковка")
+        assert row.locator('[name="value_edited"]').input_value() == "0"
+        assert row.locator('.ocr-unit-cost').input_value() == ""
+        with page.expect_navigation():
+            page.get_by_role("button", name="Сохранить разбор", exact=True).click()
+        saved = state(fixture)["pages"]["1"]["rows"]
+        assert len(saved) == 1
+        assert saved[0]["name"] == "Учебный комплект Б — уточнённое название"
+        assert saved[0]["value_basis"] == ""
+        assert saved[0]["unit_cost"] is None
+        assert saved[0]["value"] == "289.20"
+        row = page.locator("#ocr-rows .ocr-row").first
+        assert row.locator('.ocr-unit-cost').input_value() == ""
+        assert row.locator('[name="row_index"]').input_value() == "0"
+        assert row.locator('[name="value_edited"]').input_value() == "0"
+        row.get_by_role("button", name="Ещё", exact=True).click()
+        # Re-entering the same amount is an explicit assertion that this is the
+        # gross total, unlike merely saving the initially displayed value.
+        row.locator('[name="value"]').fill("")
+        row.locator('[name="value"]').fill("289.20")
+        assert row.locator('[name="value_edited"]').input_value() == "1"
+        assert row.locator('.ocr-unit-cost').input_value() == "96.40"
+        row.get_by_role("button", name="Ещё", exact=True).click()
+        page.locator('[name="checked"]').check()
+        with page.expect_navigation():
+            page.get_by_role("button", name="Сохранить разбор", exact=True).click()
+        assert state(fixture)["pages"]["1"]["rows"][0]["unit_cost"] == "96.40"
+        assert state(fixture)["pages"]["1"]["checked"]
+        assert page.locator('.ocr-unit-cost').input_value() == "96.40"
+        assert bytes(fixture.get_doc()["original_bytes"]) == original
+        assert OCRRouteTests.snapshot_stock(fixture) == stock
+        assert not errors, errors
+        print("MED_OCR_AMOUNT_BASIS_BROWSER UNKNOWN_SAVE_STABLE_ROW_EXPLICIT_EDIT_PASS", flush=True)
     finally:
         context.close()
         server.shutdown()
@@ -161,5 +282,6 @@ if __name__ == "__main__":
         try:
             for viewport in (320, 390, 1365):
                 check_partial_reread(browser, viewport)
+            check_unknown_amount_roundtrip(browser)
         finally:
             browser.close()

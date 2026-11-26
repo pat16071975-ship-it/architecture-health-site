@@ -30,7 +30,7 @@ jobs:
         env:
           AZ_TEST_REAL_OCR: '1'
         run: |
-          python -B -m unittest -v test_medical_supplies_documents test_medical_supplies_ocr test_medical_supplies_ocr_table test_medical_supplies_ocr_loss test_medical_supplies_ocr_image test_medical_supplies_ocr_enrichment test_medical_supplies_ocr_quality test_medical_supplies_ocr_automatic
+          python -B -m unittest -v test_medical_supplies_documents test_medical_supplies_ocr test_medical_supplies_ocr_table test_medical_supplies_ocr_loss test_medical_supplies_ocr_image test_medical_supplies_ocr_enrichment test_medical_supplies_ocr_quality test_medical_supplies_ocr_automatic test_medical_supplies_ocr_unit_cost
           python -B -m unittest test_medical_supplies test_medical_supplies_import test_medical_supplies_daily test_accounting_section test_section_navigation
           python -B -m unittest test_nn_foundation
       - run: python -m pip install playwright

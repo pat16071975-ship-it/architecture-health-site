@@ -113,15 +113,20 @@ with sync_playwright() as p:
                 assert engine.call_count == 2
             assert page.locator("#ocr-rows").evaluate("element => element.tagName") == "TABLE"
             assert page.locator("#ocr-rows th").all_text_contents()[:5] == [
-                "Название", "Количество", "Единица", "Стоимость, ₽", "В какой раздел"]
+                "Название", "Количество", "Единица", "Стоимость за единицу, ₽", "В какой раздел"]
             assert not page.locator(".ocr-source").evaluate("element => element.open")
-            assert not page.locator("#ocr-header").evaluate("element => element.open")
+            assert page.locator("#ocr-header, [name=document_type], [name=number], [name=document_date], [name=part], [name=page_note], [name=counterparty]").count() == 0
+            assert page.locator('[name="review_scope"]').input_value() == "goods"
             assert not page.locator("#ocr-show-saved").is_visible()
             first = page.locator("#ocr-rows .ocr-row").first
             assert first.locator('[name="name"]').input_value() == "Салфетки медицинские стерильные"
             assert first.locator('[name="quantity"]').input_value() == "2"
             assert first.locator('[name="unit"]').input_value() == "упак"
             assert first.locator('[name="value"]').input_value() == "289.20"
+            assert first.locator('[name="value"]').is_hidden()
+            assert first.locator('.ocr-unit-cost').input_value() == "144.60"
+            assert first.locator('.ocr-unit-cost').get_attribute("name") is None
+            assert first.locator('.ocr-unit-cost').evaluate("element => element.readOnly")
             folder = first.locator('[name="folder_id"]')
             assert folder.evaluate("element => element.tagName") == "SELECT"
             folder_value = folder.locator('option[value]:not([value=""])').first.get_attribute("value")
@@ -130,14 +135,18 @@ with sync_playwright() as p:
             assert first.locator('[name="action"]').input_value() == "new"
             first.locator('[name="quantity"]').fill("3")
             assert first.locator('[name="value"]').input_value() == "289.20"
+            assert first.locator('.ocr-unit-cost').input_value() == "96.40"
             page.get_by_role("button", name="Обновить разбор", exact=True).click()
             assert "Сначала сохраните" in page.locator("#ocr-progress").inner_text()
             page.get_by_role("button", name="+ Добавить строку", exact=True).click()
             added = page.locator("#ocr-rows .ocr-row").last
             assert page.locator("#ocr-rows .ocr-row").count() == 2
+            added.get_by_role("button", name="Ещё", exact=True).click()
             for key, value in (("name", "Бумага для принтера A4"), ("quantity", "1"), ("unit", "пач"), ("value", "456,78")):
                 added.locator(f'[name="{key}"]').fill(value)
             added.locator('[name="folder_id"]').select_option(folder_value)
+            assert added.locator('.ocr-unit-cost').input_value() == "456.78"
+            added.get_by_role("button", name="Ещё", exact=True).click()
             with page.expect_navigation():
                 page.get_by_role("button", name="Сохранить разбор", exact=True).click()
             saved = state(fixture)["pages"]["1"]["rows"]
@@ -155,6 +164,9 @@ with sync_playwright() as p:
             first.get_by_role("button", name="Ещё", exact=True).click()
             assert first.locator('[name="item_id"]').is_visible()
             assert first.locator('[name="price"]').input_value() == "120.50"
+            assert first.locator('[name="price"]').is_hidden()
+            assert first.locator('[name="value"]').is_visible()
+            assert first.locator('.ocr-unit-cost').input_value() == "96.40"
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, "details")
             first.get_by_role("button", name="Ещё", exact=True).click()
             page.locator("#ocr-rows .ocr-row").last.get_by_role("button", name="Убрать строку", exact=True).click()
@@ -167,6 +179,7 @@ with sync_playwright() as p:
             reader.goto(origin + PATH)
             assert reader.get_by_role("table", name="Товары из документа").count() == 1
             assert reader.locator("#ocr-start, #ocr-review").count() == 0
+            assert reader.locator('td[data-label="Стоимость за единицу, ₽"]').inner_text() == "96.40"
             assert reader.evaluate("document.documentElement.scrollWidth <= innerWidth")
             reader.close()
             print("MED_OCR_GOODS_TABLE_BROWSER", width, "PASS", flush=True)

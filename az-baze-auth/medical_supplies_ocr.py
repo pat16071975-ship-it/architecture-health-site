@@ -18,14 +18,14 @@ import subprocess
 import tempfile
 import time
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from statistics import median
 
 from flask import abort, g, jsonify, make_response, redirect, render_template, request, url_for
 import medical_supplies_documents as inbox
 from medical_supplies_ocr_enrichment import enrich_rows, header_proposal
-from medical_supplies_ocr_quality import summarize_page, document_issues
+from medical_supplies_ocr_quality import summarize_page
 
 KEY = "ocr_review_v1"
 EXTRACTOR_VERSION = 6
@@ -76,6 +76,33 @@ def number(value, scale):
         return format(n,"f")
     except InvalidOperation as exc:
         raise ValueError("Проверьте числовое поле.") from exc
+
+
+def unit_cost(value, quantity, unit, *, value_basis=None):
+    """Read-only gross cost per document unit, never a replacement amount.
+
+    Keep the original line amount and printed price independent: dividing a
+    rounded result back into the quantity can change the document's money.
+    None also means an explicitly non-gross or unresolved monetary column.
+    """
+    if (not isinstance(unit,str) or not unit.strip() or len(unit)>30
+            or "\x00" in unit or unit.strip() in ("—","–","-","?")
+            or value_basis not in (None,"printed_gross","printed_single_total")):
+        return None
+    if any(isinstance(n,bool) or not isinstance(n,(str,int,Decimal))
+           for n in (value,quantity)):
+        return None
+    try:
+        amount=number(str(value),100)
+        count=number(str(quantity),1000)
+        if amount is None or count is None or Decimal(count)<=0:
+            return None
+        calculated=(Decimal(amount)/Decimal(count)).quantize(
+            Decimal("0.0001"),rounding=ROUND_HALF_UP)
+    except (ValueError,InvalidOperation):
+        return None
+    whole,fraction=format(calculated,".4f").split(".")
+    return whole+"."+fraction.rstrip("0").ljust(2,"0")
 
 
 def maybe_number(value, scale):
@@ -1008,17 +1035,29 @@ def automatic_proposals(parsed,page,state,items,folders,history):
 
 
 def parse_review(form,page_data,items,folders):
+    scope=form.get("review_scope") or "document"
+    if scope not in ("goods","document"):
+        raise ValueError("Неизвестный вид проверки.")
     rows=[]
     keys=("source_line","name","unit","quantity","price","value","action","item_id","folder_id","note")
     lists={k:form.getlist(k) for k in keys}
     sizes={len(v) for v in lists.values()}
     if len(sizes)!=1 or next(iter(sizes))>MAX_ROWS:
         raise ValueError("Некорректное количество строк.")
+    indexes=form.getlist("row_index")
+    edits=form.getlist("value_edited")
+    count=len(lists["name"])
+    if ((indexes and len(indexes)!=count) or (edits and len(edits)!=count)
+            or any(value not in ("0","1") for value in edits)):
+        raise ValueError("Некорректные данные товарных строк.")
+    previous_rows=page_data.get("rows",page_data.get("candidates",[]))
+    manual_previous=[row for row in previous_rows if row.get("source_line") is None]
     known_lines={l["id"] for l in page_data["lines"]}
     known_items={i["id"]:i for i in items}
     folder_ids={f["id"] for f in folders}
     used=set()
-    for vals in zip(*(lists[k] for k in keys)):
+    used_indexes=set()
+    for position,vals in enumerate(zip(*(lists[k] for k in keys))):
         r=dict(zip(keys,vals))
         name=clean(r["name"],500)
         if not name and not any(r[k].strip() for k in ("quantity","price","value","item_id","folder_id","note")):
@@ -1028,6 +1067,27 @@ def parse_review(form,page_data,items,folders):
             raise ValueError("Повторная или неизвестная строка OCR.")
         if line is not None:
             used.add(line)
+        previous=None
+        if indexes:
+            if indexes[position]!="":
+                source_index=integer(indexes[position],0,MAX_ROWS-1)
+                if source_index>=len(previous_rows) or source_index in used_indexes:
+                    raise ValueError("Повторная или неизвестная товарная строка.")
+                used_indexes.add(source_index)
+                previous=previous_rows[source_index]
+                if previous.get("source_line")!=line:
+                    raise ValueError("Товарная строка не совпадает с сохранённым источником.")
+            elif line is not None:
+                raise ValueError("Не указан источник товарной строки.")
+        elif line is not None:
+            previous=next((row for row in previous_rows if row.get("source_line")==line),None)
+        elif len(manual_previous)==1:
+            previous=manual_previous[0]
+        elif any(row.get("value_basis") not in (None,"printed_gross","printed_single_total")
+                 for row in manual_previous):
+            # An old form has no stable indexes for reordered manual rows.
+            # Unknown association must not silently turn net/tax into gross.
+            previous={"value_basis":"unknown"}
         action=r["action"]
         if action not in ACTIONS:
             raise ValueError("Неизвестное решение по строке.")
@@ -1041,13 +1101,23 @@ def parse_review(form,page_data,items,folders):
                          quantity=number(r["quantity"],1000),price=number(r["price"],10000),
                          value=number(r["value"],100),action=action,item_id=item_id,
                          folder_id=folder_id,note=clean(r["note"],500),manual=line is None))
-    kind=str(form.get("document_type") or "unknown")
-    if kind not in inbox.TYPE_KEYS:
-        raise ValueError("Неизвестный тип документа.")
-    header={"document_type":kind,"counterparty":clean(form.get("counterparty"),200),
-            "number":clean(form.get("number"),100),"date":inbox._iso_date(form.get("document_date")),
-            "part":integer(form.get("part") or "1",1,MAX_PAGES),
-            "note":clean(form.get("page_note"),1000)}
+        # No submitted unit_cost is trusted, even if a client adds the field.
+        saved=rows[-1]
+        if edits and edits[position]=="1":
+            saved["value_basis"]=None  # Explicit entry of a manual gross amount.
+        elif previous is not None and "value_basis" in previous:
+            saved["value_basis"]=previous["value_basis"]
+        saved["unit_cost"]=unit_cost(saved["value"],saved["quantity"],saved["unit"],
+                                     value_basis=saved.get("value_basis"))
+    header=None
+    if scope=="document":
+        kind=str(form.get("document_type") or "unknown")
+        if kind not in inbox.TYPE_KEYS:
+            raise ValueError("Неизвестный тип документа.")
+        header={"document_type":kind,"counterparty":clean(form.get("counterparty"),200),
+                "number":clean(form.get("number"),100),"date":inbox._iso_date(form.get("document_date")),
+                "part":integer(form.get("part") or "1",1,MAX_PAGES),
+                "note":clean(form.get("page_note"),1000)}
     checked=form.get("checked")=="1"
     empty=form.get("no_items")=="1"
     if empty and rows:
@@ -1055,7 +1125,8 @@ def parse_review(form,page_data,items,folders):
     if checked:
         if not rows and not empty:
             raise ValueError("Укажите позиции или подтвердите, что их нет.")
-        if rows and (kind=="unknown" or not header["counterparty"] or not header["number"] or not header["date"]):
+        if rows and header is not None and (header["document_type"]=="unknown"
+                or not header["counterparty"] or not header["number"] or not header["date"]):
             raise ValueError("Для проверки страницы укажите реквизиты документа.")
         for r in rows:
             if not r["name"] or r["action"]=="unresolved":
@@ -1064,14 +1135,19 @@ def parse_review(form,page_data,items,folders):
                 if not r["note"]:
                     raise ValueError("Укажите причину исключения строки.")
                 continue
-            if not r["unit"] or r["quantity"] is None or Decimal(r["quantity"])<=0 or r["value"] is None:
+            if r["unit_cost"] is None:
                 raise ValueError("Проверьте единицу, количество и итоговую стоимость с налогом.")
             if r["action"]=="existing" and (r["item_id"] is None
                     or norm(r["unit"])!=norm(known_items[r["item_id"]]["unit"])):
                 raise ValueError("Выберите материал с совпадающей единицей учёта.")
             if r["action"]=="new" and (r["folder_id"] is None or r["item_id"] is not None or len(r["name"])>200):
                 raise ValueError("Для нового материала выберите папку, название до 200 символов и не выбирайте существующий материал.")
-    return {"header":header,"rows":rows,"checked":checked,"no_items":empty}
+    review={"rows":rows,"checked":checked,"no_items":empty,"review_scope":scope}
+    if header is not None:
+        review["header"]=header
+    # A goods-only save leaves both a deliberately empty header and an absent
+    # header exactly as they were. It neither edits nor reassigns document parts.
+    return review
 
 
 def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
@@ -1109,16 +1185,18 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                     rows=enrich_rows(rows,items,folders,history=classification_history(db(),doc_id))
                 for r in rows:
                     r["matches"]=suggestions(r["name"],r["unit"],items)
-                header=proposed_header(data,page,state)
-            quality=summarize_page(data or {},rows) if data else None
-            page_issues=[]
-            if data:
-                current=data if "header" in data else {**data,"header_candidate":header}
-                proposal_pages={**state["pages"],str(page):current}
-                page_issues=list(dict.fromkeys([*quality["issues"],*document_issues(proposal_pages)]))
+                    r["unit_cost"]=unit_cost(r.get("value"),r.get("quantity"),r.get("unit"),
+                                             value_basis=r.get("value_basis"))
+                header=(data["header"] if "header" in data
+                        else data.get("header_candidate") or header_proposal(data,page=page))
+            supplier=header.get("counterparty","") if isinstance(header,dict) else ""
+            if not isinstance(supplier,str):
+                supplier=""
+            quality=summarize_page(data or {},rows,include_identity=False) if data else None
+            page_issues=list(quality["issues"]) if quality else []
             response=make_response(render_template("medical_supplies_ocr.html",title="Разбор документа — Медрасходка",
                 doc=row,state=state,page=page,data=data,rows=rows,header=header,
-                quality=quality,page_issues=page_issues,
+                supplier=supplier,view_scope="goods",quality=quality,page_issues=page_issues,
                 items=items,folders=folders,types=inbox.TYPES,csrf=csrf_token(),can_manage=can_manage(),
                 saved=request.args.get("saved")=="1"))
             response.headers["Cache-Control"]="private, no-store"
@@ -1234,10 +1312,11 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 # AZ-264-01: identity belongs to the logical document, not
                 # to its goods rows. Checked pages without goods must agree
                 # as well, including when an already checked page is edited.
-                if review["checked"]:
+                if review["checked"] and review["review_scope"]!="goods":
                     header=review["header"]
                     for key,other in current["pages"].items():
-                        if key==str(page) or not other.get("checked"):
+                        if (key==str(page) or not other.get("checked")
+                                or other.get("review_scope")=="goods"):
                             continue
                         previous=other.get("header",{})
                         if previous.get("part")==header["part"] and any(
@@ -1249,7 +1328,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 target["extractor_version"]=EXTRACTOR_VERSION
                 target.update(review)
             store(conn,doc_id,version,row["sha256"],mutate,g.user["id"],"ocr_review",
-                  {"page":page,"rows":len(review["rows"]),"checked":review["checked"]})
+                  {"page":page,"rows":len(review["rows"]),"checked":review["checked"],
+                   "review_scope":review["review_scope"]})
             return redirect(url_for("medical_supplies_ocr_page",doc_id=doc_id,p=page,saved=1),code=303)
         except LookupError:
             abort(404)
