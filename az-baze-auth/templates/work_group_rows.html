@@ -1,8 +1,0 @@
-{% macro render_group(group) %}
-<details class="work-group" data-group="{{ group.id }}" data-label="{{ group.name }}" {% if group.id == 0 %}open{% endif %}>
-<summary>{{ group.name }} <span class="work-group-count">· {{ group.count }}</span></summary>
-{% for row in group.rows %}{% include row_template %}{% endfor %}
-{% for child in group.children if child.count %}{{ render_group(child) }}{% endfor %}
-</details>
-{% endmacro %}
-{% for group in grouping.tree %}{{ render_group(group) }}{% endfor %}
