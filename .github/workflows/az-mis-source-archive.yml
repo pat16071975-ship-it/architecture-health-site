@@ -26,6 +26,6 @@ jobs:
       - run: python -m pip install -r az-baze-auth/requirements.txt
       - name: Archive integrity, deduplication and rollback
         working-directory: az-baze-auth
-        run: python -B -m unittest -v test_mis_source_archive test_mis_archive_routes test_paid_services_periods test_upload_consistency_atomic test_cash_payments test_completed_upload test_services_upload
+        run: python -B -m unittest -v test_mis_source_archive test_mis_archive_routes test_mis_upload_receipts test_paid_services_periods test_upload_consistency_atomic test_cash_payments test_completed_upload test_services_upload
       - name: Protected imports
         run: python tools/verify-mis-archive-boundary.py ${{ github.event.pull_request.base.sha }}

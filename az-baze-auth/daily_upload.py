@@ -1278,6 +1278,16 @@ def _refresh_advertising_mis():
         return {"status": "error", "error": type(exc).__name__}
 
 
+def _archive_received_upload():
+    perms = user_permissions(g.user)
+    if "upload_completed" not in perms or "upload_services" not in perms:
+        abort(403)
+    mis_source_archive.receive_uploads(
+        core.db(), request.files, (("completed", "completed"), ("services", "services")),
+        actor_id=g.user["id"], request_path=request.path,
+    )
+
+
 def register_daily_upload(app):
     core._init_schema()
 
@@ -1317,6 +1327,10 @@ def register_daily_upload(app):
     @permission_required("section5")
     def clinical_upload_preview():
         require_csrf()
+        try:
+            _archive_received_upload()
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 400
         completed = request.files.get("completed")
         services = request.files.get("services")
         if not completed or not completed.filename:
@@ -1332,6 +1346,10 @@ def register_daily_upload(app):
     @permission_required("section5")
     def clinical_upload_commit():
         require_csrf()
+        try:
+            _archive_received_upload()
+        except ValueError as exc:
+            return jsonify({"status": "error", "message": str(exc)}), 409
         completed = request.files.get("completed")
         services = request.files.get("services")
         if not completed or not completed.filename:

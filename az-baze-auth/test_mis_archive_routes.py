@@ -307,14 +307,16 @@ class ArchiveRouteTests(unittest.TestCase):
         self.assertEqual([x[0] for x in self.conn.execute("SELECT date FROM report_data ORDER BY 1")],
                          [FIRST,THIRD])
 
-    def test_preview_and_permission_do_not_archive(self):
+    def test_preview_archives_original_but_permission_failure_does_not(self):
         raw=self.service_file([FIRST])
         files={"services":(raw,"s.xlsx")}
         self.assert_ok(self.post("/api/uploads/services/preview",files))
-        self.assertIsNone(self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='mis_source_objects'").fetchone())
+        self.assertEqual(archive.read_original(self.conn,hashlib.sha256(raw).hexdigest()),raw)
+        self.assertEqual(self.conn.execute("SELECT count(*) FROM daily_uploads").fetchone()[0],0)
+        before=list(self.conn.iterdump())
         self.perms={"section5"}
         self.assertEqual(self.post("/api/uploads/services/commit",files).status_code,403)
-        self.assertIsNone(self.conn.execute("SELECT 1 FROM sqlite_master WHERE name='mis_source_objects'").fetchone())
+        self.assertEqual(list(self.conn.iterdump()),before)
 
 
 if __name__ == "__main__":

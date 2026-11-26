@@ -693,12 +693,22 @@ def _commit(
     }
 
 
+def _archive_received_upload():
+    if "upload_services" not in user_permissions(g.user):
+        abort(403)
+    mis_source_archive.receive_uploads(
+        db(), request.files, (("services", "services"),),
+        actor_id=g.user["id"], request_path=request.path,
+    )
+
+
 def register_services_upload(app):
     @app.post("/api/uploads/services/preview")
     @permission_required("section5")
     def services_upload_preview():
         require_csrf()
         try:
+            _archive_received_upload()
             return jsonify(_preview())
         except ValueError as exc:
             return jsonify({"status": "error", "message": str(exc)}), 400
@@ -708,6 +718,7 @@ def register_services_upload(app):
     def services_upload_commit():
         require_csrf()
         try:
+            _archive_received_upload()
             result = _commit(
                 request.form.get("decision") or None,
                 _provider_decisions_from_form(),

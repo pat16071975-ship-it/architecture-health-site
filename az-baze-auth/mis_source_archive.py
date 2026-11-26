@@ -2,7 +2,8 @@
 
 Raw files are immutable content-addressed BLOBs. XLSX is already ZIP.
 No source is made active by archiving it. The existing import decisions
-remain authoritative; archive receipts describe what the importer did.
+remain authoritative. Receipt events prove arrival; application events
+separately describe what the importer committed.
 """
 import hashlib
 import json
@@ -125,10 +126,10 @@ def record(conn, kind, raw, filename, *, source_from=None, source_to=None,
         "observed": observed, "applied": applied, "removed": removed,
         "context": context or {},
     }
-    # Historical and no-op replays are idempotent. Successful applications
-    # keep the occurrence time/actor (a previously replaced version may return).
+    # Historical and no-op replays are idempotent. Applications and incoming
+    # uploads retain each occurrence, even when the raw object already exists.
     event = dict(metadata)
-    if outcome == "applied":
+    if outcome == "applied" or origin == "ident_upload_received":
         event.update(actor_id=actor_id, saved_at=now)
     key = hashlib.sha256(_json(event).encode("utf-8")).hexdigest()
 
@@ -158,10 +159,11 @@ def record(conn, kind, raw, filename, *, source_from=None, source_to=None,
 
 
 def record_noop(conn, sources):
-    """Archive an already validated no-op without changing business data.
+    """Commit an archive-only batch without changing business data.
 
     Do not commit a caller's pending transaction. All source objects and
     receipts (including a two-file clinical upload) succeed or roll back.
+    Metadata distinguishes unvalidated arrivals from parsed no-op imports.
     """
     if conn.in_transaction:
         raise RuntimeError("No-op archive requires a clean transaction boundary")
@@ -173,6 +175,50 @@ def record_noop(conn, sources):
     except BaseException:
         conn.rollback()
         raise
+
+
+def receive_uploads(conn, files, fields, *, actor_id, request_path):
+    """Durably preserve authorized multipart originals before interpretation.
+
+    The HTTP caller must check authentication, CSRF and upload permissions
+    first. This separate transaction never commits pending business work.
+    A receipt proves only that bytes arrived, not validity, dates or activation.
+    The importer can then reject or roll back without losing the original.
+    """
+    if conn.in_transaction:
+        raise RuntimeError("Upload receipt requires a clean transaction boundary")
+    sources = []
+    oversized = False
+    now = _timestamp()
+    for kind, field in fields:
+        if kind not in KINDS or kind == "catalog":
+            raise ValueError("Invalid upload source kind")
+        for part_index, part in enumerate(files.getlist(field)):
+            if not part.filename:
+                continue
+            position = part.stream.tell()
+            try:
+                part.stream.seek(0)
+                raw = part.read(MAX_SOURCE_BYTES + 1)
+            finally:
+                part.stream.seek(position)
+            if len(raw) > MAX_SOURCE_BYTES:
+                oversized = True
+                continue
+            if not raw:
+                continue
+            sources.append(((kind, raw, part.filename), dict(
+                outcome="archive_only", decision="received",
+                origin="ident_upload_received", actor_id=actor_id, saved_at=now,
+                context={"validation": "not_performed", "request_path": request_path,
+                         "upload_field": field, "part_index": part_index},
+            )))
+    if sources:
+        record_noop(conn, sources)
+    # Preserve any complete valid-size counterpart even when a paired upload
+    # cannot proceed. Never store a truncated prefix of the oversized file.
+    if oversized:
+        raise ValueError("Размер файла превышает 25 МБ.")
 
 
 def read_original(conn, sha):

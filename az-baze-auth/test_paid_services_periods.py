@@ -1,3 +1,4 @@
+import hashlib
 import io
 import json
 import os
@@ -11,6 +12,7 @@ from flask import Flask, g
 from openpyxl import Workbook, load_workbook
 
 import paid_services
+import mis_source_archive as source_archive
 
 with patch.dict(os.environ, {"AZBAZE_SECRET_KEY": "paid-period-tests-only"}):
     import paid_services_upload as uploads
@@ -257,6 +259,88 @@ class PaidPeriodUploadTests(unittest.TestCase):
             for table in ("report_data", "report_blobs", "daily_uploads")
         }
 
+    def assert_only_received(self, before, received, *, noops=()):
+        """Allow exact new receipts/objects, then compare the entire old DB.
+
+        No business or old archive table is excluded from the comparison.
+        The scratch copy removes only individually checked new archive rows.
+        """
+        self.assertFalse(self.conn.in_transaction)
+        old = sqlite3.connect(":memory:")
+        restored = sqlite3.connect(":memory:")
+        try:
+            old.executescript("\n".join(before))
+            had_archive = old.execute(
+                "SELECT 1 FROM sqlite_master WHERE name='mis_source_objects'"
+            ).fetchone() is not None
+            old_objects = {row[0] for row in old.execute(
+                "SELECT sha256 FROM mis_source_objects"
+            )} if had_archive else set()
+            old_events = {row[0] for row in old.execute(
+                "SELECT event_key FROM mis_source_events"
+            )} if had_archive else set()
+            rows = [dict(row) for row in self.conn.execute(
+                "SELECT * FROM mis_source_events"
+            ) if row["event_key"] not in old_events]
+            expected = [(hashlib.sha256(raw).hexdigest(), "ident_upload_received",
+                         "archive_only", "received", action)
+                        for raw, action in received]
+            expected += [(hashlib.sha256(raw).hexdigest(), "ident_upload", outcome,
+                          decision, None) for raw, outcome, decision in noops]
+            actual = []
+            for row in rows:
+                context = json.loads(row["context_json"])
+                action = None
+                self.assertEqual(row["source_kind"], "paid_services")
+                self.assertEqual(row["original_filename"], "period.xlsx")
+                self.assertEqual(row["actor_id"], 7)
+                self.assertTrue(row["saved_at"])
+                for column in ("observed_dates_json", "applied_dates_json", "removed_dates_json"):
+                    self.assertIsNone(row[column])
+                if row["origin"] == "ident_upload_received":
+                    action = context["request_path"].rsplit("/", 1)[-1]
+                    self.assertEqual(context, {
+                        "validation": "not_performed",
+                        "request_path": "/api/uploads/paid-services/" + action,
+                        "upload_field": "paid_services", "part_index": 0,
+                    })
+                    self.assertIsNone(row["source_from"])
+                    self.assertIsNone(row["source_to"])
+                else:
+                    self.assertIn(row["outcome"], {"duplicate", "kept_old"})
+                    self.assertEqual(context, {"interval_basis": "explicit_source"})
+                actual.append((row["sha256"], row["origin"], row["outcome"], row["decision"], action))
+            self.assertCountEqual(actual, expected)
+            expected_objects = {item[0] for item in expected} - old_objects
+            new_objects = {row[0] for row in self.conn.execute(
+                "SELECT sha256 FROM mis_source_objects"
+            )} - old_objects
+            self.assertEqual(new_objects, expected_objects)
+            for raw, *_ in (*received, *noops):
+                self.assertEqual(source_archive.read_original(
+                    self.conn, hashlib.sha256(raw).hexdigest()), raw)
+            for raw, outcome, decision in noops:
+                sha = hashlib.sha256(raw).hexdigest()
+                row = next(row for row in rows if row["sha256"] == sha
+                           and row["outcome"] == outcome and row["decision"] == decision)
+                report = paid_services.parse_bytes(raw, "period.xlsx")
+                self.assertEqual((row["source_from"], row["source_to"]),
+                                 (report["period_start"], report["period_end"]))
+
+            self.conn.backup(restored)
+            restored.executemany("DELETE FROM mis_source_events WHERE event_key=?",
+                                 ((row["event_key"],) for row in rows))
+            restored.executemany("DELETE FROM mis_source_objects WHERE sha256=?",
+                                 ((sha,) for sha in new_objects))
+            if not had_archive:
+                restored.execute("DROP TABLE mis_source_events")
+                restored.execute("DROP TABLE mis_source_objects")
+            restored.commit()
+            self.assertEqual(list(restored.iterdump()), before)
+        finally:
+            old.close()
+            restored.close()
+
     def post(self, action, raw=None, **fields):
         data = {
             **fields,
@@ -272,14 +356,15 @@ class PaidPeriodUploadTests(unittest.TestCase):
         self.assertEqual(result.get_json()["status"], "imported")
         return preview
 
-    def test_preview_of_unknown_provider_is_read_only_and_reports_exact_period(self):
+    def test_preview_archives_unknown_provider_without_business_writes(self):
         before = list(self.conn.iterdump())
-        result = self.post("preview", report_bytes(provider="Unknown U."))
+        raw = report_bytes(provider="Unknown U.")
+        result = self.post("preview", raw)
         self.assertEqual(result.status_code, 200)
         preview = result.get_json()
         self.assertEqual(preview["period"], {"from": "2026-01-01", "to": "2026-06-30"})
         self.assertEqual(preview["unknown_providers"], ["Unknown U."])
-        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assert_only_received(before, [(raw, "preview")])
 
     def test_replacement_uses_preview_revision_backup_and_archive(self):
         self.import_first()
@@ -321,7 +406,7 @@ class PaidPeriodUploadTests(unittest.TestCase):
         result = self.post("commit", desired, decision="use_new", expected_revision=preview["revision"])
         self.assertEqual(result.status_code, 409)
         self.assertIn("уже изменился", result.get_json()["message"])
-        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assert_only_received(before, [(desired, "commit")])
 
     def test_keep_old_does_not_classify_unknown_names_from_rejected_file(self):
         import hashlib
@@ -334,30 +419,26 @@ class PaidPeriodUploadTests(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.get_json()["status"], "duplicate")
 
-        # The owner now requires preserving even a validated kept-old source.
-        # All previous SQL, including archive history and provider registry,
-        # must remain exact; allow precisely one new original and one receipt.
+        # Preview already saved the original. Commit adds a received occurrence
+        # and one kept-old decision; all prior rows remain exact.
         after = list(self.conn.iterdump())
-        extra = list(after)
-        for line in before:
-            extra.remove(line)
-        self.assertEqual(len(extra), 2)
-        self.assertEqual(sum(line.startswith('INSERT INTO "mis_source_objects"') for line in extra), 1)
-        self.assertEqual(sum(line.startswith('INSERT INTO "mis_source_events"') for line in extra), 1)
+        self.assert_only_received(before, [(raw, "commit")],
+                                  noops=[(raw, "kept_old", "keep_old")])
         sha = hashlib.sha256(raw).hexdigest()
         self.assertEqual(source_archive.read_original(self.conn, sha), raw)
         receipt = self.conn.execute(
-            "SELECT outcome,decision,applied_dates_json,removed_dates_json FROM mis_source_events WHERE sha256=?",
+            "SELECT outcome,decision,applied_dates_json,removed_dates_json FROM mis_source_events "
+            "WHERE sha256=? AND origin='ident_upload'",
             (sha,),
         ).fetchone()
         self.assertEqual(tuple(receipt), ("kept_old", "keep_old", None, None))
         self.assertEqual(self.conn.execute(
             "SELECT count(*) FROM provider_registry WHERE source_name='Unknown U.'"
         ).fetchone()[0], 0)
-        # An exact replay must not add even a duplicate archive receipt.
+        # Replay records another upload, but not another kept-old decision.
         result = self.post("commit", raw, decision="keep_old", expected_revision=preview["revision"])
         self.assertEqual(result.status_code, 200)
-        self.assertEqual(list(self.conn.iterdump()), after)
+        self.assert_only_received(after, [(raw, "commit")])
 
     def test_real_commit_archives_exact_source_and_identical_replay(self):
         import hashlib
@@ -371,7 +452,8 @@ class PaidPeriodUploadTests(unittest.TestCase):
             "SELECT source_sha256 FROM service_payment_periods"
         ).fetchone()[0], sha)
         self.assertEqual(tuple(self.conn.execute(
-            "SELECT source_kind,source_from,source_to,outcome FROM mis_source_events WHERE sha256=?",
+            "SELECT source_kind,source_from,source_to,outcome FROM mis_source_events "
+            "WHERE sha256=? AND origin='ident_upload'",
             (sha,),
         ).fetchone()), ("paid_services","2026-01-01","2026-06-30","applied"))
         preview = self.post("preview",raw).get_json()
@@ -380,21 +462,25 @@ class PaidPeriodUploadTests(unittest.TestCase):
             self.assertEqual(response.status_code,200,response.get_json())
             self.assertEqual(response.get_json()["status"],"duplicate")
         self.assertEqual(self.conn.execute("SELECT count(*) FROM mis_source_objects").fetchone()[0],1)
-        self.assertEqual(self.conn.execute("SELECT count(*) FROM mis_source_events").fetchone()[0],2)
+        self.assertEqual(self.conn.execute("SELECT count(*) FROM mis_source_events "
+                                           "WHERE origin='ident_upload'").fetchone()[0],2)
+        self.assertEqual(self.conn.execute("SELECT count(*) FROM mis_source_events "
+                                           "WHERE origin='ident_upload_received'").fetchone()[0],4)
         self.assertEqual(self.conn.execute("SELECT count(*) FROM service_payment_periods").fetchone()[0],1)
         self.assertEqual(self.protected_state(), self.protected)
 
-    def test_archive_failure_rolls_back_real_paid_commit_and_schema(self):
-        import mis_source_archive as source_archive
+    def test_business_archive_failure_rolls_back_paid_commit_but_keeps_original(self):
         before = list(self.conn.iterdump())
+        raw = report_bytes()
         original = source_archive.record
         def fail_after_archive(*args, **kwargs):
             original(*args, **kwargs)
-            raise sqlite3.IntegrityError("synthetic archive failure")
+            if kwargs.get("origin") != "ident_upload_received":
+                raise sqlite3.IntegrityError("synthetic archive failure")
         with patch.object(source_archive,"record",side_effect=fail_after_archive):
             with self.assertRaisesRegex(sqlite3.IntegrityError,"synthetic archive failure"):
-                self.post("commit",report_bytes(),decision="append",expected_revision="new")
-        self.assertEqual(list(self.conn.iterdump()),before)
+                self.post("commit",raw,decision="append",expected_revision="new")
+        self.assert_only_received(before, [(raw, "commit")])
         self.assertFalse(self.conn.in_transaction)
 
     def test_classification_and_snapshot_roll_back_together(self):
@@ -404,7 +490,7 @@ class PaidPeriodUploadTests(unittest.TestCase):
         with patch.object(paid_services, "store_snapshot", side_effect=RuntimeError("storage failure")):
             with self.assertRaisesRegex(RuntimeError, "storage failure"):
                 self.post("commit", raw, expected_revision="new", provider_decisions=decisions)
-        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assert_only_received(before, [(raw, "commit")])
         self.assertFalse(self.conn.in_transaction)
 
     def test_classification_cannot_rewrite_other_registry_entries(self):
@@ -431,17 +517,19 @@ class PaidPeriodUploadTests(unittest.TestCase):
         self.perms = {"upload_services"}
         before = list(self.conn.iterdump())
         self.assertEqual(self.post("commit", raw, decision="use_new", expected_revision=revision).status_code, 403)
-        self.assertEqual(self.post("commit", report_bytes(("05.07.2026", "31.07.2026"), provider="Unknown U."),
+        other = report_bytes(("05.07.2026", "31.07.2026"), provider="Unknown U.")
+        self.assertEqual(self.post("commit", other,
                                    expected_revision="new",
                                    provider_decisions=json.dumps({"Unknown U.": "dent"})).status_code, 403)
-        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assert_only_received(before, [(raw, "commit"), (other, "commit")])
 
     def test_invalid_classification_is_rejected_without_partial_writes(self):
         before = list(self.conn.iterdump())
-        result = self.post("commit", report_bytes(provider="Unknown U."), expected_revision="new",
+        raw = report_bytes(provider="Unknown U.")
+        result = self.post("commit", raw, expected_revision="new",
                            provider_decisions=json.dumps({"Unknown U.": "not-a-direction"}))
         self.assertEqual(result.status_code, 409)
-        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assert_only_received(before, [(raw, "commit")])
 
 
 if __name__ == "__main__":

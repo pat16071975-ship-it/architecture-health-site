@@ -455,12 +455,22 @@ def _refresh_advertising_mis():
         return {"status": "error", "error": type(exc).__name__}
 
 
+def _archive_received_upload():
+    if "upload_completed" not in user_permissions(g.user):
+        abort(403)
+    mis_source_archive.receive_uploads(
+        db(), request.files, (("completed", "completed"),),
+        actor_id=g.user["id"], request_path=request.path,
+    )
+
+
 def register_completed_upload(app):
     @app.post("/api/uploads/completed/preview")
     @permission_required("section5")
     def completed_upload_preview():
         require_csrf()
         try:
+            _archive_received_upload()
             return jsonify(_preview())
         except ValueError as exc:
             return jsonify({"status": "error", "message": str(exc)}), 400
@@ -470,6 +480,7 @@ def register_completed_upload(app):
     def completed_upload_commit():
         require_csrf()
         try:
+            _archive_received_upload()
             result = _commit(request.form.get("decision") or None)
             result["advertising_sync"] = _refresh_advertising_mis()
             return jsonify(result)
