@@ -67,6 +67,36 @@ jobs:
           "NUGET_PACKAGES=$(Join-Path $env:RUNNER_TEMP 'ident006c-nuget')" >> $env:GITHUB_ENV
           "DOTNET_CLI_HOME=$(Join-Path $env:RUNNER_TEMP 'ident006c-home')" >> $env:GITHUB_ENV
           Write-Host "SOURCE_HEAD=$source; SOURCE_TREE=$tree; SOURCE_SCOPE=PASS"
+      - name: Diagnose exact PowerShell ancestor guard on disposable runner
+        run: |
+          $ErrorActionPreference='Stop'
+          $file=Join-Path $env:IDENT_WORK 'deploy/install.ps1'
+          $script=@'
+          $ErrorActionPreference='Stop'
+          Set-StrictMode -Version Latest
+          $tokens=$null;$errors=$null
+          $ast=[Management.Automation.Language.Parser]::ParseFile('__FILE__',[ref]$tokens,[ref]$errors)
+          if($errors.Count -ne 0){throw 'INSTALLER_SYNTAX'}
+          foreach($name in @('Require','Canonical-Path','Assert-NoReparse','Assert-Ancestors')){
+              $found=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$false))
+              . ([scriptblock]::Create($found[0].Extent.Text))
+          }
+          $adminSid=[Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
+          $systemSid=[Security.Principal.SecurityIdentifier]::new('S-1-5-18')
+          $trustedInstaller='S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
+          $p=[Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
+          for($d=[IO.DirectoryInfo]::new($p);$null -ne $d;$d=$d.Parent){
+              $acl=$d.GetAccessControl()
+              Write-Output ('LAB_PARENT='+$d.FullName+'; OWNER='+$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value)
+              $raw=[Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)
+              foreach($r in $raw.DiscretionaryAcl){Write-Output ('LAB_ACE='+$r.GetType().Name+'; SID='+$r.SecurityIdentifier.Value+'; MASK='+$r.AccessMask.ToString('x8')+'; FLAGS='+$r.AceFlags+'; QUALIFIER='+$r.AceQualifier)}
+          }
+          try{Assert-Ancestors $p;Write-Output 'DIAG_GUARD=PASS'}catch{Write-Output ('DIAG_GUARD='+$_.Exception.GetType().Name+'; '+$_.Exception.Message);Write-Output $_.ScriptStackTrace}
+          '@
+          $script=$script.Replace('__FILE__',$file.Replace("'","''"))
+          $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+          & powershell.exe -NoLogo -NoProfile -EncodedCommand $encoded
+          if($LASTEXITCODE -ne 0){throw 'DIAG_EXECUTION'}
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
         with:
           dotnet-version: '10.0.404'
