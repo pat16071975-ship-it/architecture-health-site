@@ -1,0 +1,51 @@
+name: IDENT-006A isolated receiver verification
+on:
+  push:
+    branches: ['test/ident-006a-receiver-20261126']
+    paths: ['.github/workflows/ident-006a-receiver.yml','integrations/ident-006-receiver/**']
+permissions:
+  contents: read
+jobs:
+  receiver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 10
+      - name: Verify exact source candidate and isolated scope
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -ne 0
+          source='f1d0749dc9127af826a67720cfcfb2a307eba81c'
+          expected='c9ad20db431084e30c57657e0d2ff32448f92def'
+          git merge-base --is-ancestor "$source" HEAD
+          test "$(git rev-parse "$source:integrations/ident-006-receiver")" = "$expected"
+          test "$(git rev-parse HEAD:integrations/ident-006-receiver)" = "$expected"
+          test "$(git ls-tree -r --name-only HEAD | wc -l)" -eq 9
+          test "$(git ls-tree -r --name-only HEAD -- integrations/ident-006-receiver/ | wc -l)" -eq 8
+          cd integrations/ident-006-receiver
+          test "$(git hash-object --no-filters core/receiver.py)" = '4f882ccf71909a6aa4c7fd68ec9759c00e4e3162'
+          test "$(git hash-object --no-filters core/sql/payments_daily_v1.sql)" = '8c4be81f272a06a2c90140f0d0801c3106f95d13'
+          test "$(sha256sum core/sql/payments_daily_v1.sql | cut -d ' ' -f 1)" = '277cc67cb4c0369f7f3461ae5d8c50ac0443c3342cb44a81625cf701c52e443f'
+          echo "SOURCE=PASS; SOURCE_HEAD=$source; RECEIVER_TREE=$expected; AUDITED_CONTRACT=UNCHANGED"
+      - name: Run synthetic functional tests
+        working-directory: integrations/ident-006-receiver
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -c 'import sqlite3; print("SQLITE="+sqlite3.sqlite_version)'
+          python3 -m unittest discover -s tests -v
+      - name: Verify Gunicorn private Unix HTTP runtime
+        working-directory: integrations/ident-006-receiver
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/ident006-venv"
+          "$RUNNER_TEMP/ident006-venv/bin/python" -m pip --isolated install --disable-pip-version-check --index-url https://pypi.org/simple -r requirements.txt
+          "$RUNNER_TEMP/ident006-venv/bin/python" -m pip check
+          PYTHONPATH=. "$RUNNER_TEMP/ident006-venv/bin/python" tests/smoke_gunicorn.py
+          echo 'IDENT_006A_SYNTHETIC_CI=PASS; PRODUCTION=NONE; REAL_IDENT_DATA=NONE'
