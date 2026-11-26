@@ -39,7 +39,7 @@ $needsRestore=$false
 $python=(Get-Command python.exe -CommandType Application|Select-Object -First 1).Source
 $nativeScript=Join-Path $PSScriptRoot 'ci_root_dacl.py'
 function Read-Descriptor([string]$Path){
-    $acl=([IO.DirectoryInfo]::new($Path)).GetAccessControl([Security.AccessControl.AccessControlSections]::Access -bor [Security.AccessControl.AccessControlSections]::Owner -bor [Security.AccessControl.AccessControlSections]::Group)
+    $acl=Get-Acl -LiteralPath $Path
     return [Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)
 }
 function Descriptor-Bytes($Descriptor){
