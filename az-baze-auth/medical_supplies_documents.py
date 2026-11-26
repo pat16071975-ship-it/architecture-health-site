@@ -557,7 +557,10 @@ def register(app, db, permission_required, require_csrf, csrf_token, user_permis
             if selected:
                 events = [
                     dict(r) for r in conn.execute(
-                        "SELECT action,created_at,actor_id,before_json,after_json "
+                        # OCR replacement events retain a full page snapshot.
+                        # The history list only needs event metadata, not those
+                        # potentially large archived drafts.
+                        "SELECT action,created_at,actor_id "
                         "FROM med_supply_document_events WHERE document_id=? "
                         "ORDER BY id DESC LIMIT 30", (selected["id"],),
                     )

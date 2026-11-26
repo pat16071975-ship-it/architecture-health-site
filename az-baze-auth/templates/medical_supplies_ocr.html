@@ -6,7 +6,7 @@
 .ocr-head h2{font-size:26px;color:var(--green);font-weight:500;margin:0}
 .ocr-card{padding:18px;margin:14px 0;min-width:0}.ocr-card h3{font-size:19px;margin:0 0 8px}
 .ocr-note{font-size:12px;color:#667068;line-height:1.6;margin:8px 0}.ocr-actions{justify-content:flex-start;margin:10px 0}
-.ocr-file{overflow-wrap:anywhere}.ocr-pager{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.ocr-pager .selected{background:#e5eee6;border-color:var(--green);font-weight:700}
+.ocr-file{overflow-wrap:anywhere}.ocr-pager,.ocr-versions{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.ocr-versions{margin:0 0 15px}.ocr-pager .selected,.ocr-versions .selected{background:#e5eee6;border-color:var(--green);font-weight:700}
 .ocr-pager .btn{min-height:36px;padding:7px 10px}.ocr-progress{font-size:12px;color:#59655c}
 .ocr-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
 .ocr-table col:nth-child(1){width:32%}.ocr-table col:nth-child(2){width:9%}.ocr-table col:nth-child(3){width:9%}.ocr-table col:nth-child(4){width:13%}.ocr-table col:nth-child(5){width:27%}.ocr-table col:nth-child(6){width:10%}
@@ -41,21 +41,35 @@
   <strong class="ocr-file">{{ doc.original_name }}</strong>
   <div class="ocr-actions">
     <a class="btn" href="{{ url_for('medical_supplies_inbox_view',doc_id=doc.id) }}#page={{ page }}" target="_blank" rel="noopener noreferrer">Открыть оригинал</a>
-    {% if can_manage %}<button type="button" class="btn {{ '' if data else 'primary' }}" id="ocr-start" data-url="{{ url_for('medical_supplies_ocr_run',doc_id=doc.id) }}" data-csrf="{{ csrf }}" data-version="{{ doc.version }}" data-count="{{ state.page_count or 0 }}" data-stored="{{ state.pages|length }}" data-document="{{ doc.id }}">{{ 'Обновить разбор' if data else 'Разобрать документ' }}</button>{% endif %}
+    {% if can_manage %}<button type="button" class="btn {{ '' if data else 'primary' }}" id="ocr-start" data-url="{{ url_for('medical_supplies_ocr_run',doc_id=doc.id) }}" data-csrf="{{ csrf }}" data-version="{{ doc.version }}" data-count="{{ state.page_count or 0 }}" data-stored="{{ state.pages|length }}" data-document="{{ doc.id }}" data-page="{{ page }}" data-current="{{ url_for('medical_supplies_ocr_page',doc_id=doc.id,p=page) }}" data-preview="{{ url_for('medical_supplies_ocr_page',doc_id=doc.id,p=page,view='automatic') }}">{{ 'Обновить разбор' if data else 'Разобрать документ' }}</button>{% endif %}
     <span id="ocr-progress" class="ocr-progress" role="status">{{ state.pages|length }} / {{ state.page_count or '?' }} страниц распознано</span>
   </div>
-  {% if state.page_count %}<nav class="ocr-pager" aria-label="Страницы документа">{% for p in range(1,state.page_count+1) %}<a class="btn {{ 'selected' if p==page else '' }}" href="{{ url_for('medical_supplies_ocr_page',doc_id=doc.id,p=p) }}" {{ 'aria-current=page' if p==page else '' }}>Стр. {{ p }}{% if state.pages.get(p|string,{}).get('checked') %} ✓{% endif %}</a>{% endfor %}</nav>{% endif %}
+  {% if state.page_count %}<nav class="ocr-pager" aria-label="Страницы документа">{% for p in range(1,state.page_count+1) %}<a class="btn {{ 'selected' if p==page else '' }}" href="{{ url_for('medical_supplies_ocr_page',doc_id=doc.id,p=p,view='automatic' if view_automatic else none) }}" {{ 'aria-current=page' if p==page else '' }}>Стр. {{ p }}{% if not view_automatic and state.pages.get(p|string,{}).get('checked') %} ✓{% endif %}</a>{% endfor %}</nav>{% endif %}
   {% if saved %}<p class="ocr-note" role="status">Разбор сохранён.</p>{% endif %}
+  {% if applied %}<p class="ocr-note" role="status">Новый разбор выбран для страницы {{ page }}. Прежняя версия сохранена в истории.</p>{% endif %}
+  {% if automatic_missing %}<p class="ocr-note" role="status">{{ automatic_unavailable_reason }}</p>{% endif %}
   {% if not data %}<p class="ocr-note">После распознавания здесь появятся товары. Оригинал уже сохранён.</p>{% endif %}
   <a class="btn" id="ocr-show-saved" href="{{ url_for('medical_supplies_ocr_page',doc_id=doc.id,p=page) }}" hidden>Показать сохранённые строки</a>
+  <a class="btn" id="ocr-show-new" href="{{ url_for('medical_supplies_ocr_page',doc_id=doc.id,p=page,view='automatic') }}" hidden>Посмотреть новый разбор</a>
 </section>
 {% if data %}
 <section class="card ocr-card" aria-labelledby="ocr-goods-heading">
-<h3 id="ocr-goods-heading">Товары · страница {{ page }}</h3>
-<p class="ocr-note">Проверьте результат автоматического разбора. Неразборчивые поля и расхождения указаны ниже.</p>
+{% if has_automatic %}<nav class="ocr-versions" aria-label="Вариант разбора">
+  <a class="btn {{ '' if view_automatic else 'selected' }}" data-ocr-view="current" href="{{ url_for('medical_supplies_ocr_page',doc_id=doc.id,p=page) }}" {{ '' if view_automatic else 'aria-current=page' }}>Сохранённый разбор</a>
+  <a class="btn {{ 'selected' if view_automatic else '' }}" data-ocr-view="automatic" href="{{ url_for('medical_supplies_ocr_page',doc_id=doc.id,p=page,view='automatic') }}" {{ 'aria-current=page' if view_automatic else '' }}>Новый разбор</a>
+</nav>{% endif %}
+<h3 id="ocr-goods-heading">{{ 'Новый разбор' if view_automatic else 'Товары' }} · страница {{ page }}</h3>
+{% if view_automatic %}
+<p class="ocr-note">Проверьте новые строки по оригиналу.</p>
+{% if can_manage and can_apply_automatic %}<form method="post" id="ocr-apply-automatic" class="ocr-actions" action="{{ url_for('medical_supplies_ocr_apply_automatic',doc_id=doc.id) }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="automatic_token" value="{{ automatic_token }}">
+  <button class="btn primary" type="submit">Использовать для этой страницы</button>
+  <span class="ocr-note">Прежние правки страницы {{ page }} сохранятся в истории.</span>
+</form>{% elif automatic_unavailable_reason %}<p class="ocr-note" role="status">{{ automatic_unavailable_reason }}</p>{% endif %}
+{% else %}<p class="ocr-note">Проверьте результат автоматического разбора. Неразборчивые поля и расхождения указаны ниже.</p>{% endif %}
 {% if quality and quality.total_matches %}<p class="ocr-note" role="status">Сумма строк совпадает с итогом документа: {{ quality.total_actual }} ₽.</p>{% endif %}
 {% if page_issues %}<details class="ocr-note" id="ocr-checks"><summary>Требует проверки: {{ page_issues|length }}</summary>{% for issue in page_issues %}<p>{{ issue }}</p>{% endfor %}</details>{% endif %}
-{% if can_manage %}
+{% if can_manage and not view_automatic %}
 <form method="post" id="ocr-review" action="{{ url_for('medical_supplies_ocr_save',doc_id=doc.id) }}">
 <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}"><input type="hidden" name="page" value="{{ page }}">
 <input type="hidden" name="review_scope" value="goods">
@@ -103,7 +117,7 @@
 <div class="ocr-actions"><button class="btn primary" type="submit">Сохранить разбор</button><span class="ocr-note">Сохраняется разбор документа. Приход на склад оформляется отдельно.</span></div>
 </form>
 {% else %}
-<p class="ocr-note">{{ 'Страница проверена' if data.checked else 'Ещё не проверено' }} · Только просмотр</p>
+{% if not view_automatic %}<p class="ocr-note">{{ 'Страница проверена' if data.checked else 'Ещё не проверено' }} · Только просмотр</p>{% endif %}
 <table class="ocr-table ocr-readonly" aria-label="Товары из документа">
 <colgroup><col><col><col><col><col><col></colgroup>
 <thead><tr><th scope="col">Название</th><th scope="col">Количество</th><th scope="col">Единица</th><th scope="col">Стоимость за единицу, ₽</th><th scope="col">В какой раздел</th><th scope="col"><span class="ocr-sr">Поставщик</span></th></tr></thead>
@@ -118,9 +132,13 @@
 (function(){
   const start=document.getElementById('ocr-start'),msg=document.getElementById('ocr-progress');
   const form=document.getElementById('ocr-review'),rows=document.getElementById('ocr-rows');
+  const applyForm=document.getElementById('ocr-apply-automatic');
   const add=document.getElementById('ocr-add'),template=document.getElementById('ocr-new');
   const catalog=document.getElementById('ocr-catalog-options');
   let dirty=false,newRow=0,staleForm=false;
+  document.querySelectorAll('[data-ocr-view]').forEach(link=>link.addEventListener('click',event=>{
+    if(dirty){event.preventDefault();msg.textContent='Сначала сохраните изменения в таблице.';}
+  }));
   function decimalParts(value,scale){
     let text=String(value||'').trim().replace(/[\u00a0\u202f]/g,' ').replace(',','.');
     if(text.includes(' ')){
@@ -209,9 +227,9 @@
   async function recognize(){
     if(dirty){msg.textContent='Сначала сохраните изменения в таблице.';return;}
     start.disabled=true;
-    const controls=form?Array.from(form.elements).filter(control=>!control.disabled):[];
+    const controls=[form,applyForm].filter(Boolean).flatMap(current=>Array.from(current.elements)).filter(control=>!control.disabled);
     controls.forEach(control=>{control.disabled=true;});
-    let count=Number(start.dataset.count)||1,version=start.dataset.version;
+    let count=Number(start.dataset.count)||1,version=start.dataset.version,currentPreview=false;
     try{
       for(let p=1;p<=count;p++){
         msg.textContent='Распознаётся страница '+p+' из '+(start.dataset.count==='0'?'?':count)+'…';
@@ -219,10 +237,11 @@
         const response=await fetch(start.dataset.url,{method:'POST',body:body,credentials:'same-origin'});
         const result=await response.json();if(!response.ok)throw new Error(result.error||'Не удалось распознать страницу.');
         count=result.page_count;
+        if(p===Number(start.dataset.page)&&result.automatic_available)currentPreview=true;
         if(String(result.version)!==version)staleForm=true;
         version=String(result.version);start.dataset.count=String(count);start.dataset.version=version;
       }
-      location.reload();
+      location.assign(currentPreview?start.dataset.preview:start.dataset.current);
     }catch(error){
       msg.textContent=String(error.message)+' Сохранённые строки доступны для просмотра.';
       start.disabled=false;
@@ -230,6 +249,7 @@
       // Keep its old form/version disabled until a fresh server view is loaded.
       if(!staleForm)controls.forEach(control=>{control.disabled=false;});
       document.getElementById('ocr-show-saved').hidden=false;
+      document.getElementById('ocr-show-new').hidden=!currentPreview;
     }
   }
   if(start){

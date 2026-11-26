@@ -3,6 +3,7 @@
 No network/API key, no new schema. Original bytes stay in the inbox.
 One bounded page per POST; the browser may request subsequent pages.
 """
+import copy
 import csv
 import fcntl
 import hashlib
@@ -922,12 +923,22 @@ def document(conn,doc_id,raw=False):
     return row,fields,state
 
 
-def store(conn,doc_id,version,sha,mutate,actor,action,details):
+def store(conn,doc_id,version,sha,mutate,actor,action,details,archive_page=None):
     conn.execute("BEGIN IMMEDIATE")
     try:
-        row,fields,state=document(conn,doc_id)
+        row,fields,state=document(conn,doc_id,raw=archive_page is not None)
         if row["version"]!=version or row["sha256"]!=sha:
             raise inbox.Conflict("Карточка изменилась. Обновите страницу.")
+        before={"version":version}
+        if archive_page is not None:
+            page=integer(archive_page,1,MAX_PAGES)
+            previous=state["pages"].get(str(page))
+            if not isinstance(previous,dict):
+                raise ValueError("Сохраняемый разбор страницы не найден.")
+            before.update(page=page,page_data=copy.deepcopy(previous))
+            archive=json.dumps(before,ensure_ascii=False,sort_keys=True,allow_nan=False)
+            if len(archive.encode("utf-8"))>MAX_JSON:
+                raise ValueError("Прежний разбор слишком велик для записи в историю. Он не заменён.")
         mutate(state)
         fields[KEY]=state
         payload=json.dumps(fields,ensure_ascii=False,separators=(",",":"),allow_nan=False)
@@ -941,7 +952,7 @@ def store(conn,doc_id,version,sha,mutate,actor,action,details):
         conn.execute("""UPDATE med_supply_documents SET fields_json=?,status=?,
             version=version+1,updated_by=?,updated_at=? WHERE id=?""",
             (payload,"reviewed" if reviewed else "review",actor,now,doc_id))
-        inbox._event(conn,doc_id,action,actor,{"version":version},
+        inbox._event(conn,doc_id,action,actor,before,
                      {"version":version+1,**details,"stock_posted":False},now)
         conn.commit()
         return version+1
@@ -1032,6 +1043,51 @@ def automatic_proposals(parsed,page,state,items,folders,history):
     parsed["candidates"]=enrich_rows(parsed["candidates"],items,folders,history=history)
     parsed["header_candidate"]=proposed_header(parsed,page,state)
     return parsed
+
+
+def automatic_draft(page_data):
+    """One server-held proposal for both read-only preview and explicit choice.
+
+    Manual identity is outside the goods selection. History is stored in the
+    event transaction, never recursively embedded in the selected page.
+    """
+    source=page_data.get("automatic")
+    if not isinstance(source,dict):
+        return None,"", "Нового разбора для этой страницы нет."
+    try:
+        encoded=json.dumps(source,ensure_ascii=False,sort_keys=True,separators=(",",":"),allow_nan=False).encode("utf-8")
+        if len(encoded)>MAX_JSON:
+            raise ValueError("size")
+        token=hashlib.sha256(encoded).hexdigest()
+    except (ValueError,TypeError):
+        return None,"", "Новый разбор повреждён. Обновите разбор страницы."
+    candidates=source.get("candidates")
+    lines=source.get("lines")
+    words=source.get("words")
+    valid=(isinstance(candidates,list) and len(candidates)<=MAX_ROWS
+           and isinstance(lines,list) and len(lines)<=MAX_LINES
+           and isinstance(words,list) and len(words)<=MAX_WORDS)
+    if valid:
+        ids=[line.get("id") for line in lines if isinstance(line,dict)]
+        valid=(len(ids)==len(lines) and all(isinstance(value,int) and not isinstance(value,bool)
+                and 1<=value<=MAX_LINES for value in ids) and len(set(ids))==len(ids))
+        if valid:
+            valid=all(isinstance(row,dict) and isinstance(row.get("name"),str)
+                and isinstance(row.get("unit"),(str,type(None))) and row.get("source_line") in ids
+                for row in candidates)
+    if not valid:
+        return None,token,"Новый разбор повреждён. Обновите разбор страницы."
+    draft={key:copy.deepcopy(value) for key,value in source.items()
+           if key not in ("automatic","previous_ocr","history","automatic_applied","header")}
+    draft.update(rows=copy.deepcopy(candidates),checked=False,no_items=False,review_scope="goods")
+    if "header" in page_data:
+        draft["header"]=copy.deepcopy(page_data["header"])
+    reason=""
+    if source.get("recognition_retryable") or source.get("error"):
+        reason="Новый разбор не завершён без ошибок. Обновите его перед выбором для таблицы."
+    elif not candidates:
+        reason="В новом разборе нет товарных строк. Сохранённая таблица не заменяется пустым результатом."
+    return draft,token,reason
 
 
 def parse_review(form,page_data,items,folders):
@@ -1172,6 +1228,22 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             if state["page_count"] and page>state["page_count"]:
                 abort(404)
             data=state["pages"].get(str(page))
+            view_mode=request.args.get("view") or "current"
+            if view_mode not in ("current","automatic"):
+                raise ValueError("Неизвестный вид разбора.")
+            automatic_available=isinstance(data,dict) and isinstance(data.get("automatic"),dict)
+            automatic_missing=(view_mode=="automatic" and not automatic_available
+                               and isinstance(data,dict) and ("rows" in data or "header" in data))
+            draft,automatic_token,automatic_reason=automatic_draft(data) if isinstance(data,dict) else (
+                None,"","Нового разбора для этой страницы нет.")
+            preview=view_mode=="automatic" and automatic_available
+            view_mode="automatic" if preview else "current"
+            if preview:
+                # A damaged/empty proposal may be inspected without allowing
+                # it to replace the saved table. GET never mutates either one.
+                data=draft if draft is not None else {
+                    "words":[],"lines":[],"candidates":[],"rows":[],
+                    "checked":False,"no_items":False,"review_scope":"goods"}
             items=catalog(db())
             folders=[dict(x) for x in db().execute("""SELECT f.id,f.name,p.name AS parent
                      FROM med_supply_folders f LEFT JOIN med_supply_folders p ON p.id=f.parent_id
@@ -1179,7 +1251,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             rows=[]
             header={}
             if data:
-                data=derive_page(data)
+                if not preview:
+                    data=derive_page(data)
                 rows=[dict(r) for r in data.get("rows",data["candidates"])]
                 if "rows" not in data:
                     rows=enrich_rows(rows,items,folders,history=classification_history(db(),doc_id))
@@ -1197,8 +1270,13 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             response=make_response(render_template("medical_supplies_ocr.html",title="Разбор документа — Медрасходка",
                 doc=row,state=state,page=page,data=data,rows=rows,header=header,
                 supplier=supplier,view_scope="goods",quality=quality,page_issues=page_issues,
+                view_mode=view_mode,view_automatic=preview,preview=preview,
+                has_automatic=automatic_available,automatic_available=automatic_available,
+                automatic_missing=automatic_missing,
+                can_apply_automatic=automatic_available and draft is not None and not automatic_reason,
+                automatic_unavailable_reason=automatic_reason,automatic_token=automatic_token,
                 items=items,folders=folders,types=inbox.TYPES,csrf=csrf_token(),can_manage=can_manage(),
-                saved=request.args.get("saved")=="1"))
+                saved=request.args.get("saved")=="1",applied=request.args.get("applied")=="1"))
             response.headers["Cache-Control"]="private, no-store"
             return response
         except LookupError:
@@ -1249,12 +1327,15 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                     new_version=store(conn,doc_id,version,row["sha256"],reread,g.user["id"],"ocr_page",
                         {"page":page,"words":len(parsed["words"]),"candidates":len(parsed["candidates"]),
                          "image_reread":True,"human_preserved":"rows" in previous or "header" in previous})
-                    return jsonify(version=new_version,page_count=count,stored=len(state["pages"]),cached=False)
+                    return jsonify(version=new_version,page_count=count,stored=len(state["pages"]),cached=False,
+                        automatic_available="rows" in previous or "header" in previous)
                 if request.form.get("reread")=="1" and recognition>=RECOGNITION_VERSION:
-                    return jsonify(version=version,page_count=count,stored=len(state["pages"]),cached=True)
+                    return jsonify(version=version,page_count=count,stored=len(state["pages"]),cached=True,
+                        automatic_available=isinstance(previous.get("automatic"),dict))
                 derived=derive_page(previous)
                 if derived is previous:
-                    return jsonify(version=version,page_count=count,stored=len(state["pages"]),cached=True)
+                    return jsonify(version=version,page_count=count,stored=len(state["pages"]),cached=True,
+                        automatic_available=isinstance(previous.get("automatic"),dict))
                 def refresh(current):
                     # Only automatic proposals change. Reviewed/manual rows,
                     # identity, flags and original OCR evidence stay exact.
@@ -1264,7 +1345,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 new_version=store(conn,doc_id,version,row["sha256"],refresh,g.user["id"],"ocr_page",
                     {"page":page,"words":len(derived["words"]),
                      "candidates":len(derived["candidates"]),"extraction_refreshed":True})
-                return jsonify(version=new_version,page_count=count,stored=len(state["pages"]),cached=False)
+                return jsonify(version=new_version,page_count=count,stored=len(state["pages"]),cached=False,
+                    automatic_available=isinstance(previous.get("automatic"),dict))
             import app as app_core
             count,parsed=recognize_pdf_page(row["original_bytes"],page,app_core.DB_PATH.parent)
             folders=[dict(x) for x in conn.execute("""SELECT f.id,f.name,p.name AS parent
@@ -1279,7 +1361,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 current["pages"][str(page)]=parsed
             new_version=store(conn,doc_id,version,row["sha256"],mutate,g.user["id"],"ocr_page",
                               {"page":page,"words":len(parsed["words"]),"candidates":len(parsed["candidates"])})
-            return jsonify(version=new_version,page_count=count,stored=len(state["pages"])+1,cached=False)
+            return jsonify(version=new_version,page_count=count,stored=len(state["pages"])+1,cached=False,
+                automatic_available=False)
         except LookupError:
             abort(404)
         except inbox.Conflict as exc:
@@ -1288,6 +1371,62 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             return jsonify(error=str(exc)),503
         except (ValueError,sqlite3.Error) as exc:
             return jsonify(error=str(exc) if isinstance(exc,ValueError) else "Не удалось сохранить результат."),400
+
+    @app.post(base+"/automatic/apply")
+    @permission_required("accounting")
+    def medical_supplies_ocr_apply_automatic(doc_id):
+        if not can_manage():
+            abort(403)
+        require_csrf()
+        try:
+            conn=db()
+            row,_,state=document(conn,doc_id,raw=True)
+            page=integer(request.form.get("page"),1,MAX_PAGES)
+            version=integer(request.form.get("version"))
+            token=str(request.form.get("automatic_token") or "")
+            if not re.fullmatch(r"[0-9a-f]{64}",token):
+                raise ValueError("Откройте новый разбор перед его выбором.")
+            previous=state["pages"].get(str(page))
+            if not isinstance(previous,dict):
+                raise ValueError("Сначала распознайте страницу.")
+            marker=previous.get("automatic_applied",{})
+            if (isinstance(marker,dict) and "automatic" not in previous
+                    and marker.get("token")==token and marker.get("to_version")==row["version"]
+                    and version in (marker.get("from_version"),marker.get("to_version"))):
+                # Only an immediate duplicate, with no intervening document
+                # edit, can succeed without another write or history event.
+                return redirect(url_for("medical_supplies_ocr_page",doc_id=doc_id,p=page,applied=1),code=303)
+            if version!=row["version"]:
+                raise inbox.Conflict("Карточка изменилась. Обновите страницу.")
+            selected,expected,reason=automatic_draft(previous)
+            if token!=expected:
+                raise inbox.Conflict("Новый разбор изменился. Откройте его ещё раз.")
+            if selected is None or reason:
+                raise ValueError(reason or "Новый разбор нельзя выбрать.")
+            def choose(current):
+                old=current["pages"].get(str(page))
+                if not isinstance(old,dict):
+                    raise inbox.Conflict("Разбор страницы изменился.")
+                chosen,current_token,current_reason=automatic_draft(old)
+                if current_token!=token:
+                    raise inbox.Conflict("Новый разбор изменился. Откройте его ещё раз.")
+                if chosen is None or current_reason:
+                    raise ValueError(current_reason or "Новый разбор нельзя выбрать.")
+                chosen["automatic_applied"]={"token":token,"from_version":version,"to_version":version+1}
+                current["pages"][str(page)]=chosen
+            store(conn,doc_id,version,row["sha256"],choose,g.user["id"],"ocr_automatic_apply",
+                {"page":page,"rows":len(selected["rows"]),"checked":False,
+                 "review_scope":"goods","automatic_token":token},archive_page=page)
+            return redirect(url_for("medical_supplies_ocr_page",doc_id=doc_id,p=page,applied=1),code=303)
+        except LookupError:
+            abort(404)
+        except inbox.Conflict as exc:
+            return render_template("medical_supplies_error.html",title="Разбор документа",error=str(exc),
+                back=url_for("medical_supplies_ocr_page",doc_id=doc_id,p=request.form.get("page","1"),view="automatic")),409
+        except (ValueError,sqlite3.Error) as exc:
+            message=str(exc) if isinstance(exc,ValueError) else "Не удалось сохранить новый разбор и его историю."
+            return render_template("medical_supplies_error.html",title="Разбор документа",error=message,
+                back=url_for("medical_supplies_ocr_page",doc_id=doc_id,p=request.form.get("page","1"),view="automatic")),400
 
     @app.post(base+"/save")
     @permission_required("accounting")
