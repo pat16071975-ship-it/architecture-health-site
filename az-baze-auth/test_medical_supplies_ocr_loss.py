@@ -6,6 +6,7 @@ document, supplier identity or real goods have been copied into this fixture.
 """
 import copy
 import unittest
+from unittest.mock import patch
 
 import medical_supplies_ocr as ocr
 
@@ -432,6 +433,139 @@ class LostGoodsTests(unittest.TestCase):
         self.assertIsNone(row["value"])
         self.assert_fragment_sources(parsed, row, ["654", "32"])
         self.assert_raw_evidence_survives_refresh(parsed)
+
+
+class CombinedMoneyProvenanceTests(unittest.TestCase):
+    """AZ-272-01: a net or tax cell is not a printed final goods amount."""
+
+    def parse_money(self, title="Стоимость", qualifiers=(), amount="321,45"):
+        spec = act_header(title)[:1]
+        for index, text in enumerate(qualifiers):
+            x = 2220
+            tokens = []
+            for word in text.split():
+                width = max(10, len(word) * 8)
+                tokens.append((x, word, width))
+                x += width + 12
+            spec.append((126 + index * 24, tokens))
+        spec.extend([
+            (240, [(70, "7900001"), (230, "Материал"), (850, "учебный"),
+                   (1780, "упак"), (2070, "3"), (2290, amount)]),
+            (330, [(70, "Итого"), (2290, "987,65")]),
+        ])
+        # These are combined-heading tables. A fix must retain their goods
+        # with an unknown final amount, rather than silently use another parser.
+        with patch.object(ocr, "_table_header", side_effect=AssertionError(
+                "Combined money provenance must not fall back to generic extraction")):
+            return ocr.parse_tsv(tsv(spec))
+
+    def assert_goods(self, parsed, amount, basis):
+        self.assertEqual(len(parsed["candidates"]), 1, parsed["candidates"])
+        row = parsed["candidates"][0]
+        self.assertEqual((row["name"], row["quantity"], row["unit"]),
+                         ("Материал учебный", "3", "упак"))
+        self.assertIsNone(row["price"])
+        self.assertEqual((row["value"], row["value_basis"]), (amount, basis))
+        self.assertEqual(row["action"], "unresolved")
+        source_ids = [line["id"] for line in ocr.physical_lines(parsed["words"])
+                      if any(word[5] == "Материал" for word in line["tokens"])]
+        self.assertEqual(row["source_lines"], source_ids)
+        self.assertIn(row["source_line"], source_ids)
+        # The original digits remain available even when they are not a final
+        # amount. The printed total and quantity never supply a replacement.
+        self.assertTrue(any(w[5] in ("321,45", "0,00") for w in parsed["words"]))
+        self.assertTrue(any("987,65" in line["text"] for line in parsed["lines"]))
+        return row
+
+    def test_combined_net_without_vat_keeps_goods_and_amount_unknown(self):
+        for qualifier in ("без НДС", "безНДС", "не включая НДС",
+                          "исключаяНДС", "невключаяНДС"):
+            with self.subTest(qualifier=qualifier):
+                self.assert_goods(self.parse_money(qualifiers=(qualifier,)), None, None)
+
+    def test_combined_net_without_tax_keeps_goods_and_amount_unknown(self):
+        for qualifier in ("без налога", "безналога"):
+            with self.subTest(qualifier=qualifier):
+                self.assert_goods(self.parse_money(qualifiers=(qualifier,)), None, None)
+
+    def test_combined_tax_amount_is_not_promoted_to_goods_cost(self):
+        for qualifier in ("НДС", "налога", "акциза", "налога включая НДС"):
+            with self.subTest(qualifier=qualifier):
+                self.assert_goods(self.parse_money("Сумма", (qualifier,)), None, None)
+        for title in ("СуммаНДС", "Сумманалога"):
+            with self.subTest(title=title):
+                self.assert_goods(self.parse_money(title), None, None)
+
+    def test_combined_inferred_tax_only_column_keeps_final_amount_unknown(self):
+        for title in ("НДС", "Налог"):
+            with self.subTest(title=title):
+                self.assert_goods(self.parse_money(title), None, None)
+
+    def test_combined_definite_gross_preserves_printed_amount_without_calculation(self):
+        for qualifier in ("с НДС", "c НДС", "сНДС", "cНДС",
+                          "с налогом", "включая НДС"):
+            with self.subTest(qualifier=qualifier):
+                self.assert_goods(self.parse_money(qualifiers=(qualifier,)),
+                                  "321.45", "printed_gross")
+
+    def test_combined_conflicting_or_incomplete_tax_qualifier_is_unknown(self):
+        for qualifier in ("без НДС с НДС", "с / без НДС", "НДС", "с НД?", "c НД?"):
+            with self.subTest(qualifier=qualifier):
+                self.assert_goods(self.parse_money(qualifiers=(qualifier,)), None, None)
+
+    def test_combined_unqualified_single_amount_remains_printed_single_total(self):
+        self.assert_goods(self.parse_money(), "321.45", "printed_single_total")
+
+    def test_combined_wrapped_net_qualifier_is_not_lost_below_first_header_band(self):
+        self.assert_goods(self.parse_money(qualifiers=("без на-", "лога")), None, None)
+
+    def test_combined_wrapped_tax_qualifier_remains_unknown(self):
+        self.assert_goods(self.parse_money("Сумма", ("на-", "лога")), None, None)
+
+    def test_combined_wrapped_gross_qualifier_preserves_printed_gross(self):
+        self.assert_goods(self.parse_money(qualifiers=("с на-", "логом")),
+                          "321.45", "printed_gross")
+
+    def test_combined_zero_net_amount_remains_unknown(self):
+        self.assert_goods(self.parse_money(qualifiers=("без НДС",), amount="0,00"),
+                          None, None)
+
+    def test_combined_zero_gross_amount_remains_zero(self):
+        self.assert_goods(self.parse_money(qualifiers=("с НДС",), amount="0,00"),
+                          "0.00", "printed_gross")
+
+    def stale_version_four_page(self):
+        page = self.parse_money(qualifiers=("без НДС",))
+        page["extractor_version"] = 4
+        page["candidates"][0].update(value="321.45", value_basis="printed_single_total")
+        page.update(header={"number": "SYNTHETIC", "note": "Сохранённые реквизиты"},
+                    checked=False, no_items=False)
+        return page
+
+    def test_version_four_net_proposal_is_refreshed_without_changing_raw_evidence(self):
+        page = self.stale_version_four_page()
+        before = copy.deepcopy(page)
+        refreshed = ocr.derive_page(page)
+        self.assertGreater(refreshed["extractor_version"], 4)
+        self.assert_goods(refreshed, None, None)
+        self.assertEqual(page, before)
+        for key in ("words", "lines", "header", "checked", "no_items"):
+            self.assertEqual(refreshed[key], before[key])
+        self.assertNotIn("rows", refreshed)
+
+    def test_version_four_refresh_preserves_human_rows_and_checked_page(self):
+        page = self.stale_version_four_page()
+        manual = copy.deepcopy(page["candidates"][0])
+        manual.update(name="Ручное проверенное название", value="432.10",
+                      action="skip", note="Решение пользователя", manual=False)
+        page.update(rows=[manual], checked=True)
+        before = copy.deepcopy(page)
+        refreshed = ocr.derive_page(page)
+        self.assertGreater(refreshed["extractor_version"], 4)
+        self.assert_goods(refreshed, None, None)
+        self.assertEqual(page, before)
+        for key in ("words", "lines", "rows", "header", "checked", "no_items"):
+            self.assertEqual(refreshed[key], before[key])
 
 
 if __name__ == "__main__":

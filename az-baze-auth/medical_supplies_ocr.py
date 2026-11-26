@@ -25,7 +25,7 @@ from flask import abort, g, jsonify, make_response, redirect, render_template, r
 import medical_supplies_documents as inbox
 
 KEY = "ocr_review_v1"
-EXTRACTOR_VERSION = 4
+EXTRACTOR_VERSION = 5
 MAX_PAGES = 20
 MAX_WORDS = 8000
 MAX_LINES = 1000
@@ -469,6 +469,36 @@ def _printed_numeric(entries, scale, money=False):
     return maybe_number(text, scale)
 
 
+def _combined_value_basis(entries, header_y, goods_y, quantity_end, height):
+    """Classify the printed amount heading before accepting any row value.
+
+    Qualifiers can wrap below the short band used to locate column titles.
+    Read the entire amount heading up to the first goods row, in deskewed
+    reading order. Raw evidence and the goods' numeric cells stay intact.
+    """
+    heading = [entry for entry in entries
+               if entry["w"][0]+entry["w"][2]/2 > quantity_end
+               and header_y-height*2 <= entry["b"] < goods_y-height*.65]
+    text = " ".join(entry["w"][5]
+                    for row in _geometry_bands(heading, height, .55)
+                    for entry in row["entries"])
+    text = norm(re.sub(r"([A-Za-zА-Яа-яЁё])-\s+([A-Za-zА-Яа-яЁё])", r"\1\2", text))
+    # Negative or conflicting qualifiers and an amount of tax are never the
+    # final goods amount, even if the same heading also mentions inclusion.
+    negative = re.search(r"\b(?:без|исключая|не)\b|"
+                         r"\b(?:без|исключая|не\s*включая)\s*(?:ндс|налог\w*|акциз\w*)\b", text)
+    tax_only = re.search(r"\bсумм(?:а|ы)\s*(?:ндс|налог\w*|акциз\w*)\b", text)
+    if negative or tax_only:
+        return None
+    if re.search(r"\b(?:с|c|включая)\s*(?:ндс|налогом)\b", text):
+        return "printed_gross"
+    # A tax mention without a definite inclusion, or a damaged qualifier
+    # after 'с/including', is ambiguous. Do not fall back to a single total.
+    if re.search(r"\b(?:ндс|налог\w*|акциз\w*|с|c|включая)\b", text):
+        return None
+    return "printed_single_total"
+
+
 def _combined_table_candidates(lines):
     """Recover broad article/name tables from word geometry, not raw rows.
 
@@ -620,9 +650,7 @@ def _combined_table_candidates(lines):
                 if split is not None and names[split]["y"] <= current["y"]+height*.6:
                     starts.append(split)
         starts = sorted(set(starts))
-        heading_text = " ".join(entry["w"][5] for entry in band
-                                if entry["w"][0] > quantity_end)
-        gross = bool(re.search(r"\b(?:с|c|включая)\s+(?:ндс|налогом)\b", norm(heading_text)))
+        value_basis = _combined_value_basis(entries, header_y, names[0]["y"], quantity_end, height)
         for slot, start in enumerate(starts):
             stop = starts[slot+1] if slot+1 < len(starts) else len(names)
             text_entries = [entry for row in names[start:stop] for entry in row["entries"]]
@@ -639,7 +667,7 @@ def _combined_table_candidates(lines):
                      for key in ("unit", "quantity", "value")}
             quantity = _printed_numeric(cells["quantity"], 1000)
             quantity = quantity if quantity is not None and Decimal(quantity) > 0 else None
-            value = _printed_numeric(cells["value"], 100, money=True)
+            value = _printed_numeric(cells["value"], 100, money=True) if value_basis else None
             raw_unit = " ".join(entry["w"][5] for entry in sorted(cells["unit"], key=lambda entry:entry["w"][0]))
             compact_unit = raw_unit.replace(" ", "")
             unit = (raw_unit if norm(raw_unit) in unit_words else compact_unit
@@ -657,7 +685,7 @@ def _combined_table_candidates(lines):
             note = ("Проверьте по исходнику: " + ", ".join(missing) + ".") if missing else ""
             result.append({"source_line":source, "source_lines":source_lines,
                 "name":name, "unit":unit, "quantity":quantity, "price":None,
-                "value":value, "value_basis":("printed_gross" if gross else "printed_single_total") if value is not None else None,
+                "value":value, "value_basis":value_basis if value is not None else None,
                 "action":"unresolved", "item_id":None, "folder_id":None, "note":note, "manual":False})
     if len(result) > MAX_ROWS:
         raise OCRUnavailable("Превышен лимит товарных позиций страницы.")
