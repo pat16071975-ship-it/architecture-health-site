@@ -1,4 +1,0 @@
-{% if can_import %}
-<details class="md-import"><summary>Загрузить остатки из Excel</summary>
-<form class="md-inline" method="post" enctype="multipart/form-data" action="{{ url_for('medical_supplies_import') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><label for="stock-file">Отчёт «По обороту и остаткам»</label><input type="file" id="stock-file" name="file" accept=".xlsx" required><label for="stock-date">Дата остатков</label><input type="date" id="stock-date" name="snapshot_date" value="{{ today }}" required><button class="btn" type="submit">Загрузить файл</button></form></details>
-{% endif %}
