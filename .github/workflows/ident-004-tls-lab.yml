@@ -1,0 +1,58 @@
+name: IDENT-004 TLS isolated SQL Server lab
+on:
+  push:
+    branches: ['test/ident-004-tls-lab-7ffc6517']
+    paths: ['.github/workflows/ident-004-tls-lab.yml','tls-lab/**']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  tls-lab:
+    runs-on: windows-2025
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Retrieve exact previously built candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: IDENT-004-TLS-win-x64-7ffc6517
+          run-id: 45766752558
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/ident-original-build
+      - name: Verify original artifact and executable
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'ident-original-build'
+          $m = Get-Content -LiteralPath (Join-Path $dir 'build-manifest.json') -Raw | ConvertFrom-Json
+          if ($m.source_head -cne '7ffc65174a408a75afc237247045008e7bab51dd' -or $m.source_tree -cne 'dcefe1bcedf36ce59192581eff48e46e997e2399' -or $m.build_commit -cne '0be263958feabcfec99b72bad46c8afa3e8d0cff' -or $m.github_run_id -ne '45766752558') { throw 'ORIGINAL_BUILD_IDENTITY' }
+          $exe = Get-Item -LiteralPath (Join-Path $dir 'IdentSqlReader.exe')
+          $sha = (Get-FileHash -LiteralPath $exe.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($sha -cne 'cd30e0fd3bd852b51c6f62ccb003f7dcf67df61709f12251690ebec7899c8c91' -or $m.executable_sha256 -cne $sha -or $exe.Length -ne 80965818) { throw 'ORIGINAL_EXECUTABLE_HASH' }
+          $lockHash = (Get-FileHash -LiteralPath (Join-Path $dir 'packages.lock.json') -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($lockHash -cne 'e0ecc756e3a957110416b77d795cba8b8c51abc01bcb487bcfa03b599d643c08') { throw 'ORIGINAL_LOCK_HASH' }
+          Write-Host "EXACT_ORIGINAL_EXE=PASS; SHA256=$sha; NO_REBUILD=YES"
+      - name: Install disposable loopback-only SQL Server Express
+        run: |
+          & (Join-Path $env:GITHUB_WORKSPACE 'tls-lab/install_lab.ps1')
+      - name: Execute original binary against synthetic SQL fixture
+        run: |
+          powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $env:GITHUB_WORKSPACE 'tls-lab/run_lab.ps1')
+          if ($LASTEXITCODE -ne 0) { throw 'TLS_LAB_FAILED' }
+      - name: Publish synthetic test summary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: IDENT-004-TLS-lab-summary-7ffc6517
+          path: ${{ env.IDENT_LAB_DIR }}/results/summary.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Stop only the disposable test instance
+        if: always()
+        run: |
+          $s = Get-Service -Name 'MSSQL$IDENTLAB' -ErrorAction SilentlyContinue
+          if ($s) { Stop-Service -Name 'MSSQL$IDENTLAB' -Force }
