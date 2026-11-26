@@ -1,7 +1,7 @@
 # Only the ephemeral GitHub-hosted Windows fixture. No production.
 $ErrorActionPreference='Stop'
 if($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_OS -ne 'Windows' -or $env:GITHUB_REF -ne 'refs/heads/test/ident-006c-sender-20261126'){throw 'DISPOSABLE_RUNNER_REQUIRED'}
-$root=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)) 'AZ-IDENT006C'
+$root=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)) 'AZ-IDENT006C'
 if(Test-Path -LiteralPath $root){throw 'LAB_ROOT_ALREADY_EXISTS'}
 if(Get-Service -Name AzIdent006C -ErrorAction SilentlyContinue){throw 'LAB_SERVICE_ALREADY_EXISTS'}
 $lab=Join-Path $env:RUNNER_TEMP 'ident006c-lab'
@@ -24,6 +24,7 @@ function Await([scriptblock]$Condition,[int]$Seconds,[string]$Reason) {
     do { if(& $Condition){return};Start-Sleep -Milliseconds 500 }while((Get-Date) -lt $until)
     throw $Reason
 }
+& icacls.exe 'C:\' ([Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles))
 Step @('-Mode','Plan','-PackageDirectory',$package)
 if(Test-Path -LiteralPath $root){throw 'PLAN_MUTATED'}
 Step @('-Mode','Stage','-PackageDirectory',$package,'-Confirm','IDENT-006C-STAGE')

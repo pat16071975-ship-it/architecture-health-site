@@ -179,6 +179,7 @@ internal static class Runner
                     // Recheck ACLs and ordinary shares at every cycle, including
                     // after an outage. Changes never trigger automatic repair.
                     PrivateStore.VerifyLayout();
+                    Guard.Require(CryptographicOperations.FixedTimeEquals(SHA256.HashData(PrivateStore.Read(PrivateStore.ConfigPath,8192,false)),cfg.Binding),"CONFIG_CHANGED");
                     string result=await cycle.Tick(ct).ConfigureAwait(false);
                     Status(result,journal);
                     backoff=30;

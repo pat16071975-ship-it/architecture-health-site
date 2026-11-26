@@ -25,12 +25,12 @@ jobs:
       - name: Verify exact source and copy raw Git blobs
         run: |
           $ErrorActionPreference='Stop'
-          $source='4f0b65237f3c3134af44cb425e604ee424ae0bec'
-          $tree='aebb0341a5dbe3aae27d0d477ca17c237c63b7f9'
-          $sender='e0682d0ae5108440558b2df91fb1f2e517d608a4'
+          $source='ba94c61b961460e24c48ba4c6d253aea2a71fa13'
+          $tree='bcdf3a870ece5f5bc3b0087b791f909546c5c369'
+          $sender='f9da1b4bb84885b60a191078b3666e2d29df7977'
           git merge-base --is-ancestor $source HEAD
           if($LASTEXITCODE -ne 0 -or (git rev-parse "$source^{tree}") -cne $tree -or (git rev-parse HEAD:integrations/ident-006-sender) -cne $sender -or (git rev-parse "$($source):integrations/ident-006-sender") -cne $sender){throw 'EXACT_SOURCE'}
-          if(@(git ls-tree -r --name-only HEAD).Count -ne 21){throw 'CI_SCOPE'}
+          if(@(git ls-tree -r --name-only HEAD).Count -ne 23){throw 'CI_SCOPE'}
           $work=Join-Path $env:RUNNER_TEMP 'ident006c-source'
           $env:IDENT_WORK=$work
           $env:IDENT_EXACT=$source
@@ -54,13 +54,13 @@ jobs:
               dest=work/rel
               dest.parent.mkdir(parents=True,exist_ok=True)
               dest.write_bytes(raw); n+=1
-          assert n==20
+          assert n==22
           expected={"guard_readonly.sql":"1039aba313b635ada0d75247a04e053d01e3fbbeefd9445a8a5e42529d10ae6b",
                     "payments_daily_v1.sql":"277cc67cb4c0369f7f3461ae5d8c50ac0443c3342cb44a81625cf701c52e443f",
                     "payments_daily_v1_schema.sql":"e455b34a6f2e364ce979711e4afb2ba905c1ddc9c54c88bff1df04b78cfccffc"}
           for name,digest in expected.items(): assert hashlib.sha256((work/"sql"/name).read_bytes()).hexdigest()==digest
           assert (work/"tests/reference/sql/payments_daily_v1.sql").read_bytes()==(work/"sql/payments_daily_v1.sql").read_bytes()
-          print("SQL_RESOURCE_HASHES=3/3 PASS; EXACT_GIT_BLOBS=20/20 PASS")
+          print("SQL_RESOURCE_HASHES=3/3 PASS; EXACT_GIT_BLOBS=22/22 PASS")
           '@ | python -
           if($LASTEXITCODE -ne 0){throw 'SOURCE_BLOBS'}
           "IDENT_WORK=$work" >> $env:GITHUB_ENV
@@ -79,10 +79,9 @@ jobs:
           $projects=@('src/AzIdentSender.csproj','tests/AzIdentSender.Tests.csproj')
           foreach($project in $projects){
             $common=@($project,'--runtime','win-x64','--configfile',(Join-Path $env:IDENT_WORK 'NuGet.Config'),'--no-http-cache','-p:Configuration=Release','-p:NuGetAudit=true','-p:NuGetAuditMode=all')
-            dotnet restore @common --use-lock-file
-            if($LASTEXITCODE -ne 0){throw 'RESTORE_OR_AUDIT'}
             $lock=Join-Path (Split-Path -Parent $project) 'packages.lock.json'
             $sha=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash
+            if($sha -cne '1E342A205BF256D818402F423D751A2ED6C6D863FBB38FD817C9ADF57F01D5ED'){throw 'LOCK_HASH'}
             dotnet restore @common --locked-mode --force
             if($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash -cne $sha){throw 'LOCKED_RESTORE'}
             Write-Host "LOCKED_RESTORE=PASS; PROJECT=$project; SHA256=$sha"
@@ -119,7 +118,7 @@ jobs:
         if: failure()
         run: |
           Get-Service -Name AzIdent006C -ErrorAction SilentlyContinue
-          $root=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)) 'AZ-IDENT006C'
+          $root=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)) 'AZ-IDENT006C'
           $status=Join-Path $root 'state/status.json'
           if(Test-Path -LiteralPath $status){Get-Content -LiteralPath $status -Raw}
           Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Service Control Manager';StartTime=(Get-Date).AddMinutes(-10)} -ErrorAction SilentlyContinue | Where-Object Message -Match 'AzIdent006C|IDENT Bridge sender' | Select-Object -First 10 TimeCreated,Id,Message
