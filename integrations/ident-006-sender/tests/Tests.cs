@@ -181,6 +181,24 @@ internal static class Tests
         try
         {
             Check(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")=="true"&&Environment.GetEnvironmentVariable("RUNNER_OS")=="Windows"&&Environment.GetEnvironmentVariable("GITHUB_REF")=="refs/heads/test/ident-006c-sender-20261126");
+            // Test assembly only: exercise the production NTFS guard against
+            // actual fixture ACLs, never add a bypass to the service executable.
+            if(args.Length==3&&args[0]=="acl-parent")
+            {
+                Check(args[2]=="PASS"||args[2]=="UNSAFE_ANCESTOR_ACL");
+                string actual="PASS";
+                try{PrivateStore.AssertAncestors(args[1]);}
+                catch(Blocked e){actual=e.Message;}
+                Check(actual==args[2]);
+                Console.WriteLine("RUNTIME_ANCESTOR="+actual+"; EXPECTED=PASS");
+                return 0;
+            }
+            if(args.Length==1&&args[0]=="acl-layout")
+            {
+                PrivateStore.VerifyDirectoryLayout();
+                Console.WriteLine("RUNTIME_DIRECTORY_LAYOUT=PASS");
+                return 0;
+            }
             Unit();
             if(args.Length==2&&args[0]=="lab-seed")
             {

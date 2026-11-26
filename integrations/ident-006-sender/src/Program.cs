@@ -11,9 +11,7 @@ internal static class Provision
     internal static void LayoutBefore()
     {
         PrivateStore.AssertAdmin();
-        PrivateStore.AssertAncestors(PrivateStore.Root);
-        foreach(string p in new[]{PrivateStore.Root,PrivateStore.App})PrivateStore.AssertAcl(new DirectoryInfo(p),false);
-        foreach(string p in new[]{PrivateStore.State,PrivateStore.JournalDir})PrivateStore.AssertAcl(new DirectoryInfo(p),true);
+        PrivateStore.VerifyDirectoryLayout();
         PrivateStore.AssertNoOrdinaryShares();
         foreach(string p in new[]{PrivateStore.ConfigPath,PrivateStore.Pin,PrivateStore.SqlSecret,PrivateStore.TokenSecret})
             Guard.Require(!File.Exists(p)&&!Directory.Exists(p),"ALREADY_PROVISIONED_OR_PARTIAL");

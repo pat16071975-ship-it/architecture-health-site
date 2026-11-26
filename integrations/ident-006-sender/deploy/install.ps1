@@ -55,14 +55,20 @@ function Assert-NoReparse([string]$Path) {
 function Assert-Ancestors([string]$Path) {
     Assert-NoReparse $Path
     $allowed=@($adminSid.Value,$systemSid.Value,$trustedInstaller)
-    $danger=[int]([Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [Security.AccessControl.FileSystemRights]::Delete -bor [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership -bor [Security.AccessControl.FileSystemRights]::WriteAttributes -bor [Security.AccessControl.FileSystemRights]::WriteExtendedAttributes) -bor 0x50000000
+    # CreateFiles/WriteData and CreateDirectories/AppendData are the same NTFS bits.
+    $danger=[int]([Security.AccessControl.FileSystemRights]::CreateFiles -bor [Security.AccessControl.FileSystemRights]::CreateDirectories -bor [Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [Security.AccessControl.FileSystemRights]::Delete -bor [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership -bor [Security.AccessControl.FileSystemRights]::WriteAttributes -bor [Security.AccessControl.FileSystemRights]::WriteExtendedAttributes) -bor 0x50000000
     $dir=[IO.DirectoryInfo]::new($Path)
     while($null -ne $dir) {
         $acl=$dir.GetAccessControl()
         Require ($acl.AreAccessRulesCanonical -and $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -in $allowed) 'ANCESTOR_OWNER'
-        foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {
-            if($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin $allowed -and ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -eq 0) {
-                Require (([int]$rule.FileSystemRights -band $danger) -eq 0) 'ANCESTOR_ACL'
+        $descriptor=[Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)
+        Require ($null -ne $descriptor.DiscretionaryAcl -and ($descriptor.ControlFlags -band [Security.AccessControl.ControlFlags]::DiscretionaryAclPresent) -ne 0) 'ANCESTOR_ACL'
+        # Inspect raw ACEs so generic write/all and unsupported callback ACEs
+        # cannot evade a projected FileSystemAccessRule check.
+        foreach($rule in $descriptor.DiscretionaryAcl) {
+            Require ($rule -is [Security.AccessControl.CommonAce] -and -not $rule.IsCallback -and $rule.AceQualifier -in @('AccessAllowed','AccessDenied')) 'ANCESTOR_ACL'
+            if($rule.AceQualifier -eq 'AccessAllowed' -and $rule.SecurityIdentifier.Value -notin $allowed -and ($rule.AceFlags -band [Security.AccessControl.AceFlags]::InheritOnly) -eq 0) {
+                Require (($rule.AccessMask -band $danger) -eq 0) 'ANCESTOR_ACL'
             }
         }
         $dir=$dir.Parent
@@ -103,8 +109,8 @@ function Assert-ServiceBinding {
     Require ($svc.ServiceType -eq 'Own Process') 'SERVICE_TYPE'
     return $svc
 }
-function New-PrivateDirectory([string]$Path,[bool]$Writable) {
-    Require (-not [IO.Directory]::Exists($Path) -and -not [IO.File]::Exists($Path)) 'DIRECTORY_EXISTS'
+function New-DirectorySecurity([bool]$Writable) {
+    Require ($null -ne $serviceSid -and $serviceSid -ne $adminSid -and $serviceSid -ne $systemSid) 'SERVICE_IDENTITY'
     $acl=[Security.AccessControl.DirectorySecurity]::new()
     $acl.SetOwner($adminSid);$acl.SetAccessRuleProtection($true,$false)
     $inherit=[Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
@@ -112,7 +118,89 @@ function New-PrivateDirectory([string]$Path,[bool]$Writable) {
         $rights=if($sid -eq $serviceSid){if($Writable){[Security.AccessControl.FileSystemRights]::Modify}else{[Security.AccessControl.FileSystemRights]::ReadAndExecute}}else{[Security.AccessControl.FileSystemRights]::FullControl}
         $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($sid,$rights,$inherit,[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow))
     }
-    [void][IO.Directory]::CreateDirectory($Path,$acl)
+    return $acl
+}
+function Assert-CreatedDirectory([string]$Path,[bool]$Writable) {
+    Assert-NoReparse $Path
+    $dir=[IO.DirectoryInfo]::new($Path)
+    Require $dir.Exists 'PRIVATE_DIRECTORY_MISSING'
+    $acl=$dir.GetAccessControl([Security.AccessControl.AccessControlSections]::Access -bor [Security.AccessControl.AccessControlSections]::Owner)
+    Require ($acl.AreAccessRulesProtected -and $acl.AreAccessRulesCanonical -and $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -eq $adminSid.Value) 'PRIVATE_DIRECTORY_SECURITY'
+    $want=@{}
+    foreach($r in (New-DirectorySecurity $Writable).GetAccessRules($true,$false,[Security.Principal.SecurityIdentifier])){
+        $want[$r.IdentityReference.Value]=[int]$r.FileSystemRights
+    }
+    $descriptor=[Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)
+    Require ($null -ne $descriptor.DiscretionaryAcl -and ($descriptor.ControlFlags -band [Security.AccessControl.ControlFlags]::DiscretionaryAclPresent) -ne 0 -and
+        $descriptor.DiscretionaryAcl.Count -eq $want.Count) 'PRIVATE_DIRECTORY_ACE_COUNT'
+    foreach($r in $descriptor.DiscretionaryAcl){
+        Require ($r -is [Security.AccessControl.CommonAce] -and -not $r.IsCallback -and $r.AceQualifier -eq 'AccessAllowed') 'PRIVATE_DIRECTORY_ACE'
+        $sid=$r.SecurityIdentifier.Value
+        Require ($want.ContainsKey($sid) -and $r.AceFlags -eq ([Security.AccessControl.AceFlags]::ContainerInherit -bor [Security.AccessControl.AceFlags]::ObjectInherit) -and
+            $r.AccessMask -eq $want[$sid]) 'PRIVATE_DIRECTORY_ACE'
+        $want.Remove($sid)
+    }
+    Require ($want.Count -eq 0) 'PRIVATE_DIRECTORY_ACE_MISSING'
+}
+function Assert-DirectoryParents([string]$Path,[bool]$Writable) {
+    $full=Canonical-Path $Path
+    $underApp=$full.StartsWith($app+'\',[StringComparison]::OrdinalIgnoreCase)
+    $expectedWritable=$full -ieq $state -or $full -ieq $journal
+    Require (($full -ieq $root -or $full -ieq $app -or $underApp -or $expectedWritable) -and $Writable -eq $expectedWritable) 'PRIVATE_DIRECTORY_SCOPE'
+    $external=Split-Path -Parent $root
+    # Recheck the whole external chain immediately before each creation.
+    # All internal ancestors must have their exact protected ACL.
+    Assert-Ancestors $external
+    $parent=Split-Path -Parent $full
+    while($parent -ine $external) {
+        Require ($parent -ieq $root -or $parent -ieq $app -or $parent.StartsWith($app+'\',[StringComparison]::OrdinalIgnoreCase) -or $parent -ieq $state) 'PRIVATE_PARENT_SCOPE'
+        Assert-CreatedDirectory $parent ($parent -ieq $state)
+        $parent=Split-Path -Parent $parent
+    }
+}
+function New-PrivateDirectory([string]$Path,[bool]$Writable) {
+    Assert-DirectoryParents $Path $Writable
+    # CreateDirectoryW applies the protected DACL as part of creation, creates
+    # only one directory and fails on EVERY pre-existing path. Unlike
+    # Directory.CreateDirectory it cannot adopt a directory created in a race.
+    if(-not ('Ident006CNativeDirectory' -as [type])) {
+        Add-Type -Language CSharp -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class Ident006CNativeDirectory {
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SECURITY_ATTRIBUTES {
+        public int Length;
+        public IntPtr SecurityDescriptor;
+        public int InheritHandle;
+    }
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, ExactSpelling=true, SetLastError=true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CreateDirectoryW(string path, ref SECURITY_ATTRIBUTES attrs);
+    public static int Create(string path, byte[] descriptor) {
+        GCHandle pinned=GCHandle.Alloc(descriptor,GCHandleType.Pinned);
+        try {
+            SECURITY_ATTRIBUTES sa=new SECURITY_ATTRIBUTES();
+            sa.Length=Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
+            sa.SecurityDescriptor=pinned.AddrOfPinnedObject();
+            sa.InheritHandle=0;
+            return CreateDirectoryW(path,ref sa)?0:Marshal.GetLastWin32Error();
+        } finally { pinned.Free(); }
+    }
+}
+'@
+    }
+    $acl=New-DirectorySecurity $Writable
+    $result=[Ident006CNativeDirectory]::Create($Path,$acl.GetSecurityDescriptorBinaryForm())
+    if($result -eq 183 -or $result -eq 80){throw 'DIRECTORY_EXISTS'}
+    Require ($result -eq 0) 'ATOMIC_DIRECTORY_CREATE_FAILED'
+    # No Set-Acl/repair fallback. Unexpected results stop the disabled install.
+    Assert-CreatedDirectory $Path $Writable
+}
+function Assert-InstalledDirectoryLayout {
+    foreach($pair in @(@($root,$false),@($app,$false),@($state,$true),@($journal,$true))) {
+        Assert-CreatedDirectory $pair[0] $pair[1]
+    }
 }
 function Assert-AppAcl($Item) {
     Require (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0) 'INSTALLED_REPARSE_POINT'
@@ -171,6 +259,8 @@ function Read-Manifest([string]$Folder,[bool]$Installed) {
     return @{Files=$files;Raw=$raw}
 }
 function Copy-VerifiedPackage($Manifest) {
+    $created=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    [void]$created.Add($app)
     foreach($rel in @($Manifest.Files.Keys|Sort-Object)) {
         $src=Join-Path $PackageDirectory $rel.Replace('/','\')
         $dst=Join-Path $app $rel.Replace('/','\')
@@ -179,7 +269,7 @@ function Copy-VerifiedPackage($Manifest) {
         $dir=$app
         for($i=0;$i -lt $parts.Length-1;$i++) {
             $dir=Join-Path $dir $parts[$i]
-            if(-not [IO.Directory]::Exists($dir)){New-PrivateDirectory $dir $false}
+            if($created.Add($dir)){New-PrivateDirectory $dir $false}else{Assert-CreatedDirectory $dir $false}
         }
         $raw=[IO.File]::ReadAllBytes($src)
         Require ((Hash-Bytes $raw) -ceq $Manifest.Files[$rel]) 'PACKAGE_COPY_HASH'
@@ -222,6 +312,7 @@ try {
         New-PrivateDirectory $app $false
         New-PrivateDirectory $state $true
         New-PrivateDirectory $journal $true
+        Assert-InstalledDirectoryLayout
         Copy-VerifiedPackage $m
         $null=Read-Manifest $app $true
         Invoke-Sc @('failure',$name,'reset=','86400','actions=','restart/30000/restart/60000/restart/300000')
@@ -235,8 +326,7 @@ try {
     $serviceSid=([Security.Principal.NTAccount]::new($serviceAccount)).Translate([Security.Principal.SecurityIdentifier])
     if($Mode -eq 'Provision') {
         Require ($Confirm -ceq 'IDENT-006C-PROVISION' -and $svc.State -eq 'Stopped' -and $svc.StartMode -eq 'Disabled') 'EXPLICIT_PROVISION_APPROVAL_REQUIRED'
-        Assert-AppAcl (Get-Item -LiteralPath $root -Force)
-        Assert-AppAcl (Get-Item -LiteralPath $app -Force)
+        Assert-InstalledDirectoryLayout
         $null=Read-Manifest $app $true
         foreach($p in @($Template,$InitialPacket,$Certificate)){Assert-NoReparse $p;Require ([IO.File]::Exists($p)) 'PROVISION_INPUT_FILE'}
         Require ((Get-Item -LiteralPath $Template).Length -gt 0 -and (Get-Item -LiteralPath $Template).Length -le 8192 -and (Get-Item -LiteralPath $InitialPacket).Length -gt 0 -and (Get-Item -LiteralPath $InitialPacket).Length -le 524288 -and (Get-Item -LiteralPath $Certificate).Length -gt 0 -and (Get-Item -LiteralPath $Certificate).Length -le 65536) 'PROVISION_INPUT_SIZE'
@@ -260,8 +350,7 @@ try {
         exit 0
     }
     Require ($Confirm -ceq 'IDENT-006C-ENABLE' -and $svc.State -eq 'Stopped' -and $svc.StartMode -eq 'Disabled') 'EXPLICIT_ENABLE_APPROVAL_REQUIRED'
-    Assert-AppAcl (Get-Item -LiteralPath $root -Force)
-    Assert-AppAcl (Get-Item -LiteralPath $app -Force)
+    Assert-InstalledDirectoryLayout
     $null=Read-Manifest $app $true
     & $exe --check-local
     Require ($LASTEXITCODE -eq 0) 'LOCAL_CHECK_FAILED'

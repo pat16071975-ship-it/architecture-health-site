@@ -24,12 +24,58 @@ function Await([scriptblock]$Condition,[int]$Seconds,[string]$Reason) {
     do { if(& $Condition){return};Start-Sleep -Milliseconds 500 }while((Get-Date) -lt $until)
     throw $Reason
 }
-& icacls.exe 'C:\' ([Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles))
+# The tightened production guard also rejects a direct FILE_ADD_FILE or
+# FILE_ADD_SUBDIRECTORY ACE on a drive root. Hosted runner defaults may contain
+# such a rule. First prove that the real installer Plan refuses it. Only for
+# the positive lab, temporarily remove those two bits from explicit,
+# non-inheritable ACEs, and restore the original DACLs in the outer finally.
+# No recursive ACL changes and no production/installer ACL repair.
+if($env:RUNNER_ENVIRONMENT -ne 'github-hosted'){throw 'GITHUB_HOSTED_RUNNER_REQUIRED'}
+$labAclBackups=[Collections.Generic.List[object]]::new()
+$labAllowed=@('S-1-5-32-544','S-1-5-18','S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+$createMask=[int]([Security.AccessControl.FileSystemRights]::CreateFiles -bor [Security.AccessControl.FileSystemRights]::CreateDirectories)
+$labParents=[Collections.Generic.List[string]]::new()
+for($d=[IO.DirectoryInfo]::new((Split-Path -Parent $root));$null -ne $d;$d=$d.Parent){$labParents.Add($d.FullName)}
+function Lab-CreateGrants($Acl){
+    @($Acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])|Where-Object {
+        $_.AccessControlType -eq 'Allow' -and $_.IdentityReference.Value -notin $labAllowed -and
+        ($_.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -eq 0 -and
+        ([int]$_.FileSystemRights -band $createMask) -ne 0
+    })
+}
+try {
+    $unsafeParents=@($labParents|Where-Object {@(Lab-CreateGrants (Get-Acl -LiteralPath $_)).Count -gt 0})
+    if($unsafeParents.Count -gt 0){
+        $negative=@(& powershell.exe @common -Mode Plan -PackageDirectory $package)
+        if($LASTEXITCODE -ne 1 -or 'STOP=ANCESTOR_ACL' -cnotin $negative){throw 'LIVE_PLAN_MISSED_PARENT_CREATE_RIGHT'}
+        if((Test-Path -LiteralPath $root) -or (Get-Service -Name AzIdent006C -ErrorAction SilentlyContinue)){throw 'NEGATIVE_PLAN_MUTATED'}
+        Write-Output 'LAB_DEFAULT_UNSAFE_PARENT_PLAN=REJECTED_WITHOUT_MUTATION'
+    }
+    foreach($path in $unsafeParents){
+        $acl=Get-Acl -LiteralPath $path
+        $grants=@(Lab-CreateGrants $acl)
+        foreach($r in $grants){
+            if($r.IsInherited -or $r.InheritanceFlags -ne 'None' -or $r.PropagationFlags -ne 'None'){throw 'LAB_PARENT_UNSUPPORTED_INHERITANCE'}
+        }
+        $labAclBackups.Add([pscustomobject]@{Path=$path;Bytes=$acl.GetSecurityDescriptorBinaryForm()})
+        foreach($r in $grants){
+            $acl.RemoveAccessRuleSpecific($r)
+            $left=[int]$r.FileSystemRights -band (-bnot $createMask)
+            if(($left -band (-bnot [int][Security.AccessControl.FileSystemRights]::Synchronize)) -ne 0){
+                $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($r.IdentityReference,([Security.AccessControl.FileSystemRights]$left),$r.InheritanceFlags,$r.PropagationFlags,$r.AccessControlType))
+            }
+        }
+        Set-Acl -LiteralPath $path -AclObject $acl
+        if(@(Lab-CreateGrants (Get-Acl -LiteralPath $path)).Count -ne 0){throw 'LAB_PARENT_PREPARATION_FAILED'}
+        Write-Output ('LAB_ONLY_PARENT_CREATE_BITS_REMOVED='+$path)
+    }
 Step @('-Mode','Plan','-PackageDirectory',$package)
 if(Test-Path -LiteralPath $root){throw 'PLAN_MUTATED'}
 Step @('-Mode','Stage','-PackageDirectory',$package,'-Confirm','IDENT-006C-STAGE')
 $svc=Get-CimInstance Win32_Service -Filter "Name='AzIdent006C'"
 if($svc.StartMode -ne 'Disabled' -or $svc.State -ne 'Stopped' -or $svc.StartName -ine 'NT SERVICE\AzIdent006C'){throw 'STAGE_BINDING'}
+& powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'test_acl.ps1') -TestExe $tests
+if($LASTEXITCODE -ne 0){throw 'IDENT_006C_01_ACL_TEST_FAILED'}
 $openssl=(Get-Command openssl.exe -ErrorAction SilentlyContinue | Select-Object -First 1).Source
 if(-not $openssl){$openssl='C:\Program Files\Git\usr\bin\openssl.exe'}
 if(-not (Test-Path -LiteralPath $openssl)){throw 'LAB_OPENSSL'}
@@ -89,4 +135,16 @@ try {
     if($server -and -not $server.HasExited){Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue}
     [IO.File]::WriteAllBytes($hosts,$hostsBefore)
     if($trusted){Remove-Item -LiteralPath ('Cert:\LocalMachine\Root\'+$trusted.Thumbprint) -ErrorAction SilentlyContinue}
+}
+} finally {
+    for($i=$labAclBackups.Count-1;$i -ge 0;$i--){
+        $b=$labAclBackups[$i]
+        $acl=Get-Acl -LiteralPath $b.Path
+        $acl.SetSecurityDescriptorBinaryForm([byte[]]$b.Bytes,[Security.AccessControl.AccessControlSections]::Access)
+        Set-Acl -LiteralPath $b.Path -AclObject $acl
+        $before=[Security.AccessControl.RawSecurityDescriptor]::new([byte[]]$b.Bytes,0).GetSddlForm([Security.AccessControl.AccessControlSections]::Access)
+        $after=(Get-Acl -LiteralPath $b.Path).GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::Access)
+        if($before -cne $after){throw 'LAB_PARENT_DACL_RESTORE_FAILED'}
+        Write-Output ('LAB_ONLY_PARENT_DACL_RESTORED='+$b.Path)
+    }
 }
