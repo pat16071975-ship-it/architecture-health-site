@@ -1,0 +1,15 @@
+{
+  "core/__init__.py": "d02291e88af8212e439ea2d47dc226a8c1a0abf0d4e2a6a00b609cd734b09288",
+  "core/receiver.py": "e1079f56598ea14e6b784d9d6376d04fede1fef4cf03f4c1bca32ef594657a1b",
+  "core/sql/payments_daily_v1.sql": "277cc67cb4c0369f7f3461ae5d8c50ac0443c3342cb44a81625cf701c52e443f",
+  "deploy/az-ident006b.service": "cd551aab898f79fbac21c7378192938cd42b66b37e5f785508891e00dc7a10b5",
+  "deploy/az-ident006b.socket": "ca28177f2b2de127b249bae48f48aac7f2827b2283524978f935b621349ffe3f",
+  "deploy/gunicorn_conf.py": "95d71d6588f989de2237ee18d59cec2d0862b8b7ef788edac77630e45289731d",
+  "deploy/installer.py": "3e7352a3fc8d5c3a49e4820d2c3175a17be5cd99ae5a0fd38e42642436488843",
+  "deploy/launch.py": "8de84dc3f06808ca8a710e772b2a6c2348fc61e2bdd295abc93fd8a09735e762",
+  "deploy/nginx_edit.py": "e4aed06eabce6c41a51ed0ec977f126036aebd1a6b694df07100031fa3c3a3b2",
+  "deploy/nginx-http.conf": "8239e0b4bb7afcf53533c41a689f4f7d2204db50cca90a9b20b30a21aeb3dee4",
+  "deploy/nginx-locations.conf": "57f3963d62aacf77af69e7ced40d48b636a01ece74052030883cf9b622931e51",
+  "deploy/requirements.lock": "0b0acebc89dca70cfd5cb208c48dcdf217e7d10cca6af7a7f98ce8a47241bacb",
+  "gateway.py": "5eb3a01359dc27c092dad16f1405d22619aff4a7fd366d7132359b8b6bc1af6d"
+}
