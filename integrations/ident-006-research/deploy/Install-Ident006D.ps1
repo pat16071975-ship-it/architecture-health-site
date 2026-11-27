@@ -84,7 +84,11 @@ function Inspect-Package([string]$archivePath,[string]$sha) {
   }
   foreach($file in $actual) {
    $rel=$file.FullName.Substring($temp.Length+1).Replace('\','/')
-   if (-not $seenFiles.Contains($rel)) {throw 'UNLISTED_FILE'}
+   if (-not $seenFiles.Contains($rel)) {
+    Write-Host "UNLISTED_PATH=$rel"
+    Write-Host "MANIFEST_EXAMPLE=$([string]$files[0].path)"
+    throw 'UNLISTED_FILE'
+   }
   }
   foreach($need in @('payload/bridge/AzIdentResearch.exe','payload/host/AzIdentResearchHost.exe',
       'payload/tunnel/tunnel-client.exe','tools/Install-Ident006D.ps1')) {
