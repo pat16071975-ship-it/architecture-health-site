@@ -146,7 +146,7 @@
   <div class="inbox-note">Тип: {{ selected.document_type }} · Статус: {{ selected.status }} · {{ selected.note or 'Комментарий не заполнен' }}</div>
   {% endif %}
   <details class="inbox-history"><summary>История документа · {{ events|length }} последних событий</summary>
-    <ul>{% for e in events %}<li>{{ e.created_at }} · пользователь № {{ e.actor_id }} · {{ {'upload':'Загружен оригинал','ocr_page':'Распознана страница','ocr_review':'Сохранён разбор'}.get(e.action,'Карточка обновлена') }}</li>{% endfor %}</ul>
+    <ul>{% for e in events %}<li>{{ e.created_at }} · пользователь № {{ e.actor_id }} · {{ {'upload':'Загружен оригинал','ocr_page':'Распознана страница','ocr_review':'Сохранён разбор','ocr_automatic_apply':'Выбран новый разбор страницы; прежний сохранён в истории'}.get(e.action,'Карточка обновлена') }}</li>{% endfor %}</ul>
   </details>
 </section>
 {% endif %}
