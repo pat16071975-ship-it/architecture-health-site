@@ -1,0 +1,9 @@
+{
+  "source_id": "00000000-0000-4000-8000-000000000001",
+  "source_timezone": "Asia/Novosibirsk",
+  "sql_host": "127.0.0.1",
+  "sql_port": 15433,
+  "sql_database": "Synthetic",
+  "sql_user": "lab_readonly",
+  "certificate_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}

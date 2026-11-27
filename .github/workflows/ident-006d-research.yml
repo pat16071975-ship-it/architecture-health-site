@@ -1,0 +1,67 @@
+name: IDENT-006D research core source build
+on:
+  push:
+    branches: ['feat/ident-006d-research-mcp-20261127']
+    paths: ['integrations/ident-006-research/**', '.github/workflows/ident-006d-research.yml']
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          dotnet-version: '10.0.404'
+      - name: Restore pinned dependencies and verify source boundaries
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-006-research'
+          Set-Location $root
+          '{"sdk":{"version":"10.0.404","rollForward":"disable","allowPrerelease":false}}' | Set-Content -LiteralPath 'global.json' -Encoding utf8NoBOM
+          if ((dotnet --version).Trim() -cne '10.0.404') { throw 'SDK' }
+          if ((git rev-parse HEAD:integrations/ident-006-research/sql/guard_readonly.sql) -cne 'bd7f4dd022e859ae95c172b540518475a7748bb2') { throw 'GUARD_BLOB' }
+          $p=Join-Path $root 'src/AzIdentResearch.csproj'
+          $lock=Join-Path $root 'src/packages.lock.json'
+          if(Test-Path -LiteralPath $lock){
+            dotnet restore $p --runtime win-x64 --locked-mode --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
+          }else{
+            dotnet restore $p --runtime win-x64 --use-lock-file --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
+          }
+          if($LASTEXITCODE -ne 0){throw 'RESTORE'}
+          $lockHash=(Get-FileHash -LiteralPath $lock).Hash
+          $resolved=Get-Content -LiteralPath $lock -Raw | ConvertFrom-Json -AsHashtable
+          foreach($target in $resolved.dependencies.Keys){
+            if($resolved.dependencies[$target].Contains('Microsoft.Data.SqlClient') -and $resolved.dependencies[$target]['Microsoft.Data.SqlClient'].resolved -cne '7.1.2'){throw 'SQLCLIENT_DRIFT'}
+            if($resolved.dependencies[$target].Contains('ModelContextProtocol') -and $resolved.dependencies[$target]['ModelContextProtocol'].resolved -cne '2.4.0'){throw 'MCP_SDK_DRIFT'}
+          }
+          dotnet restore $p --runtime win-x64 --locked-mode --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
+          if($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath $lock).Hash -cne $lockHash){throw 'LOCKED_RESTORE'}
+          $out=Join-Path $env:RUNNER_TEMP 'research-build'
+          dotnet publish $p -c Release -r win-x64 --self-contained true --no-restore -p:TreatWarningsAsErrors=true -o $out
+          if($LASTEXITCODE -ne 0){throw 'PUBLISH'}
+          & (Join-Path $out 'AzIdentResearch.exe') --self-test
+          if($LASTEXITCODE -ne 0){throw 'SELF_TEST'}
+          if((Get-FileHash -LiteralPath $lock).Hash -cne $lockHash){throw 'LOCK_CHANGED'}
+          $evidence=Join-Path $env:RUNNER_TEMP 'research-evidence'
+          New-Item -ItemType Directory -Path $evidence | Out-Null
+          Copy-Item -LiteralPath $lock -Destination $evidence
+          dotnet package list --project $p --include-transitive --no-restore --format json | Set-Content -LiteralPath (Join-Path $evidence 'dependencies.json') -Encoding utf8NoBOM
+          if($LASTEXITCODE -ne 0){throw 'DEPENDENCY_LIST'}
+          Write-Host "IDENT_006D_CORE_BUILD=PASS; LOCK_SHA256=$($lockHash.ToLowerInvariant()); EXE_SHA256=$((Get-FileHash -LiteralPath (Join-Path $out 'AzIdentResearch.exe')).Hash.ToLowerInvariant()); INSTALLATION=NONE; REAL_DATA=NONE"
+          "RESEARCH_EVIDENCE=$evidence" >> $env:GITHUB_ENV
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: IDENT-006D-core-lock-and-evidence
+          path: ${{ env.RESEARCH_EVIDENCE }}
+          retention-days: 14
+          if-no-files-found: error
