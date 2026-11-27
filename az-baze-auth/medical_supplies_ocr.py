@@ -9,15 +9,18 @@ import fcntl
 import hashlib
 import io
 import json
+import logging
 import math
 import os
 import re
 import shutil
 import sqlite3
 import stat
+import struct
 import subprocess
 import tempfile
 import time
+import zlib
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
@@ -41,7 +44,10 @@ ACTIONS = ("unresolved", "existing", "new", "skip")
 
 
 class OCRUnavailable(ValueError):
-    pass
+    def __init__(self, message, *, stage=None, reason=None):
+        super().__init__(message)
+        self.stage = stage
+        self.reason = reason
 
 
 def integer(value, low=1, high=10**12):
@@ -821,15 +827,159 @@ def table_candidates(lines):
     return result[:MAX_ROWS]
 
 
+def _command_stage(argv):
+    if argv[0] == "pdfinfo":
+        return "PDF_INFO"
+    if argv[0] == "pdftoppm":
+        return "PDF_RENDER"
+    if argv[0] == "tesseract":
+        return {"page":"INITIAL_OCR", "clean-page":"CLEANED_PAGE_OCR",
+                "table-cells":"TABLE_CELLS_OCR", "table-numbers":"TABLE_NUMBERS_OCR",
+                "numeric-retry":"NUMERIC_RETRY_OCR"}.get(Path(argv[1]).stem, "OCR")
+    return "OCR"
+
+
+def _tiff_png_resolution(path):
+    """Recover the exact pHYs values of the former Poppler PNG path.
+
+    TIFF keeps a float32 resolution; PNG stores truncated pixels per metre.
+    A bounded metadata read accepts only the generated single-image format.
+    Uncertain precision or unsupported metadata uses the original PNG path.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as source:
+            info = os.fstat(source.fileno())
+            if not stat.S_ISREG(info.st_mode) or not 8 <= info.st_size <= 64*1024*1024:
+                return None
+
+            def read_at(offset, length):
+                if offset < 0 or offset+length > info.st_size:
+                    raise ValueError("TIFF metadata bounds")
+                source.seek(offset)
+                raw = source.read(length)
+                if len(raw) != length:
+                    raise ValueError("TIFF metadata length")
+                return raw
+
+            header = read_at(0, 8)
+            endian = "<" if header[:4] == b"II*\0" else ">" if header[:4] == b"MM\0*" else None
+            if endian is None:
+                return None
+            offset = struct.unpack(endian+"I", header[4:])[0]
+            if offset < 8:
+                return None
+            count = struct.unpack(endian+"H", read_at(offset, 2))[0]
+            if not 1 <= count <= 128:
+                return None
+            entries = read_at(offset+2, count*12+4)
+            if struct.unpack(endian+"I", entries[-4:])[0] != 0:
+                return None
+            tags = {}
+            for index in range(count):
+                entry = entries[index*12:(index+1)*12]
+                tag, kind, length = struct.unpack(endian+"HHI", entry[:8])
+                if tag not in (282, 283, 296):
+                    continue
+                if tag in tags or length != 1:
+                    return None
+                if tag == 296:
+                    if kind != 3:
+                        return None
+                    tags[tag] = struct.unpack(endian+"H", entry[8:10])[0]
+                else:
+                    if kind != 5:
+                        return None
+                    value_at = struct.unpack(endian+"I", entry[8:])[0]
+                    numerator, denominator = struct.unpack(endian+"II", read_at(value_at, 8))
+                    if not denominator:
+                        return None
+                    tags[tag] = numerator / denominator
+        if set(tags) != {282, 283, 296} or tags[296] != 2:
+            return None
+        resolution = []
+        for tag in (282, 283):
+            dpi = tags[tag]
+            if not 70 <= dpi <= 2400 or struct.unpack("f", struct.pack("f", dpi))[0] != dpi:
+                return None
+            # libtiff stores float32 resolution. Its two neighbours contain every
+            # original double that could have rounded to this exact stored value.
+            bits = struct.unpack("I", struct.pack("f", dpi))[0]
+            bounds = [struct.unpack("f", struct.pack("I", bits+delta))[0] for delta in (-1, 1)]
+            values = {int(bound / .0254) for bound in bounds}
+            if len(values) != 1:
+                return None
+            resolution.append(next(iter(values)))
+        return tuple(resolution)
+    except (OSError, ValueError, struct.error, OverflowError):
+        return None
+
+
+def _fast_png(source_path, target_path, resolution):
+    """Encode the same RGB raster as PNG without expensive compression.
+
+    Keeping PNG as the OCR input also keeps its grayscale decoder rounding.
+    pHYs is restored explicitly because OpenCV does not write that metadata.
+    """
+    import cv2
+
+    cv2.setNumThreads(1)
+    try:
+        pixels = cv2.imread(str(source_path), cv2.IMREAD_COLOR)
+        if (pixels is None or pixels.ndim != 3 or pixels.shape[2] != 3
+                or max(pixels.shape[:2]) > 3508 or pixels.dtype.name != "uint8"):
+            return False
+        ok, encoded = cv2.imencode(".png", pixels, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        if not ok:
+            return False
+        view = memoryview(encoded).cast("B")
+        if (not 33 <= len(view) <= 64*1024*1024-21
+                or bytes(view[:16]) != b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR"
+                or tuple(view[24:29]) != (8, 2, 0, 0, 0)):
+            return False
+        payload = b"pHYs"+struct.pack(">IIB", *resolution, 1)
+        chunk = struct.pack(">I", 9)+payload+struct.pack(">I", zlib.crc32(payload) & 0xffffffff)
+        with target_path.open("wb") as output:
+            output.write(view[:33])
+            output.write(chunk)
+            output.write(view[33:])
+        return True
+    except (OSError, ValueError, struct.error, cv2.error):
+        return False
+
+
 def _command(argv, directory, output, seconds, max_size):
     # Fixed commands only. Child resource limits and wall-clock timeout,
     # private cwd/HOME, no shell or document-derived executable arguments.
+    stage = _command_stage(argv)
+    label = {"PDF_INFO":"Чтение PDF", "PDF_RENDER":"Подготовка изображения страницы",
+             "INITIAL_OCR":"Распознавание текста страницы",
+             "CLEANED_PAGE_OCR":"Распознавание очищенной страницы",
+             "TABLE_CELLS_OCR":"Распознавание товарных строк",
+             "TABLE_NUMBERS_OCR":"Проверка количества и стоимости",
+             "NUMERIC_RETRY_OCR":"Повторная проверка чисел"}.get(stage, "Распознавание страницы")
+    started = time.monotonic()
+
+    def failed(reason, error=None):
+        # Do not log commands, private paths, stderr or exception messages.
+        returncode = getattr(error, "returncode", None)
+        error_number = getattr(error, "errno", None)
+        logging.getLogger(__name__).warning(
+            "medical_ocr_failure stage=%s reason=%s elapsed=%.3f limit=%s returncode=%s errno=%s",
+            stage, reason, time.monotonic()-started, seconds, returncode, error_number)
+        message = {"TIMEOUT":"превышено время обработки. Повторите разбор.",
+                   "TOOL_EXIT":"инструмент распознавания завершился с ошибкой.",
+                   "OS_ERROR":"не удалось выполнить обработку на сервере.",
+                   "TOOL_UNAVAILABLE":"на сервере недоступен инструмент распознавания.",
+                   "OUTPUT_LIMIT":"превышен допустимый объём результата."}[reason]
+        return OCRUnavailable(label+": "+message, stage=stage, reason=reason)
+
     env={"PATH":"/usr/bin:/bin","LC_ALL":"C.UTF-8","HOME":str(directory),
          "TMPDIR":str(directory),"OMP_THREAD_LIMIT":"1"}
     limit=shutil.which("prlimit",path=env["PATH"])
     binary=shutil.which(argv[0],path=env["PATH"])
     if not limit or not binary:
-        raise OCRUnavailable("На сервере не установлены инструменты OCR.")
+        raise failed("TOOL_UNAVAILABLE")
     args=[limit,"--as=805306368","--fsize="+str(max_size),"--nofile=128",
           "--cpu="+str(seconds+2),"--",binary,*argv[1:]]
     try:
@@ -837,10 +987,14 @@ def _command(argv, directory, output, seconds, max_size):
             subprocess.run(args,cwd=directory,env=env,stdin=subprocess.DEVNULL,
                            stdout=dest,stderr=subprocess.DEVNULL,check=True,
                            timeout=seconds,close_fds=True)
-    except (OSError,subprocess.SubprocessError) as exc:
-        raise OCRUnavailable("Не удалось распознать страницу в пределах лимита. Повторите или проверьте оригинал.") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise failed("TIMEOUT", exc) from exc
+    except subprocess.CalledProcessError as exc:
+        raise failed("TOOL_EXIT", exc) from exc
+    except OSError as exc:
+        raise failed("OS_ERROR", exc) from exc
     if output.stat().st_size>max_size:
-        raise OCRUnavailable("Превышен лимит распознавания.")
+        raise failed("OUTPUT_LIMIT")
 
 
 def recognize_pdf_page(raw,page,lock_directory):
@@ -851,7 +1005,8 @@ def recognize_pdf_page(raw,page,lock_directory):
     def bounded_command(argv,directory,output,seconds,max_size):
         remaining=int(deadline-time.monotonic())
         if remaining<1:
-            raise OCRUnavailable("Распознавание страницы не завершилось вовремя. Сохранённые данные доступны.")
+            raise OCRUnavailable("Распознавание страницы не завершилось вовремя. Сохранённые данные доступны.",
+                                 stage="PAGE", reason="BUDGET_EXHAUSTED")
         return _command(argv,directory,output,min(seconds,remaining),max_size)
     lock=Path(lock_directory)/".med-supply-ocr.lock"
     try:
@@ -879,16 +1034,37 @@ def recognize_pdf_page(raw,page,lock_directory):
             if page>count:
                 raise ValueError("Такой страницы нет в PDF.")
             prefix=root/"page"
-            # Poppler limits raster dimensions. Its image file is covered by
-            # the same per-process fsize limit (64 MiB).
-            bounded_command(["pdftoppm","-f",str(page),"-l",str(page),"-scale-to","3508",
-                      "-png","-singlefile",str(pdf),str(prefix)],root,root/"render.log",6,64*1024*1024)
+            # TIFF is a fast, lossless transport from Poppler. Re-encode the
+            # same RGB pixels as PNG without compression, retaining exact pHYs,
+            # so both OCR passes still use their original PNG decoder path.
+            # A 3508 squared RGB raster remains below the 64 MiB file limit.
             image=prefix.with_suffix(".png")
+            rendered=prefix.with_suffix(".tif")
+            prepared=False
+            try:
+                bounded_command(["pdftoppm","-f",str(page),"-l",str(page),"-scale-to","3508",
+                          "-tiff","-tiffcompression","none","-singlefile",str(pdf),str(prefix)],
+                          root,root/"render.log",6,64*1024*1024)
+            except OCRUnavailable as exc:
+                # Builds without TIFF support keep the former PNG path.
+                # A timeout or missing renderer must not start another child.
+                if exc.reason != "TOOL_EXIT":
+                    raise
+            else:
+                resolution = _tiff_png_resolution(rendered)
+                if resolution is not None:
+                    prepared = _fast_png(rendered, image, resolution)
+            if not prepared:
+                # Unsupported formats or ambiguous float32 metadata must not
+                # change the image, resolution or previous parsing semantics.
+                bounded_command(["pdftoppm","-f",str(page),"-l",str(page),"-scale-to","3508",
+                          "-png","-singlefile",str(pdf),str(prefix)],
+                          root,root/"render.log",6,64*1024*1024)
             if not image.is_file():
                 raise OCRUnavailable("Не удалось получить изображение страницы.")
             tsv=root/"page.tsv"
             bounded_command(["tesseract",str(image),"stdout","-l","rus+eng","--psm","3","tsv"],
-                     root,tsv,8,MAX_TSV)
+                     root,tsv,12,MAX_TSV)
             parsed=parse_tsv(tsv.read_text(encoding="utf-8"))
             from medical_supplies_ocr_image import enhance_page
             parsed=enhance_page(image,root,bounded_command,parsed)
@@ -1390,7 +1566,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
         except inbox.Conflict as exc:
             return jsonify(error=str(exc)),409
         except OCRUnavailable as exc:
-            return jsonify(error=str(exc)),503
+            details={key:value for key,value in (("ocr_stage",exc.stage),("ocr_reason",exc.reason)) if value}
+            return jsonify(error=str(exc),**details),503
         except (ValueError,sqlite3.Error) as exc:
             return jsonify(error=str(exc) if isinstance(exc,ValueError) else "Не удалось сохранить результат."),400
 
