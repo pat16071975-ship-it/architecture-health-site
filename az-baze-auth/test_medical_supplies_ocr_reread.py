@@ -126,13 +126,13 @@ class AutomaticRereadRouteTests(unittest.TestCase):
     def test_edit_new_preview_before_apply_preserves_original_page_and_catalog_choice(self):
         self.seed()
         before_page = copy.deepcopy(self.state()["pages"]["1"])
-        before_stock = self.snapshot_stock()
         preview = self.context(view="automatic")
         proposal = preview["rows"][0]
         other_folder = self.conn.execute(
             "INSERT INTO med_supply_folders(name) VALUES('Другой раздел')"
         ).lastrowid
         self.conn.commit()
+        before_stock = self.snapshot_stock()
         start_events = self.conn.execute(
             "SELECT COUNT(*) FROM med_supply_document_events"
         ).fetchone()[0]
