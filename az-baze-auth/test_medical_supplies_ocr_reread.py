@@ -123,6 +123,79 @@ class AutomaticRereadRouteTests(unittest.TestCase):
             "SELECT * FROM med_supply_document_events WHERE action=? ORDER BY id", (EVENT,)
         ))
 
+    def test_edit_new_preview_before_apply_preserves_original_page_and_catalog_choice(self):
+        self.seed()
+        before_page = copy.deepcopy(self.state()["pages"]["1"])
+        before_stock = self.snapshot_stock()
+        preview = self.context(view="automatic")
+        proposal = preview["rows"][0]
+        other_folder = self.conn.execute(
+            "INSERT INTO med_supply_folders(name) VALUES('Другой раздел')"
+        ).lastrowid
+        self.conn.commit()
+        start_events = self.conn.execute(
+            "SELECT COUNT(*) FROM med_supply_document_events"
+        ).fetchone()[0]
+        form = {
+            "csrf": "token", "version": "2", "page": "1",
+            "automatic_token": preview["automatic_token"], "edit_review": "1",
+            "review_scope": "goods", "source_line": str(proposal["source_line"]),
+            "row_index": "0", "value_edited": "1",
+            "name": "Исправленное по оригиналу название",
+            "unit": "упак", "quantity": "3", "price": "",
+            "value": "298.00", "action": "new", "item_id": "",
+            "folder_id": str(other_folder), "note": "Сверено с оригиналом",
+        }
+        pending = list(self.conn.iterdump())
+        response = self.client(2).post(APPLY, data=form)
+        self.assertEqual(response.status_code, 303, response.get_data(as_text=True))
+        saved = self.state()["pages"]["1"]
+        self.assertEqual(saved["rows"][0]["name"], form["name"])
+        self.assertEqual(saved["rows"][0]["quantity"], "3")
+        self.assertEqual(saved["rows"][0]["unit_cost"], "99.33")
+        self.assertEqual(saved["rows"][0]["folder_id"], other_folder)
+        self.assertEqual(saved["rows"][0]["note"], form["note"])
+        self.assertEqual(saved["header"], before_page["header"])
+        self.assertEqual(self.snapshot_stock(), before_stock)
+        self.assertEqual(self.conn.execute(
+            "SELECT COUNT(*) FROM med_supply_document_events"
+        ).fetchone()[0], start_events + 1)
+        event = self.conn.execute(
+            "SELECT before_json,after_json FROM med_supply_document_events "
+            "ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        self.assertEqual(json.loads(event["before_json"])["page_data"], before_page)
+        self.assertTrue(json.loads(event["after_json"])["edited_before_apply"])
+        self.assertFalse(json.loads(event["after_json"])["stock_posted"])
+        self.assertNotEqual(list(self.conn.iterdump()), pending)
+
+    def test_preview_edits_reject_stale_token_unknown_rows_and_invalid_money(self):
+        self.seed()
+        preview = self.context(view="automatic")
+        line = str(preview["rows"][0]["source_line"])
+        form = {
+            "csrf": "token", "version": "2", "page": "1",
+            "automatic_token": preview["automatic_token"], "edit_review": "1",
+            "review_scope": "goods", "source_line": line, "row_index": "0",
+            "value_edited": "0", "name": "Новая позиция",
+            "unit": "упак", "quantity": "2", "price": "",
+            "value": "289.20", "action": "new", "item_id": "",
+            "folder_id": str(self.folder_id), "note": "",
+        }
+        baseline = list(self.conn.iterdump())
+        for change in (
+            {"automatic_token": "0" * 64},
+            {"source_line": "999"},
+            {"row_index": "99"},
+            {"value": "289.20; DROP TABLE med_supply_items"},
+            {"page": "2"},
+            {"version": "1"},
+        ):
+            with self.subTest(change=change):
+                response = self.client(2).post(APPLY, data={**form, **change})
+                self.assertIn(response.status_code, (400,409))
+                self.assertEqual(list(self.conn.iterdump()), baseline)
+
     def test_preview_is_read_only_and_does_not_hide_or_mutate_saved_manual_drafts(self):
         for empty in (False, True):
             with self.subTest(empty=empty):

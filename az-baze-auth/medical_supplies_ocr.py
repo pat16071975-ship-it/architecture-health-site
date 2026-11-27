@@ -1611,6 +1611,14 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 raise inbox.Conflict("Новый разбор изменился. Откройте его ещё раз.")
             if selected is None or reason:
                 raise ValueError(reason or "Новый разбор нельзя выбрать.")
+            editing=request.form.get("edit_review")=="1"
+            # The automatic token authenticates only the source proposal.
+            # Edited fields are parsed against that exact server-held proposal,
+            # never against untrusted posted OCR candidates or the old manual page.
+            items=catalog(conn) if editing else None
+            folders=([dict(x) for x in conn.execute(
+                "SELECT id FROM med_supply_folders")] if editing else None)
+            review=parse_review(request.form,selected,items,folders) if editing else None
             def choose(current):
                 old=current["pages"].get(str(page))
                 if not isinstance(old,dict):
@@ -1620,13 +1628,22 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                     raise inbox.Conflict("Новый разбор изменился. Откройте его ещё раз.")
                 if chosen is None or current_reason:
                     raise ValueError(current_reason or "Новый разбор нельзя выбрать.")
+                if editing:
+                    # Re-evaluate the exact request against the proposal inside
+                    # the write transaction, after the token/version check.
+                    fresh=parse_review(request.form,chosen,items,folders)
+                    if fresh!=review:
+                        raise inbox.Conflict("Новый разбор изменился. Откройте его ещё раз.")
+                    chosen.update(fresh)
                 chosen["automatic_applied"]={"token":token,"scope":scope,
                     "automatic_sha256":automatic_digest(old["automatic"]),
                     "from_version":version,"to_version":version+1}
                 current["pages"][str(page)]=chosen
             store(conn,doc_id,version,row["sha256"],choose,g.user["id"],"ocr_automatic_apply",
-                {"page":page,"rows":len(selected["rows"]),"checked":False,
-                 "review_scope":"goods","automatic_token":token},archive_page=page)
+                {"page":page,"rows":len(review["rows"] if editing else selected["rows"]),
+                 "checked":review["checked"] if editing else False,
+                 "review_scope":"goods","automatic_token":token,
+                 "edited_before_apply":editing},archive_page=page)
             return redirect(url_for("medical_supplies_ocr_page",doc_id=doc_id,p=page,applied=1),code=303)
         except LookupError:
             abort(404)

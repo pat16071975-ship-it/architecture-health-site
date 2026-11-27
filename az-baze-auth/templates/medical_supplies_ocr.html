@@ -61,17 +61,15 @@
 <h3 id="ocr-goods-heading">{{ 'Новый разбор' if view_automatic else 'Товары' }} · страница {{ page }}</h3>
 {% if view_automatic %}
 <p class="ocr-note">Проверьте новые строки по оригиналу.</p>
-{% if can_manage and can_apply_automatic %}<form method="post" id="ocr-apply-automatic" class="ocr-actions" action="{{ url_for('medical_supplies_ocr_apply_automatic',doc_id=doc.id) }}">
-  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="automatic_token" value="{{ automatic_token }}">
-  <button class="btn primary" type="submit">Использовать для этой страницы</button>
-  <span class="ocr-note">Прежние правки страницы {{ page }} сохранятся в истории.</span>
-</form>{% elif automatic_unavailable_reason %}<p class="ocr-note" role="status">{{ automatic_unavailable_reason }}</p>{% endif %}
+{% if can_manage and can_apply_automatic %}<p class="ocr-note">Исправьте названия, количество, единицы, стоимость строки и разделы до сохранения. Другие страницы и сохранённая версия не изменятся до нажатия кнопки сохранения.</p>
+{% elif automatic_unavailable_reason %}<p class="ocr-note" role="status">{{ automatic_unavailable_reason }}</p>{% endif %}
 {% else %}<p class="ocr-note">Проверьте результат автоматического разбора. Неразборчивые поля и расхождения указаны ниже.</p>{% endif %}
 {% if quality and quality.total_matches %}<p class="ocr-note" role="status">Сумма строк совпадает с итогом документа: {{ quality.total_actual }} ₽.</p>{% endif %}
 {% if page_issues %}<details class="ocr-note" id="ocr-checks"><summary>Требует проверки: {{ page_issues|length }}</summary>{% for issue in page_issues %}<p>{{ issue }}</p>{% endfor %}</details>{% endif %}
-{% if can_manage and not view_automatic %}
-<form method="post" id="ocr-review" action="{{ url_for('medical_supplies_ocr_save',doc_id=doc.id) }}">
+{% if can_manage and (not view_automatic or can_apply_automatic) %}
+<form method="post" id="ocr-review" action="{{ url_for('medical_supplies_ocr_apply_automatic' if view_automatic else 'medical_supplies_ocr_save',doc_id=doc.id) }}">
 <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}"><input type="hidden" name="page" value="{{ page }}">
+{% if view_automatic %}<input type="hidden" name="automatic_token" value="{{ automatic_token }}"><input type="hidden" name="edit_review" value="1">{% endif %}
 <input type="hidden" name="review_scope" value="goods">
 <template id="ocr-catalog-options"><option value="">Выберите по названию</option>{% for i in items %}<option value="{{ i.id }}" data-folder="{{ i.folder_id or '' }}">{{ i.name }} · {{ i.unit }}{% if i.folder %} · {{ i.folder }}{% endif %}</option>{% endfor %}</template>
 {% macro editor(r, row_id, original_index) %}
@@ -114,7 +112,7 @@
 <div class="ocr-actions"><button type="button" class="btn" id="ocr-add">+ Добавить строку</button></div>
 <label class="ocr-check"><input type="checkbox" name="no_items" value="1" {{ 'checked' if data.no_items else '' }}> На странице нет товарных позиций</label>
 <label class="ocr-check"><input type="checkbox" name="checked" value="1" {{ 'checked' if data.checked else '' }}> Проверено: товары, количество, единицы и стоимость сверены с оригиналом</label>
-<div class="ocr-actions"><button class="btn primary" type="submit">Сохранить разбор</button><span class="ocr-note">Сохраняется разбор документа. Приход на склад оформляется отдельно.</span></div>
+<div class="ocr-actions"><button class="btn primary" type="submit">{{ 'Сохранить исправленный новый разбор для этой страницы' if view_automatic else 'Сохранить разбор' }}</button><span class="ocr-note">{{ 'Прежняя версия страницы будет сохранена в истории. Другие страницы не изменятся.' if view_automatic else 'Сохраняется разбор документа.' }} Приход на склад оформляется отдельно.</span></div>
 </form>
 {% else %}
 {% if not view_automatic %}<p class="ocr-note">{{ 'Страница проверена' if data.checked else 'Ещё не проверено' }} · Только просмотр</p>{% endif %}

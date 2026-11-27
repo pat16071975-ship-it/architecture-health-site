@@ -107,19 +107,22 @@ def assert_no_overflow(page, width, stage):
 
 def assert_preview(page, width, *, can_apply=True):
     assert page.get_by_role("heading", name="Новый разбор · страница 1", exact=True).is_visible()
-    assert page.locator("#ocr-review").count() == 0
     table = page.get_by_role("table", name="Товары из документа", exact=True)
-    assert table.locator("input, textarea, select").count() == 0
     row = table.locator(".ocr-row").first
-    assert row.locator('.ocr-name-cell').inner_text() == LONG_NAME
-    assert row.locator('.ocr-name-cell').evaluate("el => el.scrollHeight <= el.clientHeight + 1")
-    assert row.locator('[data-label="Количество"]').inner_text() == "4"
-    assert row.locator('[data-label="Единица"]').inner_text() == "упак"
-    assert row.locator('[data-label="Стоимость за единицу, ₽"]').inner_text() == "74.50"
-    assert "СИЗ" in row.locator('.ocr-section-cell').inner_text()
-    assert row.locator('.ocr-supplier').inner_text() == SUPPLIER
+    if can_apply:
+        assert page.locator("#ocr-review").count() == 1
+        assert row.locator('[name="name"]').input_value() == LONG_NAME
+        assert row.locator('[name="quantity"]').input_value() == "4"
+        assert row.locator('[name="unit"]').input_value() == "упак"
+        assert row.locator('.ocr-unit-cost').input_value() == "74.50"
+        assert "СИЗ" in row.locator('[name="folder_id"]').locator("option:checked").inner_text()
+        assert row.locator('.ocr-supplier').inner_text() == SUPPLIER
+        assert row.locator('[name="name"]').evaluate("el => el.scrollHeight <= el.clientHeight + 1")
+        assert page.get_by_role("button", name="Сохранить исправленный новый разбор для этой страницы").count() == 1
+    else:
+        assert page.locator("#ocr-review").count() == 0
+        assert table.locator("input, textarea, select").count() == 0
     assert page.locator('[data-ocr-view="automatic"]').get_attribute("aria-current") == "page"
-    assert page.get_by_role("button", name="Использовать для этой страницы", exact=True).count() == int(can_apply)
     assert_no_overflow(page, width, "preview")
 
 
@@ -181,7 +184,7 @@ def check_preview_and_explicit_apply(browser, width):
             assert not any(url.endswith("/automatic/apply") for url in posts)
             other_page = copy.deepcopy(state(fixture)["pages"]["2"])
             with page.expect_navigation():
-                page.get_by_role("button", name="Использовать для этой страницы", exact=True).click()
+                page.get_by_role("button", name="Сохранить исправленный новый разбор для этой страницы", exact=True).click()
             assert sum(url.endswith("/automatic/apply") for url in posts) == 1
             assert page.locator('#ocr-review [name="name"]').input_value() == LONG_NAME
             assert page.locator('#ocr-review [name="quantity"]').input_value() == "4"
@@ -300,15 +303,15 @@ def check_preview_token_cannot_select_another_page(browser):
         database_before = tuple(fixture.conn.iterdump())
         page.goto(session.origin + PATH + "?p=1&view=automatic")
         assert_preview(page, 1365)
-        first_token = page.locator('#ocr-apply-automatic [name="automatic_token"]').input_value()
+        first_token = page.locator('#ocr-review [name="automatic_token"]').input_value()
         assert tuple(fixture.conn.iterdump()) == database_before
         # Keep the preview's real token and version, changing only its hidden
         # destination page. This was accepted when tokens hashed OCR bytes only.
-        page.locator('#ocr-apply-automatic [name="page"]').evaluate("input => { input.value = '2'; }")
+        page.locator('#ocr-review [name="page"]').evaluate("input => { input.value = '2'; }")
         with page.expect_response(lambda response: response.request.method == "POST"
                                   and response.url.endswith("/automatic/apply")) as refused, \
              page.expect_navigation():
-            page.get_by_role("button", name="Использовать для этой страницы", exact=True).click()
+            page.get_by_role("button", name="Сохранить исправленный новый разбор для этой страницы", exact=True).click()
         assert refused.value.status == 409
         assert page.get_by_role("alert").is_visible()
         assert "Изменения не сохранены." in page.get_by_role("alert").inner_text()
@@ -320,14 +323,14 @@ def check_preview_token_cannot_select_another_page(browser):
 
         page.goto(session.origin + PATH + "?p=2&view=automatic")
         assert page.get_by_role("heading", name="Новый разбор · страница 2", exact=True).is_visible()
-        correct_token = page.locator('#ocr-apply-automatic [name="automatic_token"]').input_value()
+        correct_token = page.locator('#ocr-review [name="automatic_token"]').input_value()
         assert correct_token != first_token
-        assert page.locator('#ocr-apply-automatic [name="page"]').input_value() == "2"
+        assert page.locator('#ocr-review [name="page"]').input_value() == "2"
         assert tuple(fixture.conn.iterdump()) == database_before
         with page.expect_response(lambda response: response.request.method == "POST"
                                   and response.url.endswith("/automatic/apply")) as applied, \
              page.expect_navigation():
-            page.get_by_role("button", name="Использовать для этой страницы", exact=True).click()
+            page.get_by_role("button", name="Сохранить исправленный новый разбор для этой страницы", exact=True).click()
         assert applied.value.status == 303
         selected = state(fixture)
         assert selected["pages"]["1"] == pending["pages"]["1"]
