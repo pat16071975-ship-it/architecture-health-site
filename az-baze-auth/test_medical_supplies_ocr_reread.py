@@ -152,7 +152,7 @@ class AutomaticRereadRouteTests(unittest.TestCase):
         saved = self.state()["pages"]["1"]
         self.assertEqual(saved["rows"][0]["name"], form["name"])
         self.assertEqual(saved["rows"][0]["quantity"], "3")
-        self.assertEqual(saved["rows"][0]["unit_cost"], "99.33")
+        self.assertEqual(saved["rows"][0]["unit_cost"], "99.3333")
         self.assertEqual(saved["rows"][0]["folder_id"], other_folder)
         self.assertEqual(saved["rows"][0]["note"], form["note"])
         self.assertEqual(saved["header"], before_page["header"])
