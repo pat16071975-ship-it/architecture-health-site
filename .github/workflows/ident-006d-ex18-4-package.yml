@@ -1,0 +1,85 @@
+# SOURCE ONLY: build exact tested source; do not install.
+name: IDENT-006D Windows binary candidate
+on:
+  push:
+    branches: [feat/ident-006d-research-mcp-20261127]
+    paths: [.github/workflows/ident-006d-ex18-4-package.yml]
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      SOURCE_COMMIT: e0bc255f57aeb4346a14b749f27d8dcbab985b27
+    steps:
+      - name: Fetch exact tested baseline
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: e0bc255f57aeb4346a14b749f27d8dcbab985b27
+          persist-credentials: false
+      - name: Verify source and dependencies
+        run: |
+          $ErrorActionPreference='Stop'
+          if ((git rev-parse HEAD).Trim() -cne $env:SOURCE_COMMIT) { throw 'SOURCE_COMMIT' }
+          if ((git rev-parse 'HEAD^{tree}').Trim() -cne '78261cfca54cd0ae43539ec5d8accb7c0287eaad') { throw 'SOURCE_TREE' }
+          $lock=Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-006-research/src/packages.lock.json'
+          if ((Get-FileHash $lock -Algorithm SHA256).Hash.ToLowerInvariant() -cne '73a8da26a0d3e14d58effd65f73ea8df4dbac87c68f484751da1e50be448a17a') { throw 'LOCK' }
+          Write-Host 'EXACT_SOURCE=PASS; LOCK=PASS'
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          dotnet-version: '10.0.404'
+      - name: Locked build and standalone Windows self test
+        run: |
+          $ErrorActionPreference='Stop'
+          Set-Location (Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-006-research')
+          if ((dotnet --version).Trim() -cne '10.0.404') { throw 'SDK' }
+          dotnet restore src/AzIdentResearch.csproj --runtime win-x64 --locked-mode --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
+          if ($LASTEXITCODE -ne 0) { throw 'LOCKED_RESTORE' }
+          $out=Join-Path $env:RUNNER_TEMP 'ident006d-bin'
+          dotnet publish src/AzIdentResearch.csproj -c Release -r win-x64 --self-contained true --no-restore -p:TreatWarningsAsErrors=true -o $out
+          if ($LASTEXITCODE -ne 0) { throw 'PUBLISH' }
+          & (Join-Path $out 'AzIdentResearch.exe') --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'SELF_TEST' }
+          "IDENT_006D_BIN=$out" >> $env:GITHUB_ENV
+          Write-Host 'EXE_BUILD=PASS; SQL_CONNECTION=NONE; TUNNEL=NONE; SERVICE=NONE'
+      - name: Manifest and source-only ZIP
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:RUNNER_TEMP 'ident006d-candidate'
+          $payload=Join-Path $root 'payload'
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          Copy-Item -Path (Join-Path $env:IDENT_006D_BIN '*') -Destination $payload -Recurse -Force
+          $files=@(Get-ChildItem -LiteralPath $payload -File -Recurse | Sort-Object FullName | ForEach-Object {
+            $relative=$_.FullName.Substring($payload.Length+1).Replace('\','/')
+            if ($relative -match '(?i)(^|/)(config\.json|server\.cer|sql\.dpapi|.*\.(pfx|p12|key|pem))$') { throw "SECRET_IN_PACKAGE: $relative" }
+            [ordered]@{path=$relative;length=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
+          })
+          if ($files.Count -lt 1) { throw 'EMPTY_BINARY' }
+          $manifest=[ordered]@{
+            source_commit=$env:SOURCE_COMMIT
+            source_tree='78261cfca54cd0ae43539ec5d8accb7c0287eaad'
+            platform='win-x64'
+            dotnet_sdk='10.0.404'
+            mode='SOURCE_ONLY_BINARY'
+            operational_authorization='NOT_GRANTED'
+            sql_connection='NONE'
+            tunnel_started=$false
+            service_created=$false
+            files=$files
+          }
+          $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $root 'manifest.json') -Encoding utf8NoBOM
+          $zip=Join-Path $env:RUNNER_TEMP 'IDENT-006D-EX18-4-binary-source-only.zip'
+          Compress-Archive -LiteralPath $payload,(Join-Path $root 'manifest.json') -DestinationPath $zip -CompressionLevel Optimal
+          Write-Host "CANDIDATE_BINARY=PASS; SHA256=$((Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()); INSTALL=NONE"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: IDENT-006D-EX18-4-binary-source-only
+          path: ${{ runner.temp }}/IDENT-006D-EX18-4-binary-source-only.zip
+          retention-days: 14
+          if-no-files-found: error
