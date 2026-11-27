@@ -1045,20 +1045,40 @@ def automatic_proposals(parsed,page,state,items,folders,history):
     return parsed
 
 
-def automatic_draft(page_data):
+def automatic_context(*,document_id,original_sha256,page,document_version):
+    if not isinstance(original_sha256,str) or not re.fullmatch(r"[0-9a-f]{64}",original_sha256):
+        raise ValueError("Некорректная контрольная сумма документа.")
+    return {"purpose":"medical_supplies_ocr_automatic_apply","format":1,
+            "document_id":integer(document_id),"original_sha256":original_sha256,
+            "page":integer(page,1,MAX_PAGES),"document_version":integer(document_version)}
+
+
+def automatic_digest(source):
+    encoded=json.dumps(source,ensure_ascii=False,sort_keys=True,separators=(",",":"),allow_nan=False).encode("utf-8")
+    if len(encoded)>MAX_JSON:
+        raise ValueError("Превышен объём нового разбора.")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def automatic_token(scope,digest):
+    encoded=json.dumps({**scope,"automatic_sha256":digest},sort_keys=True,
+                       separators=(",",":"),allow_nan=False).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def automatic_draft(page_data,*,document_id,original_sha256,page,document_version):
     """One server-held proposal for both read-only preview and explicit choice.
 
     Manual identity is outside the goods selection. History is stored in the
     event transaction, never recursively embedded in the selected page.
     """
+    scope=automatic_context(document_id=document_id,original_sha256=original_sha256,
+                            page=page,document_version=document_version)
     source=page_data.get("automatic")
     if not isinstance(source,dict):
         return None,"", "Нового разбора для этой страницы нет."
     try:
-        encoded=json.dumps(source,ensure_ascii=False,sort_keys=True,separators=(",",":"),allow_nan=False).encode("utf-8")
-        if len(encoded)>MAX_JSON:
-            raise ValueError("size")
-        token=hashlib.sha256(encoded).hexdigest()
+        token=automatic_token(scope,automatic_digest(source))
     except (ValueError,TypeError):
         return None,"", "Новый разбор повреждён. Обновите разбор страницы."
     candidates=source.get("candidates")
@@ -1234,7 +1254,9 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             automatic_available=isinstance(data,dict) and isinstance(data.get("automatic"),dict)
             automatic_missing=(view_mode=="automatic" and not automatic_available
                                and isinstance(data,dict) and ("rows" in data or "header" in data))
-            draft,automatic_token,automatic_reason=automatic_draft(data) if isinstance(data,dict) else (
+            draft,automatic_choice,automatic_reason=automatic_draft(data,
+                document_id=row["id"],original_sha256=row["sha256"],page=page,
+                document_version=row["version"]) if isinstance(data,dict) else (
                 None,"","Нового разбора для этой страницы нет.")
             preview=view_mode=="automatic" and automatic_available
             view_mode="automatic" if preview else "current"
@@ -1274,7 +1296,7 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 has_automatic=automatic_available,automatic_available=automatic_available,
                 automatic_missing=automatic_missing,
                 can_apply_automatic=automatic_available and draft is not None and not automatic_reason,
-                automatic_unavailable_reason=automatic_reason,automatic_token=automatic_token,
+                automatic_unavailable_reason=automatic_reason,automatic_token=automatic_choice,
                 items=items,folders=folders,types=inbox.TYPES,csrf=csrf_token(),can_manage=can_manage(),
                 saved=request.args.get("saved")=="1",applied=request.args.get("applied")=="1"))
             response.headers["Cache-Control"]="private, no-store"
@@ -1381,24 +1403,33 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
         try:
             conn=db()
             row,_,state=document(conn,doc_id,raw=True)
-            page=integer(request.form.get("page"),1,MAX_PAGES)
-            version=integer(request.form.get("version"))
+            try:
+                page=integer(request.form.get("page"),1,MAX_PAGES)
+                version=integer(request.form.get("version"))
+            except ValueError:
+                raise inbox.Conflict("Откройте новый разбор перед его выбором.") from None
             token=str(request.form.get("automatic_token") or "")
             if not re.fullmatch(r"[0-9a-f]{64}",token):
-                raise ValueError("Откройте новый разбор перед его выбором.")
+                raise inbox.Conflict("Откройте новый разбор перед его выбором.")
             previous=state["pages"].get(str(page))
             if not isinstance(previous,dict):
-                raise ValueError("Сначала распознайте страницу.")
+                raise inbox.Conflict("Разбор страницы изменился. Откройте его ещё раз.")
+            context={"document_id":row["id"],"original_sha256":row["sha256"],
+                     "page":page,"document_version":version}
+            scope=automatic_context(**context)
             marker=previous.get("automatic_applied",{})
             if (isinstance(marker,dict) and "automatic" not in previous
-                    and marker.get("token")==token and marker.get("to_version")==row["version"]
-                    and version in (marker.get("from_version"),marker.get("to_version"))):
+                    and marker.get("scope")==scope and marker.get("from_version")==version
+                    and marker.get("to_version")==row["version"]==version+1
+                    and isinstance(marker.get("automatic_sha256"),str)
+                    and re.fullmatch(r"[0-9a-f]{64}",marker["automatic_sha256"])
+                    and marker.get("token")==token==automatic_token(scope,marker["automatic_sha256"])):
                 # Only an immediate duplicate, with no intervening document
                 # edit, can succeed without another write or history event.
                 return redirect(url_for("medical_supplies_ocr_page",doc_id=doc_id,p=page,applied=1),code=303)
             if version!=row["version"]:
                 raise inbox.Conflict("Карточка изменилась. Обновите страницу.")
-            selected,expected,reason=automatic_draft(previous)
+            selected,expected,reason=automatic_draft(previous,**context)
             if token!=expected:
                 raise inbox.Conflict("Новый разбор изменился. Откройте его ещё раз.")
             if selected is None or reason:
@@ -1407,12 +1438,14 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 old=current["pages"].get(str(page))
                 if not isinstance(old,dict):
                     raise inbox.Conflict("Разбор страницы изменился.")
-                chosen,current_token,current_reason=automatic_draft(old)
+                chosen,current_token,current_reason=automatic_draft(old,**context)
                 if current_token!=token:
                     raise inbox.Conflict("Новый разбор изменился. Откройте его ещё раз.")
                 if chosen is None or current_reason:
                     raise ValueError(current_reason or "Новый разбор нельзя выбрать.")
-                chosen["automatic_applied"]={"token":token,"from_version":version,"to_version":version+1}
+                chosen["automatic_applied"]={"token":token,"scope":scope,
+                    "automatic_sha256":automatic_digest(old["automatic"]),
+                    "from_version":version,"to_version":version+1}
                 current["pages"][str(page)]=chosen
             store(conn,doc_id,version,row["sha256"],choose,g.user["id"],"ocr_automatic_apply",
                 {"page":page,"rows":len(selected["rows"]),"checked":False,

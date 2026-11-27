@@ -283,6 +283,73 @@ def check_missing_preview_and_initial_recognition(browser):
         print("MED_OCR_REREAD_BROWSER MISSING_PREVIEW_HINT_INITIAL_RECOGNITION_PASS", flush=True)
 
 
+def check_preview_token_cannot_select_another_page(browser):
+    """Equal OCR bytes do not authorize applying a different page's preview."""
+    with local_session(browser, 1365) as session:
+        page, fixture = session.page, session.fixture
+        pending = copy.deepcopy(session.old)
+        automatic = parsed_page(session.folder_id)
+        for number, suffix in (("1", "первая страница"), ("2", "вторая страница")):
+            pending["pages"][number]["rows"][0]["name"] = OLD_NAME + " — " + suffix
+            pending["pages"][number]["automatic"] = copy.deepcopy(automatic)
+        fixture.conn.execute("UPDATE med_supply_documents SET fields_json=? WHERE id=1",
+                             (json.dumps({ocr.KEY: pending}, ensure_ascii=False),))
+        fixture.conn.commit()
+        assert pending["pages"]["1"]["automatic"] == pending["pages"]["2"]["automatic"]
+        before = saved_snapshot(fixture)
+        database_before = tuple(fixture.conn.iterdump())
+        page.goto(session.origin + PATH + "?p=1&view=automatic")
+        assert_preview(page, 1365)
+        first_token = page.locator('#ocr-apply-automatic [name="automatic_token"]').input_value()
+        assert tuple(fixture.conn.iterdump()) == database_before
+        # Keep the preview's real token and version, changing only its hidden
+        # destination page. This was accepted when tokens hashed OCR bytes only.
+        page.locator('#ocr-apply-automatic [name="page"]').evaluate("input => { input.value = '2'; }")
+        with page.expect_response(lambda response: response.request.method == "POST"
+                                  and response.url.endswith("/automatic/apply")) as refused, \
+             page.expect_navigation():
+            page.get_by_role("button", name="Использовать для этой страницы", exact=True).click()
+        assert refused.value.status == 409
+        assert page.get_by_role("alert").is_visible()
+        assert "Изменения не сохранены." in page.get_by_role("alert").inner_text()
+        assert page.get_by_role("link", name="Вернуться к медрасходке", exact=True).is_visible()
+        assert tuple(fixture.conn.iterdump()) == database_before
+        assert saved_snapshot(fixture) == before
+        assert state(fixture) == pending
+        assert_no_overflow(page, 1365, "wrong-page token rejected")
+
+        page.goto(session.origin + PATH + "?p=2&view=automatic")
+        assert page.get_by_role("heading", name="Новый разбор · страница 2", exact=True).is_visible()
+        correct_token = page.locator('#ocr-apply-automatic [name="automatic_token"]').input_value()
+        assert correct_token != first_token
+        assert page.locator('#ocr-apply-automatic [name="page"]').input_value() == "2"
+        assert tuple(fixture.conn.iterdump()) == database_before
+        with page.expect_response(lambda response: response.request.method == "POST"
+                                  and response.url.endswith("/automatic/apply")) as applied, \
+             page.expect_navigation():
+            page.get_by_role("button", name="Использовать для этой страницы", exact=True).click()
+        assert applied.value.status == 303
+        selected = state(fixture)
+        assert selected["pages"]["1"] == pending["pages"]["1"]
+        assert selected["pages"]["2"]["rows"][0]["name"] == LONG_NAME
+        assert not selected["pages"]["2"]["checked"]
+        assert "automatic" not in selected["pages"]["2"]
+        assert fixture.get_doc()["version"] == before[1] + 1
+        assert saved_snapshot(fixture)[2] == before[2] + 1
+        event = fixture.conn.execute("SELECT action,before_json FROM med_supply_document_events "
+                                     "ORDER BY id DESC LIMIT 1").fetchone()
+        assert event["action"] == "ocr_automatic_apply"
+        archived = json.loads(event["before_json"])
+        assert archived["page"] == 2
+        assert archived["page_data"] == pending["pages"]["2"]
+        assert page.locator('#ocr-review [name="page"]').input_value() == "2"
+        assert page.locator('#ocr-review [name="name"]').input_value() == LONG_NAME
+        assert bytes(fixture.get_doc()["original_bytes"]) == session.original
+        assert OCRRouteTests.snapshot_stock(fixture) == session.stock
+        assert not session.errors, session.errors
+        print("MED_OCR_REREAD_BROWSER PAGE_TOKEN_BINDING_409_NO_WRITES_CORRECT_PAGE_APPLY_PASS", flush=True)
+
+
 if __name__ == "__main__":
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
@@ -293,5 +360,6 @@ if __name__ == "__main__":
                 check_preview_and_explicit_apply(browser, width)
             check_partial_failure_and_readonly(browser)
             check_missing_preview_and_initial_recognition(browser)
+            check_preview_token_cannot_select_another_page(browser)
         finally:
             browser.close()

@@ -90,14 +90,15 @@ class AutomaticRereadRouteTests(unittest.TestCase):
         )
         self.conn.commit()
 
-    def context(self, *, page=1, view="current", uid=2):
+    def context(self, *, page=1, view="current", uid=2, doc_id=1):
         captured = []
 
         def capture(sender, template, context, **extra):
             if template.name == "medical_supplies_ocr.html":
                 captured.append(context)
 
-        url = fixtures.PREFIX + "?p=" + str(page) + "&view=" + view
+        url = (f"/accounting/medical-supplies/incoming/{doc_id}/ocr"
+               + "?p=" + str(page) + "&view=" + view)
         with template_rendered.connected_to(capture, self.app):
             response = self.client(uid).get(url)
         self.assertEqual(response.status_code, 200, response.get_data(as_text=True))
@@ -105,15 +106,17 @@ class AutomaticRereadRouteTests(unittest.TestCase):
         captured[0]["_rendered_html"] = response.get_data(as_text=True)
         return captured[0]
 
-    def apply(self, *, version=2, page=1, uid=2, token=None, **overrides):
+    def apply(self, *, version=2, page=1, uid=2, token=None, doc_id=1, **overrides):
         if token is None:
-            token = self.context(page=page, view="automatic")["automatic_token"]
+            token = self.context(page=page, view="automatic", doc_id=doc_id)["automatic_token"]
         form = {
             "csrf": "token", "version": str(version), "page": str(page),
             "automatic_token": token,
         }
         form.update(overrides)
-        return self.client(uid).post(APPLY, data=form)
+        return self.client(uid).post(
+            f"/accounting/medical-supplies/incoming/{doc_id}/ocr/automatic/apply", data=form
+        )
 
     def events(self):
         return list(self.conn.execute(
@@ -322,7 +325,7 @@ class AutomaticRereadRouteTests(unittest.TestCase):
             self.assertEqual(self.apply(uid=uid, token=token).status_code, 403)
         self.assertIn(self.apply(uid=None, token=token).status_code, (302, 303))
         self.assertEqual(self.apply(token=token, csrf="wrong").status_code, 400)
-        self.assertEqual(self.apply(token="").status_code, 400)
+        self.assertEqual(self.apply(token="").status_code, 409)
         self.assertIn(self.apply(token="0" * 64).status_code, (400, 409))
         self.assertEqual(list(self.conn.iterdump()), before)
 
@@ -334,7 +337,7 @@ class AutomaticRereadRouteTests(unittest.TestCase):
         before = list(self.conn.iterdump())
         self.assertEqual(self.apply(version=1, token=token).status_code, 409)
         self.assertIn(self.apply(page=2, token=token).status_code, (400, 409))
-        self.assertIn(self.apply(page=3, token=token).status_code, (400, 404))
+        self.assertEqual(self.apply(page=3, token=token).status_code, 409)
         self.assertEqual(list(self.conn.iterdump()), before)
         fields = json.loads(self.get_doc()["fields_json"])
         fields[ocr.KEY]["pages"]["1"]["automatic"]["candidates"][0]["value"] = "10.01"
@@ -344,6 +347,119 @@ class AutomaticRereadRouteTests(unittest.TestCase):
         changed = list(self.conn.iterdump())
         self.assertIn(self.apply(token=token).status_code, (400, 409))
         self.assertEqual(list(self.conn.iterdump()), changed)
+
+    def test_identical_automatic_is_bound_to_the_page_selected_in_preview(self):
+        first = self.manual_page()
+        second = copy.deepcopy(first)
+        second["rows"][0]["name"] = "Сохранённая строка другой страницы"
+        second["header"].update(number="OTHER-PAGE", part=9)
+        self.seed(first, other_page=second)
+        self.assertEqual(first["automatic"], second["automatic"])
+        first_token = self.context(page=1, view="automatic")["automatic_token"]
+        second_token = self.context(page=2, view="automatic")["automatic_token"]
+        before = list(self.conn.iterdump())
+        response = self.apply(page=2, token=first_token)
+        self.assertEqual(response.status_code, 409, response.get_data(as_text=True))
+        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assertNotEqual(first_token, second_token)
+        self.assertEqual(self.apply(page=2, token=second_token).status_code, 303)
+        self.assertEqual(self.state()["pages"]["1"], first)
+        event = json.loads(self.events()[0]["before_json"])
+        self.assertEqual((event["page"], event["page_data"]), (2, second))
+
+    def test_identical_automatic_is_bound_to_document_with_a_different_original(self):
+        first = self.manual_page()
+        self.seed(first)
+        self.assertEqual(self.upload(raw=fixtures.make_pdf(), filename="synthetic-second.pdf").status_code, 303)
+        second = copy.deepcopy(first)
+        second["rows"][0]["name"] = "Сохранённая строка другого документа"
+        second["header"].update(number="OTHER-DOCUMENT", part=4)
+        fields = {ocr.KEY: {"page_count": 1, "pages": {"1": second}}}
+        self.conn.execute(
+            "UPDATE med_supply_documents SET fields_json=?,version=2,status='reviewed' WHERE id=2",
+            (json.dumps(fields, ensure_ascii=False),),
+        )
+        self.conn.commit()
+        self.assertNotEqual(self.get_doc(1)["sha256"], self.get_doc(2)["sha256"])
+        self.assertEqual(first["automatic"], second["automatic"])
+        first_token = self.context(doc_id=1, view="automatic")["automatic_token"]
+        second_token = self.context(doc_id=2, view="automatic")["automatic_token"]
+        before = list(self.conn.iterdump())
+        response = self.apply(doc_id=2, token=first_token)
+        self.assertEqual(response.status_code, 409, response.get_data(as_text=True))
+        self.assertEqual(list(self.conn.iterdump()), before)
+        self.assertNotEqual(first_token, second_token)
+        document_one = tuple(self.get_doc(1))
+        self.assertEqual(self.apply(doc_id=2, token=second_token).status_code, 303)
+        self.assertEqual(tuple(self.get_doc(1)), document_one)
+
+    def test_document_id_still_binds_token_when_source_and_original_sha_are_identical(self):
+        # The inbox deduplicates original SHA values. Test the same-SHA scope
+        # directly without weakening or removing that database constraint.
+        page = self.manual_page()
+        original = copy.deepcopy(page)
+        context = {"original_sha256": "a" * 64, "page": 1, "document_version": 2}
+        draft_one, token_one, reason_one = ocr.automatic_draft(page, document_id=1, **context)
+        draft_two, token_two, reason_two = ocr.automatic_draft(page, document_id=2, **context)
+        self.assertFalse(reason_one)
+        self.assertFalse(reason_two)
+        self.assertEqual(draft_one, draft_two)
+        self.assertNotEqual(token_one, token_two)
+        self.assertEqual(ocr.automatic_draft(page, document_id=1, **context)[1], token_one)
+        self.assertEqual(page, original)
+
+    def test_old_preview_token_cannot_be_promoted_by_posting_the_new_current_version(self):
+        self.seed()
+        token = self.context(view="automatic")["automatic_token"]
+        # A genuine review save changes the version and manual rows while
+        # leaving the pending automatic result byte-for-byte unchanged.
+        automatic = copy.deepcopy(self.state()["pages"]["1"]["automatic"])
+        saved = self.client(2).post(fixtures.PREFIX + "/save", data={
+            "csrf": "token", "version": "2", "page": "1", "review_scope": "goods",
+            "row_index": "0", "source_line": "2", "value_edited": "0",
+            "name": "Изменено после предпросмотра", "unit": "упак", "quantity": "17",
+            "price": "120.50", "value": "91.01", "action": "new", "item_id": "",
+            "folder_id": str(self.folder_id), "note": "Сохранить в истории", "checked": "",
+        })
+        self.assertEqual(saved.status_code, 303, saved.get_data(as_text=True))
+        self.assertEqual(self.get_doc()["version"], 3)
+        self.assertEqual(self.state()["pages"]["1"]["automatic"], automatic)
+        before = list(self.conn.iterdump())
+        response = self.apply(version=3, token=token)
+        self.assertEqual(response.status_code, 409, response.get_data(as_text=True))
+        self.assertEqual(list(self.conn.iterdump()), before)
+        fresh = self.context(view="automatic")["automatic_token"]
+        self.assertNotEqual(fresh, token)
+        self.assertEqual(self.apply(version=3, token=fresh).status_code, 303)
+
+    def test_valid_original_replacement_without_version_bump_invalidates_preview_token(self):
+        self.seed()
+        token = self.context(view="automatic")["automatic_token"]
+        raw = bytes(self.get_doc()["original_bytes"]) + b"\n"
+        self.conn.execute(
+            "UPDATE med_supply_documents SET original_bytes=?,size_bytes=?,sha256=? WHERE id=1",
+            (raw, len(raw), hashlib.sha256(raw).hexdigest()),
+        )
+        self.conn.commit()
+        self.assertEqual(self.get_doc()["version"], 2)
+        before = list(self.conn.iterdump())
+        response = self.apply(token=token)
+        self.assertEqual(response.status_code, 409, response.get_data(as_text=True))
+        self.assertEqual(list(self.conn.iterdump()), before)
+        fresh = self.context(view="automatic")["automatic_token"]
+        self.assertNotEqual(fresh, token)
+        self.assertEqual(self.apply(token=fresh).status_code, 303)
+
+    def test_legacy_token_over_only_the_automatic_source_is_rejected(self):
+        self.seed()
+        source = self.state()["pages"]["1"]["automatic"]
+        legacy = hashlib.sha256(json.dumps(
+            source, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")).hexdigest()
+        before = list(self.conn.iterdump())
+        response = self.apply(token=legacy)
+        self.assertEqual(response.status_code, 409, response.get_data(as_text=True))
+        self.assertEqual(list(self.conn.iterdump()), before)
 
     def test_archive_event_failure_rolls_back_replacement_version_and_status(self):
         self.seed()
@@ -412,6 +528,17 @@ class AutomaticRereadRouteTests(unittest.TestCase):
         token = self.context(view="automatic")["automatic_token"]
         self.assertEqual(self.apply(token=token).status_code, 303)
         applied = list(self.conn.iterdump())
+        marker = self.state()["pages"]["1"]["automatic_applied"]
+        self.assertEqual(marker["scope"], {
+            "purpose": "medical_supplies_ocr_automatic_apply", "format": 1,
+            "document_id": 1, "original_sha256": self.get_doc()["sha256"],
+            "page": 1, "document_version": 2,
+        })
+        self.assertEqual((marker["from_version"], marker["to_version"], marker["token"]), (2, 3, token))
+        # The exact old request may be retried. Changing its version is a
+        # different request, even when it names the current live version.
+        self.assertEqual(self.apply(version=3, token=token).status_code, 409)
+        self.assertEqual(list(self.conn.iterdump()), applied)
         self.assertEqual(self.apply(token=token).status_code, 303)
         self.assertEqual(list(self.conn.iterdump()), applied)
         self.assertEqual(len(self.events()), 1)
@@ -420,6 +547,25 @@ class AutomaticRereadRouteTests(unittest.TestCase):
         edited = list(self.conn.iterdump())
         self.assertEqual(self.apply(token=token).status_code, 409)
         self.assertEqual(list(self.conn.iterdump()), edited)
+
+    def test_idempotent_retry_rechecks_marker_scope_instead_of_only_its_saved_token(self):
+        self.seed()
+        token = self.context(view="automatic")["automatic_token"]
+        self.assertEqual(self.apply(token=token).status_code, 303)
+        fields = json.loads(self.get_doc()["fields_json"])
+        for key, value in (("document_id", 2), ("page", 2), ("original_sha256", "f" * 64),
+                           ("document_version", 1), ("purpose", "another_action"), ("format", 2)):
+            with self.subTest(scope_field=key):
+                altered = copy.deepcopy(fields)
+                marker = altered[ocr.KEY]["pages"]["1"]["automatic_applied"]
+                marker["scope"][key] = value
+                self.conn.execute("UPDATE med_supply_documents SET fields_json=? WHERE id=1",
+                                  (json.dumps(altered, ensure_ascii=False),))
+                self.conn.commit()
+                before = list(self.conn.iterdump())
+                response = self.apply(token=token)
+                self.assertEqual(response.status_code, 409, response.get_data(as_text=True))
+                self.assertEqual(list(self.conn.iterdump()), before)
 
     def test_repeated_application_keeps_history_outside_the_current_page(self):
         self.seed()
