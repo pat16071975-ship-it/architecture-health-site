@@ -356,7 +356,6 @@ def check_preview_token_cannot_select_another_page(browser):
 def check_edit_preview_unit_cost_and_section(browser):
     with local_session(browser, 1365) as session:
         page, fixture = session.page, session.fixture
-        old_page = copy.deepcopy(state(fixture)["pages"]["1"])
         fields = json.loads(fixture.get_doc()["fields_json"])
         fields[ocr.KEY]["pages"]["1"]["automatic"] = parsed_page(session.folder_id)
         fixture.conn.execute(
@@ -367,6 +366,7 @@ def check_edit_preview_unit_cost_and_section(browser):
             "INSERT INTO med_supply_folders(name) VALUES('Другой подраздел для проверки')"
         ).lastrowid
         fixture.conn.commit()
+        old_page = copy.deepcopy(state(fixture)["pages"]["1"])
         original_snapshot = saved_snapshot(fixture)
         original_stock = OCRRouteTests.snapshot_stock(fixture)
         page.goto(session.origin + PATH + "?p=1&view=automatic")
