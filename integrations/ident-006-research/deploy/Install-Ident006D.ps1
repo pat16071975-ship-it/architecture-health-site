@@ -77,7 +77,7 @@ function Inspect-Package([string]$archivePath,[string]$sha) {
   if ($actual.Count -ne $files.Count) {
    Write-Host "PACKAGE_COUNT_ACTUAL=$($actual.Count); MANIFEST_COUNT=$($files.Count)"
    foreach($f in $actual) {
-    $relative=$f.FullName.Substring($temp.Length+1).Replace('\','/')
+    $relative=[IO.Path]::GetRelativePath($temp,$f.FullName).Replace('\','/')
     if(-not $seenFiles.Contains($relative)){Write-Host "UNLISTED_PATH=$relative"}
    }
    throw 'UNLISTED_FILE'
