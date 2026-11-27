@@ -1,0 +1,1 @@
+One-off local research only; same pinned TLS and SQL login guard as IDENT-004, no patient-level output, upload or service installation. Aggregate SELECTs must be individually reviewed and hash pinned. Lexical sanity checks are not a sandbox. Never use as a general remote SQL endpoint.

@@ -1,0 +1,54 @@
+name: IDENT one-off management report reader build
+on:
+  push:
+    branches: ['report/ident-november-2026-readonly']
+    paths: ['integrations/ident-november-report/**', '.github/workflows/ident-november-report.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          dotnet-version: '10.0.404'
+      - name: Build exact pinned SQL client
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-november-report'
+          Set-Location $root
+          '{"sdk":{"version":"10.0.404","rollForward":"disable","allowPrerelease":false}}' | Set-Content -LiteralPath 'global.json' -Encoding utf8NoBOM
+          if ((dotnet --version).Trim() -cne '10.0.404') { throw 'SDK' }
+          if ((git rev-parse HEAD:integrations/ident-november-report/guard_readonly.sql) -cne 'bd7f4dd022e859ae95c172b540518475a7748bb2') { throw 'GUARD_BLOB' }
+          if ((git rev-parse HEAD:integrations/ident-november-report/packages.lock.json) -cne 'bd8c7cc32585540d15139eddc7c8eeb2b4701b05') { throw 'LOCK_BLOB' }
+          $p=Join-Path $root 'IdentManagementReport.csproj'
+          $lock=(Get-FileHash -LiteralPath 'packages.lock.json').Hash
+          dotnet restore $p --runtime win-x64 --locked-mode --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
+          if($LASTEXITCODE -ne 0){throw 'RESTORE'}
+          $out=Join-Path $env:RUNNER_TEMP 'report-delivery'
+          dotnet publish $p -c Release -r win-x64 --self-contained true --no-restore -p:TreatWarningsAsErrors=true -o $out
+          if($LASTEXITCODE -ne 0){throw 'LOCK_CHANGED'}
+          if((Get-FileHash -LiteralPath 'packages.lock.json').Hash -cne $lock){throw 'LOCK_CHANGED'}
+          $files=@(Get-ChildItem -LiteralPath $out -Recurse -File)
+          if($files.Count -ne 1 -or $files[0].Name -cne 'IdentManagementReport.exe'){throw 'SINGLE_FILE'}
+          $env:DOTNET_BUNDLE_EXTRACT_BASE_DIR=Join-Path $env:RUNNER_TEMP 'report-smoke-cache'
+          & $files[0].FullName --self-test
+          if($LASTEXITCODE -ne 0){throw 'SELF_TEST'}
+          $sha=(Get-FileHash -LiteralPath $files[0].FullName).Hash.ToLowerInvariant()
+          Write-Host "REPORT_BUILD=PASS; EXE_SHA256=$sha; BYTES=$($files[0].Length); SQL_CONNECTION=NONE; SOURCE=$env:GITHUB_SHA"
+          Copy-Item -LiteralPath (Join-Path $root 'outbox_guard.ps1') -Destination $out
+          "REPORT_OUT=$out" >> $env:GITHUB_ENV
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: IDENT-management-report-win-x64
+          path: ${{ env.REPORT_OUT }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
