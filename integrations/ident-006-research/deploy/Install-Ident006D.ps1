@@ -83,7 +83,7 @@ function Inspect-Package([string]$archivePath,[string]$sha) {
    throw 'UNLISTED_FILE'
   }
   foreach($file in $actual) {
-   $rel=$file.FullName.Substring($temp.Length+1).Replace('\','/')
+   $rel=[IO.Path]::GetRelativePath($temp,$file.FullName).Replace('\','/')
    if (-not $seenFiles.Contains($rel)) {
     Write-Host "UNLISTED_PATH=$rel"
     Write-Host "MANIFEST_EXAMPLE=$([string]$files[0].path)"
