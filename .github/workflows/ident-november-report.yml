@@ -29,7 +29,25 @@ jobs:
           if ((git rev-parse HEAD:integrations/ident-november-report/guard_readonly.sql) -cne 'bd7f4dd022e859ae95c172b540518475a7748bb2') { throw 'GUARD_BLOB' }
           if ((git rev-parse HEAD:integrations/ident-november-report/packages.lock.json) -cne 'bd8c7cc32585540d15139eddc7c8eeb2b4701b05') { throw 'LOCK_BLOB' }
           $p=Join-Path $root 'IdentManagementReport.csproj'
+          $baseline=Get-Content -LiteralPath 'packages.lock.json' -Raw | ConvertFrom-Json -AsHashtable
+          dotnet restore $p --runtime win-x64 --use-lock-file --force-evaluate --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
+          if($LASTEXITCODE -ne 0){throw 'INITIAL_RESTORE'}
+          $resolved=Get-Content -LiteralPath 'packages.lock.json' -Raw | ConvertFrom-Json -AsHashtable
+          foreach($target in $baseline.dependencies.Keys){
+            foreach($name in $baseline.dependencies[$target].Keys){
+              $old=$baseline.dependencies[$target][$name];$new=$resolved.dependencies[$target][$name]
+              if(-not $new -or $new.resolved -cne $old.resolved -or $new.contentHash -cne $old.contentHash){throw "DEPENDENCY_DRIFT: $target $name"}
+            }
+          }
+          foreach($target in $resolved.dependencies.Keys){
+            foreach($name in $resolved.dependencies[$target].Keys){
+              if(-not $baseline.dependencies[$target].Contains($name)){
+                if($name -cne 'Microsoft.NET.ILLink.Tasks' -or $resolved.dependencies[$target][$name].resolved -cne '10.0.15'){throw "UNEXPECTED_DEPENDENCY: $target $name"}
+              }
+            }
+          }
           $lock=(Get-FileHash -LiteralPath 'packages.lock.json').Hash
+          Write-Host 'AUDITED_RUNTIME_DEPENDENCIES_UNCHANGED=PASS; SDK_SINGLE_FILE_LINK_TASK=10.0.15'
           dotnet restore $p --runtime win-x64 --locked-mode --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
           if($LASTEXITCODE -ne 0){throw 'RESTORE'}
           $out=Join-Path $env:RUNNER_TEMP 'report-delivery'
