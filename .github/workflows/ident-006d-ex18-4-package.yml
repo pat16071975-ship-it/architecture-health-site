@@ -1,9 +1,9 @@
 # SOURCE ONLY: build exact tested source; do not install.
-name: IDENT-006D Windows binary candidate
+name: IDENT-006D Windows guarded installation candidate
 on:
   push:
     branches: [feat/ident-006d-research-mcp-20261127]
-    paths: [.github/workflows/ident-006d-ex18-4-package.yml]
+    paths: [.github/workflows/ident-006d-ex18-4-package.yml, integrations/ident-006-research/service-host/**, integrations/ident-006-research/deploy/**]
 permissions:
   contents: read
 jobs:
@@ -21,13 +21,28 @@ jobs:
       - name: Fetch exact tested baseline
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: e0bc255f57aeb4346a14b749f27d8dcbab985b27
+          fetch-depth: 1
           persist-credentials: false
       - name: Verify source and dependencies
         run: |
           $ErrorActionPreference='Stop'
-          if ((git rev-parse HEAD).Trim() -cne $env:SOURCE_COMMIT) { throw 'SOURCE_COMMIT' }
-          if ((git rev-parse 'HEAD^{tree}').Trim() -cne '78261cfca54cd0ae43539ec5d8accb7c0287eaad') { throw 'SOURCE_TREE' }
+          if ((git rev-parse HEAD).Trim() -cne $env:GITHUB_SHA) { throw 'BUNDLE_HEAD' }
+          $blobs=@{
+            'src/AzIdentResearch.csproj'='67d1493e5414a017bbe05a6cec8bc0f5a9a5de68'
+            'src/Contract.cs'='cf1f38956d31f84ef3d5001606b4bb36a88ac58f'
+            'src/Output.cs'='097c11ff182b247648b1cdbaba5e9e499492670e'
+            'src/PrivateStore.cs'='26b10de0a83ed5654d905e6a7ee58e320ac15767'
+            'src/Program.cs'='ddafd3cfb2d39538bcfc72339b3bbec6ba86d1b1'
+            'src/ResearchSql.cs'='abf3f59295f7410ab7e6ec052c9acd9518d2b2c4'
+            'src/SelfTest.cs'='2d4e52e5dde7c7b44d1d75dbdf989092d0add32c'
+            'sql/guard_readonly.sql'='bd7f4dd022e859ae95c172b540518475a7748bb2'
+            'sql/primary_repeat.sql'='d399c73d494d08010500f65b60b8c64502d986da'
+            'sql/specialist_performance.sql'='c853bba11961b01b668bc2c8aa0049f2493f9afb'
+          }
+          foreach($f in $blobs.Keys){
+            $blob=(git rev-parse "HEAD:integrations/ident-006-research/$f").Trim()
+            if($LASTEXITCODE -ne 0 -or $blob -cne $blobs[$f]){throw "UNAPPROVED_CORE_CHANGE: $f"}
+          }
           $lock=Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-006-research/src/packages.lock.json'
           if ((Get-FileHash $lock -Algorithm SHA256).Hash.ToLowerInvariant() -cne '73a8da26a0d3e14d58effd65f73ea8df4dbac87c68f484751da1e50be448a17a') { throw 'LOCK' }
           Write-Host 'EXACT_SOURCE=PASS; LOCK=PASS'
@@ -48,38 +63,85 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'SELF_TEST' }
           "IDENT_006D_BIN=$out" >> $env:GITHUB_ENV
           Write-Host 'EXE_BUILD=PASS; SQL_CONNECTION=NONE; TUNNEL=NONE; SERVICE=NONE'
-      - name: Manifest and source-only ZIP
+      - name: Locked build of separate Windows service host
+        run: |
+          $ErrorActionPreference='Stop'
+          Set-Location (Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-006-research')
+          dotnet restore service-host/AzIdentResearchHost.csproj --runtime win-x64 --locked-mode --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
+          if ($LASTEXITCODE -ne 0) { throw 'HOST_LOCKED_RESTORE' }
+          $out=Join-Path $env:RUNNER_TEMP 'ident006d-host'
+          dotnet publish service-host/AzIdentResearchHost.csproj -c Release -r win-x64 --self-contained true --no-restore -p:TreatWarningsAsErrors=true -o $out
+          if ($LASTEXITCODE -ne 0) { throw 'HOST_PUBLISH' }
+          & (Join-Path $out 'AzIdentResearchHost.exe') --self-test
+          if ($LASTEXITCODE -ne 0) { throw 'HOST_SELF_TEST' }
+          "IDENT_006D_HOST_BIN=$out" >> $env:GITHUB_ENV
+          Write-Host 'HOST_BUILD=PASS; SCM=NOT_REGISTERED; SECRET=NONE'
+      - name: Pin official OpenAI Windows client and validate installer syntax
+        run: |
+          $ErrorActionPreference='Stop'
+          $url='https://github.com/openai/tunnel-client/releases/download/v0.0.21/tunnel-client-v0.0.21-windows-amd64.zip'
+          $sha='2faf80ae62b58485fcef534cd3f78cd8b82e71cb04d14c2a5c73dbb4eb6c575a'
+          $file=Join-Path $env:RUNNER_TEMP 'openai-tunnel-client.zip'
+          Invoke-WebRequest -Uri $url -OutFile $file
+          if ((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant() -cne $sha) { throw 'OFFICIAL_CLIENT_SHA256' }
+          $out=Join-Path $env:RUNNER_TEMP 'verified-tunnel-client'
+          Expand-Archive -LiteralPath $file -DestinationPath $out
+          $exe=@(Get-ChildItem $out -File -Recurse -Filter 'tunnel-client.exe')
+          if($exe.Count -ne 1){throw 'TUNNEL_CLIENT_BINARY_COUNT'}
+          & $exe[0].FullName --version
+          if($LASTEXITCODE -ne 0){throw 'TUNNEL_CLIENT_VERSION'}
+          "IDENT_006D_TUNNEL_EXE=$($exe[0].FullName)" >> $env:GITHUB_ENV
+          $installer=Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-006-research/deploy/Install-Ident006D.ps1'
+          $tokens=$null;$syntaxErrors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($installer,[ref]$tokens,[ref]$syntaxErrors)|Out-Null
+          if($syntaxErrors.Count -ne 0){
+            $syntaxErrors|ForEach-Object{Write-Host "SYNTAX_ERROR=$($_.Message)"}
+            throw 'INSTALLER_SYNTAX'
+          }
+          Write-Host 'OFFICIAL_CLIENT=PASS; INSTALLER_SYNTAX=PASS'
+      - name: Manifest, hashes, source-only ZIP and offline package inspection
         run: |
           $ErrorActionPreference='Stop'
           $root=Join-Path $env:RUNNER_TEMP 'ident006d-candidate'
           $payload=Join-Path $root 'payload'
-          New-Item -ItemType Directory -Force -Path $payload | Out-Null
-          Copy-Item -Path (Join-Path $env:IDENT_006D_BIN '*') -Destination $payload -Recurse -Force
-          $files=@(Get-ChildItem -LiteralPath $payload -File -Recurse | Sort-Object FullName | ForEach-Object {
-            $relative=$_.FullName.Substring($payload.Length+1).Replace('\','/')
-            if ($relative -match '(?i)(^|/)(config\.json|server\.cer|sql\.dpapi|.*\.(pfx|p12|key|pem))$') { throw "SECRET_IN_PACKAGE: $relative" }
+          $tools=Join-Path $root 'tools'
+          foreach($name in @('bridge','host','tunnel')){New-Item -ItemType Directory -Force -Path (Join-Path $payload $name)|Out-Null}
+          New-Item -ItemType Directory -Force -Path $tools|Out-Null
+          Copy-Item -Path (Join-Path $env:IDENT_006D_BIN '*') -Destination (Join-Path $payload 'bridge') -Recurse -Force
+          Copy-Item -Path (Join-Path $env:IDENT_006D_HOST_BIN '*') -Destination (Join-Path $payload 'host') -Recurse -Force
+          Copy-Item -LiteralPath $env:IDENT_006D_TUNNEL_EXE -Destination (Join-Path $payload 'tunnel/tunnel-client.exe')
+          Copy-Item -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-006-research/deploy/Install-Ident006D.ps1') -Destination (Join-Path $tools 'Install-Ident006D.ps1')
+          $files=@(Get-ChildItem -LiteralPath $root -File -Recurse | Sort-Object FullName | ForEach-Object {
+            $relative=$_.FullName.Substring($root.Length+1).Replace('\','/')
+            if ($relative -match '(?i)(^|/)(config\.json|server\.cer|sql\.dpapi|tunnel-runtime\.dpapi|.*\.(pfx|p12|key|pem))$') { throw "PRIVATE_MATERIAL_IN_PACKAGE: $relative" }
             [ordered]@{path=$relative;length=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
           })
-          if ($files.Count -lt 1) { throw 'EMPTY_BINARY' }
+          if ($files.Count -lt 3) { throw 'PACKAGE_FILES_MISSING' }
           $manifest=[ordered]@{
             source_commit=$env:SOURCE_COMMIT
             source_tree='78261cfca54cd0ae43539ec5d8accb7c0287eaad'
+            bundle_commit=$env:GITHUB_SHA
+            bundle_tree=(git rev-parse 'HEAD^{tree}').Trim()
             platform='win-x64'
             dotnet_sdk='10.0.404'
-            mode='SOURCE_ONLY_BINARY'
-            operational_authorization='NOT_GRANTED'
-            sql_connection='NONE'
-            tunnel_started=$false
-            service_created=$false
+            mode='SOURCE_ONLY_CANDIDATE'
+            installation='NOT_EXECUTED'
+            real_ident='NONE'
+            official_tunnel_client='v0.0.21'
+            official_tunnel_archive_sha256='2faf80ae62b58485fcef534cd3f78cd8b82e71cb04d14c2a5c73dbb4eb6c575a'
             files=$files
           }
           $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $root 'manifest.json') -Encoding utf8NoBOM
-          $zip=Join-Path $env:RUNNER_TEMP 'IDENT-006D-EX18-4-binary-source-only.zip'
-          Compress-Archive -LiteralPath $payload,(Join-Path $root 'manifest.json') -DestinationPath $zip -CompressionLevel Optimal
-          Write-Host "CANDIDATE_BINARY=PASS; SHA256=$((Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()); INSTALL=NONE"
+          $zip=Join-Path $env:RUNNER_TEMP 'IDENT-006D-EX18-4-source-only-candidate.zip'
+          Compress-Archive -Path (Join-Path $root '*') -DestinationPath $zip -CompressionLevel Optimal
+          $sha=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $installer=Join-Path $tools 'Install-Ident006D.ps1'
+          & $installer -Mode CIInspect -Package $zip -ExpectedPackageSha256 $sha
+          if($LASTEXITCODE -and $LASTEXITCODE -ne 0){throw 'PACKAGE_INSPECT'}
+          Write-Host "SOURCE_ONLY_PACKAGE=PASS; ZIP_SHA256=$sha; SERVICE=NONE; SQL_CONNECTION=NONE; TUNNEL=NONE; MERGE_DEPLOY=NONE"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: IDENT-006D-EX18-4-binary-source-only
-          path: ${{ runner.temp }}/IDENT-006D-EX18-4-binary-source-only.zip
+          name: IDENT-006D-EX18-4-source-only-candidate
+          path: ${{ runner.temp }}/IDENT-006D-EX18-4-source-only-candidate.zip
           retention-days: 14
           if-no-files-found: error
