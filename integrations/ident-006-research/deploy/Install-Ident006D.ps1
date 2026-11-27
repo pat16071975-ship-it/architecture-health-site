@@ -71,8 +71,17 @@ function Inspect-Package([string]$archivePath,[string]$sha) {
    if ($found.PSIsContainer -or ($found.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $found.Length -ne [long]$file.length) {throw 'MANIFEST_SIZE'}
    if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne [string]$file.sha256) {throw 'MANIFEST_SHA256'}
   }
-  $actual=@(Get-ChildItem -LiteralPath $temp -Recurse -File | Where-Object {$_.FullName -cne $manifestPath})
-  if ($actual.Count -ne $files.Count) {throw 'UNLISTED_FILE'}
+  $payloadRoot=Join-Path $temp 'payload'
+  $toolsRoot=Join-Path $temp 'tools'
+  $actual=@(Get-ChildItem -LiteralPath @($payloadRoot,$toolsRoot) -Recurse -File)
+  if ($actual.Count -ne $files.Count) {
+   Write-Host "PACKAGE_COUNT_ACTUAL=$($actual.Count); MANIFEST_COUNT=$($files.Count)"
+   foreach($f in $actual) {
+    $relative=$f.FullName.Substring($temp.Length+1).Replace('\','/')
+    if(-not $seenFiles.Contains($relative)){Write-Host "UNLISTED_PATH=$relative"}
+   }
+   throw 'UNLISTED_FILE'
+  }
   foreach($file in $actual) {
    $rel=$file.FullName.Substring($temp.Length+1).Replace('\','/')
    if (-not $seenFiles.Contains($rel)) {throw 'UNLISTED_FILE'}
