@@ -1588,6 +1588,11 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             token=str(request.form.get("automatic_token") or "")
             if not re.fullmatch(r"[0-9a-f]{64}",token):
                 raise inbox.Conflict("Откройте новый разбор перед его выбором.")
+            editing=request.form.get("edit_review")=="1"
+            if editing and request.form.get("review_scope")!="goods":
+                # AZ-276-01: no idempotent replay or fresh application may
+                # turn the goods editor into a document-metadata editor.
+                raise ValueError("В новом разборе можно сохранять только товары.")
             previous=state["pages"].get(str(page))
             if not isinstance(previous,dict):
                 raise inbox.Conflict("Разбор страницы изменился. Откройте его ещё раз.")
@@ -1611,12 +1616,6 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                 raise inbox.Conflict("Новый разбор изменился. Откройте его ещё раз.")
             if selected is None or reason:
                 raise ValueError(reason or "Новый разбор нельзя выбрать.")
-            editing=request.form.get("edit_review")=="1"
-            if editing and request.form.get("review_scope")!="goods":
-                # AZ-276-01: an OCR goods preview may NEVER edit document
-                # metadata. An attacker can submit review_scope=document even
-                # though the browser offers only the goods editor.
-                raise ValueError("В новом разборе можно сохранять только товары.")
             # The automatic token authenticates only the source proposal.
             # Edited fields are parsed against that exact server-held proposal,
             # never against untrusted posted OCR candidates or the old manual page.
