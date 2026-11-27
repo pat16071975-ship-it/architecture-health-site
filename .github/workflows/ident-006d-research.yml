@@ -1,4 +1,4 @@
-name: IDENT-006D research core source build
+name: IDENT-006D source build and synthetic laboratory
 on:
   push:
     branches: ['feat/ident-006d-research-mcp-20261127']
@@ -22,46 +22,86 @@ jobs:
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
         with:
           dotnet-version: '10.0.404'
-      - name: Restore pinned dependencies and verify source boundaries
+      - name: Verify unchanged production source and committed locks
         run: |
           $ErrorActionPreference='Stop'
           $root=Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-006-research'
           Set-Location $root
-          '{"sdk":{"version":"10.0.404","rollForward":"disable","allowPrerelease":false}}' | Set-Content -LiteralPath 'global.json' -Encoding utf8NoBOM
-          if ((dotnet --version).Trim() -cne '10.0.404') { throw 'SDK' }
-          if ((git rev-parse HEAD:integrations/ident-006-research/sql/guard_readonly.sql) -cne 'bd7f4dd022e859ae95c172b540518475a7748bb2') { throw 'GUARD_BLOB' }
-          $p=Join-Path $root 'src/AzIdentResearch.csproj'
-          $lock=Join-Path $root 'src/packages.lock.json'
-          if(Test-Path -LiteralPath $lock){
-            dotnet restore $p --runtime win-x64 --locked-mode --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
-          }else{
-            dotnet restore $p --runtime win-x64 --use-lock-file --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
-          }
-          if($LASTEXITCODE -ne 0){throw 'RESTORE'}
-          $lockHash=(Get-FileHash -LiteralPath $lock).Hash
-          $resolved=Get-Content -LiteralPath $lock -Raw | ConvertFrom-Json -AsHashtable
-          foreach($target in $resolved.dependencies.Keys){
-            if($resolved.dependencies[$target].Contains('Microsoft.Data.SqlClient') -and $resolved.dependencies[$target]['Microsoft.Data.SqlClient'].resolved -cne '7.1.2'){throw 'SQLCLIENT_DRIFT'}
-            if($resolved.dependencies[$target].Contains('ModelContextProtocol') -and $resolved.dependencies[$target]['ModelContextProtocol'].resolved -cne '2.4.0'){throw 'MCP_SDK_DRIFT'}
-          }
-          dotnet restore $p --runtime win-x64 --locked-mode --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
-          if($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath $lock).Hash -cne $lockHash){throw 'LOCKED_RESTORE'}
-          $out=Join-Path $env:RUNNER_TEMP 'research-build'
-          dotnet publish $p -c Release -r win-x64 --self-contained true --no-restore -p:TreatWarningsAsErrors=true -o $out
-          if($LASTEXITCODE -ne 0){throw 'PUBLISH'}
-          & (Join-Path $out 'AzIdentResearch.exe') --self-test
-          if($LASTEXITCODE -ne 0){throw 'SELF_TEST'}
-          if((Get-FileHash -LiteralPath $lock).Hash -cne $lockHash){throw 'LOCK_CHANGED'}
           $evidence=Join-Path $env:RUNNER_TEMP 'research-evidence'
           New-Item -ItemType Directory -Path $evidence | Out-Null
-          Copy-Item -LiteralPath $lock -Destination $evidence
-          dotnet package list --project $p --include-transitive --no-restore --format json | Set-Content -LiteralPath (Join-Path $evidence 'dependencies.json') -Encoding utf8NoBOM
-          if($LASTEXITCODE -ne 0){throw 'DEPENDENCY_LIST'}
-          Write-Host "IDENT_006D_CORE_BUILD=PASS; LOCK_SHA256=$($lockHash.ToLowerInvariant()); EXE_SHA256=$((Get-FileHash -LiteralPath (Join-Path $out 'AzIdentResearch.exe')).Hash.ToLowerInvariant()); INSTALLATION=NONE; REAL_DATA=NONE"
           "RESEARCH_EVIDENCE=$evidence" >> $env:GITHUB_ENV
+          if ((dotnet --version).Trim() -cne '10.0.404') { throw 'SDK' }
+          $baseline=@{
+            'src/AzIdentResearch.csproj'='67d1493e5414a017bbe05a6cec8bc0f5a9a5de68'
+            'src/Contract.cs'='cf1f38956d31f84ef3d5001606b4bb36a88ac58f'
+            'src/Output.cs'='097c11ff182b247648b1cdbaba5e9e499492670e'
+            'src/PrivateStore.cs'='26b10de0a83ed5654d905e6a7ee58e320ac15767'
+            'src/Program.cs'='ddafd3cfb2d39538bcfc72339b3bbec6ba86d1b1'
+            'src/ResearchSql.cs'='abf3f59295f7410ab7e6ec052c9acd9518d2b2c4'
+            'src/SelfTest.cs'='2d4e52e5dde7c7b44d1d75dbdf989092d0add32c'
+            'sql/guard_readonly.sql'='bd7f4dd022e859ae95c172b540518475a7748bb2'
+            'sql/primary_repeat.sql'='d399c73d494d08010500f65b60b8c64502d986da'
+            'sql/specialist_performance.sql'='c853bba11961b01b668bc2c8aa0049f2493f9afb'
+          }
+          foreach($file in $baseline.Keys){
+            $blob=git rev-parse "HEAD:integrations/ident-006-research/$file"
+            if($LASTEXITCODE -ne 0 -or $blob -cne $baseline[$file]){throw "PRODUCTION_SOURCE_CHANGED: $file"}
+          }
+          $expectedLock='73a8da26a0d3e14d58effd65f73ea8df4dbac87c68f484751da1e50be448a17a'
+          foreach($kind in @('src','tests')){
+            $lock=Join-Path $root "$kind/packages.lock.json"
+            if(!(Test-Path -LiteralPath $lock)){throw "COMMITTED_LOCK_REQUIRED: $kind"}
+            if((Get-FileHash -LiteralPath $lock).Hash.ToLowerInvariant() -cne $expectedLock){throw "LOCK_BASELINE: $kind"}
+            Copy-Item -LiteralPath $lock -Destination (Join-Path $evidence "$kind.packages.lock.json")
+          }
+          @{
+            head=(git rev-parse HEAD)
+            tree=(git rev-parse 'HEAD^{tree}')
+            baseline_head='56a18a74095028646ba975dfa4a963a480a20350'
+            sdk='10.0.404'
+            lock_sha256=$expectedLock
+            unchanged_production_blobs=$baseline
+            source_only=$true
+            real_data='none'
+            installation='none'
+          } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $evidence 'source.json') -Encoding utf8NoBOM
+      - name: Locked restore, publish and existing self-test
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-006-research'
+          Set-Location $root
+          $p=Join-Path $root 'src/AzIdentResearch.csproj'
+          dotnet restore $p --runtime win-x64 --locked-mode --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
+          if($LASTEXITCODE -ne 0){throw 'CORE_LOCKED_RESTORE'}
+          $out=Join-Path $env:RUNNER_TEMP 'research-build'
+          dotnet publish $p -c Release -r win-x64 --self-contained true --no-restore -p:TreatWarningsAsErrors=true -o $out
+          if($LASTEXITCODE -ne 0){throw 'CORE_PUBLISH'}
+          & (Join-Path $out 'AzIdentResearch.exe') --self-test | Tee-Object -FilePath (Join-Path $env:RESEARCH_EVIDENCE 'core-self-test.log')
+          if($LASTEXITCODE -ne 0){throw 'CORE_SELF_TEST'}
+          dotnet package list --project $p --include-transitive --no-restore --format json | Set-Content -LiteralPath (Join-Path $env:RESEARCH_EVIDENCE 'dependencies.json') -Encoding utf8NoBOM
+          if($LASTEXITCODE -ne 0){throw 'DEPENDENCY_LIST'}
+          Write-Host "IDENT_006D_CORE_BUILD=PASS; EXE_SHA256=$((Get-FileHash -LiteralPath (Join-Path $out 'AzIdentResearch.exe')).Hash.ToLowerInvariant()); INSTALLATION=NONE; REAL_DATA=NONE"
+      - name: Synthetic SQL and real stdio MCP protocol checks
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:GITHUB_WORKSPACE 'integrations/ident-006-research'
+          Set-Location $root
+          $p=Join-Path $root 'tests/AzIdentResearch.Lab.csproj'
+          dotnet restore $p --runtime win-x64 --locked-mode --configfile NuGet.Config -p:Configuration=Release -p:SelfContained=true -p:TreatWarningsAsErrors=true
+          if($LASTEXITCODE -ne 0){throw 'LAB_LOCKED_RESTORE'}
+          $out=Join-Path $env:RUNNER_TEMP 'research-lab'
+          dotnet publish $p -c Release -r win-x64 --self-contained true --no-restore -p:TreatWarningsAsErrors=true -o $out
+          if($LASTEXITCODE -ne 0){throw 'LAB_PUBLISH'}
+          & (Join-Path $out 'AzIdentResearch.Lab.exe') --lab 2>&1 | Tee-Object -FilePath (Join-Path $env:RESEARCH_EVIDENCE 'synthetic-lab.log')
+          if($LASTEXITCODE -ne 0){throw 'SYNTHETIC_LAB'}
+          foreach($kind in @('src','tests')){
+            if((Get-FileHash -LiteralPath "$kind/packages.lock.json").Hash.ToLowerInvariant() -cne '73a8da26a0d3e14d58effd65f73ea8df4dbac87c68f484751da1e50be448a17a'){throw "LOCK_CHANGED: $kind"}
+          }
+          Write-Host 'IDENT_006D_SOURCE_LAB=PASS; BUSINESS_RULES=UNCHANGED; REAL_IDENT=NONE; SERVICE_INSTALLATION=NONE; TUNNEL=NONE; MERGE_DEPLOY=NONE'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always() && env.RESEARCH_EVIDENCE != ''
         with:
-          name: IDENT-006D-core-lock-and-evidence
+          name: IDENT-006D-source-lab-evidence
           path: ${{ env.RESEARCH_EVIDENCE }}
           retention-days: 14
           if-no-files-found: error
