@@ -357,6 +357,12 @@ def check_edit_preview_unit_cost_and_section(browser):
     with local_session(browser, 1365) as session:
         page, fixture = session.page, session.fixture
         old_page = copy.deepcopy(state(fixture)["pages"]["1"])
+        fields = json.loads(fixture.get_doc()["fields_json"])
+        fields[ocr.KEY]["pages"]["1"]["automatic"] = parsed_page(session.folder_id)
+        fixture.conn.execute(
+            "UPDATE med_supply_documents SET fields_json=? WHERE id=1",
+            (json.dumps(fields, ensure_ascii=False),)
+        )
         alternate = fixture.conn.execute(
             "INSERT INTO med_supply_folders(name) VALUES('Другой подраздел для проверки')"
         ).lastrowid
