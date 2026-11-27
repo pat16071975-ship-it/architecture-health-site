@@ -84,11 +84,11 @@ WITH limits AS (
     FROM islands GROUP BY metric,staff_id,grp
 ), results AS (
     SELECT metric,CONVERT(nvarchar(120),staff_id) AS staff,
-        SUM(DATEDIFF_BIG(second,s,e)) AS value
+        SUM(CONVERT(bigint,DATEDIFF(second,s,e))) AS value
     FROM merged GROUP BY metric,staff_id
     UNION ALL
-    SELECT CONCAT(metric,'_raw'),CONVERT(nvarchar(120),staff_id),
-        SUM(DATEDIFF_BIG(second,s,e))
+    SELECT metric+'_raw',CONVERT(nvarchar(120),staff_id),
+        SUM(CONVERT(bigint,DATEDIFF(second,s,e)))
     FROM intervals WHERE e>s GROUP BY metric,staff_id
     UNION ALL
     SELECT 'past_completed_count',CONVERT(nvarchar(120),v.staff_id),COUNT_BIG(*)
@@ -116,7 +116,7 @@ WITH limits AS (
       AND v.PlanEnd>v.PlanStart
     GROUP BY v.staff_id
     UNION ALL
-    SELECT 'slot_flags',CONCAT(c.ID_Staffs,':work=',c.IsWorkingTime,':header=',c.IsHeaderCell,':reserve=',CASE WHEN c.ID_TimeReserves IS NULL THEN 0 ELSE 1 END),
+    SELECT 'slot_flags',CONVERT(nvarchar(20),c.ID_Staffs)+':work='+CONVERT(nvarchar(1),c.IsWorkingTime)+':header='+CONVERT(nvarchar(1),c.IsHeaderCell)+':reserve='+CASE WHEN c.ID_TimeReserves IS NULL THEN '0' ELSE '1' END,
         COUNT_BIG(*)
     FROM dbo.CurrentTimeTable c CROSS JOIN limits l
     WHERE c.DateOfWork>=l.month_start AND c.DateOfWork<l.month_end AND c.ID_Staffs IS NOT NULL
@@ -125,31 +125,30 @@ WITH limits AS (
     SELECT 'slot_bad_duration',CONVERT(nvarchar(120),staff_id),COUNT_BIG(*)
     FROM work_slots WHERE TimeEndValue<=TimeStartValue GROUP BY staff_id
     UNION ALL
-    SELECT 'slot_length_seconds',CONCAT(CONVERT(varchar(16),t.TimeStartValue),'-',CONVERT(varchar(16),t.TimeEndValue)),
-        CONVERT(bigint,DATEDIFF(second,t.TimeStartValue,t.TimeEndValue))
-    FROM dbo.Times t
-    WHERE EXISTS(SELECT 1 FROM dbo.CurrentTimeTable c CROSS JOIN limits l
-        WHERE c.ID_Times=t.ID AND c.DateOfWork>=l.month_start AND c.DateOfWork<l.month_end
-          AND c.ID_Staffs IS NOT NULL AND c.IsWorkingTime=1 AND c.IsHeaderCell=0)
+    SELECT 'slot_length_count',CONVERT(nvarchar(120),DATEDIFF(second,TimeStartValue,TimeEndValue)),COUNT_BIG(*)
+    FROM work_slots GROUP BY DATEDIFF(second,TimeStartValue,TimeEndValue)
     UNION ALL
-    SELECT 'column',CONCAT(o.name,'.',c.name,':',ty.name,CASE WHEN c.is_nullable=1 THEN ':null' ELSE ':notnull' END),
+    SELECT 'engine_version',CONVERT(nvarchar(120),SERVERPROPERTY('ProductVersion')),CONVERT(bigint,compatibility_level)
+    FROM sys.databases WHERE database_id=DB_ID()
+    UNION ALL
+    SELECT 'column',o.name+'.'+c.name+':'+ty.name+CASE WHEN c.is_nullable=1 THEN ':null' ELSE ':notnull' END,
         CONVERT(bigint,c.column_id)
     FROM sys.objects o JOIN sys.columns c ON c.object_id=o.object_id
     JOIN sys.types ty ON ty.user_type_id=c.user_type_id
     WHERE o.schema_id=SCHEMA_ID('dbo') AND o.type IN ('U','V')
       AND (o.name IN ('Persons','Orders','OrderServiceRelation','Returns','Treatments','RenderedServicesJournal',
-      'ServiceItems','ServiceFolders','ServiceFolderContents','ServiceItemContents','NSI_Positions',
-      'NSI_Specializations','OwnCompanies','TimeReserves','TimeReserveTypes','ProfessionNames','TreatDoctors')
+      'ServiceItems','ServiceFolders','NSI_Positions','NSI_Specializations','OwnCompanies','TimeReserves','TimeReserveTypes','ProfessionNames','TreatDoctors')
       OR (o.type='V' AND (o.name LIKE '%Rendered%Service%' OR o.name LIKE '%Order%Service%')))
     UNION ALL
     SELECT 'view',o.name,CONVERT(bigint,0)
     FROM sys.views o WHERE o.schema_id=SCHEMA_ID('dbo')
+      AND (o.name LIKE '%Service%' OR o.name LIKE '%Order%' OR o.name LIKE '%Reception%' OR o.name LIKE '%TimeTable%' OR o.name LIKE '%Staff%' OR o.name LIKE '%Report%' OR o.name LIKE '%Revenue%')
     UNION ALL
-    SELECT 'foreign_key',CONCAT(OBJECT_NAME(f.parent_object_id),'.',pc.name,'>',OBJECT_NAME(f.referenced_object_id),'.',rc.name),
+    SELECT 'foreign_key',OBJECT_NAME(f.parent_object_id)+'.'+pc.name+'>'+OBJECT_NAME(f.referenced_object_id)+'.'+rc.name,
         CONVERT(bigint,f.constraint_column_id)
     FROM sys.foreign_key_columns f JOIN sys.columns pc ON pc.object_id=f.parent_object_id AND pc.column_id=f.parent_column_id
     JOIN sys.columns rc ON rc.object_id=f.referenced_object_id AND rc.column_id=f.referenced_column_id
-    WHERE OBJECT_NAME(f.parent_object_id) IN ('Orders','OrderServiceRelation','Returns','Treatments','ServiceItems','ServiceFolders','ServiceFolderContents','ServiceItemContents','TimeReserves','TreatDoctors','Persons')
+    WHERE OBJECT_NAME(f.parent_object_id) IN ('Orders','OrderServiceRelation','Returns','Treatments','ServiceItems','ServiceFolders','TimeReserves','TreatDoctors')
 )
 SELECT metric,staff,value FROM results ORDER BY metric,staff
 '@
