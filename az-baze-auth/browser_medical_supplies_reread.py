@@ -107,19 +107,22 @@ def assert_no_overflow(page, width, stage):
 
 def assert_preview(page, width, *, can_apply=True):
     assert page.get_by_role("heading", name="Новый разбор · страница 1", exact=True).is_visible()
-    assert page.locator("#ocr-review").count() == 0
     table = page.get_by_role("table", name="Товары из документа", exact=True)
-    assert table.locator("input, textarea, select").count() == 0
     row = table.locator(".ocr-row").first
-    assert row.locator('.ocr-name-cell').inner_text() == LONG_NAME
-    assert row.locator('.ocr-name-cell').evaluate("el => el.scrollHeight <= el.clientHeight + 1")
-    assert row.locator('[data-label="Количество"]').inner_text() == "4"
-    assert row.locator('[data-label="Единица"]').inner_text() == "упак"
-    assert row.locator('[data-label="Стоимость за единицу, ₽"]').inner_text() == "74.50"
-    assert "СИЗ" in row.locator('.ocr-section-cell').inner_text()
-    assert row.locator('.ocr-supplier').inner_text() == SUPPLIER
+    if can_apply:
+        assert page.locator("#ocr-review").count() == 1
+        assert row.locator('[name="name"]').input_value() == LONG_NAME
+        assert row.locator('[name="quantity"]').input_value() == "4"
+        assert row.locator('[name="unit"]').input_value() == "упак"
+        assert row.locator('.ocr-unit-cost').input_value() == "74.50"
+        assert "СИЗ" in row.locator('[name="folder_id"]').locator("option:checked").inner_text()
+        assert row.locator('.ocr-supplier').inner_text() == SUPPLIER
+        assert row.locator('[name="name"]').evaluate("el => el.scrollHeight <= el.clientHeight + 1")
+        assert page.get_by_role("button", name="Сохранить исправленный новый разбор для этой страницы").count() == 1
+    else:
+        assert page.locator("#ocr-review").count() == 0
+        assert table.locator("input, textarea, select").count() == 0
     assert page.locator('[data-ocr-view="automatic"]').get_attribute("aria-current") == "page"
-    assert page.get_by_role("button", name="Использовать для этой страницы", exact=True).count() == int(can_apply)
     assert_no_overflow(page, width, "preview")
 
 
@@ -181,7 +184,7 @@ def check_preview_and_explicit_apply(browser, width):
             assert not any(url.endswith("/automatic/apply") for url in posts)
             other_page = copy.deepcopy(state(fixture)["pages"]["2"])
             with page.expect_navigation():
-                page.get_by_role("button", name="Использовать для этой страницы", exact=True).click()
+                page.get_by_role("button", name="Сохранить исправленный новый разбор для этой страницы", exact=True).click()
             assert sum(url.endswith("/automatic/apply") for url in posts) == 1
             assert page.locator('#ocr-review [name="name"]').input_value() == LONG_NAME
             assert page.locator('#ocr-review [name="quantity"]').input_value() == "4"
@@ -300,15 +303,15 @@ def check_preview_token_cannot_select_another_page(browser):
         database_before = tuple(fixture.conn.iterdump())
         page.goto(session.origin + PATH + "?p=1&view=automatic")
         assert_preview(page, 1365)
-        first_token = page.locator('#ocr-apply-automatic [name="automatic_token"]').input_value()
+        first_token = page.locator('#ocr-review [name="automatic_token"]').input_value()
         assert tuple(fixture.conn.iterdump()) == database_before
         # Keep the preview's real token and version, changing only its hidden
         # destination page. This was accepted when tokens hashed OCR bytes only.
-        page.locator('#ocr-apply-automatic [name="page"]').evaluate("input => { input.value = '2'; }")
+        page.locator('#ocr-review [name="page"]').evaluate("input => { input.value = '2'; }")
         with page.expect_response(lambda response: response.request.method == "POST"
                                   and response.url.endswith("/automatic/apply")) as refused, \
              page.expect_navigation():
-            page.get_by_role("button", name="Использовать для этой страницы", exact=True).click()
+            page.get_by_role("button", name="Сохранить исправленный новый разбор для этой страницы", exact=True).click()
         assert refused.value.status == 409
         assert page.get_by_role("alert").is_visible()
         assert "Изменения не сохранены." in page.get_by_role("alert").inner_text()
@@ -320,14 +323,14 @@ def check_preview_token_cannot_select_another_page(browser):
 
         page.goto(session.origin + PATH + "?p=2&view=automatic")
         assert page.get_by_role("heading", name="Новый разбор · страница 2", exact=True).is_visible()
-        correct_token = page.locator('#ocr-apply-automatic [name="automatic_token"]').input_value()
+        correct_token = page.locator('#ocr-review [name="automatic_token"]').input_value()
         assert correct_token != first_token
-        assert page.locator('#ocr-apply-automatic [name="page"]').input_value() == "2"
+        assert page.locator('#ocr-review [name="page"]').input_value() == "2"
         assert tuple(fixture.conn.iterdump()) == database_before
         with page.expect_response(lambda response: response.request.method == "POST"
                                   and response.url.endswith("/automatic/apply")) as applied, \
              page.expect_navigation():
-            page.get_by_role("button", name="Использовать для этой страницы", exact=True).click()
+            page.get_by_role("button", name="Сохранить исправленный новый разбор для этой страницы", exact=True).click()
         assert applied.value.status == 303
         selected = state(fixture)
         assert selected["pages"]["1"] == pending["pages"]["1"]
@@ -350,6 +353,56 @@ def check_preview_token_cannot_select_another_page(browser):
         print("MED_OCR_REREAD_BROWSER PAGE_TOKEN_BINDING_409_NO_WRITES_CORRECT_PAGE_APPLY_PASS", flush=True)
 
 
+def check_edit_preview_unit_cost_and_section(browser):
+    with local_session(browser, 1365) as session:
+        page, fixture = session.page, session.fixture
+        fields = json.loads(fixture.get_doc()["fields_json"])
+        fields[ocr.KEY]["pages"]["1"]["automatic"] = parsed_page(session.folder_id)
+        fixture.conn.execute(
+            "UPDATE med_supply_documents SET fields_json=? WHERE id=1",
+            (json.dumps(fields, ensure_ascii=False),)
+        )
+        alternate = fixture.conn.execute(
+            "INSERT INTO med_supply_folders(name) VALUES('Другой подраздел для проверки')"
+        ).lastrowid
+        fixture.conn.commit()
+        old_page = copy.deepcopy(state(fixture)["pages"]["1"])
+        original_snapshot = saved_snapshot(fixture)
+        original_stock = OCRRouteTests.snapshot_stock(fixture)
+        page.goto(session.origin + PATH + "?p=1&view=automatic")
+        assert_preview(page, 1365)
+        first = page.locator('#ocr-review .ocr-row').first
+        first.locator('[name="name"]').fill("Название вручную исправлено")
+        first.locator('[name="quantity"]').fill("3")
+        first.locator('.ocr-unit-cost').fill("80.00")
+        assert first.locator('[name="value"]').input_value() == "240.00"
+        first.locator('[name="folder_id"]').select_option(str(alternate))
+        assert saved_snapshot(fixture) == original_snapshot
+        with page.expect_navigation():
+            page.get_by_role(
+                "button", name="Сохранить исправленный новый разбор для этой страницы"
+            ).click()
+        saved = state(fixture)["pages"]["1"]
+        assert saved["rows"][0]["name"] == "Название вручную исправлено"
+        assert saved["rows"][0]["quantity"] == "3"
+        assert saved["rows"][0]["value"] == "240.00"
+        assert saved["rows"][0]["unit_cost"] == "80.00"
+        assert saved["rows"][0]["folder_id"] == alternate
+        assert saved["header"] == old_page["header"]
+        assert not saved["checked"]
+        assert "automatic" not in saved
+        event = fixture.conn.execute(
+            "SELECT before_json,after_json FROM med_supply_document_events "
+            "ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        assert json.loads(event["before_json"])["page_data"] == old_page
+        assert json.loads(event["after_json"])["edited_before_apply"] is True
+        assert json.loads(event["after_json"])["stock_posted"] is False
+        assert OCRRouteTests.snapshot_stock(fixture) == original_stock
+        assert not session.errors, session.errors
+        print("MED_OCR_REREAD_BROWSER EDIT_PREVIEW_COST_SECTION_ARCHIVE_PASS", flush=True)
+
+
 if __name__ == "__main__":
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
@@ -361,5 +414,6 @@ if __name__ == "__main__":
             check_partial_failure_and_readonly(browser)
             check_missing_preview_and_initial_recognition(browser)
             check_preview_token_cannot_select_another_page(browser)
+            check_edit_preview_unit_cost_and_section(browser)
         finally:
             browser.close()

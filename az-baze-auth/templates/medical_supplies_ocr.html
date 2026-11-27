@@ -61,17 +61,15 @@
 <h3 id="ocr-goods-heading">{{ 'Новый разбор' if view_automatic else 'Товары' }} · страница {{ page }}</h3>
 {% if view_automatic %}
 <p class="ocr-note">Проверьте новые строки по оригиналу.</p>
-{% if can_manage and can_apply_automatic %}<form method="post" id="ocr-apply-automatic" class="ocr-actions" action="{{ url_for('medical_supplies_ocr_apply_automatic',doc_id=doc.id) }}">
-  <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="automatic_token" value="{{ automatic_token }}">
-  <button class="btn primary" type="submit">Использовать для этой страницы</button>
-  <span class="ocr-note">Прежние правки страницы {{ page }} сохранятся в истории.</span>
-</form>{% elif automatic_unavailable_reason %}<p class="ocr-note" role="status">{{ automatic_unavailable_reason }}</p>{% endif %}
+{% if can_manage and can_apply_automatic %}<p class="ocr-note">Исправьте названия, количество, единицы, стоимость строки и разделы до сохранения. Другие страницы и сохранённая версия не изменятся до нажатия кнопки сохранения.</p>
+{% elif automatic_unavailable_reason %}<p class="ocr-note" role="status">{{ automatic_unavailable_reason }}</p>{% endif %}
 {% else %}<p class="ocr-note">Проверьте результат автоматического разбора. Неразборчивые поля и расхождения указаны ниже.</p>{% endif %}
 {% if quality and quality.total_matches %}<p class="ocr-note" role="status">Сумма строк совпадает с итогом документа: {{ quality.total_actual }} ₽.</p>{% endif %}
 {% if page_issues %}<details class="ocr-note" id="ocr-checks"><summary>Требует проверки: {{ page_issues|length }}</summary>{% for issue in page_issues %}<p>{{ issue }}</p>{% endfor %}</details>{% endif %}
-{% if can_manage and not view_automatic %}
-<form method="post" id="ocr-review" action="{{ url_for('medical_supplies_ocr_save',doc_id=doc.id) }}">
+{% if can_manage and (not view_automatic or can_apply_automatic) %}
+<form method="post" id="ocr-review" action="{{ url_for('medical_supplies_ocr_apply_automatic' if view_automatic else 'medical_supplies_ocr_save',doc_id=doc.id) }}">
 <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="version" value="{{ doc.version }}"><input type="hidden" name="page" value="{{ page }}">
+{% if view_automatic %}<input type="hidden" name="automatic_token" value="{{ automatic_token }}"><input type="hidden" name="edit_review" value="1">{% endif %}
 <input type="hidden" name="review_scope" value="goods">
 <template id="ocr-catalog-options"><option value="">Выберите по названию</option>{% for i in items %}<option value="{{ i.id }}" data-folder="{{ i.folder_id or '' }}">{{ i.name }} · {{ i.unit }}{% if i.folder %} · {{ i.folder }}{% endif %}</option>{% endfor %}</template>
 {% macro editor(r, row_id, original_index) %}
@@ -87,7 +85,7 @@
   </td>
   <td data-label="Количество"><label><span class="ocr-sr">Количество</span><input name="quantity" inputmode="decimal" value="{{ r.quantity if r.quantity is not none else '' }}" placeholder="—"></label></td>
   <td data-label="Единица"><label><span class="ocr-sr">Единица</span><input name="unit" maxlength="30" value="{{ r.unit or '' }}" placeholder="—"></label></td>
-  <td data-label="Стоимость за единицу, ₽"><label><span class="ocr-sr">Стоимость за единицу, ₽</span><input class="ocr-unit-cost" data-gross-value="{{ '1' if r.value_basis is not defined or r.value_basis is none or r.value_basis in ['printed_gross','printed_single_total'] else '0' }}" value="{{ r.unit_cost or '' }}" readonly placeholder="—" title="Стоимость строки, разделённая на количество"></label></td>
+  <td data-label="Стоимость за единицу, ₽"><label><span class="ocr-sr">Стоимость за единицу, ₽</span><input class="ocr-unit-cost" data-gross-value="{{ '1' if r.value_basis is not defined or r.value_basis is none or r.value_basis in ['printed_gross','printed_single_total'] else '0' }}" value="{{ r.unit_cost or '' }}" {% if view_automatic %}inputmode="decimal"{% else %}readonly{% endif %} placeholder="—" title="{{ 'Измените цену за единицу: сумма строки пересчитается' if view_automatic else 'Стоимость строки, разделённая на количество' }}"></label></td>
   <td class="ocr-section-cell" data-label="В какой раздел">
     <label><span class="ocr-sr">В какой раздел</span><select name="folder_id"><option value="">Выберите раздел</option>{% for f in folders %}<option value="{{ f.id }}" {{ 'selected' if r.folder_id==f.id else '' }}>{{ (f.parent ~ ' / ') if f.parent else '' }}{{ f.name }}</option>{% endfor %}{% if r.folder_id and not folders|selectattr('id','equalto',r.folder_id)|list %}<option value="{{ r.folder_id }}" selected>Раздел недоступен — выберите другой</option>{% endif %}</select></label>
   </td>
@@ -114,7 +112,7 @@
 <div class="ocr-actions"><button type="button" class="btn" id="ocr-add">+ Добавить строку</button></div>
 <label class="ocr-check"><input type="checkbox" name="no_items" value="1" {{ 'checked' if data.no_items else '' }}> На странице нет товарных позиций</label>
 <label class="ocr-check"><input type="checkbox" name="checked" value="1" {{ 'checked' if data.checked else '' }}> Проверено: товары, количество, единицы и стоимость сверены с оригиналом</label>
-<div class="ocr-actions"><button class="btn primary" type="submit">Сохранить разбор</button><span class="ocr-note">Сохраняется разбор документа. Приход на склад оформляется отдельно.</span></div>
+<div class="ocr-actions"><button class="btn primary" type="submit">{{ 'Сохранить исправленный новый разбор для этой страницы' if view_automatic else 'Сохранить разбор' }}</button><span class="ocr-note">{{ 'Прежняя версия страницы будет сохранена в истории. Другие страницы не изменятся.' if view_automatic else 'Сохраняется разбор документа.' }} Приход на склад оформляется отдельно.</span></div>
 </form>
 {% else %}
 {% if not view_automatic %}<p class="ocr-note">{{ 'Страница проверена' if data.checked else 'Ещё не проверено' }} · Только просмотр</p>{% endif %}
@@ -162,8 +160,19 @@
     while(fraction.length>2&&fraction.endsWith('0'))fraction=fraction.slice(0,-1);
     return (rounded/10000n).toString()+'.'+fraction;
   }
+  function totalFromUnitCost(price,quantity){
+    const amount=decimalParts(price,10000n),count=decimalParts(quantity,1000n);
+    if(!amount||!count||count.numerator===0n)return '';
+    const n=amount.numerator*count.numerator*100n, d=amount.denominator*count.denominator;
+    let cents=n/d;if((n%d)*2n>=d)cents+=1n;
+    return (cents/100n).toString()+'.'+(cents%100n).toString().padStart(2,'0');
+  }
   function updateUnitCost(row){
     const output=row.querySelector('.ocr-unit-cost');
+    if(output&&output.dataset.userEdited==='1'){
+      row.querySelector('[name="value"]').value=totalFromUnitCost(output.value,row.querySelector('[name="quantity"]').value);
+      return;
+    }
     const unit=row.querySelector('[name="unit"]').value.trim();
     const knownBasis=output&&output.dataset.grossValue==='1';
     if(output)output.value=knownBasis&&unit&&!['—','–','-','?'].includes(unit)?calculatedUnitCost(row.querySelector('[name="value"]').value,row.querySelector('[name="quantity"]').value):'';
@@ -177,8 +186,16 @@
   if(rows){
     rows.addEventListener('input',function(event){
       if(event.target.matches('textarea[name="name"]'))fitName(event.target);
+      if(event.target.matches('.ocr-unit-cost')&&!event.target.readOnly){
+        const row=event.target.closest('.ocr-row');
+        event.target.dataset.userEdited='1';
+        event.target.dataset.grossValue='1';
+        row.querySelector('[name="value_edited"]').value='1';
+        updateUnitCost(row);
+      }
       if(event.target.matches('[name="value"]')){
         const row=event.target.closest('.ocr-row');
+        row.querySelector('.ocr-unit-cost').dataset.userEdited='0';
         row.querySelector('.ocr-unit-cost').dataset.grossValue='1';
         row.querySelector('[name="value_edited"]').value='1';
       }
