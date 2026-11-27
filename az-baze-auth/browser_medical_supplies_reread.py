@@ -353,6 +353,50 @@ def check_preview_token_cannot_select_another_page(browser):
         print("MED_OCR_REREAD_BROWSER PAGE_TOKEN_BINDING_409_NO_WRITES_CORRECT_PAGE_APPLY_PASS", flush=True)
 
 
+def check_edit_preview_unit_cost_and_section(browser):
+    with local_session(browser, 1365) as session:
+        page, fixture = session.page, session.fixture
+        old_page = copy.deepcopy(state(fixture)["pages"]["1"])
+        alternate = fixture.conn.execute(
+            "INSERT INTO med_supply_folders(name) VALUES('Другой подраздел для проверки')"
+        ).lastrowid
+        fixture.conn.commit()
+        original_snapshot = saved_snapshot(fixture)
+        original_stock = OCRRouteTests.snapshot_stock(fixture)
+        page.goto(session.origin + PATH + "?p=1&view=automatic")
+        assert_preview(page, 1365)
+        first = page.locator('#ocr-review .ocr-row').first
+        first.locator('[name="name"]').fill("Название вручную исправлено")
+        first.locator('[name="quantity"]').fill("3")
+        first.locator('.ocr-unit-cost').fill("80.00")
+        assert first.locator('[name="value"]').input_value() == "240.00"
+        first.locator('[name="folder_id"]').select_option(str(alternate))
+        assert saved_snapshot(fixture) == original_snapshot
+        with page.expect_navigation():
+            page.get_by_role(
+                "button", name="Сохранить исправленный новый разбор для этой страницы"
+            ).click()
+        saved = state(fixture)["pages"]["1"]
+        assert saved["rows"][0]["name"] == "Название вручную исправлено"
+        assert saved["rows"][0]["quantity"] == "3"
+        assert saved["rows"][0]["value"] == "240.00"
+        assert saved["rows"][0]["unit_cost"] == "80.00"
+        assert saved["rows"][0]["folder_id"] == alternate
+        assert saved["header"] == old_page["header"]
+        assert not saved["checked"]
+        assert "automatic" not in saved
+        event = fixture.conn.execute(
+            "SELECT before_json,after_json FROM med_supply_document_events "
+            "ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        assert json.loads(event["before_json"])["page_data"] == old_page
+        assert json.loads(event["after_json"])["edited_before_apply"] is True
+        assert json.loads(event["after_json"])["stock_posted"] is False
+        assert OCRRouteTests.snapshot_stock(fixture) == original_stock
+        assert not session.errors, session.errors
+        print("MED_OCR_REREAD_BROWSER EDIT_PREVIEW_COST_SECTION_ARCHIVE_PASS", flush=True)
+
+
 if __name__ == "__main__":
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
@@ -364,5 +408,6 @@ if __name__ == "__main__":
             check_partial_failure_and_readonly(browser)
             check_missing_preview_and_initial_recognition(browser)
             check_preview_token_cannot_select_another_page(browser)
+            check_edit_preview_unit_cost_and_section(browser)
         finally:
             browser.close()

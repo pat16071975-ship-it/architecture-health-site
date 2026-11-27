@@ -85,7 +85,7 @@
   </td>
   <td data-label="Количество"><label><span class="ocr-sr">Количество</span><input name="quantity" inputmode="decimal" value="{{ r.quantity if r.quantity is not none else '' }}" placeholder="—"></label></td>
   <td data-label="Единица"><label><span class="ocr-sr">Единица</span><input name="unit" maxlength="30" value="{{ r.unit or '' }}" placeholder="—"></label></td>
-  <td data-label="Стоимость за единицу, ₽"><label><span class="ocr-sr">Стоимость за единицу, ₽</span><input class="ocr-unit-cost" data-gross-value="{{ '1' if r.value_basis is not defined or r.value_basis is none or r.value_basis in ['printed_gross','printed_single_total'] else '0' }}" value="{{ r.unit_cost or '' }}" readonly placeholder="—" title="Стоимость строки, разделённая на количество"></label></td>
+  <td data-label="Стоимость за единицу, ₽"><label><span class="ocr-sr">Стоимость за единицу, ₽</span><input class="ocr-unit-cost" data-gross-value="{{ '1' if r.value_basis is not defined or r.value_basis is none or r.value_basis in ['printed_gross','printed_single_total'] else '0' }}" value="{{ r.unit_cost or '' }}" {{ 'readonly' if not view_automatic else 'inputmode="decimal"' }} placeholder="—" title="{{ 'Измените цену за единицу: сумма строки пересчитается' if view_automatic else 'Стоимость строки, разделённая на количество' }}"></label></td>
   <td class="ocr-section-cell" data-label="В какой раздел">
     <label><span class="ocr-sr">В какой раздел</span><select name="folder_id"><option value="">Выберите раздел</option>{% for f in folders %}<option value="{{ f.id }}" {{ 'selected' if r.folder_id==f.id else '' }}>{{ (f.parent ~ ' / ') if f.parent else '' }}{{ f.name }}</option>{% endfor %}{% if r.folder_id and not folders|selectattr('id','equalto',r.folder_id)|list %}<option value="{{ r.folder_id }}" selected>Раздел недоступен — выберите другой</option>{% endif %}</select></label>
   </td>
@@ -160,8 +160,19 @@
     while(fraction.length>2&&fraction.endsWith('0'))fraction=fraction.slice(0,-1);
     return (rounded/10000n).toString()+'.'+fraction;
   }
+  function totalFromUnitCost(price,quantity){
+    const amount=decimalParts(price,10000n),count=decimalParts(quantity,1000n);
+    if(!amount||!count||count.numerator===0n)return '';
+    const n=amount.numerator*count.numerator*100n, d=amount.denominator*count.denominator;
+    let cents=n/d;if((n%d)*2n>=d)cents+=1n;
+    return (cents/100n).toString()+'.'+(cents%100n).toString().padStart(2,'0');
+  }
   function updateUnitCost(row){
     const output=row.querySelector('.ocr-unit-cost');
+    if(output&&output.dataset.userEdited==='1'){
+      row.querySelector('[name="value"]').value=totalFromUnitCost(output.value,row.querySelector('[name="quantity"]').value);
+      return;
+    }
     const unit=row.querySelector('[name="unit"]').value.trim();
     const knownBasis=output&&output.dataset.grossValue==='1';
     if(output)output.value=knownBasis&&unit&&!['—','–','-','?'].includes(unit)?calculatedUnitCost(row.querySelector('[name="value"]').value,row.querySelector('[name="quantity"]').value):'';
@@ -175,8 +186,16 @@
   if(rows){
     rows.addEventListener('input',function(event){
       if(event.target.matches('textarea[name="name"]'))fitName(event.target);
+      if(event.target.matches('.ocr-unit-cost')&&!event.target.readOnly){
+        const row=event.target.closest('.ocr-row');
+        event.target.dataset.userEdited='1';
+        event.target.dataset.grossValue='1';
+        row.querySelector('[name="value_edited"]').value='1';
+        updateUnitCost(row);
+      }
       if(event.target.matches('[name="value"]')){
         const row=event.target.closest('.ocr-row');
+        row.querySelector('.ocr-unit-cost').dataset.userEdited='0';
         row.querySelector('.ocr-unit-cost').dataset.grossValue='1';
         row.querySelector('[name="value_edited"]').value='1';
       }
