@@ -82,6 +82,14 @@ WITH limits AS (
 ), merged AS (
     SELECT metric,staff_id,grp,MIN(s) AS s,MAX(e) AS e
     FROM islands GROUP BY metric,staff_id,grp
+), slot_flags_rows AS (
+    SELECT c.ID_Staffs AS staff_id,c.IsWorkingTime AS working_flag,c.IsHeaderCell AS header_flag,
+        CASE WHEN c.ID_TimeReserves IS NULL THEN 0 ELSE 1 END AS reserve_flag
+    FROM dbo.CurrentTimeTable c CROSS JOIN limits l
+    WHERE c.DateOfWork>=l.month_start AND c.DateOfWork<l.month_end AND c.ID_Staffs IS NOT NULL
+), slot_flags_grouped AS (
+    SELECT staff_id,working_flag,header_flag,reserve_flag,COUNT_BIG(*) AS slot_count
+    FROM slot_flags_rows GROUP BY staff_id,working_flag,header_flag,reserve_flag
 ), results AS (
     SELECT metric,CONVERT(nvarchar(120),staff_id) AS staff,
         SUM(CONVERT(bigint,DATEDIFF(second,s,e))) AS value
@@ -116,11 +124,9 @@ WITH limits AS (
       AND v.PlanEnd>v.PlanStart
     GROUP BY v.staff_id
     UNION ALL
-    SELECT 'slot_flags',CONVERT(nvarchar(20),c.ID_Staffs)+':work='+CONVERT(nvarchar(1),c.IsWorkingTime)+':header='+CONVERT(nvarchar(1),c.IsHeaderCell)+':reserve='+CASE WHEN c.ID_TimeReserves IS NULL THEN '0' ELSE '1' END,
-        COUNT_BIG(*)
-    FROM dbo.CurrentTimeTable c CROSS JOIN limits l
-    WHERE c.DateOfWork>=l.month_start AND c.DateOfWork<l.month_end AND c.ID_Staffs IS NOT NULL
-    GROUP BY c.ID_Staffs,c.IsWorkingTime,c.IsHeaderCell,CASE WHEN c.ID_TimeReserves IS NULL THEN 0 ELSE 1 END
+    SELECT 'slot_flags',CONVERT(nvarchar(20),staff_id)+':work='+CONVERT(nvarchar(1),working_flag)+':header='+CONVERT(nvarchar(1),header_flag)+':reserve='+CONVERT(nvarchar(1),reserve_flag),
+        slot_count
+    FROM slot_flags_grouped
     UNION ALL
     SELECT 'slot_bad_duration',CONVERT(nvarchar(120),staff_id),COUNT_BIG(*)
     FROM work_slots WHERE TimeEndValue<=TimeStartValue GROUP BY staff_id
