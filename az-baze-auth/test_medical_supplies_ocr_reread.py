@@ -169,6 +169,43 @@ class AutomaticRereadRouteTests(unittest.TestCase):
         self.assertFalse(json.loads(event["after_json"])["stock_posted"])
         self.assertNotEqual(list(self.conn.iterdump()), pending)
 
+    def test_goods_preview_rejects_document_scope_without_any_database_write(self):
+        # AZ-276-01: forged review_scope=document must not rewrite header
+        # (supplier, number, date or part) while editing OCR goods rows.
+        self.seed()
+        before_doc = dict(self.get_doc())
+        preview = self.context(view="automatic")
+        proposal = preview["rows"][0]
+        form = {
+            "csrf": "token", "version": "2", "page": "1",
+            "automatic_token": preview["automatic_token"], "edit_review": "1",
+            "review_scope": "goods", "source_line": str(proposal["source_line"]),
+            "row_index": "0", "value_edited": "1",
+            "name": "Исправленный товар", "unit": "упак",
+            "quantity": "2", "price": "", "value": "289.20",
+            "action": "new", "item_id": "",
+            "folder_id": str(self.folder_id), "note": "",
+            "document_type": "act", "counterparty": "Подмена контрагента",
+            "number": "FORGED-999", "document_date": "2026-01-01",
+            "part": "7", "page_note": "Подмена реквизитов",
+        }
+        before_doc_header = copy.deepcopy(self.state()["pages"]["1"]["header"])
+        baseline = list(self.conn.iterdump())
+        for scope in ("document", "", "unknown"):
+            with self.subTest(scope=scope):
+                response = self.client(2).post(
+                    APPLY, data={**form, "review_scope": scope}
+                )
+                self.assertIn(response.status_code, (400,409))
+                self.assertEqual(list(self.conn.iterdump()), baseline)
+                self.assertEqual(dict(self.get_doc()), before_doc)
+        # Even with extra forged document fields, a proper goods-only save
+        # must preserve the existing document header exactly.
+        response = self.client(2).post(APPLY, data=form)
+        self.assertEqual(response.status_code, 303, response.get_data(as_text=True))
+        saved = self.state()["pages"]["1"]
+        self.assertEqual(saved["header"], before_doc_header)
+
     def test_preview_edits_reject_stale_token_unknown_rows_and_invalid_money(self):
         self.seed()
         preview = self.context(view="automatic")

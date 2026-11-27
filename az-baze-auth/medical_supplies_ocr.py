@@ -1612,6 +1612,11 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             if selected is None or reason:
                 raise ValueError(reason or "Новый разбор нельзя выбрать.")
             editing=request.form.get("edit_review")=="1"
+            if editing and request.form.get("review_scope")!="goods":
+                # AZ-276-01: an OCR goods preview may NEVER edit document
+                # metadata. An attacker can submit review_scope=document even
+                # though the browser offers only the goods editor.
+                raise ValueError("В новом разборе можно сохранять только товары.")
             # The automatic token authenticates only the source proposal.
             # Edited fields are parsed against that exact server-held proposal,
             # never against untrusted posted OCR candidates or the old manual page.
@@ -1619,6 +1624,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
             folders=([dict(x) for x in conn.execute(
                 "SELECT id FROM med_supply_folders")] if editing else None)
             review=parse_review(request.form,selected,items,folders) if editing else None
+            if editing and (review["review_scope"]!="goods" or "header" in review):
+                raise ValueError("Изменение реквизитов из товарного разбора запрещено.")
             def choose(current):
                 old=current["pages"].get(str(page))
                 if not isinstance(old,dict):
@@ -1632,6 +1639,8 @@ def register(app,db,permission_required,require_csrf,csrf_token,can_manage):
                     # Re-evaluate the exact request against the proposal inside
                     # the write transaction, after the token/version check.
                     fresh=parse_review(request.form,chosen,items,folders)
+                    if fresh["review_scope"]!="goods" or "header" in fresh:
+                        raise ValueError("Изменение реквизитов из товарного разбора запрещено.")
                     if fresh!=review:
                         raise inbox.Conflict("Новый разбор изменился. Откройте его ещё раз.")
                     chosen.update(fresh)
