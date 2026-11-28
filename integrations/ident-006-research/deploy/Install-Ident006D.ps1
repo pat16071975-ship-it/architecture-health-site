@@ -144,18 +144,30 @@ function Set-ProtectedAcl([string]$path,[Security.Principal.SecurityIdentifier]$
  }
  Set-Acl -LiteralPath $path -AclObject $acl
 }
-function Assert-ProtectedAcl([string]$path) {
+function Assert-ProtectedAcl([string]$path,[bool]$directory,[bool]$serviceWrite) {
+ if($null -eq $serviceSid){throw 'SERVICE_SID_NOT_LOADED'}
+ $null=Assert-Ordinary $path $directory
  $acl=Get-Acl -LiteralPath $path
  if(-not $acl.AreAccessRulesProtected -or
     $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $adminSid.Value){throw 'ACL_PROTECTION_FAILED'}
  $rules=@($acl.GetAccessRules($true,$false,[Security.Principal.SecurityIdentifier]))
  if($rules.Count -ne 3){throw 'ACL_EXACT_PRINCIPALS_REQUIRED'}
+ $inherit=if($directory){[Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'}else{[Security.AccessControl.InheritanceFlags]::None}
+ $svcRights=if($serviceWrite){[Security.AccessControl.FileSystemRights]::Modify}else{[Security.AccessControl.FileSystemRights]::ReadAndExecute}
+ $expected=@{}
+ $expected[$adminSid.Value]=[int][Security.AccessControl.FileSystemRights]::FullControl
+ $expected[$systemSid.Value]=[int][Security.AccessControl.FileSystemRights]::FullControl
+ $expected[$serviceSid.Value]=[int]$svcRights
  $found=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
  foreach($rule in $rules){
-  if($rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
-     -not (@($adminSid.Value,$systemSid.Value,$serviceSid.Value) -ccontains $rule.IdentityReference.Value) -or
-     -not $found.Add($rule.IdentityReference.Value)){throw 'ACL_UNTRUSTED_PRINCIPAL'}
+  $sid=$rule.IdentityReference.Value
+  if(-not $expected.ContainsKey($sid) -or -not $found.Add($sid) -or
+     $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
+     $rule.IsInherited -or $rule.InheritanceFlags -ne $inherit -or
+     $rule.PropagationFlags -ne [Security.AccessControl.PropagationFlags]::None -or
+     [int]$rule.FileSystemRights -ne [int]$expected[$sid]){throw 'ACL_EXACT_RIGHTS_REQUIRED'}
  }
+ if($found.Count -ne 3){throw 'ACL_EXACT_RIGHTS_REQUIRED'}
 }
 function Invoke-AclPreflight {
  $script:serviceSid=Get-ServiceSid
@@ -166,8 +178,8 @@ function Invoke-AclPreflight {
   [IO.File]::WriteAllText($probeFile,'acl-probe')
   Set-ProtectedAcl $probe $serviceSid $true $false
   Set-ProtectedAcl $probeFile $serviceSid $false $false
-  Assert-ProtectedAcl $probe
-  Assert-ProtectedAcl $probeFile
+  Assert-ProtectedAcl $probe $true $false
+  Assert-ProtectedAcl $probeFile $false $false
  }finally{
   if(Test-Path -LiteralPath $probeFile){Remove-Item -LiteralPath $probeFile -Force}
   if(Test-Path -LiteralPath $probe){Remove-Item -LiteralPath $probe -Force}
@@ -287,14 +299,14 @@ function Ensure-ProtectedDir([string]$target,[bool]$writeService){
   New-Item -ItemType Directory -Path $target -ErrorAction Stop | Out-Null
  }
  Set-ProtectedAcl $target $serviceSid $true $writeService
- Assert-ProtectedAcl $target
+ Assert-ProtectedAcl $target $true $writeService
 }
 function Write-PrivateJson([string]$target,$data){
  if(Test-Path -LiteralPath $target){throw 'METADATA_ALREADY_PRESENT'}
  $json=ConvertTo-Json -InputObject $data -Depth 6
  [IO.File]::WriteAllText($target,$json,[Text.UTF8Encoding]::new($false))
  Set-ProtectedAcl $target $serviceSid $false $false
- Assert-ProtectedAcl $target
+ Assert-ProtectedAcl $target $false $false
 }
 function Copy-ManagedPayload($pkg,$map,[string]$targetRoot){
  $dirs=Get-ExpectedDirs $map
