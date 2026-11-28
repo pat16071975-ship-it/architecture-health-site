@@ -243,7 +243,8 @@ function Assert-Journal([string]$sha,[bool]$allowMissing) {
   throw 'INSTALL_INTENT_MISSING'
  }
  $null=Assert-Ordinary $intent $false
- $j=Get-Content -LiteralPath $intent -Raw -Encoding UTF8 | ConvertFrom-Json
+ try{$j=Get-Content -LiteralPath $intent -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop}catch{throw 'INSTALL_INTENT_CORRUPT'}
+ if($null -eq $j){throw 'INSTALL_INTENT_CORRUPT'}
  if($j.schema -ne 1 -or $j.source_commit -cne $baseline -or $j.package_sha256 -cne $sha -or
     $j.operation -cne 'EX18_4_SOURCE_ONLY_INSTALL'){throw 'INSTALL_INTENT_MISMATCH'}
  return $true
@@ -254,7 +255,8 @@ function Assert-Marker([string]$sha,[bool]$allowMissing) {
   throw 'FINAL_MARKER_MISSING'
  }
  $null=Assert-Ordinary $marker $false
- $m=Get-Content -LiteralPath $marker -Raw -Encoding UTF8 | ConvertFrom-Json
+ try{$m=Get-Content -LiteralPath $marker -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop}catch{throw 'FINAL_MARKER_CORRUPT'}
+ if($null -eq $m){throw 'FINAL_MARKER_CORRUPT'}
  if($m.source_commit -cne $baseline -or $m.package_sha256 -cne $sha -or
     $m.service -cne $serviceName){throw 'FINAL_MARKER_MISMATCH'}
  return $true
@@ -345,6 +347,8 @@ function Complete-Installation($pkg,[bool]$resume){
    try{
     $null=Assert-Journal $sha $false
    }catch{
+    # A legitimate journal belonging to another package is NEVER replaceable.
+    if($_.Exception.Message -cne 'INSTALL_INTENT_CORRUPT'){throw}
     # Crash while writing the very first journal is recoverable only if the
     # protected root contains that ordinary file alone and no service.
     $onlyJournal=$items.Count -eq 1 -and $items[0].Name -ceq 'install-intent.json'
@@ -353,7 +357,18 @@ function Complete-Installation($pkg,[bool]$resume){
     Remove-Item -LiteralPath $intent -Force -ErrorAction Stop
    }
   }
-  if(Test-Path -LiteralPath $marker){throw 'ALREADY_MARKED_INSTALLED'}
+  if(Test-Path -LiteralPath $marker){
+   try{
+    $null=Assert-Marker $sha $false
+    throw 'ALREADY_MARKED_INSTALLED'
+   }catch{
+    # A truncated final marker is recoverable only with a valid matching intent.
+    if($_.Exception.Message -cne 'FINAL_MARKER_CORRUPT'){throw}
+    $null=Assert-Journal $sha $false
+    $null=Assert-Ordinary $marker $false
+    Remove-Item -LiteralPath $marker -Force -ErrorAction Stop
+   }
+  }
   $null=Assert-ManagedTree $root $pkg.manifest $true
  }
  if(-not (Test-Path -LiteralPath $intent)){
