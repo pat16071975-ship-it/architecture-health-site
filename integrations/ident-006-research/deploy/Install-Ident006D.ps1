@@ -516,6 +516,8 @@ function Invoke-CISafety {
  $unknown=Join-Path $bridge 'patient-unknown.txt'
  $part=$file+'.ident006d-part'
  $brokenIntent=Join-Path $fixture 'install-intent.json'
+ $lateRoot=Join-Path $env:TEMP ('ident006d-terminal-'+[Guid]::NewGuid().ToString('N'))
+ $lateUnknown=Join-Path $lateRoot 'unknown-do-not-delete.txt'
  $sha=$null
  $savedRoot=$script:root
  $savedApp=$script:app
@@ -619,12 +621,46 @@ function Invoke-CISafety {
   Assert-ExpectedFailure {Assert-CompleteTree $fixture $fake} 'MODIFIED_INSTALLED_FILE'
   if(-not (Test-Path -LiteralPath $hostFile)){throw 'TAMPERED_HOST_DESTROYED'}
   Write-Host 'NEGATIVE_FOREIGN_SERVICE=PASS; NEGATIVE_HOST_TAMPER=PASS'
+
+  # IDENT-006D-01 counterexample A: unknown child arrives between the
+  # tree preflight and deletion of a parent. Never prompt; never remove child.
+  New-Item -ItemType Directory -Path $lateRoot | Out-Null
+  Set-ProtectedAcl $lateRoot $serviceSid $true $false
+  [IO.File]::WriteAllText($lateUnknown,'PRESERVE_UNKNOWN')
+  Assert-ExpectedFailure {Remove-EmptyDirectory $lateRoot} 'DIRECTORY_NOT_EMPTY_OR_IN_USE'
+  if(-not (Test-Path -LiteralPath $lateUnknown) -or -not (Test-Path -LiteralPath $lateRoot)){
+   throw 'NONEMPTY_DIRECTORY_CHILD_DELETED'
+  }
+  Write-Host 'NEGATIVE_NONEMPTY_DIRECTORY_DELETE=PASS; UNKNOWN_CHILD_PRESERVED=YES'
+
+  # IDENT-006D-01 counterexample B: crash AFTER intent deletion,
+  # BEFORE root removal. Reentry refuses nonempty root and only removes
+  # an exactly ACL-protected, empty root with no registered service.
+  $script:root=$lateRoot
+  $script:app=Join-Path $lateRoot 'app'
+  $script:state=Join-Path $lateRoot 'state'
+  $script:intent=Join-Path $lateRoot 'install-intent.json'
+  $script:marker=Join-Path $lateRoot 'source-only-installation.json'
+  Assert-ExpectedFailure {Rollback-KnownOnly $fakePkg} 'UNPROVEN_TERMINAL_ROOT_NOT_EMPTY'
+  if(-not (Test-Path -LiteralPath $lateUnknown)){throw 'TERMINAL_RETRY_DESTROYED_UNKNOWN'}
+  Remove-Item -LiteralPath $lateUnknown -Force
+  Rollback-KnownOnly $fakePkg
+  if(Test-Path -LiteralPath $lateRoot){throw 'EMPTY_TERMINAL_ROOT_NOT_REMOVED'}
+  $script:root=$savedRoot;$script:app=$savedApp;$script:state=$savedState
+  $script:intent=$savedIntent;$script:marker=$savedMarker
+  Write-Host 'NEGATIVE_TERMINAL_RETRY_NONEMPTY=PASS; POSITIVE_TERMINAL_RETRY_EMPTY=PASS'
+
   Write-Host 'CI_SAFETY=PASS; OPEN_FINDINGS=NEGATIVE_TESTED; REAL_IDENT=NONE; SERVICE_INSTALLATION=NONE'
  }finally{
   $script:root=$savedRoot;$script:app=$savedApp;$script:state=$savedState
   $script:intent=$savedIntent;$script:marker=$savedMarker
   foreach($p in @($unknown,$part,$brokenIntent,$file,$hostFile,$tunnelFile)){
    if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Force}
+  }
+  if(Test-Path -LiteralPath $lateUnknown){Remove-Item -LiteralPath $lateUnknown -Force}
+  if(Test-Path -LiteralPath $lateRoot){
+   $null=Assert-Ordinary $lateRoot $true
+   Remove-EmptyDirectory $lateRoot
   }
   foreach($p in @($bridge,$hostFolder,$tunnelFolder,(Join-Path $fixture 'app'),$stateTest,$fixture)){
    if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Force}
