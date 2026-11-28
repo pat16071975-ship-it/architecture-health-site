@@ -108,13 +108,13 @@ function Inspect-Package([string]$archivePath,[string]$sha) {
   throw
  }
 }
-function Sc([string[]]$arguments) {
+function Invoke-ScExe([string[]]$arguments) {
  $result=& "$env:SystemRoot\System32\sc.exe" @arguments 2>&1
  if($LASTEXITCODE -ne 0){throw "WINDOWS_SCM_ERROR_$LASTEXITCODE"}
  return $result
 }
 function Get-ServiceSid {
- $lines=Sc -arguments @('showsid',$serviceName)
+ $lines=Invoke-ScExe -arguments @('showsid',$serviceName)
  $match=[regex]::Match(($lines -join ' '),'S-1-5-80-(?:\d+-){4}\d+')
  if(-not $match.Success){throw 'SERVICE_SID_PREFLIGHT_FAILED'}
  return ([Security.Principal.SecurityIdentifier]::new($match.Value))
@@ -358,10 +358,10 @@ function Complete-Installation($pkg,[bool]$resume){
  $already=Assert-ServiceOwned $true
  if(-not $already){
   $exe=Join-Path $app 'host\AzIdentResearchHost.exe'
-  Sc -arguments @('create',$serviceName,'binPath=',('"'+$exe+'"'),'type=','own',
+  Invoke-ScExe -arguments @('create',$serviceName,'binPath=',('"'+$exe+'"'),'type=','own',
     'start=','demand','obj=','NT SERVICE\AzIdentResearch') | Out-Null
  }
- Sc -arguments @('sidtype',$serviceName,'unrestricted') | Out-Null
+ Invoke-ScExe -arguments @('sidtype',$serviceName,'unrestricted') | Out-Null
  if(-not (Assert-ServiceOwned $false)){throw 'SERVICE_NOT_OWNED'}
  $hostExe=Join-Path $app 'host\AzIdentResearchHost.exe'
  & $hostExe '--verify-staging'
@@ -383,7 +383,7 @@ function Rollback-KnownOnly($pkg){
   if(@(Get-ChildItem -LiteralPath $root -Force).Count -ne 0){throw 'NO_PROVENANCE_FOR_ROLLBACK'}
  }
  if(Assert-ServiceOwned $true){
-  Sc -arguments @('delete',$serviceName) | Out-Null
+  Invoke-ScExe -arguments @('delete',$serviceName) | Out-Null
   $gone=$false
   for($i=0;$i -lt 30;$i++){
    if($null -eq (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)){$gone=$true;break}
