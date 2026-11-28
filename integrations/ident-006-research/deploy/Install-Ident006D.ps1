@@ -423,9 +423,39 @@ function Complete-Installation($pkg,[bool]$resume){
  $null=Assert-Marker $sha $false
  Write-Host 'INSTALL_CANDIDATE_APPLY=PASS; SERVICE=STOPPED; SQL_CONNECTION=NONE; TUNNEL=NOT_STARTED'
 }
+# Windows PowerShell Remove-Item -Force is NOT a safe empty-only directory delete.
+# The .NET nonrecursive primitive fails instead of prompting or deleting children.
+function Remove-EmptyDirectory([string]$path){
+ $null=Assert-Ordinary $path $true
+ try{[IO.Directory]::Delete($path,$false)}
+ catch [IO.IOException]{throw 'DIRECTORY_NOT_EMPTY_OR_IN_USE'}
+}
+# Terminal retry is possible even if the last intent was removed immediately
+# before a crash. Only a protected, truly empty root with NO service qualifies.
+function Complete-EmptyRollbackRoot([string]$base){
+ if(-not [string]::Equals([IO.Path]::GetFullPath($base),
+      [IO.Path]::GetFullPath($root),[StringComparison]::OrdinalIgnoreCase)){throw 'ROLLBACK_ROOT_SCOPE'}
+ $null=Assert-Ordinary $base $true
+ Assert-ProtectedAcl $base $true $false
+ if(Test-Path -LiteralPath (Join-Path $base 'install-intent.json')){throw 'FINAL_INTENT_STILL_PRESENT'}
+ if(Test-Path -LiteralPath (Join-Path $base 'source-only-installation.json')){throw 'FINAL_MARKER_STILL_PRESENT'}
+ $svc=Get-CimInstance Win32_Service -Filter "Name='AzIdentResearch'" -ErrorAction Stop
+ if($null -ne $svc){throw 'FINAL_SERVICE_STILL_PRESENT'}
+ if(@(Get-ChildItem -LiteralPath $base -Force -ErrorAction Stop).Count -ne 0){
+  throw 'UNPROVEN_TERMINAL_ROOT_NOT_EMPTY'
+ }
+ Remove-EmptyDirectory $base
+}
 function Rollback-KnownOnly($pkg){
  if(-not (Test-Path -LiteralPath $root)){throw 'INSTALL_NOT_FOUND'}
  $null=Assert-Ordinary $root $true
+ # Crash after deleting the final journal: only the verifiably empty,
+ # strongly ACL-protected root can be finalized. No foreign files touched.
+ if(-not (Test-Path -LiteralPath $intent)){
+  Complete-EmptyRollbackRoot $root
+  Write-Host 'OWNED_EMPTY_ROOT_RETRY=PASS; IDENT=UNTOUCHED'
+  return
+ }
  $null=Assert-ManagedTree $root $pkg.manifest $true
  $null=Assert-Journal $pkg.sha $false
  $null=Assert-Marker $pkg.sha $true
@@ -457,13 +487,12 @@ function Rollback-KnownOnly($pkg){
  $dirs=Get-ExpectedDirs $map
  foreach($rel in @($dirs | Sort-Object {($_ -split '/').Count},Length -Descending)){
   $p=Get-TargetPath $root $rel
-  if(Test-Path -LiteralPath $p){$null=Assert-Ordinary $p $true;Remove-Item -LiteralPath $p -Force -ErrorAction Stop}
+  if(Test-Path -LiteralPath $p){Remove-EmptyDirectory $p}
  }
  # Remove the journal only after every known payload directory is empty.
  if(Test-Path -LiteralPath $intent){$null=Assert-Ordinary $intent $false;Remove-Item -LiteralPath $intent -Force -ErrorAction Stop}
- # Deliberately nonrecursive: unknown files appearing after preflight block root removal.
- $null=Assert-Ordinary $root $true
- Remove-Item -LiteralPath $root -Force -ErrorAction Stop
+ # Final retry after intent loss is safe: never prompt or recursively delete.
+ Complete-EmptyRollbackRoot $root
  Write-Host 'OWNED_FILES_ROLLBACK=PASS; ROOT_REMOVED_IF_EMPTY=YES; IDENT=UNTOUCHED'
 }
 function Assert-ExpectedFailure([scriptblock]$action,[string]$reason){
