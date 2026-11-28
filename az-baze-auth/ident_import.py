@@ -558,6 +558,13 @@ def register_ident_import(app):
     @admin_required
     def ident_import_api():
         report_storage._require_api_csrf()
+        try:
+            mis_source_archive.receive_uploads(
+                db(), request.files, (("services", "revenue"), ("completed", "completed")),
+                actor_id=g.user["id"], request_path=request.path,
+            )
+        except ValueError as exc:
+            return jsonify({"ok": False, "message": str(exc)}), 400
         revenue_file = request.files.get("revenue")
         completed_file = request.files.get("completed")
         if not revenue_file or not completed_file:

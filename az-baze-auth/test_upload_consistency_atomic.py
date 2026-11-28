@@ -40,10 +40,11 @@ class AtomicClassificationTests(unittest.TestCase):
             with self.subTest(monthly=monthly):
                 self.configure_failure(table,'INSERT')
                 before=list(self.conn.iterdump())
+                raw=self.raw(monthly)
                 with self.assertRaisesRegex(sqlite3.IntegrityError,'synthetic storage fault'):
-                    self.fixture.post('commit',self.raw(monthly),expected_revision='new',
+                    self.fixture.post('commit',raw,expected_revision='new',
                         provider_decisions=json.dumps({'Unknown U.':'dent'}),**self.args(monthly))
-                self.assertEqual(before,list(self.conn.iterdump()))
+                self.fixture.assert_only_received(before, [(raw, 'commit')])
                 self.assertFalse(self.conn.in_transaction)
                 self.assertNotIn('Unknown U.',uploads.ident_import.DENTISTS)
                 self.assertNotIn('Unknown U.',uploads.ident_import.STRUCTURE_DOCTORS)
@@ -61,7 +62,7 @@ class AtomicClassificationTests(unittest.TestCase):
                 with self.assertRaisesRegex(sqlite3.IntegrityError,'synthetic storage fault'):
                     self.fixture.post('commit',raw,decision='use_new',expected_revision=preview['revision'],
                         provider_decisions=json.dumps({'Unknown U.':'dent'}),**self.args(monthly))
-                self.assertEqual(before,list(self.conn.iterdump()))
+                self.fixture.assert_only_received(before, [(raw, 'commit')])
                 self.assertFalse(self.conn.in_transaction)
                 self.conn.execute('DROP TRIGGER stop_storage');self.conn.commit()
 
@@ -71,10 +72,11 @@ class AtomicClassificationTests(unittest.TestCase):
         self.conn.commit()
         self.configure_failure('service_payment_periods','INSERT')
         before=list(self.conn.iterdump())
+        raw=self.raw(False)
         with self.assertRaises(sqlite3.IntegrityError):
-            self.fixture.post('commit',self.raw(False),expected_revision='new',
+            self.fixture.post('commit',raw,expected_revision='new',
                 provider_decisions=json.dumps({'Unknown U.':'structure'}))
-        self.assertEqual(before,list(self.conn.iterdump()))
+        self.fixture.assert_only_received(before, [(raw, 'commit')])
         self.assertEqual(self.conn.execute("SELECT direction FROM provider_registry WHERE source_name='Unknown U.'").fetchone()[0],'pending')
 
     def test_successful_native_event_is_displayed_without_exposing_audit_details(self):

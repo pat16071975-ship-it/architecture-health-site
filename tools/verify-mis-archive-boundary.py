@@ -3,6 +3,33 @@ import pathlib
 import subprocess
 import sys
 
+# Only these exact receipt additions may differ from an already archived base.
+RECEIPT_EDITS = {
+    "paid_services_upload.py": [
+        ('''def _archive_received_upload():
+    if "upload_services" not in user_permissions(g.user):
+        abort(403)
+    mis_source_archive.receive_uploads(
+        db(), request.files, (("paid_services", "paid_services"),),
+        actor_id=g.user["id"], request_path=request.path,
+    )
+
+
+''', 1),
+        ("            _archive_received_upload()\n", 2),
+    ],
+    "ident_import.py": [
+        ('''        try:
+            mis_source_archive.receive_uploads(
+                db(), request.files, (("services", "revenue"), ("completed", "completed")),
+                actor_id=g.user["id"], request_path=request.path,
+            )
+        except ValueError as exc:
+            return jsonify({"ok": False, "message": str(exc)}), 400
+''', 1),
+    ],
+}
+
 EDITS = {
   "paid_services_upload.py": [
     [
@@ -51,6 +78,12 @@ def main(base):
         path = "az-baze-auth/" + name
         old = subprocess.check_output(["git", "show", base + ":" + path])
         current = pathlib.Path(path).read_bytes()
+        if current == old:
+            continue
+        for addition, count in RECEIPT_EDITS[name]:
+            addition = addition.encode("utf-8")
+            assert current.count(addition) == count, "Unexpected receipt edit: " + path
+            current = current.replace(addition, b"")
         if current == old:
             continue
         for added, previous in pairs:

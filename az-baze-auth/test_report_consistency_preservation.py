@@ -46,6 +46,21 @@ class InstalledSourcePreservationTests(unittest.TestCase):
         )
 
         text = (ROOT / 'paid_services_upload.py').read_text(encoding='utf-8')
+        receipt_helper = '''def _archive_received_upload():
+    if "upload_services" not in user_permissions(g.user):
+        abort(403)
+    mis_source_archive.receive_uploads(
+        db(), request.files, (("paid_services", "paid_services"),),
+        actor_id=g.user["id"], request_path=request.path,
+    )
+
+
+'''
+        self.assertEqual(text.count(receipt_helper), 1)
+        text = text.replace(receipt_helper, '', 1)
+        receipt_hook = '            _archive_received_upload()\n'
+        self.assertEqual(text.count(receipt_hook), 2)
+        text = text.replace(receipt_hook, '')
         # Allow only the exact source-archive additions, retaining the
         # previous paid importer checksum and original duplicate rollback.
         for added, previous in (
@@ -317,7 +332,7 @@ class ActualDateImportJournalTests(unittest.TestCase):
         history = upload_history.recent_uploads(self.conn)
         with self.assertRaisesRegex(sqlite3.IntegrityError, 'synthetic slice fault'):
             self.fixture.post('commit', self.raw, provider_decisions=json.dumps({'Unknown U.': 'dent'}))
-        self.assertEqual(list(self.conn.iterdump()), before)
+        self.fixture.assert_only_received(before, [(self.raw, 'commit')])
         self.assertEqual(upload_history.recent_uploads(self.conn), history)
         self.assertFalse(self.conn.in_transaction)
 

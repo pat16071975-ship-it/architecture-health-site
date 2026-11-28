@@ -311,6 +311,15 @@ def _commit_cash(decision=None):
     }
 
 
+def _archive_received_upload():
+    if "upload_services" not in user_permissions(g.user):
+        abort(403)
+    mis_source_archive.receive_uploads(
+        db(), request.files, (("cash", "payments"),),
+        actor_id=g.user["id"], request_path=request.path,
+    )
+
+
 def register_cash_upload(app):
     cash_payments.configure_providers(
         ident_import.DENTISTS,
@@ -323,6 +332,7 @@ def register_cash_upload(app):
     def cash_upload_preview():
         require_csrf()
         try:
+            _archive_received_upload()
             return jsonify(_cash_preview())
         except ValueError as exc:
             return jsonify({"status": "error", "message": str(exc)}), 400
@@ -332,6 +342,7 @@ def register_cash_upload(app):
     def cash_upload_commit():
         require_csrf()
         try:
+            _archive_received_upload()
             result = _commit_cash(request.form.get("decision") or None)
             return jsonify(result)
         except ValueError as exc:
@@ -342,6 +353,7 @@ def register_cash_upload(app):
     def cash_upload():
         require_csrf()
         try:
+            _archive_received_upload()
             preview = _cash_preview()
             if preview["requires_choice"]:
                 return redirect(
