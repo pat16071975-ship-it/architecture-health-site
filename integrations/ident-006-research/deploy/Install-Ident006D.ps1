@@ -342,7 +342,16 @@ function Complete-Installation($pkg,[bool]$resume){
    Ensure-ProtectedDir $root $false
   }else{
    Assert-ProtectedAcl $root
-   $null=Assert-Journal $sha $false
+   try{
+    $null=Assert-Journal $sha $false
+   }catch{
+    # Crash while writing the very first journal is recoverable only if the
+    # protected root contains that ordinary file alone and no service.
+    $onlyJournal=$items.Count -eq 1 -and $items[0].Name -ceq 'install-intent.json'
+    if(-not $onlyJournal -or (Assert-ServiceOwned $true)){throw}
+    $null=Assert-Ordinary $intent $false
+    Remove-Item -LiteralPath $intent -Force -ErrorAction Stop
+   }
   }
   if(Test-Path -LiteralPath $marker){throw 'ALREADY_MARKED_INSTALLED'}
   $null=Assert-ManagedTree $root $pkg.manifest $true
@@ -398,14 +407,15 @@ function Rollback-KnownOnly($pkg){
   if(Test-Path -LiteralPath $target){$null=Assert-Ordinary $target $false;Remove-Item -LiteralPath $target -Force -ErrorAction Stop}
   if(Test-Path -LiteralPath $partial){$null=Assert-Ordinary $partial $false;Remove-Item -LiteralPath $partial -Force -ErrorAction Stop}
  }
- foreach($p in @($marker,$intent)){
-  if(Test-Path -LiteralPath $p){$null=Assert-Ordinary $p $false;Remove-Item -LiteralPath $p -Force -ErrorAction Stop}
- }
+ # Keep install-intent.json to permit safe retry after interrupted rollback.
+ if(Test-Path -LiteralPath $marker){$null=Assert-Ordinary $marker $false;Remove-Item -LiteralPath $marker -Force -ErrorAction Stop}
  $dirs=Get-ExpectedDirs $map
  foreach($rel in @($dirs | Sort-Object {($_ -split '/').Count},Length -Descending)){
   $p=Get-TargetPath $root $rel
   if(Test-Path -LiteralPath $p){$null=Assert-Ordinary $p $true;Remove-Item -LiteralPath $p -Force -ErrorAction Stop}
  }
+ # Remove the journal only after every known payload directory is empty.
+ if(Test-Path -LiteralPath $intent){$null=Assert-Ordinary $intent $false;Remove-Item -LiteralPath $intent -Force -ErrorAction Stop}
  # Deliberately nonrecursive: unknown files appearing after preflight block root removal.
  $null=Assert-Ordinary $root $true
  Remove-Item -LiteralPath $root -Force -ErrorAction Stop
