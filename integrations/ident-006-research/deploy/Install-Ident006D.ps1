@@ -415,14 +415,22 @@ function Invoke-CISafety {
  if($env:GITHUB_ACTIONS -cne 'true'){throw 'CI_ONLY'}
  $fixture=Join-Path $env:TEMP ('ident006d-synthetic-'+[Guid]::NewGuid().ToString('N'))
  $bridge=Join-Path $fixture 'app\bridge'
+ $hostFolder=Join-Path $fixture 'app\host'
+ $tunnelFolder=Join-Path $fixture 'app\tunnel'
  $stateTest=Join-Path $fixture 'state'
- $file=Join-Path $bridge 'synthetic-only.txt'
+ $file=Join-Path $bridge 'AzIdentResearch.exe'
+ $hostFile=Join-Path $hostFolder 'AzIdentResearchHost.exe'
+ $tunnelFile=Join-Path $tunnelFolder 'tunnel-client.exe'
  $unknown=Join-Path $bridge 'patient-unknown.txt'
- New-Item -ItemType Directory -Force -Path $bridge,$stateTest | Out-Null
+ New-Item -ItemType Directory -Force -Path $bridge,$hostFolder,$tunnelFolder,$stateTest | Out-Null
  try{
-  [IO.File]::WriteAllText($file,'SYNTHETIC')
+  foreach($p in @($file,$hostFile,$tunnelFile)){[IO.File]::WriteAllText($p,'SYNTHETIC')}
   $sha=(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
-  $fake=[pscustomobject]@{files=@([pscustomobject]@{path='payload/bridge/synthetic-only.txt';length=9;sha256=$sha})}
+  $fake=[pscustomobject]@{files=@(
+   [pscustomobject]@{path='payload/bridge/AzIdentResearch.exe';length=9;sha256=$sha},
+   [pscustomobject]@{path='payload/host/AzIdentResearchHost.exe';length=9;sha256=$sha},
+   [pscustomobject]@{path='payload/tunnel/tunnel-client.exe';length=9;sha256=$sha}
+  )}
   $null=Assert-ManagedTree $fixture $fake $true
   [IO.File]::WriteAllText($unknown,'DO_NOT_DELETE')
   $rejected=$false
@@ -430,8 +438,8 @@ function Invoke-CISafety {
   if(-not $rejected -or -not (Test-Path -LiteralPath $unknown) -or -not (Test-Path -LiteralPath $file)){throw 'UNKNOWN_FILE_NOT_PROTECTED'}
   Write-Host 'CI_SAFETY=PASS; PARTIAL_MARKER_ABSENCE=ALLOWED; UNKNOWN_FILES=FAIL_CLOSED; RECURSIVE_TARGET_DELETE=NONE'
  }finally{
-  foreach($p in @($unknown,$file)){if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Force}}
-  foreach($p in @($bridge,(Join-Path $fixture 'app'),$stateTest,$fixture)){if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Force}}
+  foreach($p in @($unknown,$file,$hostFile,$tunnelFile)){if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Force}}
+  foreach($p in @($bridge,$hostFolder,$tunnelFolder,(Join-Path $fixture 'app'),$stateTest,$fixture)){if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Force}}
  }
 }
 
