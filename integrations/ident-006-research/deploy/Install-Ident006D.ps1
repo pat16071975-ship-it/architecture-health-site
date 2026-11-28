@@ -253,6 +253,38 @@ function Assert-ManagedTree([string]$base,$manifest,[bool]$allowPartial){
  }
  return ,$map
 }
+function Assert-ExistingAclTree([string]$base,$manifest){
+ $map=Get-ManagedMap $manifest
+ $null=Assert-ManagedTree $base $manifest $true
+ Assert-ProtectedAcl $base $true $false
+ foreach($rel in (Get-ExpectedDirs $map)){
+  $p=Get-TargetPath $base $rel
+  if(Test-Path -LiteralPath $p){Assert-ProtectedAcl $p $true ($rel -ceq 'state')}
+ }
+ foreach($rel in $map.Keys){
+  $target=Get-TargetPath $base $rel
+  foreach($p in @($target,($target+'.ident006d-part'))){
+   if(Test-Path -LiteralPath $p){Assert-ProtectedAcl $p $false $false}
+  }
+ }
+ foreach($rel in @('install-intent.json','source-only-installation.json')){
+  $p=Join-Path $base $rel
+  if(Test-Path -LiteralPath $p){Assert-ProtectedAcl $p $false $false}
+ }
+}
+function Assert-CompleteTree([string]$base,$manifest){
+ $map=Get-ManagedMap $manifest
+ $null=Assert-ManagedTree $base $manifest $false
+ foreach($rel in (Get-ExpectedDirs $map)){
+  if(-not (Test-Path -LiteralPath (Get-TargetPath $base $rel))){throw 'MISSING_INSTALL_DIRECTORY'}
+ }
+ foreach($rel in $map.Keys){
+  $path=Get-TargetPath $base $rel
+  if(-not (Test-Path -LiteralPath $path)){throw 'MISSING_INSTALLED_FILE'}
+  Assert-PayloadDigest $path $map[$rel] 'MODIFIED_INSTALLED_FILE'
+ }
+ Assert-ExistingAclTree $base $manifest
+}
 function Assert-Journal([string]$sha,[bool]$allowMissing) {
  if(-not (Test-Path -LiteralPath $intent)){
   if($allowMissing){return $false}
@@ -277,19 +309,22 @@ function Assert-Marker([string]$sha,[bool]$allowMissing) {
     $m.service -cne $serviceName){throw 'FINAL_MARKER_MISMATCH'}
  return $true
 }
+function Assert-ServiceDescriptor($svc,[string]$expectedExe){
+ if($null -eq $svc){throw 'SERVICE_MISSING'}
+ $expectedQuoted='"'+$expectedExe+'"'
+ if($svc.State -cne 'Stopped' -or
+    -not ([string]::Equals($svc.PathName,$expectedQuoted,[StringComparison]::OrdinalIgnoreCase) -or
+          [string]::Equals($svc.PathName,$expectedExe,[StringComparison]::OrdinalIgnoreCase)) -or
+    -not [string]::Equals($svc.StartName,'NT SERVICE\AzIdentResearch',[StringComparison]::OrdinalIgnoreCase) -or
+    $svc.StartMode -cne 'Manual'){throw 'FOREIGN_OR_RUNNING_SERVICE'}
+}
 function Assert-ServiceOwned([bool]$allowMissing) {
  $svc=Get-CimInstance Win32_Service -Filter "Name='AzIdentResearch'" -ErrorAction Stop
  if($null -eq $svc){
   if($allowMissing){return $false}
   throw 'SERVICE_MISSING'
  }
- $exePath=Join-Path $app 'host\AzIdentResearchHost.exe'
- $expectedQuoted='"'+$exePath+'"'
- if($svc.State -cne 'Stopped' -or
-    -not ([string]::Equals($svc.PathName,$expectedQuoted,[StringComparison]::OrdinalIgnoreCase) -or
-          [string]::Equals($svc.PathName,$exePath,[StringComparison]::OrdinalIgnoreCase)) -or
-    -not [string]::Equals($svc.StartName,'NT SERVICE\AzIdentResearch',[StringComparison]::OrdinalIgnoreCase) -or
-    $svc.StartMode -cne 'Manual'){throw 'FOREIGN_OR_RUNNING_SERVICE'}
+ Assert-ServiceDescriptor $svc (Join-Path $app 'host\AzIdentResearchHost.exe')
  return $true
 }
 function Ensure-ProtectedDir([string]$target,[bool]$writeService){
@@ -355,7 +390,7 @@ function Complete-Installation($pkg,[bool]$resume){
    $null=Assert-Marker $sha $false
    throw 'ALREADY_MARKED_INSTALLED'
   }
-  $null=Assert-ManagedTree $root $pkg.manifest $true
+  Assert-ExistingAclTree $root $pkg.manifest
  }
 
  if(-not (Test-Path -LiteralPath $intent)){
@@ -365,7 +400,8 @@ function Complete-Installation($pkg,[bool]$resume){
  }
  # All subsequent writes are confined to the known private tree. Every phase is resumable.
  Copy-ManagedPayload $pkg (Get-ManagedMap $pkg.manifest) $root
- $null=Assert-ManagedTree $root $pkg.manifest $true
+ # Nothing executes while any expected file is missing or any .part remains.
+ Assert-CompleteTree $root $pkg.manifest
  $already=Assert-ServiceOwned $true
  if(-not $already){
   $exe=Join-Path $app 'host\AzIdentResearchHost.exe'
@@ -390,6 +426,7 @@ function Rollback-KnownOnly($pkg){
  $null=Assert-ManagedTree $root $pkg.manifest $true
  $null=Assert-Journal $pkg.sha $false
  $null=Assert-Marker $pkg.sha $true
+ Assert-ExistingAclTree $root $pkg.manifest
  if(Assert-ServiceOwned $true){
   Invoke-ScExe -arguments @('delete',$serviceName) | Out-Null
   $gone=$false
@@ -498,14 +535,23 @@ switch($Mode){
  }
  'Verify' {
   Assert-Host $true
-  if(-not (Test-Path -LiteralPath $marker)){throw 'MARKER_MISSING'}
-  $m=Get-Content -LiteralPath $marker -Raw -Encoding UTF8 | ConvertFrom-Json
-  if($m.source_commit -cne $baseline -or $m.service -cne $serviceName){throw 'MARKER_MISMATCH'}
-  $service=Get-Service -Name $serviceName -ErrorAction Stop
-  $exe=Join-Path $app 'host\AzIdentResearchHost.exe'
-  & $exe '--verify-staging'
-  if($LASTEXITCODE -ne 0){throw 'HOST_LAYOUT_INVALID'}
-  Write-Host "INSTALL_VERIFY=PASS; SERVICE=$($service.Status); SQL_CONNECTION=NONE; TUNNEL_NOT_STARTED_BY_VERIFY=YES"
+  # The host binary is untrusted until its exact packaged SHA256, ACL,
+  # complete installed tree and Win32_Service descriptor have all passed.
+  $pkg=Inspect-Package $Package $ExpectedPackageSha256
+  try{
+   Invoke-AclPreflight
+   $null=Assert-Ordinary $root $true
+   $null=Assert-Journal $pkg.sha $false
+   $null=Assert-Marker $pkg.sha $false
+   Assert-CompleteTree $root $pkg.manifest
+   $null=Assert-ServiceOwned $false
+   $expected=(Get-ManagedMap $pkg.manifest)['app/host/AzIdentResearchHost.exe']
+   $exe=Join-Path $app 'host\AzIdentResearchHost.exe'
+   Assert-PayloadDigest $exe $expected 'HOST_SHA256_MISMATCH'
+   & $exe '--verify-staging'
+   if($LASTEXITCODE -ne 0){throw 'HOST_LAYOUT_INVALID'}
+   Write-Host 'INSTALL_VERIFY=PASS; SERVICE=STOPPED; HOST_SHA256=PASS; MANIFEST=PASS; ACL=PASS; SQL_CONNECTION=NONE; TUNNEL_NOT_STARTED_BY_VERIFY=YES'
+  }finally{Remove-Item -LiteralPath $pkg.temp -Recurse -Force -ErrorAction SilentlyContinue}
  }
  'Rollback' {
   Assert-Host $true
