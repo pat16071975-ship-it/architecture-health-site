@@ -205,11 +205,16 @@ function Get-TargetPath([string]$base,[string]$relative){
  if($relative -cnotmatch '^[A-Za-z0-9._/-]+$' -or $relative.Contains('..')){throw 'TARGET_RELATIVE_PATH'}
  return (Join-Path $base $relative.Replace('/',[IO.Path]::DirectorySeparatorChar))
 }
+function Assert-PayloadDigest([string]$path,$expected,[string]$reason){
+ $file=Assert-Ordinary $path $false
+ if($file.Length -ne [long]$expected.length -or
+    (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne [string]$expected.sha){throw $reason}
+}
 function Assert-ManagedTree([string]$base,$manifest,[bool]$allowPartial){
  $map=Get-ManagedMap $manifest
  $dirs=Get-ExpectedDirs $map
- $parts=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
- foreach($rel in $map.Keys){$null=$parts.Add($rel+'.ident006d-part')}
+ $parts=@{}
+ foreach($rel in $map.Keys){$parts[$rel+'.ident006d-part']=$map[$rel]}
  $queue=[Collections.Generic.Queue[string]]::new()
  $queue.Enqueue($base)
  while($queue.Count -gt 0){
@@ -224,11 +229,10 @@ function Assert-ManagedTree([string]$base,$manifest,[bool]$allowPartial){
    }else{
     if($map.ContainsKey($rel)){
      $expected=$map[$rel]
-     if($item.Length -ne $expected.length -or
-       (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -cne $expected.sha){throw 'MODIFIED_INSTALLED_FILE'}
-    }elseif($parts.Contains($rel) -and $allowPartial){
-     # Only exact, predictable temporary names produced by an interrupted copy.
-     if($item.Length -gt 250MB){throw 'PARTIAL_FILE_TOO_LARGE'}
+     Assert-PayloadDigest $item.FullName $expected 'MODIFIED_INSTALLED_FILE'
+    }elseif($parts.ContainsKey($rel) -and $allowPartial){
+     # Filename alone is never provenance. Unknown/partial bytes must survive rollback.
+     Assert-PayloadDigest $item.FullName $parts[$rel] 'UNOWNED_PARTIAL_CONTENT'
     }elseif($rel -notin @('install-intent.json','source-only-installation.json')){
      throw 'UNRECOGNIZED_INSTALL_FILE'
     }
@@ -303,20 +307,15 @@ function Copy-ManagedPayload($pkg,$map,[string]$targetRoot){
   $target=Get-TargetPath $targetRoot $rel
   $partial=$target+'.ident006d-part'
   if(Test-Path -LiteralPath $target){
-   $null=Assert-Ordinary $target $false
-   if((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -cne $info.sha){throw 'MODIFIED_INSTALLED_FILE'}
+   Assert-PayloadDigest $target $info 'MODIFIED_INSTALLED_FILE'
    continue
   }
   if(Test-Path -LiteralPath $partial){
-   # The name is from the manifest, not from disk discovery. Only this known temp file is removable.
-   $null=Assert-Ordinary $partial $false
-   if((Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash.ToLowerInvariant() -ne $info.sha){
-    Remove-Item -LiteralPath $partial -Force -ErrorAction Stop
-   }else{
-    Move-Item -LiteralPath $partial -Destination $target -ErrorAction Stop
-    Set-ProtectedAcl $target $serviceSid $false $false
-    continue
-   }
+   # Only a complete, verified temporary copy may be adopted, never deleted.
+   Assert-PayloadDigest $partial $info 'UNOWNED_PARTIAL_CONTENT'
+   Move-Item -LiteralPath $partial -Destination $target -ErrorAction Stop
+   Set-ProtectedAcl $target $serviceSid $false $false
+   continue
   }
   $src=Get-TargetPath $pkg.temp $info.source
   Copy-Item -LiteralPath $src -Destination $partial -ErrorAction Stop
@@ -336,41 +335,17 @@ function Complete-Installation($pkg,[bool]$resume){
   $exists=$true
  }elseif(-not $exists){throw 'PARTIAL_INSTALLATION_NOT_FOUND'}
  if($resume){
+  # Recovery only with a valid matching intent; corrupted and foreign journals
+  # are preserved intact and never adopted, even if they are the only file.
   $null=Assert-Ordinary $root $true
-  $items=@(Get-ChildItem -LiteralPath $root -Force)
-  if(-not (Test-Path -LiteralPath $intent)){
-   # Only the empty directory created immediately before the journal is recoverable without an intent.
-   if($items.Count -ne 0 -or (Assert-ServiceOwned $true)){throw 'UNJOURNALED_PARTIAL_INSTALLATION'}
-   Ensure-ProtectedDir $root $false
-  }else{
-   Assert-ProtectedAcl $root
-   try{
-    $null=Assert-Journal $sha $false
-   }catch{
-    # A legitimate journal belonging to another package is NEVER replaceable.
-    if($_.Exception.Message -cne 'INSTALL_INTENT_CORRUPT'){throw}
-    # Crash while writing the very first journal is recoverable only if the
-    # protected root contains that ordinary file alone and no service.
-    $onlyJournal=$items.Count -eq 1 -and $items[0].Name -ceq 'install-intent.json'
-    if(-not $onlyJournal -or (Assert-ServiceOwned $true)){throw}
-    $null=Assert-Ordinary $intent $false
-    Remove-Item -LiteralPath $intent -Force -ErrorAction Stop
-   }
-  }
+  $null=Assert-Journal $sha $false
   if(Test-Path -LiteralPath $marker){
-   try{
-    $null=Assert-Marker $sha $false
-    throw 'ALREADY_MARKED_INSTALLED'
-   }catch{
-    # A truncated final marker is recoverable only with a valid matching intent.
-    if($_.Exception.Message -cne 'FINAL_MARKER_CORRUPT'){throw}
-    $null=Assert-Journal $sha $false
-    $null=Assert-Ordinary $marker $false
-    Remove-Item -LiteralPath $marker -Force -ErrorAction Stop
-   }
+   $null=Assert-Marker $sha $false
+   throw 'ALREADY_MARKED_INSTALLED'
   }
   $null=Assert-ManagedTree $root $pkg.manifest $true
  }
+
  if(-not (Test-Path -LiteralPath $intent)){
   Write-PrivateJson $intent ([ordered]@{
    schema=1;operation='EX18_4_SOURCE_ONLY_INSTALL';source_commit=$baseline;package_sha256=$sha
@@ -401,11 +376,8 @@ function Rollback-KnownOnly($pkg){
  if(-not (Test-Path -LiteralPath $root)){throw 'INSTALL_NOT_FOUND'}
  $null=Assert-Ordinary $root $true
  $null=Assert-ManagedTree $root $pkg.manifest $true
- $hasJournal=Assert-Journal $pkg.sha $true
- $hasMarker=Assert-Marker $pkg.sha $true
- if(-not $hasJournal -and -not $hasMarker){
-  if(@(Get-ChildItem -LiteralPath $root -Force).Count -ne 0){throw 'NO_PROVENANCE_FOR_ROLLBACK'}
- }
+ $null=Assert-Journal $pkg.sha $false
+ $null=Assert-Marker $pkg.sha $true
  if(Assert-ServiceOwned $true){
   Invoke-ScExe -arguments @('delete',$serviceName) | Out-Null
   $gone=$false
@@ -419,8 +391,14 @@ function Rollback-KnownOnly($pkg){
  foreach($rel in @($map.Keys | Sort-Object -Descending)){
   $target=Get-TargetPath $root $rel
   $partial=$target+'.ident006d-part'
-  if(Test-Path -LiteralPath $target){$null=Assert-Ordinary $target $false;Remove-Item -LiteralPath $target -Force -ErrorAction Stop}
-  if(Test-Path -LiteralPath $partial){$null=Assert-Ordinary $partial $false;Remove-Item -LiteralPath $partial -Force -ErrorAction Stop}
+  if(Test-Path -LiteralPath $target){
+   Assert-PayloadDigest $target $map[$rel] 'MODIFIED_INSTALLED_FILE'
+   Remove-Item -LiteralPath $target -Force -ErrorAction Stop
+  }
+  if(Test-Path -LiteralPath $partial){
+   Assert-PayloadDigest $partial $map[$rel] 'UNOWNED_PARTIAL_CONTENT'
+   Remove-Item -LiteralPath $partial -Force -ErrorAction Stop
+  }
  }
  # Keep install-intent.json to permit safe retry after interrupted rollback.
  if(Test-Path -LiteralPath $marker){$null=Assert-Ordinary $marker $false;Remove-Item -LiteralPath $marker -Force -ErrorAction Stop}
