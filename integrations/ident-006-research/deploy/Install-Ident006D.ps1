@@ -19,18 +19,18 @@ $app=Join-Path $root 'app'
 $state=Join-Path $root 'state'
 $intent=Join-Path $root 'install-intent.json'
 $marker=Join-Path $root 'source-only-installation.json'
-$adminSid=New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
-$systemSid=New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
+$adminSid=[Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
+$systemSid=[Security.Principal.SecurityIdentifier]::new('S-1-5-18')
 $serviceSid=$null
 
 function Assert-Host([bool]$requireAdmin) {
  if ($env:COMPUTERNAME -cne 'EX-18-4') {throw 'WRONG_COMPUTER'}
  if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or -not [Environment]::Is64BitOperatingSystem) {throw 'WINDOWS_X64_REQUIRED'}
- $drive=New-Object IO.DriveInfo ([IO.Path]::GetPathRoot($root))
+ $drive=[IO.DriveInfo]::new([IO.Path]::GetPathRoot($root))
  if($drive.DriveType -ne [IO.DriveType]::Fixed -or $drive.DriveFormat -cne 'NTFS'){throw 'LOCAL_NTFS_REQUIRED'}
  if($requireAdmin){
   $ident=[Security.Principal.WindowsIdentity]::GetCurrent()
-  if(-not (New-Object Security.Principal.WindowsPrincipal($ident)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'ADMIN_REQUIRED'}
+  if(-not ([Security.Principal.WindowsPrincipal]::new($ident)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'ADMIN_REQUIRED'}
  }
 }
 function Assert-PlainPath([string]$p) {
@@ -64,7 +64,7 @@ function Inspect-Package([string]$archivePath,[string]$sha) {
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   $zip=[IO.Compression.ZipFile]::OpenRead($archivePath)
   try {
-   $seen=New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+   $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
    [long]$total=0
    foreach($entry in $zip.Entries){
     $name=$entry.FullName.Replace('\','/')
@@ -82,7 +82,7 @@ function Inspect-Package([string]$archivePath,[string]$sha) {
      $manifest.installation -cne 'NOT_EXECUTED' -or $manifest.real_ident -cne 'NONE'){throw 'MANIFEST_BASELINE'}
   $files=@($manifest.files)
   if($files.Count -lt 3 -or $files.Count -gt 1500){throw 'MANIFEST_COUNT'}
-  $listed=New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+  $listed=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
   foreach($file in $files){
    $relative=[string]$file.path
    if($relative -cnotmatch '^(payload|tools)/[a-zA-Z0-9._/-]+$' -or
@@ -117,15 +117,15 @@ function Get-ServiceSid {
  $lines=Sc -arguments @('showsid',$serviceName)
  $match=[regex]::Match(($lines -join ' '),'S-1-5-80-(?:\d+-){4}\d+')
  if(-not $match.Success){throw 'SERVICE_SID_PREFLIGHT_FAILED'}
- return (New-Object Security.Principal.SecurityIdentifier($match.Value))
+ return ([Security.Principal.SecurityIdentifier]::new($match.Value))
 }
 function Set-ProtectedAcl([string]$path,[Security.Principal.SecurityIdentifier]$sid,
                           [bool]$directory,[bool]$writeService) {
  if($directory){
-  $acl=New-Object Security.AccessControl.DirectorySecurity
+  $acl=[Security.AccessControl.DirectorySecurity]::new()
   $inherit=[Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
  }else{
-  $acl=New-Object Security.AccessControl.FileSecurity
+  $acl=[Security.AccessControl.FileSecurity]::new()
   $inherit=[Security.AccessControl.InheritanceFlags]::None
  }
  $acl.SetAccessRuleProtection($true,$false)
@@ -137,7 +137,7 @@ function Set-ProtectedAcl([string]$path,[Security.Principal.SecurityIdentifier]$
   @{sid=$sid;rights=$svcRights}
  )
  foreach($rule in $rules){
-  $ace=New-Object Security.AccessControl.FileSystemAccessRule(
+  $ace=[Security.AccessControl.FileSystemAccessRule]::new(
    $rule.sid,$rule.rights,$inherit,[Security.AccessControl.PropagationFlags]::None,
    [Security.AccessControl.AccessControlType]::Allow)
   $acl.AddAccessRule($ace)
@@ -150,7 +150,7 @@ function Assert-ProtectedAcl([string]$path) {
     $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $adminSid.Value){throw 'ACL_PROTECTION_FAILED'}
  $rules=@($acl.GetAccessRules($true,$false,[Security.Principal.SecurityIdentifier]))
  if($rules.Count -ne 3){throw 'ACL_EXACT_PRINCIPALS_REQUIRED'}
- $found=New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+ $found=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
  foreach($rule in $rules){
   if($rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
      -not (@($adminSid.Value,$systemSid.Value,$serviceSid.Value) -ccontains $rule.IdentityReference.Value) -or
@@ -158,7 +158,7 @@ function Assert-ProtectedAcl([string]$path) {
  }
 }
 function Invoke-AclPreflight {
- $serviceSid=Get-ServiceSid
+ $script:serviceSid=Get-ServiceSid
  $probe=Join-Path $env:TEMP ('ident006d-acl-'+[Guid]::NewGuid().ToString('N'))
  $probeFile=Join-Path $probe 'probe.dat'
  New-Item -ItemType Directory -Path $probe | Out-Null
@@ -187,10 +187,10 @@ function Get-ManagedMap($manifest) {
  if(-not $map.ContainsKey('app/bridge/AzIdentResearch.exe') -or
     -not $map.ContainsKey('app/host/AzIdentResearchHost.exe') -or
     -not $map.ContainsKey('app/tunnel/tunnel-client.exe')){throw 'INSTALL_COMPONENTS_MISSING'}
- return $map
+ return ,$map
 }
 function Get-ExpectedDirs($map) {
- $dirs=New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+ $dirs=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
  foreach($dir in @('app','state','app/bridge','app/host','app/tunnel')){$null=$dirs.Add($dir)}
  foreach($path in $map.Keys){
   $rel=[string]$path
@@ -199,7 +199,7 @@ function Get-ExpectedDirs($map) {
    $null=$dirs.Add($rel)
   }
  }
- return $dirs
+ return ,$dirs
 }
 function Get-TargetPath([string]$base,[string]$relative){
  if($relative -cnotmatch '^[A-Za-z0-9._/-]+$' -or $relative.Contains('..')){throw 'TARGET_RELATIVE_PATH'}
@@ -208,9 +208,9 @@ function Get-TargetPath([string]$base,[string]$relative){
 function Assert-ManagedTree([string]$base,$manifest,[bool]$allowPartial){
  $map=Get-ManagedMap $manifest
  $dirs=Get-ExpectedDirs $map
- $parts=New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+ $parts=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
  foreach($rel in $map.Keys){$null=$parts.Add($rel+'.ident006d-part')}
- $queue=New-Object 'System.Collections.Generic.Queue[string]'
+ $queue=[Collections.Generic.Queue[string]]::new()
  $queue.Enqueue($base)
  while($queue.Count -gt 0){
   $dir=$queue.Dequeue()
@@ -235,7 +235,7 @@ function Assert-ManagedTree([string]$base,$manifest,[bool]$allowPartial){
    }
   }
  }
- return $map
+ return ,$map
 }
 function Assert-Journal([string]$sha,[bool]$allowMissing) {
  if(-not (Test-Path -LiteralPath $intent)){
