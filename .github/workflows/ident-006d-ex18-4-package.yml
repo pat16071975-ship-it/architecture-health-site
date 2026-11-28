@@ -98,7 +98,11 @@ jobs:
             $syntaxErrors|ForEach-Object{Write-Host "SYNTAX_ERROR=$($_.Message)"}
             throw 'INSTALLER_SYNTAX'
           }
-          Write-Host 'OFFICIAL_CLIENT=PASS; INSTALLER_SYNTAX=PASS'
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $installer -Mode CISafety
+          if ($LASTEXITCODE -ne 0) { throw 'WINPS51_SAFETY' }
+          & pwsh -NoProfile -NonInteractive -File $installer -Mode CISafety
+          if ($LASTEXITCODE -ne 0) { throw 'PWSH7_SAFETY' }
+          Write-Host 'OFFICIAL_CLIENT=PASS; INSTALLER_SYNTAX=PASS; WINPS51_SAFETY=PASS; PWSH7_SAFETY=PASS'
       - name: Manifest, hashes, source-only ZIP and offline package inspection
         run: |
           $ErrorActionPreference='Stop'
@@ -137,8 +141,9 @@ jobs:
           $sha=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
           $installer=Join-Path $tools 'Install-Ident006D.ps1'
           & $installer -Mode CIInspect -Package $zip -ExpectedPackageSha256 $sha
-          if($LASTEXITCODE -and $LASTEXITCODE -ne 0){throw 'PACKAGE_INSPECT'}
-          Write-Host "SOURCE_ONLY_PACKAGE=PASS; ZIP_SHA256=$sha; SERVICE=NONE; SQL_CONNECTION=NONE; TUNNEL=NONE; MERGE_DEPLOY=NONE"
+          & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $installer -Mode CIInspect -Package $zip -ExpectedPackageSha256 $sha
+          if ($LASTEXITCODE -ne 0) { throw 'WINPS51_PACKAGE_INSPECT' }
+          Write-Host "SOURCE_ONLY_PACKAGE=PASS; WINPS51_PACKAGE_INSPECT=PASS; ZIP_SHA256=$sha; SERVICE=NONE; SQL_CONNECTION=NONE; TUNNEL=NONE; MERGE_DEPLOY=NONE"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: IDENT-006D-EX18-4-source-only-candidate
