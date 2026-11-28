@@ -413,6 +413,7 @@ function Rollback-KnownOnly($pkg){
 }
 function Invoke-CISafety {
  if($env:GITHUB_ACTIONS -cne 'true'){throw 'CI_ONLY'}
+ Invoke-AclPreflight
  $fixture=Join-Path $env:TEMP ('ident006d-synthetic-'+[Guid]::NewGuid().ToString('N'))
  $bridge=Join-Path $fixture 'app\bridge'
  $hostFolder=Join-Path $fixture 'app\host'
