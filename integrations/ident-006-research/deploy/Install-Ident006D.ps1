@@ -157,7 +157,8 @@ function Assert-ProtectedAcl([string]$path,[bool]$directory,[bool]$serviceWrite)
  $expected=@{}
  $expected[$adminSid.Value]=[int][Security.AccessControl.FileSystemRights]::FullControl
  $expected[$systemSid.Value]=[int][Security.AccessControl.FileSystemRights]::FullControl
- $expected[$serviceSid.Value]=[int]$svcRights
+ # Windows adds Synchronize to Allow entries created by FileSystemAccessRule.
+ $expected[$serviceSid.Value]=([int]$svcRights -bor [int][Security.AccessControl.FileSystemRights]::Synchronize)
  $found=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
  foreach($rule in $rules){
   $sid=$rule.IdentityReference.Value
