@@ -391,6 +391,8 @@ function Complete-Installation($pkg,[bool]$resume){
    throw 'ALREADY_MARKED_INSTALLED'
   }
   Assert-ExistingAclTree $root $pkg.manifest
+  # Foreign or running service stops recovery before ANY payload copy.
+  $null=Assert-ServiceOwned $true
  }
 
  if(-not (Test-Path -LiteralPath $intent)){
