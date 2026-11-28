@@ -465,6 +465,13 @@ function Rollback-KnownOnly($pkg){
  Remove-Item -LiteralPath $root -Force -ErrorAction Stop
  Write-Host 'OWNED_FILES_ROLLBACK=PASS; ROOT_REMOVED_IF_EMPTY=YES; IDENT=UNTOUCHED'
 }
+function Assert-ExpectedFailure([scriptblock]$action,[string]$reason){
+ $caught=$false
+ try{$null=& $action}catch{
+  if($_.Exception.Message -ceq $reason){$caught=$true}else{throw}
+ }
+ if(-not $caught){throw ('EXPECTED_FAILURE_NOT_SEEN_'+$reason)}
+}
 function Invoke-CISafety {
  if($env:GITHUB_ACTIONS -cne 'true'){throw 'CI_ONLY'}
  Invoke-AclPreflight
@@ -477,6 +484,14 @@ function Invoke-CISafety {
  $hostFile=Join-Path $hostFolder 'AzIdentResearchHost.exe'
  $tunnelFile=Join-Path $tunnelFolder 'tunnel-client.exe'
  $unknown=Join-Path $bridge 'patient-unknown.txt'
+ $part=$file+'.ident006d-part'
+ $brokenIntent=Join-Path $fixture 'install-intent.json'
+ $sha=$null
+ $savedRoot=$script:root
+ $savedApp=$script:app
+ $savedState=$script:state
+ $savedIntent=$script:intent
+ $savedMarker=$script:marker
  New-Item -ItemType Directory -Force -Path $bridge,$hostFolder,$tunnelFolder,$stateTest | Out-Null
  try{
   foreach($p in @($file,$hostFile,$tunnelFile)){[IO.File]::WriteAllText($p,'SYNTHETIC')}
@@ -486,15 +501,104 @@ function Invoke-CISafety {
    [pscustomobject]@{path='payload/host/AzIdentResearchHost.exe';length=9;sha256=$sha},
    [pscustomobject]@{path='payload/tunnel/tunnel-client.exe';length=9;sha256=$sha}
   )}
-  $null=Assert-ManagedTree $fixture $fake $true
+  foreach($p in @($fixture,(Join-Path $fixture 'app'),$bridge,$hostFolder,$tunnelFolder,$stateTest)){
+   Set-ProtectedAcl $p $serviceSid $true ($p -ceq $stateTest)
+  }
+  foreach($p in @($file,$hostFile,$tunnelFile)){Set-ProtectedAcl $p $serviceSid $false $false}
+  Assert-CompleteTree $fixture $fake
+  Write-Host 'POSITIVE_COMPLETE_MANIFEST_AND_ACL=PASS'
+
   [IO.File]::WriteAllText($unknown,'DO_NOT_DELETE')
-  $rejected=$false
-  try{$null=Assert-ManagedTree $fixture $fake $true}catch{if($_.Exception.Message -eq 'UNRECOGNIZED_INSTALL_FILE'){$rejected=$true}else{throw}}
-  if(-not $rejected -or -not (Test-Path -LiteralPath $unknown) -or -not (Test-Path -LiteralPath $file)){throw 'UNKNOWN_FILE_NOT_PROTECTED'}
-  Write-Host 'CI_SAFETY=PASS; PARTIAL_MARKER_ABSENCE=ALLOWED; UNKNOWN_FILES=FAIL_CLOSED; RECURSIVE_TARGET_DELETE=NONE'
+  Assert-ExpectedFailure {Assert-ManagedTree $fixture $fake $true} 'UNRECOGNIZED_INSTALL_FILE'
+  if(-not (Test-Path -LiteralPath $unknown) -or -not (Test-Path -LiteralPath $file)){throw 'UNKNOWN_FILE_NOT_PRESERVED'}
+  Remove-Item -LiteralPath $unknown -Force
+  Write-Host 'NEGATIVE_UNKNOWN_FILE=PASS'
+
+  # Counterexample 01: a forged .part of a legitimate filename is NOT ours.
+  [IO.File]::WriteAllText($part,'TAMPERED!')
+  Set-ProtectedAcl $part $serviceSid $false $false
+  $forgedHash=(Get-FileHash -LiteralPath $part -Algorithm SHA256).Hash.ToLowerInvariant()
+  Assert-ExpectedFailure {Assert-ManagedTree $fixture $fake $true} 'UNOWNED_PARTIAL_CONTENT'
+  Remove-Item -LiteralPath $file -Force
+  $fakePkg=@{sha=('a'*64);manifest=$fake;temp=$fixture}
+  Assert-ExpectedFailure {Copy-ManagedPayload $fakePkg (Get-ManagedMap $fake) $fixture} 'UNOWNED_PARTIAL_CONTENT'
+  if(-not (Test-Path -LiteralPath $part) -or
+     (Get-FileHash -LiteralPath $part -Algorithm SHA256).Hash.ToLowerInvariant() -cne $forgedHash){throw 'FORGED_PART_DESTROYED'}
+  Remove-Item -LiteralPath $part -Force
+  [IO.File]::WriteAllText($file,'SYNTHETIC')
+  Set-ProtectedAcl $file $serviceSid $false $false
+  Write-Host 'NEGATIVE_FOREIGN_PART_SHA256=PASS'
+
+  # Counterexample 02: Recover against a truncated intent of a different SHA256.
+  $script:root=$fixture
+  $script:app=Join-Path $fixture 'app'
+  $script:state=$stateTest
+  $script:intent=$brokenIntent
+  $script:marker=Join-Path $fixture 'source-only-installation.json'
+  $foreignSha='f'*64
+  $requestedSha='a'*64
+  $truncated='{"schema":1,"operation":"EX18_4_SOURCE_ONLY_INSTALL","source_commit":"'+$baseline+'","package_sha256":"'+$foreignSha+'"'
+  [IO.File]::WriteAllText($brokenIntent,$truncated)
+  Set-ProtectedAcl $brokenIntent $serviceSid $false $false
+  $originalIntentHash=(Get-FileHash -LiteralPath $brokenIntent -Algorithm SHA256).Hash.ToLowerInvariant()
+  Assert-ExpectedFailure {Complete-Installation $fakePkg $true} 'INSTALL_INTENT_CORRUPT'
+  if(-not (Test-Path -LiteralPath $brokenIntent) -or
+    (Get-FileHash -LiteralPath $brokenIntent -Algorithm SHA256).Hash.ToLowerInvariant() -cne $originalIntentHash){throw 'FOREIGN_INTENT_DESTROYED'}
+  $foreignJson=ConvertTo-Json -Compress -InputObject ([ordered]@{
+   schema=1;operation='EX18_4_SOURCE_ONLY_INSTALL';source_commit=$baseline;package_sha256=$foreignSha
+  })
+  [IO.File]::WriteAllText($brokenIntent,$foreignJson)
+  Assert-ExpectedFailure {Complete-Installation $fakePkg $true} 'INSTALL_INTENT_MISMATCH'
+  if(-not (Test-Path -LiteralPath $brokenIntent)){throw 'FOREIGN_VALID_INTENT_DESTROYED'}
+  Remove-Item -LiteralPath $brokenIntent -Force
+  Write-Host 'NEGATIVE_FOREIGN_TRUNCATED_INTENT=PASS; FOREIGN_VALID_INTENT=PASS'
+  $script:root=$savedRoot;$script:app=$savedApp;$script:state=$savedState
+  $script:intent=$savedIntent;$script:marker=$savedMarker
+
+  # Counterexample 03: exactly three SIDs is insufficient when service has FullControl.
+  $acl=Get-Acl -LiteralPath $bridge
+  $serviceRules=@($acl.GetAccessRules($true,$false,[Security.Principal.SecurityIdentifier]) |
+    Where-Object {$_.IdentityReference.Value -ceq $serviceSid.Value})
+  if($serviceRules.Count -ne 1){throw 'ACL_TEST_INVALID'}
+  $null=$acl.RemoveAccessRuleSpecific($serviceRules[0])
+  $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new(
+   $serviceSid,[Security.AccessControl.FileSystemRights]::FullControl,
+   [Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit',
+   [Security.AccessControl.PropagationFlags]::None,
+   [Security.AccessControl.AccessControlType]::Allow))
+  Set-Acl -LiteralPath $bridge -AclObject $acl
+  Assert-ExpectedFailure {Assert-ProtectedAcl $bridge $true $false} 'ACL_EXACT_RIGHTS_REQUIRED'
+  Assert-ExpectedFailure {Assert-ExistingAclTree $fixture $fake} 'ACL_EXACT_RIGHTS_REQUIRED'
+  Set-ProtectedAcl $bridge $serviceSid $true $false
+  Assert-CompleteTree $fixture $fake
+  Write-Host 'NEGATIVE_SERVICE_FULLCONTROL_ACL=PASS'
+
+  # Counterexample 05: foreign Win32_Service and altered host fail before execution.
+  $expectedExe=$hostFile
+  $service=[pscustomobject]@{
+   State='Stopped';PathName=('"'+$expectedExe+'"');
+   StartName='NT SERVICE\AzIdentResearch';StartMode='Manual'
+  }
+  Assert-ServiceDescriptor $service $expectedExe
+  $service.StartName='LocalSystem'
+  Assert-ExpectedFailure {Assert-ServiceDescriptor $service $expectedExe} 'FOREIGN_OR_RUNNING_SERVICE'
+  $service.StartName='NT SERVICE\AzIdentResearch'
+  $service.PathName='C:\Windows\system32\foreign.exe'
+  Assert-ExpectedFailure {Assert-ServiceDescriptor $service $expectedExe} 'FOREIGN_OR_RUNNING_SERVICE'
+  [IO.File]::WriteAllText($hostFile,'TAMPERED!')
+  Assert-ExpectedFailure {Assert-CompleteTree $fixture $fake} 'MODIFIED_INSTALLED_FILE'
+  if(-not (Test-Path -LiteralPath $hostFile)){throw 'TAMPERED_HOST_DESTROYED'}
+  Write-Host 'NEGATIVE_FOREIGN_SERVICE=PASS; NEGATIVE_HOST_TAMPER=PASS'
+  Write-Host 'CI_SAFETY=PASS; OPEN_FINDINGS=NEGATIVE_TESTED; REAL_IDENT=NONE; SERVICE_INSTALLATION=NONE'
  }finally{
-  foreach($p in @($unknown,$file,$hostFile,$tunnelFile)){if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Force}}
-  foreach($p in @($bridge,$hostFolder,$tunnelFolder,(Join-Path $fixture 'app'),$stateTest,$fixture)){if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Force}}
+  $script:root=$savedRoot;$script:app=$savedApp;$script:state=$savedState
+  $script:intent=$savedIntent;$script:marker=$savedMarker
+  foreach($p in @($unknown,$part,$brokenIntent,$file,$hostFile,$tunnelFile)){
+   if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Force}
+  }
+  foreach($p in @($bridge,$hostFolder,$tunnelFolder,(Join-Path $fixture 'app'),$stateTest,$fixture)){
+   if(Test-Path -LiteralPath $p){Remove-Item -LiteralPath $p -Force}
+  }
  }
 }
 
